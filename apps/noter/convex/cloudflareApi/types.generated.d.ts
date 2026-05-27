@@ -1231,6 +1231,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/accounts/{account_id}/workers/observability/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    /**
+     * Get event count
+     * @description Event counts broken down by dataset and service, bucketed by day, for up to 90 days. The top-level events field is the sum of all breakdown counts.
+     */
+    get: operations["usage.get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/accounts/{account_id}/workers/placement/regions": {
     parameters: {
       query?: never;
@@ -10470,6 +10493,117 @@ export interface operations {
               type: "string" | "boolean" | "number";
               value: string | number | boolean;
             }[];
+            /** @enum {boolean} */
+            success: true;
+          };
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Bad Request";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Internal error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+    };
+  };
+  "usage.get": {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path: {
+        /** @description Your Cloudflare account ID. */
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              message: string;
+            }[];
+            messages: {
+              /** @enum {string} */
+              message: "Successful request";
+            }[];
+            result: {
+              /** @description Event counts grouped by dataset and service, bucketed by day. */
+              breakdown: {
+                /** @description ISO-8601 timestamp for the start of the bucket. */
+                bin: string;
+                /** @description ABR-adjusted event count for this bucket. */
+                count: number;
+                /** @description Dataset name (e.g. 'workers', 'queues'). */
+                dataset: string;
+                /** @description Worker or service name that produced the events. */
+                service: string;
+              }[];
+              /** @description Total ABR-adjusted event count for the period — sum of all breakdown bins. */
+              events: number;
+            };
             /** @enum {boolean} */
             success: true;
           };

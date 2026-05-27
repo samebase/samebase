@@ -50434,11 +50434,617 @@ validate443.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvWorkerPlacementListRegionsResponse = validate444;
+export const ajvUsageGetResponse = validate444;
 const schema414 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1placement~1regions/get/responses/200/content/application~1json/schema",
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema",
 };
 const schema415 = {
+  properties: {
+    errors: {
+      items: { properties: { message: { type: "string" } }, required: ["message"], type: "object" },
+      type: "array",
+    },
+    messages: {
+      items: {
+        properties: { message: { enum: ["Successful request"], type: "string" } },
+        required: ["message"],
+        type: "object",
+      },
+      type: "array",
+    },
+    result: {
+      properties: {
+        breakdown: {
+          description: "Event counts grouped by dataset and service, bucketed by day.",
+          items: {
+            properties: {
+              bin: {
+                description: "ISO-8601 timestamp for the start of the bucket.",
+                type: "string",
+              },
+              count: { description: "ABR-adjusted event count for this bucket.", type: "number" },
+              dataset: { description: "Dataset name (e.g. 'workers', 'queues').", type: "string" },
+              service: {
+                description: "Worker or service name that produced the events.",
+                type: "string",
+              },
+            },
+            required: ["bin", "dataset", "service", "count"],
+            type: "object",
+          },
+          type: "array",
+        },
+        events: {
+          description: "Total ABR-adjusted event count for the period — sum of all breakdown bins.",
+          type: "number",
+        },
+      },
+      required: ["events", "breakdown"],
+      type: "object",
+    },
+    success: { enum: [true], type: "boolean" },
+  },
+  required: ["messages", "success", "errors", "result"],
+  type: "object",
+};
+function validate444(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate444.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.messages === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath:
+          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+        keyword: "required",
+        params: { missingProperty: "messages" },
+        message: "must have required property '" + "messages" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.success === undefined) {
+      const err1 = {
+        instancePath,
+        schemaPath:
+          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+        keyword: "required",
+        params: { missingProperty: "success" },
+        message: "must have required property '" + "success" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.errors === undefined) {
+      const err2 = {
+        instancePath,
+        schemaPath:
+          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+        keyword: "required",
+        params: { missingProperty: "errors" },
+        message: "must have required property '" + "errors" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.result === undefined) {
+      const err3 = {
+        instancePath,
+        schemaPath:
+          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.errors !== undefined) {
+      let data0 = data.errors;
+      if (Array.isArray(data0)) {
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data1 = data0[i0];
+          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
+            if (data1.message === undefined) {
+              const err4 = {
+                instancePath: instancePath + "/errors/" + i0,
+                schemaPath:
+                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/required",
+                keyword: "required",
+                params: { missingProperty: "message" },
+                message: "must have required property '" + "message" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err4];
+              } else {
+                vErrors.push(err4);
+              }
+              errors++;
+            }
+            if (data1.message !== undefined) {
+              if (typeof data1.message !== "string") {
+                const err5 = {
+                  instancePath: instancePath + "/errors/" + i0 + "/message",
+                  schemaPath:
+                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err5];
+                } else {
+                  vErrors.push(err5);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err6 = {
+              instancePath: instancePath + "/errors/" + i0,
+              schemaPath:
+                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err6];
+            } else {
+              vErrors.push(err6);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err7 = {
+          instancePath: instancePath + "/errors",
+          schemaPath:
+            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/type",
+          keyword: "type",
+          params: { type: "array" },
+          message: "must be array",
+        };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+    if (data.messages !== undefined) {
+      let data3 = data.messages;
+      if (Array.isArray(data3)) {
+        const len1 = data3.length;
+        for (let i1 = 0; i1 < len1; i1++) {
+          let data4 = data3[i1];
+          if (data4 && typeof data4 == "object" && !Array.isArray(data4)) {
+            if (data4.message === undefined) {
+              const err8 = {
+                instancePath: instancePath + "/messages/" + i1,
+                schemaPath:
+                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/required",
+                keyword: "required",
+                params: { missingProperty: "message" },
+                message: "must have required property '" + "message" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err8];
+              } else {
+                vErrors.push(err8);
+              }
+              errors++;
+            }
+            if (data4.message !== undefined) {
+              let data5 = data4.message;
+              if (typeof data5 !== "string") {
+                const err9 = {
+                  instancePath: instancePath + "/messages/" + i1 + "/message",
+                  schemaPath:
+                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err9];
+                } else {
+                  vErrors.push(err9);
+                }
+                errors++;
+              }
+              if (!(data5 === "Successful request")) {
+                const err10 = {
+                  instancePath: instancePath + "/messages/" + i1 + "/message",
+                  schemaPath:
+                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                  keyword: "enum",
+                  params: {
+                    allowedValues: schema415.properties.messages.items.properties.message.enum,
+                  },
+                  message: "must be equal to one of the allowed values",
+                };
+                if (vErrors === null) {
+                  vErrors = [err10];
+                } else {
+                  vErrors.push(err10);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err11 = {
+              instancePath: instancePath + "/messages/" + i1,
+              schemaPath:
+                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err11];
+            } else {
+              vErrors.push(err11);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err12 = {
+          instancePath: instancePath + "/messages",
+          schemaPath:
+            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/type",
+          keyword: "type",
+          params: { type: "array" },
+          message: "must be array",
+        };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+    if (data.result !== undefined) {
+      let data6 = data.result;
+      if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
+        if (data6.events === undefined) {
+          const err13 = {
+            instancePath: instancePath + "/result",
+            schemaPath:
+              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/required",
+            keyword: "required",
+            params: { missingProperty: "events" },
+            message: "must have required property '" + "events" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err13];
+          } else {
+            vErrors.push(err13);
+          }
+          errors++;
+        }
+        if (data6.breakdown === undefined) {
+          const err14 = {
+            instancePath: instancePath + "/result",
+            schemaPath:
+              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/required",
+            keyword: "required",
+            params: { missingProperty: "breakdown" },
+            message: "must have required property '" + "breakdown" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err14];
+          } else {
+            vErrors.push(err14);
+          }
+          errors++;
+        }
+        if (data6.breakdown !== undefined) {
+          let data7 = data6.breakdown;
+          if (Array.isArray(data7)) {
+            const len2 = data7.length;
+            for (let i2 = 0; i2 < len2; i2++) {
+              let data8 = data7[i2];
+              if (data8 && typeof data8 == "object" && !Array.isArray(data8)) {
+                if (data8.bin === undefined) {
+                  const err15 = {
+                    instancePath: instancePath + "/result/breakdown/" + i2,
+                    schemaPath:
+                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                    keyword: "required",
+                    params: { missingProperty: "bin" },
+                    message: "must have required property '" + "bin" + "'",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err15];
+                  } else {
+                    vErrors.push(err15);
+                  }
+                  errors++;
+                }
+                if (data8.dataset === undefined) {
+                  const err16 = {
+                    instancePath: instancePath + "/result/breakdown/" + i2,
+                    schemaPath:
+                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                    keyword: "required",
+                    params: { missingProperty: "dataset" },
+                    message: "must have required property '" + "dataset" + "'",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err16];
+                  } else {
+                    vErrors.push(err16);
+                  }
+                  errors++;
+                }
+                if (data8.service === undefined) {
+                  const err17 = {
+                    instancePath: instancePath + "/result/breakdown/" + i2,
+                    schemaPath:
+                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                    keyword: "required",
+                    params: { missingProperty: "service" },
+                    message: "must have required property '" + "service" + "'",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err17];
+                  } else {
+                    vErrors.push(err17);
+                  }
+                  errors++;
+                }
+                if (data8.count === undefined) {
+                  const err18 = {
+                    instancePath: instancePath + "/result/breakdown/" + i2,
+                    schemaPath:
+                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                    keyword: "required",
+                    params: { missingProperty: "count" },
+                    message: "must have required property '" + "count" + "'",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err18];
+                  } else {
+                    vErrors.push(err18);
+                  }
+                  errors++;
+                }
+                if (data8.bin !== undefined) {
+                  if (typeof data8.bin !== "string") {
+                    const err19 = {
+                      instancePath: instancePath + "/result/breakdown/" + i2 + "/bin",
+                      schemaPath:
+                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/bin/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err19];
+                    } else {
+                      vErrors.push(err19);
+                    }
+                    errors++;
+                  }
+                }
+                if (data8.count !== undefined) {
+                  if (!(typeof data8.count == "number")) {
+                    const err20 = {
+                      instancePath: instancePath + "/result/breakdown/" + i2 + "/count",
+                      schemaPath:
+                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/count/type",
+                      keyword: "type",
+                      params: { type: "number" },
+                      message: "must be number",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err20];
+                    } else {
+                      vErrors.push(err20);
+                    }
+                    errors++;
+                  }
+                }
+                if (data8.dataset !== undefined) {
+                  if (typeof data8.dataset !== "string") {
+                    const err21 = {
+                      instancePath: instancePath + "/result/breakdown/" + i2 + "/dataset",
+                      schemaPath:
+                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/dataset/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err21];
+                    } else {
+                      vErrors.push(err21);
+                    }
+                    errors++;
+                  }
+                }
+                if (data8.service !== undefined) {
+                  if (typeof data8.service !== "string") {
+                    const err22 = {
+                      instancePath: instancePath + "/result/breakdown/" + i2 + "/service",
+                      schemaPath:
+                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/service/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err22];
+                    } else {
+                      vErrors.push(err22);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err23 = {
+                  instancePath: instancePath + "/result/breakdown/" + i2,
+                  schemaPath:
+                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err23];
+                } else {
+                  vErrors.push(err23);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err24 = {
+              instancePath: instancePath + "/result/breakdown",
+              schemaPath:
+                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/type",
+              keyword: "type",
+              params: { type: "array" },
+              message: "must be array",
+            };
+            if (vErrors === null) {
+              vErrors = [err24];
+            } else {
+              vErrors.push(err24);
+            }
+            errors++;
+          }
+        }
+        if (data6.events !== undefined) {
+          if (!(typeof data6.events == "number")) {
+            const err25 = {
+              instancePath: instancePath + "/result/events",
+              schemaPath:
+                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/events/type",
+              keyword: "type",
+              params: { type: "number" },
+              message: "must be number",
+            };
+            if (vErrors === null) {
+              vErrors = [err25];
+            } else {
+              vErrors.push(err25);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err26 = {
+          instancePath: instancePath + "/result",
+          schemaPath:
+            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err26];
+        } else {
+          vErrors.push(err26);
+        }
+        errors++;
+      }
+    }
+    if (data.success !== undefined) {
+      let data14 = data.success;
+      if (typeof data14 !== "boolean") {
+        const err27 = {
+          instancePath: instancePath + "/success",
+          schemaPath:
+            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/success/type",
+          keyword: "type",
+          params: { type: "boolean" },
+          message: "must be boolean",
+        };
+        if (vErrors === null) {
+          vErrors = [err27];
+        } else {
+          vErrors.push(err27);
+        }
+        errors++;
+      }
+      if (!(data14 === true)) {
+        const err28 = {
+          instancePath: instancePath + "/success",
+          schemaPath:
+            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/success/enum",
+          keyword: "enum",
+          params: { allowedValues: schema415.properties.success.enum },
+          message: "must be equal to one of the allowed values",
+        };
+        if (vErrors === null) {
+          vErrors = [err28];
+        } else {
+          vErrors.push(err28);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err29 = {
+      instancePath,
+      schemaPath:
+        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err29];
+    } else {
+      vErrors.push(err29);
+    }
+    errors++;
+  }
+  validate444.errors = vErrors;
+  return errors === 0;
+}
+validate444.evaluated = {
+  props: { errors: true, messages: true, result: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerPlacementListRegionsResponse = validate445;
+const schema416 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1placement~1regions/get/responses/200/content/application~1json/schema",
+};
+const schema417 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -50448,7 +51054,7 @@ const schema415 = {
     },
   ],
 };
-const schema416 = {
+const schema418 = {
   properties: {
     providers: {
       description: "List of cloud providers with their available regions.",
@@ -50459,7 +51065,7 @@ const schema416 = {
   required: ["providers"],
   type: "object",
 };
-const schema417 = {
+const schema419 = {
   properties: {
     id: { description: "The cloud provider identifier.", example: "aws", type: "string" },
     regions: {
@@ -50471,20 +51077,20 @@ const schema417 = {
   required: ["id", "regions"],
   type: "object",
 };
-const schema418 = {
+const schema420 = {
   properties: {
     id: { description: "The region identifier.", example: "us-east-1", type: "string" },
   },
   required: ["id"],
   type: "object",
 };
-function validate448(
+function validate449(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate448.evaluated;
+  const evaluated0 = validate449.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -50625,21 +51231,21 @@ function validate448(
     }
     errors++;
   }
-  validate448.errors = vErrors;
+  validate449.errors = vErrors;
   return errors === 0;
 }
-validate448.evaluated = {
+validate449.evaluated = {
   props: { id: true, regions: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate447(
+function validate448(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate447.evaluated;
+  const evaluated0 = validate448.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -50668,7 +51274,7 @@ function validate447(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate448(data0[i0], {
+            !validate449(data0[i0], {
               instancePath: instancePath + "/providers/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -50676,7 +51282,7 @@ function validate447(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate448.errors : vErrors.concat(validate448.errors);
+            vErrors = vErrors === null ? validate449.errors : vErrors.concat(validate449.errors);
             errors = vErrors.length;
           }
         }
@@ -50711,17 +51317,17 @@ function validate447(
     }
     errors++;
   }
-  validate447.errors = vErrors;
+  validate448.errors = vErrors;
   return errors === 0;
 }
-validate447.evaluated = { props: { providers: true }, dynamicProps: false, dynamicItems: false };
-function validate445(
+validate448.evaluated = { props: { providers: true }, dynamicProps: false, dynamicItems: false };
+function validate446(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate445.evaluated;
+  const evaluated0 = validate446.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -50752,7 +51358,7 @@ function validate445(
     }
     if (data.result !== undefined) {
       if (
-        !validate447(data.result, {
+        !validate448(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -50760,7 +51366,7 @@ function validate445(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate447.errors : vErrors.concat(validate447.errors);
+        vErrors = vErrors === null ? validate448.errors : vErrors.concat(validate448.errors);
         errors = vErrors.length;
       }
     }
@@ -50779,6 +51385,33 @@ function validate445(
     }
     errors++;
   }
+  validate446.errors = vErrors;
+  return errors === 0;
+}
+validate446.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate445(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate445.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate446(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate446.errors : vErrors.concat(validate446.errors);
+    errors = vErrors.length;
+  }
   validate445.errors = vErrors;
   return errors === 0;
 }
@@ -50787,38 +51420,11 @@ validate445.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate444(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate444.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate445(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate445.errors : vErrors.concat(validate445.errors);
-    errors = vErrors.length;
-  }
-  validate444.errors = vErrors;
-  return errors === 0;
-}
-validate444.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptListWorkersResponse = validate452;
-const schema419 = {
+export const ajvWorkerScriptListWorkersResponse = validate453;
+const schema421 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts/get/responses/200/content/application~1json/schema",
 };
-const schema420 = {
+const schema422 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -50848,7 +51454,7 @@ const schema420 = {
     },
   ],
 };
-const schema421 = {
+const schema423 = {
   properties: {
     id: { allOf: [{ $ref: "#/components/schemas/workers_identifier" }], readOnly: true },
     pattern: {
@@ -50868,13 +51474,13 @@ const schema421 = {
   required: ["id", "pattern"],
   type: "object",
 };
-function validate456(
+function validate457(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate456.evaluated;
+  const evaluated0 = validate457.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -50995,21 +51601,21 @@ function validate456(
     }
     errors++;
   }
-  validate456.errors = vErrors;
+  validate457.errors = vErrors;
   return errors === 0;
 }
-validate456.evaluated = {
+validate457.evaluated = {
   props: { id: true, pattern: true, script: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate453(
+function validate454(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate453.evaluated;
+  const evaluated0 = validate454.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -51078,7 +51684,7 @@ function validate453(
                 const len1 = data2.length;
                 for (let i1 = 0; i1 < len1; i1++) {
                   if (
-                    !validate456(data2[i1], {
+                    !validate457(data2[i1], {
                       instancePath: instancePath + "/result/" + i0 + "/routes/" + i1,
                       parentData: data2,
                       parentDataProperty: i1,
@@ -51087,7 +51693,7 @@ function validate453(
                     })
                   ) {
                     vErrors =
-                      vErrors === null ? validate456.errors : vErrors.concat(validate456.errors);
+                      vErrors === null ? validate457.errors : vErrors.concat(validate457.errors);
                     errors = vErrors.length;
                   }
                 }
@@ -51140,6 +51746,33 @@ function validate453(
     }
     errors++;
   }
+  validate454.errors = vErrors;
+  return errors === 0;
+}
+validate454.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate453(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate453.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate454(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate454.errors : vErrors.concat(validate454.errors);
+    errors = vErrors.length;
+  }
   validate453.errors = vErrors;
   return errors === 0;
 }
@@ -51148,38 +51781,11 @@ validate453.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate452(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate452.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate453(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate453.errors : vErrors.concat(validate453.errors);
-    errors = vErrors.length;
-  }
-  validate452.errors = vErrors;
-  return errors === 0;
-}
-validate452.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptSearchWorkersResponse = validate459;
-const schema423 = {
+export const ajvWorkerScriptSearchWorkersResponse = validate460;
+const schema425 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts-search/get/responses/200/content/application~1json/schema",
 };
-const schema424 = {
+const schema426 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -51218,7 +51824,7 @@ const schema424 = {
     },
   ],
 };
-const schema428 = {
+const schema430 = {
   description: "Name of the script, used in URLs and route configuration.",
   example: "this-is_my_script-01",
   pattern: "^[a-z0-9_][a-z0-9-_]*$",
@@ -51226,13 +51832,13 @@ const schema428 = {
   "x-auditable": true,
 };
 const pattern9 = new RegExp("^[a-z0-9_][a-z0-9-_]*$", "u");
-function validate460(
+function validate461(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate460.evaluated;
+  const evaluated0 = validate461.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -51529,6 +52135,33 @@ function validate460(
     }
     errors++;
   }
+  validate461.errors = vErrors;
+  return errors === 0;
+}
+validate461.evaluated = {
+  props: { result: true, result_info: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate460(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate460.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate461(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate461.errors : vErrors.concat(validate461.errors);
+    errors = vErrors.length;
+  }
   validate460.errors = vErrors;
   return errors === 0;
 }
@@ -51537,44 +52170,17 @@ validate460.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate459(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate459.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate460(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate460.errors : vErrors.concat(validate460.errors);
-    errors = vErrors.length;
-  }
-  validate459.errors = vErrors;
-  return errors === 0;
-}
-validate459.evaluated = {
-  props: { result: true, result_info: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptDeleteWorkerResponse = validate463;
-const schema429 = {
+export const ajvWorkerScriptDeleteWorkerResponse = validate464;
+const schema431 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/delete/responses/200/content/application~1json/schema",
 };
-function validate464(
+function validate465(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate464.evaluated;
+  const evaluated0 = validate465.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -51636,6 +52242,33 @@ function validate464(
     }
     errors++;
   }
+  validate465.errors = vErrors;
+  return errors === 0;
+}
+validate465.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate464(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate464.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate465(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate465.errors : vErrors.concat(validate465.errors);
+    errors = vErrors.length;
+  }
   validate464.errors = vErrors;
   return errors === 0;
 }
@@ -51644,38 +52277,11 @@ validate464.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate463(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate463.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate464(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate464.errors : vErrors.concat(validate464.errors);
-    errors = vErrors.length;
-  }
-  validate463.errors = vErrors;
-  return errors === 0;
-}
-validate463.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptUploadWorkerModuleResponse = validate467;
-const schema431 = {
+export const ajvWorkerScriptUploadWorkerModuleResponse = validate468;
+const schema433 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/put/responses/200/content/application~1json/schema",
 };
-const schema432 = {
+const schema434 = {
   allOf: [
     { $ref: "#/components/schemas/workers_script-response-upload-single" },
     {
@@ -51700,7 +52306,7 @@ const schema432 = {
     },
   ],
 };
-const schema433 = {
+const schema435 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -51724,7 +52330,7 @@ const schema433 = {
     },
   ],
 };
-const schema434 = {
+const schema436 = {
   allOf: [
     { $ref: "#/components/schemas/workers_script-response" },
     {
@@ -51742,13 +52348,13 @@ const schema434 = {
     },
   ],
 };
-function validate471(
+function validate472(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate471.evaluated;
+  const evaluated0 = validate472.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -51827,10 +52433,10 @@ function validate471(
     }
     errors++;
   }
-  validate471.errors = vErrors;
+  validate472.errors = vErrors;
   return errors === 0;
 }
-validate471.evaluated = {
+validate472.evaluated = {
   props: {
     entry_point: true,
     startup_time_ms: true,
@@ -51859,13 +52465,13 @@ validate471.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate469(
+function validate470(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate469.evaluated;
+  const evaluated0 = validate470.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -51896,7 +52502,7 @@ function validate469(
     }
     if (data.result !== undefined) {
       if (
-        !validate471(data.result, {
+        !validate472(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -51904,7 +52510,7 @@ function validate469(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate471.errors : vErrors.concat(validate471.errors);
+        vErrors = vErrors === null ? validate472.errors : vErrors.concat(validate472.errors);
         errors = vErrors.length;
       }
     }
@@ -51920,6 +52526,48 @@ function validate469(
       vErrors = [err1];
     } else {
       vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate470.errors = vErrors;
+  return errors === 0;
+}
+validate470.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate469(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate469.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate470(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate470.errors : vErrors.concat(validate470.errors);
+    errors = vErrors.length;
+  }
+  if (!(data && typeof data == "object" && !Array.isArray(data))) {
+    const err0 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err0];
+    } else {
+      vErrors.push(err0);
     }
     errors++;
   }
@@ -51950,21 +52598,6 @@ function validate468(
     vErrors = vErrors === null ? validate469.errors : vErrors.concat(validate469.errors);
     errors = vErrors.length;
   }
-  if (!(data && typeof data == "object" && !Array.isArray(data))) {
-    const err0 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err0];
-    } else {
-      vErrors.push(err0);
-    }
-    errors++;
-  }
   validate468.errors = vErrors;
   return errors === 0;
 }
@@ -51973,44 +52606,17 @@ validate468.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate467(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate467.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate468(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate468.errors : vErrors.concat(validate468.errors);
-    errors = vErrors.length;
-  }
-  validate467.errors = vErrors;
-  return errors === 0;
-}
-validate467.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptUpdateCreateAssetsUploadSessionResponse = validate476;
-const schema435 = {
+export const ajvWorkerScriptUpdateCreateAssetsUploadSessionResponse = validate477;
+const schema437 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1assets-upload-session/post/responses/200/content/application~1json/schema",
 };
-function validate477(
+function validate478(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate477.evaluated;
+  const evaluated0 = validate478.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -52132,6 +52738,33 @@ function validate477(
     }
     errors++;
   }
+  validate478.errors = vErrors;
+  return errors === 0;
+}
+validate478.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate477(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate477.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate478(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate478.errors : vErrors.concat(validate478.errors);
+    errors = vErrors.length;
+  }
   validate477.errors = vErrors;
   return errors === 0;
 }
@@ -52140,44 +52773,17 @@ validate477.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate476(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate476.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate477(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate477.errors : vErrors.concat(validate477.errors);
-    errors = vErrors.length;
-  }
-  validate476.errors = vErrors;
-  return errors === 0;
-}
-validate476.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptPutContentResponse = validate480;
-const schema437 = {
+export const ajvWorkerScriptPutContentResponse = validate481;
+const schema439 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1content/put/responses/200/content/application~1json/schema",
 };
-function validate481(
+function validate482(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate481.evaluated;
+  const evaluated0 = validate482.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -52235,6 +52841,33 @@ function validate481(
     }
     errors++;
   }
+  validate482.errors = vErrors;
+  return errors === 0;
+}
+validate482.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate481(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate481.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate482(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate482.errors : vErrors.concat(validate482.errors);
+    errors = vErrors.length;
+  }
   validate481.errors = vErrors;
   return errors === 0;
 }
@@ -52243,38 +52876,11 @@ validate481.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate480(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate480.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate481(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate481.errors : vErrors.concat(validate481.errors);
-    errors = vErrors.length;
-  }
-  validate480.errors = vErrors;
-  return errors === 0;
-}
-validate480.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerDeploymentsListDeploymentsResponse = validate485;
-const schema439 = {
+export const ajvWorkerDeploymentsListDeploymentsResponse = validate486;
+const schema441 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/get/responses/200/content/application~1json/schema",
 };
-const schema440 = {
+const schema442 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -52295,7 +52901,7 @@ const schema440 = {
     },
   ],
 };
-const schema441 = {
+const schema443 = {
   properties: {
     annotations: {
       properties: {
@@ -52343,13 +52949,13 @@ const schema441 = {
   required: ["id", "source", "strategy", "versions", "created_on"],
   type: "object",
 };
-function validate486(
+function validate487(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate486.evaluated;
+  const evaluated0 = validate487.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -52658,7 +53264,7 @@ function validate486(
                       schemaPath:
                         "#/components/schemas/workers_deployment/properties/strategy/enum",
                       keyword: "enum",
-                      params: { allowedValues: schema441.properties.strategy.enum },
+                      params: { allowedValues: schema443.properties.strategy.enum },
                       message: "must be equal to one of the allowed values",
                     };
                     if (vErrors === null) {
@@ -52902,6 +53508,33 @@ function validate486(
     }
     errors++;
   }
+  validate487.errors = vErrors;
+  return errors === 0;
+}
+validate487.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate486(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate486.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate487(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate487.errors : vErrors.concat(validate487.errors);
+    errors = vErrors.length;
+  }
   validate486.errors = vErrors;
   return errors === 0;
 }
@@ -52910,38 +53543,11 @@ validate486.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate485(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate485.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate486(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate486.errors : vErrors.concat(validate486.errors);
-    errors = vErrors.length;
-  }
-  validate485.errors = vErrors;
-  return errors === 0;
-}
-validate485.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerDeploymentsCreateDeploymentResponse = validate489;
-const schema442 = {
+export const ajvWorkerDeploymentsCreateDeploymentResponse = validate490;
+const schema444 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/post/responses/200/content/application~1json/schema",
 };
-const schema443 = {
+const schema445 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -52951,13 +53557,13 @@ const schema443 = {
     },
   ],
 };
-function validate490(
+function validate491(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate490.evaluated;
+  const evaluated0 = validate491.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -53227,7 +53833,7 @@ function validate490(
               instancePath: instancePath + "/result/strategy",
               schemaPath: "#/components/schemas/workers_deployment/properties/strategy/enum",
               keyword: "enum",
-              params: { allowedValues: schema441.properties.strategy.enum },
+              params: { allowedValues: schema443.properties.strategy.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -53411,6 +54017,33 @@ function validate490(
     }
     errors++;
   }
+  validate491.errors = vErrors;
+  return errors === 0;
+}
+validate491.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate490(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate490.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate491(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate491.errors : vErrors.concat(validate491.errors);
+    errors = vErrors.length;
+  }
   validate490.errors = vErrors;
   return errors === 0;
 }
@@ -53419,44 +54052,17 @@ validate490.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate489(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate489.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate490(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate490.errors : vErrors.concat(validate490.errors);
-    errors = vErrors.length;
-  }
-  validate489.errors = vErrors;
-  return errors === 0;
-}
-validate489.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerDeploymentsDeleteDeploymentResponse = validate493;
-const schema445 = {
+export const ajvWorkerDeploymentsDeleteDeploymentResponse = validate494;
+const schema447 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/delete/responses/200/content/application~1json/schema",
 };
-function validate494(
+function validate495(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate494.evaluated;
+  const evaluated0 = validate495.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -53973,6 +54579,33 @@ function validate494(
     }
     errors++;
   }
+  validate495.errors = vErrors;
+  return errors === 0;
+}
+validate495.evaluated = {
+  props: { errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate494(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate494.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate495(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate495.errors : vErrors.concat(validate495.errors);
+    errors = vErrors.length;
+  }
   validate494.errors = vErrors;
   return errors === 0;
 }
@@ -53981,38 +54614,11 @@ validate494.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate493(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate493.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate494(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate494.errors : vErrors.concat(validate494.errors);
-    errors = vErrors.length;
-  }
-  validate493.errors = vErrors;
-  return errors === 0;
-}
-validate493.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerDeploymentsGetDeploymentResponse = validate496;
-const schema449 = {
+export const ajvWorkerDeploymentsGetDeploymentResponse = validate497;
+const schema451 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/get/responses/200/content/application~1json/schema",
 };
-const schema450 = {
+const schema452 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -54022,13 +54628,13 @@ const schema450 = {
     },
   ],
 };
-function validate497(
+function validate498(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate497.evaluated;
+  const evaluated0 = validate498.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -54298,7 +54904,7 @@ function validate497(
               instancePath: instancePath + "/result/strategy",
               schemaPath: "#/components/schemas/workers_deployment/properties/strategy/enum",
               keyword: "enum",
-              params: { allowedValues: schema441.properties.strategy.enum },
+              params: { allowedValues: schema443.properties.strategy.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -54482,6 +55088,33 @@ function validate497(
     }
     errors++;
   }
+  validate498.errors = vErrors;
+  return errors === 0;
+}
+validate498.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate497(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate497.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate498(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate498.errors : vErrors.concat(validate498.errors);
+    errors = vErrors.length;
+  }
   validate497.errors = vErrors;
   return errors === 0;
 }
@@ -54490,38 +55123,11 @@ validate497.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate496(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate496.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate497(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate497.errors : vErrors.concat(validate497.errors);
-    errors = vErrors.length;
-  }
-  validate496.errors = vErrors;
-  return errors === 0;
-}
-validate496.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerCronTriggerGetCronTriggersResponse = validate500;
-const schema452 = {
+export const ajvWorkerCronTriggerGetCronTriggersResponse = validate501;
+const schema454 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/get/responses/200/content/application~1json/schema",
 };
-const schema453 = {
+const schema455 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -54539,7 +55145,7 @@ const schema453 = {
     },
   ],
 };
-const schema454 = {
+const schema456 = {
   properties: {
     created_on: { readOnly: true, type: "string", "x-auditable": true },
     cron: { example: "*/30 * * * *", type: "string", "x-auditable": true },
@@ -54547,6 +55153,205 @@ const schema454 = {
   },
   required: ["cron"],
   type: "object",
+};
+function validate502(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate502.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      let data0 = data.result;
+      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
+        if (data0.schedules === undefined) {
+          const err1 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/allOf/1/properties/result/required",
+            keyword: "required",
+            params: { missingProperty: "schedules" },
+            message: "must have required property '" + "schedules" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data0.schedules !== undefined) {
+          let data1 = data0.schedules;
+          if (Array.isArray(data1)) {
+            const len0 = data1.length;
+            for (let i0 = 0; i0 < len0; i0++) {
+              let data2 = data1[i0];
+              if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
+                if (data2.cron === undefined) {
+                  const err2 = {
+                    instancePath: instancePath + "/result/schedules/" + i0,
+                    schemaPath: "#/components/schemas/workers_schedule/required",
+                    keyword: "required",
+                    params: { missingProperty: "cron" },
+                    message: "must have required property '" + "cron" + "'",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err2];
+                  } else {
+                    vErrors.push(err2);
+                  }
+                  errors++;
+                }
+                if (data2.created_on !== undefined) {
+                  if (typeof data2.created_on !== "string") {
+                    const err3 = {
+                      instancePath: instancePath + "/result/schedules/" + i0 + "/created_on",
+                      schemaPath:
+                        "#/components/schemas/workers_schedule/properties/created_on/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err3];
+                    } else {
+                      vErrors.push(err3);
+                    }
+                    errors++;
+                  }
+                }
+                if (data2.cron !== undefined) {
+                  if (typeof data2.cron !== "string") {
+                    const err4 = {
+                      instancePath: instancePath + "/result/schedules/" + i0 + "/cron",
+                      schemaPath: "#/components/schemas/workers_schedule/properties/cron/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err4];
+                    } else {
+                      vErrors.push(err4);
+                    }
+                    errors++;
+                  }
+                }
+                if (data2.modified_on !== undefined) {
+                  if (typeof data2.modified_on !== "string") {
+                    const err5 = {
+                      instancePath: instancePath + "/result/schedules/" + i0 + "/modified_on",
+                      schemaPath:
+                        "#/components/schemas/workers_schedule/properties/modified_on/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err5];
+                    } else {
+                      vErrors.push(err5);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err6 = {
+                  instancePath: instancePath + "/result/schedules/" + i0,
+                  schemaPath: "#/components/schemas/workers_schedule/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err6];
+                } else {
+                  vErrors.push(err6);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err7 = {
+              instancePath: instancePath + "/result/schedules",
+              schemaPath: "#/allOf/1/properties/result/properties/schedules/type",
+              keyword: "type",
+              params: { type: "array" },
+              message: "must be array",
+            };
+            if (vErrors === null) {
+              vErrors = [err7];
+            } else {
+              vErrors.push(err7);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err8 = {
+          instancePath: instancePath + "/result",
+          schemaPath: "#/allOf/1/properties/result/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err9 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err9];
+    } else {
+      vErrors.push(err9);
+    }
+    errors++;
+  }
+  validate502.errors = vErrors;
+  return errors === 0;
+}
+validate502.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
 };
 function validate501(
   data,
@@ -54562,182 +55367,10 @@ function validate501(
     evaluated0.items = undefined;
   }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate502(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate502.errors : vErrors.concat(validate502.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      let data0 = data.result;
-      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
-        if (data0.schedules === undefined) {
-          const err1 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/allOf/1/properties/result/required",
-            keyword: "required",
-            params: { missingProperty: "schedules" },
-            message: "must have required property '" + "schedules" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err1];
-          } else {
-            vErrors.push(err1);
-          }
-          errors++;
-        }
-        if (data0.schedules !== undefined) {
-          let data1 = data0.schedules;
-          if (Array.isArray(data1)) {
-            const len0 = data1.length;
-            for (let i0 = 0; i0 < len0; i0++) {
-              let data2 = data1[i0];
-              if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
-                if (data2.cron === undefined) {
-                  const err2 = {
-                    instancePath: instancePath + "/result/schedules/" + i0,
-                    schemaPath: "#/components/schemas/workers_schedule/required",
-                    keyword: "required",
-                    params: { missingProperty: "cron" },
-                    message: "must have required property '" + "cron" + "'",
-                  };
-                  if (vErrors === null) {
-                    vErrors = [err2];
-                  } else {
-                    vErrors.push(err2);
-                  }
-                  errors++;
-                }
-                if (data2.created_on !== undefined) {
-                  if (typeof data2.created_on !== "string") {
-                    const err3 = {
-                      instancePath: instancePath + "/result/schedules/" + i0 + "/created_on",
-                      schemaPath:
-                        "#/components/schemas/workers_schedule/properties/created_on/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err3];
-                    } else {
-                      vErrors.push(err3);
-                    }
-                    errors++;
-                  }
-                }
-                if (data2.cron !== undefined) {
-                  if (typeof data2.cron !== "string") {
-                    const err4 = {
-                      instancePath: instancePath + "/result/schedules/" + i0 + "/cron",
-                      schemaPath: "#/components/schemas/workers_schedule/properties/cron/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err4];
-                    } else {
-                      vErrors.push(err4);
-                    }
-                    errors++;
-                  }
-                }
-                if (data2.modified_on !== undefined) {
-                  if (typeof data2.modified_on !== "string") {
-                    const err5 = {
-                      instancePath: instancePath + "/result/schedules/" + i0 + "/modified_on",
-                      schemaPath:
-                        "#/components/schemas/workers_schedule/properties/modified_on/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err5];
-                    } else {
-                      vErrors.push(err5);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err6 = {
-                  instancePath: instancePath + "/result/schedules/" + i0,
-                  schemaPath: "#/components/schemas/workers_schedule/type",
-                  keyword: "type",
-                  params: { type: "object" },
-                  message: "must be object",
-                };
-                if (vErrors === null) {
-                  vErrors = [err6];
-                } else {
-                  vErrors.push(err6);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err7 = {
-              instancePath: instancePath + "/result/schedules",
-              schemaPath: "#/allOf/1/properties/result/properties/schedules/type",
-              keyword: "type",
-              params: { type: "array" },
-              message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err7];
-            } else {
-              vErrors.push(err7);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err8 = {
-          instancePath: instancePath + "/result",
-          schemaPath: "#/allOf/1/properties/result/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err9 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err9];
-    } else {
-      vErrors.push(err9);
-    }
-    errors++;
   }
   validate501.errors = vErrors;
   return errors === 0;
@@ -54747,38 +55380,11 @@ validate501.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate500(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate500.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate501(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate501.errors : vErrors.concat(validate501.errors);
-    errors = vErrors.length;
-  }
-  validate500.errors = vErrors;
-  return errors === 0;
-}
-validate500.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerCronTriggerUpdateCronTriggersResponse = validate504;
-const schema455 = {
+export const ajvWorkerCronTriggerUpdateCronTriggersResponse = validate505;
+const schema457 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/put/responses/200/content/application~1json/schema",
 };
-const schema456 = {
+const schema458 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -54796,13 +55402,13 @@ const schema456 = {
     },
   ],
 };
-function validate505(
+function validate506(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate505.evaluated;
+  const evaluated0 = validate506.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -54987,6 +55593,33 @@ function validate505(
     }
     errors++;
   }
+  validate506.errors = vErrors;
+  return errors === 0;
+}
+validate506.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate505(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate505.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate506(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate506.errors : vErrors.concat(validate506.errors);
+    errors = vErrors.length;
+  }
   validate505.errors = vErrors;
   return errors === 0;
 }
@@ -54995,38 +55628,11 @@ validate505.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate504(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate504.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate505(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate505.errors : vErrors.concat(validate505.errors);
-    errors = vErrors.length;
-  }
-  validate504.errors = vErrors;
-  return errors === 0;
-}
-validate504.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptSettingsGetSettingsResponse = validate508;
-const schema458 = {
+export const ajvWorkerScriptSettingsGetSettingsResponse = validate509;
+const schema460 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/get/responses/200/content/application~1json/schema",
 };
-const schema459 = {
+const schema461 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -55036,7 +55642,7 @@ const schema459 = {
     },
   ],
 };
-const schema460 = {
+const schema462 = {
   properties: {
     logpush: { $ref: "#/components/schemas/workers_logpush" },
     observability: {
@@ -55066,13 +55672,13 @@ const schema460 = {
   },
   type: "object",
 };
-function validate511(
+function validate512(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate511.evaluated;
+  const evaluated0 = validate512.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -55701,11 +56307,83 @@ function validate511(
     }
     errors++;
   }
-  validate511.errors = vErrors;
+  validate512.errors = vErrors;
   return errors === 0;
 }
-validate511.evaluated = {
+validate512.evaluated = {
   props: { logpush: true, observability: true, tags: true, tail_consumers: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate510(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate510.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate512(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate512.errors : vErrors.concat(validate512.errors);
+        errors = vErrors.length;
+      }
+    }
+  } else {
+    const err1 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err1];
+    } else {
+      vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate510.errors = vErrors;
+  return errors === 0;
+}
+validate510.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
@@ -55723,6 +56401,37 @@ function validate509(
     evaluated0.items = undefined;
   }
   if (
+    !validate510(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate510.errors : vErrors.concat(validate510.errors);
+    errors = vErrors.length;
+  }
+  validate509.errors = vErrors;
+  return errors === 0;
+}
+validate509.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerScriptSettingsPatchSettingsResponse = validate516;
+const schema467 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/patch/responses/200/content/application~1json/schema",
+};
+function validate517(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate517.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -55746,7 +56455,7 @@ function validate509(
     }
     if (data.result !== undefined) {
       if (
-        !validate511(data.result, {
+        !validate512(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -55754,7 +56463,7 @@ function validate509(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate511.errors : vErrors.concat(validate511.errors);
+        vErrors = vErrors === null ? validate512.errors : vErrors.concat(validate512.errors);
         errors = vErrors.length;
       }
     }
@@ -55773,44 +56482,13 @@ function validate509(
     }
     errors++;
   }
-  validate509.errors = vErrors;
+  validate517.errors = vErrors;
   return errors === 0;
 }
-validate509.evaluated = {
+validate517.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate508(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate508.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate509(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate509.errors : vErrors.concat(validate509.errors);
-    errors = vErrors.length;
-  }
-  validate508.errors = vErrors;
-  return errors === 0;
-}
-validate508.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptSettingsPatchSettingsResponse = validate515;
-const schema465 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/patch/responses/200/content/application~1json/schema",
 };
 function validate516(
   data,
@@ -55826,55 +56504,10 @@ function validate516(
     evaluated0.items = undefined;
   }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate517(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate517.errors : vErrors.concat(validate517.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      if (
-        !validate511(data.result, {
-          instancePath: instancePath + "/result",
-          parentData: data,
-          parentDataProperty: "result",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate511.errors : vErrors.concat(validate511.errors);
-        errors = vErrors.length;
-      }
-    }
-  } else {
-    const err1 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
   }
   validate516.errors = vErrors;
   return errors === 0;
@@ -55884,38 +56517,11 @@ validate516.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate515(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate515.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate516(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate516.errors : vErrors.concat(validate516.errors);
-    errors = vErrors.length;
-  }
-  validate515.errors = vErrors;
-  return errors === 0;
-}
-validate515.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerListScriptSecretsResponse = validate520;
-const schema467 = {
+export const ajvWorkerListScriptSecretsResponse = validate521;
+const schema469 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/get/responses/200/content/application~1json/schema",
 };
-const schema468 = {
+const schema470 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -55926,13 +56532,13 @@ const schema468 = {
     },
   ],
 };
-function validate521(
+function validate522(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate521.evaluated;
+  const evaluated0 = validate522.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -55995,6 +56601,33 @@ function validate521(
     }
     errors++;
   }
+  validate522.errors = vErrors;
+  return errors === 0;
+}
+validate522.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate521(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate521.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate522(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate522.errors : vErrors.concat(validate522.errors);
+    errors = vErrors.length;
+  }
   validate521.errors = vErrors;
   return errors === 0;
 }
@@ -56003,50 +56636,23 @@ validate521.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate520(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate520.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate521(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate521.errors : vErrors.concat(validate521.errors);
-    errors = vErrors.length;
-  }
-  validate520.errors = vErrors;
-  return errors === 0;
-}
-validate520.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerPutScriptSecretResponse = validate525;
-const schema469 = {
+export const ajvWorkerPutScriptSecretResponse = validate526;
+const schema471 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/put/responses/200/content/application~1json/schema",
 };
-const schema470 = {
+const schema472 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     { properties: { result: { $ref: "#/components/schemas/workers_secret" } }, type: "object" },
   ],
 };
-function validate526(
+function validate527(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate526.evaluated;
+  const evaluated0 = validate527.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56089,6 +56695,33 @@ function validate526(
     }
     errors++;
   }
+  validate527.errors = vErrors;
+  return errors === 0;
+}
+validate527.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate526(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate526.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate527(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate527.errors : vErrors.concat(validate527.errors);
+    errors = vErrors.length;
+  }
   validate526.errors = vErrors;
   return errors === 0;
 }
@@ -56097,38 +56730,11 @@ validate526.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate525(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate525.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate526(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate526.errors : vErrors.concat(validate526.errors);
-    errors = vErrors.length;
-  }
-  validate525.errors = vErrors;
-  return errors === 0;
-}
-validate525.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerPatchScriptSecretsBulkResponse = validate530;
-const schema471 = {
+export const ajvWorkerPatchScriptSecretsBulkResponse = validate531;
+const schema473 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets-bulk/patch/responses/200/content/application~1json/schema",
 };
-const schema472 = {
+const schema474 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -56137,13 +56743,13 @@ const schema472 = {
     },
   ],
 };
-function validate531(
+function validate532(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate531.evaluated;
+  const evaluated0 = validate532.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56186,6 +56792,33 @@ function validate531(
     }
     errors++;
   }
+  validate532.errors = vErrors;
+  return errors === 0;
+}
+validate532.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate531(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate531.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate532(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate532.errors : vErrors.concat(validate532.errors);
+    errors = vErrors.length;
+  }
   validate531.errors = vErrors;
   return errors === 0;
 }
@@ -56194,44 +56827,17 @@ validate531.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate530(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate530.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate531(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate531.errors : vErrors.concat(validate531.errors);
-    errors = vErrors.length;
-  }
-  validate530.errors = vErrors;
-  return errors === 0;
-}
-validate530.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerDeleteScriptSecretResponse = validate535;
-const schema473 = {
+export const ajvWorkerDeleteScriptSecretResponse = validate536;
+const schema475 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/delete/responses/200/content/application~1json/schema",
 };
-function validate536(
+function validate537(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate536.evaluated;
+  const evaluated0 = validate537.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56293,6 +56899,33 @@ function validate536(
     }
     errors++;
   }
+  validate537.errors = vErrors;
+  return errors === 0;
+}
+validate537.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate536(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate536.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate537(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate537.errors : vErrors.concat(validate537.errors);
+    errors = vErrors.length;
+  }
   validate536.errors = vErrors;
   return errors === 0;
 }
@@ -56301,50 +56934,23 @@ validate536.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate535(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate535.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate536(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate536.errors : vErrors.concat(validate536.errors);
-    errors = vErrors.length;
-  }
-  validate535.errors = vErrors;
-  return errors === 0;
-}
-validate535.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerGetScriptSecretResponse = validate539;
-const schema475 = {
+export const ajvWorkerGetScriptSecretResponse = validate540;
+const schema477 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/get/responses/200/content/application~1json/schema",
 };
-const schema476 = {
+const schema478 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     { properties: { result: { $ref: "#/components/schemas/workers_secret" } }, type: "object" },
   ],
 };
-function validate540(
+function validate541(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate540.evaluated;
+  const evaluated0 = validate541.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -56387,6 +56993,33 @@ function validate540(
     }
     errors++;
   }
+  validate541.errors = vErrors;
+  return errors === 0;
+}
+validate541.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate540(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate540.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate541(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate541.errors : vErrors.concat(validate541.errors);
+    errors = vErrors.length;
+  }
   validate540.errors = vErrors;
   return errors === 0;
 }
@@ -56395,38 +57028,11 @@ validate540.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate539(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate539.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate540(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate540.errors : vErrors.concat(validate540.errors);
-    errors = vErrors.length;
-  }
-  validate539.errors = vErrors;
-  return errors === 0;
-}
-validate539.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptGetSettingsResponse = validate544;
-const schema477 = {
+export const ajvWorkerScriptGetSettingsResponse = validate545;
+const schema479 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/get/responses/200/content/application~1json/schema",
 };
-const schema478 = {
+const schema480 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -56438,7 +57044,7 @@ const schema478 = {
     },
   ],
 };
-const schema479 = {
+const schema481 = {
   properties: {
     annotations: {
       description:
@@ -56537,13 +57143,13 @@ const schema479 = {
   },
   type: "object",
 };
-function validate547(
+function validate548(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate547.evaluated;
+  const evaluated0 = validate548.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -57570,10 +58176,10 @@ function validate547(
     }
     errors++;
   }
-  validate547.errors = vErrors;
+  validate548.errors = vErrors;
   return errors === 0;
 }
-validate547.evaluated = {
+validate548.evaluated = {
   props: {
     annotations: true,
     bindings: true,
@@ -57591,13 +58197,13 @@ validate547.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate545(
+function validate546(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate545.evaluated;
+  const evaluated0 = validate546.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -57628,7 +58234,7 @@ function validate545(
     }
     if (data.result !== undefined) {
       if (
-        !validate547(data.result, {
+        !validate548(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -57636,7 +58242,7 @@ function validate545(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate547.errors : vErrors.concat(validate547.errors);
+        vErrors = vErrors === null ? validate548.errors : vErrors.concat(validate548.errors);
         errors = vErrors.length;
       }
     }
@@ -57655,6 +58261,33 @@ function validate545(
     }
     errors++;
   }
+  validate546.errors = vErrors;
+  return errors === 0;
+}
+validate546.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate545(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate545.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate546(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate546.errors : vErrors.concat(validate546.errors);
+    errors = vErrors.length;
+  }
   validate545.errors = vErrors;
   return errors === 0;
 }
@@ -57663,13 +58296,17 @@ validate545.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate544(
+export const ajvWorkerScriptPatchSettingsResponse = validate559;
+const schema488 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
+};
+function validate560(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate544.evaluated;
+  const evaluated0 = validate560.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -57677,22 +58314,63 @@ function validate544(
     evaluated0.items = undefined;
   }
   if (
-    !validate545(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate545.errors : vErrors.concat(validate545.errors);
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
     errors = vErrors.length;
   }
-  validate544.errors = vErrors;
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate548(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate548.errors : vErrors.concat(validate548.errors);
+        errors = vErrors.length;
+      }
+    }
+  } else {
+    const err1 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err1];
+    } else {
+      vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate560.errors = vErrors;
   return errors === 0;
 }
-validate544.evaluated = {
+validate560.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-export const ajvWorkerScriptPatchSettingsResponse = validate558;
-const schema486 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
 function validate559(
   data,
@@ -57708,55 +58386,10 @@ function validate559(
     evaluated0.items = undefined;
   }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate560(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate560.errors : vErrors.concat(validate560.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      if (
-        !validate547(data.result, {
-          instancePath: instancePath + "/result",
-          parentData: data,
-          parentDataProperty: "result",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate547.errors : vErrors.concat(validate547.errors);
-        errors = vErrors.length;
-      }
-    }
-  } else {
-    const err1 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
   }
   validate559.errors = vErrors;
   return errors === 0;
@@ -57766,38 +58399,11 @@ validate559.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate558(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate558.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate559(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate559.errors : vErrors.concat(validate559.errors);
-    errors = vErrors.length;
-  }
-  validate558.errors = vErrors;
-  return errors === 0;
-}
-validate558.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptDeleteSubdomainResponse = validate563;
-const schema488 = {
+export const ajvWorkerScriptDeleteSubdomainResponse = validate564;
+const schema490 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/delete/responses/200/content/application~1json/schema",
 };
-const schema489 = {
+const schema491 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -57808,7 +58414,7 @@ const schema489 = {
   ],
   type: "object",
 };
-const schema490 = {
+const schema492 = {
   properties: {
     enabled: {
       default: false,
@@ -57828,13 +58434,13 @@ const schema490 = {
   required: ["enabled", "previews_enabled"],
   type: "object",
 };
-function validate564(
+function validate565(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate564.evaluated;
+  const evaluated0 = validate565.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -57976,6 +58582,33 @@ function validate564(
     }
     errors++;
   }
+  validate565.errors = vErrors;
+  return errors === 0;
+}
+validate565.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate564(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate564.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate565(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate565.errors : vErrors.concat(validate565.errors);
+    errors = vErrors.length;
+  }
   validate564.errors = vErrors;
   return errors === 0;
 }
@@ -57984,38 +58617,11 @@ validate564.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate563(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate563.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate564(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate564.errors : vErrors.concat(validate564.errors);
-    errors = vErrors.length;
-  }
-  validate563.errors = vErrors;
-  return errors === 0;
-}
-validate563.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptGetSubdomainResponse = validate567;
-const schema491 = {
+export const ajvWorkerScriptGetSubdomainResponse = validate568;
+const schema493 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/get/responses/200/content/application~1json/schema",
 };
-const schema492 = {
+const schema494 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -58025,6 +58631,162 @@ const schema492 = {
     },
   ],
   type: "object",
+};
+function validate569(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate569.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (!(data && typeof data == "object" && !Array.isArray(data))) {
+    const err0 = {
+      instancePath,
+      schemaPath: "#/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err0];
+    } else {
+      vErrors.push(err0);
+    }
+    errors++;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err1 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      let data0 = data.result;
+      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
+        if (data0.enabled === undefined) {
+          const err2 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_subdomain/required",
+            keyword: "required",
+            params: { missingProperty: "enabled" },
+            message: "must have required property '" + "enabled" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+        if (data0.previews_enabled === undefined) {
+          const err3 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_subdomain/required",
+            keyword: "required",
+            params: { missingProperty: "previews_enabled" },
+            message: "must have required property '" + "previews_enabled" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err3];
+          } else {
+            vErrors.push(err3);
+          }
+          errors++;
+        }
+        if (data0.enabled !== undefined) {
+          if (typeof data0.enabled !== "boolean") {
+            const err4 = {
+              instancePath: instancePath + "/result/enabled",
+              schemaPath: "#/components/schemas/workers_subdomain/properties/enabled/type",
+              keyword: "type",
+              params: { type: "boolean" },
+              message: "must be boolean",
+            };
+            if (vErrors === null) {
+              vErrors = [err4];
+            } else {
+              vErrors.push(err4);
+            }
+            errors++;
+          }
+        }
+        if (data0.previews_enabled !== undefined) {
+          if (typeof data0.previews_enabled !== "boolean") {
+            const err5 = {
+              instancePath: instancePath + "/result/previews_enabled",
+              schemaPath: "#/components/schemas/workers_subdomain/properties/previews_enabled/type",
+              keyword: "type",
+              params: { type: "boolean" },
+              message: "must be boolean",
+            };
+            if (vErrors === null) {
+              vErrors = [err5];
+            } else {
+              vErrors.push(err5);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err6 = {
+          instancePath: instancePath + "/result",
+          schemaPath: "#/components/schemas/workers_subdomain/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err7 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err7];
+    } else {
+      vErrors.push(err7);
+    }
+    errors++;
+  }
+  validate569.errors = vErrors;
+  return errors === 0;
+}
+validate569.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
 };
 function validate568(
   data,
@@ -58039,6 +58801,48 @@ function validate568(
   if (evaluated0.dynamicItems) {
     evaluated0.items = undefined;
   }
+  if (
+    !validate569(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate569.errors : vErrors.concat(validate569.errors);
+    errors = vErrors.length;
+  }
+  validate568.errors = vErrors;
+  return errors === 0;
+}
+validate568.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerScriptPostSubdomainResponse = validate572;
+const schema496 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/post/responses/200/content/application~1json/schema",
+};
+const schema497 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_subdomain" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+  type: "object",
+};
+function validate573(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate573.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
   if (!(data && typeof data == "object" && !Array.isArray(data))) {
     const err0 = {
       instancePath,
@@ -58174,55 +58978,13 @@ function validate568(
     }
     errors++;
   }
-  validate568.errors = vErrors;
+  validate573.errors = vErrors;
   return errors === 0;
 }
-validate568.evaluated = {
+validate573.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate567(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate567.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate568(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate568.errors : vErrors.concat(validate568.errors);
-    errors = vErrors.length;
-  }
-  validate567.errors = vErrors;
-  return errors === 0;
-}
-validate567.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptPostSubdomainResponse = validate571;
-const schema494 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/post/responses/200/content/application~1json/schema",
-};
-const schema495 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_subdomain" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
-  type: "object",
 };
 function validate572(
   data,
@@ -58237,140 +58999,11 @@ function validate572(
   if (evaluated0.dynamicItems) {
     evaluated0.items = undefined;
   }
-  if (!(data && typeof data == "object" && !Array.isArray(data))) {
-    const err0 = {
-      instancePath,
-      schemaPath: "#/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err0];
-    } else {
-      vErrors.push(err0);
-    }
-    errors++;
-  }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate573(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate573.errors : vErrors.concat(validate573.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err1 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      let data0 = data.result;
-      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
-        if (data0.enabled === undefined) {
-          const err2 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_subdomain/required",
-            keyword: "required",
-            params: { missingProperty: "enabled" },
-            message: "must have required property '" + "enabled" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err2];
-          } else {
-            vErrors.push(err2);
-          }
-          errors++;
-        }
-        if (data0.previews_enabled === undefined) {
-          const err3 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_subdomain/required",
-            keyword: "required",
-            params: { missingProperty: "previews_enabled" },
-            message: "must have required property '" + "previews_enabled" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err3];
-          } else {
-            vErrors.push(err3);
-          }
-          errors++;
-        }
-        if (data0.enabled !== undefined) {
-          if (typeof data0.enabled !== "boolean") {
-            const err4 = {
-              instancePath: instancePath + "/result/enabled",
-              schemaPath: "#/components/schemas/workers_subdomain/properties/enabled/type",
-              keyword: "type",
-              params: { type: "boolean" },
-              message: "must be boolean",
-            };
-            if (vErrors === null) {
-              vErrors = [err4];
-            } else {
-              vErrors.push(err4);
-            }
-            errors++;
-          }
-        }
-        if (data0.previews_enabled !== undefined) {
-          if (typeof data0.previews_enabled !== "boolean") {
-            const err5 = {
-              instancePath: instancePath + "/result/previews_enabled",
-              schemaPath: "#/components/schemas/workers_subdomain/properties/previews_enabled/type",
-              keyword: "type",
-              params: { type: "boolean" },
-              message: "must be boolean",
-            };
-            if (vErrors === null) {
-              vErrors = [err5];
-            } else {
-              vErrors.push(err5);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err6 = {
-          instancePath: instancePath + "/result",
-          schemaPath: "#/components/schemas/workers_subdomain/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err7 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err7];
-    } else {
-      vErrors.push(err7);
-    }
-    errors++;
   }
   validate572.errors = vErrors;
   return errors === 0;
@@ -58380,38 +59013,11 @@ validate572.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate571(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate571.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate572(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate572.errors : vErrors.concat(validate572.errors);
-    errors = vErrors.length;
-  }
-  validate571.errors = vErrors;
-  return errors === 0;
-}
-validate571.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvNoterGetAccountsAccountIdWorkersScriptsScriptNameTailsResponse = validate575;
-const schema497 = {
+export const ajvNoterGetAccountsAccountIdWorkersScriptsScriptNameTailsResponse = validate576;
+const schema499 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/get/responses/200/content/application~1json/schema",
 };
-const schema498 = {
+const schema500 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -58421,7 +59027,7 @@ const schema498 = {
     },
   ],
 };
-const schema499 = {
+const schema501 = {
   properties: {
     expires_at: { readOnly: true, type: "string", "x-auditable": true },
     id: { allOf: [{ $ref: "#/components/schemas/workers_identifier" }], readOnly: true },
@@ -58430,13 +59036,13 @@ const schema499 = {
   required: ["id", "url", "expires_at"],
   type: "object",
 };
-function validate578(
+function validate579(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate578.evaluated;
+  const evaluated0 = validate579.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -58572,11 +59178,83 @@ function validate578(
     }
     errors++;
   }
-  validate578.errors = vErrors;
+  validate579.errors = vErrors;
   return errors === 0;
 }
-validate578.evaluated = {
+validate579.evaluated = {
   props: { expires_at: true, id: true, url: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate577(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate577.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate579(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate579.errors : vErrors.concat(validate579.errors);
+        errors = vErrors.length;
+      }
+    }
+  } else {
+    const err1 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err1];
+    } else {
+      vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate577.errors = vErrors;
+  return errors === 0;
+}
+validate577.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
@@ -58594,6 +59272,47 @@ function validate576(
     evaluated0.items = undefined;
   }
   if (
+    !validate577(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate577.errors : vErrors.concat(validate577.errors);
+    errors = vErrors.length;
+  }
+  validate576.errors = vErrors;
+  return errors === 0;
+}
+validate576.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerTailLogsStartTailResponse = validate582;
+const schema503 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/post/responses/200/content/application~1json/schema",
+};
+const schema504 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_tail" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate583(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate583.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -58617,7 +59336,7 @@ function validate576(
     }
     if (data.result !== undefined) {
       if (
-        !validate578(data.result, {
+        !validate579(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -58625,7 +59344,7 @@ function validate576(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate578.errors : vErrors.concat(validate578.errors);
+        vErrors = vErrors === null ? validate579.errors : vErrors.concat(validate579.errors);
         errors = vErrors.length;
       }
     }
@@ -58644,54 +59363,13 @@ function validate576(
     }
     errors++;
   }
-  validate576.errors = vErrors;
+  validate583.errors = vErrors;
   return errors === 0;
 }
-validate576.evaluated = {
+validate583.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate575(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate575.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate576(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate576.errors : vErrors.concat(validate576.errors);
-    errors = vErrors.length;
-  }
-  validate575.errors = vErrors;
-  return errors === 0;
-}
-validate575.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerTailLogsStartTailResponse = validate581;
-const schema501 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/post/responses/200/content/application~1json/schema",
-};
-const schema502 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_tail" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
 };
 function validate582(
   data,
@@ -58707,55 +59385,10 @@ function validate582(
     evaluated0.items = undefined;
   }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate583(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate583.errors : vErrors.concat(validate583.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      if (
-        !validate578(data.result, {
-          instancePath: instancePath + "/result",
-          parentData: data,
-          parentDataProperty: "result",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate578.errors : vErrors.concat(validate578.errors);
-        errors = vErrors.length;
-      }
-    }
-  } else {
-    const err1 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
   }
   validate582.errors = vErrors;
   return errors === 0;
@@ -58765,44 +59398,17 @@ validate582.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate581(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate581.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate582(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate582.errors : vErrors.concat(validate582.errors);
-    errors = vErrors.length;
-  }
-  validate581.errors = vErrors;
-  return errors === 0;
-}
-validate581.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerTailLogsDeleteTailResponse = validate586;
-const schema503 = {
+export const ajvWorkerTailLogsDeleteTailResponse = validate587;
+const schema505 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails~1{id}/delete/responses/200/content/application~1json/schema",
 };
-function validate587(
+function validate588(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate587.evaluated;
+  const evaluated0 = validate588.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -59319,6 +59925,33 @@ function validate587(
     }
     errors++;
   }
+  validate588.errors = vErrors;
+  return errors === 0;
+}
+validate588.evaluated = {
+  props: { errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate587(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate587.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate588(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate588.errors : vErrors.concat(validate588.errors);
+    errors = vErrors.length;
+  }
   validate587.errors = vErrors;
   return errors === 0;
 }
@@ -59327,38 +59960,11 @@ validate587.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate586(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate586.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate587(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate587.errors : vErrors.concat(validate587.errors);
-    errors = vErrors.length;
-  }
-  validate586.errors = vErrors;
-  return errors === 0;
-}
-validate586.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptFetchUsageModelResponse = validate589;
-const schema507 = {
+export const ajvWorkerScriptFetchUsageModelResponse = validate590;
+const schema509 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/get/responses/200/content/application~1json/schema",
 };
-const schema508 = {
+const schema510 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -59376,7 +59982,7 @@ const schema508 = {
     },
   ],
 };
-const schema510 = {
+const schema512 = {
   description: "User-defined resource limits for Workers with standard usage model.",
   nullable: true,
   properties: {
@@ -59388,6 +59994,154 @@ const schema510 = {
     },
   },
   type: "object",
+};
+function validate591(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate591.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      let data0 = data.result;
+      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
+        if (data0.usage_model !== undefined) {
+          let data1 = data0.usage_model;
+          if (typeof data1 !== "string") {
+            const err1 = {
+              instancePath: instancePath + "/result/usage_model",
+              schemaPath: "#/components/schemas/workers_usage_model/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err1];
+            } else {
+              vErrors.push(err1);
+            }
+            errors++;
+          }
+          if (!(data1 === "standard" || data1 === "bundled" || data1 === "unbound")) {
+            const err2 = {
+              instancePath: instancePath + "/result/usage_model",
+              schemaPath: "#/components/schemas/workers_usage_model/enum",
+              keyword: "enum",
+              params: { allowedValues: schema227.enum },
+              message: "must be equal to one of the allowed values",
+            };
+            if (vErrors === null) {
+              vErrors = [err2];
+            } else {
+              vErrors.push(err2);
+            }
+            errors++;
+          }
+        }
+        if (data0.user_limits !== undefined) {
+          let data2 = data0.user_limits;
+          if (!(data2 && typeof data2 == "object" && !Array.isArray(data2)) && data2 !== null) {
+            const err3 = {
+              instancePath: instancePath + "/result/user_limits",
+              schemaPath: "#/components/schemas/workers_user_limits/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err3];
+            } else {
+              vErrors.push(err3);
+            }
+            errors++;
+          }
+          if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
+            if (data2.cpu_ms !== undefined) {
+              let data3 = data2.cpu_ms;
+              if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3)) && data3 !== null) {
+                const err4 = {
+                  instancePath: instancePath + "/result/user_limits/cpu_ms",
+                  schemaPath: "#/components/schemas/workers_user_limits/properties/cpu_ms/type",
+                  keyword: "type",
+                  params: { type: "integer" },
+                  message: "must be integer",
+                };
+                if (vErrors === null) {
+                  vErrors = [err4];
+                } else {
+                  vErrors.push(err4);
+                }
+                errors++;
+              }
+            }
+          }
+        }
+      } else {
+        const err5 = {
+          instancePath: instancePath + "/result",
+          schemaPath: "#/allOf/1/properties/result/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err6 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err6];
+    } else {
+      vErrors.push(err6);
+    }
+    errors++;
+  }
+  validate591.errors = vErrors;
+  return errors === 0;
+}
+validate591.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
 };
 function validate590(
   data,
@@ -59403,6 +60157,37 @@ function validate590(
     evaluated0.items = undefined;
   }
   if (
+    !validate591(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate591.errors : vErrors.concat(validate591.errors);
+    errors = vErrors.length;
+  }
+  validate590.errors = vErrors;
+  return errors === 0;
+}
+validate590.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerScriptUpdateUsageModelResponse = validate594;
+const schema513 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/put/responses/200/content/application~1json/schema",
+};
+function validate595(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate595.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -59529,44 +60314,13 @@ function validate590(
     }
     errors++;
   }
-  validate590.errors = vErrors;
+  validate595.errors = vErrors;
   return errors === 0;
 }
-validate590.evaluated = {
+validate595.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate589(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate589.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate590(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate590.errors : vErrors.concat(validate590.errors);
-    errors = vErrors.length;
-  }
-  validate589.errors = vErrors;
-  return errors === 0;
-}
-validate589.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptUpdateUsageModelResponse = validate593;
-const schema511 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/put/responses/200/content/application~1json/schema",
 };
 function validate594(
   data,
@@ -59582,131 +60336,10 @@ function validate594(
     evaluated0.items = undefined;
   }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate595(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate595.errors : vErrors.concat(validate595.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      let data0 = data.result;
-      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
-        if (data0.usage_model !== undefined) {
-          let data1 = data0.usage_model;
-          if (typeof data1 !== "string") {
-            const err1 = {
-              instancePath: instancePath + "/result/usage_model",
-              schemaPath: "#/components/schemas/workers_usage_model/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err1];
-            } else {
-              vErrors.push(err1);
-            }
-            errors++;
-          }
-          if (!(data1 === "standard" || data1 === "bundled" || data1 === "unbound")) {
-            const err2 = {
-              instancePath: instancePath + "/result/usage_model",
-              schemaPath: "#/components/schemas/workers_usage_model/enum",
-              keyword: "enum",
-              params: { allowedValues: schema227.enum },
-              message: "must be equal to one of the allowed values",
-            };
-            if (vErrors === null) {
-              vErrors = [err2];
-            } else {
-              vErrors.push(err2);
-            }
-            errors++;
-          }
-        }
-        if (data0.user_limits !== undefined) {
-          let data2 = data0.user_limits;
-          if (!(data2 && typeof data2 == "object" && !Array.isArray(data2)) && data2 !== null) {
-            const err3 = {
-              instancePath: instancePath + "/result/user_limits",
-              schemaPath: "#/components/schemas/workers_user_limits/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err3];
-            } else {
-              vErrors.push(err3);
-            }
-            errors++;
-          }
-          if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
-            if (data2.cpu_ms !== undefined) {
-              let data3 = data2.cpu_ms;
-              if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3)) && data3 !== null) {
-                const err4 = {
-                  instancePath: instancePath + "/result/user_limits/cpu_ms",
-                  schemaPath: "#/components/schemas/workers_user_limits/properties/cpu_ms/type",
-                  keyword: "type",
-                  params: { type: "integer" },
-                  message: "must be integer",
-                };
-                if (vErrors === null) {
-                  vErrors = [err4];
-                } else {
-                  vErrors.push(err4);
-                }
-                errors++;
-              }
-            }
-          }
-        }
-      } else {
-        const err5 = {
-          instancePath: instancePath + "/result",
-          schemaPath: "#/allOf/1/properties/result/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err6 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err6];
-    } else {
-      vErrors.push(err6);
-    }
-    errors++;
   }
   validate594.errors = vErrors;
   return errors === 0;
@@ -59716,38 +60349,11 @@ validate594.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate593(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate593.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate594(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate594.errors : vErrors.concat(validate594.errors);
-    errors = vErrors.length;
-  }
-  validate593.errors = vErrors;
-  return errors === 0;
-}
-validate593.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerVersionsListVersionsResponse = validate597;
-const schema515 = {
+export const ajvWorkerVersionsListVersionsResponse = validate598;
+const schema517 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/get/responses/200/content/application~1json/schema",
 };
-const schema516 = {
+const schema518 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -59767,7 +60373,7 @@ const schema516 = {
     },
   ],
 };
-const schema517 = {
+const schema519 = {
   properties: {
     id: {
       description: "Unique identifier for the version.",
@@ -59851,13 +60457,13 @@ const schema517 = {
   },
   type: "object",
 };
-function validate598(
+function validate599(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate598.evaluated;
+  const evaluated0 = validate599.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -60050,7 +60656,7 @@ function validate598(
                             "#/components/schemas/workers_version-item-short/properties/metadata/properties/source/enum",
                           keyword: "enum",
                           params: {
-                            allowedValues: schema517.properties.metadata.properties.source.enum,
+                            allowedValues: schema519.properties.metadata.properties.source.enum,
                           },
                           message: "must be equal to one of the allowed values",
                         };
@@ -60160,6 +60766,33 @@ function validate598(
     }
     errors++;
   }
+  validate599.errors = vErrors;
+  return errors === 0;
+}
+validate599.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate598(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate598.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate599(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate599.errors : vErrors.concat(validate599.errors);
+    errors = vErrors.length;
+  }
   validate598.errors = vErrors;
   return errors === 0;
 }
@@ -60168,38 +60801,11 @@ validate598.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate597(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate597.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate598(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate598.errors : vErrors.concat(validate598.errors);
-    errors = vErrors.length;
-  }
-  validate597.errors = vErrors;
-  return errors === 0;
-}
-validate597.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerVersionsUploadVersionResponse = validate601;
-const schema518 = {
+export const ajvWorkerVersionsUploadVersionResponse = validate602;
+const schema520 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/post/responses/200/content/application~1json/schema",
 };
-const schema519 = {
+const schema521 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -60209,7 +60815,7 @@ const schema519 = {
     },
   ],
 };
-const schema520 = {
+const schema522 = {
   allOf: [
     { $ref: "#/components/schemas/workers_version-item-full" },
     {
@@ -60226,7 +60832,7 @@ const schema520 = {
     },
   ],
 };
-const schema521 = {
+const schema523 = {
   allOf: [
     { $ref: "#/components/schemas/workers_version-item-short" },
     {
@@ -60371,13 +60977,13 @@ const schema521 = {
     },
   ],
 };
-function validate605(
+function validate606(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate605.evaluated;
+  const evaluated0 = validate606.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -60532,7 +61138,7 @@ function validate605(
               schemaPath:
                 "#/components/schemas/workers_version-item-short/properties/metadata/properties/source/enum",
               keyword: "enum",
-              params: { allowedValues: schema517.properties.metadata.properties.source.enum },
+              params: { allowedValues: schema519.properties.metadata.properties.source.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -60967,7 +61573,7 @@ function validate605(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema521.allOf[1].properties.resources.properties.script_runtime.properties
+                      schema523.allOf[1].properties.resources.properties.script_runtime.properties
                         .usage_model.enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -61027,21 +61633,21 @@ function validate605(
     }
     errors++;
   }
-  validate605.errors = vErrors;
+  validate606.errors = vErrors;
   return errors === 0;
 }
-validate605.evaluated = {
+validate606.evaluated = {
   props: { resources: true, id: true, metadata: true, number: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate604(
+function validate605(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate604.evaluated;
+  const evaluated0 = validate605.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61049,9 +61655,9 @@ function validate604(
     evaluated0.items = undefined;
   }
   if (
-    !validate605(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate606(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate605.errors : vErrors.concat(validate605.errors);
+    vErrors = vErrors === null ? validate606.errors : vErrors.concat(validate606.errors);
     errors = vErrors.length;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -61103,134 +61709,21 @@ function validate604(
     }
     errors++;
   }
-  validate604.errors = vErrors;
+  validate605.errors = vErrors;
   return errors === 0;
 }
-validate604.evaluated = {
+validate605.evaluated = {
   props: { startup_time_ms: true, resources: true, id: true, metadata: true, number: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate602(
+function validate603(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate602.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
-    errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      if (
-        !validate604(data.result, {
-          instancePath: instancePath + "/result",
-          parentData: data,
-          parentDataProperty: "result",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate604.errors : vErrors.concat(validate604.errors);
-        errors = vErrors.length;
-      }
-    }
-  } else {
-    const err1 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
-  }
-  validate602.errors = vErrors;
-  return errors === 0;
-}
-validate602.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-function validate601(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate601.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate602(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate602.errors : vErrors.concat(validate602.errors);
-    errors = vErrors.length;
-  }
-  validate601.errors = vErrors;
-  return errors === 0;
-}
-validate601.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerVersionsGetVersionDetailResponse = validate610;
-const schema523 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
-};
-const schema524 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_version-item-full" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
-};
-function validate611(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate611.evaluated;
+  const evaluated0 = validate603.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61288,6 +61781,146 @@ function validate611(
     }
     errors++;
   }
+  validate603.errors = vErrors;
+  return errors === 0;
+}
+validate603.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate602(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate602.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate603(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate603.errors : vErrors.concat(validate603.errors);
+    errors = vErrors.length;
+  }
+  validate602.errors = vErrors;
+  return errors === 0;
+}
+validate602.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerVersionsGetVersionDetailResponse = validate611;
+const schema525 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
+};
+const schema526 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_version-item-full" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate612(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate612.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate606(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate606.errors : vErrors.concat(validate606.errors);
+        errors = vErrors.length;
+      }
+    }
+  } else {
+    const err1 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err1];
+    } else {
+      vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate612.errors = vErrors;
+  return errors === 0;
+}
+validate612.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate611(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate611.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate612(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate612.errors : vErrors.concat(validate612.errors);
+    errors = vErrors.length;
+  }
   validate611.errors = vErrors;
   return errors === 0;
 }
@@ -61296,44 +61929,17 @@ validate611.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate610(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate610.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate611(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate611.errors : vErrors.concat(validate611.errors);
-    errors = vErrors.length;
-  }
-  validate610.errors = vErrors;
-  return errors === 0;
-}
-validate610.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerEnvironmentPutScriptContentResponse = validate615;
-const schema525 = {
+export const ajvWorkerEnvironmentPutScriptContentResponse = validate616;
+const schema527 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1content/put/responses/200/content/application~1json/schema",
 };
-function validate616(
+function validate617(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate616.evaluated;
+  const evaluated0 = validate617.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61391,6 +61997,33 @@ function validate616(
     }
     errors++;
   }
+  validate617.errors = vErrors;
+  return errors === 0;
+}
+validate617.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate616(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate616.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate617(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate617.errors : vErrors.concat(validate617.errors);
+    errors = vErrors.length;
+  }
   validate616.errors = vErrors;
   return errors === 0;
 }
@@ -61399,13 +62032,17 @@ validate616.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate615(
+export const ajvWorkerScriptEnvironmentGetSettingsResponse = validate621;
+const schema529 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/get/responses/200/content/application~1json/schema",
+};
+function validate622(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate615.evaluated;
+  const evaluated0 = validate622.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -61413,22 +62050,63 @@ function validate615(
     evaluated0.items = undefined;
   }
   if (
-    !validate616(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate616.errors : vErrors.concat(validate616.errors);
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
     errors = vErrors.length;
   }
-  validate615.errors = vErrors;
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate512(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate512.errors : vErrors.concat(validate512.errors);
+        errors = vErrors.length;
+      }
+    }
+  } else {
+    const err1 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err1];
+    } else {
+      vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate622.errors = vErrors;
   return errors === 0;
 }
-validate615.evaluated = {
+validate622.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-export const ajvWorkerScriptEnvironmentGetSettingsResponse = validate620;
-const schema527 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/get/responses/200/content/application~1json/schema",
 };
 function validate621(
   data,
@@ -61444,6 +62122,37 @@ function validate621(
     evaluated0.items = undefined;
   }
   if (
+    !validate622(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate622.errors : vErrors.concat(validate622.errors);
+    errors = vErrors.length;
+  }
+  validate621.errors = vErrors;
+  return errors === 0;
+}
+validate621.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerScriptEnvironmentPatchSettingsResponse = validate626;
+const schema531 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/patch/responses/200/content/application~1json/schema",
+};
+function validate627(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate627.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -61467,7 +62176,7 @@ function validate621(
     }
     if (data.result !== undefined) {
       if (
-        !validate511(data.result, {
+        !validate512(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -61475,7 +62184,7 @@ function validate621(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate511.errors : vErrors.concat(validate511.errors);
+        vErrors = vErrors === null ? validate512.errors : vErrors.concat(validate512.errors);
         errors = vErrors.length;
       }
     }
@@ -61494,44 +62203,13 @@ function validate621(
     }
     errors++;
   }
-  validate621.errors = vErrors;
+  validate627.errors = vErrors;
   return errors === 0;
 }
-validate621.evaluated = {
+validate627.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate620(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate620.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate621(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate621.errors : vErrors.concat(validate621.errors);
-    errors = vErrors.length;
-  }
-  validate620.errors = vErrors;
-  return errors === 0;
-}
-validate620.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerScriptEnvironmentPatchSettingsResponse = validate625;
-const schema529 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
 function validate626(
   data,
@@ -61547,6 +62225,52 @@ function validate626(
     evaluated0.items = undefined;
   }
   if (
+    !validate627(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate627.errors : vErrors.concat(validate627.errors);
+    errors = vErrors.length;
+  }
+  validate626.errors = vErrors;
+  return errors === 0;
+}
+validate626.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerSubdomainGetSubdomainResponse = validate631;
+const schema533 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/get/responses/200/content/application~1json/schema",
+};
+const schema534 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_schemas-subdomain" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+const schema535 = {
+  properties: { subdomain: { example: "my-subdomain", type: "string", "x-auditable": true } },
+  required: ["subdomain"],
+  type: "object",
+};
+function validate632(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate632.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -61569,21 +62293,59 @@ function validate626(
       errors++;
     }
     if (data.result !== undefined) {
-      if (
-        !validate511(data.result, {
+      let data0 = data.result;
+      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
+        if (data0.subdomain === undefined) {
+          const err1 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_schemas-subdomain/required",
+            keyword: "required",
+            params: { missingProperty: "subdomain" },
+            message: "must have required property '" + "subdomain" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data0.subdomain !== undefined) {
+          if (typeof data0.subdomain !== "string") {
+            const err2 = {
+              instancePath: instancePath + "/result/subdomain",
+              schemaPath:
+                "#/components/schemas/workers_schemas-subdomain/properties/subdomain/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err2];
+            } else {
+              vErrors.push(err2);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err3 = {
           instancePath: instancePath + "/result",
-          parentData: data,
-          parentDataProperty: "result",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate511.errors : vErrors.concat(validate511.errors);
-        errors = vErrors.length;
+          schemaPath: "#/components/schemas/workers_schemas-subdomain/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
       }
     }
   } else {
-    const err1 = {
+    const err4 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -61591,65 +62353,19 @@ function validate626(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err1];
+      vErrors = [err4];
     } else {
-      vErrors.push(err1);
+      vErrors.push(err4);
     }
     errors++;
   }
-  validate626.errors = vErrors;
+  validate632.errors = vErrors;
   return errors === 0;
 }
-validate626.evaluated = {
+validate632.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate625(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate625.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate626(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate626.errors : vErrors.concat(validate626.errors);
-    errors = vErrors.length;
-  }
-  validate625.errors = vErrors;
-  return errors === 0;
-}
-validate625.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerSubdomainGetSubdomainResponse = validate630;
-const schema531 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/get/responses/200/content/application~1json/schema",
-};
-const schema532 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_schemas-subdomain" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
-};
-const schema533 = {
-  properties: { subdomain: { example: "my-subdomain", type: "string", "x-auditable": true } },
-  required: ["subdomain"],
-  type: "object",
 };
 function validate631(
   data,
@@ -61665,6 +62381,47 @@ function validate631(
     evaluated0.items = undefined;
   }
   if (
+    !validate632(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate632.errors : vErrors.concat(validate632.errors);
+    errors = vErrors.length;
+  }
+  validate631.errors = vErrors;
+  return errors === 0;
+}
+validate631.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvWorkerSubdomainCreateSubdomainResponse = validate635;
+const schema536 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/put/responses/200/content/application~1json/schema",
+};
+const schema537 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_schemas-subdomain" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate636(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate636.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -61753,54 +62510,13 @@ function validate631(
     }
     errors++;
   }
-  validate631.errors = vErrors;
+  validate636.errors = vErrors;
   return errors === 0;
 }
-validate631.evaluated = {
+validate636.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate630(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate630.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate631(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate631.errors : vErrors.concat(validate631.errors);
-    errors = vErrors.length;
-  }
-  validate630.errors = vErrors;
-  return errors === 0;
-}
-validate630.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvWorkerSubdomainCreateSubdomainResponse = validate634;
-const schema534 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/put/responses/200/content/application~1json/schema",
-};
-const schema535 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_schemas-subdomain" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
 };
 function validate635(
   data,
@@ -61816,93 +62532,10 @@ function validate635(
     evaluated0.items = undefined;
   }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate636(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate636.errors : vErrors.concat(validate636.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      let data0 = data.result;
-      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
-        if (data0.subdomain === undefined) {
-          const err1 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_schemas-subdomain/required",
-            keyword: "required",
-            params: { missingProperty: "subdomain" },
-            message: "must have required property '" + "subdomain" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err1];
-          } else {
-            vErrors.push(err1);
-          }
-          errors++;
-        }
-        if (data0.subdomain !== undefined) {
-          if (typeof data0.subdomain !== "string") {
-            const err2 = {
-              instancePath: instancePath + "/result/subdomain",
-              schemaPath:
-                "#/components/schemas/workers_schemas-subdomain/properties/subdomain/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err2];
-            } else {
-              vErrors.push(err2);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err3 = {
-          instancePath: instancePath + "/result",
-          schemaPath: "#/components/schemas/workers_schemas-subdomain/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err4 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err4];
-    } else {
-      vErrors.push(err4);
-    }
-    errors++;
   }
   validate635.errors = vErrors;
   return errors === 0;
@@ -61912,38 +62545,11 @@ validate635.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate634(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate634.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate635(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate635.errors : vErrors.concat(validate635.errors);
-    errors = vErrors.length;
-  }
-  validate634.errors = vErrors;
-  return errors === 0;
-}
-validate634.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvListWorkersResponse = validate638;
-const schema537 = {
+export const ajvListWorkersResponse = validate639;
+const schema539 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/get/responses/200/content/application~1json/schema",
 };
-const schema538 = {
+const schema540 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -61955,7 +62561,7 @@ const schema538 = {
     },
   ],
 };
-const schema539 = {
+const schema541 = {
   properties: {
     created_on: {
       description: "When the Worker was created.",
@@ -62308,13 +62914,13 @@ const schema539 = {
   ],
   type: "object",
 };
-function validate639(
+function validate640(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate639.evaluated;
+  const evaluated0 = validate640.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -62929,7 +63535,7 @@ function validate639(
                           keyword: "enum",
                           params: {
                             allowedValues:
-                              schema539.properties.observability.properties.traces.properties
+                              schema541.properties.observability.properties.traces.properties
                                 .propagation_policy.enum,
                           },
                           message: "must be equal to one of the allowed values",
@@ -64322,6 +64928,33 @@ function validate639(
     }
     errors++;
   }
+  validate640.errors = vErrors;
+  return errors === 0;
+}
+validate640.evaluated = {
+  props: { result: true, result_info: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate639(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate639.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate640(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate640.errors : vErrors.concat(validate640.errors);
+    errors = vErrors.length;
+  }
   validate639.errors = vErrors;
   return errors === 0;
 }
@@ -64330,38 +64963,11 @@ validate639.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate638(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate638.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate639(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate639.errors : vErrors.concat(validate639.errors);
-    errors = vErrors.length;
-  }
-  validate638.errors = vErrors;
-  return errors === 0;
-}
-validate638.evaluated = {
-  props: { result: true, result_info: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvCreateWorkerResponse = validate642;
-const schema540 = {
+export const ajvCreateWorkerResponse = validate643;
+const schema542 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/post/responses/200/content/application~1json/schema",
 };
-const schema541 = {
+const schema543 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -64371,13 +64977,13 @@ const schema541 = {
     },
   ],
 };
-function validate643(
+function validate644(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate643.evaluated;
+  const evaluated0 = validate644.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -64959,7 +65565,7 @@ function validate643(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema539.properties.observability.properties.traces.properties
+                          schema541.properties.observability.properties.traces.properties
                             .propagation_policy.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -66222,6 +66828,33 @@ function validate643(
     }
     errors++;
   }
+  validate644.errors = vErrors;
+  return errors === 0;
+}
+validate644.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate643(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate643.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate644(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate644.errors : vErrors.concat(validate644.errors);
+    errors = vErrors.length;
+  }
   validate643.errors = vErrors;
   return errors === 0;
 }
@@ -66230,44 +66863,17 @@ validate643.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate642(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate642.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate643(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate643.errors : vErrors.concat(validate643.errors);
-    errors = vErrors.length;
-  }
-  validate642.errors = vErrors;
-  return errors === 0;
-}
-validate642.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvDeleteWorkerResponse = validate646;
-const schema543 = {
+export const ajvDeleteWorkerResponse = validate647;
+const schema545 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/delete/responses/200/content/application~1json/schema",
 };
-function validate647(
+function validate648(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate647.evaluated;
+  const evaluated0 = validate648.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -66784,6 +67390,33 @@ function validate647(
     }
     errors++;
   }
+  validate648.errors = vErrors;
+  return errors === 0;
+}
+validate648.evaluated = {
+  props: { errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate647(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate647.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate648(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate648.errors : vErrors.concat(validate648.errors);
+    errors = vErrors.length;
+  }
   validate647.errors = vErrors;
   return errors === 0;
 }
@@ -66792,38 +67425,11 @@ validate647.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate646(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate646.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate647(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate647.errors : vErrors.concat(validate647.errors);
-    errors = vErrors.length;
-  }
-  validate646.errors = vErrors;
-  return errors === 0;
-}
-validate646.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvGetWorkerResponse = validate649;
-const schema547 = {
+export const ajvGetWorkerResponse = validate650;
+const schema549 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/get/responses/200/content/application~1json/schema",
 };
-const schema548 = {
+const schema550 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -66832,6 +67438,1865 @@ const schema548 = {
       type: "object",
     },
   ],
+};
+function validate651(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate651.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      let data0 = data.result;
+      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
+        if (data0.id === undefined) {
+          const err1 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "id" },
+            message: "must have required property '" + "id" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err1];
+          } else {
+            vErrors.push(err1);
+          }
+          errors++;
+        }
+        if (data0.name === undefined) {
+          const err2 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "name" },
+            message: "must have required property '" + "name" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err2];
+          } else {
+            vErrors.push(err2);
+          }
+          errors++;
+        }
+        if (data0.tags === undefined) {
+          const err3 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "tags" },
+            message: "must have required property '" + "tags" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err3];
+          } else {
+            vErrors.push(err3);
+          }
+          errors++;
+        }
+        if (data0.subdomain === undefined) {
+          const err4 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "subdomain" },
+            message: "must have required property '" + "subdomain" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err4];
+          } else {
+            vErrors.push(err4);
+          }
+          errors++;
+        }
+        if (data0.observability === undefined) {
+          const err5 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "observability" },
+            message: "must have required property '" + "observability" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err5];
+          } else {
+            vErrors.push(err5);
+          }
+          errors++;
+        }
+        if (data0.logpush === undefined) {
+          const err6 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "logpush" },
+            message: "must have required property '" + "logpush" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err6];
+          } else {
+            vErrors.push(err6);
+          }
+          errors++;
+        }
+        if (data0.tail_consumers === undefined) {
+          const err7 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "tail_consumers" },
+            message: "must have required property '" + "tail_consumers" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err7];
+          } else {
+            vErrors.push(err7);
+          }
+          errors++;
+        }
+        if (data0.created_on === undefined) {
+          const err8 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "created_on" },
+            message: "must have required property '" + "created_on" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err8];
+          } else {
+            vErrors.push(err8);
+          }
+          errors++;
+        }
+        if (data0.updated_on === undefined) {
+          const err9 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "updated_on" },
+            message: "must have required property '" + "updated_on" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err9];
+          } else {
+            vErrors.push(err9);
+          }
+          errors++;
+        }
+        if (data0.references === undefined) {
+          const err10 = {
+            instancePath: instancePath + "/result",
+            schemaPath: "#/components/schemas/workers_Worker/required",
+            keyword: "required",
+            params: { missingProperty: "references" },
+            message: "must have required property '" + "references" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err10];
+          } else {
+            vErrors.push(err10);
+          }
+          errors++;
+        }
+        if (data0.created_on !== undefined) {
+          if (!(typeof data0.created_on === "string")) {
+            const err11 = {
+              instancePath: instancePath + "/result/created_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/created_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err11];
+            } else {
+              vErrors.push(err11);
+            }
+            errors++;
+          }
+        }
+        if (data0.deployed_on !== undefined) {
+          let data2 = data0.deployed_on;
+          if (typeof data2 !== "string" && data2 !== null) {
+            const err12 = {
+              instancePath: instancePath + "/result/deployed_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/deployed_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err12];
+            } else {
+              vErrors.push(err12);
+            }
+            errors++;
+          }
+        }
+        if (data0.id !== undefined) {
+          if (typeof data0.id !== "string") {
+            const err13 = {
+              instancePath: instancePath + "/result/id",
+              schemaPath: "#/components/schemas/workers_Worker/properties/id/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err13];
+            } else {
+              vErrors.push(err13);
+            }
+            errors++;
+          }
+        }
+        if (data0.logpush !== undefined) {
+          if (typeof data0.logpush !== "boolean") {
+            const err14 = {
+              instancePath: instancePath + "/result/logpush",
+              schemaPath: "#/components/schemas/workers_Worker/properties/logpush/type",
+              keyword: "type",
+              params: { type: "boolean" },
+              message: "must be boolean",
+            };
+            if (vErrors === null) {
+              vErrors = [err14];
+            } else {
+              vErrors.push(err14);
+            }
+            errors++;
+          }
+        }
+        if (data0.name !== undefined) {
+          let data5 = data0.name;
+          if (typeof data5 === "string") {
+            if (!pattern9.test(data5)) {
+              const err15 = {
+                instancePath: instancePath + "/result/name",
+                schemaPath: "#/components/schemas/workers_Worker/properties/name/pattern",
+                keyword: "pattern",
+                params: { pattern: "^[a-z0-9_][a-z0-9-_]*$" },
+                message: 'must match pattern "' + "^[a-z0-9_][a-z0-9-_]*$" + '"',
+              };
+              if (vErrors === null) {
+                vErrors = [err15];
+              } else {
+                vErrors.push(err15);
+              }
+              errors++;
+            }
+          } else {
+            const err16 = {
+              instancePath: instancePath + "/result/name",
+              schemaPath: "#/components/schemas/workers_Worker/properties/name/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err16];
+            } else {
+              vErrors.push(err16);
+            }
+            errors++;
+          }
+        }
+        if (data0.observability !== undefined) {
+          let data6 = data0.observability;
+          if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
+            if (data6.enabled !== undefined) {
+              if (typeof data6.enabled !== "boolean") {
+                const err17 = {
+                  instancePath: instancePath + "/result/observability/enabled",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/enabled/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err17];
+                } else {
+                  vErrors.push(err17);
+                }
+                errors++;
+              }
+            }
+            if (data6.head_sampling_rate !== undefined) {
+              if (!(typeof data6.head_sampling_rate == "number")) {
+                const err18 = {
+                  instancePath: instancePath + "/result/observability/head_sampling_rate",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/head_sampling_rate/type",
+                  keyword: "type",
+                  params: { type: "number" },
+                  message: "must be number",
+                };
+                if (vErrors === null) {
+                  vErrors = [err18];
+                } else {
+                  vErrors.push(err18);
+                }
+                errors++;
+              }
+            }
+            if (data6.logs !== undefined) {
+              let data9 = data6.logs;
+              if (data9 && typeof data9 == "object" && !Array.isArray(data9)) {
+                if (data9.destinations !== undefined) {
+                  let data10 = data9.destinations;
+                  if (Array.isArray(data10)) {
+                    const len0 = data10.length;
+                    for (let i0 = 0; i0 < len0; i0++) {
+                      if (typeof data10[i0] !== "string") {
+                        const err19 = {
+                          instancePath:
+                            instancePath + "/result/observability/logs/destinations/" + i0,
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/items/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err19];
+                        } else {
+                          vErrors.push(err19);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err20 = {
+                      instancePath: instancePath + "/result/observability/logs/destinations",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/type",
+                      keyword: "type",
+                      params: { type: "array" },
+                      message: "must be array",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err20];
+                    } else {
+                      vErrors.push(err20);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.enabled !== undefined) {
+                  if (typeof data9.enabled !== "boolean") {
+                    const err21 = {
+                      instancePath: instancePath + "/result/observability/logs/enabled",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/enabled/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err21];
+                    } else {
+                      vErrors.push(err21);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.head_sampling_rate !== undefined) {
+                  if (!(typeof data9.head_sampling_rate == "number")) {
+                    const err22 = {
+                      instancePath: instancePath + "/result/observability/logs/head_sampling_rate",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/head_sampling_rate/type",
+                      keyword: "type",
+                      params: { type: "number" },
+                      message: "must be number",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err22];
+                    } else {
+                      vErrors.push(err22);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.invocation_logs !== undefined) {
+                  if (typeof data9.invocation_logs !== "boolean") {
+                    const err23 = {
+                      instancePath: instancePath + "/result/observability/logs/invocation_logs",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/invocation_logs/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err23];
+                    } else {
+                      vErrors.push(err23);
+                    }
+                    errors++;
+                  }
+                }
+                if (data9.persist !== undefined) {
+                  if (typeof data9.persist !== "boolean") {
+                    const err24 = {
+                      instancePath: instancePath + "/result/observability/logs/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err24];
+                    } else {
+                      vErrors.push(err24);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err25 = {
+                  instancePath: instancePath + "/result/observability/logs",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/logs/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err25];
+                } else {
+                  vErrors.push(err25);
+                }
+                errors++;
+              }
+            }
+            if (data6.traces !== undefined) {
+              let data16 = data6.traces;
+              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
+                if (data16.destinations !== undefined) {
+                  let data17 = data16.destinations;
+                  if (Array.isArray(data17)) {
+                    const len1 = data17.length;
+                    for (let i1 = 0; i1 < len1; i1++) {
+                      if (typeof data17[i1] !== "string") {
+                        const err26 = {
+                          instancePath:
+                            instancePath + "/result/observability/traces/destinations/" + i1,
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/items/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err26];
+                        } else {
+                          vErrors.push(err26);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err27 = {
+                      instancePath: instancePath + "/result/observability/traces/destinations",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
+                      keyword: "type",
+                      params: { type: "array" },
+                      message: "must be array",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err27];
+                    } else {
+                      vErrors.push(err27);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.enabled !== undefined) {
+                  if (typeof data16.enabled !== "boolean") {
+                    const err28 = {
+                      instancePath: instancePath + "/result/observability/traces/enabled",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err28];
+                    } else {
+                      vErrors.push(err28);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.head_sampling_rate !== undefined) {
+                  if (!(typeof data16.head_sampling_rate == "number")) {
+                    const err29 = {
+                      instancePath:
+                        instancePath + "/result/observability/traces/head_sampling_rate",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
+                      keyword: "type",
+                      params: { type: "number" },
+                      message: "must be number",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err29];
+                    } else {
+                      vErrors.push(err29);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.persist !== undefined) {
+                  if (typeof data16.persist !== "boolean") {
+                    const err30 = {
+                      instancePath: instancePath + "/result/observability/traces/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err30];
+                    } else {
+                      vErrors.push(err30);
+                    }
+                    errors++;
+                  }
+                }
+                if (data16.propagation_policy !== undefined) {
+                  let data22 = data16.propagation_policy;
+                  if (typeof data22 !== "string") {
+                    const err31 = {
+                      instancePath:
+                        instancePath + "/result/observability/traces/propagation_policy",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err31];
+                    } else {
+                      vErrors.push(err31);
+                    }
+                    errors++;
+                  }
+                  if (!(data22 === "authenticated" || data22 === "accept")) {
+                    const err32 = {
+                      instancePath:
+                        instancePath + "/result/observability/traces/propagation_policy",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/enum",
+                      keyword: "enum",
+                      params: {
+                        allowedValues:
+                          schema541.properties.observability.properties.traces.properties
+                            .propagation_policy.enum,
+                      },
+                      message: "must be equal to one of the allowed values",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err32];
+                    } else {
+                      vErrors.push(err32);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err33 = {
+                  instancePath: instancePath + "/result/observability/traces",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err33];
+                } else {
+                  vErrors.push(err33);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err34 = {
+              instancePath: instancePath + "/result/observability",
+              schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err34];
+            } else {
+              vErrors.push(err34);
+            }
+            errors++;
+          }
+        }
+        if (data0.references !== undefined) {
+          let data23 = data0.references;
+          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
+            if (data23.workers === undefined) {
+              const err35 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "workers" },
+                message: "must have required property '" + "workers" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err35];
+              } else {
+                vErrors.push(err35);
+              }
+              errors++;
+            }
+            if (data23.domains === undefined) {
+              const err36 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "domains" },
+                message: "must have required property '" + "domains" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err36];
+              } else {
+                vErrors.push(err36);
+              }
+              errors++;
+            }
+            if (data23.dispatch_namespace_outbounds === undefined) {
+              const err37 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "dispatch_namespace_outbounds" },
+                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err37];
+              } else {
+                vErrors.push(err37);
+              }
+              errors++;
+            }
+            if (data23.durable_objects === undefined) {
+              const err38 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "durable_objects" },
+                message: "must have required property '" + "durable_objects" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err38];
+              } else {
+                vErrors.push(err38);
+              }
+              errors++;
+            }
+            if (data23.queues === undefined) {
+              const err39 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "queues" },
+                message: "must have required property '" + "queues" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err39];
+              } else {
+                vErrors.push(err39);
+              }
+              errors++;
+            }
+            if (data23.dispatch_namespace_outbounds !== undefined) {
+              let data24 = data23.dispatch_namespace_outbounds;
+              if (Array.isArray(data24)) {
+                const len2 = data24.length;
+                for (let i2 = 0; i2 < len2; i2++) {
+                  let data25 = data24[i2];
+                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
+                    if (data25.worker_id === undefined) {
+                      const err40 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_id" },
+                        message: "must have required property '" + "worker_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err40];
+                      } else {
+                        vErrors.push(err40);
+                      }
+                      errors++;
+                    }
+                    if (data25.worker_name === undefined) {
+                      const err41 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_name" },
+                        message: "must have required property '" + "worker_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err41];
+                      } else {
+                        vErrors.push(err41);
+                      }
+                      errors++;
+                    }
+                    if (data25.namespace_id === undefined) {
+                      const err42 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_id" },
+                        message: "must have required property '" + "namespace_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err42];
+                      } else {
+                        vErrors.push(err42);
+                      }
+                      errors++;
+                    }
+                    if (data25.namespace_name === undefined) {
+                      const err43 = {
+                        instancePath:
+                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_name" },
+                        message: "must have required property '" + "namespace_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err43];
+                      } else {
+                        vErrors.push(err43);
+                      }
+                      errors++;
+                    }
+                    if (data25.namespace_id !== undefined) {
+                      if (typeof data25.namespace_id !== "string") {
+                        const err44 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/namespace_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err44];
+                        } else {
+                          vErrors.push(err44);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data25.namespace_name !== undefined) {
+                      if (typeof data25.namespace_name !== "string") {
+                        const err45 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/namespace_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err45];
+                        } else {
+                          vErrors.push(err45);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data25.worker_id !== undefined) {
+                      if (typeof data25.worker_id !== "string") {
+                        const err46 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/worker_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err46];
+                        } else {
+                          vErrors.push(err46);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data25.worker_name !== undefined) {
+                      if (typeof data25.worker_name !== "string") {
+                        const err47 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/dispatch_namespace_outbounds/" +
+                            i2 +
+                            "/worker_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err47];
+                        } else {
+                          vErrors.push(err47);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err48 = {
+                      instancePath:
+                        instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err48];
+                    } else {
+                      vErrors.push(err48);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err49 = {
+                  instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err49];
+                } else {
+                  vErrors.push(err49);
+                }
+                errors++;
+              }
+            }
+            if (data23.domains !== undefined) {
+              let data30 = data23.domains;
+              if (Array.isArray(data30)) {
+                const len3 = data30.length;
+                for (let i3 = 0; i3 < len3; i3++) {
+                  let data31 = data30[i3];
+                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
+                    if (data31.id === undefined) {
+                      const err50 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "id" },
+                        message: "must have required property '" + "id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err50];
+                      } else {
+                        vErrors.push(err50);
+                      }
+                      errors++;
+                    }
+                    if (data31.hostname === undefined) {
+                      const err51 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "hostname" },
+                        message: "must have required property '" + "hostname" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err51];
+                      } else {
+                        vErrors.push(err51);
+                      }
+                      errors++;
+                    }
+                    if (data31.zone_id === undefined) {
+                      const err52 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "zone_id" },
+                        message: "must have required property '" + "zone_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err52];
+                      } else {
+                        vErrors.push(err52);
+                      }
+                      errors++;
+                    }
+                    if (data31.zone_name === undefined) {
+                      const err53 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "zone_name" },
+                        message: "must have required property '" + "zone_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err53];
+                      } else {
+                        vErrors.push(err53);
+                      }
+                      errors++;
+                    }
+                    if (data31.certificate_id === undefined) {
+                      const err54 = {
+                        instancePath: instancePath + "/result/references/domains/" + i3,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "certificate_id" },
+                        message: "must have required property '" + "certificate_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err54];
+                      } else {
+                        vErrors.push(err54);
+                      }
+                      errors++;
+                    }
+                    if (data31.certificate_id !== undefined) {
+                      if (typeof data31.certificate_id !== "string") {
+                        const err55 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/certificate_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err55];
+                        } else {
+                          vErrors.push(err55);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.hostname !== undefined) {
+                      if (typeof data31.hostname !== "string") {
+                        const err56 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/hostname",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err56];
+                        } else {
+                          vErrors.push(err56);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.id !== undefined) {
+                      if (typeof data31.id !== "string") {
+                        const err57 = {
+                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err57];
+                        } else {
+                          vErrors.push(err57);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.zone_id !== undefined) {
+                      if (typeof data31.zone_id !== "string") {
+                        const err58 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err58];
+                        } else {
+                          vErrors.push(err58);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data31.zone_name !== undefined) {
+                      if (typeof data31.zone_name !== "string") {
+                        const err59 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err59];
+                        } else {
+                          vErrors.push(err59);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err60 = {
+                      instancePath: instancePath + "/result/references/domains/" + i3,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err60];
+                    } else {
+                      vErrors.push(err60);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err61 = {
+                  instancePath: instancePath + "/result/references/domains",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err61];
+                } else {
+                  vErrors.push(err61);
+                }
+                errors++;
+              }
+            }
+            if (data23.durable_objects !== undefined) {
+              let data37 = data23.durable_objects;
+              if (Array.isArray(data37)) {
+                const len4 = data37.length;
+                for (let i4 = 0; i4 < len4; i4++) {
+                  let data38 = data37[i4];
+                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
+                    if (data38.worker_id === undefined) {
+                      const err62 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_id" },
+                        message: "must have required property '" + "worker_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err62];
+                      } else {
+                        vErrors.push(err62);
+                      }
+                      errors++;
+                    }
+                    if (data38.worker_name === undefined) {
+                      const err63 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "worker_name" },
+                        message: "must have required property '" + "worker_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err63];
+                      } else {
+                        vErrors.push(err63);
+                      }
+                      errors++;
+                    }
+                    if (data38.namespace_id === undefined) {
+                      const err64 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_id" },
+                        message: "must have required property '" + "namespace_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err64];
+                      } else {
+                        vErrors.push(err64);
+                      }
+                      errors++;
+                    }
+                    if (data38.namespace_name === undefined) {
+                      const err65 = {
+                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "namespace_name" },
+                        message: "must have required property '" + "namespace_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err65];
+                      } else {
+                        vErrors.push(err65);
+                      }
+                      errors++;
+                    }
+                    if (data38.namespace_id !== undefined) {
+                      if (typeof data38.namespace_id !== "string") {
+                        const err66 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/namespace_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err66];
+                        } else {
+                          vErrors.push(err66);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data38.namespace_name !== undefined) {
+                      if (typeof data38.namespace_name !== "string") {
+                        const err67 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/namespace_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err67];
+                        } else {
+                          vErrors.push(err67);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data38.worker_id !== undefined) {
+                      if (typeof data38.worker_id !== "string") {
+                        const err68 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/worker_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err68];
+                        } else {
+                          vErrors.push(err68);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data38.worker_name !== undefined) {
+                      if (typeof data38.worker_name !== "string") {
+                        const err69 = {
+                          instancePath:
+                            instancePath +
+                            "/result/references/durable_objects/" +
+                            i4 +
+                            "/worker_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err69];
+                        } else {
+                          vErrors.push(err69);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err70 = {
+                      instancePath: instancePath + "/result/references/durable_objects/" + i4,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err70];
+                    } else {
+                      vErrors.push(err70);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err71 = {
+                  instancePath: instancePath + "/result/references/durable_objects",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err71];
+                } else {
+                  vErrors.push(err71);
+                }
+                errors++;
+              }
+            }
+            if (data23.queues !== undefined) {
+              let data43 = data23.queues;
+              if (Array.isArray(data43)) {
+                const len5 = data43.length;
+                for (let i5 = 0; i5 < len5; i5++) {
+                  let data44 = data43[i5];
+                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
+                    if (data44.queue_id === undefined) {
+                      const err72 = {
+                        instancePath: instancePath + "/result/references/queues/" + i5,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "queue_id" },
+                        message: "must have required property '" + "queue_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err72];
+                      } else {
+                        vErrors.push(err72);
+                      }
+                      errors++;
+                    }
+                    if (data44.queue_name === undefined) {
+                      const err73 = {
+                        instancePath: instancePath + "/result/references/queues/" + i5,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "queue_name" },
+                        message: "must have required property '" + "queue_name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err73];
+                      } else {
+                        vErrors.push(err73);
+                      }
+                      errors++;
+                    }
+                    if (data44.queue_consumer_id === undefined) {
+                      const err74 = {
+                        instancePath: instancePath + "/result/references/queues/" + i5,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "queue_consumer_id" },
+                        message: "must have required property '" + "queue_consumer_id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err74];
+                      } else {
+                        vErrors.push(err74);
+                      }
+                      errors++;
+                    }
+                    if (data44.queue_consumer_id !== undefined) {
+                      if (typeof data44.queue_consumer_id !== "string") {
+                        const err75 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err75];
+                        } else {
+                          vErrors.push(err75);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data44.queue_id !== undefined) {
+                      if (typeof data44.queue_id !== "string") {
+                        const err76 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err76];
+                        } else {
+                          vErrors.push(err76);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data44.queue_name !== undefined) {
+                      if (typeof data44.queue_name !== "string") {
+                        const err77 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err77];
+                        } else {
+                          vErrors.push(err77);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err78 = {
+                      instancePath: instancePath + "/result/references/queues/" + i5,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err78];
+                    } else {
+                      vErrors.push(err78);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err79 = {
+                  instancePath: instancePath + "/result/references/queues",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err79];
+                } else {
+                  vErrors.push(err79);
+                }
+                errors++;
+              }
+            }
+            if (data23.workers !== undefined) {
+              let data48 = data23.workers;
+              if (Array.isArray(data48)) {
+                const len6 = data48.length;
+                for (let i6 = 0; i6 < len6; i6++) {
+                  let data49 = data48[i6];
+                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
+                    if (data49.id === undefined) {
+                      const err80 = {
+                        instancePath: instancePath + "/result/references/workers/" + i6,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "id" },
+                        message: "must have required property '" + "id" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err80];
+                      } else {
+                        vErrors.push(err80);
+                      }
+                      errors++;
+                    }
+                    if (data49.name === undefined) {
+                      const err81 = {
+                        instancePath: instancePath + "/result/references/workers/" + i6,
+                        schemaPath:
+                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
+                        keyword: "required",
+                        params: { missingProperty: "name" },
+                        message: "must have required property '" + "name" + "'",
+                      };
+                      if (vErrors === null) {
+                        vErrors = [err81];
+                      } else {
+                        vErrors.push(err81);
+                      }
+                      errors++;
+                    }
+                    if (data49.id !== undefined) {
+                      if (typeof data49.id !== "string") {
+                        const err82 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err82];
+                        } else {
+                          vErrors.push(err82);
+                        }
+                        errors++;
+                      }
+                    }
+                    if (data49.name !== undefined) {
+                      if (typeof data49.name !== "string") {
+                        const err83 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err83];
+                        } else {
+                          vErrors.push(err83);
+                        }
+                        errors++;
+                      }
+                    }
+                  } else {
+                    const err84 = {
+                      instancePath: instancePath + "/result/references/workers/" + i6,
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
+                      keyword: "type",
+                      params: { type: "object" },
+                      message: "must be object",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err84];
+                    } else {
+                      vErrors.push(err84);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err85 = {
+                  instancePath: instancePath + "/result/references/workers",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
+                  keyword: "type",
+                  params: { type: "array" },
+                  message: "must be array",
+                };
+                if (vErrors === null) {
+                  vErrors = [err85];
+                } else {
+                  vErrors.push(err85);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err86 = {
+              instancePath: instancePath + "/result/references",
+              schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err86];
+            } else {
+              vErrors.push(err86);
+            }
+            errors++;
+          }
+        }
+        if (data0.subdomain !== undefined) {
+          let data52 = data0.subdomain;
+          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
+            if (data52.enabled !== undefined) {
+              if (typeof data52.enabled !== "boolean") {
+                const err87 = {
+                  instancePath: instancePath + "/result/subdomain/enabled",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err87];
+                } else {
+                  vErrors.push(err87);
+                }
+                errors++;
+              }
+            }
+            if (data52.previews_enabled !== undefined) {
+              if (typeof data52.previews_enabled !== "boolean") {
+                const err88 = {
+                  instancePath: instancePath + "/result/subdomain/previews_enabled",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err88];
+                } else {
+                  vErrors.push(err88);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err89 = {
+              instancePath: instancePath + "/result/subdomain",
+              schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err89];
+            } else {
+              vErrors.push(err89);
+            }
+            errors++;
+          }
+        }
+        if (data0.tags !== undefined) {
+          let data55 = data0.tags;
+          if (Array.isArray(data55)) {
+            if (data55.length > 8) {
+              const err90 = {
+                instancePath: instancePath + "/result/tags",
+                schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
+                keyword: "maxItems",
+                params: { limit: 8 },
+                message: "must NOT have more than 8 items",
+              };
+              if (vErrors === null) {
+                vErrors = [err90];
+              } else {
+                vErrors.push(err90);
+              }
+              errors++;
+            }
+            const len7 = data55.length;
+            for (let i7 = 0; i7 < len7; i7++) {
+              let data56 = data55[i7];
+              if (typeof data56 === "string") {
+                if (func2(data56) > 1024) {
+                  const err91 = {
+                    instancePath: instancePath + "/result/tags/" + i7,
+                    schemaPath:
+                      "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
+                    keyword: "maxLength",
+                    params: { limit: 1024 },
+                    message: "must NOT have more than 1024 characters",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err91];
+                  } else {
+                    vErrors.push(err91);
+                  }
+                  errors++;
+                }
+                if (!pattern2.test(data56)) {
+                  const err92 = {
+                    instancePath: instancePath + "/result/tags/" + i7,
+                    schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
+                    keyword: "pattern",
+                    params: { pattern: "^[^,&]*$" },
+                    message: 'must match pattern "' + "^[^,&]*$" + '"',
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err92];
+                  } else {
+                    vErrors.push(err92);
+                  }
+                  errors++;
+                }
+              } else {
+                const err93 = {
+                  instancePath: instancePath + "/result/tags/" + i7,
+                  schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err93];
+                } else {
+                  vErrors.push(err93);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err94 = {
+              instancePath: instancePath + "/result/tags",
+              schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
+              keyword: "type",
+              params: { type: "array" },
+              message: "must be array",
+            };
+            if (vErrors === null) {
+              vErrors = [err94];
+            } else {
+              vErrors.push(err94);
+            }
+            errors++;
+          }
+        }
+        if (data0.tail_consumers !== undefined) {
+          let data57 = data0.tail_consumers;
+          if (Array.isArray(data57)) {
+            const len8 = data57.length;
+            for (let i8 = 0; i8 < len8; i8++) {
+              let data58 = data57[i8];
+              if (data58 && typeof data58 == "object" && !Array.isArray(data58)) {
+                if (data58.name === undefined) {
+                  const err95 = {
+                    instancePath: instancePath + "/result/tail_consumers/" + i8,
+                    schemaPath:
+                      "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
+                    keyword: "required",
+                    params: { missingProperty: "name" },
+                    message: "must have required property '" + "name" + "'",
+                  };
+                  if (vErrors === null) {
+                    vErrors = [err95];
+                  } else {
+                    vErrors.push(err95);
+                  }
+                  errors++;
+                }
+                if (data58.name !== undefined) {
+                  if (typeof data58.name !== "string") {
+                    const err96 = {
+                      instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err96];
+                    } else {
+                      vErrors.push(err96);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err97 = {
+                  instancePath: instancePath + "/result/tail_consumers/" + i8,
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
+                  keyword: "type",
+                  params: { type: "object" },
+                  message: "must be object",
+                };
+                if (vErrors === null) {
+                  vErrors = [err97];
+                } else {
+                  vErrors.push(err97);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err98 = {
+              instancePath: instancePath + "/result/tail_consumers",
+              schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
+              keyword: "type",
+              params: { type: "array" },
+              message: "must be array",
+            };
+            if (vErrors === null) {
+              vErrors = [err98];
+            } else {
+              vErrors.push(err98);
+            }
+            errors++;
+          }
+        }
+        if (data0.updated_on !== undefined) {
+          if (!(typeof data0.updated_on === "string")) {
+            const err99 = {
+              instancePath: instancePath + "/result/updated_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err99];
+            } else {
+              vErrors.push(err99);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err100 = {
+          instancePath: instancePath + "/result",
+          schemaPath: "#/components/schemas/workers_Worker/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err100];
+        } else {
+          vErrors.push(err100);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err101 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err101];
+    } else {
+      vErrors.push(err101);
+    }
+    errors++;
+  }
+  validate651.errors = vErrors;
+  return errors === 0;
+}
+validate651.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
 };
 function validate650(
   data,
@@ -66847,6 +69312,47 @@ function validate650(
     evaluated0.items = undefined;
   }
   if (
+    !validate651(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate651.errors : vErrors.concat(validate651.errors);
+    errors = vErrors.length;
+  }
+  validate650.errors = vErrors;
+  return errors === 0;
+}
+validate650.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvEditWorkerResponse = validate654;
+const schema552 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/patch/responses/200/content/application~1json/schema",
+};
+const schema553 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_Worker" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate655(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate655.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -67421,7 +69927,7 @@ function validate650(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema539.properties.observability.properties.traces.properties
+                          schema541.properties.observability.properties.traces.properties
                             .propagation_policy.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -68684,54 +71190,13 @@ function validate650(
     }
     errors++;
   }
-  validate650.errors = vErrors;
+  validate655.errors = vErrors;
   return errors === 0;
 }
-validate650.evaluated = {
+validate655.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate649(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate649.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate650(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate650.errors : vErrors.concat(validate650.errors);
-    errors = vErrors.length;
-  }
-  validate649.errors = vErrors;
-  return errors === 0;
-}
-validate649.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvEditWorkerResponse = validate653;
-const schema550 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/patch/responses/200/content/application~1json/schema",
-};
-const schema551 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_Worker" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
 };
 function validate654(
   data,
@@ -68747,6 +71212,47 @@ function validate654(
     evaluated0.items = undefined;
   }
   if (
+    !validate655(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate655.errors : vErrors.concat(validate655.errors);
+    errors = vErrors.length;
+  }
+  validate654.errors = vErrors;
+  return errors === 0;
+}
+validate654.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvUpdateWorkerResponse = validate658;
+const schema555 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/put/responses/200/content/application~1json/schema",
+};
+const schema556 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_Worker" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate659(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate659.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
     !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
     vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
@@ -69321,7 +71827,7 @@ function validate654(
                       keyword: "enum",
                       params: {
                         allowedValues:
-                          schema539.properties.observability.properties.traces.properties
+                          schema541.properties.observability.properties.traces.properties
                             .propagation_policy.enum,
                       },
                       message: "must be equal to one of the allowed values",
@@ -70584,54 +73090,13 @@ function validate654(
     }
     errors++;
   }
-  validate654.errors = vErrors;
+  validate659.errors = vErrors;
   return errors === 0;
 }
-validate654.evaluated = {
+validate659.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
-};
-function validate653(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate653.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate654(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate654.errors : vErrors.concat(validate654.errors);
-    errors = vErrors.length;
-  }
-  validate653.errors = vErrors;
-  return errors === 0;
-}
-validate653.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvUpdateWorkerResponse = validate657;
-const schema553 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/put/responses/200/content/application~1json/schema",
-};
-const schema554 = {
-  allOf: [
-    { $ref: "#/components/schemas/workers_api-response-common" },
-    {
-      properties: { result: { $ref: "#/components/schemas/workers_Worker" } },
-      required: ["result"],
-      type: "object",
-    },
-  ],
 };
 function validate658(
   data,
@@ -70647,1842 +73112,10 @@ function validate658(
     evaluated0.items = undefined;
   }
   if (
-    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate659(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    vErrors = vErrors === null ? validate659.errors : vErrors.concat(validate659.errors);
     errors = vErrors.length;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.result === undefined) {
-      const err0 = {
-        instancePath,
-        schemaPath: "#/allOf/1/required",
-        keyword: "required",
-        params: { missingProperty: "result" },
-        message: "must have required property '" + "result" + "'",
-      };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.result !== undefined) {
-      let data0 = data.result;
-      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
-        if (data0.id === undefined) {
-          const err1 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "id" },
-            message: "must have required property '" + "id" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err1];
-          } else {
-            vErrors.push(err1);
-          }
-          errors++;
-        }
-        if (data0.name === undefined) {
-          const err2 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "name" },
-            message: "must have required property '" + "name" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err2];
-          } else {
-            vErrors.push(err2);
-          }
-          errors++;
-        }
-        if (data0.tags === undefined) {
-          const err3 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "tags" },
-            message: "must have required property '" + "tags" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err3];
-          } else {
-            vErrors.push(err3);
-          }
-          errors++;
-        }
-        if (data0.subdomain === undefined) {
-          const err4 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "subdomain" },
-            message: "must have required property '" + "subdomain" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err4];
-          } else {
-            vErrors.push(err4);
-          }
-          errors++;
-        }
-        if (data0.observability === undefined) {
-          const err5 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "observability" },
-            message: "must have required property '" + "observability" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err5];
-          } else {
-            vErrors.push(err5);
-          }
-          errors++;
-        }
-        if (data0.logpush === undefined) {
-          const err6 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "logpush" },
-            message: "must have required property '" + "logpush" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err6];
-          } else {
-            vErrors.push(err6);
-          }
-          errors++;
-        }
-        if (data0.tail_consumers === undefined) {
-          const err7 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "tail_consumers" },
-            message: "must have required property '" + "tail_consumers" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err7];
-          } else {
-            vErrors.push(err7);
-          }
-          errors++;
-        }
-        if (data0.created_on === undefined) {
-          const err8 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "created_on" },
-            message: "must have required property '" + "created_on" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err8];
-          } else {
-            vErrors.push(err8);
-          }
-          errors++;
-        }
-        if (data0.updated_on === undefined) {
-          const err9 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "updated_on" },
-            message: "must have required property '" + "updated_on" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err9];
-          } else {
-            vErrors.push(err9);
-          }
-          errors++;
-        }
-        if (data0.references === undefined) {
-          const err10 = {
-            instancePath: instancePath + "/result",
-            schemaPath: "#/components/schemas/workers_Worker/required",
-            keyword: "required",
-            params: { missingProperty: "references" },
-            message: "must have required property '" + "references" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err10];
-          } else {
-            vErrors.push(err10);
-          }
-          errors++;
-        }
-        if (data0.created_on !== undefined) {
-          if (!(typeof data0.created_on === "string")) {
-            const err11 = {
-              instancePath: instancePath + "/result/created_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/created_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err11];
-            } else {
-              vErrors.push(err11);
-            }
-            errors++;
-          }
-        }
-        if (data0.deployed_on !== undefined) {
-          let data2 = data0.deployed_on;
-          if (typeof data2 !== "string" && data2 !== null) {
-            const err12 = {
-              instancePath: instancePath + "/result/deployed_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/deployed_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err12];
-            } else {
-              vErrors.push(err12);
-            }
-            errors++;
-          }
-        }
-        if (data0.id !== undefined) {
-          if (typeof data0.id !== "string") {
-            const err13 = {
-              instancePath: instancePath + "/result/id",
-              schemaPath: "#/components/schemas/workers_Worker/properties/id/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err13];
-            } else {
-              vErrors.push(err13);
-            }
-            errors++;
-          }
-        }
-        if (data0.logpush !== undefined) {
-          if (typeof data0.logpush !== "boolean") {
-            const err14 = {
-              instancePath: instancePath + "/result/logpush",
-              schemaPath: "#/components/schemas/workers_Worker/properties/logpush/type",
-              keyword: "type",
-              params: { type: "boolean" },
-              message: "must be boolean",
-            };
-            if (vErrors === null) {
-              vErrors = [err14];
-            } else {
-              vErrors.push(err14);
-            }
-            errors++;
-          }
-        }
-        if (data0.name !== undefined) {
-          let data5 = data0.name;
-          if (typeof data5 === "string") {
-            if (!pattern9.test(data5)) {
-              const err15 = {
-                instancePath: instancePath + "/result/name",
-                schemaPath: "#/components/schemas/workers_Worker/properties/name/pattern",
-                keyword: "pattern",
-                params: { pattern: "^[a-z0-9_][a-z0-9-_]*$" },
-                message: 'must match pattern "' + "^[a-z0-9_][a-z0-9-_]*$" + '"',
-              };
-              if (vErrors === null) {
-                vErrors = [err15];
-              } else {
-                vErrors.push(err15);
-              }
-              errors++;
-            }
-          } else {
-            const err16 = {
-              instancePath: instancePath + "/result/name",
-              schemaPath: "#/components/schemas/workers_Worker/properties/name/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err16];
-            } else {
-              vErrors.push(err16);
-            }
-            errors++;
-          }
-        }
-        if (data0.observability !== undefined) {
-          let data6 = data0.observability;
-          if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
-            if (data6.enabled !== undefined) {
-              if (typeof data6.enabled !== "boolean") {
-                const err17 = {
-                  instancePath: instancePath + "/result/observability/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err17];
-                } else {
-                  vErrors.push(err17);
-                }
-                errors++;
-              }
-            }
-            if (data6.head_sampling_rate !== undefined) {
-              if (!(typeof data6.head_sampling_rate == "number")) {
-                const err18 = {
-                  instancePath: instancePath + "/result/observability/head_sampling_rate",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/head_sampling_rate/type",
-                  keyword: "type",
-                  params: { type: "number" },
-                  message: "must be number",
-                };
-                if (vErrors === null) {
-                  vErrors = [err18];
-                } else {
-                  vErrors.push(err18);
-                }
-                errors++;
-              }
-            }
-            if (data6.logs !== undefined) {
-              let data9 = data6.logs;
-              if (data9 && typeof data9 == "object" && !Array.isArray(data9)) {
-                if (data9.destinations !== undefined) {
-                  let data10 = data9.destinations;
-                  if (Array.isArray(data10)) {
-                    const len0 = data10.length;
-                    for (let i0 = 0; i0 < len0; i0++) {
-                      if (typeof data10[i0] !== "string") {
-                        const err19 = {
-                          instancePath:
-                            instancePath + "/result/observability/logs/destinations/" + i0,
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/items/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err19];
-                        } else {
-                          vErrors.push(err19);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err20 = {
-                      instancePath: instancePath + "/result/observability/logs/destinations",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/destinations/type",
-                      keyword: "type",
-                      params: { type: "array" },
-                      message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err20];
-                    } else {
-                      vErrors.push(err20);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.enabled !== undefined) {
-                  if (typeof data9.enabled !== "boolean") {
-                    const err21 = {
-                      instancePath: instancePath + "/result/observability/logs/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err21];
-                    } else {
-                      vErrors.push(err21);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.head_sampling_rate !== undefined) {
-                  if (!(typeof data9.head_sampling_rate == "number")) {
-                    const err22 = {
-                      instancePath: instancePath + "/result/observability/logs/head_sampling_rate",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/head_sampling_rate/type",
-                      keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err22];
-                    } else {
-                      vErrors.push(err22);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.invocation_logs !== undefined) {
-                  if (typeof data9.invocation_logs !== "boolean") {
-                    const err23 = {
-                      instancePath: instancePath + "/result/observability/logs/invocation_logs",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/invocation_logs/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err23];
-                    } else {
-                      vErrors.push(err23);
-                    }
-                    errors++;
-                  }
-                }
-                if (data9.persist !== undefined) {
-                  if (typeof data9.persist !== "boolean") {
-                    const err24 = {
-                      instancePath: instancePath + "/result/observability/logs/persist",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/logs/properties/persist/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err24];
-                    } else {
-                      vErrors.push(err24);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err25 = {
-                  instancePath: instancePath + "/result/observability/logs",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/logs/type",
-                  keyword: "type",
-                  params: { type: "object" },
-                  message: "must be object",
-                };
-                if (vErrors === null) {
-                  vErrors = [err25];
-                } else {
-                  vErrors.push(err25);
-                }
-                errors++;
-              }
-            }
-            if (data6.traces !== undefined) {
-              let data16 = data6.traces;
-              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
-                if (data16.destinations !== undefined) {
-                  let data17 = data16.destinations;
-                  if (Array.isArray(data17)) {
-                    const len1 = data17.length;
-                    for (let i1 = 0; i1 < len1; i1++) {
-                      if (typeof data17[i1] !== "string") {
-                        const err26 = {
-                          instancePath:
-                            instancePath + "/result/observability/traces/destinations/" + i1,
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/items/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err26];
-                        } else {
-                          vErrors.push(err26);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err27 = {
-                      instancePath: instancePath + "/result/observability/traces/destinations",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
-                      keyword: "type",
-                      params: { type: "array" },
-                      message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err27];
-                    } else {
-                      vErrors.push(err27);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.enabled !== undefined) {
-                  if (typeof data16.enabled !== "boolean") {
-                    const err28 = {
-                      instancePath: instancePath + "/result/observability/traces/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err28];
-                    } else {
-                      vErrors.push(err28);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.head_sampling_rate !== undefined) {
-                  if (!(typeof data16.head_sampling_rate == "number")) {
-                    const err29 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/head_sampling_rate",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
-                      keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err29];
-                    } else {
-                      vErrors.push(err29);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.persist !== undefined) {
-                  if (typeof data16.persist !== "boolean") {
-                    const err30 = {
-                      instancePath: instancePath + "/result/observability/traces/persist",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err30];
-                    } else {
-                      vErrors.push(err30);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.propagation_policy !== undefined) {
-                  let data22 = data16.propagation_policy;
-                  if (typeof data22 !== "string") {
-                    const err31 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/propagation_policy",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err31];
-                    } else {
-                      vErrors.push(err31);
-                    }
-                    errors++;
-                  }
-                  if (!(data22 === "authenticated" || data22 === "accept")) {
-                    const err32 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/propagation_policy",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/propagation_policy/enum",
-                      keyword: "enum",
-                      params: {
-                        allowedValues:
-                          schema539.properties.observability.properties.traces.properties
-                            .propagation_policy.enum,
-                      },
-                      message: "must be equal to one of the allowed values",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err32];
-                    } else {
-                      vErrors.push(err32);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err33 = {
-                  instancePath: instancePath + "/result/observability/traces",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
-                  keyword: "type",
-                  params: { type: "object" },
-                  message: "must be object",
-                };
-                if (vErrors === null) {
-                  vErrors = [err33];
-                } else {
-                  vErrors.push(err33);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err34 = {
-              instancePath: instancePath + "/result/observability",
-              schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err34];
-            } else {
-              vErrors.push(err34);
-            }
-            errors++;
-          }
-        }
-        if (data0.references !== undefined) {
-          let data23 = data0.references;
-          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
-            if (data23.workers === undefined) {
-              const err35 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "workers" },
-                message: "must have required property '" + "workers" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err35];
-              } else {
-                vErrors.push(err35);
-              }
-              errors++;
-            }
-            if (data23.domains === undefined) {
-              const err36 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "domains" },
-                message: "must have required property '" + "domains" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err36];
-              } else {
-                vErrors.push(err36);
-              }
-              errors++;
-            }
-            if (data23.dispatch_namespace_outbounds === undefined) {
-              const err37 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "dispatch_namespace_outbounds" },
-                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err37];
-              } else {
-                vErrors.push(err37);
-              }
-              errors++;
-            }
-            if (data23.durable_objects === undefined) {
-              const err38 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "durable_objects" },
-                message: "must have required property '" + "durable_objects" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err38];
-              } else {
-                vErrors.push(err38);
-              }
-              errors++;
-            }
-            if (data23.queues === undefined) {
-              const err39 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "queues" },
-                message: "must have required property '" + "queues" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err39];
-              } else {
-                vErrors.push(err39);
-              }
-              errors++;
-            }
-            if (data23.dispatch_namespace_outbounds !== undefined) {
-              let data24 = data23.dispatch_namespace_outbounds;
-              if (Array.isArray(data24)) {
-                const len2 = data24.length;
-                for (let i2 = 0; i2 < len2; i2++) {
-                  let data25 = data24[i2];
-                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-                    if (data25.worker_id === undefined) {
-                      const err40 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_id" },
-                        message: "must have required property '" + "worker_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err40];
-                      } else {
-                        vErrors.push(err40);
-                      }
-                      errors++;
-                    }
-                    if (data25.worker_name === undefined) {
-                      const err41 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_name" },
-                        message: "must have required property '" + "worker_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err41];
-                      } else {
-                        vErrors.push(err41);
-                      }
-                      errors++;
-                    }
-                    if (data25.namespace_id === undefined) {
-                      const err42 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_id" },
-                        message: "must have required property '" + "namespace_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err42];
-                      } else {
-                        vErrors.push(err42);
-                      }
-                      errors++;
-                    }
-                    if (data25.namespace_name === undefined) {
-                      const err43 = {
-                        instancePath:
-                          instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_name" },
-                        message: "must have required property '" + "namespace_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err43];
-                      } else {
-                        vErrors.push(err43);
-                      }
-                      errors++;
-                    }
-                    if (data25.namespace_id !== undefined) {
-                      if (typeof data25.namespace_id !== "string") {
-                        const err44 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/namespace_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err44];
-                        } else {
-                          vErrors.push(err44);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data25.namespace_name !== undefined) {
-                      if (typeof data25.namespace_name !== "string") {
-                        const err45 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/namespace_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/namespace_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err45];
-                        } else {
-                          vErrors.push(err45);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data25.worker_id !== undefined) {
-                      if (typeof data25.worker_id !== "string") {
-                        const err46 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/worker_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err46];
-                        } else {
-                          vErrors.push(err46);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data25.worker_name !== undefined) {
-                      if (typeof data25.worker_name !== "string") {
-                        const err47 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/dispatch_namespace_outbounds/" +
-                            i2 +
-                            "/worker_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/properties/worker_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err47];
-                        } else {
-                          vErrors.push(err47);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err48 = {
-                      instancePath:
-                        instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err48];
-                    } else {
-                      vErrors.push(err48);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err49 = {
-                  instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err49];
-                } else {
-                  vErrors.push(err49);
-                }
-                errors++;
-              }
-            }
-            if (data23.domains !== undefined) {
-              let data30 = data23.domains;
-              if (Array.isArray(data30)) {
-                const len3 = data30.length;
-                for (let i3 = 0; i3 < len3; i3++) {
-                  let data31 = data30[i3];
-                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
-                    if (data31.id === undefined) {
-                      const err50 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "id" },
-                        message: "must have required property '" + "id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err50];
-                      } else {
-                        vErrors.push(err50);
-                      }
-                      errors++;
-                    }
-                    if (data31.hostname === undefined) {
-                      const err51 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "hostname" },
-                        message: "must have required property '" + "hostname" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err51];
-                      } else {
-                        vErrors.push(err51);
-                      }
-                      errors++;
-                    }
-                    if (data31.zone_id === undefined) {
-                      const err52 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "zone_id" },
-                        message: "must have required property '" + "zone_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err52];
-                      } else {
-                        vErrors.push(err52);
-                      }
-                      errors++;
-                    }
-                    if (data31.zone_name === undefined) {
-                      const err53 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "zone_name" },
-                        message: "must have required property '" + "zone_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err53];
-                      } else {
-                        vErrors.push(err53);
-                      }
-                      errors++;
-                    }
-                    if (data31.certificate_id === undefined) {
-                      const err54 = {
-                        instancePath: instancePath + "/result/references/domains/" + i3,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "certificate_id" },
-                        message: "must have required property '" + "certificate_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err54];
-                      } else {
-                        vErrors.push(err54);
-                      }
-                      errors++;
-                    }
-                    if (data31.certificate_id !== undefined) {
-                      if (typeof data31.certificate_id !== "string") {
-                        const err55 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/certificate_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err55];
-                        } else {
-                          vErrors.push(err55);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.hostname !== undefined) {
-                      if (typeof data31.hostname !== "string") {
-                        const err56 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/hostname",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err56];
-                        } else {
-                          vErrors.push(err56);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.id !== undefined) {
-                      if (typeof data31.id !== "string") {
-                        const err57 = {
-                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err57];
-                        } else {
-                          vErrors.push(err57);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.zone_id !== undefined) {
-                      if (typeof data31.zone_id !== "string") {
-                        const err58 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err58];
-                        } else {
-                          vErrors.push(err58);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.zone_name !== undefined) {
-                      if (typeof data31.zone_name !== "string") {
-                        const err59 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err59];
-                        } else {
-                          vErrors.push(err59);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err60 = {
-                      instancePath: instancePath + "/result/references/domains/" + i3,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err60];
-                    } else {
-                      vErrors.push(err60);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err61 = {
-                  instancePath: instancePath + "/result/references/domains",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err61];
-                } else {
-                  vErrors.push(err61);
-                }
-                errors++;
-              }
-            }
-            if (data23.durable_objects !== undefined) {
-              let data37 = data23.durable_objects;
-              if (Array.isArray(data37)) {
-                const len4 = data37.length;
-                for (let i4 = 0; i4 < len4; i4++) {
-                  let data38 = data37[i4];
-                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-                    if (data38.worker_id === undefined) {
-                      const err62 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_id" },
-                        message: "must have required property '" + "worker_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err62];
-                      } else {
-                        vErrors.push(err62);
-                      }
-                      errors++;
-                    }
-                    if (data38.worker_name === undefined) {
-                      const err63 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "worker_name" },
-                        message: "must have required property '" + "worker_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err63];
-                      } else {
-                        vErrors.push(err63);
-                      }
-                      errors++;
-                    }
-                    if (data38.namespace_id === undefined) {
-                      const err64 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_id" },
-                        message: "must have required property '" + "namespace_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err64];
-                      } else {
-                        vErrors.push(err64);
-                      }
-                      errors++;
-                    }
-                    if (data38.namespace_name === undefined) {
-                      const err65 = {
-                        instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "namespace_name" },
-                        message: "must have required property '" + "namespace_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err65];
-                      } else {
-                        vErrors.push(err65);
-                      }
-                      errors++;
-                    }
-                    if (data38.namespace_id !== undefined) {
-                      if (typeof data38.namespace_id !== "string") {
-                        const err66 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/namespace_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err66];
-                        } else {
-                          vErrors.push(err66);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data38.namespace_name !== undefined) {
-                      if (typeof data38.namespace_name !== "string") {
-                        const err67 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/namespace_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/namespace_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err67];
-                        } else {
-                          vErrors.push(err67);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data38.worker_id !== undefined) {
-                      if (typeof data38.worker_id !== "string") {
-                        const err68 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/worker_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err68];
-                        } else {
-                          vErrors.push(err68);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data38.worker_name !== undefined) {
-                      if (typeof data38.worker_name !== "string") {
-                        const err69 = {
-                          instancePath:
-                            instancePath +
-                            "/result/references/durable_objects/" +
-                            i4 +
-                            "/worker_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/properties/worker_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err69];
-                        } else {
-                          vErrors.push(err69);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err70 = {
-                      instancePath: instancePath + "/result/references/durable_objects/" + i4,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err70];
-                    } else {
-                      vErrors.push(err70);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err71 = {
-                  instancePath: instancePath + "/result/references/durable_objects",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err71];
-                } else {
-                  vErrors.push(err71);
-                }
-                errors++;
-              }
-            }
-            if (data23.queues !== undefined) {
-              let data43 = data23.queues;
-              if (Array.isArray(data43)) {
-                const len5 = data43.length;
-                for (let i5 = 0; i5 < len5; i5++) {
-                  let data44 = data43[i5];
-                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
-                    if (data44.queue_id === undefined) {
-                      const err72 = {
-                        instancePath: instancePath + "/result/references/queues/" + i5,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "queue_id" },
-                        message: "must have required property '" + "queue_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err72];
-                      } else {
-                        vErrors.push(err72);
-                      }
-                      errors++;
-                    }
-                    if (data44.queue_name === undefined) {
-                      const err73 = {
-                        instancePath: instancePath + "/result/references/queues/" + i5,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "queue_name" },
-                        message: "must have required property '" + "queue_name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err73];
-                      } else {
-                        vErrors.push(err73);
-                      }
-                      errors++;
-                    }
-                    if (data44.queue_consumer_id === undefined) {
-                      const err74 = {
-                        instancePath: instancePath + "/result/references/queues/" + i5,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "queue_consumer_id" },
-                        message: "must have required property '" + "queue_consumer_id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err74];
-                      } else {
-                        vErrors.push(err74);
-                      }
-                      errors++;
-                    }
-                    if (data44.queue_consumer_id !== undefined) {
-                      if (typeof data44.queue_consumer_id !== "string") {
-                        const err75 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err75];
-                        } else {
-                          vErrors.push(err75);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_id !== undefined) {
-                      if (typeof data44.queue_id !== "string") {
-                        const err76 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err76];
-                        } else {
-                          vErrors.push(err76);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_name !== undefined) {
-                      if (typeof data44.queue_name !== "string") {
-                        const err77 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err77];
-                        } else {
-                          vErrors.push(err77);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err78 = {
-                      instancePath: instancePath + "/result/references/queues/" + i5,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err78];
-                    } else {
-                      vErrors.push(err78);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err79 = {
-                  instancePath: instancePath + "/result/references/queues",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err79];
-                } else {
-                  vErrors.push(err79);
-                }
-                errors++;
-              }
-            }
-            if (data23.workers !== undefined) {
-              let data48 = data23.workers;
-              if (Array.isArray(data48)) {
-                const len6 = data48.length;
-                for (let i6 = 0; i6 < len6; i6++) {
-                  let data49 = data48[i6];
-                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
-                    if (data49.id === undefined) {
-                      const err80 = {
-                        instancePath: instancePath + "/result/references/workers/" + i6,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "id" },
-                        message: "must have required property '" + "id" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err80];
-                      } else {
-                        vErrors.push(err80);
-                      }
-                      errors++;
-                    }
-                    if (data49.name === undefined) {
-                      const err81 = {
-                        instancePath: instancePath + "/result/references/workers/" + i6,
-                        schemaPath:
-                          "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
-                        keyword: "required",
-                        params: { missingProperty: "name" },
-                        message: "must have required property '" + "name" + "'",
-                      };
-                      if (vErrors === null) {
-                        vErrors = [err81];
-                      } else {
-                        vErrors.push(err81);
-                      }
-                      errors++;
-                    }
-                    if (data49.id !== undefined) {
-                      if (typeof data49.id !== "string") {
-                        const err82 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err82];
-                        } else {
-                          vErrors.push(err82);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data49.name !== undefined) {
-                      if (typeof data49.name !== "string") {
-                        const err83 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err83];
-                        } else {
-                          vErrors.push(err83);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err84 = {
-                      instancePath: instancePath + "/result/references/workers/" + i6,
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
-                      keyword: "type",
-                      params: { type: "object" },
-                      message: "must be object",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err84];
-                    } else {
-                      vErrors.push(err84);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err85 = {
-                  instancePath: instancePath + "/result/references/workers",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
-                  keyword: "type",
-                  params: { type: "array" },
-                  message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err85];
-                } else {
-                  vErrors.push(err85);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err86 = {
-              instancePath: instancePath + "/result/references",
-              schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err86];
-            } else {
-              vErrors.push(err86);
-            }
-            errors++;
-          }
-        }
-        if (data0.subdomain !== undefined) {
-          let data52 = data0.subdomain;
-          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
-            if (data52.enabled !== undefined) {
-              if (typeof data52.enabled !== "boolean") {
-                const err87 = {
-                  instancePath: instancePath + "/result/subdomain/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err87];
-                } else {
-                  vErrors.push(err87);
-                }
-                errors++;
-              }
-            }
-            if (data52.previews_enabled !== undefined) {
-              if (typeof data52.previews_enabled !== "boolean") {
-                const err88 = {
-                  instancePath: instancePath + "/result/subdomain/previews_enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err88];
-                } else {
-                  vErrors.push(err88);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err89 = {
-              instancePath: instancePath + "/result/subdomain",
-              schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
-              keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
-            };
-            if (vErrors === null) {
-              vErrors = [err89];
-            } else {
-              vErrors.push(err89);
-            }
-            errors++;
-          }
-        }
-        if (data0.tags !== undefined) {
-          let data55 = data0.tags;
-          if (Array.isArray(data55)) {
-            if (data55.length > 8) {
-              const err90 = {
-                instancePath: instancePath + "/result/tags",
-                schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
-                keyword: "maxItems",
-                params: { limit: 8 },
-                message: "must NOT have more than 8 items",
-              };
-              if (vErrors === null) {
-                vErrors = [err90];
-              } else {
-                vErrors.push(err90);
-              }
-              errors++;
-            }
-            const len7 = data55.length;
-            for (let i7 = 0; i7 < len7; i7++) {
-              let data56 = data55[i7];
-              if (typeof data56 === "string") {
-                if (func2(data56) > 1024) {
-                  const err91 = {
-                    instancePath: instancePath + "/result/tags/" + i7,
-                    schemaPath:
-                      "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
-                    keyword: "maxLength",
-                    params: { limit: 1024 },
-                    message: "must NOT have more than 1024 characters",
-                  };
-                  if (vErrors === null) {
-                    vErrors = [err91];
-                  } else {
-                    vErrors.push(err91);
-                  }
-                  errors++;
-                }
-                if (!pattern2.test(data56)) {
-                  const err92 = {
-                    instancePath: instancePath + "/result/tags/" + i7,
-                    schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
-                    keyword: "pattern",
-                    params: { pattern: "^[^,&]*$" },
-                    message: 'must match pattern "' + "^[^,&]*$" + '"',
-                  };
-                  if (vErrors === null) {
-                    vErrors = [err92];
-                  } else {
-                    vErrors.push(err92);
-                  }
-                  errors++;
-                }
-              } else {
-                const err93 = {
-                  instancePath: instancePath + "/result/tags/" + i7,
-                  schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err93];
-                } else {
-                  vErrors.push(err93);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err94 = {
-              instancePath: instancePath + "/result/tags",
-              schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
-              keyword: "type",
-              params: { type: "array" },
-              message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err94];
-            } else {
-              vErrors.push(err94);
-            }
-            errors++;
-          }
-        }
-        if (data0.tail_consumers !== undefined) {
-          let data57 = data0.tail_consumers;
-          if (Array.isArray(data57)) {
-            const len8 = data57.length;
-            for (let i8 = 0; i8 < len8; i8++) {
-              let data58 = data57[i8];
-              if (data58 && typeof data58 == "object" && !Array.isArray(data58)) {
-                if (data58.name === undefined) {
-                  const err95 = {
-                    instancePath: instancePath + "/result/tail_consumers/" + i8,
-                    schemaPath:
-                      "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
-                    keyword: "required",
-                    params: { missingProperty: "name" },
-                    message: "must have required property '" + "name" + "'",
-                  };
-                  if (vErrors === null) {
-                    vErrors = [err95];
-                  } else {
-                    vErrors.push(err95);
-                  }
-                  errors++;
-                }
-                if (data58.name !== undefined) {
-                  if (typeof data58.name !== "string") {
-                    const err96 = {
-                      instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err96];
-                    } else {
-                      vErrors.push(err96);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err97 = {
-                  instancePath: instancePath + "/result/tail_consumers/" + i8,
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
-                  keyword: "type",
-                  params: { type: "object" },
-                  message: "must be object",
-                };
-                if (vErrors === null) {
-                  vErrors = [err97];
-                } else {
-                  vErrors.push(err97);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err98 = {
-              instancePath: instancePath + "/result/tail_consumers",
-              schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
-              keyword: "type",
-              params: { type: "array" },
-              message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err98];
-            } else {
-              vErrors.push(err98);
-            }
-            errors++;
-          }
-        }
-        if (data0.updated_on !== undefined) {
-          if (!(typeof data0.updated_on === "string")) {
-            const err99 = {
-              instancePath: instancePath + "/result/updated_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err99];
-            } else {
-              vErrors.push(err99);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err100 = {
-          instancePath: instancePath + "/result",
-          schemaPath: "#/components/schemas/workers_Worker/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err100];
-        } else {
-          vErrors.push(err100);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err101 = {
-      instancePath,
-      schemaPath: "#/allOf/1/type",
-      keyword: "type",
-      params: { type: "object" },
-      message: "must be object",
-    };
-    if (vErrors === null) {
-      vErrors = [err101];
-    } else {
-      vErrors.push(err101);
-    }
-    errors++;
   }
   validate658.errors = vErrors;
   return errors === 0;
@@ -72492,38 +73125,11 @@ validate658.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate657(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate657.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate658(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate658.errors : vErrors.concat(validate658.errors);
-    errors = vErrors.length;
-  }
-  validate657.errors = vErrors;
-  return errors === 0;
-}
-validate657.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvListWorkerVersionsResponse = validate661;
-const schema556 = {
+export const ajvListWorkerVersionsResponse = validate662;
+const schema558 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/get/responses/200/content/application~1json/schema",
 };
-const schema557 = {
+const schema559 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-collection" },
     {
@@ -72535,7 +73141,7 @@ const schema557 = {
     },
   ],
 };
-const schema558 = {
+const schema560 = {
   properties: {
     annotations: {
       description: "Metadata about the version.",
@@ -72740,7 +73346,7 @@ const schema558 = {
   required: ["id", "number", "urls", "created_on"],
   type: "object",
 };
-const schema560 = {
+const schema562 = {
   description:
     "List of containers attached to a Worker. Containers can only be attached to Durable Object classes of this Worker script.",
   example: [{ class_name: "MyDurableObject" }],
@@ -72748,7 +73354,7 @@ const schema560 = {
   type: "array",
   "x-stainless-collection-type": "set",
 };
-const schema561 = {
+const schema563 = {
   description: "Container configuration for a Worker.",
   properties: {
     class_name: {
@@ -72760,13 +73366,13 @@ const schema561 = {
   required: ["class_name"],
   type: "object",
 };
-function validate667(
+function validate668(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate667.evaluated;
+  const evaluated0 = validate668.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -72841,17 +73447,17 @@ function validate667(
     }
     errors++;
   }
-  validate667.errors = vErrors;
+  validate668.errors = vErrors;
   return errors === 0;
 }
-validate667.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
-function validate664(
+validate668.evaluated = { items: true, dynamicProps: false, dynamicItems: false };
+function validate665(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate664.evaluated;
+  const evaluated0 = validate665.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -73060,7 +73666,7 @@ function validate664(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema558.properties.assets.properties.config.properties.html_handling.enum,
+                      schema560.properties.assets.properties.config.properties.html_handling.enum,
                   },
                   message: "must be equal to one of the allowed values",
                 };
@@ -73100,7 +73706,7 @@ function validate664(
                   keyword: "enum",
                   params: {
                     allowedValues:
-                      schema558.properties.assets.properties.config.properties.not_found_handling
+                      schema560.properties.assets.properties.config.properties.not_found_handling
                         .enum,
                   },
                   message: "must be equal to one of the allowed values",
@@ -73309,7 +73915,7 @@ function validate664(
     }
     if (data.containers !== undefined) {
       if (
-        !validate667(data.containers, {
+        !validate668(data.containers, {
           instancePath: instancePath + "/containers",
           parentData: data,
           parentDataProperty: "containers",
@@ -73317,7 +73923,7 @@ function validate664(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate667.errors : vErrors.concat(validate667.errors);
+        vErrors = vErrors === null ? validate668.errors : vErrors.concat(validate668.errors);
         errors = vErrors.length;
       }
     }
@@ -73790,7 +74396,7 @@ function validate664(
           instancePath: instancePath + "/usage_model",
           schemaPath: "#/properties/usage_model/enum",
           keyword: "enum",
-          params: { allowedValues: schema558.properties.usage_model.enum },
+          params: { allowedValues: schema560.properties.usage_model.enum },
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
@@ -73816,10 +74422,10 @@ function validate664(
     }
     errors++;
   }
-  validate664.errors = vErrors;
+  validate665.errors = vErrors;
   return errors === 0;
 }
-validate664.evaluated = {
+validate665.evaluated = {
   props: {
     annotations: true,
     assets: true,
@@ -73844,13 +74450,13 @@ validate664.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate662(
+function validate663(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate662.evaluated;
+  const evaluated0 = validate663.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -73885,7 +74491,7 @@ function validate662(
         const len0 = data0.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (
-            !validate664(data0[i0], {
+            !validate665(data0[i0], {
               instancePath: instancePath + "/result/" + i0,
               parentData: data0,
               parentDataProperty: i0,
@@ -73893,7 +74499,7 @@ function validate662(
               dynamicAnchors,
             })
           ) {
-            vErrors = vErrors === null ? validate664.errors : vErrors.concat(validate664.errors);
+            vErrors = vErrors === null ? validate665.errors : vErrors.concat(validate665.errors);
             errors = vErrors.length;
           }
         }
@@ -73928,6 +74534,33 @@ function validate662(
     }
     errors++;
   }
+  validate663.errors = vErrors;
+  return errors === 0;
+}
+validate663.evaluated = {
+  props: { result: true, result_info: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate662(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate662.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate663(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate663.errors : vErrors.concat(validate663.errors);
+    errors = vErrors.length;
+  }
   validate662.errors = vErrors;
   return errors === 0;
 }
@@ -73936,38 +74569,11 @@ validate662.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate661(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate661.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate662(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate662.errors : vErrors.concat(validate662.errors);
-    errors = vErrors.length;
-  }
-  validate661.errors = vErrors;
-  return errors === 0;
-}
-validate661.evaluated = {
-  props: { result: true, result_info: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvCreateWorkerVersionResponse = validate674;
-const schema562 = {
+export const ajvCreateWorkerVersionResponse = validate675;
+const schema564 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/post/responses/200/content/application~1json/schema",
 };
-const schema563 = {
+const schema565 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -73977,13 +74583,13 @@ const schema563 = {
     },
   ],
 };
-function validate675(
+function validate676(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate675.evaluated;
+  const evaluated0 = validate676.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -74014,7 +74620,7 @@ function validate675(
     }
     if (data.result !== undefined) {
       if (
-        !validate664(data.result, {
+        !validate665(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -74022,7 +74628,7 @@ function validate675(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate664.errors : vErrors.concat(validate664.errors);
+        vErrors = vErrors === null ? validate665.errors : vErrors.concat(validate665.errors);
         errors = vErrors.length;
       }
     }
@@ -74041,6 +74647,33 @@ function validate675(
     }
     errors++;
   }
+  validate676.errors = vErrors;
+  return errors === 0;
+}
+validate676.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate675(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate675.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate676(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate676.errors : vErrors.concat(validate676.errors);
+    errors = vErrors.length;
+  }
   validate675.errors = vErrors;
   return errors === 0;
 }
@@ -74049,44 +74682,17 @@ validate675.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate674(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate674.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate675(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate675.errors : vErrors.concat(validate675.errors);
-    errors = vErrors.length;
-  }
-  validate674.errors = vErrors;
-  return errors === 0;
-}
-validate674.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvDeleteWorkerVersionResponse = validate679;
-const schema564 = {
+export const ajvDeleteWorkerVersionResponse = validate680;
+const schema566 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/delete/responses/200/content/application~1json/schema",
 };
-function validate680(
+function validate681(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate680.evaluated;
+  const evaluated0 = validate681.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -74603,6 +75209,33 @@ function validate680(
     }
     errors++;
   }
+  validate681.errors = vErrors;
+  return errors === 0;
+}
+validate681.evaluated = {
+  props: { errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate680(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate680.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate681(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate681.errors : vErrors.concat(validate681.errors);
+    errors = vErrors.length;
+  }
   validate680.errors = vErrors;
   return errors === 0;
 }
@@ -74611,38 +75244,11 @@ validate680.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate679(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate679.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate680(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate680.errors : vErrors.concat(validate680.errors);
-    errors = vErrors.length;
-  }
-  validate679.errors = vErrors;
-  return errors === 0;
-}
-validate679.evaluated = {
-  props: { errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvGetWorkerVersionResponse = validate682;
-const schema568 = {
+export const ajvGetWorkerVersionResponse = validate683;
+const schema570 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
 };
-const schema569 = {
+const schema571 = {
   allOf: [
     { $ref: "#/components/schemas/workers_api-response-common" },
     {
@@ -74652,13 +75258,13 @@ const schema569 = {
     },
   ],
 };
-function validate683(
+function validate684(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate683.evaluated;
+  const evaluated0 = validate684.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -74689,7 +75295,7 @@ function validate683(
     }
     if (data.result !== undefined) {
       if (
-        !validate664(data.result, {
+        !validate665(data.result, {
           instancePath: instancePath + "/result",
           parentData: data,
           parentDataProperty: "result",
@@ -74697,7 +75303,7 @@ function validate683(
           dynamicAnchors,
         })
       ) {
-        vErrors = vErrors === null ? validate664.errors : vErrors.concat(validate664.errors);
+        vErrors = vErrors === null ? validate665.errors : vErrors.concat(validate665.errors);
         errors = vErrors.length;
       }
     }
@@ -74716,6 +75322,33 @@ function validate683(
     }
     errors++;
   }
+  validate684.errors = vErrors;
+  return errors === 0;
+}
+validate684.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate683(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate683.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate684(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate684.errors : vErrors.concat(validate684.errors);
+    errors = vErrors.length;
+  }
   validate683.errors = vErrors;
   return errors === 0;
 }
@@ -74724,38 +75357,11 @@ validate683.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate682(
-  data,
-  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
-) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate682.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = undefined;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = undefined;
-  }
-  if (
-    !validate683(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
-  ) {
-    vErrors = vErrors === null ? validate683.errors : vErrors.concat(validate683.errors);
-    errors = vErrors.length;
-  }
-  validate682.errors = vErrors;
-  return errors === 0;
-}
-validate682.evaluated = {
-  props: { result: true, errors: true, messages: true, success: true },
-  dynamicProps: false,
-  dynamicItems: false,
-};
-export const ajvUserApiTokensVerifyTokenResponse = validate687;
-const schema570 = {
+export const ajvUserApiTokensVerifyTokenResponse = validate688;
+const schema572 = {
   $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1user~1tokens~1verify/get/responses/200/content/application~1json/schema",
 };
-const schema571 = {
+const schema573 = {
   allOf: [
     { $ref: "#/components/schemas/iam_api-response-single" },
     {
@@ -74774,14 +75380,14 @@ const schema571 = {
     },
   ],
 };
-const schema572 = {
+const schema574 = {
   description: "The expiration time on or after which the JWT MUST NOT be accepted for processing.",
   example: "2020-01-01T00:00:00Z",
   format: "date-time",
   type: "string",
   "x-auditable": true,
 };
-const schema573 = {
+const schema575 = {
   description: "Token identifier tag.",
   example: "ed17574386854bf78a67040be0a770b0",
   maxLength: 32,
@@ -74789,14 +75395,14 @@ const schema573 = {
   type: "string",
   "x-auditable": true,
 };
-const schema574 = {
+const schema576 = {
   description: "The time before which the token MUST NOT be accepted for processing.",
   example: "2018-07-01T05:20:00Z",
   format: "date-time",
   type: "string",
   "x-auditable": true,
 };
-const schema575 = {
+const schema577 = {
   description: "Status of the token.",
   enum: ["active", "disabled", "expired"],
   example: "active",
@@ -74804,13 +75410,13 @@ const schema575 = {
   "x-auditable": true,
   "x-stainless-terraform-configurability": "computed_optional",
 };
-function validate688(
+function validate689(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate688.evaluated;
+  const evaluated0 = validate689.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -74947,7 +75553,7 @@ function validate688(
               instancePath: instancePath + "/result/status",
               schemaPath: "#/components/schemas/iam_token_status/enum",
               keyword: "enum",
-              params: { allowedValues: schema575.enum },
+              params: { allowedValues: schema577.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -74975,21 +75581,21 @@ function validate688(
     }
     errors++;
   }
-  validate688.errors = vErrors;
+  validate689.errors = vErrors;
   return errors === 0;
 }
-validate688.evaluated = {
+validate689.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate687(
+function validate688(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate687.evaluated;
+  const evaluated0 = validate688.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -74997,15 +75603,15 @@ function validate687(
     evaluated0.items = undefined;
   }
   if (
-    !validate688(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate689(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate688.errors : vErrors.concat(validate688.errors);
+    vErrors = vErrors === null ? validate689.errors : vErrors.concat(validate689.errors);
     errors = vErrors.length;
   }
-  validate687.errors = vErrors;
+  validate688.errors = vErrors;
   return errors === 0;
 }
-validate687.evaluated = {
+validate688.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
@@ -75098,6 +75704,7 @@ export const cloudflareApiResponseValidators = {
     "/accounts/{account_id}/workers/observability/queries": ajvQueriesListResponse,
     "/accounts/{account_id}/workers/observability/queries/{queryId}": ajvQueriesGetResponse,
     "/accounts/{account_id}/workers/observability/shared/query/{id}": ajvSharedQueryGetResponse,
+    "/accounts/{account_id}/workers/observability/usage": ajvUsageGetResponse,
     "/accounts/{account_id}/workers/placement/regions": ajvWorkerPlacementListRegionsResponse,
     "/accounts/{account_id}/workers/scripts": ajvWorkerScriptListWorkersResponse,
     "/accounts/{account_id}/workers/scripts-search": ajvWorkerScriptSearchWorkersResponse,

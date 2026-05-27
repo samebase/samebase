@@ -167,6 +167,9 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/observability/shared/query/{id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["shared.query.get"]>
     >;
+    "/accounts/{account_id}/workers/observability/usage": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["usage.get"]>
+    >;
     "/accounts/{account_id}/workers/placement/regions": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-placement-list-regions"]>
     >;
