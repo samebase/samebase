@@ -17,11 +17,11 @@ type RouteSearchParamMetadataBase = {
 export type RouteSearchParamMetadata =
   | (RouteSearchParamMetadataBase &
       NoterRouteSearchParamValueSemantics & {
-        valueKind: "value";
+        searchParamKind: "value";
       })
   | (RouteSearchParamMetadataBase & {
       parseKind: "presence";
-      valueKind: "presence";
+      searchParamKind: "presence";
     });
 
 export type RouteSearchParamMetadataByKey<Search extends object> = Readonly<
@@ -57,7 +57,7 @@ export type InferRouteSearch<ShapeOrGroup> =
       ? { [Key in keyof ShapeOrGroup]?: InferRouteSearchParamValue<ShapeOrGroup[Key]> }
       : never;
 
-export const routeSearchNonEmptyString = pure((value: unknown) => {
+export const routeSearchNonEmptyString = pure((value) => {
   if (typeof value !== "string") {
     return bad("not-string");
   }
@@ -66,11 +66,11 @@ export const routeSearchNonEmptyString = pure((value: unknown) => {
   return trimmedValue.length > 0 ? good(trimmedValue) : bad("empty-string");
 });
 
-export const routeSearchString = pure((value: unknown) =>
+export const routeSearchString = pure((value) =>
   typeof value === "string" ? good(value) : bad("not-string"),
 );
 
-export const routeSearchFiniteNumber = pure((value: unknown) => {
+export const routeSearchFiniteNumber = pure((value) => {
   if (typeof value === "number") {
     return Number.isFinite(value) ? good(value) : bad("not-finite-number");
   }
@@ -89,7 +89,7 @@ export const routeSearchFiniteNumber = pure((value: unknown) => {
 });
 
 export function routeSearchNormalizedFiniteNumber(normalizeValue: (value: number) => number) {
-  return pure((value: unknown) => {
+  return pure((value) => {
     const [isGood, numericValue] = routeSearchFiniteNumber(value);
     if (!isGood) {
       return bad(numericValue);
@@ -109,7 +109,7 @@ function includesStringValue<const Values extends readonly string[]>(
 export function routeSearchStringValue<const Values extends NoterRouteSearchParamValueSuggestions>(
   values: Values,
 ) {
-  return pure((value: unknown) => {
+  return pure((value) => {
     if (typeof value !== "string") {
       return bad("not-string");
     }
@@ -125,9 +125,9 @@ export function routeSearchValueParam<Bad, Value>(
   schema: Sure<Bad, Value, unknown>,
   args: RouteSearchParamMetadataBase & NoterRouteSearchParamValueSemantics,
 ): RouteSearchParam<Value> {
-  return sure((value: unknown) => schema(value), {
+  return sure((value) => schema(value), {
     ...args,
-    valueKind: "value",
+    searchParamKind: "value",
   });
 }
 
@@ -136,12 +136,12 @@ export function routeSearchPresenceParam(args: {
   suggestion: RouteSearchParamSuggestionSurface;
 }): RouteSearchParam<true> {
   return sure(
-    (value: unknown) =>
+    (value) =>
       value === null || typeof value === "undefined" ? bad("missing-presence") : good(true),
     {
       ...args,
       parseKind: "presence",
-      valueKind: "presence",
+      searchParamKind: "presence",
     },
   );
 }
@@ -195,11 +195,11 @@ export function readRouteSearchParamSuggestions<
       continue;
     }
 
-    if (paramMetadata.valueKind === "presence") {
+    if (paramMetadata.searchParamKind === "presence") {
       suggestions.push({
         key,
         permission: paramMetadata.permission,
-        valueKind: "presence",
+        searchParamKind: "presence",
       });
       continue;
     }
@@ -207,7 +207,7 @@ export function readRouteSearchParamSuggestions<
     const suggestionBase = {
       key,
       permission: paramMetadata.permission,
-      valueKind: "value" as const,
+      searchParamKind: "value" as const,
     };
     switch (paramMetadata.valueType) {
       case "manual":
@@ -273,7 +273,7 @@ export function readRouteSearchPresenceKeys<const Metadata extends RouteSearchPa
   const keys: RouteSearchParamMetadataKey<Metadata>[] = [];
 
   for (const [key, paramMetadata] of entries(metadata)) {
-    if (paramMetadata.valueKind !== "presence") {
+    if (paramMetadata.searchParamKind !== "presence") {
       continue;
     }
 

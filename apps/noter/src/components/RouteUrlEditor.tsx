@@ -119,7 +119,7 @@ function renderRouteUrlEditorSuggestionValue(
     );
   }
 
-  if (suggestion.kind !== "search" || suggestion.valueKind !== "value") {
+  if (suggestion.kind !== "search" || suggestion.searchParamKind !== "value") {
     return suggestion.value;
   }
 
@@ -1430,7 +1430,7 @@ export function RouteUrlEditor() {
           };
         }
       } else if (suggestion.kind === "search") {
-        if (suggestion.valueKind === "value") {
+        if (suggestion.searchParamKind === "value") {
           searchFollowup = {
             draftRouteAddress: nextDraftRouteAddress,
             kind: "search-value",
@@ -1496,7 +1496,7 @@ export function RouteUrlEditor() {
         resetIncompleteDraft: false,
       }).then(() => {
         if (activeFollowup === null) {
-          if (suggestion.kind === "search" && suggestion.valueKind === "value") {
+          if (suggestion.kind === "search" && suggestion.searchParamKind === "value") {
             const input = inputRef.current;
             if (input) {
               restoreRouteUrlEditorInputSelection({

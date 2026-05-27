@@ -590,7 +590,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "devtools",
           kind: "search",
           value: "?devtools",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?devtools#top");
@@ -605,7 +605,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "depth",
           kind: "search",
           value: "&depth=3",
-          valueKind: "value",
+          searchParamKind: "value",
           valueSuggestions: [],
         },
       }),
@@ -621,7 +621,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "depth",
           kind: "search",
           value: "&depth=3",
-          valueKind: "value",
+          searchParamKind: "value",
           valueSuggestions: [],
         },
       }),
@@ -636,7 +636,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "dark",
           kind: "search",
           value: "&dark",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?border=stone-300&dark");
@@ -650,7 +650,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "dark",
           kind: "search",
           value: "&dark",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?dark");
@@ -664,7 +664,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "devtools",
           kind: "search",
           value: "?devtools",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?dark&devtools");

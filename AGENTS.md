@@ -136,6 +136,8 @@ Key domain entities:
 - When suppression is unavoidable, use the narrowest possible `@ts-expect-error`. Never use
   `@ts-nocheck`.
 - Prefer inference when it keeps the code clear.
+- When passing inline validators to `pure(...)` or `sure(...)`, omit redundant `unknown` parameter
+  annotations; let the helper infer the input type unless a narrower input is intentional.
 - When a schema exists, derive the TypeScript type from it instead of duplicating a manual type.
 - Before adding a helper, formatter, wrapper, class, or generated artifact, ask whether the final
   design still needs it. Delete-first is the default. Keep the native library value or error shape

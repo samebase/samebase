@@ -104,7 +104,7 @@ const colorVariableSpecs = {
   }
 >;
 
-const logoColorTokenSearchValue = pure((value: unknown) => {
+const logoColorTokenSearchValue = pure((value) => {
   if (typeof value !== "string") {
     return bad("not-string");
   }

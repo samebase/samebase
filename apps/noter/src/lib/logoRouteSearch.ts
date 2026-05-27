@@ -149,7 +149,7 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
     : serializeVoxelState(parsedVoxelState.filledVoxels, parsedVoxelState.gridSize);
 }
 
-const logoGridSizeSearchValue = pure((value: unknown) => {
+const logoGridSizeSearchValue = pure((value) => {
   const [isGood, numericValue] = routeSearchFiniteNumber(value);
   if (!isGood) {
     return bad(numericValue);
@@ -159,28 +159,28 @@ const logoGridSizeSearchValue = pure((value: unknown) => {
   return typeof gridSize === "number" ? good(gridSize) : bad("unsupported-grid-size");
 });
 
-const logoIsometricStyleSearchValue = pure((value: unknown) => {
+const logoIsometricStyleSearchValue = pure((value) => {
   const isoStyleId = readOptionalString(value);
   return typeof isoStyleId === "string" && isLogoIsometricStyleId(isoStyleId)
     ? good(isoStyleId)
     : bad("unsupported-iso-style");
 });
 
-const logoLeftFaceStyleSearchValue = pure((value: unknown) => {
+const logoLeftFaceStyleSearchValue = pure((value) => {
   const leftFaceStyleKind = readOptionalString(value);
   return isLogoLeftFaceStyleKind(leftFaceStyleKind)
     ? good(leftFaceStyleKind)
     : bad("unsupported-left-face");
 });
 
-const logoLeftFaceStripeBasisSearchValue = pure((value: unknown) => {
+const logoLeftFaceStripeBasisSearchValue = pure((value) => {
   const leftFaceStripeBasis = readOptionalString(value);
   return isLogoLeftFaceStripeBasis(leftFaceStripeBasis)
     ? good(leftFaceStripeBasis)
     : bad("unsupported-stripe-basis");
 });
 
-const canonicalVoxelStateSearchValue = pure((value: unknown) => {
+const canonicalVoxelStateSearchValue = pure((value) => {
   const voxelState = readCanonicalVoxelState(value);
   return typeof voxelState === "string" ? good(voxelState) : bad("invalid-voxel-state");
 });
@@ -470,7 +470,7 @@ function readLogoRouteSearchParamSuggestionsWithDepthMax(
     (suggestion) => {
       if (
         suggestion.key !== "depth" ||
-        suggestion.valueKind !== "value" ||
+        suggestion.searchParamKind !== "value" ||
         suggestion.valueType !== "numeric"
       ) {
         return suggestion;
