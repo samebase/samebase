@@ -3,7 +3,10 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import {
+  DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
+} from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
@@ -404,7 +407,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBe("main");
   });
 
-  it("lets routes remove the mobile pane peek from carousel geometry", () => {
+  it("lets routes remove carousel peeks while keeping the resize grip reachable", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -415,15 +418,21 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         renderMobileLayout({
           mobilePane: "right",
           mobilePanePeekWidthPx: 0,
+          rightMobileWidthPx: VIEWPORT_WIDTH_PX,
         }),
       );
     });
 
+    const maxReachableSidebarWidthPx = VIEWPORT_WIDTH_PX - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX;
     const carouselNode = getRequiredElement(
       rootElement,
       '[data-testid="workspace-layout-v2-pane-main"]',
     );
     const mainPane = getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]");
+    const rightPane = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-right"]',
+    );
     const rightHandle = getRequiredElement(
       rootElement,
       '[data-testid="workspace-layout-v2-right-resize"]',
@@ -431,9 +440,16 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expect(carouselNode.style.paddingLeft).toBe("0px");
     expect(carouselNode.style.paddingRight).toBe("0px");
-    expect(carouselNode.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
+    expect(carouselNode.scrollLeft).toBe(
+      DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX + maxReachableSidebarWidthPx,
+    );
     expect(mainPane.style.width).toBe(`${VIEWPORT_WIDTH_PX}px`);
-    expect(rightHandle.getAttribute("aria-valuemax")).toBe(`${VIEWPORT_WIDTH_PX}`);
+    expect(rightPane.style.width).toBe(`${maxReachableSidebarWidthPx}px`);
+    expect(rightHandle.getAttribute("aria-valuemax")).toBe(`${maxReachableSidebarWidthPx}`);
+    expect(rightHandle.getAttribute("aria-valuenow")).toBe(`${maxReachableSidebarWidthPx}`);
+    expect(rightHandle.parentElement?.style.left).toBe(
+      `${MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX}px`,
+    );
   });
 
   it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
