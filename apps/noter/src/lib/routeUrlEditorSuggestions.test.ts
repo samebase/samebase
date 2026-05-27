@@ -606,7 +606,6 @@ describe("applyRouteUrlEditorSuggestion", () => {
           kind: "search",
           value: "&depth=3",
           searchParamKind: "value",
-          valueSuggestions: [],
         },
       }),
     ).toBe("/logo?depth=3#top");
@@ -622,7 +621,6 @@ describe("applyRouteUrlEditorSuggestion", () => {
           kind: "search",
           value: "&depth=3",
           searchParamKind: "value",
-          valueSuggestions: [],
         },
       }),
     ).toBe("/logo?depth=2&depth=#top");

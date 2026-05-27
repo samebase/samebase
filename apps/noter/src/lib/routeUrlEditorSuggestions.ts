@@ -10,16 +10,15 @@ import {
   canAccessNoterRouteStaticData,
   type NoterRouteSearchParamNumericRange,
   type NoterRouteSearchParamSuggestion,
+  type NoterRouteSearchParamValueSuggestion,
   type NoterRoutePermissionViewer,
   type NoterRouteStaticData,
 } from "@/lib/routePermissions";
 import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch";
 
-export type RouteUrlEditorSuggestionKind = "hash" | "path" | "search" | "search-value";
-
 type RouteUrlEditorHashOrPathSuggestion = {
   detail?: string;
-  kind: Exclude<RouteUrlEditorSuggestionKind, "search" | "search-value">;
+  kind: "hash" | "path";
   key: string;
   value: string;
 };
@@ -32,14 +31,15 @@ type RouteUrlEditorSearchSuggestion =
       value: string;
       searchParamKind: "presence";
     }
-  | {
-      detail?: string;
-      kind: "search";
-      key: string;
-      value: string;
-      searchParamKind: "value";
-      valueSuggestions: readonly string[];
-    };
+  | RouteUrlEditorValueSearchSuggestion;
+
+type RouteUrlEditorValueSearchSuggestion = {
+  detail?: string;
+  kind: "search";
+  key: string;
+  value: string;
+  searchParamKind: "value";
+};
 
 type RouteUrlEditorSearchValueSuggestion = {
   detail?: string;
@@ -55,6 +55,8 @@ export type RouteUrlEditorSuggestion =
   | RouteUrlEditorHashOrPathSuggestion
   | RouteUrlEditorSearchSuggestion
   | RouteUrlEditorSearchValueSuggestion;
+
+export type RouteUrlEditorSuggestionKind = RouteUrlEditorSuggestion["kind"];
 
 type RouteUrlEditorSuggestionsInput = {
   currentHref: string;
@@ -279,7 +281,7 @@ function applyRouteUrlEditorSearchSuggestion(args: {
 
 function applyRouteUrlEditorSearchValueKeySuggestion(args: {
   routeAddress: string;
-  suggestion: Extract<RouteUrlEditorSearchSuggestion, { searchParamKind: "value" }>;
+  suggestion: RouteUrlEditorValueSearchSuggestion;
   token: SearchToken;
 }): string {
   const displayToken = readRouteUrlEditorSearchSuggestionToken(args.suggestion.value);
@@ -305,7 +307,7 @@ function applyRouteUrlEditorSearchValueKeySuggestion(args: {
 
 function previewRouteUrlEditorSearchValueSuggestion(args: {
   routeAddress: string;
-  suggestion: Extract<RouteUrlEditorSearchSuggestion, { searchParamKind: "value" }>;
+  suggestion: RouteUrlEditorValueSearchSuggestion;
   token: SearchToken;
 }): string {
   const searchTokens = readRouteUrlEditorSearchTokens(args.routeAddress);
@@ -519,9 +521,9 @@ function readRouteUrlEditorValueSearchSuggestion(args: {
   currentHref: string;
   draftRouteAddress: string;
   origin: string;
-  suggestion: Extract<NoterRouteSearchParamSuggestion, { searchParamKind: "value" }>;
+  suggestion: NoterRouteSearchParamValueSuggestion;
   token: SearchToken;
-}): Extract<RouteUrlEditorSearchSuggestion, { searchParamKind: "value" }> {
+}): RouteUrlEditorValueSearchSuggestion {
   return (
     readRouteUrlEditorNumericSearchSuggestion(args) ??
     readRouteUrlEditorSampleSearchSuggestion(args)
@@ -532,9 +534,9 @@ function readRouteUrlEditorNumericSearchSuggestion(args: {
   currentHref: string;
   draftRouteAddress: string;
   origin: string;
-  suggestion: Extract<NoterRouteSearchParamSuggestion, { searchParamKind: "value" }>;
+  suggestion: NoterRouteSearchParamValueSuggestion;
   token: SearchToken;
-}): Extract<RouteUrlEditorSearchSuggestion, { searchParamKind: "value" }> | null {
+}): RouteUrlEditorValueSearchSuggestion | null {
   if (args.suggestion.valueType !== "numeric" && args.suggestion.valueType !== "numeric-options") {
     return null;
   }
@@ -576,7 +578,6 @@ function readRouteUrlEditorNumericSearchSuggestion(args: {
       kind: "search",
       value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${nextValue}`,
       searchParamKind: "value",
-      valueSuggestions,
     };
   }
 
@@ -587,9 +588,9 @@ function readRouteUrlEditorSampleSearchSuggestion(args: {
   currentHref: string;
   draftRouteAddress: string;
   origin: string;
-  suggestion: Extract<NoterRouteSearchParamSuggestion, { searchParamKind: "value" }>;
+  suggestion: NoterRouteSearchParamValueSuggestion;
   token: SearchToken;
-}): Extract<RouteUrlEditorSearchSuggestion, { searchParamKind: "value" }> {
+}): RouteUrlEditorValueSearchSuggestion {
   const currentValue = readRouteUrlEditorSearchParamValue({
     currentHref: args.currentHref,
     draftRouteAddress: args.draftRouteAddress,
@@ -603,12 +604,11 @@ function readRouteUrlEditorSampleSearchSuggestion(args: {
     kind: "search",
     value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${sampleValue}`,
     searchParamKind: "value",
-    valueSuggestions: readRouteUrlEditorValueSuggestions(args.suggestion),
   };
 }
 
 function readRouteUrlEditorSearchSampleValue(
-  suggestion: Extract<NoterRouteSearchParamSuggestion, { searchParamKind: "value" }>,
+  suggestion: NoterRouteSearchParamValueSuggestion,
   currentValue: string | null,
 ): string {
   if (suggestion.valueType === "manual") {
@@ -631,7 +631,7 @@ function readRouteUrlEditorNumericSearchParamValue(args: {
   draftRouteAddress: string;
   key: string;
   origin: string;
-  suggestion: Extract<NoterRouteSearchParamSuggestion, { searchParamKind: "value" }>;
+  suggestion: NoterRouteSearchParamValueSuggestion;
 }): NumericSearchParamValue | null {
   return (
     readRouteUrlEditorRouteSearchParamNumber({
@@ -684,7 +684,7 @@ function readRouteUrlEditorRouteSearchParamValue(args: {
 }
 
 function readRouteUrlEditorNumericDefaultSearchParamValue(
-  suggestion: Extract<NoterRouteSearchParamSuggestion, { searchParamKind: "value" }>,
+  suggestion: NoterRouteSearchParamValueSuggestion,
 ): NumericSearchParamValue | null {
   if (suggestion.valueType !== "numeric" && suggestion.valueType !== "numeric-options") {
     return null;
@@ -749,10 +749,7 @@ function readRouteUrlEditorNumericValueSuggestion(
 }
 
 function readRouteUrlEditorRangedNumericValueSuggestion(
-  suggestion: Extract<
-    NoterRouteSearchParamSuggestion,
-    { searchParamKind: "value"; valueType: "numeric" }
-  >,
+  suggestion: Extract<NoterRouteSearchParamValueSuggestion, { valueType: "numeric" }>,
   numericValue: number,
 ): string | null {
   const rangedNumericValue = readRouteUrlEditorRangedNumericValue(
@@ -850,7 +847,7 @@ function readRouteUrlEditorSearchValueSuggestions(args: {
 }
 
 function readRouteUrlEditorValueSuggestions(
-  suggestion: Extract<NoterRouteSearchParamSuggestion, { searchParamKind: "value" }>,
+  suggestion: NoterRouteSearchParamValueSuggestion,
 ): readonly string[] {
   switch (suggestion.valueType) {
     case "completion":
