@@ -56,7 +56,7 @@ apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-butt
 apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-signup-closed.png
 apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-mobile-sidebar-toggle.png
 apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-right-sidebar-auth-closed.png
-apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-status-bar-logo-link.png
+apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-status-bar-no-logo-link.png
 apps/noter/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing-dev.png
 apps/noter/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing.png
 apps/noter/e2e/public-legal-route-shell.spec.ts-snapshots/terms-shell.png
