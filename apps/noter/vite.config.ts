@@ -67,6 +67,14 @@ function readGitOutput(command: string): string | null {
   }
 }
 
+function createAssetBuildKey(commit: string): string {
+  const normalized = commit
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  return normalized.length > 0 ? normalized.slice(0, 12) : "unknown";
+}
+
 /**
  * Execute a git command at the repo root for build metadata probing.
  * Callers rely on this helper to swallow failures and return `false` instead
@@ -85,6 +93,7 @@ function runGitCommand(command: string): boolean {
 }
 
 const appCommit = process.env.VITE_APP_COMMIT ?? readGitOutput("git rev-parse HEAD") ?? "unknown";
+const appAssetBuildKey = createAssetBuildKey(appCommit);
 process.env.JITI_TSCONFIG_PATHS ??= appTsconfigPath;
 const appCommitNumber = resolveAppCommitNumber({
   envCommitNumber: process.env.VITE_APP_COMMIT_NUMBER,
@@ -572,8 +581,29 @@ export default defineConfig({
   preview: {
     host: "127.0.0.1",
   },
+  environments: {
+    client: {
+      build: {
+        rollupOptions: {
+          output: {
+            // Cloudflare serves hashed assets as immutable. Include the commit
+            // in client asset URLs so a bad preview deploy cannot poison a
+            // browser cache across the next commit.
+            assetFileNames: `assets/[name]-${appAssetBuildKey}-[hash][extname]`,
+            chunkFileNames: `assets/[name]-${appAssetBuildKey}-[hash].js`,
+            entryFileNames: `assets/[name]-${appAssetBuildKey}-[hash].js`,
+          },
+        },
+      },
+    },
+  },
   build: {
     rollupOptions: {
+      output: {
+        // CSS can be referenced from server-rendered head code through ?url,
+        // so the asset filename pattern must be shared by both environments.
+        assetFileNames: `assets/[name]-${appAssetBuildKey}-[hash][extname]`,
+      },
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;
