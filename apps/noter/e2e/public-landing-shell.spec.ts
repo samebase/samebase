@@ -1384,7 +1384,7 @@ test.describe("iPhone SE landing sidebar", () => {
   });
 });
 
-test.describe("Android standalone landing right sidebar", () => {
+test.describe("Android-sized standalone display-mode landing right sidebar", () => {
   test.use({
     ...androidLandingDevice,
   });
