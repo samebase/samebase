@@ -245,7 +245,7 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
-      <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+      <div className="flex h-dvh flex-col bg-background text-foreground">
         <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
