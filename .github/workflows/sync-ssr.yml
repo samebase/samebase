@@ -64,10 +64,8 @@ jobs:
 
           expected_files="$(
             printf "%s\n" \
-              apps/noter/package.json \
               apps/noter/vite.config.ts \
-              apps/noter/wrangler.jsonc \
-              pnpm-lock.yaml
+              apps/noter/wrangler.jsonc
           )"
           actual_files="$(git diff --name-only origin/main..HEAD | sort)"
 

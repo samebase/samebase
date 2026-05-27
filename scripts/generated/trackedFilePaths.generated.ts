@@ -1085,6 +1085,7 @@ export type TrackedFilePath =
   | "apps/noter/vite.config.ts"
   | "apps/noter/wrangler.jsonc"
   | "apps/workspace-layout-v2-solid/.gitignore"
+  | "apps/workspace-layout-v2-solid/.node-version"
   | "apps/workspace-layout-v2-solid/README.md"
   | "apps/workspace-layout-v2-solid/SOLID_LAB_NOTES.md"
   | "apps/workspace-layout-v2-solid/components.json"
