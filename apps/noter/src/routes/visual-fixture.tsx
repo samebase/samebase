@@ -14,6 +14,8 @@ const visualFixtureRouteSearchSchema = defineRouteSearchParams({
     permission: "public",
     sampleValue: "route-url-editor",
     suggestion: "route",
+    valueCompletion: null,
+    valueSuggestions: null,
   }),
 });
 

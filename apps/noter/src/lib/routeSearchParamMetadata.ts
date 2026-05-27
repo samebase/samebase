@@ -19,8 +19,8 @@ export type RouteSearchParamMetadata =
       numericDefaultValue?: number;
       sampleValue: string | null;
       valueKind: "value";
-      valueCompletion?: NoterRouteSearchParamValueCompletion;
-      valueSuggestions?: NoterRouteSearchParamValueSuggestions | null;
+      valueCompletion: NoterRouteSearchParamValueCompletion | null;
+      valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
     })
   | (RouteSearchParamMetadataBase & {
       parseKind: "presence";
@@ -127,8 +127,8 @@ export function routeSearchValueParam<const Schema extends RouteSearchValueSchem
     permission: NoterRoutePermission;
     sampleValue: string | null;
     suggestion: RouteSearchParamSuggestionSurface;
-    valueCompletion?: NoterRouteSearchParamValueCompletion;
-    valueSuggestions?: NoterRouteSearchParamValueSuggestions | null;
+    valueCompletion: NoterRouteSearchParamValueCompletion | null;
+    valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
   },
 ): RouteSearchParam<InferRouteSearchSchemaGood<Schema>> {
   return {
@@ -231,10 +231,10 @@ export function readRouteSearchParamSuggestions<
     if (typeof paramMetadata.numericDefaultValue === "number") {
       suggestion.numericDefaultValue = paramMetadata.numericDefaultValue;
     }
-    if (paramMetadata.valueCompletion) {
+    if (paramMetadata.valueCompletion !== null) {
       suggestion.valueCompletion = paramMetadata.valueCompletion;
     }
-    if (paramMetadata.valueSuggestions) {
+    if (paramMetadata.valueSuggestions !== null) {
       suggestion.valueSuggestions = paramMetadata.valueSuggestions;
     }
     suggestions.push(suggestion);

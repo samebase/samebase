@@ -18,6 +18,7 @@ describe("routeSearchParamMetadata", () => {
       permission: "public",
       sampleValue: "google",
       suggestion: "route",
+      valueCompletion: null,
       // @ts-expect-error Value suggestions must keep at least one option.
       valueSuggestions: [],
     });
@@ -27,12 +28,15 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "google",
         suggestion: "route",
+        valueCompletion: null,
         valueSuggestions: ["google"],
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
+        valueCompletion: null,
+        valueSuggestions: null,
       }),
       dev: routeSearchPresenceParam({
         permission: "public",
@@ -63,6 +67,7 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "google",
         suggestion: "route",
+        valueCompletion: null,
         valueSuggestions: ["google"],
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
@@ -70,6 +75,8 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
+        valueCompletion: null,
+        valueSuggestions: null,
       }),
       dev: routeSearchPresenceParam({
         permission: "public",
@@ -111,6 +118,7 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: null,
         suggestion: "route",
+        valueCompletion: null,
         valueSuggestions: null,
       }),
     });
@@ -121,6 +129,7 @@ describe("routeSearchParamMetadata", () => {
       permission: "public",
       sampleValue: null,
       suggestion: "route",
+      valueCompletion: null,
       valueKind: "value",
       valueSuggestions: null,
     });

@@ -48,6 +48,7 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     permission: "public",
     sampleValue: "dashboard",
     suggestion: "hidden",
+    valueCompletion: null,
     valueSuggestions: ["dashboard"],
   }),
   auth: routeSearchValueParam(routeSearchStringValue(["google"]), {
@@ -55,12 +56,15 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     // Previewing auth=google starts OAuth; require typing/selecting the value explicitly.
     sampleValue: null,
     suggestion: "route",
+    valueCompletion: null,
     valueSuggestions: null,
   }),
   [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     sampleValue: "apps/noter",
     suggestion: "hidden",
+    valueCompletion: null,
+    valueSuggestions: null,
   }),
   delete: routeSearchPresenceParam({
     permission: "admin",
@@ -87,6 +91,7 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     // signup=google is an auth-return marker, not a route option to preview.
     sampleValue: null,
     suggestion: "route",
+    valueCompletion: null,
     valueSuggestions: null,
   }),
 });

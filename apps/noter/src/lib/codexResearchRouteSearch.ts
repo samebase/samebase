@@ -12,6 +12,8 @@ const codexResearchRouteSearchSchema = defineRouteSearchParams({
     permission: "admin",
     sampleValue: "sample-thread",
     suggestion: "route",
+    valueCompletion: null,
+    valueSuggestions: null,
   }),
 });
 
