@@ -106,7 +106,6 @@ export function AppSidebarMetaSection({
   const location = useLocation();
   const router = useRouter();
   const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
-  const origin = readIsomorphicOrigin();
   const currentHref = location.href;
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
   const routePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
@@ -142,6 +141,7 @@ export function AppSidebarMetaSection({
 
   const navigateRouteHref = useCallback(
     (nextHref: string, replace: boolean, navigationCurrentHref = currentHref) => {
+      const origin = readIsomorphicOrigin();
       const appOrigin = new URL(origin);
       const currentUrl = new URL(navigationCurrentHref, appOrigin);
       const nextUrl = new URL(nextHref, appOrigin);
@@ -169,7 +169,7 @@ export function AppSidebarMetaSection({
         to: nextUrl.pathname,
       });
     },
-    [currentHref, origin, router],
+    [currentHref, router],
   );
   const currentHrefRef = useRef(currentHref);
   const navigateRouteHrefRef = useRef(navigateRouteHref);
