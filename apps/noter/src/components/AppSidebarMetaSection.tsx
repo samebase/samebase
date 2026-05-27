@@ -33,7 +33,7 @@ import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -55,6 +55,48 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
   left: "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
   right: "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
 } as const satisfies Record<AppSidebarMetaSectionSide, string>;
+
+const APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES = {
+  left: "flex max-w-full min-w-0 flex-row items-baseline justify-end",
+  right: "flex max-w-full min-w-0 flex-row items-baseline justify-start",
+} as const satisfies Record<AppSidebarMetaSectionSide, string>;
+
+const APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME =
+  "min-w-0 max-w-full line-clamp-2 [overflow-wrap:anywhere]";
+
+const APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES = {
+  active: "pointer-events-none inline-block w-[1ch] shrink-0 select-none",
+  inactive: "pointer-events-none invisible inline-block w-[1ch] shrink-0 select-none",
+} as const;
+
+function AppSidebarMetaQueryLinkRow({
+  active,
+  children,
+  side,
+  suffixTestId,
+}: {
+  active: boolean;
+  children: ReactNode;
+  side: AppSidebarMetaSectionSide;
+  suffixTestId: string;
+}) {
+  return (
+    <span className={APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES[side]}>
+      {children}
+      <span
+        aria-hidden="true"
+        data-testid={suffixTestId}
+        className={
+          active
+            ? APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES.active
+            : APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES.inactive
+        }
+      >
+        -
+      </span>
+    </span>
+  );
+}
 
 function readAppSidebarMetaExactSearch(args: {
   currentHref: string;
@@ -89,6 +131,14 @@ function shouldLetBrowserHandleClick(event: MouseEvent<HTMLAnchorElement>): bool
   return event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 }
 
+function isAppSidebarMetaSearchResetHref(href: string): boolean {
+  const origin = readIsomorphicOrigin();
+  const appOrigin = new URL(origin);
+  const url = new URL(href, appOrigin);
+
+  return SEARCH_RESET_QUERY_PARAM in parseTanStackSearch(url.search);
+}
+
 /**
  * Keep build metadata and public-route escape hatches on the rail edge that
  * peeks beside the main pane in the mobile workspace carousel.
@@ -115,15 +165,18 @@ export function AppSidebarMetaSection({
     ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
     : LANDING_DEV_MODE_LINK_LABEL;
   const themeMode = readRootThemeMode(rootRouteSearch);
-  const showSearchResetLink = location.searchStr.length > 0;
-  const lightModeLabel =
-    themeMode === "light"
-      ? ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL
-      : ROOT_THEME_LIGHT_MODE_LINK_LABEL;
-  const darkModeLabel =
-    themeMode === "dark"
-      ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
-      : ROOT_THEME_DARK_MODE_LINK_LABEL;
+  const lightModeActive = themeMode === "light";
+  const darkModeActive = themeMode === "dark";
+  const routePreview = routePreviewRef.current;
+  const showSearchResetLink =
+    location.searchStr.length > 0 ||
+    (routePreview ? isAppSidebarMetaSearchResetHref(routePreview.targetHref) : false);
+  const lightModeLabel = lightModeActive
+    ? ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL
+    : ROOT_THEME_LIGHT_MODE_LINK_LABEL;
+  const darkModeLabel = darkModeActive
+    ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
+    : ROOT_THEME_DARK_MODE_LINK_LABEL;
 
   const isLandingPage = location.pathname === "/";
   const routePreviewEnabled = side === "right";
@@ -268,47 +321,71 @@ export function AppSidebarMetaSection({
           {SEARCH_RESET_LINK_LABEL}
         </Link>
       ) : null}
-      <Link
-        id="public-landing-theme-light-toggle"
-        to={location.pathname}
-        hash={location.hash}
-        onClick={commitRoutePreview}
-        onMouseEnter={previewRouteLink}
-        onMouseLeave={restoreRoutePreview}
-        search={(currentSearch) =>
-          applySearchPatch(currentSearch, buildToggledRootThemeModeSearch(currentSearch, "light"))
-        }
+      <AppSidebarMetaQueryLinkRow
+        active={lightModeActive}
+        side={side}
+        suffixTestId="public-landing-theme-light-toggle-suffix"
       >
-        {lightModeLabel}
-      </Link>
-      <Link
-        id="public-landing-theme-dark-toggle"
-        to={location.pathname}
-        hash={location.hash}
-        onClick={commitRoutePreview}
-        onMouseEnter={previewRouteLink}
-        onMouseLeave={restoreRoutePreview}
-        search={(currentSearch) =>
-          applySearchPatch(currentSearch, buildToggledRootThemeModeSearch(currentSearch, "dark"))
-        }
+        <Link
+          id="public-landing-theme-light-toggle"
+          className={APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME}
+          aria-label={lightModeLabel}
+          to={location.pathname}
+          hash={location.hash}
+          onClick={commitRoutePreview}
+          onMouseEnter={previewRouteLink}
+          onMouseLeave={restoreRoutePreview}
+          search={(currentSearch) =>
+            applySearchPatch(currentSearch, buildToggledRootThemeModeSearch(currentSearch, "light"))
+          }
+        >
+          {ROOT_THEME_LIGHT_MODE_LINK_LABEL}
+        </Link>
+      </AppSidebarMetaQueryLinkRow>
+      <AppSidebarMetaQueryLinkRow
+        active={darkModeActive}
+        side={side}
+        suffixTestId="public-landing-theme-dark-toggle-suffix"
       >
-        {darkModeLabel}
-      </Link>
-      <Link
-        id="public-landing-dev-toggle"
-        to={location.pathname}
-        hash={location.hash}
-        onClick={commitRoutePreview}
-        onMouseEnter={previewRouteLink}
-        onMouseLeave={restoreRoutePreview}
-        search={(currentSearch) =>
-          applySearchPatch(currentSearch, {
-            [LANDING_DEV_MODE_QUERY_PARAM]: landingDevEnabled ? null : true,
-          })
-        }
+        <Link
+          id="public-landing-theme-dark-toggle"
+          className={APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME}
+          aria-label={darkModeLabel}
+          to={location.pathname}
+          hash={location.hash}
+          onClick={commitRoutePreview}
+          onMouseEnter={previewRouteLink}
+          onMouseLeave={restoreRoutePreview}
+          search={(currentSearch) =>
+            applySearchPatch(currentSearch, buildToggledRootThemeModeSearch(currentSearch, "dark"))
+          }
+        >
+          {ROOT_THEME_DARK_MODE_LINK_LABEL}
+        </Link>
+      </AppSidebarMetaQueryLinkRow>
+      <AppSidebarMetaQueryLinkRow
+        active={landingDevEnabled}
+        side={side}
+        suffixTestId="public-landing-dev-toggle-suffix"
       >
-        {landingDevLabel}
-      </Link>
+        <Link
+          id="public-landing-dev-toggle"
+          className={APP_SIDEBAR_META_QUERY_LINK_CLASS_NAME}
+          aria-label={landingDevLabel}
+          to={location.pathname}
+          hash={location.hash}
+          onClick={commitRoutePreview}
+          onMouseEnter={previewRouteLink}
+          onMouseLeave={restoreRoutePreview}
+          search={(currentSearch) =>
+            applySearchPatch(currentSearch, {
+              [LANDING_DEV_MODE_QUERY_PARAM]: landingDevEnabled ? null : true,
+            })
+          }
+        >
+          {LANDING_DEV_MODE_LINK_LABEL}
+        </Link>
+      </AppSidebarMetaQueryLinkRow>
       {showLandingPreviewLanguageLink ? (
         <Link
           id="landing-preview-romanian-toggle"
