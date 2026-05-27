@@ -433,8 +433,10 @@ export function VaultDashboardRepositoryCard({
   isReady,
   repositoryName,
   repositoryLinks,
+  repositoryLinksOpen,
   repositoryOwner,
   repositoryStatus,
+  onRepositoryLinksOpenChange,
   setupSection,
   titleClassName,
   titleHref,
@@ -456,8 +458,10 @@ export function VaultDashboardRepositoryCard({
   isReady: boolean;
   repositoryName: string;
   repositoryLinks?: ReactNode;
+  repositoryLinksOpen: boolean;
   repositoryOwner: string;
   repositoryStatus?: ReactNode;
+  onRepositoryLinksOpenChange: (isOpen: boolean) => void;
   setupSection?: ReactNode;
   titleClassName?: string;
   titleHref?: string;
@@ -467,7 +471,6 @@ export function VaultDashboardRepositoryCard({
   titleTitle?: string;
   topRightAction?: ReactNode;
 }) {
-  const [repositoryLinksOpen, setRepositoryLinksOpen] = useState(false);
   const hasBodyContent = Boolean(
     branchSection || developerToolsSection || footerActions || setupSection,
   );
@@ -547,7 +550,7 @@ export function VaultDashboardRepositoryCard({
           {topRightAction}
 
           {hasRepositoryLinks ? (
-            <Collapsible open={repositoryLinksOpen} onOpenChange={setRepositoryLinksOpen}>
+            <Collapsible open={repositoryLinksOpen} onOpenChange={onRepositoryLinksOpenChange}>
               <CollapsibleTrigger asChild nativeButton>
                 <Button
                   type="button"

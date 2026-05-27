@@ -28,6 +28,7 @@ import {
 import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
 import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
+import { vVaultResourceLinksStateRow } from "./vault/resourceLinksStateModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const { users: _authUsers, ...authTablesWithoutUsers } = authTables;
@@ -353,6 +354,11 @@ export default defineSchema({
     // remain readable until each user re-saves their filters.
     branchesExpanded: optional(boolean()),
   })
+    .index("by_user", ["userId"])
+    .index("by_user_and_vault", ["userId", "vaultId"])
+    .index("by_vault", ["vaultId"]),
+
+  vaultResourceLinksState: defineTable(vVaultResourceLinksStateRow)
     .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_vault", ["vaultId"]),

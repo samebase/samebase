@@ -7,6 +7,7 @@ const { id, literal, number, object, union } = v;
 
 const deleteOnlyByVaultCleanupTables = union(
   literal("vaultBranchFilters"),
+  literal("vaultResourceLinksState"),
   literal("collaborativeUpdates"),
   literal("folderExpansionState"),
   literal("vaultRemoteBranches"),
@@ -220,6 +221,10 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("vaultBranchFilters"),
   },
   {
+    table: "vaultResourceLinksState",
+    cleanup: deleteByVaultBatch("vaultResourceLinksState"),
+  },
+  {
     table: "fileStaging",
     cleanup: deleteFileStagingBatch,
   },
@@ -300,6 +305,7 @@ const vaultLocalCleanupRegistryByStep = {
   cleanup_editor_state: ["fileStaging", "collaborativeUpdates", "blobs"],
   cleanup_source_caches: [
     "vaultBranchFilters",
+    "vaultResourceLinksState",
     "folderExpansionState",
     "vaultRemoteBranches",
     "vaultBranchTrees",
