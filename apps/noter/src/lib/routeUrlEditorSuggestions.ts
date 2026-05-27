@@ -588,7 +588,7 @@ function readRouteUrlEditorSampleSearchSuggestion(args: {
   return {
     key: args.suggestion.key,
     kind: "search",
-    value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${sampleValue}`,
+    value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${sampleValue ?? ""}`,
     valueKind: "value",
     valueSuggestions: args.suggestion.valueSuggestions ?? [],
   };
@@ -597,7 +597,11 @@ function readRouteUrlEditorSampleSearchSuggestion(args: {
 function readRouteUrlEditorSearchSampleValue(
   suggestion: Extract<NoterRouteSearchParamSuggestion, { valueKind: "value" }>,
   currentValue: string | null,
-): string {
+): string | null {
+  if (suggestion.sampleValue === null) {
+    return null;
+  }
+
   if (currentValue === null || suggestion.sampleValue !== currentValue) {
     return suggestion.sampleValue;
   }

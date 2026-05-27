@@ -134,7 +134,7 @@ describe("readRouteUrlEditorSuggestions", () => {
     ]);
   });
 
-  it("uses sample values in the search param dropdown for every valued param", () => {
+  it("uses configured sample values in the search param dropdown", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",
       draftEditedSinceFocus: true,
@@ -151,6 +151,58 @@ describe("readRouteUrlEditorSuggestions", () => {
       "?isoSide=17",
       "?isoStyle=shaded-edge",
     ]);
+  });
+
+  it("does not preview auth-flow values from search param recommendations", () => {
+    const authKeySuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?a",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?a".length,
+      viewer: publicViewer,
+    });
+
+    const authKeySuggestion = authKeySuggestions.find((suggestion) => suggestion.key === "auth");
+    expect(authKeySuggestion?.value).toBe("?auth=");
+    expect(authKeySuggestions.map((suggestion) => suggestion.value)).not.toContain("?auth=google");
+
+    const authValueSuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?auth=g",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?auth=g".length,
+      viewer: publicViewer,
+    });
+
+    expect(authValueSuggestions).toEqual([]);
+
+    const signupKeySuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?s",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?s".length,
+      viewer: publicViewer,
+    });
+
+    const signupKeySuggestion = signupKeySuggestions.find(
+      (suggestion) => suggestion.key === "signup",
+    );
+    expect(signupKeySuggestion?.value).toBe("?signup=");
+    expect(signupKeySuggestions.map((suggestion) => suggestion.value)).not.toContain(
+      "?signup=google",
+    );
   });
 
   it("keeps numeric examples inside finite numeric value suggestions", () => {

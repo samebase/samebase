@@ -22,7 +22,7 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> =
   | (NoterRouteSearchParamSuggestionBase<Key> & {
       valueKind: "value";
       numericDefaultValue?: number;
-      sampleValue: string;
+      sampleValue: string | null;
       valueCompletion?: NoterRouteSearchParamValueCompletion;
       valueSuggestions?: NoterRouteSearchParamValueSuggestions;
     });

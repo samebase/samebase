@@ -104,4 +104,33 @@ describe("routeSearchParamMetadata", () => {
       },
     ]);
   });
+
+  it("keeps null value recommendations out of route URL suggestions", () => {
+    const searchParams = defineRouteSearchParams({
+      auth: routeSearchValueParam(literal("google"), {
+        permission: "public",
+        sampleValue: null,
+        suggestion: "route",
+        valueSuggestions: null,
+      }),
+    });
+
+    const metadata = readRouteSearchParamMetadata(searchParams);
+
+    expect(metadata.auth).toEqual({
+      permission: "public",
+      sampleValue: null,
+      suggestion: "route",
+      valueKind: "value",
+      valueSuggestions: null,
+    });
+    expect(readRouteSearchParamSuggestions(metadata, "route")).toEqual([
+      {
+        key: "auth",
+        permission: "public",
+        sampleValue: null,
+        valueKind: "value",
+      },
+    ]);
+  });
 });

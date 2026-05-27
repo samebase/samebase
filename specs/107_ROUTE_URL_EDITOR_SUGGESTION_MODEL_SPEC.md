@@ -17,27 +17,30 @@ The route URL editor is a progressive URL builder. Search-param suggestions can 
 values so users understand the effect of a parameter before choosing it, but those examples are not
 always committed values.
 
-Static route-search metadata owns param semantics: key, presence/value kind, permissions, sample
-value, and value suggestions. The URL editor owns interaction grammar: whether selecting a rendered
-row commits a URL fragment or opens the next editable slot.
+Static route-search metadata owns param semantics: key, presence/value kind, permissions, nullable
+sample value, and nullable value suggestions. The URL editor owns interaction grammar: whether
+selecting a rendered row commits a URL fragment or opens the next editable slot.
 
 ## Contract
 
 1. Key-only presence params commit on selection. Selecting `?dark` or `&dark` applies that param and
    then opens the next search-param slot when more suggestions are available.
-2. Value-bearing param rows show a sample value as a hint. Selecting `?border=stone-300` from the
-   search-param dropdown applies `?border=` and opens value suggestions instead of committing
-   `stone-300`.
+2. Value-bearing param rows show a sample value as a hint when route metadata provides one.
+   Selecting `?border=stone-300` from the search-param dropdown applies `?border=` and opens value
+   suggestions instead of committing `stone-300`.
 3. Sample text must be visually distinct from the committed prefix. In `border=stone-300`, `border=`
    is the committed action and `stone-300` is sample text.
-4. Value suggestions can also contain a sample suffix. For Tailwind color families, a row such as
+4. Params whose concrete values trigger one-shot runtime effects, such as `auth=google`, must set
+   the sample value and value suggestions to `null`. The key row may still offer `?auth=`, but the
+   editor must not recommend or preview the concrete value.
+5. Value suggestions can also contain a sample suffix. For Tailwind color families, a row such as
    `red-500` means selecting the `red-` family, with `500` shown only as the representative sample.
    Selection keeps the editor in value-picking mode so the user can choose the final shade from
    explicit options such as `50`, `100`, `500`, and `900`.
-5. Only explicit final value choices commit a value-bearing param. Sample values are allowed to
+6. Only explicit final value choices commit a value-bearing param. Sample values are allowed to
    preview route behavior while focused or hovered, but click/Enter selection must not silently
    finalize the sample when the user is still choosing the value.
-6. `?` and `&` are URL-editor grammar, not route-param metadata. The editor decides the correct
+7. `?` and `&` are URL-editor grammar, not route-param metadata. The editor decides the correct
    delimiter from the active URL token and must keep follow-up params inside the query string.
 
 ## Implementation Notes

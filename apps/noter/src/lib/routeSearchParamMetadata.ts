@@ -17,10 +17,10 @@ type RouteSearchParamMetadataBase = {
 export type RouteSearchParamMetadata =
   | (RouteSearchParamMetadataBase & {
       numericDefaultValue?: number;
-      sampleValue: string;
+      sampleValue: string | null;
       valueKind: "value";
       valueCompletion?: NoterRouteSearchParamValueCompletion;
-      valueSuggestions?: NoterRouteSearchParamValueSuggestions;
+      valueSuggestions?: NoterRouteSearchParamValueSuggestions | null;
     })
   | (RouteSearchParamMetadataBase & {
       parseKind: "presence";
@@ -125,10 +125,10 @@ export function routeSearchValueParam<const Schema extends RouteSearchValueSchem
   args: {
     numericDefaultValue?: number;
     permission: NoterRoutePermission;
-    sampleValue: string;
+    sampleValue: string | null;
     suggestion: RouteSearchParamSuggestionSurface;
     valueCompletion?: NoterRouteSearchParamValueCompletion;
-    valueSuggestions?: NoterRouteSearchParamValueSuggestions;
+    valueSuggestions?: NoterRouteSearchParamValueSuggestions | null;
   },
 ): RouteSearchParam<InferRouteSearchSchemaGood<Schema>> {
   return {
