@@ -252,6 +252,23 @@ describe("page metadata", () => {
     });
   });
 
+  it("keeps the indexedDB diagnostic route public but non-indexed", () => {
+    withFakeDocument((document) => {
+      applyPageMetadata(
+        resolvePageMetadata({
+          pathname: "/indexedDB",
+          isAuthenticated: false,
+        }),
+      );
+
+      expect(document.title).toBe("indexedDB | noter");
+      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
+        "https://noter.md/indexedDB",
+      );
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
+    });
+  });
+
   it("builds dedicated not-found metadata without indexing the missing path", () => {
     expect(resolveNotFoundPageMetadata("/missing")).toEqual({
       canonicalPath: "/missing",

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 
@@ -30,6 +31,11 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
 
   await expect(page.getByTestId("app-workspace")).toBeVisible();
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText("localStorage");
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText("indexedDB");
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute(
+    "href",
+    INDEXED_DB_ROUTE,
+  );
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
       hasText: "noter.multiline",

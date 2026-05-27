@@ -1413,14 +1413,24 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
     exact: true,
     name: "Use /localStorage",
   });
+  const indexedDbOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /indexedDB",
+  });
 
   await expect(rootOption).toBeVisible();
+  await expect(indexedDbOption).toBeVisible();
   await expect(localStorageOption).toBeVisible();
 
   await input.press("ArrowDown");
   await expect(rootOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/`);
   await expect(input).toHaveValue(`${origin}/`);
+
+  await input.press("ArrowDown");
+  await expect(indexedDbOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/indexedDB`);
+  await expect(input).toHaveValue(`${origin}/indexedDB`);
 
   await input.press("ArrowDown");
   await expect(localStorageOption).toHaveAttribute("aria-selected", "true");

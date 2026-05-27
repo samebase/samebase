@@ -21,6 +21,7 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/home");
+    expect(suggestions).toContain("/indexedDB");
     expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
@@ -278,6 +279,16 @@ describe("isRouteUrlPathReadyForNavigation", () => {
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/logo/iso?from=route-url-editor",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: adminViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/indexedDB",
         origin: ORIGIN,
         routesByPath,
         viewer: adminViewer,

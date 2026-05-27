@@ -4,6 +4,7 @@ import {
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./lib/codexAppServerResearch";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
+import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./lib/landingMarkdownPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/noterSync";
@@ -16,6 +17,7 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
  */
 export const routes = rootRoute("root.tsx", [
   index("index.tsx"),
+  route(INDEXED_DB_ROUTE, "indexedDB.tsx"),
   route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
   route("/logo", "logo.tsx"),
   route("/logo/iso", "logo-iso.tsx"),

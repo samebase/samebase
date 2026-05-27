@@ -1,22 +1,7 @@
-import { FileText } from "lucide-react";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { BrowserStorageSidebarContent } from "@/components/BrowserStorageSidebarContent";
 import { useBrowserLocalStorageSnapshot } from "@/hooks/useBrowserLocalStorageSnapshot";
 import { type LocalStorageSnapshot } from "@/lib/localStorageSnapshot";
-
-function LocalStorageSidebarContent() {
-  return (
-    <nav aria-label="Storage views" className="px-1 py-2">
-      <div
-        aria-current="page"
-        data-testid="local-storage-sidebar-file"
-        className="flex h-8 min-w-0 items-center gap-2 px-2 text-sm font-medium"
-      >
-        <FileText className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 truncate">localStorage</span>
-      </div>
-    </nav>
-  );
-}
 
 function formatLocalStorageValue(value: string): string {
   try {
@@ -89,7 +74,9 @@ export function LocalStorageWorkspacePage() {
   const snapshot = useBrowserLocalStorageSnapshot();
 
   return (
-    <AppWorkspaceRouteChrome left={{ content: <LocalStorageSidebarContent /> }}>
+    <AppWorkspaceRouteChrome
+      left={{ content: <BrowserStorageSidebarContent currentView="localStorage" /> }}
+    >
       <LocalStorageEntriesTable snapshot={snapshot} />
     </AppWorkspaceRouteChrome>
   );
