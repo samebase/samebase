@@ -662,6 +662,20 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/home?delete#noter");
+  const resourceLinksTrigger = fixture.getByRole("button", {
+    name: "Show resource links",
+  });
+  await expect(resourceLinksTrigger).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Project settings" })).toHaveCount(0);
+  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await resourceLinksTrigger.click();
+  await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
@@ -689,12 +703,6 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
       name: "codex/dashboard-main-pane-spacing",
     }),
   ).toBeVisible();
-  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
 });
 
 test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
@@ -710,6 +718,20 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/home?delete#noter");
+  const resourceLinksTrigger = fixture.getByRole("button", {
+    name: "Show resource links",
+  });
+  await expect(resourceLinksTrigger).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Project settings" })).toHaveCount(0);
+  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await resourceLinksTrigger.click();
+  await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
@@ -737,12 +759,6 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
       name: "codex/dashboard-main-pane-spacing",
     }),
   ).toBeVisible();
-  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
 });
 
 test("vault dashboard fixture (bottom target can align at top)", async ({ page }) => {

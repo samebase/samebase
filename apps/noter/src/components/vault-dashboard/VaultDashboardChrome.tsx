@@ -70,7 +70,7 @@ export function VaultDashboardAccountSectionFrame({
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
       <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild>
+        <CollapsibleTrigger asChild nativeButton>
           <Button
             type="button"
             variant="ghost"
@@ -174,7 +174,7 @@ export function VaultDashboardProvidersSection({
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
       <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild>
+        <CollapsibleTrigger asChild nativeButton>
           <Button
             variant="ghost"
             size="sm"
@@ -467,14 +467,18 @@ export function VaultDashboardRepositoryCard({
   titleTitle?: string;
   topRightAction?: ReactNode;
 }) {
+  const [repositoryLinksOpen, setRepositoryLinksOpen] = useState(false);
   const hasBodyContent = Boolean(
     branchSection || developerToolsSection || footerActions || setupSection,
   );
+  const hasRepositoryLinks = Boolean(repositoryLinks);
+  const hasTopRightAction = Boolean(topRightAction);
+  const repositoryLinksLabel = repositoryLinksOpen ? "Hide resource links" : "Show resource links";
   // Keep long branch lists anchored to their repository without taking over
   // unrelated card content.
   const shouldStickHeader = Boolean(branchSection);
   const titleContent = (
-    <h3 className="min-w-0 font-semibold leading-6">
+    <h3 className="min-w-0 text-base font-semibold leading-6">
       <span className="flex min-w-0 items-start gap-2">
         <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
           <span className="font-normal text-muted-foreground">#</span>
@@ -486,6 +490,46 @@ export function VaultDashboardRepositoryCard({
         {titleSuffix}
       </span>
     </h3>
+  );
+  const headerContent = (
+    <div
+      className={clsx(
+        "flex flex-col items-start",
+        hasRepositoryLinks && hasTopRightAction ? "pr-24" : "pr-10",
+      )}
+    >
+      {titleHref ? (
+        <a
+          href={titleHref}
+          target={titleTarget}
+          rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
+          className={clsx(
+            "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+            titleClassName,
+          )}
+          title={titleTitle}
+        >
+          {titleContent}
+        </a>
+      ) : (
+        <div className="-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6">
+          {titleContent}
+        </div>
+      )}
+      {hasRepositoryLinks ? (
+        <CollapsibleContent className="w-full min-w-0">{repositoryLinks}</CollapsibleContent>
+      ) : null}
+      {repositoryStatus ? (
+        <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+          {repositoryStatus}
+        </div>
+      ) : null}
+      {headerControls ? (
+        <div className="mt-2 flex w-full max-w-full flex-wrap items-center gap-2">
+          {headerControls}
+        </div>
+      ) : null}
+    </div>
   );
 
   return (
@@ -502,37 +546,28 @@ export function VaultDashboardRepositoryCard({
         >
           {topRightAction}
 
-          <div className="flex flex-col items-start pr-10">
-            {titleHref ? (
-              <a
-                href={titleHref}
-                target={titleTarget}
-                rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
-                className={clsx(
-                  "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-                  titleClassName,
-                )}
-                title={titleTitle}
-              >
-                {titleContent}
-              </a>
-            ) : (
-              <div className="-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6">
-                {titleContent}
-              </div>
-            )}
-            {repositoryLinks}
-            {repositoryStatus ? (
-              <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                {repositoryStatus}
-              </div>
-            ) : null}
-            {headerControls ? (
-              <div className="mt-2 flex w-full max-w-full flex-wrap items-center gap-2">
-                {headerControls}
-              </div>
-            ) : null}
-          </div>
+          {hasRepositoryLinks ? (
+            <Collapsible open={repositoryLinksOpen} onOpenChange={setRepositoryLinksOpen}>
+              <CollapsibleTrigger asChild nativeButton>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={repositoryLinksLabel}
+                  title={repositoryLinksLabel}
+                  className={clsx(
+                    "absolute top-4 z-20 [&[data-state=open]>svg]:rotate-180",
+                    hasTopRightAction ? "right-14" : "right-4",
+                  )}
+                >
+                  <ChevronDownIcon className="h-4 w-4 transition-transform" />
+                </Button>
+              </CollapsibleTrigger>
+              {headerContent}
+            </Collapsible>
+          ) : (
+            headerContent
+          )}
         </div>
 
         <div className="space-y-3">
@@ -547,7 +582,7 @@ export function VaultDashboardRepositoryCard({
                 open={developerToolsSection.open}
                 onOpenChange={developerToolsSection.onOpenChange}
               >
-                <CollapsibleTrigger asChild>
+                <CollapsibleTrigger asChild nativeButton>
                   <Button variant="ghost" size="sm" className={DEVELOPER_TOOLS_TRIGGER_CLASS_NAME}>
                     Developer tools
                     <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
@@ -561,7 +596,7 @@ export function VaultDashboardRepositoryCard({
               // Reserve the closed trigger box so toggling ?dev does not reflow
               // the visible dashboard card layout.
               <Collapsible className="space-y-1.5" open={false} aria-hidden={true}>
-                <CollapsibleTrigger asChild>
+                <CollapsibleTrigger asChild nativeButton>
                   <Button
                     variant="ghost"
                     size="sm"

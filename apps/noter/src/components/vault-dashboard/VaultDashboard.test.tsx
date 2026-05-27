@@ -302,6 +302,26 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(ownerQualifiedMarkup).toContain("nicu-chiciuc/");
     expect(ownerQualifiedMarkup).toContain("tmp-flow");
   });
+
+  it("keeps resource links collapsed behind a header trigger", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardRepositoryCard
+        isReady={true}
+        repositoryOwner="noter-md"
+        repositoryName="noter"
+        repositoryLinks={
+          <nav aria-label="Repository resources">
+            <a href="https://github.com/noter-md/noter">GitHub</a>
+          </nav>
+        }
+        topRightAction={<span>Delete</span>}
+      />,
+    );
+
+    expect(markup).toContain("Show resource links");
+    expect(markup).toContain("Delete");
+    expect(markup).not.toContain("GitHub");
+  });
 });
 
 describe("GitHubRepositoryNameSlashPreview", () => {
