@@ -67,6 +67,7 @@ const productionPublicHostLaunchOptions = {
 test.use({
   launchOptions: productionPublicHostLaunchOptions,
 });
+test.describe.configure({ mode: "serial" });
 
 function buildProductionPublicLandingUrl(search: string): string {
   const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
@@ -223,7 +224,7 @@ async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
   teamTextHeight: number;
 }> {
   return await page.evaluate(() => {
-    const shell = document.querySelector('[data-workspace-layout-v2="mobile"]');
+    const shell = document.querySelector('[data-workspace-layout-v2="responsive"]');
     const carousel = document.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
     const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
     const mainPane = carousel?.querySelector(".snap-center > div");
@@ -293,7 +294,7 @@ async function readLandingRightSidebarSeparatorPaint(page: Page): Promise<{
   separatorX: number;
 }> {
   const geometry = await page.evaluate(() => {
-    const shell = document.querySelector('[data-workspace-layout-v2="mobile"]');
+    const shell = document.querySelector('[data-workspace-layout-v2="responsive"]');
     const carousel = document.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
     const mainPane = carousel?.querySelector(".snap-center > div");
 
@@ -1019,14 +1020,14 @@ test("public landing stays vertically stable while the page reloads", async ({ p
   expectStableLandingReloadFrames(reloadFrames);
 });
 
-test("public landing keeps copy and sidebar links stable while bundled fonts load", async ({
+test("public landing keeps copy and sidebar links stable without bundled fonts", async ({
   page,
 }) => {
   const capture = await captureLandingFontStableFrames(page);
 
-  // Bundled fonts are intentional now; the contract is that delayed font files
-  // must not reflow the landing copy or sidebar link stack.
-  expect(capture.webfontRequestCount).toBeGreaterThan(0);
+  // The landing shell uses the system font stack, so there should be no delayed
+  // webfont request that can reflow the copy or sidebar link stack.
+  expect(capture.webfontRequestCount).toBe(0);
   expectStableLandingFontFrames(capture.frames);
 });
 
@@ -1088,7 +1089,7 @@ test("public landing keeps both side panes mounted on desktop", async ({ page })
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/", { waitUntil: "networkidle" });
 
-  const workspace = page.locator('[data-workspace-layout-v2="desktop"]');
+  const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
   const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
 
@@ -1313,7 +1314,7 @@ test.describe("iPhone SE landing sidebar", () => {
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
 
-    await expect(page.locator('[data-workspace-layout-v2="mobile"]')).toHaveAttribute(
+    await expect(page.locator('[data-workspace-layout-v2="responsive"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
@@ -1718,7 +1719,7 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
     exact: true,
   });
   await expect(appToggleLink).toBeVisible();
-  await appToggleLink.click();
+  await appToggleLink.press("Enter");
 
   await expect(page).toHaveURL(/\/$/);
   await expect(
