@@ -48,8 +48,8 @@ grammar: whether selecting a rendered row commits a URL fragment or opens the ne
 Do not add route-param metadata flags just to describe editor continuation behavior. Prefer deriving
 it from existing param shape:
 
-- `valueKind: "presence"` can commit directly.
-- `valueKind: "value"` opens value editing when selected from the key dropdown.
+- `searchParamKind: "presence"` can commit directly.
+- `searchParamKind: "value"` opens value editing when selected from the key dropdown.
 - `valueType: "manual"` has no sample, completion, suggestions, or numeric default.
 - `valueType: "freeform"` has only a sample value.
 - `valueType: "numeric"` has a sample value, numeric default, numeric range, and suggestion step.

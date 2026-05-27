@@ -35,12 +35,11 @@ type RouteSearchParam<Value> = Sure<unknown, Value, unknown, MetaObj<RouteSearch
 
 type RouteSearchParamShape = Readonly<Record<string, RouteSearchParam<unknown>>>;
 
-type RouteSearchParamGroup<Shape extends RouteSearchParamShape> = {
-  shape: Shape;
-  parse(search: Record<string, unknown>): { [Key in keyof Shape]?: InferGood<Shape[Key]> };
+type ParsedRouteSearchParams<Shape extends RouteSearchParamShape> = {
+  [Key in keyof Shape]?: InferGood<Shape[Key]>;
 };
 
-export type InferRouteSearch<Group extends RouteSearchParamGroup<RouteSearchParamShape>> =
+export type InferRouteSearch<Group extends { parse(search: Record<string, unknown>): object }> =
   ReturnType<Group["parse"]>;
 
 export const routeSearchString = pure((value) =>
@@ -117,12 +116,10 @@ export function routeSearchPresenceParam(
   );
 }
 
-export function defineRouteSearchParams<const Shape extends RouteSearchParamShape>(
-  shape: Shape,
-): RouteSearchParamGroup<Shape> {
+export function defineRouteSearchParams<const Shape extends RouteSearchParamShape>(shape: Shape) {
   return {
     shape,
-    parse(search) {
+    parse(search: Record<string, unknown>): ParsedRouteSearchParams<Shape> {
       return parseRouteSearchParams(shape, search);
     },
   };
@@ -131,7 +128,7 @@ export function defineRouteSearchParams<const Shape extends RouteSearchParamShap
 function parseRouteSearchParams<const Shape extends RouteSearchParamShape>(
   shape: Shape,
   search: Record<string, unknown>,
-): ReturnType<RouteSearchParamGroup<Shape>["parse"]> {
+): ParsedRouteSearchParams<Shape> {
   const parsedSearch: Partial<Record<keyof Shape & string, unknown>> = {};
 
   for (const [key, param] of entries(shape)) {
@@ -147,9 +144,9 @@ function parseRouteSearchParams<const Shape extends RouteSearchParamShape>(
   return parsedSearch;
 }
 
-export function readRouteSearchParamMetadata<const Shape extends RouteSearchParamShape>(
-  group: RouteSearchParamGroup<Shape>,
-): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
+export function readRouteSearchParamMetadata<const Shape extends RouteSearchParamShape>(group: {
+  shape: Shape;
+}): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
   return fromEntries(entries(group.shape).map(([key, param]) => [key, param.meta] as const));
 }
 

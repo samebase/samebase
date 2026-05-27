@@ -10,16 +10,11 @@ export type NoterRouteSearchParamNumericRange =
   | {
       maxValue: number;
       minValue: number;
-      rangeType: "closed";
+      rangeType: "closed" | "wrap";
     }
   | {
       minValue: number;
       rangeType: "min";
-    }
-  | {
-      maxValue: number;
-      minValue: number;
-      rangeType: "wrap";
     };
 export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
