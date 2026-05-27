@@ -88,7 +88,6 @@ export function WorkspaceLayoutV2FullPage({
   right,
   leftToggleVisibility = "desktop",
   rightToggleVisibility = "desktop",
-  showMobileResizeGripDots,
 }: {
   dataTestId?: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
@@ -99,7 +98,6 @@ export function WorkspaceLayoutV2FullPage({
   right?: WorkspaceLayoutV2PaneFrameProps;
   leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
   rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
-  showMobileResizeGripDots?: boolean;
 }) {
   const hasDesktopHeaderToggle =
     (left && leftToggleVisibility !== "hidden") || (right && rightToggleVisibility !== "hidden");
@@ -133,7 +131,6 @@ export function WorkspaceLayoutV2FullPage({
       mobilePanePeekWidthPx={mobilePanePeekWidthPx}
       panel={panel}
       right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}
-      showMobileResizeGripDots={showMobileResizeGripDots}
       dataTestId={dataTestId}
     />
   );

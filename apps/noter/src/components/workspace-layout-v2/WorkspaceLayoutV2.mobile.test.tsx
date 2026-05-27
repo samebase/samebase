@@ -75,7 +75,6 @@ type RenderMobileLayoutArgs = {
   mobilePane?: WorkspaceSidebarState["mobilePane"];
   rightMobileWidthPx?: number;
   rightToggleVisibility?: "all" | "desktop" | "hidden";
-  showMobileResizeGripDots?: boolean;
 };
 
 function createMobileSidebarState({
@@ -106,7 +105,6 @@ function renderMobileLayoutContent({
   mobileMinResizeBehavior,
   mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
   rightToggleVisibility,
-  showMobileResizeGripDots,
 }: Omit<RenderMobileLayoutArgs, "leftMobileWidthPx" | "mobilePane" | "rightMobileWidthPx">) {
   const mainProps =
     mainHeader === OMIT_HEADER
@@ -141,7 +139,6 @@ function renderMobileLayoutContent({
       }
       leftToggleVisibility={leftToggleVisibility}
       rightToggleVisibility={rightToggleVisibility}
-      showMobileResizeGripDots={showMobileResizeGripDots}
     />
   );
 }
@@ -194,7 +191,7 @@ function ControlledMergedLeftMobileLayout() {
 
   return (
     <WorkspacePaneRuntimeProvider controller={controller}>
-      {renderMobileLayoutContent({ showMobileResizeGripDots: true })}
+      {renderMobileLayoutContent({})}
     </WorkspacePaneRuntimeProvider>
   );
 }
@@ -418,7 +415,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         renderMobileLayout({
           mobilePane: "right",
           mobilePanePeekWidthPx: 0,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -530,7 +526,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expectMobilePaneSeparatorOwnership(rootElement, "right");
   });
 
-  it("omits mobile resize grips by default", () => {
+  it("omits mobile resize grips on the main pane", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -539,7 +535,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     act(() => {
       mountedRoot.render(
         renderMobileLayout({
-          mobilePane: "left",
+          mobilePane: "main",
         }),
       );
     });
@@ -550,7 +546,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on the active left sidebar when grip dots are enabled", () => {
+  it("renders a mobile resize grip on the active left sidebar by default", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -562,7 +558,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 220,
           mobilePane: "left",
           rightMobileWidthPx: 300,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -586,7 +581,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on a left-only route when grip dots are enabled", () => {
+  it("renders a mobile resize grip on a left-only route by default", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -598,7 +593,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           includeRightPane: false,
           leftMobileWidthPx: 220,
           mobilePane: "left",
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -623,7 +617,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on the active right sidebar when grip dots are enabled", () => {
+  it("renders a mobile resize grip on the active right sidebar by default", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -635,7 +629,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 220,
           mobilePane: "right",
           rightMobileWidthPx: 300,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -669,7 +662,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 1,
           mobilePane: "left",
           rightMobileWidthPx: 1,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -694,7 +686,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           leftMobileWidthPx: 1,
           mobilePane: "right",
           rightMobileWidthPx: 1,
-          showMobileResizeGripDots: true,
         }),
       );
     });
@@ -728,7 +719,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           renderMobileLayout({
             leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
             mobilePane: "left",
-            showMobileResizeGripDots: true,
           }),
         );
       });
@@ -810,7 +800,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         mountedRoot.render(
           renderMobileLayout({
             mobilePane: "right",
-            showMobileResizeGripDots: true,
           }),
         );
       });

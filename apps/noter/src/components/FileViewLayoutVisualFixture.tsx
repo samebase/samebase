@@ -83,7 +83,6 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
           mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined
         }
         shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-        showMobileResizeGripDots={true}
         left={
           FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
             ? activeSidebar

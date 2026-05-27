@@ -7,8 +7,6 @@ import {
   useWorkspacePaneState,
   type WorkspacePaneState,
 } from "./WorkspacePaneRuntime";
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   type WorkspaceLayoutV2BottomPanelProps,
   WorkspaceLayoutV2MainViewportWithPanel,
@@ -41,23 +39,9 @@ type WorkspaceLayoutV2Props = {
   mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: ReactElement;
-  showMobileResizeGripDots?: boolean;
 
   dataTestId?: string;
 };
-
-/**
- * Keeps mobile resize grips visible on landing-page dev routes so layout work
- * can be tested without opting every fixture into debug chrome. Shipped routes
- * default to hidden grips unless the caller explicitly asks for them.
- */
-function shouldShowMobileResizeGripDotsByDefault() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return isLandingDevModeEnabled(parseTanStackSearch(window.location.search));
-}
 
 /**
  * If durable state says "left" but this layout has no left pane, render
@@ -91,7 +75,6 @@ export function WorkspaceLayoutV2({
   mobilePanePeekWidthPx: configuredMobilePanePeekWidthPx = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   panel,
   right,
-  showMobileResizeGripDots,
   dataTestId,
 }: WorkspaceLayoutV2Props) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -121,8 +104,6 @@ export function WorkspaceLayoutV2({
   const hasLeftPane = !!left;
   const hasRightPane = !!right;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
-  const shouldShowMobileResizeGripDots =
-    showMobileResizeGripDots ?? shouldShowMobileResizeGripDotsByDefault();
   const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(configuredMobilePanePeekWidthPx);
   const mobilePane = getAvailableMobilePane({
     hasLeftPane,
@@ -230,7 +211,6 @@ export function WorkspaceLayoutV2({
     mobileSidebarMinWidthPx,
     setLeftMobileWidthPx,
     setRightMobileWidthPx,
-    shouldShowMobileResizeGripDots,
     viewportWidthPx: viewportSize.widthPx,
   });
 

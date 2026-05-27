@@ -315,12 +315,12 @@ export function WorkspaceLayoutV2ResizeHandle({
               aria-hidden="true"
               data-workspace-layout-v2-resize-grip-dots
               className={cn(
-                "relative z-10 flex flex-col items-center gap-1 text-border",
+                "relative z-10 flex flex-col items-center gap-1 text-foreground/70",
                 gripDotsClassName,
               )}
             >
               {Array.from({ length: 3 }, (_, index) => (
-                <span key={index} className="h-1 w-1 rounded-full bg-current" />
+                <span key={index} className="h-[3px] w-[3px] rounded-full bg-current" />
               ))}
             </div>
           </div>

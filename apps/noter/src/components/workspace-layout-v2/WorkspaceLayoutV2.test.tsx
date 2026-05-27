@@ -267,7 +267,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('data-testid="workspace-layout-v2-left-resize"');
     expect(markup).toContain("h-16 w-8");
     expect(markup).toContain("data-workspace-layout-v2-resize-grip-dots");
-    expect(markup).toContain("text-border");
+    expect(markup).toContain("text-foreground/70");
+    expect(markup).toContain("h-[3px] w-[3px]");
     expect(markup).not.toContain("border-border");
     expect(markup).not.toContain("bg-background");
   });

@@ -17,7 +17,6 @@ type WorkspaceLayoutV2FixtureFrameProps = {
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
   shortcutPaneSide?: WorkspacePaneSide;
-  showMobileResizeGripDots?: boolean;
 };
 
 /**
@@ -32,7 +31,6 @@ export function WorkspaceLayoutV2FixtureFrame({
   panel,
   right,
   shortcutPaneSide,
-  showMobileResizeGripDots,
 }: WorkspaceLayoutV2FixtureFrameProps) {
   return (
     <AppWorkspaceRouteChrome
@@ -43,7 +41,6 @@ export function WorkspaceLayoutV2FixtureFrame({
       panel={panel}
       right={right ?? null}
       shortcutPaneSide={shortcutPaneSide}
-      showMobileResizeGripDots={showMobileResizeGripDots}
     >
       {main.content}
       {children}
