@@ -4,10 +4,28 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { PasswordAuthForm } from "@/components/PublicLandingAuthControls";
+import {
+  PasswordAuthForm,
+  PublicLandingPasswordAuthControls,
+} from "@/components/PublicLandingAuthControls";
+import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
+import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { type PublicDeploymentAuthPolicy } from "../convex/deploymentProfile";
 
-const { signInWithPasswordMock } = vi.hoisted(() => ({
+const { navigateMock, signInWithPasswordMock } = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
   signInWithPasswordMock: vi.fn(),
+}));
+const componentState = vi.hoisted<{
+  deploymentAuthPolicy: PublicDeploymentAuthPolicy | undefined;
+  isAuthenticated: boolean;
+  pathname: string;
+  search: RootRouteSearch;
+}>(() => ({
+  deploymentAuthPolicy: undefined,
+  isAuthenticated: false,
+  pathname: "/",
+  search: {},
 }));
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 
@@ -15,6 +33,24 @@ vi.mock("@/authClient", () => ({
   useNoterSignInActions: () => ({
     signInWithPassword: signInWithPasswordMock,
   }),
+}));
+
+vi.mock("@/lib/rootRouteSearch", () => ({
+  useRootRouteSearch: () => componentState.search,
+}));
+
+vi.mock("@tanstack/react-router", () => ({
+  useLocation: ({ select }: { select: (location: { pathname: string }) => string }) =>
+    select({ pathname: componentState.pathname }),
+  useNavigate: () => navigateMock,
+}));
+
+vi.mock("convex/react", () => ({
+  useConvexAuth: () => ({
+    isAuthenticated: componentState.isAuthenticated,
+    isLoading: false,
+  }),
+  useQuery: () => componentState.deploymentAuthPolicy,
 }));
 
 function renderPasswordAuthForm(surface: "local_worktree" | "preview"): string {
@@ -25,6 +61,11 @@ describe("PasswordAuthForm", () => {
   let root: Root | null = null;
 
   afterEach(() => {
+    componentState.deploymentAuthPolicy = undefined;
+    componentState.isAuthenticated = false;
+    componentState.pathname = "/";
+    componentState.search = {};
+    navigateMock.mockReset();
     signInWithPasswordMock.mockReset();
     const mountedRoot = root;
     if (mountedRoot !== null) {
@@ -40,7 +81,7 @@ describe("PasswordAuthForm", () => {
   it("renders the preview sign-in-only surface without local shortcuts", () => {
     const markup = renderPasswordAuthForm("preview");
 
-    expect(markup).toContain("Preview password sign in");
+    expect(markup).toContain("Password auth (dev)");
     expect(markup).toContain('placeholder="you@example.com"');
     expect(markup).toContain('autoComplete="current-password"');
     expect(markup).toContain(">Sign in</button>");
@@ -52,11 +93,52 @@ describe("PasswordAuthForm", () => {
   it("renders the local-worktree surface with account creation controls", () => {
     const markup = renderPasswordAuthForm("local_worktree");
 
-    expect(markup).toContain("Password auth (local worktree)");
+    expect(markup).toContain("Password auth (dev)");
     expect(markup).toContain("Need an account?");
     expect(markup).toContain("Autofill &amp; sign in");
     expect(markup).toContain(">Sign in</button>");
-    expect(markup).not.toContain("Preview password sign in");
+  });
+
+  it("renders the landing sidebar password auth for preview deployments", () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "preview" },
+      passwordAuthMode: "preview_seed",
+    };
+
+    const markup = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
+
+    expect(markup).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(markup).toContain("Password auth (dev)");
+    expect(markup).toContain('placeholder="you@example.com"');
+    expect(markup).toContain('autoComplete="current-password"');
+    expect(markup).not.toContain("Google");
+    expect(markup).not.toContain("Need an account?");
+  });
+
+  it("hides the landing sidebar password auth in prod-ui mode", () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "preview" },
+      passwordAuthMode: "preview_seed",
+    };
+    componentState.search = { "prod-ui": true };
+
+    const markup = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
+
+    expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(markup).not.toContain("Password auth (dev)");
+  });
+
+  it("hides the landing sidebar password auth after sign-in", () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "preview" },
+      passwordAuthMode: "preview_seed",
+    };
+    componentState.isAuthenticated = true;
+
+    const markup = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
+
+    expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(markup).not.toContain("Password auth (dev)");
   });
 
   it("shows actionable copy when local worktree autofill credentials are missing", async () => {
