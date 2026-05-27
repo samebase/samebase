@@ -226,16 +226,12 @@ export function readRouteSearchParamSuggestions<
       key,
       permission: paramMetadata.permission,
       sampleValue: paramMetadata.sampleValue,
+      valueCompletion: paramMetadata.valueCompletion,
       valueKind: "value",
+      valueSuggestions: paramMetadata.valueSuggestions,
     };
     if (typeof paramMetadata.numericDefaultValue === "number") {
       suggestion.numericDefaultValue = paramMetadata.numericDefaultValue;
-    }
-    if (paramMetadata.valueCompletion !== null) {
-      suggestion.valueCompletion = paramMetadata.valueCompletion;
-    }
-    if (paramMetadata.valueSuggestions !== null) {
-      suggestion.valueSuggestions = paramMetadata.valueSuggestions;
     }
     suggestions.push(suggestion);
   }

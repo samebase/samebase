@@ -92,6 +92,7 @@ describe("routeSearchParamMetadata", () => {
         key: "auth",
         permission: "public",
         sampleValue: "google",
+        valueCompletion: null,
         valueKind: "value",
         valueSuggestions: ["google"],
       },
@@ -100,7 +101,9 @@ describe("routeSearchParamMetadata", () => {
         numericDefaultValue: 1,
         permission: "public",
         sampleValue: "2",
+        valueCompletion: null,
         valueKind: "value",
+        valueSuggestions: null,
       },
     ]);
     expect(readRouteSearchParamSuggestions(metadata, "global")).toEqual([
@@ -138,7 +141,9 @@ describe("routeSearchParamMetadata", () => {
         key: "auth",
         permission: "public",
         sampleValue: null,
+        valueCompletion: null,
         valueKind: "value",
+        valueSuggestions: null,
       },
     ]);
   });

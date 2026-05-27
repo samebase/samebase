@@ -23,8 +23,8 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> =
       valueKind: "value";
       numericDefaultValue?: number;
       sampleValue: string | null;
-      valueCompletion?: NoterRouteSearchParamValueCompletion;
-      valueSuggestions?: NoterRouteSearchParamValueSuggestions;
+      valueCompletion: NoterRouteSearchParamValueCompletion | null;
+      valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
     });
 
 export type NoterRouteStaticData = {
