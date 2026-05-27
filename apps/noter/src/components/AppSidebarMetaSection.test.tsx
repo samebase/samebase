@@ -4,6 +4,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { useLocation } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
@@ -35,6 +36,46 @@ describe("AppSidebarMetaSection", () => {
     rootElement = null;
     vi.unstubAllGlobals();
   });
+
+  function LocationProbe() {
+    const location = useLocation();
+
+    return (
+      <output data-testid="router-location">
+        {location.pathname}
+        {location.searchStr}
+      </output>
+    );
+  }
+
+  async function settleRouteUpdate() {
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+
+  async function renderSidebarMetaSection(initialEntry = "/", side: "left" | "right" = "right") {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const mountedRoot = createRoot(rootElement);
+    root = mountedRoot;
+
+    await act(async () => {
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={[initialEntry]}>
+          <AppSidebarMetaSection side={side} />
+          <LocationProbe />
+        </TestRouterProvider>,
+      );
+      await settleRouteUpdate();
+    });
+
+    return rootElement;
+  }
+
+  function readLocationText() {
+    return rootElement?.querySelector('[data-testid="router-location"]')?.textContent ?? "";
+  }
 
   it("omits hidden dev shortcuts from prerendered markup", () => {
     const markup = renderToStaticMarkup(
@@ -70,5 +111,123 @@ describe("AppSidebarMetaSection", () => {
     expect(localStorageShortcut).toBeNull();
     expect(rootElement.textContent).not.toContain("?prod-ui");
     expect(rootElement.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
+  });
+
+  it("previews and restores the landing dev shortcut on hover", async () => {
+    const element = await renderSidebarMetaSection();
+    const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
+    if (!devLink) {
+      throw new Error("Expected public landing dev shortcut.");
+    }
+
+    await act(async () => {
+      devLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/?dev");
+    expect(devLink.textContent).toBe("?dev-");
+
+    await act(async () => {
+      devLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
+    expect(devLink.textContent).toBe("?dev");
+  });
+
+  it("commits the original landing dev hover target on click", async () => {
+    const element = await renderSidebarMetaSection();
+    const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
+    if (!devLink) {
+      throw new Error("Expected public landing dev shortcut.");
+    }
+
+    await act(async () => {
+      devLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(devLink.textContent).toBe("?dev-");
+
+    await act(async () => {
+      devLink.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/?dev");
+    expect(devLink.textContent).toBe("?dev-");
+  });
+
+  it("previews and restores landing path links on hover", async () => {
+    const element = await renderSidebarMetaSection();
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!termsLink) {
+      throw new Error("Expected terms link.");
+    }
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
+  });
+
+  it("previews shared right rail links outside the landing route", async () => {
+    const element = await renderSidebarMetaSection("/terms");
+    const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/privacy",
+    );
+    if (!privacyLink) {
+      throw new Error("Expected privacy link.");
+    }
+
+    await act(async () => {
+      privacyLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/privacy");
+
+    await act(async () => {
+      privacyLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+  });
+
+  it("leaves left rail links inert on hover", async () => {
+    const element = await renderSidebarMetaSection("/terms", "left");
+    const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/privacy",
+    );
+    if (!privacyLink) {
+      throw new Error("Expected privacy link.");
+    }
+
+    await act(async () => {
+      privacyLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
   });
 });

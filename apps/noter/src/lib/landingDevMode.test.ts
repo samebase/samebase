@@ -6,9 +6,10 @@ import {
 } from "@/lib/landingDevMode";
 
 describe("landingDevMode", () => {
-  it("uses search-param-only labels for the dev shortcuts", () => {
+  it("uses cursor-stable search-param-only labels for the dev shortcuts", () => {
     expect(LANDING_DEV_MODE_LINK_LABEL).toBe("?dev");
-    expect(LANDING_DEV_MODE_DISABLE_LINK_LABEL).toBe("?-dev");
+    expect(LANDING_DEV_MODE_DISABLE_LINK_LABEL).toBe("?dev-");
+    expect(LANDING_DEV_MODE_DISABLE_LINK_LABEL.startsWith(LANDING_DEV_MODE_LINK_LABEL)).toBe(true);
   });
 
   it("reads dev mode by key presence", () => {

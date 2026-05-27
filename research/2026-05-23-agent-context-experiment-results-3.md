@@ -104,7 +104,7 @@ This experiment supports the current pack boundary:
 - keep "validate the user-visible path before claiming success" in `agent-engineering-core`
 - keep exact route/query validation, desktop/mobile checks, focus/editability probes, and screenshot
   expectations in `route-ui-validation`
-- keep Noter query-mode semantics such as `?dev`, `?-dev`, and `?prod-ui` in `noter-app-template` or
+- keep Noter query-mode semantics such as `?dev`, `?dev-`, and `?prod-ui` in `noter-app-template` or
   another Noter-specific overlay
 
 The route skill matters even when core agents behave well. It widened validation from one desktop

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-05-02
+- Last updated: 2026-05-27
 - Depends on:
   - `apps/noter/src/lib/routeSearchFlags.ts`
   - `apps/noter/src/lib/tanstackSearchParams.ts`
@@ -31,6 +31,10 @@ meaningful.
 5. Reset is a presence sentinel. If `reset` is present with any non-nullish object value or appears
    in the URL, it serializes as `?reset` and route validation ignores the rest of the visible search
    state.
+6. Shortcut labels for disabling an active presence flag keep the active label as their prefix and
+   append a trailing dash. For example, `?dev`, `?light`, and `?dark` become `?dev-`, `?light-`, and
+   `?dark-` when clicking would remove the active flag. Labels must not use prefix-dash forms
+   because hover previews should not move the pointer target.
 
 ## Known Presence Flags
 

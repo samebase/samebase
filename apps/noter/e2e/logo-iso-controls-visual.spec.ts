@@ -126,14 +126,14 @@ test("logo public query links toggle root theme mode", async ({ page }) => {
   await publicLinks.getByRole("link", { name: "?light", exact: true }).click();
   await expect(page).toHaveURL(/\/logo\?dev&light$/);
   await expect(page.locator("html")).not.toHaveClass(/dark/);
-  await expect(publicLinks.getByRole("link", { name: "?-light", exact: true })).toBeVisible();
+  await expect(publicLinks.getByRole("link", { name: "?light-", exact: true })).toBeVisible();
 
   await publicLinks.getByRole("link", { name: "?dark", exact: true }).click();
   await expect(page).toHaveURL(/\/logo\?dev&dark$/);
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await expect(publicLinks.getByRole("link", { name: "?-dark", exact: true })).toBeVisible();
+  await expect(publicLinks.getByRole("link", { name: "?dark-", exact: true })).toBeVisible();
 
-  await publicLinks.getByRole("link", { name: "?-dark", exact: true }).click();
+  await publicLinks.getByRole("link", { name: "?dark-", exact: true }).click();
   await expect(page).toHaveURL(/\/logo\?dev$/);
   await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "?dark", exact: true })).toBeVisible();
