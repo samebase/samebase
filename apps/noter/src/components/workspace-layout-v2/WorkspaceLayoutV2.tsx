@@ -110,9 +110,6 @@ export function WorkspaceLayoutV2({
     hasRightPane,
     mobilePane: rawMobilePane,
   });
-  // SSR cannot read local pane storage, so publish "main" until measurement
-  // gives React a concrete post-hydration pane update.
-  const renderedMobilePane = hasMeasuredViewport ? mobilePane : "main";
 
   const desktopLeftWidthPx = hasLeftPane
     ? getDesktopSidebarWidthPx({
@@ -286,7 +283,7 @@ export function WorkspaceLayoutV2({
     >
       <div
         ref={viewportRef}
-        data-mobile-pane={renderedMobilePane}
+        data-mobile-pane={mobilePane}
         data-workspace-layout-v2="responsive"
         className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
       >
@@ -301,7 +298,7 @@ export function WorkspaceLayoutV2({
           lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}
           mainContent={mainViewportContent}
           mergedSurfaceSide={isMobile ? activeMobileMergedSurfaceSide : null}
-          mobilePane={renderedMobilePane}
+          mobilePane={mobilePane}
           paneWidthPx={mobileMainWidthPx}
           peekWidthPx={mobilePanePeekWidthPx}
           rightContent={right}
