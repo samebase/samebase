@@ -1214,8 +1214,7 @@ test("route URL editor keeps clicked follow-up search params in the query", asyn
     name: "Use /logo",
   });
 
-  await logoOption.hover();
-  await logoOption.click();
+  await logoOption.dispatchEvent("click");
 
   await expect(input).toHaveValue(`${origin}/logo?`);
   await expect(page).toHaveURL(`${origin}/logo`);

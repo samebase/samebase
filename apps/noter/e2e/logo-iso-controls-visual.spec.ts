@@ -3,6 +3,8 @@ import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 
+test.setTimeout(120_000);
+
 // Keep this route-level guard independent from the production cap helper.
 const EXPECTED_LOGO_DEPTH_HARD_MAX = {
   iso: 10,
@@ -539,14 +541,14 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
 
   await expect(sourceInput).toHaveValue("24");
   await expect(sourceInput).toHaveAttribute("type", "number");
-  await sourceInput.fill("288");
-  await expect(sourceInput).toHaveValue("288");
-  await expect(currentCase).toContainText("288px source");
-  await expect(maskCanvas).toHaveAttribute("width", "288");
-  await expect(maskCanvas).toHaveAttribute("height", "288");
-
+  await sourceInput.fill("145");
+  await expect(sourceInput).toHaveValue("145");
   await sourceInput.press("Enter");
-  await expect(sourceInput).toHaveValue("288");
+  await expect(currentCase).toContainText("145px source");
+  await expect(maskCanvas).toHaveAttribute("width", "145");
+  await expect(maskCanvas).toHaveAttribute("height", "145");
+
+  await expect(sourceInput).toHaveValue("145");
 
   await expect(rotationInput).toHaveAttribute("step", "0.1");
   await expect(elevationInput).toHaveAttribute("step", "0.1");

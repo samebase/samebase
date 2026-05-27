@@ -1728,7 +1728,8 @@ test("landing dev toggle preserves unrelated query params", async ({ page }) => 
   });
   await expect(shellToggleLink).toHaveAttribute("href", "/?prod-ui&dev");
 
-  await shellToggleLink.click();
+  await shellToggleLink.focus();
+  await shellToggleLink.press("Enter");
   await expect(page).toHaveURL(/\/\?(?:prod-ui&dev|dev&prod-ui)$/);
 
   const appToggleLink = page.getByRole("link", {

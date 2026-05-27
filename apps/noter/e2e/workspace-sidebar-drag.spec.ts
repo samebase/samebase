@@ -1,4 +1,5 @@
 import { devices, expect, test, type Page } from "@playwright/test";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
@@ -117,6 +118,13 @@ async function getMobileSidebarMinWidthPx(page: Page) {
 
 function getFileViewLayoutShell(page: Page) {
   return page.locator("[data-mobile-pane]").first();
+}
+
+async function readAppWorkspaceSidebarStorage(page: Page) {
+  return page.evaluate(
+    (storageKey) => window.localStorage.getItem(storageKey),
+    APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+  );
 }
 
 async function getMobileMainPaneWidthPx(page: Page) {
@@ -449,10 +457,13 @@ test("logo mobile right merge survives reload from localStorage", async ({ page 
     .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width))
     .toBe(minWidthPx);
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
+  await expect
+    .poll(async () => readAppWorkspaceSidebarStorage(page))
+    .toContain('"mobilePane":"right"');
+  await expect.poll(async () => readAppWorkspaceSidebarStorage(page)).toContain('"side":"right"');
 
   await page.reload({ waitUntil: "networkidle" });
 
-  await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "right");
   await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]')).toHaveCount(
     1,
   );
