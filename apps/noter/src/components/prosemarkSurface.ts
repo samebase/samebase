@@ -142,8 +142,12 @@ export const prosemarkSurfaceTheme = EditorView.theme({
   // Leave touch-action at the browser default here so workspace carousel
   // swipes can originate from inside visible prose lines.
   "&": {
+    "--font": "var(--font-sans)",
     backgroundColor: "transparent",
     color: "inherit",
+    fontFamily: "inherit",
+    fontSize: "inherit",
+    lineHeight: "inherit",
   },
   ".cm-editor": {
     backgroundColor: "transparent",

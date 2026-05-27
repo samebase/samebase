@@ -137,7 +137,8 @@ export function LandingCopy({
     <Suspense fallback={staticCopy}>
       <EditableLandingCopy
         value={markdown}
-        className={className}
+        // The static renderer uses native blocks; keep the editable ProseMark baseline aligned.
+        className={cn(className, "pt-px")}
         editable={editable}
         onChange={onChange}
       />
