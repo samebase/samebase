@@ -2,7 +2,7 @@ import { STATIC_LOGO_ELEVATION_DEGREES } from "@/components/logo/logoStaticSvgCo
 import { type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
 
 export const PUBLIC_LANDING_LOGO_ALT = "Noter logo";
-export const PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME = "mx-auto w-full max-w-[11rem]";
+export const PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME = "mx-auto max-w-[11rem]";
 export const PUBLIC_LANDING_LOGO_HEIGHT = 360;
 export const PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME = "block h-auto w-full";
 export const PUBLIC_LANDING_LOGO_SCENE_TEST_ID = "public-landing-logo-scene";

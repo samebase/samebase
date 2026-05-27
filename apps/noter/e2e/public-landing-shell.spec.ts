@@ -1174,14 +1174,54 @@ test("landing footer links keep browser link styling", async ({ page }, testInfo
 test.describe("mobile landing dev toggle", () => {
   test.use(mobileLandingDevice);
 
-  test("landing omits the sidebar header button on mobile", async ({ page }) => {
+  test("landing fits below the mobile route header without vertical scrolling", async ({
+    page,
+  }) => {
     await page.goto("/", { waitUntil: "networkidle" });
+    await page.setViewportSize({ width: 390, height: 450 });
 
-    const mobileShell = page.locator('[data-workspace-layout-v2="mobile"]');
+    await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+
+    const mobileShell = page.locator('[data-workspace-layout-v2="responsive"]');
     await expect(mobileShell).toHaveAttribute("data-mobile-pane", "main");
     await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(1);
+    await expect(page.getByTestId("workspace-layout-v2-main-pane-header")).toBeVisible();
+    await expect(page.getByTestId("route-url-editor")).toBeVisible();
     await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
+
+    const verticalOverflow = await page.evaluate(() => {
+      const shell = document.querySelector('[data-testid="public-landing-scroll-shell"]');
+      const scrollingElement = document.scrollingElement;
+
+      if (!(shell instanceof HTMLElement)) {
+        throw new Error("Expected landing shell");
+      }
+      if (!(scrollingElement instanceof HTMLElement)) {
+        throw new Error("Expected document scrolling element");
+      }
+
+      let routeScrollport = shell.parentElement;
+      while (routeScrollport) {
+        const overflowY = getComputedStyle(routeScrollport).overflowY;
+        if (overflowY === "auto" || overflowY === "scroll") {
+          break;
+        }
+        routeScrollport = routeScrollport.parentElement;
+      }
+
+      if (!(routeScrollport instanceof HTMLElement)) {
+        throw new Error("Expected landing route scrollport");
+      }
+
+      return {
+        documentOverflow: scrollingElement.scrollHeight - scrollingElement.clientHeight,
+        routeOverflow: routeScrollport.scrollHeight - routeScrollport.clientHeight,
+      };
+    });
+
+    expect(verticalOverflow.documentOverflow).toBeLessThanOrEqual(1);
+    expect(verticalOverflow.routeOverflow).toBeLessThanOrEqual(1);
   });
 
   test("landing avoids an inner scroll shell on mobile", async ({ page }) => {
