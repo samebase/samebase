@@ -72,7 +72,6 @@ const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
 const APP_WORKSPACE_DEFAULT_MOBILE_PEEK_WIDTH_PX = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX;
-const APP_WORKSPACE_SHELL_HEIGHT_CSS_VAR = "--noter-app-workspace-shell-height";
 
 const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: true,
@@ -233,69 +232,7 @@ function AppWorkspaceShellFrame({
   );
 }
 
-function readAppWorkspaceShellHeightPx() {
-  const height = window.visualViewport?.height ?? window.innerHeight;
-
-  return Number.isFinite(height) && height > 0 ? `${height}px` : null;
-}
-
-function useAppWorkspaceShellHeightRef() {
-  const shellRef = useRef<HTMLDivElement | null>(null);
-
-  useLayoutEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) {
-      return;
-    }
-
-    let animationFrameId: number | null = null;
-    const syncHeight = () => {
-      animationFrameId = null;
-      const height = readAppWorkspaceShellHeightPx();
-      if (height === null) {
-        shell.style.removeProperty(APP_WORKSPACE_SHELL_HEIGHT_CSS_VAR);
-        return;
-      }
-
-      shell.style.setProperty(APP_WORKSPACE_SHELL_HEIGHT_CSS_VAR, height);
-    };
-
-    const scheduleSyncHeight = () => {
-      if (animationFrameId !== null) {
-        return;
-      }
-
-      animationFrameId = window.requestAnimationFrame(syncHeight);
-    };
-
-    syncHeight();
-
-    window.addEventListener("resize", scheduleSyncHeight);
-    window.addEventListener("orientationchange", scheduleSyncHeight);
-    window.addEventListener("pageshow", scheduleSyncHeight);
-    document.addEventListener("visibilitychange", scheduleSyncHeight);
-    window.visualViewport?.addEventListener("resize", scheduleSyncHeight);
-    window.visualViewport?.addEventListener("scroll", scheduleSyncHeight);
-
-    return () => {
-      if (animationFrameId !== null) {
-        window.cancelAnimationFrame(animationFrameId);
-      }
-
-      window.removeEventListener("resize", scheduleSyncHeight);
-      window.removeEventListener("orientationchange", scheduleSyncHeight);
-      window.removeEventListener("pageshow", scheduleSyncHeight);
-      document.removeEventListener("visibilitychange", scheduleSyncHeight);
-      window.visualViewport?.removeEventListener("resize", scheduleSyncHeight);
-      window.visualViewport?.removeEventListener("scroll", scheduleSyncHeight);
-    };
-  }, []);
-
-  return shellRef;
-}
-
 export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
-  const shellRef = useAppWorkspaceShellHeightRef();
   const chromeStore = useMemo(createAppWorkspaceRouteChromeStore, []);
   const chromeContextValue = useMemo(
     () => ({
@@ -308,10 +245,7 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
-      <div
-        ref={shellRef}
-        className="flex [--noter-app-workspace-shell-height:100dvh] h-(--noter-app-workspace-shell-height) flex-col bg-background text-foreground"
-      >
+      <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
         <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
