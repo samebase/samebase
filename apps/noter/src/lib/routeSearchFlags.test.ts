@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vite-plus/test";
-import { applySearchPatch, normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import {
+  applySearchPatch,
+  formatRouteSearchPresenceFlagDisableLinkLabel,
+  formatRouteSearchPresenceFlagLinkLabel,
+  normalizeRouteSearchPresenceFlags,
+} from "@/lib/routeSearchFlags";
 
 describe("routeSearchFlags", () => {
+  it("formats cursor-stable labels for links that toggle presence flags", () => {
+    expect(formatRouteSearchPresenceFlagLinkLabel("dev")).toBe("?dev");
+    expect(formatRouteSearchPresenceFlagDisableLinkLabel("dev")).toBe("?dev-");
+    expect(formatRouteSearchPresenceFlagDisableLinkLabel("prod-ui")).toBe("?prod-ui-");
+    expect(formatRouteSearchPresenceFlagDisableLinkLabel("dev").startsWith("?dev")).toBe(true);
+  });
+
   it("normalizes URLSearchParams flags by key presence", () => {
     expect(normalizeRouteSearchPresenceFlags(new URLSearchParams("?dev=false"), ["dev"])).toEqual({
       dev: true,
