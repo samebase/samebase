@@ -48,6 +48,7 @@ export type TrackedFilePath =
   | ".dockerignore"
   | ".github/workflows/blacksmith-testbox.yml"
   | ".github/workflows/ci.yml"
+  | ".github/workflows/sync-ssr.yml"
   | ".gitignore"
   | ".nvmrc"
   | ".vite-hooks/pre-commit"
