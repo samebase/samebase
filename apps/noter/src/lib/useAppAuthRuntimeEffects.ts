@@ -31,7 +31,9 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
         search: (currentSearch) => ({
           ...currentSearch,
           "auth-return": undefined,
+          "create-account": undefined,
           signup: undefined,
+          "sign-in": undefined,
         }),
         state: true,
         to: DASHBOARD_ROUTE,
@@ -47,7 +49,9 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
       hash: true,
       search: (currentSearch) => ({
         ...currentSearch,
+        "create-account": undefined,
         signup: undefined,
+        "sign-in": undefined,
       }),
       state: true,
       to: ".",

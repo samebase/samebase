@@ -27,13 +27,15 @@ describe("tanstackSearchParams", () => {
   it("serializes known presence flags by key presence", () => {
     expect(
       stringifyTanStackSearch({
+        "create-account": true,
         delete: "noter-md/noter",
         dev: false,
         diff: 0,
         freeView: "false",
         openedByCli: null,
+        "sign-in": true,
       }),
-    ).toBe("?delete&dev&diff&freeView");
+    ).toBe("?create-account&delete&dev&diff&freeView&sign-in");
   });
 
   it("builds paths with normalized app search and hash strings", () => {
