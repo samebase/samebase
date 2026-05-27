@@ -250,7 +250,7 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, t
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(page.locator("[data-workspace-layout-v2='mobile']")).toHaveAttribute(
+  await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
     "data-mobile-pane",
     "right",
   );

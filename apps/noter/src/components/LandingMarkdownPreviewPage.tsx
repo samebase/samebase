@@ -22,7 +22,13 @@ import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstack
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
 import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
 import { useLocation } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
 const LANDING_MARKDOWN_BY_LANGUAGE = {
   en: landingPreviewMarkdown,
@@ -262,20 +268,20 @@ function scrollHeadingWithinCurrentPane(target: HTMLElement) {
  * and URL editor edits need to feed that marker back into the shared shell.
  */
 function LandingMarkdownPreviewPaneUrlSync() {
-  const search = useLocation({
+  const routeSearch = useLocation({
     select: (location) => location.searchStr,
   });
   const { setMobilePane } = useWorkspacePaneActions();
-  const { isMobile, mobilePane } = useWorkspacePaneState();
+  const { mobilePane } = useWorkspacePaneState();
 
-  useEffect(() => {
-    const nextMobilePane = getLandingPreviewUrlMobilePane(search);
-    if (!isMobile || nextMobilePane === null || mobilePane === nextMobilePane) {
+  useLayoutEffect(() => {
+    const nextMobilePane = getLandingPreviewUrlMobilePane(window.location.search);
+    if (nextMobilePane === null || mobilePane === nextMobilePane) {
       return;
     }
 
     setMobilePane(nextMobilePane);
-  }, [isMobile, mobilePane, search, setMobilePane]);
+  }, [mobilePane, routeSearch, setMobilePane]);
 
   return null;
 }

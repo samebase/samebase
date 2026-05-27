@@ -17,6 +17,16 @@ describe("landingMarkdownPreview", () => {
     expect(resolveLandingMarkdownPreviewLanguage(search)).toBe("ro");
   });
 
+  it("keeps hidden mobile pane query flags", () => {
+    expect(validateLandingMarkdownPreviewRouteSearch({ left: "", right: undefined })).toEqual({
+      left: true,
+    });
+
+    expect(validateLandingMarkdownPreviewRouteSearch({ left: undefined, right: "" })).toEqual({
+      right: true,
+    });
+  });
+
   it("ignores unsupported language query values", () => {
     const search = validateLandingMarkdownPreviewRouteSearch({ lang: "fr" });
 

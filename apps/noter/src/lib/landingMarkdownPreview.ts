@@ -3,9 +3,12 @@ import {
   type InferRouteSearch,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
+  readRouteSearchPresenceKeys,
+  routeSearchPresenceParam,
   routeSearchStringValue,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
+import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
 
@@ -22,6 +25,10 @@ export const LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE = "en";
 export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM}=ro`;
 
 const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
+  left: routeSearchPresenceParam({
+    permission: "admin",
+    suggestion: "hidden",
+  }),
   [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: routeSearchValueParam(
     routeSearchStringValue(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
     {
@@ -32,6 +39,10 @@ const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
       valueType: "options",
     },
   ),
+  right: routeSearchPresenceParam({
+    permission: "admin",
+    suggestion: "hidden",
+  }),
 });
 
 export type LandingMarkdownPreviewRouteSearch = InferRouteSearch<
@@ -42,13 +53,19 @@ const landingMarkdownPreviewRouteSearchParamMetadata = readRouteSearchParamMetad
   landingMarkdownPreviewRouteSearchSchema,
 );
 
+const LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  landingMarkdownPreviewRouteSearchParamMetadata,
+);
+
 export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS =
   readRouteSearchParamSuggestions(landingMarkdownPreviewRouteSearchParamMetadata, "route");
 
 export function validateLandingMarkdownPreviewRouteSearch(
   search: Record<string, unknown>,
 ): LandingMarkdownPreviewRouteSearch {
-  return landingMarkdownPreviewRouteSearchSchema.parse(search);
+  return landingMarkdownPreviewRouteSearchSchema.parse(
+    normalizeRouteSearchPresenceFlags(search, LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS),
+  );
 }
 
 export function resolveLandingMarkdownPreviewLanguage(

@@ -2,11 +2,11 @@
   "actual": {
     "bounds": {
       "height": 248,
-      "maxX": 415.5,
+      "maxX": 431,
       "maxY": 247.5,
       "minX": 0.5,
       "minY": 3.5,
-      "width": 432
+      "width": 444
     },
     "label": "ProseMark"
   },
@@ -16,11 +16,11 @@
   "expected": {
     "bounds": {
       "height": 248,
-      "maxX": 431.5,
+      "maxX": 443.5,
       "maxY": 247.5,
       "minX": 0,
       "minY": 0,
-      "width": 432
+      "width": 444
     },
     "label": "Monaco"
   }

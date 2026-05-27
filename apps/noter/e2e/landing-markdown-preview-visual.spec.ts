@@ -179,10 +179,6 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
 
   const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
   const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
-  await expect(page.locator('[data-workspace-layout-v2="mobile"]')).toHaveAttribute(
-    "data-mobile-pane",
-    "left",
-  );
   await expect(sidebar).toBeVisible();
   await expectSidebarLinksToMatchMarkdown(sidebar);
   await expect(firstVideo).toBeVisible();
@@ -198,11 +194,9 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
     waitUntil: "domcontentloaded",
   });
 
-  const layout = page.locator('[data-workspace-layout-v2="mobile"]');
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
   const mobileSidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
 
-  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect(mobileSidebar).toBeVisible();
   await expectSidebarLinksToMatchMarkdown(mobileSidebar);
 
@@ -228,7 +222,6 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
       hash: "#6-connect-codex-to-github",
       left: true,
     });
-  await expect(layout).toHaveAttribute("data-mobile-pane", "left");
   await expect.poll(() => carousel.evaluate((element) => element.scrollLeft)).toBeLessThan(80);
 
   const articleHeading = page

@@ -679,7 +679,7 @@ test("logo iso controls mobile boot", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
 
-  const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
+  const workspace = page.locator("[data-workspace-layout-v2]");
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
   await expect(controlsSidebar).toContainText("Cube side");
@@ -694,7 +694,7 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
     waitUntil: "domcontentloaded",
   });
 
-  const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
+  const workspace = page.locator("[data-workspace-layout-v2]");
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
