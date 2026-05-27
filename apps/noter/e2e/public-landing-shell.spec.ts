@@ -48,6 +48,8 @@ const strictScreenshotOptions = {
 
 const { defaultBrowserType: _mobileLandingDefaultBrowserType, ...mobileLandingDevice } =
   devices["iPhone 13"];
+const { defaultBrowserType: _androidLandingDefaultBrowserType, ...androidLandingDevice } =
+  devices["Pixel 7"];
 const iphoneSeLandingDevice = {
   ...mobileLandingDevice,
   viewport: { width: 375, height: 667 },
@@ -716,6 +718,51 @@ async function expectStatusBarInRightSidebar(
   );
 }
 
+async function openMobileRightSidebar(page: Page) {
+  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  await expect(page.locator("[data-mobile-pane]").first()).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+}
+
+async function expectBuildVersionFitsVisibleViewport(page: Page) {
+  await expect
+    .poll(async () =>
+      page.evaluate((versionTestId) => {
+        const version = document.querySelector(`[data-testid="${versionTestId}"]`);
+        const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
+        const scrollingElement = document.scrollingElement;
+
+        if (
+          !(version instanceof HTMLElement) ||
+          !(rightPane instanceof HTMLElement) ||
+          !(scrollingElement instanceof HTMLElement)
+        ) {
+          return false;
+        }
+
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+        const versionRect = version.getBoundingClientRect();
+        const rightPaneRect = rightPane.getBoundingClientRect();
+        const epsilonPx = 1;
+
+        return (
+          versionRect.top >= -epsilonPx &&
+          versionRect.bottom <= viewportHeight + epsilonPx &&
+          versionRect.top >= rightPaneRect.top - epsilonPx &&
+          versionRect.bottom <= rightPaneRect.bottom + epsilonPx &&
+          rightPaneRect.bottom <= viewportHeight + epsilonPx &&
+          scrollingElement.scrollHeight - scrollingElement.clientHeight <= epsilonPx
+        );
+      }, APP_BUILD_VERSION_TEST_ID),
+    )
+    .toBe(true);
+}
+
 async function selectText(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -1333,6 +1380,47 @@ test.describe("iPhone SE landing sidebar", () => {
     const separatorPaint = await readLandingRightSidebarSeparatorPaint(page);
     expect(separatorPaint.separatorPixel.alpha).toBe(255);
     expect(separatorPaint.colorDistance).toBeGreaterThan(10);
+  });
+});
+
+test.describe("Android-sized standalone display-mode landing right sidebar", () => {
+  test.use({
+    ...androidLandingDevice,
+  });
+
+  test("keeps the build version visible after refreshing with the right sidebar open", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const originalMatchMedia = window.matchMedia.bind(window);
+      window.matchMedia = (query: string) => {
+        if (query === "(display-mode: standalone)") {
+          return {
+            addEventListener() {},
+            addListener() {},
+            dispatchEvent() {
+              return false;
+            },
+            matches: true,
+            media: query,
+            onchange: null,
+            removeEventListener() {},
+            removeListener() {},
+          };
+        }
+
+        return originalMatchMedia(query);
+      };
+    });
+
+    await page.goto("/", { waitUntil: "networkidle" });
+    await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+
+    await openMobileRightSidebar(page);
+    await expectBuildVersionFitsVisibleViewport(page);
+
+    await page.reload({ waitUntil: "networkidle" });
+    await expectBuildVersionFitsVisibleViewport(page);
   });
 });
 

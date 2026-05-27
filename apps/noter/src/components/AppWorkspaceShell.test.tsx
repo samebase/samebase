@@ -25,11 +25,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function stubBuildGlobals() {
+  vi.stubGlobal("__APP_COMMIT__", "test-commit");
+  vi.stubGlobal("__APP_COMMIT_NUMBER__", 1);
+  vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+}
+
 describe("AppWorkspaceShell", () => {
   it("server-renders route content inside the workspace layout", () => {
-    vi.stubGlobal("__APP_COMMIT__", "test-commit");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 1);
-    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
+    stubBuildGlobals();
 
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>
@@ -44,5 +48,22 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).toContain("workspace route content");
+  });
+
+  it("bounds the workspace shell to the root height instead of a viewport-unit height", () => {
+    stubBuildGlobals();
+
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/machines"]}>
+        <AppWorkspaceShell>
+          <div data-testid="workspace-route-content">workspace route content</div>
+        </AppWorkspaceShell>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain("flex h-full min-h-0 flex-col");
+    expect(markup).not.toContain("--noter-app-workspace-shell-height");
+    expect(markup).not.toContain("h-dvh");
+    expect(markup).not.toContain("min-h-dvh");
   });
 });
