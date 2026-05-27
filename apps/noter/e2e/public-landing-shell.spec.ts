@@ -21,8 +21,6 @@ import {
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "../src/lib/publicLanding";
 import {
-  PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
-  PUBLIC_LANDING_LOGO_LINK_REVEAL_ROTATION_DEGREES,
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
@@ -1445,9 +1443,7 @@ test("public landing logo becomes draggable after the SVG fallback is removed", 
   await expectLandingLogoCanBeDragged(page);
 });
 
-test("prod-ui landing reveals /logo only for the darker straight-on logo face", async ({
-  page,
-}) => {
+test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) => {
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
@@ -1457,7 +1453,6 @@ test("prod-ui landing reveals /logo only for the darker straight-on logo face", 
   await expectLandingLogoReady(landingLogo);
   await expectLandingLogoSceneReady(landingLogoScene);
 
-  const hiddenLogoLink = statusBar.locator("a").filter({ hasText: "/logo" });
   const homeLink = statusBar.getByRole("link", {
     name: "/home",
     exact: true,
@@ -1467,27 +1462,21 @@ test("prod-ui landing reveals /logo only for the darker straight-on logo face", 
     exact: true,
   });
 
-  await expect(hiddenLogoLink).toHaveAttribute("aria-hidden", "true");
-  await expect(hiddenLogoLink).toHaveClass(/text-background/);
   await expect(statusBar.getByRole("link", { name: "/logo", exact: true })).toHaveCount(0);
   await expect(homeLink).toBeVisible();
   await expect(termsLink).toBeVisible();
 
-  const hiddenLogoBox = await hiddenLogoLink.boundingBox();
   const homeBoxBefore = await homeLink.boundingBox();
   const termsBoxBefore = await termsLink.boundingBox();
-  expect(hiddenLogoBox).not.toBeNull();
   expect(homeBoxBefore).not.toBeNull();
   expect(termsBoxBefore).not.toBeNull();
-  if (hiddenLogoBox === null || homeBoxBefore === null || termsBoxBefore === null) {
+  if (homeBoxBefore === null || termsBoxBefore === null) {
     return;
   }
 
-  expect(hiddenLogoBox.y).toBeLessThan(homeBoxBefore.y);
-
   await dragLandingLogoSceneToView(landingLogoScene, {
-    elevationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
-    rotationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ROTATION_DEGREES[0],
+    elevationDegrees: 0,
+    rotationDegrees: 0,
   });
 
   await expect
@@ -1497,34 +1486,23 @@ test("prod-ui landing reveals /logo only for the darker straight-on logo face", 
       rotationDegrees: "0.000",
     });
 
-  const logoLink = statusBar.getByRole("link", {
-    name: "/logo",
-    exact: true,
-  });
+  await expect(statusBar.getByRole("link", { name: "/logo", exact: true })).toHaveCount(0);
 
-  await expect(logoLink).toBeVisible();
-  await expect(hiddenLogoLink).not.toHaveAttribute("aria-hidden", "true");
-  await expect(logoLink).toHaveCSS("animation-name", "underline-color-cycle");
-
-  const logoBox = await logoLink.boundingBox();
   const homeBoxAfter = await homeLink.boundingBox();
   const termsBox = await termsLink.boundingBox();
-  expect(logoBox).not.toBeNull();
   expect(homeBoxAfter).not.toBeNull();
   expect(termsBox).not.toBeNull();
-  if (logoBox === null || homeBoxAfter === null || termsBox === null) {
+  if (homeBoxAfter === null || termsBox === null) {
     return;
   }
 
-  expect(logoBox.y).toBeLessThan(homeBoxAfter.y);
-  expect(Math.abs(logoBox.y - hiddenLogoBox.y)).toBeLessThanOrEqual(1);
   expect(Math.abs(homeBoxAfter.y - homeBoxBefore.y)).toBeLessThanOrEqual(1);
   expect(Math.abs(termsBox.y - termsBoxBefore.y)).toBeLessThanOrEqual(1);
 
-  await expect(statusBar).toHaveScreenshot("public-landing-status-bar-logo-link.png", {
+  await expect(statusBar).toHaveScreenshot("public-landing-status-bar-no-logo-link.png", {
     ...strictScreenshotOptions,
     // Build metadata changes on every main commit; this screenshot protects
-    // the logo reveal/link stack without pinning the current release label.
+    // the stable public-route link stack without pinning the current release label.
     mask: [statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
     maskColor: "#ffffff",
   });

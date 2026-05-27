@@ -10,7 +10,6 @@ import {
 import { useConvexAuth } from "convex/react";
 import { useLocation } from "@tanstack/react-router";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
-import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
@@ -207,26 +206,24 @@ function AppWorkspaceShellFrame({
   const rightPane = chrome?.right === null ? undefined : (chrome?.right ?? publicRightSidebarPane);
 
   return (
-    <PublicLandingLogoLinkProvider>
-      <WorkspacePaneRuntimeProvider
-        controller={sidebarState}
-        shortcutPaneSide={chrome?.shortcutPaneSide ?? "right"}
-      >
-        <WorkspaceLayoutV2FullPage
-          dataTestId={chrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID}
-          left={leftPane}
-          leftToggleVisibility={chrome?.leftToggleVisibility ?? "desktop"}
-          main={mainPane}
-          mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
-          mobilePanePeekWidthPx={
-            chrome?.mobilePanePeekWidthPx ?? APP_WORKSPACE_DEFAULT_MOBILE_PEEK_WIDTH_PX
-          }
-          panel={chrome?.panel}
-          right={rightPane}
-          rightToggleVisibility={chrome?.rightToggleVisibility ?? "desktop"}
-        />
-      </WorkspacePaneRuntimeProvider>
-    </PublicLandingLogoLinkProvider>
+    <WorkspacePaneRuntimeProvider
+      controller={sidebarState}
+      shortcutPaneSide={chrome?.shortcutPaneSide ?? "right"}
+    >
+      <WorkspaceLayoutV2FullPage
+        dataTestId={chrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID}
+        left={leftPane}
+        leftToggleVisibility={chrome?.leftToggleVisibility ?? "desktop"}
+        main={mainPane}
+        mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
+        mobilePanePeekWidthPx={
+          chrome?.mobilePanePeekWidthPx ?? APP_WORKSPACE_DEFAULT_MOBILE_PEEK_WIDTH_PX
+        }
+        panel={chrome?.panel}
+        right={rightPane}
+        rightToggleVisibility={chrome?.rightToggleVisibility ?? "desktop"}
+      />
+    </WorkspacePaneRuntimeProvider>
   );
 }
 

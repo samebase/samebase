@@ -31,7 +31,6 @@ import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 
@@ -155,7 +154,6 @@ export function AppSidebarMetaSection({
   const repoUrl = __APP_REPO_URL__ || "";
   const location = useLocation();
   const router = useRouter();
-  const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const currentHref = location.href;
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
   const routePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
@@ -178,13 +176,8 @@ export function AppSidebarMetaSection({
     ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
     : ROOT_THEME_DARK_MODE_LINK_LABEL;
 
-  const isLandingPage = location.pathname === "/";
   const routePreviewEnabled = side === "right";
   const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
-  const showLogoLink = isLandingPage && publicLandingLogoLink?.isLogoLinkVisible === true;
-  const logoLinkClassName = showLogoLink
-    ? "animate-underline-color"
-    : "pointer-events-none select-none text-background no-underline";
 
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitLabel = formatAppBuildCommitLabel(appCommit);
@@ -403,22 +396,9 @@ export function AppSidebarMetaSection({
         </Link>
       ) : null}
 
-      {/* Keep query-param shortcuts visually separate so path links stay put. */}
+      {/* Keep query-param shortcuts visually separate from path links. */}
       <div aria-hidden="true" className="h-3" />
 
-      {/* Reserve the easter-egg row across routes so path links never reflow. */}
-      <Link
-        to="/logo"
-        aria-hidden={showLogoLink ? undefined : true}
-        className={logoLinkClassName}
-        onClick={commitRoutePreview}
-        onMouseEnter={previewRouteLink}
-        onMouseLeave={restoreRoutePreview}
-        search={(currentSearch) => currentSearch}
-        tabIndex={showLogoLink ? undefined : -1}
-      >
-        /logo
-      </Link>
       {/* Path links live below query-param shortcuts. */}
       <Link
         to={DASHBOARD_ROUTE}

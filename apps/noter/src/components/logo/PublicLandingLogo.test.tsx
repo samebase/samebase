@@ -3,7 +3,6 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
 import { LOGO_SECONDARY_LEFT_FACE_STYLE } from "@/components/logo/logoLeftFaceStyle";
@@ -15,14 +14,9 @@ import {
   createLogoFractalVoxelGrid,
   serializeVoxelState,
 } from "@/components/logo/logoVoxelState";
-import { PublicLandingLogoLinkProvider } from "@/contexts/PublicLandingLogoLinkContext";
 import { resolveAppThemeColorState, syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
-import {
-  PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
-  PUBLIC_LANDING_LOGO_TEST_ID,
-} from "@/lib/publicLandingLogo";
-import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -54,16 +48,6 @@ function installLocalStorageStub() {
     configurable: true,
     value: localStorageStub,
   });
-}
-
-function getLogoLink(rootElement: HTMLElement) {
-  const link = Array.from(rootElement.querySelectorAll("a")).find(
-    (element) => element.textContent === "/logo",
-  );
-  if (!(link instanceof HTMLAnchorElement)) {
-    throw new Error("Expected /logo link");
-  }
-  return link;
 }
 
 function getLogoImage(rootElement: HTMLElement) {
@@ -123,54 +107,9 @@ describe("PublicLandingLogo", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reveals the landing /logo link from route view params", async () => {
-    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
-    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const localRoot = createRoot(rootElement);
-    root = localRoot;
-
-    await act(async () => {
-      localRoot.render(
-        <TestRouterProvider initialEntries={["/"]}>
-          <PublicLandingLogoLinkProvider>
-            <PublicLandingLogo
-              loadInteractiveScene={false}
-              routeSearch={{
-                elev: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
-                freeView: true,
-                rot: 180,
-              }}
-            />
-            <AppSidebarMetaSection showLandingPreviewLink side="right" />
-          </PublicLandingLogoLinkProvider>
-        </TestRouterProvider>,
-      );
-    });
-
-    const logoLink = getLogoLink(rootElement);
-    expect(logoLink.getAttribute("aria-hidden")).toBeNull();
-    expect(logoLink.getAttribute("tabindex")).toBeNull();
-    expect(logoLink.className).toContain("animate-underline-color");
-
-    await act(async () => {
-      localRoot.render(
-        <TestRouterProvider initialEntries={["/"]}>
-          <PublicLandingLogoLinkProvider>
-            <PublicLandingLogo loadInteractiveScene={false} />
-            <AppSidebarMetaSection showLandingPreviewLink side="right" />
-          </PublicLandingLogoLinkProvider>
-        </TestRouterProvider>,
-      );
-    });
-  });
-
   it("renders the initial static fallback from persisted device view state", async () => {
     const persistedView = {
-      elevationDegrees: PUBLIC_LANDING_LOGO_LINK_REVEAL_ELEVATION_DEGREES,
+      elevationDegrees: 0,
       rotationDegrees: 180,
     };
     window.localStorage.setItem("noter:logo-view:dashboard-empty", JSON.stringify(persistedView));

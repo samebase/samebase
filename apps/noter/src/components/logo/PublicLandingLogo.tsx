@@ -23,7 +23,6 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
-  shouldRevealPublicLandingLogoLink,
 } from "@/lib/publicLandingLogo";
 import {
   cacheRotatedLogoViewState,
@@ -40,7 +39,6 @@ import {
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
-import { useOptionalPublicLandingLogoLink } from "@/hooks/useOptionalPublicLandingLogoLink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
@@ -160,7 +158,6 @@ export function PublicLandingLogo({
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
-  const publicLandingLogoLink = useOptionalPublicLandingLogoLink();
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
@@ -307,24 +304,6 @@ export function PublicLandingLogo({
       persistLatestLogoView();
     };
   }, [persistLatestLogoView]);
-
-  useEffect(() => {
-    if (publicLandingLogoLink === null) {
-      return;
-    }
-
-    publicLandingLogoLink.setIsLogoLinkVisible(shouldRevealPublicLandingLogoLink(view));
-  }, [publicLandingLogoLink, view]);
-
-  useEffect(() => {
-    if (publicLandingLogoLink === null) {
-      return;
-    }
-
-    return () => {
-      publicLandingLogoLink.setIsLogoLinkVisible(false);
-    };
-  }, [publicLandingLogoLink]);
 
   useEffect(() => {
     if (!isAutoRotating) {
