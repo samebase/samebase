@@ -1,6 +1,5 @@
 import {
   createContext,
-  useCallback,
   useContext,
   useLayoutEffect,
   useMemo,
@@ -10,8 +9,6 @@ import {
 } from "react";
 import { useConvexAuth } from "convex/react";
 import { useLocation } from "@tanstack/react-router";
-import PullToRefresh from "react-simple-pull-to-refresh";
-import { RefreshCw } from "lucide-react";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
@@ -158,57 +155,6 @@ function useAppWorkspaceRouteChrome(store: AppWorkspaceRouteChromeStore) {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }
 
-function isIosStandaloneApp(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return false;
-  }
-
-  // Browser-mode iOS already has Safari's own refresh gesture; standalone Home Screen apps do not.
-  if (Reflect.get(navigator, "standalone") === true) {
-    return true;
-  }
-
-  const isIosLike =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  return (
-    isIosLike &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(display-mode: standalone)").matches
-  );
-}
-
-function AppWorkspacePullToRefreshIndicator() {
-  return (
-    <div className="flex h-12 items-center justify-center text-muted-foreground" aria-hidden="true">
-      <RefreshCw className="size-4 animate-spin" />
-    </div>
-  );
-}
-
-function AppWorkspacePullToRefresh({ children }: { children: ReactNode }) {
-  const handleRefresh = useCallback(() => {
-    window.location.reload();
-    return Promise.resolve();
-  }, []);
-  const indicator = <AppWorkspacePullToRefreshIndicator />;
-
-  return (
-    <PullToRefresh
-      className="noter-pull-to-refresh h-full min-h-0 bg-background"
-      isPullable={isIosStandaloneApp()}
-      maxPullDownDistance={96}
-      onRefresh={handleRefresh}
-      pullDownThreshold={72}
-      pullingContent={indicator}
-      refreshingContent={indicator}
-      resistance={1.2}
-    >
-      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-    </PullToRefresh>
-  );
-}
-
 function AppWorkspaceMainContent({ children }: { children?: ReactNode }) {
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 }
@@ -295,9 +241,7 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-        <AppWorkspacePullToRefresh>
-          <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
-        </AppWorkspacePullToRefresh>
+        <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
   );
