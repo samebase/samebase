@@ -82,21 +82,21 @@ for the child process.
 ### Static Page Prerendering And SPA Shell
 
 TanStack Start SPA mode produces the client assets, an SPA shell, and static prerenders for selected
-routes during `vp build`. The SPA shell is written to `dist/client/_shell.html`. The public landing
-route is prerendered to `dist/client/index.html`, and legal pages are prerendered to
+routes during `vp build`. The SPA shell is written to `dist/client/index.html`. The public landing
+route is prerendered to `dist/client/_landing.html`, and legal pages are prerendered to
 `dist/client/terms/index.html` and `dist/client/privacy/index.html`.
 
 The production build does not run request-time SSR and does not run a separate root-prerender
 helper. All static HTML comes from the canonical TanStack route tree at build time. Cloudflare
-Workers Static Assets deploys only `dist/client`, and `apps/noter/public/_redirects` owns the
-fallback target: static assets and prerendered pages pass through first, then unknown app routes
-rewrite to `/_shell.html`.
+Workers Static Assets deploys only `dist/client`, and `apps/noter/public/_redirects` owns the exact
+prerender aliases. Unknown app-route navigations use Workers' `single-page-application` fallback to
+the SPA shell at `/index.html`.
 
 Cloudflare Workers `_redirects` rules are first-match and are followed even when an asset exists, so
-the `_redirects` file must keep generated asset and public-file pass-through rules above the final
-`/* /_shell.html 200` fallback. Do not replace this with
-`assets.not_found_handling = "single-page-application"` while `index.html` contains the prerendered
-landing route; that would make client-route fallbacks serve landing HTML instead of the SPA shell.
+the `_redirects` file must not include a broad `/*` fallback or generated-asset pass-through rules.
+Those routes caused deployed Workers to proxy hashed CSS and JavaScript requests to HTML. Keep
+`_redirects` limited to exact prerender aliases and let Workers Static Assets serve matching files
+directly.
 
 Disable Workers Static Assets `html_handling` for this deploy shape. The `_redirects` rules proxy to
 explicit `.html` files, and the default HTML handling redirects those targets back to extensionless
@@ -147,11 +147,11 @@ Noter production itself.
 1. Add `@tanstack/react-start`.
 2. Replace the TanStack Router Vite plugin with the TanStack Start Vite plugin configured for SPA
    mode.
-3. Keep TanStack Start's SPA shell output at `/_shell.html` by configuring the installed plugin with
-   `spa.maskPath = "/pricing"` and `spa.prerender.outputPath = "/_shell"`. The non-default mask path
-   prevents the shell prerender from colliding with the root page prerender for `/index.html`, and
-   it must point at an existing route so the prerender request succeeds.
-4. Prerender the public landing route to `/index.html`, `/terms` to `/terms/index.html`, and
+3. Keep TanStack Start's SPA shell output at `/index.html` by configuring the installed plugin with
+   `spa.maskPath = "/pricing"` and `spa.prerender.outputPath = "/index"`. The non-default mask path
+   prevents the shell prerender from sharing the root page's request path, and it must point at an
+   existing route so the prerender request succeeds.
+4. Prerender the public landing route to `/_landing.html`, `/terms` to `/terms/index.html`, and
    `/privacy` to `/privacy/index.html` through TanStack Start's `pages` config.
 5. Preserve the existing virtual route config and generated route tree shape.
 6. Preserve router options:
@@ -172,8 +172,8 @@ Noter production itself.
 2. Use a current compatibility date for this migration.
 3. Enable preview URLs.
 4. Serve assets from `./dist/client`.
-5. Do not set `assets.not_found_handling = "single-page-application"` for this deploy shape; the
-   `_redirects` fallback must point unmatched app routes to `/_shell.html`.
+5. Set `assets.not_found_handling = "single-page-application"` so unmatched app-route navigations
+   serve the SPA shell from `/index.html` without routing generated assets through `_redirects`.
 6. Set `assets.html_handling` to `none` so `_redirects` 200 rewrites can serve explicit `.html`
    files.
 7. Keep runtime bindings empty for this phase.
@@ -224,7 +224,7 @@ Validation:
 
 1. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run`
 2. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:preview:dry-run`
-3. inspect generated `dist/client/index.html`, `dist/client/_shell.html`,
+3. inspect generated `dist/client/index.html`, `dist/client/_landing.html`,
    `dist/client/terms/index.html`, and `dist/client/privacy/index.html`
 
 Current implementation result:

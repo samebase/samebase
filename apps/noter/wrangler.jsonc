@@ -20,5 +20,6 @@
   "assets": {
     "directory": "./dist/client",
     "html_handling": "none",
+    "not_found_handling": "single-page-application",
   },
 }

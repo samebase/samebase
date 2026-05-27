@@ -543,7 +543,7 @@ export default defineConfig({
         virtualRouteConfig: "./src/routes.ts",
       },
       pages: [
-        { path: "/", prerender: { enabled: true, outputPath: "/index.html" } },
+        { path: "/", prerender: { enabled: true, outputPath: "/_landing.html" } },
         { path: "/terms", prerender: { enabled: true, outputPath: "/terms/index.html" } },
         { path: "/privacy", prerender: { enabled: true, outputPath: "/privacy/index.html" } },
       ],
@@ -556,7 +556,7 @@ export default defineConfig({
         enabled: true,
         maskPath: "/pricing",
         prerender: {
-          outputPath: "/_shell",
+          outputPath: "/index",
         },
       },
     }),
