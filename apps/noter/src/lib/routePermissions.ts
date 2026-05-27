@@ -6,26 +6,73 @@ import {
 
 export type NoterRoutePermission = "public" | "admin";
 
-export type NoterRouteSearchParamValueKind = "presence" | "value";
-export type NoterRouteSearchParamValueCompletion = "tailwind-color-token";
+export type NoterRouteSearchParamNumericRange =
+  | {
+      maxValue: number;
+      minValue: number;
+      rangeType: "closed" | "wrap";
+    }
+  | {
+      minValue: number;
+      rangeType: "min";
+    };
 export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
-type NoterRouteSearchParamSuggestionBase<Key extends string> = {
+/**
+ * Each value type carries only the metadata the editor can safely use for that
+ * type. Manual params such as auth still accept typed values, but must not
+ * advertise a concrete value that could trigger runtime effects on preview.
+ */
+export type NoterRouteSearchParamValueSemantics =
+  | {
+      valueType: "manual";
+    }
+  | {
+      sampleValue: string;
+      valueType: "freeform";
+    }
+  | {
+      numericDefaultValue: number;
+      numericRange: NoterRouteSearchParamNumericRange;
+      numericStepValue: number;
+      sampleValue: string;
+      valueType: "numeric";
+    }
+  | {
+      numericDefaultValue: number;
+      sampleValue: string;
+      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueType: "numeric-options";
+    }
+  | {
+      sampleValue: string;
+      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueType: "options";
+    }
+  | {
+      sampleValue: string;
+      valueCompletion: "tailwind-color-token";
+      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueType: "completion";
+    };
+
+export type NoterRouteSearchParamSemantics =
+  | {
+      searchParamKind: "presence";
+    }
+  | (NoterRouteSearchParamValueSemantics & {
+      searchParamKind: "value";
+    });
+
+export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
   key: Key;
   permission: NoterRoutePermission;
-};
+} & NoterRouteSearchParamSemantics;
 
-export type NoterRouteSearchParamSuggestion<Key extends string = string> =
-  | (NoterRouteSearchParamSuggestionBase<Key> & {
-      valueKind: "presence";
-    })
-  | (NoterRouteSearchParamSuggestionBase<Key> & {
-      valueKind: "value";
-      numericDefaultValue?: number;
-      sampleValue: string;
-      valueCompletion?: NoterRouteSearchParamValueCompletion;
-      valueSuggestions?: NoterRouteSearchParamValueSuggestions;
-    });
+export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
+  NoterRouteSearchParamSuggestion<Key>,
+  { searchParamKind: "value" }
+>;
 
 export type NoterRouteStaticData = {
   availableOn?: NoterRouteAvailability;

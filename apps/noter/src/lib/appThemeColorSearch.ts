@@ -63,6 +63,7 @@ const logoThemeColorValueParamOptions = {
   suggestion: "hidden",
   valueCompletion: "tailwind-color-token",
   valueSuggestions: LOGO_THEME_COLOR_VALUE_SUGGESTIONS,
+  valueType: "completion",
 } as const;
 
 const appThemeColorSearchKeyByColorKey = {
@@ -103,7 +104,7 @@ const colorVariableSpecs = {
   }
 >;
 
-const logoColorTokenSearchValue = pure((value: unknown) => {
+const logoColorTokenSearchValue = pure((value) => {
   if (typeof value !== "string") {
     return bad("not-string");
   }

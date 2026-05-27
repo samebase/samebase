@@ -7,13 +7,15 @@ type LogoDepthLimit = {
   sliderMax: number | null;
 };
 
+export const MAX_LOGO_FRACTAL_DEPTH = 10;
+
 const LOGO_DEPTH_LIMITS = {
   iso: {
-    hardMax: 10,
+    hardMax: MAX_LOGO_FRACTAL_DEPTH,
     sliderMax: 10,
   },
   raster: {
-    hardMax: 10,
+    hardMax: MAX_LOGO_FRACTAL_DEPTH,
     sliderMax: 10,
   },
   svg: {
@@ -45,4 +47,12 @@ export function clampLogoFractalDepthForRenderer(
   renderer: LogoDepthRenderer,
 ): number {
   return Math.min(normalizeLogoFractalDepth(value), getLogoRendererFractalDepthHardMax(renderer));
+}
+
+/**
+ * Route state is shared by renderer routes, so generic parsing uses the most
+ * permissive shipped renderer cap before each renderer applies its own cap.
+ */
+export function normalizeLogoFractalDepthForRoute(value: number): number {
+  return Math.min(normalizeLogoFractalDepth(value), MAX_LOGO_FRACTAL_DEPTH);
 }

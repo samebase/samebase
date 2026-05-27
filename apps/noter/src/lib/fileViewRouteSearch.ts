@@ -30,6 +30,7 @@ const fileViewRouteSearchSchema = defineRouteSearchParams({
     sampleValue: "1",
     suggestion: "route",
     valueSuggestions: ["1"],
+    valueType: "options",
   }),
   review: routeSearchPresenceParam({
     permission: "admin",

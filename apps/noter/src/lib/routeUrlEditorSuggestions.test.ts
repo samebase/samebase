@@ -108,6 +108,27 @@ describe("readRouteUrlEditorSuggestions", () => {
     ).toEqual([{ detail: "2 +1", value: "&depth=3" }]);
   });
 
+  it("keeps depth examples inside the current renderer recovery max", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?depth=5",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?depth=5&depth",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?depth=5&depth".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "5 -1", value: "&depth=4" }]);
+  });
+
   it("uses static numeric defaults in the search param dropdown", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",
@@ -134,7 +155,7 @@ describe("readRouteUrlEditorSuggestions", () => {
     ]);
   });
 
-  it("uses sample values in the search param dropdown for every valued param", () => {
+  it("uses configured sample values in the search param dropdown", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/logo",
       draftEditedSinceFocus: true,
@@ -148,9 +169,61 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
-      "?isoSide=17",
+      "?isoSide=18",
       "?isoStyle=shaded-edge",
     ]);
+  });
+
+  it("does not preview auth-flow values from search param recommendations", () => {
+    const authKeySuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?a",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?a".length,
+      viewer: publicViewer,
+    });
+
+    const authKeySuggestion = authKeySuggestions.find((suggestion) => suggestion.key === "auth");
+    expect(authKeySuggestion?.value).toBe("?auth=");
+    expect(authKeySuggestions.map((suggestion) => suggestion.value)).not.toContain("?auth=google");
+
+    const authValueSuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?auth=g",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?auth=g".length,
+      viewer: publicViewer,
+    });
+
+    expect(authValueSuggestions).toEqual([]);
+
+    const signupKeySuggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/?s",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/?s".length,
+      viewer: publicViewer,
+    });
+
+    const signupKeySuggestion = signupKeySuggestions.find(
+      (suggestion) => suggestion.key === "signup",
+    );
+    expect(signupKeySuggestion?.value).toBe("?signup=");
+    expect(signupKeySuggestions.map((suggestion) => suggestion.value)).not.toContain(
+      "?signup=google",
+    );
   });
 
   it("keeps numeric examples inside finite numeric value suggestions", () => {
@@ -172,6 +245,48 @@ describe("readRouteUrlEditorSuggestions", () => {
         value: suggestion.value,
       })),
     ).toEqual([{ detail: "3 -1", value: "&gridSize=2" }]);
+  });
+
+  it("keeps bounded numeric examples inside route metadata ranges", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?stripeG=1",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?stripeG=1&stripeG",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?stripeG=1&stripeG".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "1 -0.01", value: "&stripeG=0.99" }]);
+  });
+
+  it("wraps numeric examples that use cyclic sidebar ranges", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?rot=359",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?rot=359&rot",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?rot=359&rot".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "359 +1", value: "&rot=0" }]);
   });
 
   it("suggests matching search param values after =", () => {
@@ -475,7 +590,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "devtools",
           kind: "search",
           value: "?devtools",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?devtools#top");
@@ -490,8 +605,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "depth",
           kind: "search",
           value: "&depth=3",
-          valueKind: "value",
-          valueSuggestions: [],
+          searchParamKind: "value",
         },
       }),
     ).toBe("/logo?depth=3#top");
@@ -506,8 +620,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "depth",
           kind: "search",
           value: "&depth=3",
-          valueKind: "value",
-          valueSuggestions: [],
+          searchParamKind: "value",
         },
       }),
     ).toBe("/logo?depth=2&depth=#top");
@@ -521,7 +634,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "dark",
           kind: "search",
           value: "&dark",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?border=stone-300&dark");
@@ -535,7 +648,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "dark",
           kind: "search",
           value: "&dark",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?dark");
@@ -549,7 +662,7 @@ describe("applyRouteUrlEditorSuggestion", () => {
           key: "devtools",
           kind: "search",
           value: "?devtools",
-          valueKind: "presence",
+          searchParamKind: "presence",
         },
       }),
     ).toBe("/logo?dark&devtools");

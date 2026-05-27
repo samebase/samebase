@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LogoStaticSvgPage } from "@/components/logo/LogoStaticSvgPage";
 import {
-  LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
 import { RoutedPage } from "./-publicRouteComponents";
@@ -21,7 +21,7 @@ function LogoSvgRouteComponent() {
 export const Route = createFileRoute("/logo/svg")({
   staticData: {
     permission: "public",
-    searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("svg"),
   },
   component: LogoSvgRouteComponent,
   validateSearch: validateLogoRouteSearchForRenderer("svg"),

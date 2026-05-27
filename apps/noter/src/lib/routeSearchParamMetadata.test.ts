@@ -20,6 +20,40 @@ describe("routeSearchParamMetadata", () => {
       suggestion: "route",
       // @ts-expect-error Value suggestions must keep at least one option.
       valueSuggestions: [],
+      valueType: "options",
+    });
+    routeSearchValueParam(literal("google"), {
+      permission: "public",
+      suggestion: "route",
+      valueType: "manual",
+      // @ts-expect-error Manual value params cannot define numeric defaults.
+      numericDefaultValue: 1,
+    });
+    routeSearchValueParam(literal("google"), {
+      permission: "public",
+      // @ts-expect-error Manual value params cannot define sample values.
+      sampleValue: "google",
+      suggestion: "route",
+      valueType: "manual",
+    });
+    routeSearchValueParam(literal("google"), {
+      permission: "public",
+      suggestion: "route",
+      valueType: "manual",
+      // @ts-expect-error Manual value params cannot define suggestions.
+      valueSuggestions: ["google"],
+    });
+    // @ts-expect-error Numeric value params must define the suggestion step.
+    routeSearchValueParam(routeSearchFiniteNumber, {
+      numericDefaultValue: 1,
+      numericRange: {
+        minValue: 1,
+        rangeType: "min",
+      },
+      permission: "public",
+      sampleValue: "2",
+      suggestion: "route",
+      valueType: "numeric",
     });
 
     const searchParams = defineRouteSearchParams({
@@ -28,11 +62,19 @@ describe("routeSearchParamMetadata", () => {
         sampleValue: "google",
         suggestion: "route",
         valueSuggestions: ["google"],
+        valueType: "options",
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
+        numericDefaultValue: 1,
+        numericRange: {
+          minValue: 1,
+          rangeType: "min",
+        },
+        numericStepValue: 1,
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
+        valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
         permission: "public",
@@ -64,12 +106,19 @@ describe("routeSearchParamMetadata", () => {
         sampleValue: "google",
         suggestion: "route",
         valueSuggestions: ["google"],
+        valueType: "options",
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
         numericDefaultValue: 1,
+        numericRange: {
+          minValue: 1,
+          rangeType: "min",
+        },
+        numericStepValue: 1,
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
+        valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
         permission: "public",
@@ -85,22 +134,56 @@ describe("routeSearchParamMetadata", () => {
         key: "auth",
         permission: "public",
         sampleValue: "google",
-        valueKind: "value",
+        searchParamKind: "value",
         valueSuggestions: ["google"],
+        valueType: "options",
       },
       {
         key: "depth",
         numericDefaultValue: 1,
+        numericRange: {
+          minValue: 1,
+          rangeType: "min",
+        },
+        numericStepValue: 1,
         permission: "public",
         sampleValue: "2",
-        valueKind: "value",
+        searchParamKind: "value",
+        valueType: "numeric",
       },
     ]);
     expect(readRouteSearchParamSuggestions(metadata, "global")).toEqual([
       {
         key: "dev",
         permission: "public",
-        valueKind: "presence",
+        searchParamKind: "presence",
+      },
+    ]);
+  });
+
+  it("keeps manual value params out of route URL suggestions", () => {
+    const searchParams = defineRouteSearchParams({
+      auth: routeSearchValueParam(literal("google"), {
+        permission: "public",
+        suggestion: "route",
+        valueType: "manual",
+      }),
+    });
+
+    const metadata = readRouteSearchParamMetadata(searchParams);
+
+    expect(metadata.auth).toEqual({
+      permission: "public",
+      suggestion: "route",
+      searchParamKind: "value",
+      valueType: "manual",
+    });
+    expect(readRouteSearchParamSuggestions(metadata, "route")).toEqual([
+      {
+        key: "auth",
+        permission: "public",
+        searchParamKind: "value",
+        valueType: "manual",
       },
     ]);
   });

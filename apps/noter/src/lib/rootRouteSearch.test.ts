@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
 import { DEFAULT_VOXEL_STATE, LOGO_GRID_SIZE_2 } from "@/components/logo/logoVoxelState";
 import {
   readRootRouteSearch,
@@ -128,9 +129,9 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("normalizes root logo depth without capping deliberate values", () => {
+  it("caps root logo depth at the shared route recovery max", () => {
     expect(readRootRouteSearch("?depth=99")).toEqual({
-      depth: 99,
+      depth: MAX_LOGO_FRACTAL_DEPTH,
     });
   });
 

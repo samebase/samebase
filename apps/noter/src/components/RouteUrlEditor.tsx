@@ -119,7 +119,7 @@ function renderRouteUrlEditorSuggestionValue(
     );
   }
 
-  if (suggestion.kind !== "search" || suggestion.valueKind !== "value") {
+  if (suggestion.kind !== "search" || suggestion.searchParamKind !== "value") {
     return suggestion.value;
   }
 
@@ -209,10 +209,8 @@ function readRouteUrlEditorTouchScrollPickerMetrics(
   };
 }
 
-type RouteUrlEditorInputSelectionDirection = "backward" | "forward" | "none";
-
 type RouteUrlEditorInputSelection = {
-  direction: RouteUrlEditorInputSelectionDirection;
+  direction: "backward" | "forward" | "none";
   end: number;
   start: number;
 };
@@ -311,8 +309,6 @@ function readRouteUrlEditorInputRouteIndex(args: {
   return Math.min(Math.max(routeIndex, 0), args.routeAddress.length);
 }
 
-type RouteUrlEditorCommitMode = "route-options" | "route-navigation";
-
 type RouteUrlEditorSuggestionFollowup = {
   draftRouteAddress: string;
   kind: "search" | "search-value";
@@ -334,7 +330,7 @@ function getRouteUrlEditorCommitMode(args: {
   currentHref: string;
   nextHref: string;
   origin: string;
-}): RouteUrlEditorCommitMode {
+}): "route-options" | "route-navigation" {
   const appOrigin = new URL(args.origin);
   const currentUrl = new URL(args.currentHref, appOrigin);
   const nextUrl = new URL(args.nextHref, appOrigin);
@@ -1430,7 +1426,7 @@ export function RouteUrlEditor() {
           };
         }
       } else if (suggestion.kind === "search") {
-        if (suggestion.valueKind === "value") {
+        if (suggestion.searchParamKind === "value") {
           searchFollowup = {
             draftRouteAddress: nextDraftRouteAddress,
             kind: "search-value",
@@ -1496,7 +1492,7 @@ export function RouteUrlEditor() {
         resetIncompleteDraft: false,
       }).then(() => {
         if (activeFollowup === null) {
-          if (suggestion.kind === "search" && suggestion.valueKind === "value") {
+          if (suggestion.kind === "search" && suggestion.searchParamKind === "value") {
             const input = inputRef.current;
             if (input) {
               restoreRouteUrlEditorInputSelection({

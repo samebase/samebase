@@ -18,6 +18,7 @@ const mcpConsentRouteSearchSchema = defineRouteSearchParams({
     permission: "admin",
     sampleValue: "sample-request",
     suggestion: "route",
+    valueType: "freeform",
   }),
 });
 
@@ -44,6 +45,7 @@ const pricingRouteSearchSchema = defineRouteSearchParams({
     sampleValue: "success",
     suggestion: "route",
     valueSuggestions: pricingCheckoutValues,
+    valueType: "options",
   }),
 });
 
@@ -75,6 +77,7 @@ const machineConnectRouteSearchSchema = defineRouteSearchParams({
     permission: "admin",
     sampleValue: "sample-request",
     suggestion: "route",
+    valueType: "freeform",
   }),
 });
 
@@ -106,11 +109,13 @@ const machinesRouteSearchSchema = defineRouteSearchParams({
     permission: "admin",
     sampleValue: "sample-machine",
     suggestion: "route",
+    valueType: "freeform",
   }),
   threadId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     sampleValue: "sample-thread",
     suggestion: "route",
+    valueType: "freeform",
   }),
 });
 

@@ -3,17 +3,24 @@ import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
   DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
+  MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logo/logoIsometricRenderer";
 import {
   clampLogoFractalDepthForRenderer,
+  getLogoRendererFractalDepthHardMax,
+  MAX_LOGO_FRACTAL_DEPTH,
+  normalizeLogoFractalDepthForRoute,
   type LogoDepthRenderer,
 } from "@/components/logo/logoDepthLimits";
 import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
   DEFAULT_LOGO_DISTANCE_SCALE,
+  MIN_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
@@ -24,9 +31,25 @@ import {
   DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
   LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
+  LOGO_LEFT_FACE_STRIPE_GAP_STEP,
+  LOGO_LEFT_FACE_STRIPE_OFFSET_STEP,
+  LOGO_LEFT_FACE_STRIPE_WIDTH_STEP,
+  MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  MAX_LOGO_LEFT_FACE_STRIPE_GAP,
+  MAX_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  MAX_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+  MIN_LOGO_LEFT_FACE_STRIPE_GAP,
+  MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
+  MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
   areLogoLeftFaceStylesEqual,
   normalizeLogoLeftFaceStyle,
+  normalizeLogoLeftFaceStripeAngleDegrees,
+  normalizeLogoLeftFaceStripeGap,
+  normalizeLogoLeftFaceStripeOffset,
+  normalizeLogoLeftFaceStripeWidth,
   readLogoLeftFaceStyle,
   isLogoLeftFaceStripeBasis,
   isLogoLeftFaceStyleKind,
@@ -44,18 +67,23 @@ import {
   rootThemeModeSearchFieldSchema,
   type RootThemeModeSearch,
 } from "@/lib/rootThemeModeSearch";
-import { type NoterRouteSearchParamValueSuggestions } from "@/lib/routePermissions";
+import {
+  type NoterRouteSearchParamSuggestion,
+  type NoterRouteSearchParamValueSuggestions,
+} from "@/lib/routePermissions";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_LOGO_GRID_SIZE,
   DEFAULT_ROTATION_DEGREES,
+  MAX_ELEVATION_DEGREES,
+  MIN_ELEVATION_DEGREES,
+  MIN_LOGO_FRACTAL_DEPTH,
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
   createDefaultVoxelState,
   readLogoGridSize,
   normalizeLogoGridSize,
-  normalizeLogoFractalDepth,
   normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
@@ -72,12 +100,13 @@ import {
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
   routeSearchFiniteNumber,
+  routeSearchNormalizedFiniteNumber,
   routeSearchPresenceParam,
   routeSearchStringValue,
   routeSearchValueParam,
   type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
-import { bad, good, pure } from "@samebase/sure";
+import { after, bad, good, pure } from "@samebase/sure";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [
   "cube-y",
@@ -120,38 +149,33 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
     : serializeVoxelState(parsedVoxelState.filledVoxels, parsedVoxelState.gridSize);
 }
 
-const logoGridSizeSearchValue = pure((value: unknown) => {
-  const [isGood, numericValue] = routeSearchFiniteNumber(value);
-  if (!isGood) {
-    return bad(numericValue);
-  }
-
+const logoGridSizeSearchValue = after(routeSearchFiniteNumber, (numericValue) => {
   const gridSize = readLogoGridSize(numericValue);
   return typeof gridSize === "number" ? good(gridSize) : bad("unsupported-grid-size");
 });
 
-const logoIsometricStyleSearchValue = pure((value: unknown) => {
+const logoIsometricStyleSearchValue = pure((value) => {
   const isoStyleId = readOptionalString(value);
   return typeof isoStyleId === "string" && isLogoIsometricStyleId(isoStyleId)
     ? good(isoStyleId)
     : bad("unsupported-iso-style");
 });
 
-const logoLeftFaceStyleSearchValue = pure((value: unknown) => {
+const logoLeftFaceStyleSearchValue = pure((value) => {
   const leftFaceStyleKind = readOptionalString(value);
   return isLogoLeftFaceStyleKind(leftFaceStyleKind)
     ? good(leftFaceStyleKind)
     : bad("unsupported-left-face");
 });
 
-const logoLeftFaceStripeBasisSearchValue = pure((value: unknown) => {
+const logoLeftFaceStripeBasisSearchValue = pure((value) => {
   const leftFaceStripeBasis = readOptionalString(value);
   return isLogoLeftFaceStripeBasis(leftFaceStripeBasis)
     ? good(leftFaceStripeBasis)
     : bad("unsupported-stripe-basis");
 });
 
-const canonicalVoxelStateSearchValue = pure((value: unknown) => {
+const canonicalVoxelStateSearchValue = pure((value) => {
   const voxelState = readCanonicalVoxelState(value);
   return typeof voxelState === "string" ? good(voxelState) : bad("invalid-voxel-state");
 });
@@ -162,6 +186,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     sampleValue: "screen-vertical",
     suggestion: "route",
     valueSuggestions: LOGO_ROTATION_AXIS_MODE_VALUES,
+    valueType: "options",
   }),
   background: appThemeColorSearchFieldSchema.shape.background,
   border: appThemeColorSearchFieldSchema.shape.border,
@@ -170,23 +195,46 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     permission: "public",
     suggestion: "hidden",
   }),
-  depth: routeSearchValueParam(routeSearchFiniteNumber, {
-    numericDefaultValue: DEFAULT_LOGO_FRACTAL_DEPTH,
-    permission: "public",
-    sampleValue: `${DEFAULT_LOGO_FRACTAL_DEPTH + 1}`,
-    suggestion: "route",
-  }),
-  dist: routeSearchValueParam(routeSearchFiniteNumber, {
+  depth: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoFractalDepthForRoute),
+    {
+      numericDefaultValue: DEFAULT_LOGO_FRACTAL_DEPTH,
+      numericRange: {
+        maxValue: MAX_LOGO_FRACTAL_DEPTH,
+        minValue: MIN_LOGO_FRACTAL_DEPTH,
+        rangeType: "closed",
+      },
+      numericStepValue: 1,
+      permission: "public",
+      sampleValue: `${DEFAULT_LOGO_FRACTAL_DEPTH + 1}`,
+      suggestion: "route",
+      valueType: "numeric",
+    },
+  ),
+  dist: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeLogoDistanceScale), {
     numericDefaultValue: DEFAULT_LOGO_DISTANCE_SCALE,
+    numericRange: {
+      minValue: MIN_LOGO_DISTANCE_SCALE,
+      rangeType: "min",
+    },
+    numericStepValue: 1,
     permission: "public",
     sampleValue: `${DEFAULT_LOGO_DISTANCE_SCALE + 1}`,
     suggestion: "route",
+    valueType: "numeric",
   }),
-  elev: routeSearchValueParam(routeSearchFiniteNumber, {
+  elev: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeElevationDegrees), {
     numericDefaultValue: DEFAULT_ELEVATION_DEGREES,
+    numericRange: {
+      maxValue: MAX_ELEVATION_DEGREES,
+      minValue: MIN_ELEVATION_DEGREES,
+      rangeType: "wrap",
+    },
+    numericStepValue: 1,
     permission: "public",
     sampleValue: `${DEFAULT_ELEVATION_DEGREES + 1}`,
     suggestion: "route",
+    valueType: "numeric",
   }),
   freeView: routeSearchPresenceParam({
     permission: "public",
@@ -198,74 +246,140 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     sampleValue: `${LOGO_GRID_SIZE_2}`,
     suggestion: "route",
     valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
+    valueType: "numeric-options",
   }),
-  isoSide: routeSearchValueParam(routeSearchFiniteNumber, {
-    numericDefaultValue: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-    permission: "public",
-    sampleValue: `${DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX + 1}`,
-    suggestion: "route",
-  }),
+  isoSide: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoIsometricCubeSidePixels),
+    {
+      numericDefaultValue: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      numericRange: {
+        maxValue: MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        minValue: MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        rangeType: "closed",
+      },
+      numericStepValue: LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
+      permission: "public",
+      sampleValue: `${normalizeLogoIsometricCubeSidePixels(
+        DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX + LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
+      )}`,
+      suggestion: "route",
+      valueType: "numeric",
+    },
+  ),
   isoStyle: routeSearchValueParam(logoIsometricStyleSearchValue, {
     permission: "public",
     sampleValue: "shaded-edge",
     suggestion: "route",
     valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
+    valueType: "options",
   }),
   leftFace: routeSearchValueParam(logoLeftFaceStyleSearchValue, {
     permission: "public",
     sampleValue: "secondary",
     suggestion: "route",
     valueSuggestions: LOGO_LEFT_FACE_STYLE_KINDS,
+    valueType: "options",
   }),
   light: rootThemeModeSearchFieldSchema.shape.light,
   primary: appThemeColorSearchFieldSchema.shape.primary,
-  rot: routeSearchValueParam(routeSearchFiniteNumber, {
+  rot: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeRotationDegrees), {
     numericDefaultValue: DEFAULT_ROTATION_DEGREES,
+    numericRange: {
+      maxValue: 360,
+      minValue: 0,
+      rangeType: "wrap",
+    },
+    numericStepValue: 1,
     permission: "public",
     sampleValue: `${DEFAULT_ROTATION_DEGREES + 1}`,
     suggestion: "route",
+    valueType: "numeric",
   }),
   secondary: appThemeColorSearchFieldSchema.shape.secondary,
-  stripeA: routeSearchValueParam(routeSearchFiniteNumber, {
-    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-    permission: "public",
-    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES + 1}`,
-    suggestion: "route",
-  }),
+  stripeA: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeAngleDegrees),
+    {
+      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+      numericRange: {
+        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+        minValue: MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+        rangeType: "closed",
+      },
+      numericStepValue: LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
+      permission: "public",
+      sampleValue: `${normalizeLogoLeftFaceStripeAngleDegrees(
+        DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES + 1,
+      )}`,
+      suggestion: "route",
+      valueType: "numeric",
+    },
+  ),
   stripeBasis: routeSearchValueParam(logoLeftFaceStripeBasisSearchValue, {
     permission: "public",
     sampleValue: "horizontal",
     suggestion: "route",
     valueSuggestions: LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
+    valueType: "options",
   }),
-  stripeG: routeSearchValueParam(routeSearchFiniteNumber, {
-    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-    permission: "public",
-    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP + 1}`,
-    suggestion: "route",
-  }),
+  stripeG: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeGap),
+    {
+      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+      numericRange: {
+        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_GAP,
+        minValue: MIN_LOGO_LEFT_FACE_STRIPE_GAP,
+        rangeType: "closed",
+      },
+      numericStepValue: LOGO_LEFT_FACE_STRIPE_GAP_STEP,
+      permission: "public",
+      sampleValue: `${normalizeLogoLeftFaceStripeGap(DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP + 1)}`,
+      suggestion: "route",
+      valueType: "numeric",
+    },
+  ),
   stripeLink: routeSearchPresenceParam({
     permission: "public",
     suggestion: "route",
   }),
-  stripeO: routeSearchValueParam(routeSearchFiniteNumber, {
-    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-    permission: "public",
-    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET + 1}`,
-    suggestion: "route",
-  }),
-  stripeW: routeSearchValueParam(routeSearchFiniteNumber, {
-    numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
-    permission: "public",
-    sampleValue: `${DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH + 1}`,
-    suggestion: "route",
-  }),
+  stripeO: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeOffset),
+    {
+      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+      numericRange: {
+        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_OFFSET,
+        minValue: MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
+        rangeType: "closed",
+      },
+      numericStepValue: LOGO_LEFT_FACE_STRIPE_OFFSET_STEP,
+      permission: "public",
+      sampleValue: `${normalizeLogoLeftFaceStripeOffset(DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET + 1)}`,
+      suggestion: "route",
+      valueType: "numeric",
+    },
+  ),
+  stripeW: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeWidth),
+    {
+      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+      numericRange: {
+        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_WIDTH,
+        minValue: MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
+        rangeType: "closed",
+      },
+      numericStepValue: LOGO_LEFT_FACE_STRIPE_WIDTH_STEP,
+      permission: "public",
+      sampleValue: `${normalizeLogoLeftFaceStripeWidth(DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH + 1)}`,
+      suggestion: "route",
+      valueType: "numeric",
+    },
+  ),
   top: appThemeColorSearchFieldSchema.shape.top,
   vox: routeSearchValueParam(canonicalVoxelStateSearchValue, {
     permission: "public",
     sampleValue: DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION,
     suggestion: "route",
     valueSuggestions: LOGO_VOXEL_STATE_VALUE_SUGGESTIONS,
+    valueType: "options",
   }),
 });
 
@@ -288,17 +402,15 @@ function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
     ...readLogoThemeColorSearch(search),
     ...(typeof search.axis === "string" ? { axis: search.axis } : {}),
     ...(search.dev ? { dev: true as const } : {}),
-    ...(typeof search.depth === "number" ? { depth: normalizeLogoFractalDepth(search.depth) } : {}),
-    ...(typeof search.dist === "number" ? { dist: normalizeLogoDistanceScale(search.dist) } : {}),
-    ...(typeof search.elev === "number" ? { elev: normalizeElevationDegrees(search.elev) } : {}),
+    ...(typeof search.depth === "number" ? { depth: search.depth } : {}),
+    ...(typeof search.dist === "number" ? { dist: search.dist } : {}),
+    ...(typeof search.elev === "number" ? { elev: search.elev } : {}),
     ...(search.freeView ? { freeView: true } : {}),
     ...(gridSize !== DEFAULT_LOGO_GRID_SIZE ? { gridSize } : {}),
-    ...(typeof search.isoSide === "number"
-      ? { isoSide: normalizeLogoIsometricCubeSidePixels(search.isoSide) }
-      : {}),
+    ...(typeof search.isoSide === "number" ? { isoSide: search.isoSide } : {}),
     ...(typeof search.isoStyle === "string" ? { isoStyle: search.isoStyle } : {}),
     ...readLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
-    ...(typeof search.rot === "number" ? { rot: normalizeRotationDegrees(search.rot) } : {}),
+    ...(typeof search.rot === "number" ? { rot: search.rot } : {}),
     ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
   };
 }
@@ -340,10 +452,44 @@ const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
 );
 
-export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  LOGO_ROUTE_SEARCH_PARAM_METADATA,
-  "route",
-);
+function readLogoRouteSearchParamSuggestionsWithDepthMax(
+  depthMax: number,
+): readonly NoterRouteSearchParamSuggestion[] {
+  const depthNumericRange = {
+    maxValue: depthMax,
+    minValue: MIN_LOGO_FRACTAL_DEPTH,
+    rangeType: "closed" as const,
+  };
+
+  return readRouteSearchParamSuggestions(LOGO_ROUTE_SEARCH_PARAM_METADATA, "route").map(
+    (suggestion) => {
+      if (
+        suggestion.key !== "depth" ||
+        suggestion.searchParamKind !== "value" ||
+        suggestion.valueType !== "numeric"
+      ) {
+        return suggestion;
+      }
+
+      return {
+        ...suggestion,
+        numericRange: depthNumericRange,
+        sampleValue: `${Math.min(DEFAULT_LOGO_FRACTAL_DEPTH + 1, depthMax)}`,
+      };
+    },
+  );
+}
+
+export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS =
+  readLogoRouteSearchParamSuggestionsWithDepthMax(MAX_LOGO_FRACTAL_DEPTH);
+
+export function readLogoRouteSearchParamSuggestionsForRenderer(
+  renderer: LogoDepthRenderer,
+): readonly NoterRouteSearchParamSuggestion[] {
+  return readLogoRouteSearchParamSuggestionsWithDepthMax(
+    getLogoRendererFractalDepthHardMax(renderer),
+  );
+}
 
 function normalizeLogoRouteColorSearchAliases(search: Record<string, unknown>) {
   const background = search.background ?? search.base;
@@ -408,7 +554,7 @@ export function buildLogoRouteSearch(
     themeModeSearch?: RootThemeModeSearch;
   },
 ): LogoRouteSearch {
-  const fractalDepth = normalizeLogoFractalDepth(args.fractalDepth);
+  const fractalDepth = normalizeLogoFractalDepthForRoute(args.fractalDepth);
   const gridSize = normalizeLogoGridSize(args.gridSize);
   const defaultVoxelState = createDefaultVoxelState(gridSize);
   const parsedVoxelState = parseVoxelState(args.voxelState);

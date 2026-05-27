@@ -29,6 +29,7 @@ const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
       sampleValue: "ro",
       suggestion: "route",
       valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
+      valueType: "options",
     },
   ),
 });
