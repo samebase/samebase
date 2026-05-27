@@ -1,6 +1,7 @@
 export {
   ChevronDownIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   Clock3Icon as ClockIcon,
   CodeIcon,
   MonitorIcon as DesktopIcon,

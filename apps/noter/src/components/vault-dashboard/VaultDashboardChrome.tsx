@@ -4,7 +4,7 @@ import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
+import { ChevronDownIcon, ChevronUpIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -559,11 +559,15 @@ export function VaultDashboardRepositoryCard({
                   aria-label={repositoryLinksLabel}
                   title={repositoryLinksLabel}
                   className={clsx(
-                    "absolute top-4 z-20 [&[data-state=open]>svg]:rotate-180",
+                    "absolute top-4 z-20",
                     hasTopRightAction ? "right-14" : "right-4",
                   )}
                 >
-                  <ChevronDownIcon className="h-4 w-4 transition-transform" />
+                  {repositoryLinksOpen ? (
+                    <ChevronUpIcon className="h-4 w-4" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4" />
+                  )}
                 </Button>
               </CollapsibleTrigger>
               {headerContent}

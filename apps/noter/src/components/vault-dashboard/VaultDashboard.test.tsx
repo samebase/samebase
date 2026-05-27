@@ -328,6 +328,8 @@ describe("VaultDashboardRepositoryCard", () => {
 
     expect(markup).toContain("Show resource links");
     expect(markup).toContain("Delete");
+    expect(markup).toContain("lucide-chevron-down");
+    expect(markup).not.toContain("lucide-chevron-up");
     expect(markup).not.toContain("GitHub");
   });
 
@@ -349,6 +351,8 @@ describe("VaultDashboardRepositoryCard", () => {
     );
 
     expect(markup).toContain("Hide resource links");
+    expect(markup).toContain("lucide-chevron-up");
+    expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).toContain("GitHub");
   });
 });
