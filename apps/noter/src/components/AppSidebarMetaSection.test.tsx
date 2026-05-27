@@ -113,7 +113,7 @@ describe("AppSidebarMetaSection", () => {
     expect(rootElement.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
   });
 
-  it("previews and restores the landing dev shortcut on hover", async () => {
+  it("previews and restores non-reset landing query shortcuts on hover", async () => {
     const element = await renderSidebarMetaSection();
     const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
     if (!devLink) {
@@ -126,7 +126,8 @@ describe("AppSidebarMetaSection", () => {
     });
 
     expect(readLocationText()).toBe("/?dev");
-    expect(devLink.textContent).toBe("?dev-");
+    expect(devLink.textContent).toBe("?dev");
+    expect(devLink.getAttribute("aria-label")).toBe("?dev-");
 
     await act(async () => {
       devLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
@@ -135,6 +136,67 @@ describe("AppSidebarMetaSection", () => {
 
     expect(readLocationText()).toBe("/");
     expect(devLink.textContent).toBe("?dev");
+    expect(devLink.getAttribute("aria-label")).toBe("?dev");
+  });
+
+  it("previews reset without hiding the reset shortcut", async () => {
+    const element = await renderSidebarMetaSection("/?light");
+    const resetLink = element.querySelector<HTMLAnchorElement>("#public-landing-search-reset");
+    if (!resetLink) {
+      throw new Error("Expected public landing reset shortcut.");
+    }
+
+    await act(async () => {
+      resetLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
+    expect(rootElement?.querySelector("#public-landing-search-reset")).not.toBeNull();
+
+    const previewResetLink = rootElement?.querySelector<HTMLAnchorElement>(
+      "#public-landing-search-reset",
+    );
+    if (!previewResetLink) {
+      throw new Error("Expected public landing reset shortcut after preview.");
+    }
+
+    await act(async () => {
+      previewResetLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/?light");
+  });
+
+  it("keeps active suffixes outside the toggle hit target", async () => {
+    const element = await renderSidebarMetaSection("/?dev");
+    const devSuffix = element.querySelector<HTMLSpanElement>(
+      '[data-testid="public-landing-dev-toggle-suffix"]',
+    );
+    if (!devSuffix) {
+      throw new Error("Expected public landing dev shortcut suffix.");
+    }
+
+    await act(async () => {
+      devSuffix.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/?dev");
+
+    await act(async () => {
+      devSuffix.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/?dev");
   });
 
   it("commits the original landing dev hover target on click", async () => {
@@ -149,7 +211,8 @@ describe("AppSidebarMetaSection", () => {
       await settleRouteUpdate();
     });
 
-    expect(devLink.textContent).toBe("?dev-");
+    expect(devLink.textContent).toBe("?dev");
+    expect(devLink.getAttribute("aria-label")).toBe("?dev-");
 
     await act(async () => {
       devLink.dispatchEvent(
@@ -163,7 +226,8 @@ describe("AppSidebarMetaSection", () => {
     });
 
     expect(readLocationText()).toBe("/?dev");
-    expect(devLink.textContent).toBe("?dev-");
+    expect(devLink.textContent).toBe("?dev");
+    expect(devLink.getAttribute("aria-label")).toBe("?dev-");
   });
 
   it("previews and restores landing path links on hover", async () => {

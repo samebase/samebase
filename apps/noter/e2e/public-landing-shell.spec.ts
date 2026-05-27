@@ -13,6 +13,8 @@ import {
   LANDING_DEV_MODE_DISABLE_LINK_LABEL,
   LANDING_DEV_MODE_LINK_LABEL,
 } from "../src/lib/landingDevMode";
+import { ROOT_THEME_LIGHT_MODE_LINK_LABEL } from "../src/lib/rootThemeModeSearch";
+import { SEARCH_RESET_LINK_LABEL } from "../src/lib/searchReset";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
@@ -990,6 +992,22 @@ test("public landing omits section divider lines", async ({ page }) => {
 
   const landingContent = page.getByTestId("public-landing-content");
   await expect(landingContent.locator(".border-t")).toHaveCount(0);
+});
+
+test("landing reset shortcut previews reset state without disappearing", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+
+  await page.getByRole("link", { name: ROOT_THEME_LIGHT_MODE_LINK_LABEL, exact: true }).click();
+  await expect(page).toHaveURL(/\/\?light$/);
+
+  const resetLink = page.getByRole("link", { name: SEARCH_RESET_LINK_LABEL, exact: true });
+  await resetLink.hover();
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(resetLink).toBeVisible();
+
+  await resetLink.click();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("public landing stays vertically stable while the page reloads", async ({ page }) => {
