@@ -916,9 +916,15 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expect(page.getByTestId("public-landing-content")).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(page.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "?create-account", exact: true })).toBeVisible();
+  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toHaveCount(0);
+  await accountSection.getByRole("button", { name: "not logged in" }).click();
+  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
+  await expect(
+    accountSection.getByRole("link", { name: "?create-account", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "https://x.com/notermd", exact: true }),

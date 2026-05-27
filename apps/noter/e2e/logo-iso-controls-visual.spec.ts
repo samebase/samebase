@@ -121,11 +121,9 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(routeUrlDisplay).toHaveValue(`${origin}/logo`);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/logo`);
   await expect(linksSidebar).toBeVisible();
-  await expect(linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(linksSidebar.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
-  await expect(
-    linksSidebar.getByRole("link", { name: "?create-account", exact: true }),
-  ).toBeVisible();
+  const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
     "/home",
@@ -164,11 +162,9 @@ test("logo routes share the public account right sidebar", async ({ page }) => {
     await page.goto(pathname, { waitUntil: "domcontentloaded" });
 
     const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-    await expect(linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-    await expect(linksSidebar.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
-    await expect(
-      linksSidebar.getByRole("link", { name: "?create-account", exact: true }),
-    ).toBeVisible();
+    const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+    await expect(accountSection).toBeVisible();
+    await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
   }
 });
 

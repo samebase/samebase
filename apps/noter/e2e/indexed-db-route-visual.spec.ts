@@ -75,11 +75,9 @@ test("indexedDB route shows database store keys and formatted values", async ({ 
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  await expect(rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(rightSidebar.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
-  await expect(
-    rightSidebar.getByRole("link", { name: "?create-account", exact: true }),
-  ).toBeVisible();
+  const accountSection = rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
   await expect(rightSidebar.getByRole("link", { name: "/terms", exact: true })).toHaveAttribute(
     "href",
     "/terms",

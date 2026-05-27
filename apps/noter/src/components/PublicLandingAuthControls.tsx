@@ -19,7 +19,7 @@ import {
   isProdUiModeEnabled,
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -46,7 +46,10 @@ function usePublicLandingPasswordAuthControls(): {
   passwordAuthSurface: PasswordAuthSurface;
 } {
   const navigate = useNavigate();
-  const rootRouteSearch = useRootRouteSearch();
+  const searchStr = useLocation({
+    select: (location) => location.searchStr,
+  });
+  const rootRouteSearch = readRootRouteSearch(searchStr);
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
   const productionPublicOrigin = isBrowserProductionPublicOrigin();
   const deploymentAuthPolicy = useQuery(api.deploymentProfile.getPublicDeploymentAuthPolicy);
@@ -109,17 +112,20 @@ function usePublicLandingPasswordAuthControls(): {
 }
 
 export function PublicLandingAuthControls() {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
+  const location = useLocation({
+    select: (currentLocation) => ({
+      pathname: currentLocation.pathname,
+      searchStr: currentLocation.searchStr,
+    }),
   });
-  const rootRouteSearch = useRootRouteSearch();
-  const showGoogleAuth = shouldShowGoogleAuthForPathname(pathname, rootRouteSearch);
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
+  const showGoogleAuth = shouldShowGoogleAuthForPathname(location.pathname, rootRouteSearch);
   const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
-    pathname,
+    location.pathname,
     rootRouteSearch,
   );
   const markPublicSignupReturn = shouldRenderPublicLandingWithoutAuthGate(
-    pathname,
+    location.pathname,
     rootRouteSearch,
   );
   const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
@@ -128,7 +134,7 @@ export function PublicLandingAuthControls() {
     return null;
   }
 
-  const authReturn = pathname === "/" ? "dashboard" : undefined;
+  const authReturn = location.pathname === "/" ? "dashboard" : undefined;
 
   return (
     <div className="flex flex-col gap-2">

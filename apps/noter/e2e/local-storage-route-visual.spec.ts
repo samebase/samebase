@@ -113,11 +113,9 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
 
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
   const publicLinks = rightSidebar.getByTestId("app-build-status-bar");
-  await expect(rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(rightSidebar.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
-  await expect(
-    rightSidebar.getByRole("link", { name: "?create-account", exact: true }),
-  ).toBeVisible();
+  const accountSection = rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {
@@ -128,7 +126,7 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
 
   await page.goto("/localStorage?dev", { waitUntil: "networkidle" });
 
-  await expect(rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
+  await expect(accountSection).toBeVisible();
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {
