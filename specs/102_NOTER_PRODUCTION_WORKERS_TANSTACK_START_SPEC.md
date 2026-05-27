@@ -79,24 +79,28 @@ script uses `WORKERS_CI_BRANCH` to choose between `PROD_CONVEX_DEPLOY_KEY` on `m
 `CONVEX_DEPLOY_KEY`; the script passes the selected split key to Convex under that generic name only
 for the child process.
 
-### SPA Index Prerendering
+### Exact Root SSG Prerendering
 
 TanStack Start SPA mode produces the client assets and a server entry. Its built-in SPA shell is the
-right primitive for a plain client app, but Noter needs the root route's real landing HTML in
-`dist/client/index.html` so Workers Static Assets can serve useful first paint HTML for `/` while
-still using that file as the SPA fallback for client routes.
+right primitive for direct client-route loads and must remain in `dist/client/index.html`, because
+Workers Static Assets uses that file as the SPA fallback for client routes. Noter also needs the
+root route's real landing HTML for exact `/`, so the production build writes that prerendered route
+HTML to a separate `dist/client/ssg-index.html` asset.
 
 The production build therefore runs `node ./scripts/prerender-spa-index.ts` after `vp build`. The
 script imports `dist/server/server.js`, clears `TSS_SHELL` for that import/render, fetches `/` from
-the built server handler, requires an OK HTML response, and overwrites `dist/client/index.html` with
-that full route HTML. `wrangler.jsonc` still deploys only `dist/client` with
-`assets.not_found_handling = "single-page-application"`.
+the built server handler, requires an OK HTML response, and writes that full route HTML to
+`dist/client/ssg-index.html`. `wrangler.jsonc` still deploys only `dist/client` with
+`assets.not_found_handling = "single-page-application"`, and `dist/client/index.html` stays the
+normal TanStack SPA shell.
 
 This is build-time prerendering for a static SPA deploy, not request-time SSR. It gives the landing
-page immediate HTML without adding a Worker request handler to production.
+page immediate HTML when Cloudflare rewrites exact `/` HTML navigations to `/ssg-index.html`,
+without adding a Worker request handler to production. If that zone rule is absent or disabled, the
+site falls back to the normal SPA shell instead of serving stale landing HTML for every route.
 
 The landing slogan list remains dynamic in source. The prerender step selects one slogan during the
-build render, so the deployed SPA fallback varies per build rather than per browser refresh.
+build render, so the deployed exact-root SSG asset varies per build rather than per browser refresh.
 Changing that back to per-request randomness requires request-time SSR; changing it to client-only
 mutation would risk hydration or layout movement.
 
@@ -140,20 +144,22 @@ Noter production itself.
 1. Add `@tanstack/react-start`.
 2. Replace the TanStack Router Vite plugin with the TanStack Start Vite plugin configured for SPA
    mode.
-3. Configure the SPA prerender output to `/index.html` so Workers Static Assets can use the standard
+3. Keep TanStack Start's SPA output at `/index.html` so Workers Static Assets can use the standard
    SPA fallback.
-4. Preserve the existing virtual route config and generated route tree shape.
-5. Preserve router options:
+4. Write the exact-root landing prerender to `/ssg-index.html`; route exact `/` there with a
+   Cloudflare URL Rewrite Rule outside the Worker asset config.
+5. Preserve the existing virtual route config and generated route tree shape.
+6. Preserve router options:
    - `defaultPreload: false`
    - `notFoundMode: "root"`
    - custom `parseSearch`
    - custom `stringifySearch`
-6. Move the existing provider stack into the Start root/document path without changing app behavior:
+7. Move the existing provider stack into the Start root/document path without changing app behavior:
    - `AppBootErrorBoundary`
    - `OptionalThemeProvider`
    - `ConvexAuthProvider`
    - `QueryProvider`
-7. Preserve font-load waiting and app boot recovery before client hydration.
+8. Preserve font-load waiting and app boot recovery before client hydration.
 
 ### Workers Deploy Contract
 
@@ -210,7 +216,7 @@ Validation:
 
 1. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run`
 2. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:preview:dry-run`
-3. inspect generated `dist/client/index.html`
+3. inspect generated `dist/client/index.html` and `dist/client/ssg-index.html`
 
 Current implementation result:
 

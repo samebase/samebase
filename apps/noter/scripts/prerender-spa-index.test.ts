@@ -3,13 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { prerenderSpaIndex, renderSpaIndexHtml } from "./prerender-spa-index.js";
+import { prerenderSsgIndex, renderSpaIndexHtml } from "./prerender-spa-index.js";
 
 describe("prerender-spa-index", () => {
-  it("writes full route HTML from the built server entry", async () => {
+  it("writes full route HTML to the SSG index from the built server entry", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "noter-prerender-spa-index-"));
     const serverEntryPath = path.join(tempDir, "server.mjs");
-    const clientIndexPath = path.join(tempDir, "index.html");
+    const spaIndexPath = path.join(tempDir, "index.html");
+    const ssgIndexPath = path.join(tempDir, "ssg-index.html");
     const previousShellEnv = process.env.TSS_SHELL;
     const logs: string[] = [];
 
@@ -30,19 +31,21 @@ export default {
 `,
         "utf8",
       );
+      await writeFile(spaIndexPath, "<!doctype html><p>spa shell</p>", "utf8");
 
-      await prerenderSpaIndex({
-        clientIndexPath,
+      await prerenderSsgIndex({
         log: (message) => logs.push(message),
         requestUrl: "http://127.0.0.1/",
         serverEntryPath,
+        ssgIndexPath,
       });
 
-      await expect(readFile(clientIndexPath, "utf8")).resolves.toBe("<!doctype html><p>shell=</p>");
+      await expect(readFile(spaIndexPath, "utf8")).resolves.toBe("<!doctype html><p>spa shell</p>");
+      await expect(readFile(ssgIndexPath, "utf8")).resolves.toBe("<!doctype html><p>shell=</p>");
       expect(logs).toEqual([
         `Importing server entry: ${serverEntryPath}`,
-        "Rendering SPA index from http://127.0.0.1/",
-        `Wrote ${clientIndexPath} (28 bytes)`,
+        "Rendering SSG index from http://127.0.0.1/",
+        `Wrote ${ssgIndexPath} (28 bytes)`,
       ]);
       expect(process.env.TSS_SHELL).toBe("true");
     } finally {
