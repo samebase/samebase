@@ -50,6 +50,8 @@ const strictScreenshotOptions = {
 
 const { defaultBrowserType: _mobileLandingDefaultBrowserType, ...mobileLandingDevice } =
   devices["iPhone 13"];
+const { defaultBrowserType: _androidLandingDefaultBrowserType, ...androidLandingDevice } =
+  devices["Pixel 7"];
 const iphoneSeLandingDevice = {
   ...mobileLandingDevice,
   viewport: { width: 375, height: 667 },
@@ -717,6 +719,51 @@ async function expectStatusBarInRightSidebar(
   );
 }
 
+async function openMobileRightSidebar(page: Page) {
+  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  await expect(page.locator("[data-mobile-pane]").first()).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+}
+
+async function expectBuildVersionFitsVisibleViewport(page: Page) {
+  await expect
+    .poll(async () =>
+      page.evaluate((versionTestId) => {
+        const version = document.querySelector(`[data-testid="${versionTestId}"]`);
+        const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
+        const scrollingElement = document.scrollingElement;
+
+        if (
+          !(version instanceof HTMLElement) ||
+          !(rightPane instanceof HTMLElement) ||
+          !(scrollingElement instanceof HTMLElement)
+        ) {
+          return false;
+        }
+
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+        const versionRect = version.getBoundingClientRect();
+        const rightPaneRect = rightPane.getBoundingClientRect();
+        const epsilonPx = 1;
+
+        return (
+          versionRect.top >= -epsilonPx &&
+          versionRect.bottom <= viewportHeight + epsilonPx &&
+          versionRect.top >= rightPaneRect.top - epsilonPx &&
+          versionRect.bottom <= rightPaneRect.bottom + epsilonPx &&
+          rightPaneRect.bottom <= viewportHeight + epsilonPx &&
+          scrollingElement.scrollHeight - scrollingElement.clientHeight <= epsilonPx
+        );
+      }, APP_BUILD_VERSION_TEST_ID),
+    )
+    .toBe(true);
+}
+
 async function selectText(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -1224,85 +1271,6 @@ test.describe("mobile landing dev toggle", () => {
     expect(verticalOverflow.routeOverflow).toBeLessThanOrEqual(1);
   });
 
-  test("Android installed PWA keeps the landing logo visible without vertical overflow", async ({
-    page,
-  }) => {
-    await page.addInitScript(() => {
-      Object.defineProperty(window.navigator, "userAgent", {
-        configurable: true,
-        value:
-          "Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Mobile Safari/537.36",
-      });
-      const originalMatchMedia = window.matchMedia.bind(window);
-      window.matchMedia = (query: string) => {
-        if (query === "(display-mode: standalone)") {
-          return {
-            addEventListener() {},
-            addListener() {},
-            dispatchEvent() {
-              return false;
-            },
-            matches: true,
-            media: query,
-            onchange: null,
-            removeEventListener() {},
-            removeListener() {},
-          };
-        }
-        return originalMatchMedia(query);
-      };
-    });
-    await page.setViewportSize({ width: 411, height: 866 });
-    await page.goto("/", { waitUntil: "networkidle" });
-
-    const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
-    await expectLandingLogoReady(landingLogo);
-    await expect(landingLogo).toHaveClass(/opacity-100/);
-    await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
-
-    const pwaLayout = await page.evaluate(() => {
-      const shell = document.querySelector('[data-testid="public-landing-scroll-shell"]');
-      const content = document.querySelector('[data-testid="public-landing-content"]');
-      const scrollingElement = document.scrollingElement;
-
-      if (!(shell instanceof HTMLElement)) {
-        throw new Error("Expected landing shell");
-      }
-      if (!(content instanceof HTMLElement)) {
-        throw new Error("Expected landing content");
-      }
-      if (!(scrollingElement instanceof HTMLElement)) {
-        throw new Error("Expected document scrolling element");
-      }
-
-      let routeScrollport = shell.parentElement;
-      while (routeScrollport) {
-        const overflowY = getComputedStyle(routeScrollport).overflowY;
-        if (overflowY === "auto" || overflowY === "scroll") {
-          break;
-        }
-        routeScrollport = routeScrollport.parentElement;
-      }
-
-      if (!(routeScrollport instanceof HTMLElement)) {
-        throw new Error("Expected landing route scrollport");
-      }
-
-      return {
-        contentBottom: content.getBoundingClientRect().bottom,
-        contentTop: content.getBoundingClientRect().top,
-        documentOverflow: scrollingElement.scrollHeight - scrollingElement.clientHeight,
-        routeBottom: routeScrollport.getBoundingClientRect().bottom,
-        routeOverflow: routeScrollport.scrollHeight - routeScrollport.clientHeight,
-      };
-    });
-
-    expect(pwaLayout.contentTop).toBeGreaterThan(0);
-    expect(pwaLayout.contentBottom).toBeLessThanOrEqual(pwaLayout.routeBottom + 1);
-    expect(pwaLayout.documentOverflow).toBeLessThanOrEqual(1);
-    expect(pwaLayout.routeOverflow).toBeLessThanOrEqual(1);
-  });
-
   test("landing avoids an inner scroll shell on mobile", async ({ page }) => {
     await page.goto("/?prod-ui", { waitUntil: "networkidle" });
     await page.setViewportSize({ width: 390, height: 320 });
@@ -1413,6 +1381,47 @@ test.describe("iPhone SE landing sidebar", () => {
     const separatorPaint = await readLandingRightSidebarSeparatorPaint(page);
     expect(separatorPaint.separatorPixel.alpha).toBe(255);
     expect(separatorPaint.colorDistance).toBeGreaterThan(10);
+  });
+});
+
+test.describe("Android standalone landing right sidebar", () => {
+  test.use({
+    ...androidLandingDevice,
+  });
+
+  test("keeps the build version visible after refreshing with the right sidebar open", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const originalMatchMedia = window.matchMedia.bind(window);
+      window.matchMedia = (query: string) => {
+        if (query === "(display-mode: standalone)") {
+          return {
+            addEventListener() {},
+            addListener() {},
+            dispatchEvent() {
+              return false;
+            },
+            matches: true,
+            media: query,
+            onchange: null,
+            removeEventListener() {},
+            removeListener() {},
+          };
+        }
+
+        return originalMatchMedia(query);
+      };
+    });
+
+    await page.goto("/", { waitUntil: "networkidle" });
+    await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+
+    await openMobileRightSidebar(page);
+    await expectBuildVersionFitsVisibleViewport(page);
+
+    await page.reload({ waitUntil: "networkidle" });
+    await expectBuildVersionFitsVisibleViewport(page);
   });
 });
 
