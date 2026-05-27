@@ -17,6 +17,7 @@ describe("rootRouteSearch", () => {
         "app-root": " apps/noter ",
         auth: "google",
         "auth-return": "dashboard",
+        "create-account": "",
         background: "#ffffff",
         border: "stone-300",
         delete: "",
@@ -30,11 +31,13 @@ describe("rootRouteSearch", () => {
         "prod-ui": "",
         secondary: "lime-100",
         signup: "google",
+        "sign-in": "",
         top: "white-base",
       }),
     ).toEqual({
       auth: "google",
       "auth-return": "dashboard",
+      "create-account": true,
       background: "#ffffff",
       border: "stone-300",
       depth: 2,
@@ -46,6 +49,7 @@ describe("rootRouteSearch", () => {
       "prod-ui": true,
       secondary: "lime-100",
       signup: "google",
+      "sign-in": true,
       top: "white-base",
     });
   });
@@ -72,17 +76,21 @@ describe("rootRouteSearch", () => {
         dark: "false",
         dev: "1",
         devtools: "false",
+        "create-account": "false",
         "add-app-root": "false",
         light: 0,
         "new-app": "false",
         "prod-ui": false,
+        "sign-in": "false",
       }),
     ).toEqual({
+      "create-account": true,
       dark: true,
       dev: true,
       devtools: true,
       light: true,
       "prod-ui": true,
+      "sign-in": true,
     });
   });
 
@@ -112,14 +120,16 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&primary=red-600&delete&new-app&add-app-root",
+        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete&new-app&add-app-root",
       ),
     ).toEqual({
       auth: "google",
+      "create-account": true,
       dev: true,
       primary: "red-600",
       "prod-ui": true,
       signup: "google",
+      "sign-in": true,
     });
   });
 

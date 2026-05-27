@@ -16,8 +16,8 @@ import {
 import { ROOT_THEME_LIGHT_MODE_LINK_LABEL } from "../src/lib/rootThemeModeSearch";
 import { SEARCH_RESET_LINK_LABEL } from "../src/lib/searchReset";
 import {
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
-  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "../src/lib/publicLanding";
 import {
@@ -183,10 +183,10 @@ async function captureLandingToggleFrames(
 async function readLandingToggleLayout(
   page: Parameters<typeof test>[0]["page"],
 ): Promise<LandingToggleLayout> {
-  return await page.evaluate((authSlotTestId) => {
+  return await page.evaluate((accountSectionTestId) => {
     const content = document.querySelector('[data-testid="public-landing-content"]');
     const waitlistLink = document.querySelector('a[href="https://x.com/notermd"]');
-    const authSlot = document.querySelector(`[data-testid="${authSlotTestId}"]`);
+    const accountSection = document.querySelector(`[data-testid="${accountSectionTestId}"]`);
 
     if (!(content instanceof HTMLElement)) {
       throw new Error("Expected landing content element");
@@ -194,23 +194,23 @@ async function readLandingToggleLayout(
     if (!(waitlistLink instanceof HTMLElement)) {
       throw new Error("Expected landing waitlist link element");
     }
-    if (!(authSlot instanceof HTMLElement)) {
-      throw new Error("Expected landing auth slot element");
+    if (!(accountSection instanceof HTMLElement)) {
+      throw new Error("Expected landing account section element");
     }
 
     const contentRect = content.getBoundingClientRect();
     const waitlistLinkRect = waitlistLink.getBoundingClientRect();
-    const authSlotRect = authSlot.getBoundingClientRect();
+    const accountSectionRect = accountSection.getBoundingClientRect();
 
     return {
-      authRowTop: Number(authSlotRect.top.toFixed(3)),
+      authRowTop: Number(accountSectionRect.top.toFixed(3)),
       contentTop: Number(contentRect.top.toFixed(3)),
       contentHeight: Number(contentRect.height.toFixed(3)),
-      authRowHeight: Number(authSlotRect.height.toFixed(3)),
+      authRowHeight: Number(accountSectionRect.height.toFixed(3)),
       waitlistLinkTop: Number(waitlistLinkRect.top.toFixed(3)),
       waitlistLinkOffset: Number((waitlistLinkRect.top - contentRect.top).toFixed(3)),
     };
-  }, PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
+  }, PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 }
 
 async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
@@ -916,11 +916,10 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expect(page.getByTestId("public-landing-content")).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
+  await expect(page.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "?create-account", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
-  await expect(page.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID)).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
   await expect(
     page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
@@ -929,8 +928,8 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   ).toHaveAttribute("href", "https://x.com/notermd");
 });
 
-test("landing dev mode shows Google sign-in", async ({ page }) => {
-  await page.goto("/?dev", { waitUntil: "networkidle" });
+test("landing sign-in state shows Google sign-in", async ({ page }) => {
+  await page.goto("/?sign-in", { waitUntil: "networkidle" });
 
   const googleButton = page.getByRole("button", { name: "Google" });
 
@@ -942,9 +941,13 @@ test("landing dev mode shows Google sign-in", async ({ page }) => {
 });
 
 test("public landing interactive elements use pointer cursors", async ({ page }) => {
-  await page.goto("/?dev", { waitUntil: "networkidle" });
+  await page.goto("/?sign-in", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("button", { name: "Google" })).toHaveCSS("cursor", "pointer");
+  await expect(page.getByRole("link", { name: "?create-account", exact: true })).toHaveCSS(
+    "cursor",
+    "pointer",
+  );
   await expect(page.getByRole("link", { name: "https://x.com/notermd", exact: true })).toHaveCSS(
     "cursor",
     "pointer",
@@ -955,11 +958,11 @@ test("public landing renders the closed Google signup return state", async ({ pa
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/?signup=google", { waitUntil: "networkidle" });
 
-  const landingContent = page.getByTestId("public-landing-content");
+  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 
-  await expect(landingContent).toBeVisible();
-  await expect(landingContent.getByRole("heading", { level: 2 })).toBeVisible();
-  await expect(landingContent.getByRole("link", { name: "go back" })).toBeVisible();
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByText("The app is still internal.")).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "?sign-in" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();
@@ -967,24 +970,21 @@ test("public landing renders the closed Google signup return state", async ({ pa
     page.getByRole("button", { name: "Google", exact: true, includeHidden: true }),
   ).toHaveCount(0);
 
-  await expect(landingContent).toHaveScreenshot(
+  await expect(accountSection).toHaveScreenshot(
     "public-landing-google-signup-closed.png",
     strictScreenshotOptions,
   );
 });
 
-test("landing dev toggle keeps the auth and waitlist rows aligned", async ({ page }) => {
+test("landing dev toggle keeps the account and waitlist rows aligned", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("noter_auth_provider", "google");
   });
   await page.goto("/", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
-  await expect(page.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID)).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
-  await expect(page).toHaveScreenshot("public-landing-right-sidebar-auth-closed.png", {
+  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
+  await expect(page).toHaveScreenshot("public-landing-right-sidebar-account-links.png", {
     ...strictScreenshotOptions,
     clip: await readLandingRightSidebarAuthClip(page),
   });
@@ -993,7 +993,8 @@ test("landing dev toggle keeps the auth and waitlist rows aligned", async ({ pag
 
   await page.getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true }).click();
   await expect(page).toHaveURL(/\/\?dev$/);
-  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
 
   const afterToggleLayout = await readLandingToggleLayout(page);
 
@@ -1018,10 +1019,7 @@ test("landing dev toggle keeps the auth and waitlist rows aligned", async ({ pag
     .click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
-  await expect(page.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID)).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
+  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
 
   const afterDisableLayout = await readLandingToggleLayout(page);
 
@@ -1669,10 +1667,7 @@ test("prod-ui mode hides developer password auth controls", async ({ page }) => 
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
-  await expect(page.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID)).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
+  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
 
   await expect(
     page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
@@ -1687,7 +1682,8 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
   await expect(
     page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
   ).toBeVisible();

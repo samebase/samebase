@@ -6,9 +6,8 @@ import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "@/lib/publicLanding";
-import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 
 type SignInFormProps = {
@@ -18,16 +17,9 @@ type SignInFormProps = {
 };
 
 export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: SignInFormProps) {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
-  });
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
-  const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
-    pathname,
-    rootRouteSearch,
-  );
   const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown);
 
   return (
@@ -53,21 +45,15 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
             }}
             routeSearch={rootRouteSearch}
           />
-          {showGoogleSignupClosedState ? (
-            <GoogleSignupClosedNotice />
-          ) : (
-            <>
-              <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
-                <LandingCopy
-                  className="text-sm"
-                  editable={landingDevModeEnabled}
-                  markdown={landingMarkdownDraft}
-                  onChange={setLandingMarkdownDraft}
-                />
-              </div>
-              {authPlacement === "inline" ? <PublicLandingAuthControls /> : null}
-            </>
-          )}
+          <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
+            <LandingCopy
+              className="text-sm"
+              editable={landingDevModeEnabled}
+              markdown={landingMarkdownDraft}
+              onChange={setLandingMarkdownDraft}
+            />
+          </div>
+          {authPlacement === "inline" ? <PublicLandingAuthControls /> : null}
           <div className="flex flex-col gap-2 pt-2">
             <a
               className="text-center text-sm text-muted-foreground underline underline-offset-4"
@@ -80,26 +66,6 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function GoogleSignupClosedNotice() {
-  return (
-    <div className="flex flex-col gap-1 text-center">
-      <h2 className="text-xl font-semibold tracking-tight">
-        I'm sorry, signups are still just for a handful of people I know personally.
-      </h2>
-
-      <p className="text-sm text-muted-foreground">
-        Please{" "}
-        <a href="https://x.com/notermd" target="_blank" rel="noopener noreferrer">
-          follow us on twitter
-        </a>{" "}
-        or join the waitlist below.
-      </p>
-
-      <Link to="/home">go back</Link>
     </div>
   );
 }

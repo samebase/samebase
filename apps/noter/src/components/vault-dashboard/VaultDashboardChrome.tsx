@@ -40,6 +40,7 @@ export type VaultDashboardProviderRowViewModel = {
 };
 
 export type VaultDashboardAccountSectionProps = {
+  dataTestId?: string;
   displayName: string;
   email: string;
   isSignOutPending: boolean;
@@ -50,23 +51,22 @@ export type VaultDashboardAccountSectionProps = {
   signOutDisabled?: boolean;
 };
 
-/**
- * The account controls use the same section and row geometry as providers so
- * the right rail reads as one accordion stack.
- */
-export function VaultDashboardAccountSection({
-  displayName,
-  email,
-  isSignOutPending,
+export function VaultDashboardAccountSectionFrame({
+  children,
+  dataTestId = "dashboard-sidebar-account-section",
+  label,
   onOpenChange,
-  onSignOut,
   open,
-  providerLabel,
-  signOutDisabled,
-}: VaultDashboardAccountSectionProps) {
+}: {
+  children: ReactNode;
+  dataTestId?: string;
+  label: ReactNode;
+  onOpenChange: (isOpen: boolean) => void;
+  open: boolean;
+}) {
   return (
     <div
-      data-testid="dashboard-sidebar-account-section"
+      data-testid={dataTestId}
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
       <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
@@ -78,60 +78,82 @@ export function VaultDashboardAccountSection({
             className="h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
           >
             <span className="min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]">
-              {displayName}
+              {label}
             </span>
             <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 transition-transform" />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="flex flex-wrap items-start gap-3">
-            <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
-              <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
-                <PersonIcon className="h-4 w-4" />
-              </div>
-              <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-                <div
-                  className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
-                  title={email}
-                >
-                  {email}
-                </div>
-                {providerLabel ? (
-                  <div
-                    className={clsx(
-                      SIDEBAR_METADATA_TEXT_CLASS,
-                      "text-xs leading-5 text-muted-foreground",
-                    )}
-                    title={`Signed in with ${providerLabel}`}
-                  >
-                    Signed in with {providerLabel}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onSignOut}
-                className="h-auto max-w-full whitespace-normal py-2 text-left"
-                disabled={signOutDisabled || isSignOutPending}
-              >
-                {isSignOutPending ? (
-                  <>
-                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                    Signing out...
-                  </>
-                ) : (
-                  "Sign out"
-                )}
-              </Button>
-            </div>
-          </div>
-        </CollapsibleContent>
+        <CollapsibleContent>{children}</CollapsibleContent>
       </Collapsible>
     </div>
+  );
+}
+
+/**
+ * The account controls use the same section and row geometry as providers so
+ * the right rail reads as one accordion stack.
+ */
+export function VaultDashboardAccountSection({
+  dataTestId,
+  displayName,
+  email,
+  isSignOutPending,
+  onOpenChange,
+  onSignOut,
+  open,
+  providerLabel,
+  signOutDisabled,
+}: VaultDashboardAccountSectionProps) {
+  return (
+    <VaultDashboardAccountSectionFrame
+      dataTestId={dataTestId}
+      label={displayName}
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <div className="flex flex-wrap items-start gap-3">
+        <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+          <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+            <PersonIcon className="h-4 w-4" />
+          </div>
+          <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+            <div className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")} title={email}>
+              {email}
+            </div>
+            {providerLabel ? (
+              <div
+                className={clsx(
+                  SIDEBAR_METADATA_TEXT_CLASS,
+                  "text-xs leading-5 text-muted-foreground",
+                )}
+                title={`Signed in with ${providerLabel}`}
+              >
+                Signed in with {providerLabel}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onSignOut}
+            className="h-auto max-w-full whitespace-normal py-2 text-left"
+            disabled={signOutDisabled || isSignOutPending}
+          >
+            {isSignOutPending ? (
+              <>
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                Signing out...
+              </>
+            ) : (
+              "Sign out"
+            )}
+          </Button>
+        </div>
+      </div>
+    </VaultDashboardAccountSectionFrame>
   );
 }
 

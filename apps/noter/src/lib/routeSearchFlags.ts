@@ -1,10 +1,13 @@
 import { keys } from "@noter-md/dependent/object";
 
+const NativeURLSearchParams = globalThis.URLSearchParams;
+
 export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "add-app-root",
   "add-cloudflare",
   "add-convex",
   "compare",
+  "create-account",
   "dark",
   "delete",
   "dev",
@@ -17,6 +20,7 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "prod-ui",
   "reset",
   "review",
+  "sign-in",
 ] as const;
 
 export type SearchPatch<Search extends object> = {
@@ -77,7 +81,7 @@ export function normalizeRouteSearchPresenceFlags(
   search: unknown,
   keys: readonly string[],
 ): unknown {
-  if (search instanceof URLSearchParams) {
+  if (search instanceof NativeURLSearchParams) {
     return normalizeRouteSearchPresenceFlags(Object.fromEntries(search.entries()), keys);
   }
 

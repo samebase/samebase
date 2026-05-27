@@ -1,6 +1,7 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
+import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import { VaultDashboardSidebarContent } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { useLocation } from "@tanstack/react-router";
 
 /**
@@ -13,16 +14,12 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
 
   return {
     content: (
-      <div className="flex min-h-full flex-col">
-        {isPublicLandingRoute ? (
-          <div className="p-2">
-            <PublicLandingAuthControls />
-          </div>
-        ) : null}
+      <VaultDashboardSidebarContent>
+        {isPublicLandingRoute ? <PublicLandingAccountSection /> : null}
         <div className="mt-auto">
           <AppSidebarMetaSection side="right" />
         </div>
-      </div>
+      </VaultDashboardSidebarContent>
     ),
   };
 }

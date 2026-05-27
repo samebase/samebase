@@ -59,11 +59,21 @@ function hasGoogleSignupReturn(search: RootRouteSearch): boolean {
   return search.signup === "google";
 }
 
+function hasPublicCreateAccount(search: RootRouteSearch): boolean {
+  return search["create-account"] === true;
+}
+
+function hasPublicSignIn(search: RootRouteSearch): boolean {
+  return search["sign-in"] === true;
+}
+
 export function shouldRenderGoogleSignupClosedState(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
-  return pathname === "/" && hasGoogleSignupReturn(routeSearch);
+  return (
+    pathname === "/" && (hasGoogleSignupReturn(routeSearch) || hasPublicCreateAccount(routeSearch))
+  );
 }
 
 function isKnownUnauthenticatedLandingVisit(
@@ -82,7 +92,7 @@ export function shouldRenderPublicLandingWithoutAuthGate(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
-  if (shouldRenderGoogleSignupClosedState(pathname, routeSearch)) {
+  if (shouldRenderGoogleSignupClosedState(pathname, routeSearch) || hasPublicSignIn(routeSearch)) {
     return true;
   }
   return isKnownUnauthenticatedLandingVisit(pathname, routeSearch);
@@ -100,7 +110,7 @@ export function shouldShowGoogleAuthForPathname(
     return false;
   }
   if (pathname === "/") {
-    return isLandingDevModeEnabled(routeSearch);
+    return hasPublicSignIn(routeSearch) || isLandingDevModeEnabled(routeSearch);
   }
   return true;
 }

@@ -57,6 +57,10 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     suggestion: "route",
     valueType: "manual",
   }),
+  "create-account": routeSearchPresenceParam({
+    permission: "public",
+    suggestion: "route",
+  }),
   [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     sampleValue: "apps/noter",
@@ -89,6 +93,10 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     suggestion: "route",
     valueType: "manual",
   }),
+  "sign-in": routeSearchPresenceParam({
+    permission: "public",
+    suggestion: "route",
+  }),
 });
 
 type RootRouteSearchBase = InferRouteSearch<typeof rootRouteSearchSchema>;
@@ -111,6 +119,7 @@ const rootRouteSearchParamMetadata = {
   "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
+  "create-account": rootRouteSearchOwnParamMetadata["create-account"],
   [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM],
   background: globalLogoRouteSearchParam("background"),
@@ -129,6 +138,7 @@ const rootRouteSearchParamMetadata = {
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
   secondary: globalLogoRouteSearchParam("secondary"),
   signup: rootRouteSearchOwnParamMetadata.signup,
+  "sign-in": rootRouteSearchOwnParamMetadata["sign-in"],
   top: globalLogoRouteSearchParam("top"),
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 

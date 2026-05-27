@@ -94,6 +94,15 @@ describe("publicLandingAuthState", () => {
     expect(shouldShowGoogleAuthForPathname("/", routeSearch)).toBe(false);
   });
 
+  it("uses explicit public account route states for sign in and account creation", () => {
+    expect(
+      shouldRenderGoogleSignupClosedState("/", validateRootRouteSearch({ "create-account": "" })),
+    ).toBe(true);
+    expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({ "sign-in": "" }))).toBe(
+      true,
+    );
+  });
+
   it("maps the public password auth mode to a stable landing surface", () => {
     expect(getPasswordAuthSurface("preview_seed")).toBe("preview");
     expect(getPasswordAuthSurface("local_worktree_seed")).toBe("local_worktree");
