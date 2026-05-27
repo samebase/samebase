@@ -148,7 +148,7 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
-      "?isoSide=17",
+      "?isoSide=18",
       "?isoStyle=shaded-edge",
     ]);
   });
@@ -224,6 +224,48 @@ describe("readRouteUrlEditorSuggestions", () => {
         value: suggestion.value,
       })),
     ).toEqual([{ detail: "3 -1", value: "&gridSize=2" }]);
+  });
+
+  it("keeps bounded numeric examples inside route metadata ranges", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?stripeG=1",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?stripeG=1&stripeG",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?stripeG=1&stripeG".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "1 -0.01", value: "&stripeG=0.99" }]);
+  });
+
+  it("wraps numeric examples that use cyclic sidebar ranges", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo?rot=359",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?rot=359&rot",
+      hashKeys: [],
+      kind: "search",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?rot=359&rot".length,
+      viewer: publicViewer,
+    });
+
+    expect(
+      suggestions.map((suggestion) => ({
+        detail: suggestion.detail ?? null,
+        value: suggestion.value,
+      })),
+    ).toEqual([{ detail: "359 +1", value: "&rot=0" }]);
   });
 
   it("suggests matching search param values after =", () => {

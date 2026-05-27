@@ -8,6 +8,21 @@ export type NoterRoutePermission = "public" | "admin";
 
 export type NoterRouteSearchParamValueKind = "presence" | "value";
 export type NoterRouteSearchParamValueCompletion = "tailwind-color-token";
+export type NoterRouteSearchParamNumericRange =
+  | {
+      maxValue: number;
+      minValue: number;
+      rangeType: "closed";
+    }
+  | {
+      minValue: number;
+      rangeType: "min";
+    }
+  | {
+      maxValue: number;
+      minValue: number;
+      rangeType: "wrap";
+    };
 export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
 /**
@@ -25,6 +40,8 @@ export type NoterRouteSearchParamValueSemantics =
     }
   | {
       numericDefaultValue: number;
+      numericRange: NoterRouteSearchParamNumericRange;
+      numericStepValue: number;
       sampleValue: string;
       valueType: "numeric";
     }

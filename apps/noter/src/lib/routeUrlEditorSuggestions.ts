@@ -8,6 +8,7 @@ import {
 import {
   canAccessNoterRoutePermission,
   canAccessNoterRouteStaticData,
+  type NoterRouteSearchParamNumericRange,
   type NoterRouteSearchParamSuggestion,
   type NoterRoutePermissionViewer,
   type NoterRouteStaticData,
@@ -551,20 +552,26 @@ function readRouteUrlEditorNumericSearchSuggestion(args: {
 
   const valueSuggestions =
     args.suggestion.valueType === "numeric-options" ? args.suggestion.valueSuggestions : [];
-  const deltas = [1, -1] as const;
+  const numericStepValue =
+    args.suggestion.valueType === "numeric" ? args.suggestion.numericStepValue : 1;
+  if (!Number.isFinite(numericStepValue) || numericStepValue <= 0) {
+    return null;
+  }
+
+  const deltas = [numericStepValue, -numericStepValue] as const;
   for (const delta of deltas) {
     const nextNumericValue = currentValue.number + delta;
     const nextValue =
-      valueSuggestions.length === 0
-        ? formatRouteUrlEditorNumericSearchValue(nextNumericValue)
-        : readRouteUrlEditorNumericValueSuggestion(valueSuggestions, nextNumericValue);
+      args.suggestion.valueType === "numeric-options"
+        ? readRouteUrlEditorNumericValueSuggestion(valueSuggestions, nextNumericValue)
+        : readRouteUrlEditorRangedNumericValueSuggestion(args.suggestion, nextNumericValue);
 
     if (nextValue === null) {
       continue;
     }
 
     return {
-      detail: `${currentValue.raw} ${delta > 0 ? "+" : ""}${delta}`,
+      detail: `${currentValue.raw} ${delta > 0 ? "+" : ""}${formatRouteUrlEditorNumericSearchValue(delta)}`,
       key: args.suggestion.key,
       kind: "search",
       value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${nextValue}`,
@@ -683,13 +690,20 @@ function readRouteUrlEditorNumericDefaultSearchParamValue(
     return null;
   }
 
-  if (!Number.isFinite(suggestion.numericDefaultValue)) {
+  const numericDefaultValue =
+    suggestion.valueType === "numeric"
+      ? readRouteUrlEditorRangedNumericValue(
+          suggestion.numericRange,
+          suggestion.numericDefaultValue,
+        )
+      : suggestion.numericDefaultValue;
+  if (numericDefaultValue === null || !Number.isFinite(numericDefaultValue)) {
     return null;
   }
 
   return {
-    number: suggestion.numericDefaultValue,
-    raw: formatRouteUrlEditorNumericSearchValue(suggestion.numericDefaultValue),
+    number: numericDefaultValue,
+    raw: formatRouteUrlEditorNumericSearchValue(numericDefaultValue),
   };
 }
 
@@ -732,6 +746,56 @@ function readRouteUrlEditorNumericValueSuggestion(
   }
 
   return null;
+}
+
+function readRouteUrlEditorRangedNumericValueSuggestion(
+  suggestion: Extract<
+    NoterRouteSearchParamSuggestion,
+    { valueKind: "value"; valueType: "numeric" }
+  >,
+  numericValue: number,
+): string | null {
+  const rangedNumericValue = readRouteUrlEditorRangedNumericValue(
+    suggestion.numericRange,
+    numericValue,
+  );
+  return rangedNumericValue === null
+    ? null
+    : formatRouteUrlEditorNumericSearchValue(rangedNumericValue);
+}
+
+function readRouteUrlEditorRangedNumericValue(
+  numericRange: NoterRouteSearchParamNumericRange,
+  numericValue: number,
+): number | null {
+  if (!Number.isFinite(numericValue) || !Number.isFinite(numericRange.minValue)) {
+    return null;
+  }
+
+  switch (numericRange.rangeType) {
+    case "closed":
+      if (!Number.isFinite(numericRange.maxValue)) {
+        return null;
+      }
+
+      return numericValue >= numericRange.minValue && numericValue <= numericRange.maxValue
+        ? numericValue
+        : null;
+    case "min":
+      return numericValue >= numericRange.minValue ? numericValue : null;
+    case "wrap": {
+      if (
+        !Number.isFinite(numericRange.maxValue) ||
+        numericRange.maxValue <= numericRange.minValue
+      ) {
+        return null;
+      }
+
+      const span = numericRange.maxValue - numericRange.minValue;
+      const offset = numericValue - numericRange.minValue;
+      return (((offset % span) + span) % span) + numericRange.minValue;
+    }
+  }
 }
 
 function formatRouteUrlEditorNumericSearchValue(value: number): string {

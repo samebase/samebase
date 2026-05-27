@@ -43,6 +43,18 @@ describe("routeSearchParamMetadata", () => {
       // @ts-expect-error Manual value params cannot define suggestions.
       valueSuggestions: ["google"],
     });
+    // @ts-expect-error Numeric value params must define the suggestion step.
+    routeSearchValueParam(routeSearchFiniteNumber, {
+      numericDefaultValue: 1,
+      numericRange: {
+        minValue: 1,
+        rangeType: "min",
+      },
+      permission: "public",
+      sampleValue: "2",
+      suggestion: "route",
+      valueType: "numeric",
+    });
 
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
@@ -54,6 +66,11 @@ describe("routeSearchParamMetadata", () => {
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
         numericDefaultValue: 1,
+        numericRange: {
+          minValue: 1,
+          rangeType: "min",
+        },
+        numericStepValue: 1,
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
@@ -93,6 +110,11 @@ describe("routeSearchParamMetadata", () => {
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
         numericDefaultValue: 1,
+        numericRange: {
+          minValue: 1,
+          rangeType: "min",
+        },
+        numericStepValue: 1,
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
@@ -119,6 +141,11 @@ describe("routeSearchParamMetadata", () => {
       {
         key: "depth",
         numericDefaultValue: 1,
+        numericRange: {
+          minValue: 1,
+          rangeType: "min",
+        },
+        numericStepValue: 1,
         permission: "public",
         sampleValue: "2",
         valueKind: "value",

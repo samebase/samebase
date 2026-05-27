@@ -52,7 +52,7 @@ it from existing param shape:
 - `valueKind: "value"` opens value editing when selected from the key dropdown.
 - `valueType: "manual"` has no sample, completion, suggestions, or numeric default.
 - `valueType: "freeform"` has only a sample value.
-- `valueType: "numeric"` has a sample value and numeric default.
+- `valueType: "numeric"` has a sample value, numeric default, numeric range, and suggestion step.
 - `valueType: "numeric-options"` has a sample value, numeric default, and explicit values.
 - `valueType: "options"` has a sample value and explicit values.
 - `valueType: "completion"` has a sample value, explicit values, and a completion system.
@@ -62,3 +62,7 @@ it from existing param shape:
 The component should avoid treating rendered suggestion labels as patch instructions. Helpers in
 `routeUrlEditorSuggestions.ts` should normalize displayed examples into explicit editor transitions
 so hover, keyboard, mouse, and touch paths share the same behavior.
+
+Numeric route schemas should normalize accepted values through the same functions used by shipped
+controls. Numeric metadata exists for URL-editor examples only, so bounds and steps must be declared
+there instead of inferred from validator function internals.

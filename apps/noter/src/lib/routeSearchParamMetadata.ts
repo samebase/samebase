@@ -95,6 +95,17 @@ export const routeSearchFiniteNumber = pure((value: unknown) => {
   return Number.isFinite(parsedValue) ? good(parsedValue) : bad("not-finite-number");
 });
 
+export function routeSearchNormalizedFiniteNumber(normalizeValue: (value: number) => number) {
+  return pure((value: unknown) => {
+    const [isGood, numericValue] = routeSearchFiniteNumber(value);
+    if (!isGood) {
+      return bad(numericValue);
+    }
+
+    return good(normalizeValue(numericValue));
+  });
+}
+
 function includesStringValue<const Values extends readonly string[]>(
   values: Values,
   value: string,
@@ -235,6 +246,8 @@ export function readRouteSearchParamSuggestions<
         suggestions.push({
           ...suggestionBase,
           numericDefaultValue: paramMetadata.numericDefaultValue,
+          numericRange: paramMetadata.numericRange,
+          numericStepValue: paramMetadata.numericStepValue,
           sampleValue: paramMetadata.sampleValue,
           valueType: paramMetadata.valueType,
         });
