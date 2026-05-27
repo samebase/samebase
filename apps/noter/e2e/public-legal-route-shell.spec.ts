@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 
 const legalShellScreenshotOptions = {
   animations: "disabled",
@@ -16,6 +17,19 @@ function getLegalShellScreenshotOptions(page: Page) {
     mask: [page.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
     maskColor: "#ffffff",
   };
+}
+
+async function expectPublicRouteRightSidebarAccount(page: Page) {
+  const accountSection = page
+    .getByTestId("workspace-layout-v2-pane-right")
+    .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
+  await expect(
+    accountSection.getByRole("link", { name: "?create-account", exact: true }),
+  ).toBeVisible();
+  return accountSection;
 }
 
 async function readTermsRouteState(page: Page) {
@@ -39,6 +53,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   await page.getByRole("link", { name: "/terms", exact: true }).first().click();
   await expect(page).toHaveURL(/\/terms$/);
   const clientNavigationState = await readTermsRouteState(page);
+  await expectPublicRouteRightSidebarAccount(page);
   await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
     "terms-shell.png",
     getLegalShellScreenshotOptions(page),
@@ -46,6 +61,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
 
   await page.goto("/terms", { waitUntil: "networkidle" });
   const directLoadState = await readTermsRouteState(page);
+  await expectPublicRouteRightSidebarAccount(page);
   await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
     "terms-shell.png",
     getLegalShellScreenshotOptions(page),
@@ -54,4 +70,19 @@ test("direct terms loads use the same routed app surface as client navigation", 
   expect(directLoadState).toEqual(clientNavigationState);
   expect(directLoadState.hasWorkspaceMain).toBe(true);
   expect(directLoadState.title).toBe("Terms of Service | noter");
+});
+
+test("public legal routes share the public account right sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await page.goto("/terms", { waitUntil: "networkidle" });
+  const accountSection = await expectPublicRouteRightSidebarAccount(page);
+  await expect(accountSection).toHaveScreenshot("public-route-right-sidebar-account.png", {
+    ...legalShellScreenshotOptions,
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await page.goto("/privacy", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+  await expectPublicRouteRightSidebarAccount(page);
 });

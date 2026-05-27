@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 
 test.setTimeout(120_000);
 
@@ -12,6 +13,16 @@ const EXPECTED_LOGO_DEPTH_HARD_MAX = {
   svg: 3,
   three: 5,
 } as const;
+const logoPublicRoutePaths = [
+  "/logo",
+  "/logo/iso",
+  "/logo/raster",
+  "/logo/raster-seams",
+  "/logo/svg",
+  "/logo/single-cube",
+  "/logo/transition",
+  "/logo/transition/transforms",
+] as const;
 
 async function waitForPaint(page: Page) {
   await page.evaluate(async () => {
@@ -110,6 +121,11 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(routeUrlDisplay).toHaveValue(`${origin}/logo`);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/logo`);
   await expect(linksSidebar).toBeVisible();
+  await expect(linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
+  await expect(linksSidebar.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
+  await expect(
+    linksSidebar.getByRole("link", { name: "?create-account", exact: true }),
+  ).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
     "/home",
@@ -139,6 +155,21 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
     maxDiffPixelRatio: 0.03,
     scale: "css",
   });
+});
+
+test("logo routes share the public account right sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  for (const pathname of logoPublicRoutePaths) {
+    await page.goto(pathname, { waitUntil: "domcontentloaded" });
+
+    const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+    await expect(linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
+    await expect(linksSidebar.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
+    await expect(
+      linksSidebar.getByRole("link", { name: "?create-account", exact: true }),
+    ).toBeVisible();
+  }
 });
 
 test("logo public query links toggle root theme mode", async ({ page }) => {

@@ -45,9 +45,6 @@ function usePublicLandingPasswordAuthControls(): {
   onPasswordSignIn: () => Promise<unknown> | void;
   passwordAuthSurface: PasswordAuthSurface;
 } {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
-  });
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
@@ -102,12 +99,10 @@ function usePublicLandingPasswordAuthControls(): {
 
   return {
     onPasswordSignIn: () => {
-      if (pathname === "/") {
-        return navigate({
-          search: (currentSearch) => currentSearch,
-          to: DASHBOARD_ROUTE,
-        });
-      }
+      return navigate({
+        search: (currentSearch) => currentSearch,
+        to: DASHBOARD_ROUTE,
+      });
     },
     passwordAuthSurface,
   };

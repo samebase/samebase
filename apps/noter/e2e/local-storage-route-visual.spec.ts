@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 
 const localStorageRouteScreenshotOptions = {
   animations: "disabled",
@@ -110,9 +111,13 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
-  const publicLinks = page
-    .getByTestId("workspace-layout-v2-pane-right")
-    .getByTestId("app-build-status-bar");
+  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  const publicLinks = rightSidebar.getByTestId("app-build-status-bar");
+  await expect(rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
+  await expect(rightSidebar.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
+  await expect(
+    rightSidebar.getByRole("link", { name: "?create-account", exact: true }),
+  ).toBeVisible();
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {
@@ -123,6 +128,7 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
 
   await page.goto("/localStorage?dev", { waitUntil: "networkidle" });
 
+  await expect(rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {

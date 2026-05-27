@@ -404,6 +404,7 @@ export type TrackedFilePath =
   | "apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-right-sidebar-account-links.png"
   | "apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-status-bar-no-logo-link.png"
   | "apps/noter/e2e/public-legal-route-shell.spec.ts"
+  | "apps/noter/e2e/public-legal-route-shell.spec.ts-snapshots/public-route-right-sidebar-account.png"
   | "apps/noter/e2e/public-legal-route-shell.spec.ts-snapshots/terms-shell.png"
   | "apps/noter/e2e/repository-media-visual.spec.ts"
   | "apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png"
