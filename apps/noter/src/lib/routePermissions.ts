@@ -10,6 +10,42 @@ export type NoterRouteSearchParamValueKind = "presence" | "value";
 export type NoterRouteSearchParamValueCompletion = "tailwind-color-token";
 export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
+/**
+ * Each value type carries only the metadata the editor can safely use for that
+ * type. Manual params such as auth still accept typed values, but must not
+ * advertise a concrete value that could trigger runtime effects on preview.
+ */
+export type NoterRouteSearchParamValueSemantics =
+  | {
+      valueType: "manual";
+    }
+  | {
+      sampleValue: string;
+      valueType: "freeform";
+    }
+  | {
+      numericDefaultValue: number;
+      sampleValue: string;
+      valueType: "numeric";
+    }
+  | {
+      numericDefaultValue: number;
+      sampleValue: string;
+      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueType: "numeric-options";
+    }
+  | {
+      sampleValue: string;
+      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueType: "options";
+    }
+  | {
+      sampleValue: string;
+      valueCompletion: NoterRouteSearchParamValueCompletion;
+      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueType: "completion";
+    };
+
 type NoterRouteSearchParamSuggestionBase<Key extends string> = {
   key: Key;
   permission: NoterRoutePermission;
@@ -19,13 +55,10 @@ export type NoterRouteSearchParamSuggestion<Key extends string = string> =
   | (NoterRouteSearchParamSuggestionBase<Key> & {
       valueKind: "presence";
     })
-  | (NoterRouteSearchParamSuggestionBase<Key> & {
-      valueKind: "value";
-      numericDefaultValue?: number;
-      sampleValue: string | null;
-      valueCompletion: NoterRouteSearchParamValueCompletion | null;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
-    });
+  | (NoterRouteSearchParamSuggestionBase<Key> &
+      NoterRouteSearchParamValueSemantics & {
+        valueKind: "value";
+      });
 
 export type NoterRouteStaticData = {
   availableOn?: NoterRouteAvailability;

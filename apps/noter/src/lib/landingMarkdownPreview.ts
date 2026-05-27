@@ -28,8 +28,8 @@ const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
       permission: "admin",
       sampleValue: "ro",
       suggestion: "route",
-      valueCompletion: null,
       valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
+      valueType: "options",
     },
   ),
 });

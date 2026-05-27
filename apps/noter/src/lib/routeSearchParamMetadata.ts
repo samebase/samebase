@@ -2,7 +2,7 @@ import { entries, fromEntries } from "@noter-md/dependent/object";
 import { bad, good, pure } from "@samebase/sure";
 import {
   type NoterRoutePermission,
-  type NoterRouteSearchParamValueCompletion,
+  type NoterRouteSearchParamValueSemantics,
   type NoterRouteSearchParamValueSuggestions,
   type NoterRouteSearchParamSuggestion,
 } from "@/lib/routePermissions";
@@ -15,13 +15,10 @@ type RouteSearchParamMetadataBase = {
 };
 
 export type RouteSearchParamMetadata =
-  | (RouteSearchParamMetadataBase & {
-      numericDefaultValue?: number;
-      sampleValue: string | null;
-      valueKind: "value";
-      valueCompletion: NoterRouteSearchParamValueCompletion | null;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
-    })
+  | (RouteSearchParamMetadataBase &
+      NoterRouteSearchParamValueSemantics & {
+        valueKind: "value";
+      })
   | (RouteSearchParamMetadataBase & {
       parseKind: "presence";
       valueKind: "presence";
@@ -122,14 +119,7 @@ export function routeSearchStringValue<const Values extends NoterRouteSearchPara
 
 export function routeSearchValueParam<const Schema extends RouteSearchValueSchema>(
   schema: Schema,
-  args: {
-    numericDefaultValue?: number;
-    permission: NoterRoutePermission;
-    sampleValue: string | null;
-    suggestion: RouteSearchParamSuggestionSurface;
-    valueCompletion: NoterRouteSearchParamValueCompletion | null;
-    valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
-  },
+  args: RouteSearchParamMetadataBase & NoterRouteSearchParamValueSemantics,
 ): RouteSearchParam<InferRouteSearchSchemaGood<Schema>> {
   return {
     metadata: {
@@ -222,18 +212,62 @@ export function readRouteSearchParamSuggestions<
       continue;
     }
 
-    const suggestion: NoterRouteSearchParamSuggestion<RouteSearchParamMetadataKey<Metadata>> = {
+    const suggestionBase = {
       key,
       permission: paramMetadata.permission,
-      sampleValue: paramMetadata.sampleValue,
-      valueCompletion: paramMetadata.valueCompletion,
-      valueKind: "value",
-      valueSuggestions: paramMetadata.valueSuggestions,
+      valueKind: "value" as const,
     };
-    if (typeof paramMetadata.numericDefaultValue === "number") {
-      suggestion.numericDefaultValue = paramMetadata.numericDefaultValue;
+    switch (paramMetadata.valueType) {
+      case "manual":
+        suggestions.push({
+          ...suggestionBase,
+          valueType: paramMetadata.valueType,
+        });
+        continue;
+      case "freeform":
+        suggestions.push({
+          ...suggestionBase,
+          sampleValue: paramMetadata.sampleValue,
+          valueType: paramMetadata.valueType,
+        });
+        continue;
+      case "numeric":
+        suggestions.push({
+          ...suggestionBase,
+          numericDefaultValue: paramMetadata.numericDefaultValue,
+          sampleValue: paramMetadata.sampleValue,
+          valueType: paramMetadata.valueType,
+        });
+        continue;
+      case "numeric-options":
+        suggestions.push({
+          ...suggestionBase,
+          numericDefaultValue: paramMetadata.numericDefaultValue,
+          sampleValue: paramMetadata.sampleValue,
+          valueSuggestions: paramMetadata.valueSuggestions,
+          valueType: paramMetadata.valueType,
+        });
+        continue;
+      case "options":
+        suggestions.push({
+          ...suggestionBase,
+          sampleValue: paramMetadata.sampleValue,
+          valueSuggestions: paramMetadata.valueSuggestions,
+          valueType: paramMetadata.valueType,
+        });
+        continue;
+      case "completion":
+        suggestions.push({
+          ...suggestionBase,
+          sampleValue: paramMetadata.sampleValue,
+          valueCompletion: paramMetadata.valueCompletion,
+          valueSuggestions: paramMetadata.valueSuggestions,
+          valueType: paramMetadata.valueType,
+        });
+        continue;
     }
-    suggestions.push(suggestion);
+
+    paramMetadata satisfies never;
   }
 
   return suggestions;

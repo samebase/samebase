@@ -18,9 +18,30 @@ describe("routeSearchParamMetadata", () => {
       permission: "public",
       sampleValue: "google",
       suggestion: "route",
-      valueCompletion: null,
       // @ts-expect-error Value suggestions must keep at least one option.
       valueSuggestions: [],
+      valueType: "options",
+    });
+    routeSearchValueParam(literal("google"), {
+      permission: "public",
+      suggestion: "route",
+      valueType: "manual",
+      // @ts-expect-error Manual value params cannot define numeric defaults.
+      numericDefaultValue: 1,
+    });
+    routeSearchValueParam(literal("google"), {
+      permission: "public",
+      // @ts-expect-error Manual value params cannot define sample values.
+      sampleValue: "google",
+      suggestion: "route",
+      valueType: "manual",
+    });
+    routeSearchValueParam(literal("google"), {
+      permission: "public",
+      suggestion: "route",
+      valueType: "manual",
+      // @ts-expect-error Manual value params cannot define suggestions.
+      valueSuggestions: ["google"],
     });
 
     const searchParams = defineRouteSearchParams({
@@ -28,15 +49,15 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "google",
         suggestion: "route",
-        valueCompletion: null,
         valueSuggestions: ["google"],
+        valueType: "options",
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
+        numericDefaultValue: 1,
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
-        valueCompletion: null,
-        valueSuggestions: null,
+        valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
         permission: "public",
@@ -67,16 +88,15 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "google",
         suggestion: "route",
-        valueCompletion: null,
         valueSuggestions: ["google"],
+        valueType: "options",
       }),
       depth: routeSearchValueParam(routeSearchFiniteNumber, {
         numericDefaultValue: 1,
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
-        valueCompletion: null,
-        valueSuggestions: null,
+        valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
         permission: "public",
@@ -92,18 +112,17 @@ describe("routeSearchParamMetadata", () => {
         key: "auth",
         permission: "public",
         sampleValue: "google",
-        valueCompletion: null,
         valueKind: "value",
         valueSuggestions: ["google"],
+        valueType: "options",
       },
       {
         key: "depth",
         numericDefaultValue: 1,
         permission: "public",
         sampleValue: "2",
-        valueCompletion: null,
         valueKind: "value",
-        valueSuggestions: null,
+        valueType: "numeric",
       },
     ]);
     expect(readRouteSearchParamSuggestions(metadata, "global")).toEqual([
@@ -115,14 +134,12 @@ describe("routeSearchParamMetadata", () => {
     ]);
   });
 
-  it("keeps null value recommendations out of route URL suggestions", () => {
+  it("keeps manual value params out of route URL suggestions", () => {
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
         permission: "public",
-        sampleValue: null,
         suggestion: "route",
-        valueCompletion: null,
-        valueSuggestions: null,
+        valueType: "manual",
       }),
     });
 
@@ -130,20 +147,16 @@ describe("routeSearchParamMetadata", () => {
 
     expect(metadata.auth).toEqual({
       permission: "public",
-      sampleValue: null,
       suggestion: "route",
-      valueCompletion: null,
       valueKind: "value",
-      valueSuggestions: null,
+      valueType: "manual",
     });
     expect(readRouteSearchParamSuggestions(metadata, "route")).toEqual([
       {
         key: "auth",
         permission: "public",
-        sampleValue: null,
-        valueCompletion: null,
         valueKind: "value",
-        valueSuggestions: null,
+        valueType: "manual",
       },
     ]);
   });

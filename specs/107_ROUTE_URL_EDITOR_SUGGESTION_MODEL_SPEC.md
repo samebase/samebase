@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-05-26
+- Last updated: 2026-05-27
 - Depends on:
   - `apps/noter/src/components/RouteUrlEditor.tsx`
   - `apps/noter/src/lib/routeUrlEditorSuggestions.ts`
@@ -17,9 +17,9 @@ The route URL editor is a progressive URL builder. Search-param suggestions can 
 values so users understand the effect of a parameter before choosing it, but those examples are not
 always committed values.
 
-Static route-search metadata owns param semantics: key, presence/value kind, permissions, nullable
-sample value, and nullable value suggestions. The URL editor owns interaction grammar: whether
-selecting a rendered row commits a URL fragment or opens the next editable slot.
+Static route-search metadata owns param semantics: key, presence/value kind, permissions, and a
+discriminated value type with only the fields valid for that type. The URL editor owns interaction
+grammar: whether selecting a rendered row commits a URL fragment or opens the next editable slot.
 
 ## Contract
 
@@ -30,9 +30,9 @@ selecting a rendered row commits a URL fragment or opens the next editable slot.
    suggestions instead of committing `stone-300`.
 3. Sample text must be visually distinct from the committed prefix. In `border=stone-300`, `border=`
    is the committed action and `stone-300` is sample text.
-4. Params whose concrete values trigger one-shot runtime effects, such as `auth=google`, must set
-   the sample value and value suggestions to `null`. The key row may still offer `?auth=`, but the
-   editor must not recommend or preview the concrete value.
+4. Params whose concrete values trigger one-shot runtime effects, such as `auth=google`, must use
+   the manual value type. The key row may still offer `?auth=`, but the editor must not recommend or
+   preview the concrete value.
 5. Value suggestions can also contain a sample suffix. For Tailwind color families, a row such as
    `red-500` means selecting the `red-` family, with `500` shown only as the representative sample.
    Selection keeps the editor in value-picking mode so the user can choose the final shade from
@@ -50,6 +50,12 @@ it from existing param shape:
 
 - `valueKind: "presence"` can commit directly.
 - `valueKind: "value"` opens value editing when selected from the key dropdown.
+- `valueType: "manual"` has no sample, completion, suggestions, or numeric default.
+- `valueType: "freeform"` has only a sample value.
+- `valueType: "numeric"` has a sample value and numeric default.
+- `valueType: "numeric-options"` has a sample value, numeric default, and explicit values.
+- `valueType: "options"` has a sample value and explicit values.
+- `valueType: "completion"` has a sample value, explicit values, and a completion system.
 - color-token value completion can show family samples, but family selection keeps the value
   unfinished until the user picks a concrete shade.
 
