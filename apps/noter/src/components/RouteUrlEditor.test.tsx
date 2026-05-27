@@ -4,6 +4,7 @@ import * as React from "react";
 import { useLocation } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { DEFAULT_LOGO_PRESET_ID, getLogoPreset } from "@/components/logo/logoPresets";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditor } from "./RouteUrlEditor";
 
@@ -14,6 +15,7 @@ const { useQueryMock } = vi.hoisted(() => ({
   useQueryMock: vi.fn(),
 }));
 const scrollIntoViewMock = vi.fn();
+const DEFAULT_LOGO_VOXEL_STATE_SUGGESTION = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -347,7 +349,7 @@ describe("RouteUrlEditor", () => {
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
     const voxOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx"]',
+      `button[aria-label="Use ?vox=${DEFAULT_LOGO_VOXEL_STATE_SUGGESTION}"]`,
     );
     if (!voxOption) {
       throw new Error("Expected vox search param suggestion.");
@@ -379,7 +381,7 @@ describe("RouteUrlEditor", () => {
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
     const voxOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx"]',
+      `button[aria-label="Use ?vox=${DEFAULT_LOGO_VOXEL_STATE_SUGGESTION}"]`,
     );
     if (!voxOption) {
       throw new Error("Expected vox search param suggestion.");
@@ -392,8 +394,8 @@ describe("RouteUrlEditor", () => {
 
     expect(voxOption.getAttribute("aria-selected")).toBe("true");
     expect(readSuggestionSampleValue(voxOption).className).toContain("text-accent-foreground/60");
-    expect(input.value).toBe(`${origin}/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx`);
-    expect(readRouteHref()).toBe("/logo?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
+    expect(input.value).toBe(`${origin}/logo?vox=${DEFAULT_LOGO_VOXEL_STATE_SUGGESTION}`);
+    expect(readRouteHref()).toBe(`/logo?vox=${DEFAULT_LOGO_VOXEL_STATE_SUGGESTION}`);
   });
 
   it("opens value suggestions after selecting a valued search param sample", async () => {
@@ -752,7 +754,7 @@ describe("RouteUrlEditor", () => {
 
     await fillRouteUrlEditorInput(input, `${origin}/logo?vo`);
     const voxOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?vox=xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx"]',
+      `button[aria-label="Use ?vox=${DEFAULT_LOGO_VOXEL_STATE_SUGGESTION}"]`,
     );
     if (!voxOption) {
       throw new Error("Expected vox search param suggestion.");
@@ -767,7 +769,10 @@ describe("RouteUrlEditor", () => {
 
     expect(input.value).toBe(`${origin}/logo?vox=`);
     expect(readRouteHref()).toBe("/logo");
-    expect(readSuggestions()).toBeNull();
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+    expect(
+      rootElement?.querySelector(`button[aria-label="Use ${DEFAULT_LOGO_VOXEL_STATE_SUGGESTION}"]`),
+    ).not.toBeNull();
     expect(document.activeElement).toBe(input);
   });
 

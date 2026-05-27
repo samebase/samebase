@@ -14,6 +14,14 @@ import {
 
 describe("routeSearchParamMetadata", () => {
   it("parses route search fields directly from param specs", () => {
+    routeSearchValueParam(literal("google"), {
+      permission: "public",
+      sampleValue: "google",
+      suggestion: "route",
+      // @ts-expect-error Value suggestions must keep at least one option.
+      valueSuggestions: [],
+    });
+
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
         permission: "public",
@@ -86,7 +94,6 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "2",
         valueKind: "value",
-        valueSuggestions: [],
       },
     ]);
     expect(readRouteSearchParamSuggestions(metadata, "global")).toEqual([

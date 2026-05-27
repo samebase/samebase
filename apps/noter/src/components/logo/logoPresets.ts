@@ -29,6 +29,7 @@ type LogoPreset = {
   label: string;
   voxelState: string;
 };
+type LogoPresetList = readonly [LogoPreset, ...LogoPreset[]];
 
 function createNLogoVoxelState(): string {
   return serializeVoxelState(
@@ -161,7 +162,7 @@ export const LOGO_PRESETS = [
     label: "Cornerless Cube",
     voxelState: createCornerlessCubeVoxelState(LOGO_GRID_SIZE_3),
   },
-] as const satisfies readonly LogoPreset[];
+] as const satisfies LogoPresetList;
 
 export function getLogoPresetSelection(
   voxelState: string,

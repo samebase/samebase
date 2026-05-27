@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { LOGO_PRESETS } from "@/components/logo/logoPresets";
 import { getRouter } from "@/router";
 import {
   applyRouteUrlEditorSuggestion,
@@ -187,6 +188,24 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["secondary", "striped"]);
+  });
+
+  it("suggests logo preset voxel states after =", () => {
+    const suggestions = readRouteUrlEditorSuggestions({
+      currentHref: "/logo",
+      draftEditedSinceFocus: true,
+      draftRouteAddress: "/logo?vox=",
+      hashKeys: [],
+      kind: "search-value",
+      origin: ORIGIN,
+      routesByPath,
+      selectionRouteIndex: "/logo?vox=".length,
+      viewer: publicViewer,
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(
+      LOGO_PRESETS.map((preset) => preset.voxelState),
+    );
   });
 
   it("suggests color families before color shades", () => {

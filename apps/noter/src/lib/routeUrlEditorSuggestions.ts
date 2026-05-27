@@ -462,9 +462,8 @@ function isRouteUrlEditorSearchTokenReady(
     return false;
   }
 
-  return (
-    suggestion.valueSuggestions.length === 0 || suggestion.valueSuggestions.includes(token.value)
-  );
+  const valueSuggestions = suggestion.valueSuggestions;
+  return !valueSuggestions || valueSuggestions.includes(token.value);
 }
 
 function readRouteUrlEditorSearchSuggestions(args: {
@@ -546,16 +545,13 @@ function readRouteUrlEditorNumericSearchSuggestion(args: {
     return null;
   }
 
+  const valueSuggestions = args.suggestion.valueSuggestions;
   const deltas = [1, -1] as const;
   for (const delta of deltas) {
     const nextNumericValue = currentValue.number + delta;
-    const nextValue =
-      args.suggestion.valueSuggestions.length === 0
-        ? formatRouteUrlEditorNumericSearchValue(nextNumericValue)
-        : readRouteUrlEditorNumericValueSuggestion(
-            args.suggestion.valueSuggestions,
-            nextNumericValue,
-          );
+    const nextValue = !valueSuggestions
+      ? formatRouteUrlEditorNumericSearchValue(nextNumericValue)
+      : readRouteUrlEditorNumericValueSuggestion(valueSuggestions, nextNumericValue);
 
     if (nextValue === null) {
       continue;
@@ -567,7 +563,7 @@ function readRouteUrlEditorNumericSearchSuggestion(args: {
       kind: "search",
       value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${nextValue}`,
       valueKind: "value",
-      valueSuggestions: args.suggestion.valueSuggestions,
+      valueSuggestions: valueSuggestions ?? [],
     };
   }
 
@@ -594,7 +590,7 @@ function readRouteUrlEditorSampleSearchSuggestion(args: {
     kind: "search",
     value: `${args.token.first ? "?" : "&"}${args.suggestion.key}=${sampleValue}`,
     valueKind: "value",
-    valueSuggestions: args.suggestion.valueSuggestions,
+    valueSuggestions: args.suggestion.valueSuggestions ?? [],
   };
 }
 
@@ -606,8 +602,9 @@ function readRouteUrlEditorSearchSampleValue(
     return suggestion.sampleValue;
   }
 
+  const valueSuggestions = suggestion.valueSuggestions ?? [];
   return (
-    suggestion.valueSuggestions.find((valueSuggestion) => valueSuggestion !== currentValue) ??
+    valueSuggestions.find((valueSuggestion) => valueSuggestion !== currentValue) ??
     suggestion.sampleValue
   );
 }
@@ -756,11 +753,11 @@ function readRouteUrlEditorSearchValueSuggestions(args: {
       return readTailwindColorTokenSearchValueSuggestions({
         key: token.key,
         tokenValue: token.value,
-        valueSuggestions: searchParamSuggestion.valueSuggestions,
+        valueSuggestions: searchParamSuggestion.valueSuggestions ?? [],
       });
     }
 
-    return searchParamSuggestion.valueSuggestions
+    return (searchParamSuggestion.valueSuggestions ?? [])
       .filter((value) => value.startsWith(token.value))
       .map((value) => createRouteUrlEditorSearchValueSuggestion(token.key, value, value));
   }

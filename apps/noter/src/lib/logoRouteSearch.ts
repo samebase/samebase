@@ -44,6 +44,7 @@ import {
   rootThemeModeSearchFieldSchema,
   type RootThemeModeSearch,
 } from "@/lib/rootThemeModeSearch";
+import { type NoterRouteSearchParamValueSuggestions } from "@/lib/routePermissions";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -62,6 +63,7 @@ import {
   type LogoGridSize,
 } from "@/components/logo/logoVoxelState";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
+import { DEFAULT_LOGO_PRESET_ID, LOGO_PRESETS, getLogoPreset } from "@/components/logo/logoPresets";
 import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
   defineRouteSearchParams,
@@ -90,6 +92,12 @@ const LOGO_ISOMETRIC_STYLE_VALUES = [
 ] as const satisfies readonly LogoIsometricStyleId[];
 
 const LOGO_GRID_SIZE_VALUE_SUGGESTIONS = [`${LOGO_GRID_SIZE_2}`, `${LOGO_GRID_SIZE_3}`] as const;
+const [FIRST_LOGO_PRESET, ...REMAINING_LOGO_PRESETS] = LOGO_PRESETS;
+const LOGO_VOXEL_STATE_VALUE_SUGGESTIONS = [
+  FIRST_LOGO_PRESET.voxelState,
+  ...REMAINING_LOGO_PRESETS.map((preset) => preset.voxelState),
+] satisfies NoterRouteSearchParamValueSuggestions;
+const DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
 
 function readOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -255,8 +263,9 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   top: appThemeColorSearchFieldSchema.shape.top,
   vox: routeSearchValueParam(canonicalVoxelStateSearchValue, {
     permission: "public",
-    sampleValue: "xxx_xox_xxx-xxx_xxx_xxx-xxx_xxx_xxx",
+    sampleValue: DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION,
     suggestion: "route",
+    valueSuggestions: LOGO_VOXEL_STATE_VALUE_SUGGESTIONS,
   }),
 });
 
