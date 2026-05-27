@@ -1600,6 +1600,78 @@ test("route URL editor fixture refuses changes that merge host and path text", a
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 });
 
+test("route URL editor deletes selected route text across the origin boundary", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const routeInputPrefix = `${origin}/`;
+
+  const input = await editRouteUrl(page);
+
+  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+
+  await input.evaluate((element, currentOrigin) => {
+    element.setSelectionRange(currentOrigin.length - 2, `${currentOrigin}/l`.length);
+  }, origin);
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
+  await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
+  await expect(input).toHaveAttribute("aria-invalid", "false");
+});
+
+test("route URL editor deletes selected route text across the root slash", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const routeInputPrefix = `${origin}/`;
+
+  const input = await editRouteUrl(page);
+
+  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+
+  await input.evaluate((element, currentOrigin) => {
+    element.setSelectionRange(currentOrigin.length, `${currentOrigin}/l`.length);
+  }, origin);
+  await input.press("Delete");
+
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
+  await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
+  await expect(input).toHaveAttribute("aria-invalid", "false");
+});
+
+test("route URL editor collapses select-all deletion to the route boundary", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 96 });
+  await page.goto("/logo", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+  const routeInputPrefix = `${origin}/`;
+
+  const input = await editRouteUrl(page);
+
+  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+
+  await input.evaluate((element) => {
+    element.setSelectionRange(0, element.value.length);
+  });
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(routeInputPrefix);
+  await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
+  await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
+  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await expect(page).toHaveURL(`${origin}/`);
+});
+
 test("route URL editor preserves caret when rejecting root slash deletion", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/logo", {

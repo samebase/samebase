@@ -263,26 +263,22 @@ function readRouteUrlEditorDraftRouteAddress(args: {
   return `/${args.inputValue.slice(enforcedInputPrefix.length)}`;
 }
 
-type RouteUrlEditorRouteBoundaryBackspace = {
+type RouteUrlEditorRouteBoundaryDeletion = {
   inputValue: string;
   routeAddress: string;
   selectionOffset: number;
 };
 
-// Modified Backspace can delete across the origin text; keep origin + slash
+// Native deletes can cross the hidden origin text; keep origin + slash
 // immutable and delete only route-owned text after that boundary.
-function readRouteUrlEditorRouteBoundaryBackspace(args: {
-  input: HTMLInputElement;
+function readRouteUrlEditorRouteBoundaryDeletion(args: {
+  deleteEnd: number;
+  inputValue: string;
   origin: string;
-}): RouteUrlEditorRouteBoundaryBackspace | null {
-  const selection = readRouteUrlEditorInputSelection(args.input);
-  if (!selection) {
-    return null;
-  }
-
+}): RouteUrlEditorRouteBoundaryDeletion | null {
   const routeInputPrefix = `${args.origin}/`;
-  const deleteEnd = Math.max(selection.start, selection.end, routeInputPrefix.length);
-  const inputValue = `${routeInputPrefix}${args.input.value.slice(deleteEnd)}`;
+  const deleteEnd = Math.max(args.deleteEnd, routeInputPrefix.length);
+  const inputValue = `${routeInputPrefix}${args.inputValue.slice(deleteEnd)}`;
   const routeAddress = readRouteUrlEditorDraftRouteAddress({
     inputValue,
     origin: args.origin,
@@ -297,6 +293,51 @@ function readRouteUrlEditorRouteBoundaryBackspace(args: {
     routeAddress,
     selectionOffset: routeInputPrefix.length,
   };
+}
+
+function readRouteUrlEditorRouteBoundaryBackspace(args: {
+  input: HTMLInputElement;
+  origin: string;
+}): RouteUrlEditorRouteBoundaryDeletion | null {
+  const selection = readRouteUrlEditorInputSelection(args.input);
+  if (!selection) {
+    return null;
+  }
+
+  return readRouteUrlEditorRouteBoundaryDeletion({
+    deleteEnd: Math.max(selection.start, selection.end),
+    inputValue: args.input.value,
+    origin: args.origin,
+  });
+}
+
+function readRouteUrlEditorRouteBoundarySelectionDelete(args: {
+  inputValue: string;
+  origin: string;
+  rejectedInputValue: string;
+  selection: RouteUrlEditorInputSelection | null;
+}): RouteUrlEditorRouteBoundaryDeletion | null {
+  const selection = args.selection;
+  if (!selection || selection.start === selection.end) {
+    return null;
+  }
+
+  const routeInputPrefix = `${args.origin}/`;
+  if (selection.start >= routeInputPrefix.length || selection.end <= routeInputPrefix.length) {
+    return null;
+  }
+
+  const rejectedInputValue =
+    args.inputValue.slice(0, selection.start) + args.inputValue.slice(selection.end);
+  if (args.rejectedInputValue !== rejectedInputValue) {
+    return null;
+  }
+
+  return readRouteUrlEditorRouteBoundaryDeletion({
+    deleteEnd: selection.end,
+    inputValue: args.inputValue,
+    origin: args.origin,
+  });
 }
 
 function readRouteUrlEditorInputRouteIndex(args: {
@@ -1040,6 +1081,29 @@ export function RouteUrlEditor() {
     [currentHref, navigateRouteUrlEditorHref, origin, router.routesByPath, viewerIsAdmin],
   );
 
+  const applyRouteBoundaryDeletion = useCallback(
+    (input: HTMLInputElement, deletion: RouteUrlEditorRouteBoundaryDeletion) => {
+      input.value = deletion.inputValue;
+      input.setSelectionRange(deletion.selectionOffset, deletion.selectionOffset);
+      suggestionPreviewActiveRef.current = false;
+      pointerPreviewBaseRef.current = null;
+      touchScrollPreviewCommitPendingRef.current = false;
+      touchScrollPreviewDraftRouteAddressRef.current = null;
+      syncSuggestionSelection(input, deletion.routeAddress);
+      patchSuggestionState({ dismissed: false });
+
+      if (deletion.routeAddress === draftRouteAddress) {
+        return;
+      }
+
+      setDraftRouteAddress(deletion.routeAddress);
+      patchSuggestionState({ draftEditedSinceFocus: true });
+      suppressSuggestionMousePreviewUntilMoveRef.current = true;
+      previewDraftRouteAddress(deletion.routeAddress);
+    },
+    [draftRouteAddress, patchSuggestionState, previewDraftRouteAddress, syncSuggestionSelection],
+  );
+
   const changeDraftRouteAddress = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const nextDraftRouteAddress = readRouteUrlEditorDraftRouteAddress({
@@ -1047,6 +1111,17 @@ export function RouteUrlEditor() {
         origin,
       });
       if (nextDraftRouteAddress === null) {
+        const routeBoundarySelectionDelete = readRouteUrlEditorRouteBoundarySelectionDelete({
+          inputValue,
+          origin,
+          rejectedInputValue: event.currentTarget.value,
+          selection: inputSelectionBeforeChangeRef.current,
+        });
+        if (routeBoundarySelectionDelete !== null) {
+          applyRouteBoundaryDeletion(event.currentTarget, routeBoundarySelectionDelete);
+          return;
+        }
+
         suggestionPreviewActiveRef.current = false;
         pointerPreviewBaseRef.current = null;
         previewBaseHrefRef.current = null;
@@ -1074,7 +1149,14 @@ export function RouteUrlEditor() {
 
       previewDraftRouteAddress(nextDraftRouteAddress);
     },
-    [inputValue, origin, patchSuggestionState, previewDraftRouteAddress, syncSuggestionSelection],
+    [
+      applyRouteBoundaryDeletion,
+      inputValue,
+      origin,
+      patchSuggestionState,
+      previewDraftRouteAddress,
+      syncSuggestionSelection,
+    ],
   );
 
   const resetInput = useCallback(() => {
@@ -1579,22 +1661,7 @@ export function RouteUrlEditor() {
           }
 
           event.preventDefault();
-          event.currentTarget.value = routeBoundaryBackspace.inputValue;
-          event.currentTarget.setSelectionRange(
-            routeBoundaryBackspace.selectionOffset,
-            routeBoundaryBackspace.selectionOffset,
-          );
-          syncSuggestionSelection(event.currentTarget, routeBoundaryBackspace.routeAddress);
-          patchSuggestionState({ dismissed: false });
-
-          if (routeBoundaryBackspace.routeAddress === draftRouteAddress) {
-            return;
-          }
-
-          setDraftRouteAddress(routeBoundaryBackspace.routeAddress);
-          patchSuggestionState({ draftEditedSinceFocus: true });
-          suppressSuggestionMousePreviewUntilMoveRef.current = true;
-          previewDraftRouteAddress(routeBoundaryBackspace.routeAddress);
+          applyRouteBoundaryDeletion(event.currentTarget, routeBoundaryBackspace);
           return;
         }
         case "Escape":
@@ -1606,15 +1673,12 @@ export function RouteUrlEditor() {
     },
     [
       activeSuggestion,
-      draftRouteAddress,
+      applyRouteBoundaryDeletion,
       moveActiveSuggestion,
       origin,
-      patchSuggestionState,
-      previewDraftRouteAddress,
       resetInput,
       selectSuggestion,
       suggestionsVisible,
-      syncSuggestionSelection,
     ],
   );
 
@@ -1681,6 +1745,7 @@ export function RouteUrlEditor() {
         onBlur={blurInput}
         onChange={changeDraftRouteAddress}
         onClick={syncSuggestionSelectionFromInputAndOpenSearch}
+        onCut={rememberInputSelection}
         onFocus={focusInput}
         onKeyDown={handleInputKeyDown}
         onKeyUp={handleInputKeyUp}
