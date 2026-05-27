@@ -666,7 +666,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Project settings" })).toHaveCount(0);
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
@@ -676,7 +676,11 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open GitHub: noter-md/noter" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Open Cloudflare: nicu/noter-worker" }),
+  ).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
@@ -722,7 +726,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Project settings" })).toHaveCount(0);
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -732,7 +736,11 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Project settings" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open GitHub: noter-md/noter" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toBeVisible();
+  await expect(
+    fixture.getByRole("link", { name: "Open Cloudflare: nicu/noter-worker" }),
+  ).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();

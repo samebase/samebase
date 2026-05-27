@@ -127,7 +127,7 @@ import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboar
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const DASHBOARD_NEW_APP_QUERY_PARAM = "new-app";
 
-type VaultDashboardVault = NonNullable<
+export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 
@@ -3286,7 +3286,7 @@ function resolveActiveVaultDashboardCardHashId({
   return closestVisibleHeader?.hashId ?? null;
 }
 
-function VaultDashboardBody({
+export function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
