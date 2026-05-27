@@ -35,7 +35,7 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
       <div className="container my-auto px-2">
         <div
           data-testid="public-landing-content"
-          className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
+          className="max-w-[384px] mx-auto flex flex-col my-auto gap-4"
         >
           {topNotice}
           <PublicLandingLogo

@@ -62,7 +62,7 @@ test("app workspace header exposes the route URL editor", async ({ page }) => {
 
 test("app workspace route URL editor stays compact for long URLs", async ({ page }) => {
   const longPath =
-    "/?dev&route=codex-find-main-header-url-research&state=abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+    "/logo/transition/transforms?dev&depth=5&dist=1.25&elev=33&freeView&gridSize=4&isoSide=120&isoStyle=shaded-edge&leftFace=striped&stripeA=45&stripeBasis=diagonal&stripeG=8&stripeLink&stripeO=2&stripeW=4&rot=45";
 
   await page.setViewportSize({ width: 360, height: 900 });
   await page.goto(longPath, {
@@ -72,10 +72,11 @@ test("app workspace route URL editor stays compact for long URLs", async ({ page
 
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
+  const routeAddress = `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`;
   const routeUrlEditor = page.getByTestId("route-url-editor");
   const routeUrlDisplay = page.getByTestId("route-url-editor-display");
-  await expect(routeUrlDisplay).toHaveValue(`${origin}${longPath}`);
-  await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}${longPath}`);
+  await expect(routeUrlDisplay).toHaveValue(`${origin}${routeAddress}`);
+  await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}${routeAddress}`);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
     const display = element.querySelector('[data-testid="route-url-editor-display"]');
