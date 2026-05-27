@@ -256,14 +256,14 @@ describe("page metadata", () => {
     withFakeDocument((document) => {
       applyPageMetadata(
         resolvePageMetadata({
-          pathname: "/indexedDB",
+          pathname: "/indexDB",
           isAuthenticated: false,
         }),
       );
 
       expect(document.title).toBe("indexedDB | noter");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/indexedDB",
+        "https://noter.md/indexDB",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
     });

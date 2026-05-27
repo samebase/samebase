@@ -1415,7 +1415,7 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
   });
   const indexedDbOption = page.getByRole("option", {
     exact: true,
-    name: "Use /indexedDB",
+    name: "Use /indexDB",
   });
 
   await expect(rootOption).toBeVisible();
@@ -1429,8 +1429,8 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
 
   await input.press("ArrowDown");
   await expect(indexedDbOption).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(`${origin}/indexedDB`);
-  await expect(input).toHaveValue(`${origin}/indexedDB`);
+  await expect(page).toHaveURL(`${origin}/indexDB`);
+  await expect(input).toHaveValue(`${origin}/indexDB`);
 
   await input.press("ArrowDown");
   await expect(localStorageOption).toHaveAttribute("aria-selected", "true");

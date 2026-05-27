@@ -30,8 +30,8 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
   await expect(page.getByTestId("app-workspace")).toBeVisible();
-  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText("localStorage");
-  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText("indexedDB");
+  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute(
     "href",
     INDEXED_DB_ROUTE,
@@ -55,6 +55,21 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
     "local-storage-workspace.png",
     localStorageRouteScreenshotOptions,
   );
+});
+
+test("storage sidebar previews linked pages on hover", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
+  const origin = new URL(page.url()).origin;
+
+  await page.getByTestId("indexed-db-sidebar-file").hover();
+  await expect(page).toHaveURL(`${origin}${INDEXED_DB_ROUTE}`);
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute("aria-current", "page");
+
+  await page.getByTestId("workspace-layout-v2-pane-main").hover({
+    position: { x: 16, y: 16 },
+  });
+  await expect(page).toHaveURL(`${origin}${LOCAL_STORAGE_ROUTE}`);
 });
 
 test("localStorage route reflects sidebar persistence without manual refresh", async ({ page }) => {

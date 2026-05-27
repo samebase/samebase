@@ -71,8 +71,8 @@ test("indexedDB route shows database store keys and formatted values", async ({ 
   await page.goto(INDEXED_DB_ROUTE, { waitUntil: "networkidle" });
 
   await expect(page.getByTestId("app-workspace")).toBeVisible();
-  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText("indexedDB");
-  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText("localStorage");
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);
+  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveAttribute(
     "href",
     LOCAL_STORAGE_ROUTE,

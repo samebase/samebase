@@ -19,7 +19,7 @@ import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
-import { Route as indexedDBRouteImport } from "./routes/indexedDB";
+import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as indexRouteImport } from "./routes/index";
@@ -89,9 +89,9 @@ const landingPreviewRoute = landingPreviewRouteImport.update({
   path: "/landing-preview",
   getParentRoute: () => rootRouteImport,
 } as any);
-const indexedDBRoute = indexedDBRouteImport.update({
-  id: "/indexedDB",
-  path: "/indexedDB",
+const indexDBRoute = indexDBRouteImport.update({
+  id: "/indexDB",
+  path: "/indexDB",
   getParentRoute: () => rootRouteImport,
 } as any);
 const dashboardHomeRoute = dashboardHomeRouteImport.update({
@@ -191,7 +191,7 @@ export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
-  "/indexedDB": typeof indexedDBRoute;
+  "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
@@ -222,7 +222,7 @@ export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
-  "/indexedDB": typeof indexedDBRoute;
+  "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
@@ -254,7 +254,7 @@ export interface FileRoutesById {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
-  "/indexedDB": typeof indexedDBRoute;
+  "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
@@ -287,7 +287,7 @@ export interface FileRouteTypes {
     | "/"
     | "/add"
     | "/home"
-    | "/indexedDB"
+    | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
@@ -318,7 +318,7 @@ export interface FileRouteTypes {
     | "/"
     | "/add"
     | "/home"
-    | "/indexedDB"
+    | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
@@ -349,7 +349,7 @@ export interface FileRouteTypes {
     | "/"
     | "/add"
     | "/home"
-    | "/indexedDB"
+    | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
@@ -381,7 +381,7 @@ export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   addRepositoryRoute: typeof addRepositoryRoute;
   dashboardHomeRoute: typeof dashboardHomeRoute;
-  indexedDBRoute: typeof indexedDBRoute;
+  indexDBRoute: typeof indexDBRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
@@ -481,11 +481,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof landingPreviewRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/indexedDB": {
-      id: "/indexedDB";
-      path: "/indexedDB";
-      fullPath: "/indexedDB";
-      preLoaderRoute: typeof indexedDBRouteImport;
+    "/indexDB": {
+      id: "/indexDB";
+      path: "/indexDB";
+      fullPath: "/indexDB";
+      preLoaderRoute: typeof indexDBRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/home": {
@@ -621,7 +621,7 @@ const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   addRepositoryRoute: addRepositoryRoute,
   dashboardHomeRoute: dashboardHomeRoute,
-  indexedDBRoute: indexedDBRoute,
+  indexDBRoute: indexDBRoute,
   landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,

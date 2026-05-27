@@ -105,7 +105,7 @@ export function IndexedDbWorkspacePage() {
 
   return (
     <AppWorkspaceRouteChrome
-      left={{ content: <BrowserStorageSidebarContent currentView="indexedDB" /> }}
+      left={{ content: <BrowserStorageSidebarContent currentView="indexDB" /> }}
     >
       <IndexedDbEntriesTable snapshot={snapshot} />
     </AppWorkspaceRouteChrome>

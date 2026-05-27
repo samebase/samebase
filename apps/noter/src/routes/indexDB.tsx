@@ -11,7 +11,7 @@ function IndexedDbRouteComponent() {
   );
 }
 
-export const Route = createFileRoute("/indexedDB")({
+export const Route = createFileRoute("/indexDB")({
   staticData: { permission: "public" },
   component: IndexedDbRouteComponent,
 });

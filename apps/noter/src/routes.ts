@@ -17,7 +17,7 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
  */
 export const routes = rootRoute("root.tsx", [
   index("index.tsx"),
-  route(INDEXED_DB_ROUTE, "indexedDB.tsx"),
+  route(INDEXED_DB_ROUTE, "indexDB.tsx"),
   route(LOCAL_STORAGE_ROUTE, "localStorage.tsx"),
   route("/logo", "logo.tsx"),
   route("/logo/iso", "logo-iso.tsx"),
