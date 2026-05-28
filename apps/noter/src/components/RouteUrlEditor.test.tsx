@@ -16,6 +16,7 @@ const { useQueryMock } = vi.hoisted(() => ({
 }));
 const scrollIntoViewMock = vi.fn();
 const DEFAULT_LOGO_VOXEL_STATE_SUGGESTION = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
+const routeUrlEditorHistoryIndexesStateKey = "__noter_route_url_editor_history_indexes";
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -55,9 +56,10 @@ describe("RouteUrlEditor", () => {
     rootElement = null;
     scrollIntoViewMock.mockReset();
     useQueryMock.mockReset();
+    window.history.replaceState(null, "", "/");
   });
 
-  function renderEditor(initialEntries: string[] = ["/"]): HTMLInputElement {
+  function renderEditor(initialEntries: string[] = ["/"], initialIndex?: number): HTMLInputElement {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -65,7 +67,7 @@ describe("RouteUrlEditor", () => {
 
     act(() => {
       mountedRoot.render(
-        <TestRouterProvider initialEntries={initialEntries}>
+        <TestRouterProvider initialEntries={initialEntries} initialIndex={initialIndex}>
           <RouteUrlEditor />
           <RouteUrlEditorLocationProbe />
         </TestRouterProvider>,
@@ -167,6 +169,46 @@ describe("RouteUrlEditor", () => {
       ),
     ).toHaveLength(3);
     expect(display.value).toBe(`${window.location.origin}/`);
+  });
+
+  it("hydrates browser navigation controls from the current history entry", async () => {
+    window.history.replaceState(
+      {
+        __TSR_index: 0,
+        [routeUrlEditorHistoryIndexesStateKey]: {
+          currentRouteHistoryIndex: 1,
+          forwardRouteHistoryIndex: 2,
+        },
+      },
+      "",
+      "/logo",
+    );
+
+    renderEditor(["/logo", "/logo/iso"], 0);
+
+    await act(async () => {
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    const backButton = rootElement?.querySelector<HTMLButtonElement>('button[aria-label="Back"]');
+    const forwardButton = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Forward"]',
+    );
+    if (!backButton || !forwardButton) {
+      throw new Error("Expected route URL editor history buttons.");
+    }
+
+    expect(backButton.disabled).toBe(false);
+    expect(forwardButton.disabled).toBe(false);
+
+    await act(async () => {
+      forwardButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(readRouteHref()).toBe("/logo/iso");
   });
 
   it("uses one stable absolute URL input across display and edit states", () => {

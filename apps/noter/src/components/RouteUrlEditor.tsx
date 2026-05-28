@@ -56,6 +56,7 @@ const routeUrlEditorTouchSuggestionsScrollportClassName =
 const routeUrlEditorTouchScrollSlateClassName =
   "pointer-events-none absolute inset-x-0 z-10 bg-accent/80 ring-1 ring-ring/30";
 
+const routeUrlEditorHistoryIndexesStateKey = "__noter_route_url_editor_history_indexes";
 const routeUrlEditorTouchScrollPickerMediaQuery = "(hover: none), (pointer: coarse)";
 const routeUrlEditorSuggestionRowHeightPx = 28;
 const routeUrlEditorTouchScrollSlateOptionOffset = 2;
@@ -83,6 +84,7 @@ type RouteUrlEditorPointerPreviewBase = {
 };
 
 type RouteUrlEditorStoreState = {
+  currentRouteHistoryIndex: number;
   documentHashSuggestionKeys: readonly string[];
   draftRouteAddress: string;
   forwardRouteHistoryIndex: number;
@@ -93,14 +95,30 @@ type RouteUrlEditorStoreState = {
   touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics | null;
 };
 
+type RouteUrlEditorHistoryIndexes = {
+  currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
+};
+
+function pickRouteUrlEditorHistoryIndexes(
+  state: RouteUrlEditorStoreState,
+): RouteUrlEditorHistoryIndexes {
+  return {
+    currentRouteHistoryIndex: state.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: state.forwardRouteHistoryIndex,
+  };
+}
+
 function useCreateRouteUrlEditorStore(args: {
   currentHref: string;
   currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
 }) {
   const initialState: RouteUrlEditorStoreState = {
+    currentRouteHistoryIndex: args.currentRouteHistoryIndex,
     documentHashSuggestionKeys: [],
     draftRouteAddress: args.currentHref,
-    forwardRouteHistoryIndex: args.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: args.forwardRouteHistoryIndex,
     inputFocused: false,
     suggestionState: {
       activeIndex: null,
@@ -148,6 +166,22 @@ function useCreateRouteUrlEditorStore(args: {
         state.inputFocused === inputFocused ? state : { ...state, inputFocused },
       );
     },
+    syncRouteHistoryIndexes: (routeHistoryIndexes: RouteUrlEditorHistoryIndexes) => {
+      setState((state) => {
+        const forwardRouteHistoryIndex = Math.max(
+          routeHistoryIndexes.currentRouteHistoryIndex,
+          routeHistoryIndexes.forwardRouteHistoryIndex,
+        );
+        return state.currentRouteHistoryIndex === routeHistoryIndexes.currentRouteHistoryIndex &&
+          state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
+          ? state
+          : {
+              ...state,
+              currentRouteHistoryIndex: routeHistoryIndexes.currentRouteHistoryIndex,
+              forwardRouteHistoryIndex,
+            };
+      });
+    },
     setTouchScrollPickerEnabled: (touchScrollPickerEnabled: boolean) => {
       setState((state) =>
         state.touchScrollPickerEnabled === touchScrollPickerEnabled
@@ -167,16 +201,27 @@ function useCreateRouteUrlEditorStore(args: {
           : { ...state, touchScrollPickerMetrics },
       );
     },
-    updateForwardRouteHistoryIndex: (
-      readNextForwardRouteHistoryIndex: (forwardRouteHistoryIndex: number) => number,
+    updateRouteHistoryIndexes: (
+      readNextRouteHistoryIndexes: (
+        routeHistoryIndexes: RouteUrlEditorHistoryIndexes,
+      ) => RouteUrlEditorHistoryIndexes,
     ) => {
       setState((state) => {
-        const forwardRouteHistoryIndex = readNextForwardRouteHistoryIndex(
-          state.forwardRouteHistoryIndex,
+        const routeHistoryIndexes = readNextRouteHistoryIndexes(
+          pickRouteUrlEditorHistoryIndexes(state),
         );
-        return state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
+        const forwardRouteHistoryIndex = Math.max(
+          routeHistoryIndexes.currentRouteHistoryIndex,
+          routeHistoryIndexes.forwardRouteHistoryIndex,
+        );
+        return state.currentRouteHistoryIndex === routeHistoryIndexes.currentRouteHistoryIndex &&
+          state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
           ? state
-          : { ...state, forwardRouteHistoryIndex };
+          : {
+              ...state,
+              currentRouteHistoryIndex: routeHistoryIndexes.currentRouteHistoryIndex,
+              forwardRouteHistoryIndex,
+            };
       });
     },
     updateSuggestionState: (
@@ -631,6 +676,101 @@ function readRouteUrlEditorExactSearch(args: {
   return nextSearch;
 }
 
+function isRouteUrlEditorHistoryStateRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readRouteUrlEditorHistoryIndex(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function readRouteUrlEditorPersistedHistoryIndexes(
+  currentRouteHistoryIndex: number,
+): RouteUrlEditorHistoryIndexes {
+  const fallback = {
+    currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: currentRouteHistoryIndex,
+  };
+
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  const historyState: unknown = window.history.state;
+  if (!isRouteUrlEditorHistoryStateRecord(historyState)) {
+    return fallback;
+  }
+
+  const persistedIndexes = historyState[routeUrlEditorHistoryIndexesStateKey];
+  if (!isRouteUrlEditorHistoryStateRecord(persistedIndexes)) {
+    return fallback;
+  }
+
+  const persistedCurrentRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+    persistedIndexes.currentRouteHistoryIndex,
+  );
+  const persistedForwardRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+    persistedIndexes.forwardRouteHistoryIndex,
+  );
+  if (persistedCurrentRouteHistoryIndex === null || persistedForwardRouteHistoryIndex === null) {
+    return fallback;
+  }
+
+  return {
+    currentRouteHistoryIndex: persistedCurrentRouteHistoryIndex,
+    forwardRouteHistoryIndex: Math.max(
+      persistedCurrentRouteHistoryIndex,
+      persistedForwardRouteHistoryIndex,
+    ),
+  };
+}
+
+function persistRouteUrlEditorHistoryIndexes(args: {
+  currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
+}): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const historyState: unknown = window.history.state;
+  if (!isRouteUrlEditorHistoryStateRecord(historyState)) {
+    return;
+  }
+
+  const nextIndexes: RouteUrlEditorHistoryIndexes = {
+    currentRouteHistoryIndex: args.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: Math.max(
+      args.currentRouteHistoryIndex,
+      args.forwardRouteHistoryIndex,
+    ),
+  };
+  const currentIndexes = historyState[routeUrlEditorHistoryIndexesStateKey];
+
+  if (isRouteUrlEditorHistoryStateRecord(currentIndexes)) {
+    const currentRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+      currentIndexes.currentRouteHistoryIndex,
+    );
+    const forwardRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+      currentIndexes.forwardRouteHistoryIndex,
+    );
+    if (
+      currentRouteHistoryIndex === nextIndexes.currentRouteHistoryIndex &&
+      forwardRouteHistoryIndex === nextIndexes.forwardRouteHistoryIndex
+    ) {
+      return;
+    }
+  }
+
+  window.history.replaceState(
+    {
+      ...historyState,
+      [routeUrlEditorHistoryIndexesStateKey]: nextIndexes,
+    },
+    "",
+  );
+}
+
 /**
  * Displays route reality separately from the focused local draft. Valid edits
  * apply while typing, but router normalization does not replace the draft text
@@ -640,14 +780,16 @@ export function RouteUrlEditor() {
   const location = useLocation();
   const router = useRouter();
   const currentHref = location.href;
-  const currentRouteHistoryIndex = location.state.__TSR_index;
+  const locationRouteHistoryIndex = location.state.__TSR_index;
   const inputId = useId();
   const suggestionsId = `${inputId}-suggestions`;
   const routeUrlEditorStore = useCreateRouteUrlEditorStore({
     currentHref,
-    currentRouteHistoryIndex,
+    currentRouteHistoryIndex: locationRouteHistoryIndex,
+    forwardRouteHistoryIndex: locationRouteHistoryIndex,
   });
   const {
+    currentRouteHistoryIndex,
     documentHashSuggestionKeys,
     draftRouteAddress,
     forwardRouteHistoryIndex,
@@ -663,8 +805,9 @@ export function RouteUrlEditor() {
     setDraftRouteAddress,
     setInputFocused,
     setTouchScrollPickerEnabled,
+    syncRouteHistoryIndexes,
     syncTouchScrollPickerMetrics,
-    updateForwardRouteHistoryIndex,
+    updateRouteHistoryIndexes,
     updateSuggestionState,
   } = routeUrlEditorStore.actions;
   const formRef = useRef<HTMLFormElement>(null);
@@ -684,6 +827,7 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
+  const hydratedRouteHistoryIndexesRef = useRef(false);
   const origin = readIsomorphicOrigin();
   const {
     activeIndex: activeSuggestionIndex,
@@ -735,20 +879,66 @@ export function RouteUrlEditor() {
     () =>
       router.history.subscribe(({ action, location: nextLocation }) => {
         const nextHistoryIndex = nextLocation.state.__TSR_index;
-        updateForwardRouteHistoryIndex((currentForwardHistoryIndex) => {
+        updateRouteHistoryIndexes((currentRouteHistoryIndexes) => {
           if (action.type === "PUSH") {
-            return nextHistoryIndex;
+            return {
+              currentRouteHistoryIndex: nextHistoryIndex,
+              forwardRouteHistoryIndex: nextHistoryIndex,
+            };
           }
 
           if (action.type === "FORWARD" || action.type === "GO") {
-            return Math.max(currentForwardHistoryIndex, nextHistoryIndex);
+            return {
+              currentRouteHistoryIndex: nextHistoryIndex,
+              forwardRouteHistoryIndex: Math.max(
+                currentRouteHistoryIndexes.forwardRouteHistoryIndex,
+                nextHistoryIndex,
+              ),
+            };
           }
 
-          return currentForwardHistoryIndex;
+          return {
+            currentRouteHistoryIndex: nextHistoryIndex,
+            forwardRouteHistoryIndex: currentRouteHistoryIndexes.forwardRouteHistoryIndex,
+          };
         });
       }),
-    [router, updateForwardRouteHistoryIndex],
+    [router, updateRouteHistoryIndexes],
   );
+
+  // Hydrate before paint so hard reloads do not flash disabled controls from
+  // TanStack's restarted index when the browser entry still has app history.
+  useLayoutEffect(() => {
+    if (hydratedRouteHistoryIndexesRef.current) {
+      return;
+    }
+
+    hydratedRouteHistoryIndexesRef.current = true;
+    const syncPersistedRouteHistoryIndexes = () => {
+      syncRouteHistoryIndexes(readRouteUrlEditorPersistedHistoryIndexes(locationRouteHistoryIndex));
+    };
+
+    syncPersistedRouteHistoryIndexes();
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(syncPersistedRouteHistoryIndexes, 0);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [locationRouteHistoryIndex, syncRouteHistoryIndexes]);
+
+  // If the user hard-refreshes, browser session history remains but TanStack
+  // can restart its current index at zero; carry the app-history position on
+  // each browser history entry so this chrome can re-enable Back/Forward.
+  useEffect(() => {
+    persistRouteUrlEditorHistoryIndexes({
+      currentRouteHistoryIndex,
+      forwardRouteHistoryIndex,
+    });
+  }, [currentRouteHistoryIndex, forwardRouteHistoryIndex]);
 
   // Links and Back/Forward change URL reality. Keep an untouched focused input
   // aligned with the route while preserving user-edited local drafts.
