@@ -1,5 +1,6 @@
 import { INDEXED_DB_ROUTE } from "@/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
+import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useCallback, type MouseEvent } from "react";
 
@@ -28,9 +29,6 @@ const browserStorageViews = [
 
 // Hovering a storage link swaps routes, which remounts this left sidebar before pointer leave fires.
 let browserStorageRoutePreview: BrowserStorageRoutePreview | null = null;
-
-const BROWSER_STORAGE_SIDEBAR_LINK_CLASS_NAME =
-  "-mx-1 -my-0.5 inline-flex min-h-7 max-w-full items-center px-1 py-0.5 text-sm leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current";
 
 function readBrowserStorageLinkPath(anchor: HTMLAnchorElement): string {
   return new URL(anchor.href).pathname;
@@ -110,7 +108,10 @@ export function BrowserStorageSidebarContent({ currentView }: { currentView: Bro
   );
 
   return (
-    <nav aria-label="Storage views" className="flex flex-col items-start gap-3 px-2 py-3">
+    <nav
+      aria-label="Storage views"
+      className="flex flex-col items-start gap-3 overflow-hidden px-2 py-3 text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]"
+    >
       {browserStorageViews.map((view) => (
         <Link
           key={view.view}
@@ -120,7 +121,7 @@ export function BrowserStorageSidebarContent({ currentView }: { currentView: Bro
           onClick={commitRoutePreview}
           onMouseEnter={previewRouteLink}
           onMouseLeave={restoreRoutePreview}
-          className={BROWSER_STORAGE_SIDEBAR_LINK_CLASS_NAME}
+          className={routePreviewLinkInteractionClassName}
         >
           {view.path}
         </Link>
