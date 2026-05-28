@@ -163,14 +163,11 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     return;
   }
 
-  const explicitPrerenderOrigin = env[NOTER_PRERENDER_ORIGIN]?.trim();
-  const prerenderOrigin = plan.kind === "deploy" ? "https://noter.md" : explicitPrerenderOrigin;
-
   await run("pnpm", plan.args, {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
-    ...(prerenderOrigin ? { [NOTER_PRERENDER_ORIGIN]: prerenderOrigin } : {}),
+    ...(plan.kind === "deploy" ? { [NOTER_PRERENDER_ORIGIN]: "https://noter.md" } : {}),
   });
 }
 
