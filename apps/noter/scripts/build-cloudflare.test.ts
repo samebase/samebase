@@ -41,6 +41,7 @@ describe("build-cloudflare", () => {
       kind: "deploy",
       deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
       deployKey: "prod-key",
+      prerenderOrigin: "https://noter.md",
       routeSurface: "production",
       args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
     });

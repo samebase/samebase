@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url";
 
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
+const NOTER_PRERENDER_ORIGIN = "NOTER_PRERENDER_ORIGIN";
+const NOTER_PUBLIC_ORIGIN = "https://noter.md";
 const VITE_NOTER_ROUTE_SURFACE = "VITE_NOTER_ROUTE_SURFACE";
 
 type BuildRouteSurface = "local" | "preview" | "production";
@@ -13,6 +15,7 @@ type ConvexDeployPlan =
       kind: "deploy";
       deployKey: string;
       deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY;
+      prerenderOrigin: typeof NOTER_PUBLIC_ORIGIN;
       routeSurface: BuildRouteSurface;
       args: readonly string[];
     }
@@ -143,6 +146,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       branch,
       deployKeyName: PROD_CONVEX_DEPLOY_KEY,
     }),
+    prerenderOrigin: NOTER_PUBLIC_ORIGIN,
     routeSurface: "production",
     args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
   };
@@ -166,6 +170,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
+    ...(plan.kind === "deploy" ? { [NOTER_PRERENDER_ORIGIN]: plan.prerenderOrigin } : {}),
   });
 }
 

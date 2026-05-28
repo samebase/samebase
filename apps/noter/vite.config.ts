@@ -23,7 +23,6 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
 const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
 const BROWSER_CONVEX_PROXY_PATH = "/__noter_convex_proxy";
-const NOTER_PUBLIC_ORIGIN = "https://noter.md";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
 const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
@@ -113,34 +112,10 @@ const runtimeNoterConnectConfigPath = path.resolve(
 );
 const spaShellOutputPath = "/index";
 const publicPrerenderPages = readPublicPrerenderPages();
-const routeSurface = process.env.VITE_NOTER_ROUTE_SURFACE;
-const deployedPrerenderOrigin = resolveDeployedPrerenderOrigin();
-const deployedPrerenderUrl = deployedPrerenderOrigin ? new URL(deployedPrerenderOrigin) : undefined;
-const deployedPrerenderHeaders = deployedPrerenderUrl
-  ? {
-      "x-forwarded-host": deployedPrerenderUrl.host,
-      "x-forwarded-proto": deployedPrerenderUrl.protocol.replace(/:$/, ""),
-    }
-  : undefined;
+const prerenderHeaders = readPrerenderHeaders(process.env.NOTER_PRERENDER_ORIGIN);
 
-function resolveDeployedPrerenderOrigin(): string | undefined {
-  if (!routeSurface || routeSurface === "local") {
-    return undefined;
-  }
-
-  if (routeSurface === "production") {
-    return NOTER_PUBLIC_ORIGIN;
-  }
-
-  if (routeSurface !== "preview") {
-    throw new Error(`Unknown VITE_NOTER_ROUTE_SURFACE: ${routeSurface}`);
-  }
-
-  return readExplicitPrerenderOrigin();
-}
-
-function readExplicitPrerenderOrigin(): string | undefined {
-  const origin = process.env.NOTER_PRERENDER_ORIGIN?.trim();
+function readPrerenderHeaders(originValue: string | undefined) {
+  const origin = originValue?.trim();
   if (!origin) {
     return undefined;
   }
@@ -150,7 +125,10 @@ function readExplicitPrerenderOrigin(): string | undefined {
     throw new Error("NOTER_PRERENDER_ORIGIN must be an origin, for example https://example.com.");
   }
 
-  return url.origin;
+  return {
+    "x-forwarded-host": url.host,
+    "x-forwarded-proto": url.protocol.replace(/:$/, ""),
+  };
 }
 
 function isLoopbackHostname(hostname: string): boolean {
@@ -591,7 +569,7 @@ export default defineConfig({
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
         enabled: true,
-        ...(deployedPrerenderHeaders ? { headers: deployedPrerenderHeaders } : {}),
+        ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
       },
       spa: {
         enabled: true,
