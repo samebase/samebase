@@ -63,13 +63,13 @@ const routeUrlEditorSuggestionRowHeightPx = 28;
 const routeUrlEditorTouchScrollSlateOptionOffset = 2;
 const routeUrlEditorEndPointerInsetPx = 8;
 
-type RouteUrlEditorTouchScrollPickerMetrics = {
+export type RouteUrlEditorTouchScrollPickerMetrics = {
   bottomSpacerHeightPx: number;
   slateTopPx: number;
   topSpacerHeightPx: number;
 };
 
-type RouteUrlEditorSuggestionState = {
+export type RouteUrlEditorSuggestionState = {
   activeIndex: number | null;
   baseRouteAddress: string;
   dismissed: boolean;
@@ -84,7 +84,7 @@ type RouteUrlEditorPointerPreviewBase = {
   previewBaseHrefBeforePointerPreview: string | null;
 };
 
-type RouteUrlEditorStoreState = {
+export type RouteUrlEditorStoreState = {
   currentRouteHistoryIndex: number;
   documentHashSuggestionKeys: readonly string[];
   draftRouteAddress: string;
@@ -99,6 +99,39 @@ type RouteUrlEditorStoreState = {
 type RouteUrlEditorHistoryIndexes = {
   currentRouteHistoryIndex: number;
   forwardRouteHistoryIndex: number;
+};
+
+export type RouteUrlEditorDebugState = {
+  activeSuggestionId: string | undefined;
+  activeSuggestionIndex: number | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  currentHref: string;
+  currentRouteHistoryIndex: number;
+  draftHref: string | null;
+  inputValue: string;
+  origin: string;
+  pointerPreviewBase: {
+    draftRouteAddress: string;
+    href: string;
+    previewBaseHrefBeforePointerPreview: string | null;
+  } | null;
+  previewBaseHref: string | null;
+  routeInputInvalid: boolean;
+  routeInputTitle: string;
+  store: RouteUrlEditorStoreState;
+  suggestionCount: number;
+  suggestionCurrentHref: string;
+  suggestionPreviewActive: boolean;
+  suggestionsVisible: boolean;
+  touchScrollPickerVisible: boolean;
+  touchScrollPreviewCommitPending: boolean;
+  touchScrollPreviewDraftRouteAddress: string | null;
+  viewerIsAdmin: boolean;
+};
+
+type RouteUrlEditorProps = {
+  onDebugStateChange?: (state: RouteUrlEditorDebugState) => void;
 };
 
 function useCreateRouteUrlEditorStore(args: {
@@ -760,7 +793,7 @@ function persistRouteUrlEditorHistoryIndexes(args: {
  * apply while typing, but router normalization does not replace the draft text
  * until the user leaves the field.
  */
-export function RouteUrlEditor() {
+export function RouteUrlEditor({ onDebugStateChange }: RouteUrlEditorProps = {}) {
   const location = useLocation();
   const router = useRouter();
   const currentHref = location.href;
@@ -856,6 +889,7 @@ export function RouteUrlEditor() {
     selectionRouteIndex,
     viewer: { isAdmin: viewerIsAdmin === true },
   });
+  const suggestionCount = suggestions.length;
   const suggestionsVisible = inputFocused && !suggestionsDismissed && suggestions.length > 0;
   const touchScrollPickerVisible = touchScrollPickerEnabled && touchScrollPickerMetrics !== null;
   const activeSuggestion =
@@ -881,6 +915,73 @@ export function RouteUrlEditor() {
     }
     currentHrefRef.current = latestLocationHref;
   }, [currentHref, router]);
+
+  // Research fixtures can observe the real editor without replacing its store,
+  // event handlers, router behavior, or suggestion logic.
+  useEffect(() => {
+    if (!onDebugStateChange) {
+      return;
+    }
+
+    onDebugStateChange({
+      activeSuggestionId,
+      activeSuggestionIndex,
+      canGoBack,
+      canGoForward,
+      currentHref,
+      currentRouteHistoryIndex,
+      draftHref,
+      inputValue,
+      origin,
+      pointerPreviewBase: pointerPreviewBaseRef.current,
+      previewBaseHref: previewBaseHrefRef.current,
+      routeInputInvalid,
+      routeInputTitle,
+      store: {
+        currentRouteHistoryIndex,
+        documentHashSuggestionKeys,
+        draftRouteAddress,
+        forwardRouteHistoryIndex,
+        inputFocused,
+        suggestionState,
+        touchScrollPickerEnabled,
+        touchScrollPickerMetrics,
+      },
+      suggestionCount,
+      suggestionCurrentHref,
+      suggestionPreviewActive: suggestionPreviewActiveRef.current,
+      suggestionsVisible,
+      touchScrollPickerVisible,
+      touchScrollPreviewCommitPending: touchScrollPreviewCommitPendingRef.current,
+      touchScrollPreviewDraftRouteAddress: touchScrollPreviewDraftRouteAddressRef.current,
+      viewerIsAdmin: viewerIsAdmin === true,
+    });
+  }, [
+    activeSuggestionId,
+    activeSuggestionIndex,
+    canGoBack,
+    canGoForward,
+    currentHref,
+    currentRouteHistoryIndex,
+    documentHashSuggestionKeys,
+    draftHref,
+    draftRouteAddress,
+    forwardRouteHistoryIndex,
+    inputFocused,
+    inputValue,
+    onDebugStateChange,
+    origin,
+    routeInputInvalid,
+    routeInputTitle,
+    suggestionCount,
+    suggestionCurrentHref,
+    suggestionState,
+    suggestionsVisible,
+    touchScrollPickerEnabled,
+    touchScrollPickerMetrics,
+    touchScrollPickerVisible,
+    viewerIsAdmin,
+  ]);
 
   // TanStack writes __TSR_index into each route entry. When our saved indexes
   // are present on that entry, prefer them so reloads keep Back/Forward state.
