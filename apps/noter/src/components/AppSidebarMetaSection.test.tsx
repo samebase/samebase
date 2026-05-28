@@ -34,7 +34,7 @@ describe("AppSidebarMetaSection", () => {
     const location = useLocation();
 
     return (
-      <output data-testid="router-location">
+      <output data-href={location.href} data-testid="router-location">
         {location.pathname}
         {location.searchStr}
       </output>
@@ -68,6 +68,44 @@ describe("AppSidebarMetaSection", () => {
 
   function readLocationText() {
     return rootElement?.querySelector('[data-testid="router-location"]')?.textContent ?? "";
+  }
+
+  function readLocationHref() {
+    return (
+      rootElement?.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? ""
+    );
+  }
+
+  async function renderRouteOwnedSidebar(initialEntry = "/home#noter") {
+    function RouteOwnedSidebarHarness() {
+      const pathname = useLocation({
+        select: (location) => location.pathname,
+      });
+
+      return (
+        <>
+          <AppSidebarMetaSection key={pathname} side="right" />
+          <LocationProbe />
+        </>
+      );
+    }
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const element = rootElement;
+    const mountedRoot = createRoot(rootElement);
+    root = mountedRoot;
+
+    await act(async () => {
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={[initialEntry]}>
+          <RouteOwnedSidebarHarness />
+        </TestRouterProvider>,
+      );
+      await settleRouteUpdate();
+    });
+
+    return element;
   }
 
   it("omits hidden dev shortcuts from prerendered markup", () => {
@@ -280,38 +318,9 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/");
   });
 
-  it("does not restore when a route-owned rail unmounts after reaching the preview target", async () => {
-    const harnessControls: { hideSidebar: (() => void) | null } = {
-      hideSidebar: null,
-    };
-
-    function RouteOwnedSidebarHarness() {
-      const [visible, setVisible] = React.useState(true);
-      harnessControls.hideSidebar = () => setVisible(false);
-
-      return (
-        <>
-          {visible ? <AppSidebarMetaSection side="right" /> : null}
-          <LocationProbe />
-        </>
-      );
-    }
-
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const mountedRoot = createRoot(rootElement);
-    root = mountedRoot;
-
-    await act(async () => {
-      mountedRoot.render(
-        <TestRouterProvider initialEntries={["/home#noter"]}>
-          <RouteOwnedSidebarHarness />
-        </TestRouterProvider>,
-      );
-      await settleRouteUpdate();
-    });
-
-    const termsLink = [...rootElement.querySelectorAll<HTMLAnchorElement>("a")].find(
+  it("restores path previews after route-owned rail remounts", async () => {
+    const element = await renderRouteOwnedSidebar();
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/terms",
     );
     if (!termsLink) {
@@ -325,18 +334,19 @@ describe("AppSidebarMetaSection", () => {
 
     expect(readLocationText()).toBe("/terms");
 
-    window.history.pushState(null, "", "/terms");
-    const hide = harnessControls.hideSidebar;
-    if (hide === null) {
-      throw new Error("Expected mounted sidebar harness.");
+    const previewTermsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!previewTermsLink) {
+      throw new Error("Expected preview terms link.");
     }
 
     await act(async () => {
-      hide();
+      previewTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
-    expect(readLocationText()).toBe("/terms");
+    expect(readLocationHref()).toBe("/home#noter");
   });
 
   it("previews shared right rail links outside the landing route", async () => {

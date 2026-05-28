@@ -34,7 +34,7 @@ import { noterBuildConfig } from "@/lib/noterBuildConfig";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { useCallback, type MouseEvent, type ReactNode } from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -45,6 +45,9 @@ type AppSidebarMetaRoutePreview = {
   baseHref: string;
   targetHref: string;
 };
+
+// Path previews can remount route-owned sidebar chrome before pointer leave fires.
+let appSidebarMetaRoutePreview: AppSidebarMetaRoutePreview | null = null;
 
 const APP_SIDEBAR_META_SECTION_CLASS_NAMES = {
   left: "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-end gap-3 overflow-hidden px-2 pt-3 pb-8 text-right text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]",
@@ -128,10 +131,6 @@ function readAppSidebarMetaAnchorHref(anchor: HTMLAnchorElement): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-function readAppSidebarMetaLocationHref(location: Location): string {
-  return `${location.pathname}${location.search}${location.hash}`;
-}
-
 function shouldLetBrowserHandleClick(event: MouseEvent<HTMLAnchorElement>): boolean {
   return event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 }
@@ -154,7 +153,6 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
   const router = useRouter();
   const currentHref = location.href;
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const routePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
 
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const landingDevLabel = landingDevEnabled
@@ -163,7 +161,7 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
   const themeMode = readRootThemeMode(rootRouteSearch);
   const lightModeActive = themeMode === "light";
   const darkModeActive = themeMode === "dark";
-  const routePreview = routePreviewRef.current;
+  const routePreview = appSidebarMetaRoutePreview;
   const showSearchResetLink =
     location.searchStr.length > 0 ||
     (routePreview ? isAppSidebarMetaSearchResetHref(routePreview.targetHref) : false);
@@ -215,33 +213,6 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
     },
     [currentHref, router],
   );
-  const currentHrefRef = useRef(currentHref);
-  const navigateRouteHrefRef = useRef(navigateRouteHref);
-
-  useEffect(() => {
-    currentHrefRef.current = currentHref;
-    navigateRouteHrefRef.current = navigateRouteHref;
-  }, [currentHref, navigateRouteHref]);
-
-  // If a path preview unmounts this rail before pointer leave, restore unless the browser already
-  // reached the preview target and the next route owns the replacement rail.
-  useEffect(
-    () => () => {
-      const preview = routePreviewRef.current;
-      if (preview === null) {
-        return;
-      }
-
-      routePreviewRef.current = null;
-      if (readAppSidebarMetaLocationHref(window.location) === preview.targetHref) {
-        return;
-      }
-
-      void navigateRouteHrefRef.current(preview.baseHref, true, currentHrefRef.current);
-    },
-    [],
-  );
-
   const previewRouteLink = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
       if (!routePreviewEnabled) {
@@ -253,8 +224,8 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
         return;
       }
 
-      routePreviewRef.current = {
-        baseHref: routePreviewRef.current?.baseHref ?? currentHref,
+      appSidebarMetaRoutePreview = {
+        baseHref: appSidebarMetaRoutePreview?.baseHref ?? currentHref,
         targetHref,
       };
       void navigateRouteHref(targetHref, true);
@@ -263,12 +234,12 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
   );
 
   const restoreRoutePreview = useCallback(() => {
-    const preview = routePreviewRef.current;
+    const preview = appSidebarMetaRoutePreview;
     if (preview === null) {
       return;
     }
 
-    routePreviewRef.current = null;
+    appSidebarMetaRoutePreview = null;
     if (preview.baseHref !== currentHref) {
       void navigateRouteHref(preview.baseHref, true);
     }
@@ -276,13 +247,13 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
 
   const commitRoutePreview = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
-      const preview = routePreviewRef.current;
+      const preview = appSidebarMetaRoutePreview;
       if (preview === null || shouldLetBrowserHandleClick(event)) {
         return;
       }
 
       event.preventDefault();
-      routePreviewRef.current = null;
+      appSidebarMetaRoutePreview = null;
 
       const commitPreview = async () => {
         if (preview.baseHref !== currentHref) {
