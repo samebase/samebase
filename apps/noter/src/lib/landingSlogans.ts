@@ -18,16 +18,3 @@ export function parseLandingSlogans(rawSlogans: string): string[] {
 
   return trimmedLines;
 }
-
-export function selectLandingSlogan(
-  slogans: readonly string[],
-  fallback = DEFAULT_LANDING_SLOGAN,
-  random = Math.random,
-): string {
-  if (slogans.length === 0) {
-    return fallback;
-  }
-
-  const index = Math.floor(random() * slogans.length);
-  return slogans[index] ?? fallback;
-}

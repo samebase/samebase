@@ -17,11 +17,13 @@ import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
+import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
 const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
+const slogansPath = path.resolve(gitRoot, "slogans.md");
 const BROWSER_CONVEX_PROXY_PATH = "/__noter_convex_proxy";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
@@ -101,6 +103,11 @@ const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
   localEnvConvexUrl: readEnvFileValue(localEnvPath, "VITE_CONVEX_URL"),
 });
 const browserConvexProxyPath = browserConvexProxyTarget ? BROWSER_CONVEX_PROXY_PATH : null;
+const landingPageSlogan = readBuildLandingSlogan({
+  // Visual tests compare rendered text, so Playwright builds pin the build-time selection.
+  random: process.env.PLAYWRIGHT === "1" ? () => 0 : Math.random,
+  slogansPath,
+});
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
 const staticInstallIconSvgAssetPath = path.resolve(currentDir, "public/install-icon.svg");
 const noterSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/noter.ts");
@@ -548,6 +555,7 @@ export default defineConfig({
     __APP_COMMIT_NUMBER__: JSON.stringify(appCommitNumber),
     __APP_REPO_URL__: JSON.stringify(appRepoUrl),
     __BROWSER_CONVEX_PROXY_PATH__: JSON.stringify(browserConvexProxyPath),
+    __LANDING_PAGE_SLOGAN__: JSON.stringify(landingPageSlogan),
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),

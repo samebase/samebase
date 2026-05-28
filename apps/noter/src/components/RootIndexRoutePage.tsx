@@ -3,10 +3,11 @@ import { useLocation } from "@tanstack/react-router";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
+import { landingPageMarkdown } from "@/lib/landingCopy";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useMemo } from "react";
 
-export function RootIndexRoutePage({ landingPageMarkdown }: { landingPageMarkdown: string }) {
+export function RootIndexRoutePage() {
   const location = useLocation();
   const rootRouteSearch = useRootRouteSearch();
 

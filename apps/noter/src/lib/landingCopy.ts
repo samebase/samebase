@@ -1,9 +1,4 @@
-import {
-  DEFAULT_LANDING_SLOGAN,
-  parseLandingSlogans,
-  selectLandingSlogan,
-} from "@/lib/landingSlogans";
-import slogansRaw from "../../../../slogans.md?raw";
+import { DEFAULT_LANDING_SLOGAN } from "@/lib/landingSlogans";
 
 export const landingPageBullets = [
   "your notes and code live in a real repository",
@@ -12,7 +7,13 @@ export const landingPageBullets = [
   "use Codex to ship small apps directly from your workspace",
 ] as const;
 
-export const landingPageSlogans = parseLandingSlogans(slogansRaw);
+function readLandingPageSlogan(): string {
+  const slogan = typeof __LANDING_PAGE_SLOGAN__ === "string" ? __LANDING_PAGE_SLOGAN__.trim() : "";
+
+  return slogan || DEFAULT_LANDING_SLOGAN;
+}
+
+export const landingPageSlogan = readLandingPageSlogan();
 
 export function buildLandingPageMarkdown(slogan: string): string {
   return `## ${slogan}
@@ -20,10 +21,4 @@ export function buildLandingPageMarkdown(slogan: string): string {
 ${landingPageBullets.map((bullet) => `- ${bullet}`).join("\n")}`;
 }
 
-export function selectLandingPageMarkdown(random = Math.random): string {
-  return buildLandingPageMarkdown(
-    selectLandingSlogan(landingPageSlogans, DEFAULT_LANDING_SLOGAN, random),
-  );
-}
-
-export const landingPageMarkdown = buildLandingPageMarkdown(DEFAULT_LANDING_SLOGAN);
+export const landingPageMarkdown = buildLandingPageMarkdown(landingPageSlogan);
