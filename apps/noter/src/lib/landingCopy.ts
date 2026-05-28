@@ -1,5 +1,3 @@
-import { DEFAULT_LANDING_SLOGAN } from "@/lib/landingSlogans";
-
 export const landingPageBullets = [
   "your notes and code live in a real repository",
   "collaborate in real time with your team",
@@ -8,9 +6,17 @@ export const landingPageBullets = [
 ] as const;
 
 function readLandingPageSlogan(): string {
-  const slogan = typeof __LANDING_PAGE_SLOGAN__ === "string" ? __LANDING_PAGE_SLOGAN__.trim() : "";
+  if (typeof __LANDING_PAGE_SLOGAN__ !== "string") {
+    throw new Error("Missing build-selected landing slogan.");
+  }
 
-  return slogan || DEFAULT_LANDING_SLOGAN;
+  const slogan = __LANDING_PAGE_SLOGAN__.trim();
+
+  if (!slogan) {
+    throw new Error("Build-selected landing slogan is empty.");
+  }
+
+  return slogan;
 }
 
 export const landingPageSlogan = readLandingPageSlogan();

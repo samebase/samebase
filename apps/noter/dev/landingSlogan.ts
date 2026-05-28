@@ -1,21 +1,27 @@
 import { readFileSync } from "node:fs";
-import { DEFAULT_LANDING_SLOGAN, parseLandingSlogans } from "../src/lib/landingSlogans";
+import { parseLandingSlogans } from "../src/lib/landingSlogans";
 
-export const BUILD_SELECTED_LANDING_SLOGAN_ENV = "NOTER_BUILD_SELECTED_LANDING_SLOGAN";
+declare global {
+  var noterBuildSelectedLandingSlogan: string | undefined;
+}
+
+type BuildLandingSlogans = readonly [string, ...string[]];
 
 export function selectBuildLandingSlogan({
   random,
   slogans,
 }: {
   random: () => number;
-  slogans: readonly string[];
+  slogans: BuildLandingSlogans;
 }): string {
-  if (slogans.length === 0) {
-    return DEFAULT_LANDING_SLOGAN;
+  const index = Math.floor(random() * slogans.length);
+  const selectedSlogan = slogans[index];
+
+  if (!selectedSlogan) {
+    throw new Error(`Landing slogan selection produced invalid index ${index}.`);
   }
 
-  const index = Math.floor(random() * slogans.length);
-  return slogans[index] ?? DEFAULT_LANDING_SLOGAN;
+  return selectedSlogan;
 }
 
 export function readBuildLandingSlogan({
@@ -25,15 +31,27 @@ export function readBuildLandingSlogan({
   random: () => number;
   slogansPath: string;
 }): string {
-  const cachedSlogan = process.env[BUILD_SELECTED_LANDING_SLOGAN_ENV]?.trim();
-  if (cachedSlogan) {
-    return cachedSlogan;
+  if (globalThis.noterBuildSelectedLandingSlogan) {
+    return globalThis.noterBuildSelectedLandingSlogan;
   }
 
   const selectedSlogan = selectBuildLandingSlogan({
     random,
-    slogans: parseLandingSlogans(readFileSync(slogansPath, "utf8")),
+    slogans: readBuildLandingSlogans(slogansPath),
   });
-  process.env[BUILD_SELECTED_LANDING_SLOGAN_ENV] = selectedSlogan;
+  globalThis.noterBuildSelectedLandingSlogan = selectedSlogan;
   return selectedSlogan;
+}
+
+function readBuildLandingSlogans(slogansPath: string): BuildLandingSlogans {
+  const slogans = parseLandingSlogans(readFileSync(slogansPath, "utf8"));
+  const firstSlogan = slogans[0];
+
+  if (!firstSlogan) {
+    throw new Error(
+      `No landing slogans found in ${slogansPath}. Add at least one markdown bullet.`,
+    );
+  }
+
+  return [firstSlogan, ...slogans.slice(1)];
 }

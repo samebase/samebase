@@ -1,29 +1,18 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { DEFAULT_LANDING_SLOGAN } from "../src/lib/landingSlogans";
-import {
-  BUILD_SELECTED_LANDING_SLOGAN_ENV,
-  readBuildLandingSlogan,
-  selectBuildLandingSlogan,
-} from "./landingSlogan";
+import { readBuildLandingSlogan, selectBuildLandingSlogan } from "./landingSlogan";
 
-const originalBuildSelectedLandingSlogan = process.env[BUILD_SELECTED_LANDING_SLOGAN_ENV];
+const originalBuildSelectedLandingSlogan = globalThis.noterBuildSelectedLandingSlogan;
 
 afterEach(() => {
-  if (originalBuildSelectedLandingSlogan) {
-    process.env[BUILD_SELECTED_LANDING_SLOGAN_ENV] = originalBuildSelectedLandingSlogan;
-    return;
-  }
-
-  delete process.env[BUILD_SELECTED_LANDING_SLOGAN_ENV];
+  globalThis.noterBuildSelectedLandingSlogan = originalBuildSelectedLandingSlogan;
 });
 
 describe("selectBuildLandingSlogan", () => {
-  it("falls back when no slogans are available", () => {
-    expect(selectBuildLandingSlogan({ random: () => 0, slogans: [] })).toBe(DEFAULT_LANDING_SLOGAN);
-  });
-
   it("selects a random slogan for the build artifact", () => {
-    const slogans = ["first", "second", "third"];
+    const slogans = ["first", "second", "third"] as const;
 
     expect(selectBuildLandingSlogan({ random: () => 0, slogans })).toBe("first");
     expect(selectBuildLandingSlogan({ random: () => 0.4, slogans })).toBe("second");
@@ -33,7 +22,7 @@ describe("selectBuildLandingSlogan", () => {
 
 describe("readBuildLandingSlogan", () => {
   it("reuses the current build selection across config evaluations", () => {
-    process.env[BUILD_SELECTED_LANDING_SLOGAN_ENV] = "already selected";
+    globalThis.noterBuildSelectedLandingSlogan = "already selected";
 
     expect(
       readBuildLandingSlogan({
@@ -41,5 +30,23 @@ describe("readBuildLandingSlogan", () => {
         slogansPath: "/path/that/does/not/need/to/exist",
       }),
     ).toBe("already selected");
+  });
+
+  it("fails the build when the source has no slogans", () => {
+    globalThis.noterBuildSelectedLandingSlogan = undefined;
+    const tempDir = mkdtempSync(join(tmpdir(), "noter-empty-slogans-"));
+    const emptySlogansPath = join(tempDir, "slogans.md");
+    writeFileSync(emptySlogansPath, "\n");
+
+    try {
+      expect(() =>
+        readBuildLandingSlogan({
+          random: () => 0,
+          slogansPath: emptySlogansPath,
+        }),
+      ).toThrow("No landing slogans found");
+    } finally {
+      rmSync(tempDir, { force: true, recursive: true });
+    }
   });
 });

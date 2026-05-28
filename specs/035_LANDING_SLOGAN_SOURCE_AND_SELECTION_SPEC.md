@@ -67,10 +67,11 @@ The current implementation selects randomly once for the app build:
 
 1. Read slogans from `slogans.md`.
 2. Parse Markdown bullet items (`- slogan`) into a slogan array.
-3. Select `slogans[floor(Math.random() * slogans.length)]` inside Vite config/build code.
-4. Cache that selected slogan for the build process so client, SSR, and prerender passes agree.
-5. Inject the selected slogan into the app bundle as a build constant.
-6. Render all SPA and prerendered landing surfaces from that same build constant.
+3. Fail the build if no slogans are available.
+4. Select `slogans[floor(Math.random() * slogans.length)]` inside Vite config/build code.
+5. Cache that selected slogan for the build process so client, SSR, and prerender passes agree.
+6. Inject the selected slogan into the app bundle as a build constant.
+7. Render all SPA and prerendered landing surfaces from that same build constant.
 
 The browser must not read `slogans.md`, run slogan selection, or refresh the slogan during
 hydration, reload, client navigation, or route-loader execution.
@@ -79,7 +80,7 @@ hydration, reload, client navigation, or route-loader execution.
 
 1. Slogan changes must not require app code edits.
 2. Landing should still work if file has one slogan.
-3. If the file has no usable slogan lines, fall back to the static headline.
+3. If the file has no usable slogan lines, fail the build.
 
 ## Acceptance Criteria
 
