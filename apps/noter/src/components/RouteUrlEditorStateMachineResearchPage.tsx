@@ -7,52 +7,41 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useCallback, useMemo, useState } from "react";
 
-type ResearchMachineState =
-  | {
-      currentHref: string;
-      documentHashSuggestionKeys: readonly string[];
-      draftRouteAddress: string;
-      forwardRouteHistoryIndex: number;
-      kind: "blurred";
-    }
-  | {
-      currentHref: string;
-      documentHashSuggestionKeys: readonly string[];
-      draftRouteAddress: string;
-      forwardRouteHistoryIndex: number;
-      kind: "focused.clean";
-      suggestion: RouteUrlEditorSuggestionState;
-      touchScrollPickerEnabled: boolean;
-    }
-  | {
-      currentHref: string;
-      documentHashSuggestionKeys: readonly string[];
-      draftRouteAddress: string;
-      forwardRouteHistoryIndex: number;
-      kind: "focused.editing";
-      suggestion: RouteUrlEditorSuggestionState;
-      touchScrollPickerEnabled: boolean;
-    }
-  | {
-      currentHref: string;
-      documentHashSuggestionKeys: readonly string[];
-      draftRouteAddress: string;
-      forwardRouteHistoryIndex: number;
-      kind: "focused.previewing";
-      previewBaseHref: string;
-      suggestion: RouteUrlEditorSuggestionState;
-      touchScrollPickerEnabled: boolean;
-    }
-  | {
-      currentHref: string;
-      documentHashSuggestionKeys: readonly string[];
-      draftRouteAddress: string;
-      forwardRouteHistoryIndex: number;
-      kind: "focused.touchPicking";
-      pendingPreviewDraftRouteAddress: string | null;
-      suggestion: RouteUrlEditorSuggestionState;
-      touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics;
-    };
+type ResearchMachineStateSnapshot = {
+  currentHref: string;
+  documentHashSuggestionKeys: readonly string[];
+  draftRouteAddress: string;
+  forwardRouteHistoryIndex: number;
+};
+
+type ResearchMachineState = ResearchMachineStateSnapshot &
+  (
+    | {
+        kind: "blurred";
+      }
+    | {
+        kind: "focused.clean";
+        suggestion: RouteUrlEditorSuggestionState;
+        touchScrollPickerEnabled: boolean;
+      }
+    | {
+        kind: "focused.editing";
+        suggestion: RouteUrlEditorSuggestionState;
+        touchScrollPickerEnabled: boolean;
+      }
+    | {
+        kind: "focused.previewing";
+        previewBaseHref: string;
+        suggestion: RouteUrlEditorSuggestionState;
+        touchScrollPickerEnabled: boolean;
+      }
+    | {
+        kind: "focused.touchPicking";
+        pendingPreviewDraftRouteAddress: string | null;
+        suggestion: RouteUrlEditorSuggestionState;
+        touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics;
+      }
+  );
 
 type ResearchMachineStateKind = ResearchMachineState["kind"];
 
