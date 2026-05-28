@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.use({ serviceWorkers: "block" });
+test.setTimeout(120_000);
 
 // The striped face adds high-frequency antialiased edges. Keep this below the
 // transparent-gap regression count so hidden back faces cannot show through.

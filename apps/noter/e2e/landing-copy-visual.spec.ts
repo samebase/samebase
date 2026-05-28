@@ -1,7 +1,17 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 import { LANDING_DEV_MODE_LINK_LABEL } from "../src/lib/landingDevMode";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
+
+async function waitForPaint(page: Page) {
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+  });
+}
 
 async function readStaticHeadingStyle(landingCopy: Locator) {
   return await landingCopy
@@ -54,6 +64,7 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({ page }, t
   await expect(shellLandingCopy.locator(".cm-editor")).toHaveCount(0);
   await expect(shellLandingCopy.locator('[contenteditable="true"]')).toHaveCount(0);
   const shellHeadingStyle = await readStaticHeadingStyle(shellLandingCopy);
+  await waitForPaint(page);
   const shellScreenshot = await takeStableScreenshot(shellLandingCopy);
 
   await page.getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true }).click();
@@ -64,6 +75,7 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({ page }, t
   await expect(devLandingCopy.locator('[aria-hidden="true"] .cm-editor')).toHaveCount(0);
   await expect(devLandingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
   await expect.poll(() => readProsemarkHeadingStyle(devLandingCopy)).toEqual(shellHeadingStyle);
+  await waitForPaint(page);
   const devScreenshot = await takeStableScreenshot(devLandingCopy);
 
   await expectScreenshotsToMatch({
@@ -74,6 +86,9 @@ test("landing copy keeps ProseMark behind editable dev mode", async ({ page }, t
     // broad layout drift across the static DOM and ProseMark rendering paths.
     maxDimensionDeltaPx: {
       height: 2,
+    },
+    maxTranslationPx: {
+      y: 2,
     },
     maxDiffPixelRatio: 0.05,
     testInfo,

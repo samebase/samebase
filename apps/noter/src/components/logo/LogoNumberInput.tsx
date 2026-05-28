@@ -54,9 +54,9 @@ export function LogoNumberInput({
     setInputValue(formatValue(normalizedValue));
   }, [formatValue, normalizedValue]);
 
-  const commitInputValue = () => {
+  const commitInputValue = (rawInputValue: string) => {
     isEditingRef.current = false;
-    const parsedValue = parseLogoNumberInput(inputValue);
+    const parsedValue = parseLogoNumberInput(rawInputValue);
     const nextValue = parsedValue === null ? normalizedValue : normalizeValue(parsedValue);
 
     onValueChange(nextValue);
@@ -88,9 +88,12 @@ export function LogoNumberInput({
         isEditingRef.current = true;
       }}
       onChange={handleChange}
-      onBlur={commitInputValue}
+      onBlur={(event) => {
+        commitInputValue(event.currentTarget.value);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
+          commitInputValue(event.currentTarget.value);
           event.currentTarget.blur();
         }
       }}

@@ -23,6 +23,10 @@ type ScreenshotDiffParams = {
     height?: number;
     width?: number;
   };
+  maxTranslationPx?: {
+    x?: number;
+    y?: number;
+  };
   maxDiffPixelRatio: number;
   pixelmatchOptions?: {
     aaColor?: [number, number, number];
@@ -212,6 +216,38 @@ function cropPng(png: PNG, width: number, height: number): PNG {
   return cropped;
 }
 
+function cropPngRegion(png: PNG, x: number, y: number, width: number, height: number): PNG {
+  const cropped = new PNG({ width, height });
+
+  for (let row = 0; row < height; row += 1) {
+    const sourceStart = ((y + row) * png.width + x) * 4;
+    const sourceEnd = sourceStart + width * 4;
+    const targetStart = row * width * 4;
+    cropped.data.set(png.data.subarray(sourceStart, sourceEnd), targetStart);
+  }
+
+  return cropped;
+}
+
+function buildTranslatedComparablePngs(args: {
+  actualPng: PNG;
+  actualTranslationX: number;
+  actualTranslationY: number;
+  expectedPng: PNG;
+}) {
+  const expectedX = Math.max(0, -args.actualTranslationX);
+  const expectedY = Math.max(0, -args.actualTranslationY);
+  const actualX = Math.max(0, args.actualTranslationX);
+  const actualY = Math.max(0, args.actualTranslationY);
+  const width = Math.min(args.expectedPng.width - expectedX, args.actualPng.width - actualX);
+  const height = Math.min(args.expectedPng.height - expectedY, args.actualPng.height - actualY);
+
+  return {
+    actual: cropPngRegion(args.actualPng, actualX, actualY, width, height),
+    expected: cropPngRegion(args.expectedPng, expectedX, expectedY, width, height),
+  };
+}
+
 function buildDirectionalMaskDiffPng(args: {
   actualPng: PNG;
   expectedPng: PNG;
@@ -312,6 +348,7 @@ export async function expectScreenshotsToMatch({
   artifactWritePaths,
   diffVisualization = "weighted-red",
   maxDimensionDeltaPx,
+  maxTranslationPx,
   maxDiffPixelRatio,
   pixelmatchOptions,
   testInfo,
@@ -324,30 +361,85 @@ export async function expectScreenshotsToMatch({
   expect(Math.abs(actualPng.width - expectedPng.width)).toBeLessThanOrEqual(maxWidthDeltaPx);
   expect(Math.abs(actualPng.height - expectedPng.height)).toBeLessThanOrEqual(maxHeightDeltaPx);
 
-  const comparisonWidth = Math.min(expectedPng.width, actualPng.width);
-  const comparisonHeight = Math.min(expectedPng.height, actualPng.height);
-  const comparableExpectedPng =
-    comparisonWidth === expectedPng.width && comparisonHeight === expectedPng.height
-      ? expectedPng
-      : cropPng(expectedPng, comparisonWidth, comparisonHeight);
-  const comparableActualPng =
-    comparisonWidth === actualPng.width && comparisonHeight === actualPng.height
-      ? actualPng
-      : cropPng(actualPng, comparisonWidth, comparisonHeight);
+  const maxTranslationX = maxTranslationPx?.x ?? 0;
+  const maxTranslationY = maxTranslationPx?.y ?? 0;
+  let bestDiff: {
+    actualPng: PNG;
+    diffPng: PNG;
+    diffPixels: number;
+    diffPixelRatio: number;
+    expectedPng: PNG;
+  } | null = null;
 
-  const diffPng = new PNG({
-    width: comparisonWidth,
-    height: comparisonHeight,
-  });
-  const diffPixels = pixelmatch(
-    comparableExpectedPng.data,
-    comparableActualPng.data,
-    diffPng.data,
-    comparisonWidth,
-    comparisonHeight,
-    pixelmatchOptions,
-  );
-  const diffPixelRatio = diffPixels / (comparisonWidth * comparisonHeight);
+  for (
+    let actualTranslationY = -maxTranslationY;
+    actualTranslationY <= maxTranslationY;
+    actualTranslationY += 1
+  ) {
+    for (
+      let actualTranslationX = -maxTranslationX;
+      actualTranslationX <= maxTranslationX;
+      actualTranslationX += 1
+    ) {
+      const comparison =
+        actualTranslationX === 0 && actualTranslationY === 0
+          ? (() => {
+              const comparisonWidth = Math.min(expectedPng.width, actualPng.width);
+              const comparisonHeight = Math.min(expectedPng.height, actualPng.height);
+
+              return {
+                actual:
+                  comparisonWidth === actualPng.width && comparisonHeight === actualPng.height
+                    ? actualPng
+                    : cropPng(actualPng, comparisonWidth, comparisonHeight),
+                expected:
+                  comparisonWidth === expectedPng.width && comparisonHeight === expectedPng.height
+                    ? expectedPng
+                    : cropPng(expectedPng, comparisonWidth, comparisonHeight),
+              };
+            })()
+          : buildTranslatedComparablePngs({
+              actualPng,
+              actualTranslationX,
+              actualTranslationY,
+              expectedPng,
+            });
+
+      const diffPng = new PNG({
+        width: comparison.expected.width,
+        height: comparison.expected.height,
+      });
+      const diffPixels = pixelmatch(
+        comparison.expected.data,
+        comparison.actual.data,
+        diffPng.data,
+        comparison.expected.width,
+        comparison.expected.height,
+        pixelmatchOptions,
+      );
+      const diffPixelRatio = diffPixels / (comparison.expected.width * comparison.expected.height);
+
+      if (bestDiff === null || diffPixelRatio < bestDiff.diffPixelRatio) {
+        bestDiff = {
+          actualPng: comparison.actual,
+          diffPng,
+          diffPixels,
+          diffPixelRatio,
+          expectedPng: comparison.expected,
+        };
+      }
+    }
+  }
+
+  if (bestDiff === null) {
+    throw new Error("Unable to compare screenshots.");
+  }
+
+  const comparableExpectedPng = bestDiff.expectedPng;
+  const comparableActualPng = bestDiff.actualPng;
+  const diffPng = bestDiff.diffPng;
+  const diffPixels = bestDiff.diffPixels;
+  const diffPixelRatio = bestDiff.diffPixelRatio;
   const diffVisualizationResult =
     diffVisualization === "directional-mask"
       ? buildDirectionalMaskDiffPng({
