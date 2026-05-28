@@ -31,7 +31,7 @@ function LogoRasterRouteComponent() {
 
 export const Route = createFileRoute("/logo/raster")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/raster"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("raster"),
   },
   component: LogoRasterRouteComponent,

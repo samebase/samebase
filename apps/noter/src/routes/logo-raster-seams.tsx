@@ -21,7 +21,7 @@ function LogoRasterSeamsRouteComponent() {
 
 export const Route = createFileRoute("/logo/raster-seams")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/raster-seams"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LogoRasterSeamsRouteComponent,

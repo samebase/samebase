@@ -31,7 +31,7 @@ function LogoThreeRouteComponent() {
 
 export const Route = createFileRoute("/logo")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("three"),
   },
   component: LogoThreeRouteComponent,

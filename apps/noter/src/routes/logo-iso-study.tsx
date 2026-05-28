@@ -21,7 +21,7 @@ function LogoIsoStudyRouteComponent() {
 
 export const Route = createFileRoute("/logo/single-cube")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/single-cube"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LogoIsoStudyRouteComponent,

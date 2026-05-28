@@ -10,6 +10,8 @@ import {
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { VisualFixturePage } from "@/visualFixture";
 
+const pathname = "/visual-fixture";
+
 const visualFixtureRouteSearchSchema = defineRouteSearchParams({
   mode: routeSearchValueParam(routeSearchString, {
     permission: "public",
@@ -44,7 +46,7 @@ function VisualFixtureRouteComponent() {
 
 export const Route = createFileRoute("/visual-fixture")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/visual-fixture"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: visualFixtureRouteSearchParamSuggestions,
   },
   component: VisualFixtureRouteComponent,

@@ -31,7 +31,7 @@ function LogoIsoRouteComponent() {
 
 export const Route = createFileRoute("/logo/iso")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/iso"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("iso"),
   },
   component: LogoIsoRouteComponent,

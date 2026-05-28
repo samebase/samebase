@@ -7,6 +7,8 @@ import {
 } from "@/lib/authenticatedRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
+const pathname = "/pricing";
+
 function PricingRouteComponent() {
   return (
     <AuthenticatedAppRoutePage>
@@ -17,7 +19,7 @@ function PricingRouteComponent() {
 
 export const Route = createFileRoute("/pricing")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/pricing"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: PricingRouteComponent,

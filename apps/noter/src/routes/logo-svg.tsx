@@ -21,7 +21,7 @@ function LogoSvgRouteComponent() {
 
 export const Route = createFileRoute("/logo/svg")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/svg"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("svg"),
   },
   component: LogoSvgRouteComponent,

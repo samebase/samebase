@@ -9,6 +9,8 @@ import { LANDING_MARKDOWN_PREVIEW_PAGE_METADATA } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
+const pathname = "/landing-preview";
+
 function LandingPreviewRouteComponent() {
   usePageMetadata(LANDING_MARKDOWN_PREVIEW_PAGE_METADATA);
   const language = resolveLandingMarkdownPreviewLanguage(Route.useSearch());
@@ -18,7 +20,7 @@ function LandingPreviewRouteComponent() {
 
 export const Route = createFileRoute("/landing-preview")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/landing-preview"],
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LandingPreviewRouteComponent,
