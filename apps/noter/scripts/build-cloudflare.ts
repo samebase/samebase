@@ -5,9 +5,15 @@ import { pathToFileURL } from "node:url";
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 const NOTER_PRERENDER_ORIGIN = "NOTER_PRERENDER_ORIGIN";
+const CLOUDFLARE_WORKER_NAME = "CLOUDFLARE_WORKER_NAME";
+const WRANGLER_CI_OVERRIDE_NAME = "WRANGLER_CI_OVERRIDE_NAME";
 const VITE_NOTER_ROUTE_SURFACE = "VITE_NOTER_ROUTE_SURFACE";
+const NOTER_PUBLIC_ORIGIN = "https://noter.md";
+const NOTER_WORKERS_DEV_SUBDOMAIN = "nicuchiciuc";
+const WORKERS_PREVIEW_FIRST_LABEL_LIMIT = 63;
 
 type BuildRouteSurface = "local" | "preview" | "production";
+type DeployKind = "deploy" | "previewDeploy";
 
 type ConvexDeployPlan =
   | {
@@ -78,6 +84,40 @@ function readDeployKey(args: {
   throw new Error(
     `Set ${args.deployKeyName} in Cloudflare Workers build variables for ${args.branch}.`,
   );
+}
+
+export function resolvePrerenderOrigin(env: NodeJS.ProcessEnv, kind: DeployKind) {
+  const explicitOrigin = env[NOTER_PRERENDER_ORIGIN]?.trim();
+  if (explicitOrigin) {
+    return explicitOrigin;
+  }
+
+  if (kind === "deploy") {
+    return NOTER_PUBLIC_ORIGIN;
+  }
+
+  const workerName = (env[WRANGLER_CI_OVERRIDE_NAME] ?? env[CLOUDFLARE_WORKER_NAME])?.toLowerCase();
+  if (!workerName) {
+    throw new Error(
+      `Set ${WRANGLER_CI_OVERRIDE_NAME} or ${CLOUDFLARE_WORKER_NAME} so preview prerendering can use the Workers preview origin.`,
+    );
+  }
+  if (!/^[a-z0-9-]+$/.test(workerName)) {
+    throw new Error("Cloudflare Worker names can only contain letters, numbers, and dashes.");
+  }
+
+  const branchAlias = (env.WORKERS_CI_BRANCH ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const firstLabel = `${branchAlias}-${workerName}`;
+  if (!branchAlias || firstLabel.length > WORKERS_PREVIEW_FIRST_LABEL_LIMIT) {
+    throw new Error(
+      `Cannot infer Workers preview origin for branch ${env.WORKERS_CI_BRANCH ?? "(missing)"}; set ${NOTER_PRERENDER_ORIGIN}.`,
+    );
+  }
+
+  return `https://${firstLabel}.${NOTER_WORKERS_DEV_SUBDOMAIN}.workers.dev`;
 }
 
 export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan {
@@ -163,11 +203,13 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     return;
   }
 
+  const prerenderOrigin = resolvePrerenderOrigin(env, plan.kind);
+
   await run("pnpm", plan.args, {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
-    ...(plan.kind === "deploy" ? { [NOTER_PRERENDER_ORIGIN]: "https://noter.md" } : {}),
+    ...(prerenderOrigin ? { [NOTER_PRERENDER_ORIGIN]: prerenderOrigin } : {}),
   });
 }
 

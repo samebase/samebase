@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { selectConvexDeployPlan } from "./build-cloudflare.js";
+import { resolvePrerenderOrigin, selectConvexDeployPlan } from "./build-cloudflare.js";
 
 describe("build-cloudflare", () => {
   it("rejects the generic Convex deploy key", () => {
@@ -93,5 +93,38 @@ describe("build-cloudflare", () => {
         PROD_CONVEX_DEPLOY_KEY: "prod-key",
       }),
     ).toThrow("Set WORKERS_CI_BRANCH");
+  });
+
+  it("uses the public origin for production prerendering", () => {
+    expect(resolvePrerenderOrigin({}, "deploy")).toBe("https://noter.md");
+  });
+
+  it("keeps an explicit preview prerender origin", () => {
+    expect(
+      resolvePrerenderOrigin(
+        {
+          NOTER_PRERENDER_ORIGIN: "https://preview.example.com",
+        },
+        "previewDeploy",
+      ),
+    ).toBe("https://preview.example.com");
+  });
+
+  it("infers the Workers preview origin from the branch and Worker name", () => {
+    expect(
+      resolvePrerenderOrigin(
+        {
+          WORKERS_CI_BRANCH: "codex/fix-route-url-editor-indent",
+          WRANGLER_CI_OVERRIDE_NAME: "noter-worker",
+        },
+        "previewDeploy",
+      ),
+    ).toBe("https://codex-fix-route-url-editor-indent-noter-worker.nicuchiciuc.workers.dev");
+  });
+
+  it("requires the Worker name when inferring a preview prerender origin", () => {
+    expect(() =>
+      resolvePrerenderOrigin({ WORKERS_CI_BRANCH: "codex/feature" }, "previewDeploy"),
+    ).toThrow("Set WRANGLER_CI_OVERRIDE_NAME or CLOUDFLARE_WORKER_NAME");
   });
 });
