@@ -5,7 +5,6 @@ import { pathToFileURL } from "node:url";
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 const NOTER_PRERENDER_ORIGIN = "NOTER_PRERENDER_ORIGIN";
-const NOTER_PUBLIC_ORIGIN = "https://noter.md";
 const VITE_NOTER_ROUTE_SURFACE = "VITE_NOTER_ROUTE_SURFACE";
 
 type BuildRouteSurface = "local" | "preview" | "production";
@@ -15,7 +14,6 @@ type ConvexDeployPlan =
       kind: "deploy";
       deployKey: string;
       deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY;
-      prerenderOrigin: string;
       routeSurface: BuildRouteSurface;
       args: readonly string[];
     }
@@ -23,13 +21,11 @@ type ConvexDeployPlan =
       kind: "previewDeploy";
       deployKey: string;
       deployKeyName: typeof PREVIEW_CONVEX_DEPLOY_KEY;
-      prerenderOrigin: string | null;
       routeSurface: BuildRouteSurface;
       args: readonly string[];
     }
   | {
       kind: "frontendOnly";
-      prerenderOrigin: string | null;
       routeSurface: BuildRouteSurface;
     };
 
@@ -84,11 +80,6 @@ function readDeployKey(args: {
   );
 }
 
-function readPrerenderOriginEnv(env: NodeJS.ProcessEnv): string | null {
-  const origin = env[NOTER_PRERENDER_ORIGIN]?.trim();
-  return origin ? origin : null;
-}
-
 export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan {
   if (isPagesBuild(env)) {
     throw new Error(
@@ -118,11 +109,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       );
     }
 
-    return {
-      kind: "frontendOnly",
-      prerenderOrigin: readPrerenderOriginEnv(env),
-      routeSurface: "local",
-    };
+    return { kind: "frontendOnly", routeSurface: "local" };
   }
 
   if (branch !== "main") {
@@ -134,7 +121,6 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
         branch,
         deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
       }),
-      prerenderOrigin: readPrerenderOriginEnv(env),
       routeSurface: "preview",
       args: [
         "exec",
@@ -158,7 +144,6 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       branch,
       deployKeyName: PROD_CONVEX_DEPLOY_KEY,
     }),
-    prerenderOrigin: NOTER_PUBLIC_ORIGIN,
     routeSurface: "production",
     args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
   };
@@ -178,11 +163,14 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     return;
   }
 
+  const explicitPrerenderOrigin = env[NOTER_PRERENDER_ORIGIN]?.trim();
+  const prerenderOrigin = plan.kind === "deploy" ? "https://noter.md" : explicitPrerenderOrigin;
+
   await run("pnpm", plan.args, {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
-    ...(plan.prerenderOrigin ? { [NOTER_PRERENDER_ORIGIN]: plan.prerenderOrigin } : {}),
+    ...(prerenderOrigin ? { [NOTER_PRERENDER_ORIGIN]: prerenderOrigin } : {}),
   });
 }
 

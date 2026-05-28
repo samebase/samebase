@@ -73,20 +73,6 @@ async function editRouteUrl(page: Page): Promise<Locator> {
   return input;
 }
 
-async function expectRouteUrlEditorOriginIndent(locator: Locator, origin: string): Promise<void> {
-  await expect
-    .poll(async () =>
-      locator.evaluate((element) => {
-        if (!(element instanceof HTMLInputElement)) {
-          throw new Error("Expected route URL editor to be an input.");
-        }
-
-        return element.style.textIndent;
-      }),
-    )
-    .toBe(`-${origin.length}ch`);
-}
-
 async function readRoundedLeft(locator: Locator, label: string): Promise<number> {
   const box = await locator.boundingBox();
   if (box === null) {
@@ -286,7 +272,8 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
   await expect(display).toHaveValue(fixtureHref);
   await expect(display).toHaveAttribute("title", fixtureHref);
   await expect(display).toHaveCSS("cursor", "text");
-  await expectRouteUrlEditorOriginIndent(display, origin);
+  const displayTextIndent = await display.evaluate((element) => element.style.textIndent);
+  expect(displayTextIndent).toBe(`-${origin.length}ch`);
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
   await expect(forwardButton).toBeVisible();
@@ -383,12 +370,14 @@ test("route URL editor focuses the path-visible URL without rewriting", async ({
   const fullHref = `${origin}/visual-fixture?mode=route-url-editor`;
 
   await expect(display).toHaveValue(fullHref);
-  await expectRouteUrlEditorOriginIndent(display, origin);
+  const textIndent = await display.evaluate((element) => element.style.textIndent);
+  expect(textIndent).toBe(`-${origin.length}ch`);
 
   const input = await editRouteUrl(page);
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(fullHref);
-  await expectRouteUrlEditorOriginIndent(input, origin);
+  const focusedTextIndent = await input.evaluate((element) => element.style.textIndent);
+  expect(focusedTextIndent).toBe(`-${origin.length}ch`);
   const clickState = await input.evaluate((element) => {
     const matches = element.value.match(/https?:\/\//g);
     return {

@@ -41,7 +41,6 @@ describe("build-cloudflare", () => {
       kind: "deploy",
       deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
       deployKey: "prod-key",
-      prerenderOrigin: "https://noter.md",
       routeSurface: "production",
       args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
     });
@@ -59,7 +58,6 @@ describe("build-cloudflare", () => {
       kind: "previewDeploy",
       deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
       deployKey: "preview-key",
-      prerenderOrigin: null,
       routeSurface: "preview",
       args: [
         "exec",
@@ -75,22 +73,6 @@ describe("build-cloudflare", () => {
     });
   });
 
-  it("keeps explicit preview prerender origin for non-main branches", () => {
-    expect(
-      selectConvexDeployPlan({
-        NOTER_PRERENDER_ORIGIN: " https://preview.example.com ",
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
-        WORKERS_CI: "1",
-        WORKERS_CI_BRANCH: "feature-branch",
-      }),
-    ).toMatchObject({
-      kind: "previewDeploy",
-      prerenderOrigin: "https://preview.example.com",
-      routeSurface: "preview",
-    });
-  });
-
   it("requires the preview key for non-main branches", () => {
     expect(() =>
       selectConvexDeployPlan({
@@ -102,11 +84,7 @@ describe("build-cloudflare", () => {
   });
 
   it("skips Convex deploys for local builds without deploy keys", () => {
-    expect(selectConvexDeployPlan({})).toEqual({
-      kind: "frontendOnly",
-      prerenderOrigin: null,
-      routeSurface: "local",
-    });
+    expect(selectConvexDeployPlan({})).toEqual({ kind: "frontendOnly", routeSurface: "local" });
   });
 
   it("requires an explicit branch when split keys are present locally", () => {
