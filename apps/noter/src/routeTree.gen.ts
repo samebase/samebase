@@ -19,6 +19,7 @@ import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
+import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as indexRouteImport } from "./routes/index";
@@ -86,6 +87,11 @@ const localStorageRoute = localStorageRouteImport.update({
 const landingPreviewRoute = landingPreviewRouteImport.update({
   id: "/landing-preview",
   path: "/landing-preview",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const indexDBRoute = indexDBRouteImport.update({
+  id: "/indexDB",
+  path: "/indexDB",
   getParentRoute: () => rootRouteImport,
 } as any);
 const dashboardHomeRoute = dashboardHomeRouteImport.update({
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
+  "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
@@ -215,6 +222,7 @@ export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
+  "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   "/": typeof indexRoute;
   "/add": typeof addRepositoryRoute;
   "/home": typeof dashboardHomeRoute;
+  "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
@@ -278,6 +287,7 @@ export interface FileRouteTypes {
     | "/"
     | "/add"
     | "/home"
+    | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | "/"
     | "/add"
     | "/home"
+    | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | "/"
     | "/add"
     | "/home"
+    | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
@@ -369,6 +381,7 @@ export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   addRepositoryRoute: typeof addRepositoryRoute;
   dashboardHomeRoute: typeof dashboardHomeRoute;
+  indexDBRoute: typeof indexDBRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
@@ -466,6 +479,13 @@ declare module "@tanstack/react-router" {
       path: "/landing-preview";
       fullPath: "/landing-preview";
       preLoaderRoute: typeof landingPreviewRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/indexDB": {
+      id: "/indexDB";
+      path: "/indexDB";
+      fullPath: "/indexDB";
+      preLoaderRoute: typeof indexDBRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/home": {
@@ -601,6 +621,7 @@ const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   addRepositoryRoute: addRepositoryRoute,
   dashboardHomeRoute: dashboardHomeRoute,
+  indexDBRoute: indexDBRoute,
   landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,

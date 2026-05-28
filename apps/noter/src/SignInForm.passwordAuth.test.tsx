@@ -36,12 +36,16 @@ vi.mock("@/authClient", () => ({
 }));
 
 vi.mock("@/lib/rootRouteSearch", () => ({
+  readRootRouteSearch: () => componentState.search,
   useRootRouteSearch: () => componentState.search,
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  useLocation: ({ select }: { select: (location: { pathname: string }) => string }) =>
-    select({ pathname: componentState.pathname }),
+  useLocation: ({
+    select,
+  }: {
+    select: (location: { pathname: string; searchStr: string }) => unknown;
+  }) => select({ pathname: componentState.pathname, searchStr: "" }),
   useNavigate: () => navigateMock,
 }));
 

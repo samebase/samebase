@@ -1,7 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 
 test.setTimeout(120_000);
 
@@ -12,6 +13,16 @@ const EXPECTED_LOGO_DEPTH_HARD_MAX = {
   svg: 3,
   three: 5,
 } as const;
+const logoPublicRoutePaths = [
+  "/logo",
+  "/logo/iso",
+  "/logo/raster",
+  "/logo/raster-seams",
+  "/logo/svg",
+  "/logo/single-cube",
+  "/logo/transition",
+  "/logo/transition/transforms",
+] as const;
 
 async function waitForPaint(page: Page) {
   await page.evaluate(async () => {
@@ -22,6 +33,15 @@ async function waitForPaint(page: Page) {
       });
     });
   });
+}
+
+async function replaceNumberInputValue(input: Locator, value: string) {
+  await input.click();
+  await input.press("ControlOrMeta+A");
+  await input.press("Backspace");
+  await expect(input).toHaveValue("");
+  await input.pressSequentially(value);
+  await expect(input).toHaveValue(value);
 }
 
 async function sampleLogoCanvasCorner(page: Page) {
@@ -110,6 +130,9 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(routeUrlDisplay).toHaveValue(`${origin}/logo`);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/logo`);
   await expect(linksSidebar).toBeVisible();
+  const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
     "/home",
@@ -139,6 +162,19 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
     maxDiffPixelRatio: 0.03,
     scale: "css",
   });
+});
+
+test("logo routes share the public account right sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  for (const pathname of logoPublicRoutePaths) {
+    await page.goto(pathname, { waitUntil: "domcontentloaded" });
+
+    const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+    const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+    await expect(accountSection).toBeVisible();
+    await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
+  }
 });
 
 test("logo public query links toggle root theme mode", async ({ page }) => {
@@ -541,8 +577,7 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
 
   await expect(sourceInput).toHaveValue("24");
   await expect(sourceInput).toHaveAttribute("type", "number");
-  await sourceInput.fill("145");
-  await expect(sourceInput).toHaveValue("145");
+  await replaceNumberInputValue(sourceInput, "145");
   await sourceInput.press("Enter");
   await expect(currentCase).toContainText("145px source");
   await expect(maskCanvas).toHaveAttribute("width", "145");
@@ -554,12 +589,10 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
   await expect(elevationInput).toHaveAttribute("step", "0.1");
   await expect(rotationInput).toHaveAttribute("type", "number");
   await expect(elevationInput).toHaveAttribute("type", "number");
-  await rotationInput.fill("54.5");
-  await expect(rotationInput).toHaveValue("54.5");
+  await replaceNumberInputValue(rotationInput, "54.5");
   await expect(currentCase).toContainText("rotation 54.5°");
 
-  await elevationInput.fill("22.4");
-  await expect(elevationInput).toHaveValue("22.4");
+  await replaceNumberInputValue(elevationInput, "22.4");
   await expect(currentCase).toContainText("elevation 22.4°");
 });
 

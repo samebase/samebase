@@ -320,7 +320,18 @@ describe("appRouter", () => {
     expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
     expect(
       rootElement?.querySelector('[data-testid="local-storage-sidebar-file"]')?.textContent,
-    ).toBe("localStorage");
+    ).toBe("/localStorage");
+
+    await act(async () => {
+      await router.navigate({ to: "/indexDB" });
+      await settleRouterRender();
+    });
+
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
+    expect(rootElement?.querySelector('[data-testid="indexed-db-sidebar-file"]')?.textContent).toBe(
+      "/indexDB",
+    );
   });
 
   it("renders / through the explicit routed root index page", async () => {
@@ -615,7 +626,18 @@ describe("appRouter", () => {
 
     expect(
       rootElement?.querySelector('[data-testid="local-storage-sidebar-file"]')?.textContent,
-    ).toBe("localStorage");
+    ).toBe("/localStorage");
+    expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders indexedDB through an explicit route with the shared app workspace shell", async () => {
+    await renderRoute("/indexDB");
+
+    expect(rootElement?.querySelector('[data-testid="indexed-db-sidebar-file"]')?.textContent).toBe(
+      "/indexDB",
+    );
     expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
     expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();

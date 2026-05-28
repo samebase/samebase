@@ -3,25 +3,17 @@ import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSe
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { VaultDashboardSidebarContent } from "@/components/vault-dashboard/VaultDashboardChrome";
-import { useLocation } from "@tanstack/react-router";
 
 /**
- * Keep public route sidebar chrome together so landing and logo routes do not
- * drift as shared links and auth controls change.
+ * Keep public route sidebar chrome together so public routes do not drift as
+ * shared account, auth, and meta links change.
  */
 export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
-  const location = useLocation();
-  const isPublicLandingRoute = location.pathname === "/";
-
   return {
     content: (
       <VaultDashboardSidebarContent>
-        {isPublicLandingRoute ? (
-          <>
-            <PublicLandingAccountSection />
-            <PublicLandingPasswordAuthControls />
-          </>
-        ) : null}
+        <PublicLandingAccountSection />
+        <PublicLandingPasswordAuthControls />
         <div className="mt-auto">
           <AppSidebarMetaSection side="right" />
         </div>

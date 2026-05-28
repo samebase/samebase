@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 
 const localStorageRouteScreenshotOptions = {
   animations: "disabled",
@@ -29,7 +31,12 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
   await expect(page.getByTestId("app-workspace")).toBeVisible();
-  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText("localStorage");
+  await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute(
+    "href",
+    INDEXED_DB_ROUTE,
+  );
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
       hasText: "noter.multiline",
@@ -49,6 +56,21 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
     "local-storage-workspace.png",
     localStorageRouteScreenshotOptions,
   );
+});
+
+test("storage sidebar previews linked pages on hover", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
+  const origin = new URL(page.url()).origin;
+
+  await page.getByTestId("indexed-db-sidebar-file").hover();
+  await expect(page).toHaveURL(`${origin}${INDEXED_DB_ROUTE}`);
+  await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute("aria-current", "page");
+
+  await page.getByTestId("workspace-layout-v2-pane-main").hover({
+    position: { x: 16, y: 16 },
+  });
+  await expect(page).toHaveURL(`${origin}${LOCAL_STORAGE_ROUTE}`);
 });
 
 test("localStorage route reflects sidebar persistence without manual refresh", async ({ page }) => {
@@ -89,9 +111,11 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/localStorage", { waitUntil: "networkidle" });
 
-  const publicLinks = page
-    .getByTestId("workspace-layout-v2-pane-right")
-    .getByTestId("app-build-status-bar");
+  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  const publicLinks = rightSidebar.getByTestId("app-build-status-bar");
+  const accountSection = rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {
@@ -102,6 +126,7 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
 
   await page.goto("/localStorage?dev", { waitUntil: "networkidle" });
 
+  await expect(accountSection).toBeVisible();
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {

@@ -60,8 +60,20 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         {children}
       </a>
     ),
-    useLocation: ({ select }: { select: (location: { pathname: string }) => string }) =>
-      select({ pathname: routeState.pathname }),
+    useLocation: ({
+      select,
+    }: {
+      select: (location: { pathname: string; searchStr: string }) => unknown;
+    }) => {
+      const search = Object.entries(routeState.search)
+        .flatMap(([key, value]) => (value ? [key] : []))
+        .join("&");
+
+      return select({
+        pathname: routeState.pathname,
+        searchStr: search.length > 0 ? `?${search}` : "",
+      });
+    },
     useNavigate: () => vi.fn(),
     useRouter: () => ({
       buildLocation: () => ({ href: "/" }),
@@ -78,13 +90,12 @@ function renderLandingAccountSection(initialEntry: string) {
 }
 
 describe("PublicLandingAccountSection", () => {
-  it("shows the logged-out account links by default", () => {
+  it("shows the logged-out account summary collapsed by default", () => {
     const markup = renderLandingAccountSection("/");
 
     expect(markup).toContain("not logged in");
-    expect(markup).toContain("?sign-in");
-    expect(markup).toContain("?create-account");
-    expect(markup).toContain("text-base");
+    expect(markup).not.toContain("?sign-in");
+    expect(markup).not.toContain("?create-account");
     expect(markup).not.toContain("Google");
   });
 

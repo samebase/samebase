@@ -8,7 +8,7 @@ import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { applySearchPatch, type SearchPatch } from "@/lib/routeSearchFlags";
-import { type RootRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { readRootRouteSearch, type RootRouteSearch } from "@/lib/rootRouteSearch";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -100,13 +100,16 @@ function PublicLandingLoggedOutAccountContent({ mode }: { mode: PublicLandingAcc
 }
 
 function PublicLandingLoggedOutAccountSection() {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
+  const location = useLocation({
+    select: (currentLocation) => ({
+      pathname: currentLocation.pathname,
+      searchStr: currentLocation.searchStr,
+    }),
   });
   const navigate = useNavigate();
-  const rootRouteSearch = useRootRouteSearch();
-  const mode = resolvePublicLandingAccountMode(pathname, rootRouteSearch);
-  const [accountOpen, setAccountOpen] = useState(true);
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
+  const mode = resolvePublicLandingAccountMode(location.pathname, rootRouteSearch);
+  const [accountOpen, setAccountOpen] = useState(false);
   const open = mode === "links" ? accountOpen : true;
 
   return (
