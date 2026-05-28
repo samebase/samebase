@@ -88,6 +88,7 @@ describe("AppSidebarMetaSection", () => {
     expect(markup).not.toContain(">?prod-ui<");
     expect(markup).not.toContain('id="public-local-storage-route-link"');
     expect(markup).not.toContain(`>${LOCAL_STORAGE_ROUTE}<`);
+    expect(markup).not.toContain(">/landing-preview<");
   });
 
   it("does not add hidden dev shortcuts after local browser load", () => {
@@ -111,6 +112,20 @@ describe("AppSidebarMetaSection", () => {
     expect(localStorageShortcut).toBeNull();
     expect(rootElement.textContent).not.toContain("?prod-ui");
     expect(rootElement.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
+    expect(rootElement.textContent).not.toContain("/landing-preview");
+  });
+
+  it("omits the landing preview path link while keeping preview query shortcuts", async () => {
+    const element = await renderSidebarMetaSection("/landing-preview");
+    const landingPreviewPathLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/landing-preview",
+    );
+    const romanianQueryLink = element.querySelector<HTMLAnchorElement>(
+      "#landing-preview-romanian-toggle",
+    );
+
+    expect(landingPreviewPathLink).toBeUndefined();
+    expect(romanianQueryLink?.textContent).toBe("?lang=ro");
   });
 
   it("renders hover-preview links with a pressed click state", async () => {

@@ -143,13 +143,7 @@ function isAppSidebarMetaSearchResetHref(href: string): boolean {
  * Keep build metadata and public-route escape hatches on the rail edge that
  * peeks beside the main pane in the mobile workspace carousel.
  */
-export function AppSidebarMetaSection({
-  showLandingPreviewLink = false,
-  side = "left",
-}: {
-  showLandingPreviewLink?: boolean;
-  side?: AppSidebarMetaSectionSide;
-}) {
+export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMetaSectionSide }) {
   const appCommit = __APP_COMMIT__ || "unknown";
   const appCommitNumber = __APP_COMMIT_NUMBER__;
   const repoUrl = __APP_REPO_URL__ || "";
@@ -412,17 +406,6 @@ export function AppSidebarMetaSection({
       >
         /home
       </Link>
-      {showLandingPreviewLink ? (
-        <Link
-          className={routePreviewLinkInteractionClassName}
-          to={LANDING_MARKDOWN_PREVIEW_ROUTE}
-          onClick={commitRoutePreview}
-          onMouseEnter={previewRouteLink}
-          onMouseLeave={restoreRoutePreview}
-        >
-          {LANDING_MARKDOWN_PREVIEW_ROUTE}
-        </Link>
-      ) : null}
       <Link
         className={routePreviewLinkInteractionClassName}
         to="/terms"
