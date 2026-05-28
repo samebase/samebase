@@ -573,7 +573,11 @@ export default defineConfig({
       },
       spa: {
         enabled: true,
-        maskPath: "/pricing",
+        // The SPA shell prerender emits /index.html. Use a public mask route
+        // so the shell does not serialize authenticated-route state, and keep
+        // it distinct from the explicit /terms prerender entry because
+        // TanStack skips duplicate page paths.
+        maskPath: "/terms/",
         prerender: {
           outputPath: spaShellOutputPath,
         },
