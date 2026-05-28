@@ -4,6 +4,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../shared/featureFlags";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 function DisabledCodespaceChatRedirect() {
   const navigate = Route.useNavigate();
@@ -37,6 +38,6 @@ function CodespaceChatRouteComponent() {
 }
 
 export const Route = createFileRoute("/vault/$owner/$repo/codespace/$branch/chat")({
-  staticData: { permission: "admin" },
+  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/vault/$owner/$repo/codespace/$branch/chat"],
   component: CodespaceChatRouteComponent,
 });

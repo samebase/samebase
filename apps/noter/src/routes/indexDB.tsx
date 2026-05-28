@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { IndexedDbWorkspacePage } from "@/components/IndexedDbWorkspacePage";
 import { INDEXED_DB_ROUTE } from "@/lib/indexedDbRoute";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function IndexedDbRouteComponent() {
@@ -12,6 +13,6 @@ function IndexedDbRouteComponent() {
 }
 
 export const Route = createFileRoute("/indexDB")({
-  staticData: { permission: "public" },
+  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/indexDB"],
   component: IndexedDbRouteComponent,
 });

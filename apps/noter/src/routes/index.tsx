@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RootIndexRoutePage } from "@/components/RootIndexRoutePage";
 import { selectLandingPageMarkdown } from "@/lib/landingCopy";
 import { ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 function RootIndexRouteComponent() {
   const { landingPageMarkdown } = Route.useLoaderData();
@@ -11,7 +12,7 @@ function RootIndexRouteComponent() {
 
 export const Route = createFileRoute("/")({
   staticData: {
-    permission: "public",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/"],
     searchParamSuggestions: ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   loader: () => ({

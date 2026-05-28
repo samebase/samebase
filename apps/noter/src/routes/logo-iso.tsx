@@ -4,6 +4,7 @@ import {
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/iso";
@@ -30,7 +31,7 @@ function LogoIsoRouteComponent() {
 
 export const Route = createFileRoute("/logo/iso")({
   staticData: {
-    permission: "public",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/iso"],
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("iso"),
   },
   component: LogoIsoRouteComponent,

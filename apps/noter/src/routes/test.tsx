@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 function RootTestRouteComponent() {
   return (
@@ -10,6 +11,6 @@ function RootTestRouteComponent() {
 }
 
 export const Route = createFileRoute("/test")({
-  staticData: { availableOn: ["local"], permission: "admin" },
+  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/test"],
   component: RootTestRouteComponent,
 });

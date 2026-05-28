@@ -5,6 +5,7 @@ import {
   MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateMachinesRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 /**
  * Preserve the authenticated route shell while this page stays route-owned.
@@ -19,7 +20,7 @@ function MachinesRouteComponent() {
 
 export const Route = createFileRoute("/machines")({
   staticData: {
-    permission: "admin",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/machines"],
     searchParamSuggestions: MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: MachinesRouteComponent,

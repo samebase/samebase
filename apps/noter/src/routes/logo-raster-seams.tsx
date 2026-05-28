@@ -3,6 +3,7 @@ import {
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateLogoRouteSearch,
 } from "@/lib/logoRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 import { RoutedPage } from "./-publicRouteComponents";
 
@@ -20,7 +21,7 @@ function LogoRasterSeamsRouteComponent() {
 
 export const Route = createFileRoute("/logo/raster-seams")({
   staticData: {
-    permission: "public",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/raster-seams"],
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LogoRasterSeamsRouteComponent,

@@ -4,6 +4,7 @@ import {
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/raster";
@@ -30,7 +31,7 @@ function LogoRasterRouteComponent() {
 
 export const Route = createFileRoute("/logo/raster")({
   staticData: {
-    permission: "public",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/logo/raster"],
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("raster"),
   },
   component: LogoRasterRouteComponent,

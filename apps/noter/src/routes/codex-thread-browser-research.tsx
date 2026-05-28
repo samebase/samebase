@@ -5,6 +5,7 @@ import {
   CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateCodexResearchRouteSearch,
 } from "@/lib/codexResearchRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function ResearchRouteUnavailablePage(props: {
@@ -44,7 +45,7 @@ function CodexThreadBrowserRouteComponent() {
 
 export const Route = createFileRoute("/research/codex-app-server/browser")({
   staticData: {
-    permission: "admin",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/research/codex-app-server/browser"],
     searchParamSuggestions: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: CodexThreadBrowserRouteComponent,

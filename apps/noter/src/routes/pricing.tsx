@@ -5,6 +5,7 @@ import {
   PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validatePricingRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 function PricingRouteComponent() {
   return (
@@ -16,7 +17,7 @@ function PricingRouteComponent() {
 
 export const Route = createFileRoute("/pricing")({
   staticData: {
-    permission: "admin",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/pricing"],
     searchParamSuggestions: PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: PricingRouteComponent,

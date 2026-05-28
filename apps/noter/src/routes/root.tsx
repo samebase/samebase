@@ -20,6 +20,7 @@ import {
   type RootRouteSearch,
   validateRootRouteSearch,
 } from "@/lib/rootRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { type AppQueryClients } from "@/lib/appQueryClient";
@@ -70,7 +71,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 export const Route = createRootRouteWithContext<AppQueryClients>()({
-  staticData: { permission: "public" },
+  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/"],
   beforeLoad: ({ location, matches, search }) => {
     if (search.reset) {
       throw redirect({

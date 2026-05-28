@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PitchDeckPage } from "@/components/PitchDeckPage";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 function PitchRouteComponent() {
@@ -11,6 +12,6 @@ function PitchRouteComponent() {
 }
 
 export const Route = createFileRoute("/pitch")({
-  staticData: { permission: "admin" },
+  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/pitch"],
   component: PitchRouteComponent,
 });

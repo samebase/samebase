@@ -5,6 +5,7 @@ import {
   MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateMachineConnectRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 /**
  * Preserve the authenticated route shell while this page stays route-owned.
@@ -19,7 +20,7 @@ function MachineConnectRouteComponent() {
 
 export const Route = createFileRoute("/machines/connect")({
   staticData: {
-    permission: "admin",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH["/machines/connect"],
     searchParamSuggestions: MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: MachineConnectRouteComponent,
