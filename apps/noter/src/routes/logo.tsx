@@ -4,6 +4,7 @@ import {
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo";
@@ -30,7 +31,7 @@ function LogoThreeRouteComponent() {
 
 export const Route = createFileRoute("/logo")({
   staticData: {
-    permission: "public",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("three"),
   },
   component: LogoThreeRouteComponent,

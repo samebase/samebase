@@ -1,0 +1,11 @@
+# Cloudflare Workers _redirects apply before asset serving. Keep this file
+# limited to exact prerender aliases so hashed assets bypass redirects.
+/favicon.ico /favicon.png 200
+
+/ /_landing.html 200
+/terms /terms/index.html 200
+/terms/ /terms/index.html 200
+/terms/index.html /terms/index.html 200
+/privacy /privacy/index.html 200
+/privacy/ /privacy/index.html 200
+/privacy/index.html /privacy/index.html 200

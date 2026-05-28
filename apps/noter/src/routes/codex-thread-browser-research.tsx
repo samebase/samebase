@@ -5,7 +5,10 @@ import {
   CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateCodexResearchRouteSearch,
 } from "@/lib/codexResearchRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
+
+const pathname = CODEX_APP_SERVER_THREAD_BROWSER_ROUTE;
 
 function ResearchRouteUnavailablePage(props: {
   pathname: string;
@@ -28,7 +31,7 @@ function CodexThreadBrowserRouteComponent() {
   if (!import.meta.env.DEV) {
     return (
       <ResearchRouteUnavailablePage
-        pathname={CODEX_APP_SERVER_THREAD_BROWSER_ROUTE}
+        pathname={pathname}
         title="Codex thread browser unavailable"
         description="This research surface only runs in the local development server."
       />
@@ -36,7 +39,7 @@ function CodexThreadBrowserRouteComponent() {
   }
 
   return (
-    <RoutedPage pathname={CODEX_APP_SERVER_THREAD_BROWSER_ROUTE}>
+    <RoutedPage pathname={pathname}>
       <CodexAppServerThreadBrowserResearchPage />
     </RoutedPage>
   );
@@ -44,7 +47,7 @@ function CodexThreadBrowserRouteComponent() {
 
 export const Route = createFileRoute("/research/codex-app-server/browser")({
   staticData: {
-    permission: "admin",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: CodexThreadBrowserRouteComponent,

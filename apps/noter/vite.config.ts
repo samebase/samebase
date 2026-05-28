@@ -17,6 +17,7 @@ import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
+import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
@@ -109,6 +110,9 @@ const runtimeNoterConnectConfigPath = path.resolve(
   currentDir,
   `dist/client${noterConnectConfigPathname}`,
 );
+const spaShellOutputPath = "/index";
+const publicPrerenderPages = readPublicPrerenderPages();
+
 function isLoopbackHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||
@@ -542,10 +546,17 @@ export default defineConfig({
         semicolons: true,
         virtualRouteConfig: "./src/routes.ts",
       },
+      pages: publicPrerenderPages,
+      prerender: {
+        autoStaticPathsDiscovery: false,
+        crawlLinks: false,
+        enabled: true,
+      },
       spa: {
         enabled: true,
+        maskPath: "/pricing",
         prerender: {
-          outputPath: "/index.html",
+          outputPath: spaShellOutputPath,
         },
       },
     }),

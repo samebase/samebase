@@ -79,25 +79,28 @@ script uses `WORKERS_CI_BRANCH` to choose between `PROD_CONVEX_DEPLOY_KEY` on `m
 `CONVEX_DEPLOY_KEY`; the script passes the selected split key to Convex under that generic name only
 for the child process.
 
-### Exact Root SSG Prerendering
+### Static Page Prerendering And SPA Shell
 
-TanStack Start SPA mode produces the client assets and a server entry. Its built-in SPA shell is the
-right primitive for direct client-route loads and must remain in `dist/client/index.html`, because
-Workers Static Assets uses that file as the SPA fallback for client routes. Noter also needs the
-root route's real landing HTML for exact `/`, so the production build writes that prerendered route
-HTML to a separate `dist/client/ssg-index.html` asset.
+TanStack Start SPA mode produces the client assets, an SPA shell, and static prerenders for selected
+routes during `vp build`. The SPA shell is written to `dist/client/index.html`. The public landing
+route is prerendered to `dist/client/_landing.html`, and legal pages are prerendered to
+`dist/client/terms/index.html` and `dist/client/privacy/index.html`.
 
-The production build therefore runs `node ./scripts/prerender-spa-index.ts` after `vp build`. The
-script imports `dist/server/server.js`, clears `TSS_SHELL` for that import/render, fetches `/` from
-the built server handler, requires an OK HTML response, and writes that full route HTML to
-`dist/client/ssg-index.html`. `wrangler.jsonc` still deploys only `dist/client` with
-`assets.not_found_handling = "single-page-application"`, and `dist/client/index.html` stays the
-normal TanStack SPA shell.
+The production build does not run request-time SSR and does not run a separate root-prerender
+helper. All static HTML comes from the canonical TanStack route tree at build time. Cloudflare
+Workers Static Assets deploys only `dist/client`, and `apps/noter/public/_redirects` owns the exact
+prerender aliases. Unknown app-route navigations use Workers' `single-page-application` fallback to
+the SPA shell at `/index.html`.
 
-This is build-time prerendering for a static SPA deploy, not request-time SSR. It gives the landing
-page immediate HTML when Cloudflare rewrites exact `/` HTML navigations to `/ssg-index.html`,
-without adding a Worker request handler to production. If that zone rule is absent or disabled, the
-site falls back to the normal SPA shell instead of serving stale landing HTML for every route.
+Cloudflare Workers `_redirects` rules are first-match and are followed even when an asset exists, so
+the `_redirects` file must not include a broad `/*` fallback or generated-asset pass-through rules.
+Those routes caused deployed Workers to proxy hashed CSS and JavaScript requests to HTML. Keep
+`_redirects` limited to exact prerender aliases and let Workers Static Assets serve matching files
+directly.
+
+Disable Workers Static Assets `html_handling` for this deploy shape. The `_redirects` rules proxy to
+explicit `.html` files, and the default HTML handling redirects those targets back to extensionless
+paths before the proxy can serve the intended asset.
 
 The landing slogan list remains dynamic in source. The prerender step selects one slogan during the
 build render, so the deployed exact-root SSG asset varies per build rather than per browser refresh.
@@ -144,10 +147,12 @@ Noter production itself.
 1. Add `@tanstack/react-start`.
 2. Replace the TanStack Router Vite plugin with the TanStack Start Vite plugin configured for SPA
    mode.
-3. Keep TanStack Start's SPA output at `/index.html` so Workers Static Assets can use the standard
-   SPA fallback.
-4. Write the exact-root landing prerender to `/ssg-index.html`; route exact `/` there with a
-   Cloudflare URL Rewrite Rule outside the Worker asset config.
+3. Keep TanStack Start's SPA shell output at `/index.html` by configuring the installed plugin with
+   `spa.maskPath = "/pricing"` and `spa.prerender.outputPath = "/index"`. The non-default mask path
+   prevents the shell prerender from sharing the root page's request path, and it must point at an
+   existing route so the prerender request succeeds.
+4. Prerender the public landing route to `/_landing.html`, `/terms` to `/terms/index.html`, and
+   `/privacy` to `/privacy/index.html` through TanStack Start's `pages` config.
 5. Preserve the existing virtual route config and generated route tree shape.
 6. Preserve router options:
    - `defaultPreload: false`
@@ -167,9 +172,12 @@ Noter production itself.
 2. Use a current compatibility date for this migration.
 3. Enable preview URLs.
 4. Serve assets from `./dist/client`.
-5. Set `assets.not_found_handling` to `single-page-application`.
-6. Keep runtime bindings empty for this phase.
-7. Do not hard-code secrets in source or config.
+5. Set `assets.not_found_handling = "single-page-application"` so unmatched app-route navigations
+   serve the SPA shell from `/index.html` without routing generated assets through `_redirects`.
+6. Set `assets.html_handling` to `none` so `_redirects` 200 rewrites can serve explicit `.html`
+   files.
+7. Keep runtime bindings empty for this phase.
+8. Do not hard-code secrets in source or config.
 
 ### Build And Deploy Scripts
 
@@ -216,7 +224,8 @@ Validation:
 
 1. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run`
 2. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:preview:dry-run`
-3. inspect generated `dist/client/index.html` and `dist/client/ssg-index.html`
+3. inspect generated `dist/client/index.html`, `dist/client/_landing.html`,
+   `dist/client/terms/index.html`, and `dist/client/privacy/index.html`
 
 Current implementation result:
 

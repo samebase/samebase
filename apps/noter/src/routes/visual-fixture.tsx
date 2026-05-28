@@ -7,7 +7,10 @@ import {
   routeSearchString,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { VisualFixturePage } from "@/visualFixture";
+
+const pathname = "/visual-fixture";
 
 const visualFixtureRouteSearchSchema = defineRouteSearchParams({
   mode: routeSearchValueParam(routeSearchString, {
@@ -43,8 +46,7 @@ function VisualFixtureRouteComponent() {
 
 export const Route = createFileRoute("/visual-fixture")({
   staticData: {
-    availableOn: ["local"],
-    permission: "public",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: visualFixtureRouteSearchParamSuggestions,
   },
   component: VisualFixtureRouteComponent,

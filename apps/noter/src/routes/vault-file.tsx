@@ -5,6 +5,9 @@ import {
   FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
+import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+
+const pathname = "/vault/$";
 
 const FileView = lazy(async () => {
   const module = await import("@/components/FileView/FileView");
@@ -25,7 +28,7 @@ function FileViewRouteComponent() {
 
 export const Route = createFileRoute("/vault/$")({
   staticData: {
-    permission: "admin",
+    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: FileViewRouteComponent,
