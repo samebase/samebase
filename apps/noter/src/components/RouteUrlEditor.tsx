@@ -14,7 +14,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
-import { readBrowserOrigin, readIsomorphicOrigin } from "@/lib/isomorphic";
+import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import {
   ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
   readRouteUrlEditorDocumentHashSuggestionKeys,
@@ -552,9 +552,7 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
-  const prerenderOrigin = readIsomorphicOrigin();
-  const [browserOrigin, setBrowserOrigin] = useState<string | null>(null);
-  const origin = browserOrigin ?? prerenderOrigin;
+  const origin = readIsomorphicOrigin();
   const [draftRouteAddress, setDraftRouteAddress] = useState(currentHref);
   const [inputFocused, setInputFocused] = useState(false);
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
@@ -618,17 +616,6 @@ export function RouteUrlEditor() {
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
   const patchSuggestionState = useCallback((nextState: Partial<RouteUrlEditorSuggestionState>) => {
     setSuggestionState((currentState) => ({ ...currentState, ...nextState }));
-  }, []);
-
-  useLayoutEffect(() => {
-    const browserOrigin = readBrowserOrigin();
-    if (!browserOrigin) {
-      return;
-    }
-
-    setBrowserOrigin((currentOrigin) =>
-      currentOrigin === browserOrigin ? currentOrigin : browserOrigin,
-    );
   }, []);
 
   // TanStack writes __TSR_index into each route entry; keep the largest seen
@@ -1754,7 +1741,6 @@ export function RouteUrlEditor() {
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
       <input
-        key={origin}
         ref={inputRef}
         aria-activedescendant={activeSuggestionId}
         aria-describedby={routeInputInvalid ? `${inputId}-error` : undefined}
@@ -1783,7 +1769,6 @@ export function RouteUrlEditor() {
         onMouseUp={syncSuggestionSelectionFromInputAndOpenSearch}
         onSelect={syncSuggestionSelectionFromInput}
         spellCheck={false}
-        suppressHydrationWarning
         style={{ textIndent: `-${origin.length}ch` }}
         title={routeInputTitle}
         type="text"
