@@ -573,9 +573,14 @@ export default defineConfig({
       },
       spa: {
         enabled: true,
-        maskPath: "/pricing",
+        // TanStack skips duplicate prerender page paths. Keep the SPA mask
+        // distinct from publicPrerenderPages so /index.html is still emitted.
+        maskPath: "/terms/",
         prerender: {
           outputPath: spaShellOutputPath,
+          // Page-level SPA headers replace global prerender headers before
+          // TanStack adds the shell header.
+          ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
         },
       },
     }),
