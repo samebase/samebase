@@ -98,12 +98,6 @@ Those routes caused deployed Workers to proxy hashed CSS and JavaScript requests
 `_redirects` limited to exact prerender aliases and let Workers Static Assets serve matching files
 directly.
 
-Client asset URLs include the current app commit before the content hash. Workers serves generated
-assets as immutable, and this commit segment prevents a bad preview deploy from poisoning browser
-caches for unchanged chunks across the next commit. JavaScript chunk and entry filenames use the
-client environment override only; CSS asset filenames are shared with the server build because the
-root head imports app CSS through `?url` during prerendering.
-
 Disable Workers Static Assets `html_handling` for this deploy shape. The `_redirects` rules proxy to
 explicit `.html` files, and the default HTML handling redirects those targets back to extensionless
 paths before the proxy can serve the intended asset.
