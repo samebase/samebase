@@ -110,7 +110,7 @@ export function BrowserStorageSidebarContent({ currentView }: { currentView: Bro
   return (
     <nav
       aria-label="Storage views"
-      className="flex flex-col items-start gap-3 overflow-hidden px-2 py-3 text-sm text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]"
+      className="flex flex-col items-start gap-3 overflow-hidden px-2 py-3 text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]"
     >
       {browserStorageViews.map((view) => (
         <Link
