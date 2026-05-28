@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { useLocation } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
+import { AppSidebarMetaRoutePreviewProvider, AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
 const { act } = React;
 
@@ -99,7 +99,9 @@ describe("AppSidebarMetaSection", () => {
     await act(async () => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={[initialEntry]}>
-          <RouteOwnedSidebarHarness />
+          <AppSidebarMetaRoutePreviewProvider>
+            <RouteOwnedSidebarHarness />
+          </AppSidebarMetaRoutePreviewProvider>
         </TestRouterProvider>,
       );
       await settleRouteUpdate();
