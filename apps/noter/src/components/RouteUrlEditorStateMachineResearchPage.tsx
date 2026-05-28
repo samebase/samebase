@@ -1,9 +1,12 @@
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useMemo, useReducer, type ReactNode } from "react";
+
 /**
  * RouteUrlEditor state-shape playground.
  *
- * This is intentionally not imported by production code. It copies the state
- * concerns from apps/noter/src/components/RouteUrlEditor.tsx so the approaches
- * can be edited side by side without changing the shipped route editor.
+ * This page copies the state concerns from RouteUrlEditor.tsx so the approaches
+ * can be exercised side by side without changing the shipped route editor.
  */
 
 type SuggestionKind = "hash" | "path" | "search" | "search-value";
@@ -33,7 +36,7 @@ type StoreState = {
   touchScrollPickerMetrics: TouchScrollPickerMetrics | null;
 };
 
-export function createStoreState(args: {
+function createStoreState(args: {
   currentHref: string;
   currentRouteHistoryIndex: number;
 }): StoreState {
@@ -74,7 +77,7 @@ type StoreAction =
     }
   | { forwardRouteHistoryIndex: number; type: "setForwardRouteHistoryIndex" };
 
-export function reduceStoreState(state: StoreState, action: StoreAction): StoreState {
+function reduceStoreState(state: StoreState, action: StoreAction): StoreState {
   switch (action.type) {
     case "patchSuggestionState":
       return {
@@ -306,7 +309,7 @@ type TransitionTable = {
  * `touchPickerPreviewed` under `focused.touchPicking`. The table stops matching
  * EventsByState immediately.
  */
-export const routeUrlEditorTransitions = {
+const routeUrlEditorTransitions = {
   blurred: {
     focus: "focused.clean",
     hashSuggestionsRefreshed: "blurred",
@@ -424,7 +427,7 @@ const activeEditingSuggestion = (args: {
   selectionRouteIndex: args.selectionRouteIndex,
 });
 
-export function createMachineState(args: {
+function createMachineState(args: {
   currentHref: string;
   currentRouteHistoryIndex: number;
 }): MachineState {
@@ -437,7 +440,7 @@ export function createMachineState(args: {
   };
 }
 
-export const routeUrlEditorHandlers: HandlerMap = {
+const routeUrlEditorHandlers: HandlerMap = {
   blurred: {
     focus: (state, event) => ({
       currentHref: state.currentHref,
@@ -753,7 +756,7 @@ export const routeUrlEditorHandlers: HandlerMap = {
  * React dispatch is broad because a delayed click or timer can fire after the
  * state changed. The state-indexed send is still useful below for child props.
  */
-export function reduceMachineState(state: MachineState, event: MachineEvent): MachineState {
+function reduceMachineState(state: MachineState, event: MachineEvent): MachineState {
   switch (state.kind) {
     case "blurred":
       switch (event.type) {
@@ -867,66 +870,141 @@ export function reduceMachineState(state: MachineState, event: MachineEvent): Ma
   return state;
 }
 
-type Dispatch = (event: MachineEvent) => void;
+function applyStoreActions(state: StoreState, actions: readonly StoreAction[]): StoreState {
+  return actions.reduce(reduceStoreState, state);
+}
+
+function reduceStoreStateForMachineEvent(state: StoreState, event: MachineEvent): StoreState {
+  switch (event.type) {
+    case "blur":
+      return applyStoreActions(state, [
+        { inputFocused: false, type: "setInputFocused" },
+        { touchScrollPickerMetrics: null, type: "setTouchScrollPickerMetrics" },
+      ]);
+    case "draftChanged":
+      return applyStoreActions(state, [
+        { draftRouteAddress: event.draftRouteAddress, type: "setDraftRouteAddress" },
+        {
+          nextState: {
+            activeIndex: null,
+            baseRouteAddress: event.draftRouteAddress,
+            dismissed: false,
+            draftEditedSinceFocus: true,
+            kind: event.kind,
+            selectionRouteIndex: event.selectionRouteIndex,
+          },
+          type: "patchSuggestionState",
+        },
+      ]);
+    case "escapePressed":
+      return applyStoreActions(state, [
+        { inputFocused: false, type: "setInputFocused" },
+        { touchScrollPickerMetrics: null, type: "setTouchScrollPickerMetrics" },
+      ]);
+    case "focus":
+      return applyStoreActions(state, [
+        { inputFocused: true, type: "setInputFocused" },
+        {
+          nextState: {
+            activeIndex: null,
+            baseRouteAddress: state.draftRouteAddress,
+            dismissed: false,
+            draftEditedSinceFocus: false,
+            kind: "path",
+            selectionRouteIndex: event.selectionRouteIndex,
+          },
+          type: "patchSuggestionState",
+        },
+      ]);
+    case "hashSuggestionsRefreshed":
+      return reduceStoreState(state, {
+        documentHashSuggestionKeys: event.keys,
+        type: "setDocumentHashSuggestionKeys",
+      });
+    case "historyIndexObserved":
+      return reduceStoreState(state, {
+        forwardRouteHistoryIndex: event.forwardRouteHistoryIndex,
+        type: "setForwardRouteHistoryIndex",
+      });
+    case "routeRealityChanged":
+      return applyStoreActions(state, [
+        { draftRouteAddress: event.currentHref, type: "setDraftRouteAddress" },
+        {
+          nextState: {
+            activeIndex: null,
+            baseRouteAddress: event.currentHref,
+            dismissed: false,
+            draftEditedSinceFocus: false,
+            kind: "path",
+            selectionRouteIndex: state.suggestionState.selectionRouteIndex,
+          },
+          type: "patchSuggestionState",
+        },
+      ]);
+    case "suggestionHighlighted":
+      return reduceStoreState(state, {
+        nextState: { activeIndex: event.activeIndex },
+        type: "patchSuggestionState",
+      });
+    case "suggestionPreviewed":
+      return applyStoreActions(state, [
+        { draftRouteAddress: event.draftRouteAddress, type: "setDraftRouteAddress" },
+        {
+          nextState: {
+            activeIndex: event.activeIndex,
+            dismissed: false,
+            draftEditedSinceFocus: true,
+          },
+          type: "patchSuggestionState",
+        },
+      ]);
+    case "suggestionSelected":
+      return applyStoreActions(state, [
+        { draftRouteAddress: event.draftRouteAddress, type: "setDraftRouteAddress" },
+        {
+          nextState: {
+            activeIndex: null,
+            baseRouteAddress: event.draftRouteAddress,
+          },
+          type: "patchSuggestionState",
+        },
+      ]);
+    case "touchPickerCanceled":
+      return reduceStoreState(state, {
+        touchScrollPickerMetrics: null,
+        type: "setTouchScrollPickerMetrics",
+      });
+    case "touchPickerCommitted":
+      return applyStoreActions(state, [
+        { draftRouteAddress: event.draftRouteAddress, type: "setDraftRouteAddress" },
+        { touchScrollPickerMetrics: null, type: "setTouchScrollPickerMetrics" },
+      ]);
+    case "touchPickerPreviewed":
+      return reduceStoreState(state, {
+        draftRouteAddress: event.draftRouteAddress,
+        type: "setDraftRouteAddress",
+      });
+    case "touchPickerStarted":
+      return applyStoreActions(state, [
+        { touchScrollPickerEnabled: true, type: "setTouchScrollPickerEnabled" },
+        { touchScrollPickerMetrics: event.metrics, type: "setTouchScrollPickerMetrics" },
+        {
+          nextState: {
+            activeIndex: event.activeIndex,
+            dismissed: false,
+            draftEditedSinceFocus: true,
+          },
+          type: "patchSuggestionState",
+        },
+      ]);
+  }
+  event satisfies never;
+  return state;
+}
+
 type SendFor<TKind extends MachineStateKind> = (event: EventFor<TKind>) => void;
 
-export function blurredChromeDemo(args: { send: SendFor<"blurred">; state: BlurredState }) {
-  args.send({ selectionRouteIndex: 0, type: "focus" });
-
-  // Try uncommenting. A blurred editor cannot preview a suggestion.
-  // args.send({ activeIndex: 0, draftRouteAddress: "/vaults", previewBaseHref: "/", type: "suggestionPreviewed" });
-
-  return args.state.draftRouteAddress;
-}
-
-export function editingInputDemo(args: {
-  send: SendFor<"focused.editing">;
-  state: FocusedEditingState;
-}) {
-  args.send({
-    activeIndex: 0,
-    draftRouteAddress: "/vaults",
-    previewBaseHref: "/",
-    type: "suggestionPreviewed",
-  });
-
-  // Try uncommenting. Touch preview events only exist after the touch picker starts.
-  // args.send({ draftRouteAddress: "/vaults", type: "touchPickerPreviewed" });
-
-  return args.state.suggestion.baseRouteAddress;
-}
-
-export function touchPickerDemo(args: {
-  send: SendFor<"focused.touchPicking">;
-  state: FocusedTouchPickingState;
-}) {
-  args.send({ draftRouteAddress: "/settings", type: "touchPickerPreviewed" });
-  args.send({ draftRouteAddress: "/settings", previewBaseHref: "/", type: "touchPickerCommitted" });
-
-  // Try uncommenting. Suggestion preview is a keyboard/pointer event, not a touch-picker event.
-  // args.send({ activeIndex: 0, draftRouteAddress: "/settings", previewBaseHref: "/", type: "suggestionPreviewed" });
-
-  return args.state.touchScrollPickerMetrics.slateTopPx;
-}
-
-export function renderRouteUrlEditorPlayground(state: MachineState, dispatch: Dispatch) {
-  switch (state.kind) {
-    case "blurred":
-      return blurredChromeDemo({ send: dispatch, state });
-    case "focused.clean":
-      return state.draftRouteAddress;
-    case "focused.editing":
-      return editingInputDemo({ send: dispatch, state });
-    case "focused.previewing":
-      return state.previewBaseHref;
-    case "focused.touchPicking":
-      return touchPickerDemo({ send: dispatch, state });
-  }
-  state satisfies never;
-  return null;
-}
-
-export function renderRouteUrlEditorMermaidTransitions() {
+function renderRouteUrlEditorMermaidTransitions() {
   const lines = ["stateDiagram-v2"];
 
   for (const [from, byEvent] of Object.entries(routeUrlEditorTransitions)) {
@@ -936,4 +1014,474 @@ export function renderRouteUrlEditorMermaidTransitions() {
   }
 
   return lines.join("\n");
+}
+
+type ResearchPageState = {
+  events: readonly MachineEvent[];
+  machine: MachineState;
+};
+
+type ResearchPageAction =
+  | {
+      event: MachineEvent;
+      type: "send";
+    }
+  | {
+      type: "reset";
+    };
+
+const initialResearchPageCurrentHref = "/visual-fixture?mode=route-url-editor";
+const initialResearchPageRouteHistoryIndex = 0;
+const initialResearchPageMachineState = createMachineState({
+  currentHref: initialResearchPageCurrentHref,
+  currentRouteHistoryIndex: initialResearchPageRouteHistoryIndex,
+});
+
+function replayStoreState(events: readonly MachineEvent[]): StoreState {
+  return events.reduce(
+    reduceStoreStateForMachineEvent,
+    createStoreState({
+      currentHref: initialResearchPageCurrentHref,
+      currentRouteHistoryIndex: initialResearchPageRouteHistoryIndex,
+    }),
+  );
+}
+
+function createInitialResearchPageState(): ResearchPageState {
+  return {
+    events: [],
+    machine: initialResearchPageMachineState,
+  };
+}
+
+function reduceResearchPageState(
+  state: ResearchPageState,
+  action: ResearchPageAction,
+): ResearchPageState {
+  switch (action.type) {
+    case "reset":
+      return createInitialResearchPageState();
+    case "send":
+      return {
+        events: [...state.events, action.event],
+        machine: reduceMachineState(state.machine, action.event),
+      };
+  }
+  action satisfies never;
+  return state;
+}
+
+type EventButtonProps<TKind extends MachineStateKind> = {
+  children: ReactNode;
+  event: EventFor<TKind>;
+  send: SendFor<TKind>;
+};
+
+function EventButton<TKind extends MachineStateKind>({
+  children,
+  event,
+  send,
+}: EventButtonProps<TKind>) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="h-8 justify-start rounded-none px-2 text-left text-xs"
+      onClick={() => send(event)}
+    >
+      {children}
+    </Button>
+  );
+}
+
+type ControlGroupProps = {
+  children: ReactNode;
+  label: string;
+};
+
+function ControlGroup({ children, label }: ControlGroupProps) {
+  return (
+    <section className="grid gap-2">
+      <h2 className="text-xs font-medium uppercase text-muted-foreground">{label}</h2>
+      <div className="grid gap-1">{children}</div>
+    </section>
+  );
+}
+
+function BlurredControls({ send }: { send: SendFor<"blurred"> }) {
+  return (
+    <ControlGroup label="Blurred">
+      <EventButton event={{ selectionRouteIndex: 0, type: "focus" }} send={send}>
+        focus at path start
+      </EventButton>
+      <EventButton event={{ currentHref: "/machines", type: "routeRealityChanged" }} send={send}>
+        route reality to /machines
+      </EventButton>
+      <EventButton
+        event={{ keys: ["setup", "details"], type: "hashSuggestionsRefreshed" }}
+        send={send}
+      >
+        refresh hash keys
+      </EventButton>
+      <EventButton
+        event={{ forwardRouteHistoryIndex: 3, type: "historyIndexObserved" }}
+        send={send}
+      >
+        observe history index 3
+      </EventButton>
+    </ControlGroup>
+  );
+}
+
+function FocusedCleanControls({ send }: { send: SendFor<"focused.clean"> }) {
+  return (
+    <ControlGroup label="Focused Clean">
+      <EventButton
+        event={{
+          draftRouteAddress: "/vault/nicu/noter",
+          kind: "path",
+          selectionRouteIndex: 17,
+          type: "draftChanged",
+        }}
+        send={send}
+      >
+        type /vault/nicu/noter
+      </EventButton>
+      <EventButton event={{ activeIndex: 0, type: "suggestionHighlighted" }} send={send}>
+        highlight suggestion 0
+      </EventButton>
+      <EventButton
+        event={{
+          activeIndex: 0,
+          metrics: {
+            bottomSpacerHeightPx: 56,
+            slateTopPx: 84,
+            topSpacerHeightPx: 56,
+          },
+          type: "touchPickerStarted",
+        }}
+        send={send}
+      >
+        start touch picker
+      </EventButton>
+      <EventButton event={{ type: "blur" }} send={send}>
+        blur
+      </EventButton>
+    </ControlGroup>
+  );
+}
+
+function FocusedEditingControls({ send }: { send: SendFor<"focused.editing"> }) {
+  return (
+    <ControlGroup label="Focused Editing">
+      <EventButton
+        event={{
+          draftRouteAddress: "/logo",
+          kind: "path",
+          selectionRouteIndex: 5,
+          type: "draftChanged",
+        }}
+        send={send}
+      >
+        type /logo
+      </EventButton>
+      <EventButton event={{ activeIndex: 0, type: "suggestionHighlighted" }} send={send}>
+        highlight suggestion 0
+      </EventButton>
+      <EventButton
+        event={{
+          activeIndex: 0,
+          draftRouteAddress: "/logo",
+          previewBaseHref: "/visual-fixture?mode=route-url-editor",
+          type: "suggestionPreviewed",
+        }}
+        send={send}
+      >
+        preview /logo
+      </EventButton>
+      <EventButton
+        event={{
+          draftRouteAddress: "/logo?from=route-url-editor",
+          type: "suggestionSelected",
+        }}
+        send={send}
+      >
+        select route-search suggestion
+      </EventButton>
+      <EventButton
+        event={{
+          activeIndex: 1,
+          metrics: {
+            bottomSpacerHeightPx: 72,
+            slateTopPx: 112,
+            topSpacerHeightPx: 72,
+          },
+          type: "touchPickerStarted",
+        }}
+        send={send}
+      >
+        start touch picker
+      </EventButton>
+      <EventButton event={{ type: "escapePressed" }} send={send}>
+        escape
+      </EventButton>
+      <EventButton event={{ type: "blur" }} send={send}>
+        blur
+      </EventButton>
+    </ControlGroup>
+  );
+}
+
+function FocusedPreviewingControls({ send }: { send: SendFor<"focused.previewing"> }) {
+  return (
+    <ControlGroup label="Focused Previewing">
+      <EventButton
+        event={{
+          draftRouteAddress: "/logo?from=route-url-editor",
+          type: "suggestionSelected",
+        }}
+        send={send}
+      >
+        commit selected suggestion
+      </EventButton>
+      <EventButton
+        event={{
+          draftRouteAddress: "/logo/raster",
+          kind: "path",
+          selectionRouteIndex: 12,
+          type: "draftChanged",
+        }}
+        send={send}
+      >
+        edit preview draft
+      </EventButton>
+      <EventButton event={{ type: "escapePressed" }} send={send}>
+        escape to editing
+      </EventButton>
+      <EventButton event={{ type: "blur" }} send={send}>
+        blur
+      </EventButton>
+    </ControlGroup>
+  );
+}
+
+function FocusedTouchPickingControls({ send }: { send: SendFor<"focused.touchPicking"> }) {
+  return (
+    <ControlGroup label="Focused Touch Picking">
+      <EventButton
+        event={{ draftRouteAddress: "/pricing", type: "touchPickerPreviewed" }}
+        send={send}
+      >
+        touch preview /pricing
+      </EventButton>
+      <EventButton
+        event={{
+          draftRouteAddress: "/pricing",
+          previewBaseHref: "/visual-fixture?mode=route-url-editor",
+          type: "touchPickerCommitted",
+        }}
+        send={send}
+      >
+        commit touch preview
+      </EventButton>
+      <EventButton event={{ type: "touchPickerCanceled" }} send={send}>
+        cancel picker
+      </EventButton>
+      <EventButton event={{ type: "escapePressed" }} send={send}>
+        escape
+      </EventButton>
+      <EventButton event={{ type: "blur" }} send={send}>
+        blur
+      </EventButton>
+    </ControlGroup>
+  );
+}
+
+function StateSpecificControls({
+  send,
+  state,
+}: {
+  send: (event: MachineEvent) => void;
+  state: MachineState;
+}) {
+  switch (state.kind) {
+    case "blurred":
+      return <BlurredControls send={send} />;
+    case "focused.clean":
+      return <FocusedCleanControls send={send} />;
+    case "focused.editing":
+      return <FocusedEditingControls send={send} />;
+    case "focused.previewing":
+      return <FocusedPreviewingControls send={send} />;
+    case "focused.touchPicking":
+      return <FocusedTouchPickingControls send={send} />;
+  }
+  state satisfies never;
+  return null;
+}
+
+function getStatePillClassName(state: MachineState): string {
+  switch (state.kind) {
+    case "blurred":
+      return "border-muted-foreground/30 bg-muted px-2 py-1 text-xs text-muted-foreground";
+    case "focused.clean":
+      return "border-emerald-600/30 bg-emerald-50 px-2 py-1 text-xs text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100";
+    case "focused.editing":
+      return "border-blue-600/30 bg-blue-50 px-2 py-1 text-xs text-blue-900 dark:bg-blue-950 dark:text-blue-100";
+    case "focused.previewing":
+      return "border-amber-600/30 bg-amber-50 px-2 py-1 text-xs text-amber-950 dark:bg-amber-950 dark:text-amber-100";
+    case "focused.touchPicking":
+      return "border-pink-600/30 bg-pink-50 px-2 py-1 text-xs text-pink-950 dark:bg-pink-950 dark:text-pink-100";
+  }
+  state satisfies never;
+  return "border-muted-foreground/30 bg-muted px-2 py-1 text-xs text-muted-foreground";
+}
+
+function readRouteUrlEditorResearchDraft(state: MachineState): string {
+  switch (state.kind) {
+    case "blurred":
+    case "focused.clean":
+    case "focused.editing":
+    case "focused.previewing":
+    case "focused.touchPicking":
+      return state.draftRouteAddress;
+  }
+  state satisfies never;
+  return "";
+}
+
+function readRouteUrlEditorResearchCurrentHref(state: MachineState): string {
+  switch (state.kind) {
+    case "blurred":
+    case "focused.clean":
+    case "focused.editing":
+    case "focused.previewing":
+    case "focused.touchPicking":
+      return state.currentHref;
+  }
+  state satisfies never;
+  return "";
+}
+
+function readResearchActiveIndex(state: MachineState): number | null {
+  switch (state.kind) {
+    case "blurred":
+      return null;
+    case "focused.clean":
+    case "focused.editing":
+      return state.suggestion.activeIndex;
+    case "focused.previewing":
+    case "focused.touchPicking":
+      return state.suggestion.activeIndex;
+  }
+  state satisfies never;
+  return null;
+}
+
+function RouteUrlEditorResearchSurface({ state }: { state: MachineState }) {
+  const draft = readRouteUrlEditorResearchDraft(state);
+  const currentHref = readRouteUrlEditorResearchCurrentHref(state);
+  const activeIndex = readResearchActiveIndex(state);
+  const inputClassName =
+    state.kind === "blurred"
+      ? "flex min-h-8 min-w-0 flex-1 items-center bg-muted px-2 font-mono text-base leading-8 text-muted-foreground"
+      : "flex min-h-8 min-w-0 flex-1 items-center bg-background px-2 font-mono text-base leading-8 text-foreground ring-1 ring-ring";
+
+  return (
+    <section className="grid gap-3" data-testid="route-url-editor-state-machine-surface">
+      <div className="flex min-w-0 items-center gap-2 border bg-background p-2">
+        <span className={getStatePillClassName(state)}>{state.kind}</span>
+        <div className={inputClassName}>
+          <span className="shrink-0 text-muted-foreground">http://localhost:43120</span>
+          <span className="min-w-0 truncate">{draft}</span>
+        </div>
+      </div>
+      <div className="grid gap-1 text-xs text-muted-foreground">
+        <div className="font-mono">current: {currentHref}</div>
+        <div className="font-mono">
+          active suggestion: {activeIndex === null ? "none" : activeIndex}
+        </div>
+      </div>
+      {state.kind === "focused.touchPicking" ? (
+        <div className="border bg-muted p-2 text-xs text-muted-foreground">
+          touch slate top {state.touchScrollPickerMetrics.slateTopPx}px, pending preview{" "}
+          {state.pendingPreviewDraftRouteAddress ?? "none"}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function RouteUrlEditorStateMachineResearchPage() {
+  const [pageState, dispatchPage] = useReducer(
+    reduceResearchPageState,
+    undefined,
+    createInitialResearchPageState,
+  );
+  const formattedMachineState = useMemo(
+    () => JSON.stringify(pageState.machine, null, 2),
+    [pageState.machine],
+  );
+  const formattedStoreState = useMemo(
+    () => JSON.stringify(replayStoreState(pageState.events), null, 2),
+    [pageState.events],
+  );
+  const formattedEvents = useMemo(
+    () => JSON.stringify(pageState.events, null, 2),
+    [pageState.events],
+  );
+  const mermaidTransitions = useMemo(renderRouteUrlEditorMermaidTransitions, []);
+  const send = (event: MachineEvent) => {
+    dispatchPage({ event, type: "send" });
+  };
+
+  const controlsContent = (
+    <div className="grid gap-4 p-3">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-8 rounded-none"
+        onClick={() => dispatchPage({ type: "reset" })}
+      >
+        Reset
+      </Button>
+      <StateSpecificControls send={send} state={pageState.machine} />
+    </div>
+  );
+
+  return (
+    <main className="grid min-h-screen gap-4 bg-background p-4 text-foreground lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <aside className="min-w-0 border bg-background">{controlsContent}</aside>
+      <div className="grid min-w-0 gap-4">
+        <RouteUrlEditorResearchSurface state={pageState.machine} />
+        <Textarea
+          readOnly
+          value={formattedMachineState}
+          data-testid="route-url-editor-state-machine-json"
+          className="min-h-80 resize-y rounded-none font-mono text-sm"
+        />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Textarea
+            readOnly
+            value={formattedStoreState}
+            aria-label="Current store-shaped replay state"
+            data-testid="route-url-editor-state-machine-store-json"
+            className="min-h-64 resize-y rounded-none font-mono text-sm"
+          />
+          <Textarea
+            readOnly
+            value={formattedEvents}
+            data-testid="route-url-editor-state-machine-events"
+            className="min-h-64 resize-y rounded-none font-mono text-sm"
+          />
+          <Textarea
+            readOnly
+            value={mermaidTransitions}
+            data-testid="route-url-editor-state-machine-mermaid"
+            className="min-h-64 resize-y rounded-none font-mono text-sm"
+          />
+        </div>
+      </div>
+    </main>
+  );
 }
