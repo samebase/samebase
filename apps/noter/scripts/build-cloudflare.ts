@@ -166,6 +166,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
+    ...(plan.kind === "deploy" ? { NOTER_PRERENDER_ORIGIN: "https://noter.md" } : {}),
   });
 }
 

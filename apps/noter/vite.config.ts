@@ -112,6 +112,24 @@ const runtimeNoterConnectConfigPath = path.resolve(
 );
 const spaShellOutputPath = "/index";
 const publicPrerenderPages = readPublicPrerenderPages();
+const prerenderHeaders = readPrerenderHeaders(process.env.NOTER_PRERENDER_ORIGIN);
+
+function readPrerenderHeaders(originValue: string | undefined) {
+  const origin = originValue?.trim();
+  if (!origin) {
+    return undefined;
+  }
+
+  const url = new URL(origin);
+  if (url.pathname !== "/" || url.search || url.hash || url.username || url.password) {
+    throw new Error("NOTER_PRERENDER_ORIGIN must be an origin, for example https://example.com.");
+  }
+
+  return {
+    "x-forwarded-host": url.host,
+    "x-forwarded-proto": url.protocol.replace(/:$/, ""),
+  };
+}
 
 function isLoopbackHostname(hostname: string): boolean {
   return (
@@ -551,6 +569,7 @@ export default defineConfig({
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
         enabled: true,
+        ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
       },
       spa: {
         enabled: true,

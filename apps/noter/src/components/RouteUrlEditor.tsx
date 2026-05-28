@@ -1769,7 +1769,6 @@ export function RouteUrlEditor() {
         onMouseUp={syncSuggestionSelectionFromInputAndOpenSearch}
         onSelect={syncSuggestionSelectionFromInput}
         spellCheck={false}
-        suppressHydrationWarning
         style={{ textIndent: `-${origin.length}ch` }}
         title={routeInputTitle}
         type="text"
