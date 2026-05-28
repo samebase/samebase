@@ -15,7 +15,7 @@ type ConvexDeployPlan =
       kind: "deploy";
       deployKey: string;
       deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY;
-      prerenderOrigin: typeof NOTER_PUBLIC_ORIGIN;
+      prerenderOrigin: string;
       routeSurface: BuildRouteSurface;
       args: readonly string[];
     }
@@ -23,11 +23,13 @@ type ConvexDeployPlan =
       kind: "previewDeploy";
       deployKey: string;
       deployKeyName: typeof PREVIEW_CONVEX_DEPLOY_KEY;
+      prerenderOrigin: string | null;
       routeSurface: BuildRouteSurface;
       args: readonly string[];
     }
   | {
       kind: "frontendOnly";
+      prerenderOrigin: string | null;
       routeSurface: BuildRouteSurface;
     };
 
@@ -82,6 +84,11 @@ function readDeployKey(args: {
   );
 }
 
+function readPrerenderOriginEnv(env: NodeJS.ProcessEnv): string | null {
+  const origin = env[NOTER_PRERENDER_ORIGIN]?.trim();
+  return origin ? origin : null;
+}
+
 export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan {
   if (isPagesBuild(env)) {
     throw new Error(
@@ -111,7 +118,11 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       );
     }
 
-    return { kind: "frontendOnly", routeSurface: "local" };
+    return {
+      kind: "frontendOnly",
+      prerenderOrigin: readPrerenderOriginEnv(env),
+      routeSurface: "local",
+    };
   }
 
   if (branch !== "main") {
@@ -123,6 +134,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
         branch,
         deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
       }),
+      prerenderOrigin: readPrerenderOriginEnv(env),
       routeSurface: "preview",
       args: [
         "exec",
@@ -170,7 +182,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_NOTER_ROUTE_SURFACE]: plan.routeSurface,
-    ...(plan.kind === "deploy" ? { [NOTER_PRERENDER_ORIGIN]: plan.prerenderOrigin } : {}),
+    ...(plan.prerenderOrigin ? { [NOTER_PRERENDER_ORIGIN]: plan.prerenderOrigin } : {}),
   });
 }
 
