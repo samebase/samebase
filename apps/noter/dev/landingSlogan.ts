@@ -1,46 +1,37 @@
 import { readFileSync } from "node:fs";
 import { parseLandingSlogans } from "../src/lib/landingSlogans";
 
-declare global {
-  var noterBuildSelectedLandingSlogan: string | undefined;
-}
-
 type BuildLandingSlogans = readonly [string, ...string[]];
 
 export function selectBuildLandingSlogan({
-  random,
+  buildSeed,
   slogans,
 }: {
-  random: () => number;
+  buildSeed: string;
   slogans: BuildLandingSlogans;
 }): string {
-  const index = Math.floor(random() * slogans.length);
-  const selectedSlogan = slogans[index];
+  const selectedIndex = hashBuildSeed(buildSeed) % slogans.length;
 
-  if (!selectedSlogan) {
-    throw new Error(`Landing slogan selection produced invalid index ${index}.`);
+  for (const [index, slogan] of slogans.entries()) {
+    if (index === selectedIndex) {
+      return slogan;
+    }
   }
 
-  return selectedSlogan;
+  throw new Error(`Landing slogan selection produced invalid index ${selectedIndex}.`);
 }
 
 export function readBuildLandingSlogan({
-  random,
+  buildSeed,
   slogansPath,
 }: {
-  random: () => number;
+  buildSeed: string;
   slogansPath: string;
 }): string {
-  if (globalThis.noterBuildSelectedLandingSlogan) {
-    return globalThis.noterBuildSelectedLandingSlogan;
-  }
-
-  const selectedSlogan = selectBuildLandingSlogan({
-    random,
+  return selectBuildLandingSlogan({
+    buildSeed,
     slogans: readBuildLandingSlogans(slogansPath),
   });
-  globalThis.noterBuildSelectedLandingSlogan = selectedSlogan;
-  return selectedSlogan;
 }
 
 function readBuildLandingSlogans(slogansPath: string): BuildLandingSlogans {
@@ -54,4 +45,14 @@ function readBuildLandingSlogans(slogansPath: string): BuildLandingSlogans {
   }
 
   return [firstSlogan, ...slogans.slice(1)];
+}
+
+function hashBuildSeed(buildSeed: string): number {
+  let hash = 0;
+
+  for (const character of buildSeed) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+
+  return hash;
 }

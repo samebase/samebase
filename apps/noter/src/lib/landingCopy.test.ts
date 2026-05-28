@@ -25,8 +25,4 @@ describe("landingCopy", () => {
     expect(landingPageSlogan.length).toBeGreaterThan(0);
     expect(landingPageMarkdown).toBe(buildLandingPageMarkdown(landingPageSlogan));
   });
-
-  it("fails when the build-selected slogan is missing", async () => {
-    await expect(import("./landingCopy")).rejects.toThrow("Missing build-selected landing slogan");
-  });
 });

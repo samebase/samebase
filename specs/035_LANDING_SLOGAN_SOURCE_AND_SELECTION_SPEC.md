@@ -63,15 +63,15 @@ Initial file content:
 
 ## Selection Strategy
 
-The current implementation selects randomly once for the app build:
+The current implementation selects one slogan from the app build identity:
 
 1. Read slogans from `slogans.md`.
 2. Parse Markdown bullet items (`- slogan`) into a slogan array.
 3. Fail the build if no slogans are available.
-4. Select `slogans[floor(Math.random() * slogans.length)]` inside Vite config/build code.
-5. Cache that selected slogan for the build process so client, SSR, and prerender passes agree.
-6. Inject the selected slogan into the app bundle as a build constant.
-7. Render all SPA and prerendered landing surfaces from that same build constant.
+4. Hash the app build identity and select `slogans[hash % slogans.length]` inside Vite config/build
+   code.
+5. Inject the selected slogan into the app bundle as a build constant.
+6. Render all SPA and prerendered landing surfaces from that same build constant.
 
 The browser must not read `slogans.md`, run slogan selection, or refresh the slogan during
 hydration, reload, client navigation, or route-loader execution.

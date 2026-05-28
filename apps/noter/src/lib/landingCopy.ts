@@ -5,21 +5,7 @@ export const landingPageBullets = [
   "use Codex to ship small apps directly from your workspace",
 ] as const;
 
-function readLandingPageSlogan(): string {
-  if (typeof __LANDING_PAGE_SLOGAN__ !== "string") {
-    throw new Error("Missing build-selected landing slogan.");
-  }
-
-  const slogan = __LANDING_PAGE_SLOGAN__.trim();
-
-  if (!slogan) {
-    throw new Error("Build-selected landing slogan is empty.");
-  }
-
-  return slogan;
-}
-
-export const landingPageSlogan = readLandingPageSlogan();
+export const landingPageSlogan = __LANDING_PAGE_SLOGAN__;
 
 export function buildLandingPageMarkdown(slogan: string): string {
   return `## ${slogan}

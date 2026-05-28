@@ -104,8 +104,7 @@ const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
 });
 const browserConvexProxyPath = browserConvexProxyTarget ? BROWSER_CONVEX_PROXY_PATH : null;
 const landingPageSlogan = readBuildLandingSlogan({
-  // Visual tests compare rendered text, so Playwright builds pin the build-time selection.
-  random: process.env.PLAYWRIGHT === "1" ? () => 0 : Math.random,
+  buildSeed: process.env.PLAYWRIGHT === "1" ? "" : `${appCommitNumber ?? appCommit}`,
   slogansPath,
 });
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
