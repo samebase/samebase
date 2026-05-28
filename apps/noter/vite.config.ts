@@ -580,9 +580,6 @@ export default defineConfig({
         maskPath: "/terms/",
         prerender: {
           outputPath: spaShellOutputPath,
-          // SPA page headers replace global prerender headers before TanStack
-          // adds the shell header, so repeat the production origin headers.
-          ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
         },
       },
     }),
