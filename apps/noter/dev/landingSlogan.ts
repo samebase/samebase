@@ -11,14 +11,13 @@ export function selectBuildLandingSlogan({
   slogans: BuildLandingSlogans;
 }): string {
   const selectedIndex = hashBuildSeed(buildSeed) % slogans.length;
+  const selectedSlogan = slogans[selectedIndex];
 
-  for (const [index, slogan] of slogans.entries()) {
-    if (index === selectedIndex) {
-      return slogan;
-    }
+  if (!selectedSlogan) {
+    throw new Error(`Landing slogan selection produced invalid index ${selectedIndex}.`);
   }
 
-  throw new Error(`Landing slogan selection produced invalid index ${selectedIndex}.`);
+  return selectedSlogan;
 }
 
 export function readBuildLandingSlogan({
