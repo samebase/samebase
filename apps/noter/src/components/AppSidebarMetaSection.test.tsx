@@ -280,6 +280,65 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/");
   });
 
+  it("does not restore when a route-owned rail unmounts after reaching the preview target", async () => {
+    const harnessControls: { hideSidebar: (() => void) | null } = {
+      hideSidebar: null,
+    };
+
+    function RouteOwnedSidebarHarness() {
+      const [visible, setVisible] = React.useState(true);
+      harnessControls.hideSidebar = () => setVisible(false);
+
+      return (
+        <>
+          {visible ? <AppSidebarMetaSection side="right" /> : null}
+          <LocationProbe />
+        </>
+      );
+    }
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const mountedRoot = createRoot(rootElement);
+    root = mountedRoot;
+
+    await act(async () => {
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={["/home#noter"]}>
+          <RouteOwnedSidebarHarness />
+        </TestRouterProvider>,
+      );
+      await settleRouteUpdate();
+    });
+
+    const termsLink = [...rootElement.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!termsLink) {
+      throw new Error("Expected terms link.");
+    }
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    window.history.pushState(null, "", "/terms");
+    const hide = harnessControls.hideSidebar;
+    if (hide === null) {
+      throw new Error("Expected mounted sidebar harness.");
+    }
+
+    await act(async () => {
+      hide();
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+  });
+
   it("previews shared right rail links outside the landing route", async () => {
     const element = await renderSidebarMetaSection("/terms");
     const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(

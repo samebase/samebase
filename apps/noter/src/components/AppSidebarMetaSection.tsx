@@ -128,6 +128,10 @@ function readAppSidebarMetaAnchorHref(anchor: HTMLAnchorElement): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function readAppSidebarMetaLocationHref(location: Location): string {
+  return `${location.pathname}${location.search}${location.hash}`;
+}
+
 function shouldLetBrowserHandleClick(event: MouseEvent<HTMLAnchorElement>): boolean {
   return event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 }
@@ -219,7 +223,8 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
     navigateRouteHrefRef.current = navigateRouteHref;
   }, [currentHref, navigateRouteHref]);
 
-  // If a path preview unmounts this rail before pointer leave, restore the base URL.
+  // If a path preview unmounts this rail before pointer leave, restore unless the browser already
+  // reached the preview target and the next route owns the replacement rail.
   useEffect(
     () => () => {
       const preview = routePreviewRef.current;
@@ -228,6 +233,10 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
       }
 
       routePreviewRef.current = null;
+      if (readAppSidebarMetaLocationHref(window.location) === preview.targetHref) {
+        return;
+      }
+
       void navigateRouteHrefRef.current(preview.baseHref, true, currentHrefRef.current);
     },
     [],
