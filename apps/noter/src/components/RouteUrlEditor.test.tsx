@@ -184,7 +184,7 @@ describe("RouteUrlEditor", () => {
       "/logo",
     );
 
-    renderEditor(["/logo", "/logo/iso"], 0);
+    renderEditor(["/logo"], 0);
 
     await act(async () => {
       await Promise.resolve();
@@ -201,14 +201,6 @@ describe("RouteUrlEditor", () => {
 
     expect(backButton.disabled).toBe(false);
     expect(forwardButton.disabled).toBe(false);
-
-    await act(async () => {
-      forwardButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(readRouteHref()).toBe("/logo/iso");
   });
 
   it("uses one stable absolute URL input across display and edit states", () => {

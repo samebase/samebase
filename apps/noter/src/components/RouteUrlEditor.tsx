@@ -1,5 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { isObject } from "@samebase/sure";
 import { useQuery } from "convex/react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import {
@@ -100,15 +101,6 @@ type RouteUrlEditorHistoryIndexes = {
   forwardRouteHistoryIndex: number;
 };
 
-function pickRouteUrlEditorHistoryIndexes(
-  state: RouteUrlEditorStoreState,
-): RouteUrlEditorHistoryIndexes {
-  return {
-    currentRouteHistoryIndex: state.currentRouteHistoryIndex,
-    forwardRouteHistoryIndex: state.forwardRouteHistoryIndex,
-  };
-}
-
 function useCreateRouteUrlEditorStore(args: {
   currentHref: string;
   currentRouteHistoryIndex: number;
@@ -166,22 +158,6 @@ function useCreateRouteUrlEditorStore(args: {
         state.inputFocused === inputFocused ? state : { ...state, inputFocused },
       );
     },
-    syncRouteHistoryIndexes: (routeHistoryIndexes: RouteUrlEditorHistoryIndexes) => {
-      setState((state) => {
-        const forwardRouteHistoryIndex = Math.max(
-          routeHistoryIndexes.currentRouteHistoryIndex,
-          routeHistoryIndexes.forwardRouteHistoryIndex,
-        );
-        return state.currentRouteHistoryIndex === routeHistoryIndexes.currentRouteHistoryIndex &&
-          state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
-          ? state
-          : {
-              ...state,
-              currentRouteHistoryIndex: routeHistoryIndexes.currentRouteHistoryIndex,
-              forwardRouteHistoryIndex,
-            };
-      });
-    },
     setTouchScrollPickerEnabled: (touchScrollPickerEnabled: boolean) => {
       setState((state) =>
         state.touchScrollPickerEnabled === touchScrollPickerEnabled
@@ -207,9 +183,7 @@ function useCreateRouteUrlEditorStore(args: {
       ) => RouteUrlEditorHistoryIndexes,
     ) => {
       setState((state) => {
-        const routeHistoryIndexes = readNextRouteHistoryIndexes(
-          pickRouteUrlEditorHistoryIndexes(state),
-        );
+        const routeHistoryIndexes = readNextRouteHistoryIndexes(state);
         const forwardRouteHistoryIndex = Math.max(
           routeHistoryIndexes.currentRouteHistoryIndex,
           routeHistoryIndexes.forwardRouteHistoryIndex,
@@ -676,10 +650,6 @@ function readRouteUrlEditorExactSearch(args: {
   return nextSearch;
 }
 
-function isRouteUrlEditorHistoryStateRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function readRouteUrlEditorHistoryIndex(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -697,12 +667,12 @@ function readRouteUrlEditorPersistedHistoryIndexes(
   }
 
   const historyState: unknown = window.history.state;
-  if (!isRouteUrlEditorHistoryStateRecord(historyState)) {
+  if (!isObject(historyState)) {
     return fallback;
   }
 
   const persistedIndexes = historyState[routeUrlEditorHistoryIndexesStateKey];
-  if (!isRouteUrlEditorHistoryStateRecord(persistedIndexes)) {
+  if (!isObject(persistedIndexes)) {
     return fallback;
   }
 
@@ -734,7 +704,7 @@ function persistRouteUrlEditorHistoryIndexes(args: {
   }
 
   const historyState: unknown = window.history.state;
-  if (!isRouteUrlEditorHistoryStateRecord(historyState)) {
+  if (!isObject(historyState)) {
     return;
   }
 
@@ -747,7 +717,7 @@ function persistRouteUrlEditorHistoryIndexes(args: {
   };
   const currentIndexes = historyState[routeUrlEditorHistoryIndexesStateKey];
 
-  if (isRouteUrlEditorHistoryStateRecord(currentIndexes)) {
+  if (isObject(currentIndexes)) {
     const currentRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
       currentIndexes.currentRouteHistoryIndex,
     );
@@ -805,7 +775,6 @@ export function RouteUrlEditor() {
     setDraftRouteAddress,
     setInputFocused,
     setTouchScrollPickerEnabled,
-    syncRouteHistoryIndexes,
     syncTouchScrollPickerMetrics,
     updateRouteHistoryIndexes,
     updateSuggestionState,
@@ -915,7 +884,9 @@ export function RouteUrlEditor() {
 
     hydratedRouteHistoryIndexesRef.current = true;
     const syncPersistedRouteHistoryIndexes = () => {
-      syncRouteHistoryIndexes(readRouteUrlEditorPersistedHistoryIndexes(locationRouteHistoryIndex));
+      updateRouteHistoryIndexes(() =>
+        readRouteUrlEditorPersistedHistoryIndexes(locationRouteHistoryIndex),
+      );
     };
 
     syncPersistedRouteHistoryIndexes();
@@ -928,7 +899,7 @@ export function RouteUrlEditor() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [locationRouteHistoryIndex, syncRouteHistoryIndexes]);
+  }, [locationRouteHistoryIndex, updateRouteHistoryIndexes]);
 
   // If the user hard-refreshes, browser session history remains but TanStack
   // can restart its current index at zero; carry the app-history position on
