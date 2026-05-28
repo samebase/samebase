@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter landing/onboarding
-- Last updated: 2026-04-30
+- Last updated: 2026-05-28
 - Related files:
   - `apps/noter/src/routes/landing-preview.tsx`
   - `apps/noter/src/components/LandingMarkdownPreviewPage.tsx`
@@ -30,9 +30,10 @@ the subset Noter currently supports.
 
 The product intent is admin-only access. The app does not yet have the permission primitive needed
 to enforce admins separately from authenticated users, so the current temporary implementation must
-stay behind the authenticated app route boundary. It may be linked from authenticated app chrome so
-the operator can reach the preview easily, but it must not be linked from public unauthenticated
-navigation. Unauthenticated users should see the normal sign-in flow.
+stay behind the authenticated app route boundary. Operators can reach the preview through the URL
+editor's route suggestions, but authenticated sidebar chrome must not add a separate
+`/landing-preview` path link. Public unauthenticated navigation must not expose preview links.
+Unauthenticated users should see the normal sign-in flow.
 
 When admin permissions exist, `/landing-preview` must be narrowed to admins before any broader
 internal rollout. Do not treat logged-in access as the final authorization model for this route.
@@ -43,9 +44,9 @@ should not create its own separate `WorkspaceLayoutV2` provider or landing-only 
 
 The English README is the default preview. Localized README previews may use the `lang` query
 parameter, starting with `?lang=ro` for Romanian. While the current route is `/landing-preview`, the
-sidebar query-param shortcuts should expose a compact `?lang=ro` link. The authenticated dashboard
-path list should expose `/landing-preview` only; public unauthenticated navigation must not expose
-preview links.
+sidebar query-param shortcuts should expose a compact `?lang=ro` link. The URL editor path
+suggestion list should expose `/landing-preview` for authenticated operators only; sidebar path
+lists and public unauthenticated navigation must not expose preview links.
 
 ### Supported Markdown Subset
 

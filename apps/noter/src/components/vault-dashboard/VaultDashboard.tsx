@@ -6170,7 +6170,7 @@ export function VaultDashboard() {
       />
       {createControl}
       <div className="mt-auto">
-        <AppSidebarMetaSection showLandingPreviewLink side="right" />
+        <AppSidebarMetaSection side="right" />
       </div>
     </VaultDashboardSidebarContent>
   );
