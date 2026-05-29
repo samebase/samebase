@@ -1,12 +1,18 @@
-import { defaultClientConditions, defaultServerConditions, type ViteDevServer } from "vite";
+import {
+  defaultClientConditions,
+  defaultServerConditions,
+  type Plugin,
+  type ViteDevServer,
+} from "vite";
 import { defineConfig } from "vite-plus";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import typegpu from "unplugin-typegpu/vite";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import path from "path";
 import { execSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import { createCompactIdentitySvgMarkup } from "./src/components/compactIdentitySvgAsset";
@@ -119,8 +125,17 @@ const staticCompactIdentitySvgAssetPaths = [
   path.resolve(currentDir, "public/samebase-icon.svg"),
   path.resolve(currentDir, "public/install-icon.svg"),
 ];
-const spaShellOutputPath = "/index";
-const spaShellMaskPath = "/#__samebase-spa-shell";
+const ssrPrerenderPages = prerenderPages.map((page) =>
+  page.path === "/"
+    ? {
+        ...page,
+        prerender: {
+          ...page.prerender,
+          outputPath: "/index.html",
+        },
+      }
+    : page,
+);
 const prerenderHeaders = readPrerenderHeaders(process.env["SAMEBASE_PRERENDER_ORIGIN"]);
 
 function readPrerenderHeaders(originValue: string | undefined) {
@@ -357,6 +372,21 @@ function stripBrowserConvexProxyPrefix(requestPath: string): string {
   return strippedPath.length > 0 ? strippedPath : "/";
 }
 
+function removePrerenderRedirectsForSsrPlugin(): Plugin {
+  const redirectsOutputPath = path.resolve(currentDir, "dist/client/_redirects");
+
+  return {
+    name: "remove-prerender-redirects-for-ssr",
+    enforce: "post" as const,
+    generateBundle(_options, bundle) {
+      delete bundle["_redirects"];
+    },
+    writeBundle() {
+      rmSync(redirectsOutputPath, { force: true });
+    },
+  };
+}
+
 const browserConvexProxyServerConfig = (() => {
   const server: {
     port?: number;
@@ -410,20 +440,22 @@ export default defineConfig({
     syncStaticCompactIdentitySvgAssetsPlugin(),
     serveContentDocsMarkdownPlugin(),
     tailwindcss(),
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    removePrerenderRedirectsForSsrPlugin(),
     tanstackStart({
       router: {
         quoteStyle: "double",
         semicolons: true,
         virtualRouteConfig: "./src/routes.ts",
       },
-      pages: prerenderPages,
+      pages: ssrPrerenderPages,
       prerender: {
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
         enabled: true,
         ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
         onSuccess({ page, html }) {
-          const publicPrerenderPage = prerenderPages.find(
+          const publicPrerenderPage = ssrPrerenderPages.find(
             (candidate) => candidate.path === page.path,
           );
           if (!publicPrerenderPage) {
@@ -435,18 +467,6 @@ export default defineConfig({
             html,
             page: publicPrerenderPage,
           });
-        },
-      },
-      spa: {
-        enabled: true,
-        // wrangler.jsonc uses Cloudflare's single-page-application asset mode,
-        // and that mode serves /index.html for unknown app routes. TanStack
-        // Start defaults the SPA shell to /_shell.html, so emit it here
-        // instead. The hash marker keeps the shell request on the public root
-        // route while staying distinct from the explicit / prerender entry.
-        maskPath: spaShellMaskPath,
-        prerender: {
-          outputPath: spaShellOutputPath,
         },
       },
     }),
