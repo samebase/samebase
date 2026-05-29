@@ -43,10 +43,11 @@ For the public landing route, prefer SSG over request-time SSR and over a plain 
 hosting cheaper and operationally simpler than SSR while still giving exact `/` useful first-load
 HTML instead of waiting for the browser to boot the SPA before the headline appears.
 
-Keep the app universal enough that the same route and component tree can also run as Worker SSR on
-the stable `ssr` branch. Production staying SPA-first is a deploy-safety choice, not evidence that
-the app cannot render on the server. Browser-only compatibility code needed to preserve that choice
-belongs in small named isomorphic utilities, not scattered route or component guards.
+Keep the app universal enough that the same route and component tree can also run as request-time
+Worker SSR on the stable `ssr` branch. Production staying prerendered-SPA-first is a deploy-safety
+choice, not evidence that the app cannot render on the server. Browser-only compatibility code
+needed to preserve that choice belongs in small named isomorphic utilities, not scattered route or
+component guards.
 
 ## Target Stack
 
@@ -96,6 +97,10 @@ Workers Static Assets deploys only `dist/client`, and `apps/noter/public/_redire
 prerender aliases. Unknown app-route navigations use Workers' `single-page-application` fallback to
 the SPA shell at `/index.html`.
 
+This section describes the production branch. The stable `ssr` proof branch is request-time SSR and
+must remove this branch's `pages`, `prerender`, and `spa` TanStack Start options instead of trying
+to prerender the same static documents under the Cloudflare Vite plugin.
+
 Cloudflare Workers `_redirects` rules are first-match and are followed even when an asset exists, so
 the `_redirects` file must not include a broad `/*` fallback or generated-asset pass-through rules.
 Those routes caused deployed Workers to proxy hashed CSS and JavaScript requests to HTML. Keep
@@ -120,8 +125,23 @@ must come from the canonical React route tree, as specified in
 
 ### SSR And Data Boundaries
 
-The `ssr` branch exists to prove the same app can run with Worker SSR enabled by config-level
-change. Keep it rebased on the SPA-first branch and keep the SSR delta small.
+The `ssr` branch exists to prove the same app can run with request-time Worker SSR enabled by
+config-level change. Keep it rebased on the SPA-first branch and keep the SSR delta small.
+
+The SSR branch is not a second prerendered-SPA build. Its single config commit must:
+
+1. add `@cloudflare/vite-plugin` to `apps/noter/vite.config.ts` and register
+   `cloudflare({ viteEnvironment: { name: "ssr" } })`;
+2. remove the production branch's `pages`, `prerender`, and `spa` TanStack Start options, plus any
+   Vite config imports, constants, or helpers that only feed those options;
+3. add `"main": "@tanstack/react-start/server-entry"` and `"compatibility_flags": ["nodejs_compat"]`
+   to `apps/noter/wrangler.jsonc`; and
+4. remove the static-assets deploy block from `apps/noter/wrangler.jsonc`.
+
+Do not keep static prerendering enabled on the SSR branch. With the Cloudflare Vite plugin active,
+the copied `_redirects` file is applied during TanStack Start prerendering; the exact `/` rewrite
+can send the prerender request to `/_landing.html` before that output exists, causing the SSR branch
+build to fail with a `404` for `/`.
 
 Do not server-render browser-geometry-dependent workspace layout variants unless mobile and desktop
 produce the same HTML structure and only CSS changes the presentation. If exact server and client
@@ -155,7 +175,7 @@ Noter production itself.
 2. Replace the TanStack Router Vite plugin with the TanStack Start Vite plugin configured for SPA
    mode.
 3. Keep TanStack Start's SPA shell output at `/index.html` by configuring the installed plugin with
-   `spa.maskPath = "/pricing"` and `spa.prerender.outputPath = "/index"`. The non-default mask path
+   `spa.maskPath = "/terms/"` and `spa.prerender.outputPath = "/index"`. The non-default mask path
    prevents the shell prerender from sharing the root page's request path, and it must point at an
    existing route so the prerender request succeeds.
 4. Prerender the public landing route to `/_landing.html`, `/terms` to `/terms/index.html`, and
