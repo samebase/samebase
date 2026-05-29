@@ -3,6 +3,7 @@ import { buildRootHead } from "@/lib/rootHead";
 
 import {
   APP_PAGE_METADATA,
+  PROVIDERS_PAGE_METADATA,
   applyPageMetadata,
   resolveAppPageTitle,
   resolveNotFoundPageMetadata,
@@ -215,6 +216,13 @@ describe("page metadata", () => {
 
   it("returns a dedicated title for the machines route", () => {
     expect(resolveAppPageTitle("/machines")).toBe("Machines | noter");
+  });
+
+  it("returns private metadata for the providers route", () => {
+    expect(resolveAppPageTitle("/providers")).toBe("Providers | noter");
+    expect(resolvePageMetadata({ pathname: "/providers", isAuthenticated: true })).toEqual(
+      PROVIDERS_PAGE_METADATA,
+    );
   });
 
   it("keeps the public root metadata separate from the dashboard app metadata", () => {

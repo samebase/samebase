@@ -123,6 +123,10 @@ vi.mock("@/components/MachinesWorkspacePage", () => ({
   MachinesWorkspacePage: () => <div data-testid="machines-page">Machines page</div>,
 }));
 
+vi.mock("@/components/ProvidersPage", () => ({
+  ProvidersPage: () => <div data-testid="providers-page">Providers page</div>,
+}));
+
 vi.mock("@/components/MachineConnectPage", () => ({
   MachineConnectPage: () => <div data-testid="machine-connect-page">Machine connect page</div>,
 }));
@@ -599,6 +603,15 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="machines-page"]')?.textContent).toBe(
       "Machines page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders providers through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/providers");
+
+    expect(rootElement?.querySelector('[data-testid="providers-page"]')?.textContent).toBe(
+      "Providers page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

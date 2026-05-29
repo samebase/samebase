@@ -24,6 +24,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/indexDB");
     expect(suggestions).toContain("/landing-preview");
     expect(suggestions).toContain("/logo/transition/transforms");
+    expect(suggestions).toContain("/providers");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
@@ -64,6 +65,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/logo/svg");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
+    expect(suggestions).not.toContain("/providers");
     expect(suggestions).not.toContain("/research/codex-app-server");
     expect(suggestions).not.toContain("/vault/$");
   });

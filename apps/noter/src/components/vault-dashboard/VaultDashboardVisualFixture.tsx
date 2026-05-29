@@ -6,12 +6,10 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
-import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
-  VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
   VaultDashboardScrollTargetEndPadding,
@@ -1118,19 +1116,7 @@ function FixtureDashboardSidebarAccountClamp() {
             isSignOutPending={false}
             onSignOut={() => {}}
           />
-          <VaultDashboardProvidersSection
-            open={true}
-            onOpenChange={() => {}}
-            providerRows={[
-              {
-                key: "github",
-                icon: <GitHubLogoIcon className="h-4 w-4" />,
-                label: "GitHub",
-                status: "Connected as alexandria-super-long-github-operator (OAuth)",
-                actions: [],
-              },
-            ]}
-          />
+          <FixtureDashboardProvidersLink />
           <div className="mt-auto">
             <AppSidebarMetaSection side="right" />
           </div>
@@ -1155,7 +1141,7 @@ function FixtureDashboardCreateControl() {
             isSignOutPending={false}
             onSignOut={() => {}}
           />
-          <VaultDashboardProvidersSection open={true} onOpenChange={() => {}} providerRows={[]} />
+          <FixtureDashboardProvidersLink />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
             <Button className="w-full" asChild>
               <Link to={DASHBOARD_ROUTE} search={{ "new-app": true }}>
@@ -1181,6 +1167,19 @@ function FixtureDashboardCreateControl() {
       }
       mainContent={<VaultDashboardEmptyState logoRouteSearch={{}} />}
     />
+  );
+}
+
+function FixtureDashboardProvidersLink() {
+  return (
+    <div
+      className="vault-dashboard-sidebar-inset py-2"
+      data-testid="dashboard-sidebar-providers-link"
+    >
+      <Button variant="outline" className="w-full">
+        Providers
+      </Button>
+    </div>
   );
 }
 

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/root";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
+import { Route as providersRouteImport } from "./routes/providers";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
@@ -52,6 +53,11 @@ const testRoute = testRouteImport.update({
 const termsRoute = termsRouteImport.update({
   id: "/terms",
   path: "/terms",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const providersRoute = providersRouteImport.update({
+  id: "/providers",
+  path: "/providers",
   getParentRoute: () => rootRouteImport,
 } as any);
 const privacyRoute = privacyRouteImport.update({
@@ -159,12 +165,11 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
-const codexThreadBrowserResearchRoute =
-  codexThreadBrowserResearchRouteImport.update({
-    id: "/research/codex-app-server/browser",
-    path: "/research/codex-app-server/browser",
-    getParentRoute: () => rootRouteImport,
-  } as any);
+const codexThreadBrowserResearchRoute = codexThreadBrowserResearchRouteImport.update({
+  id: "/research/codex-app-server/browser",
+  path: "/research/codex-app-server/browser",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -175,12 +180,11 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoTransitionTransformsLabRoute =
-  logoTransitionTransformsLabRouteImport.update({
-    id: "/logo/transition/transforms",
-    path: "/logo/transition/transforms",
-    getParentRoute: () => rootRouteImport,
-  } as any);
+const logoTransitionTransformsLabRoute = logoTransitionTransformsLabRouteImport.update({
+  id: "/logo/transition/transforms",
+  path: "/logo/transition/transforms",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -199,6 +203,7 @@ export interface FileRoutesByFullPath {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/providers": typeof providersRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -230,6 +235,7 @@ export interface FileRoutesByTo {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/providers": typeof providersRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -262,6 +268,7 @@ export interface FileRoutesById {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/providers": typeof providersRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -295,6 +302,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/privacy"
+    | "/providers"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -326,6 +334,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/privacy"
+    | "/providers"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/privacy"
+    | "/providers"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -389,6 +399,7 @@ export interface RootRouteChildren {
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
+  providersRoute: typeof providersRoute;
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
@@ -430,6 +441,13 @@ declare module "@tanstack/react-router" {
       path: "/terms";
       fullPath: "/terms";
       preLoaderRoute: typeof termsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/providers": {
+      id: "/providers";
+      path: "/providers";
+      fullPath: "/providers";
+      preLoaderRoute: typeof providersRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/privacy": {
@@ -629,6 +647,7 @@ const rootRouteChildren: RootRouteChildren = {
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
+  providersRoute: providersRoute,
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,

@@ -22,23 +22,6 @@ const SCROLLABLE_OVERFLOW_VALUES = new Set(["auto", "scroll", "overlay"]);
 const VAULT_DASHBOARD_BRANCH_ROW_SELECTOR = "[data-vault-dashboard-branch-row]";
 const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
 
-export type VaultDashboardProviderActionViewModel = {
-  disabled?: boolean;
-  isPending?: boolean;
-  key: string;
-  label: string;
-  onClick?: () => void;
-  pendingLabel?: string;
-};
-
-export type VaultDashboardProviderRowViewModel = {
-  actions: readonly VaultDashboardProviderActionViewModel[];
-  icon: ReactNode;
-  key: string;
-  label: string;
-  status: string;
-};
-
 export type VaultDashboardAccountSectionProps = {
   dataTestId?: string;
   displayName: string;
@@ -90,8 +73,8 @@ export function VaultDashboardAccountSectionFrame({
 }
 
 /**
- * The account controls use the same section and row geometry as providers so
- * the right rail reads as one accordion stack.
+ * The account controls keep a compact row shape so long emails and provider
+ * labels wrap without widening the right rail.
  */
 export function VaultDashboardAccountSection({
   dataTestId,
@@ -154,97 +137,6 @@ export function VaultDashboardAccountSection({
         </div>
       </div>
     </VaultDashboardAccountSectionFrame>
-  );
-}
-
-export function VaultDashboardProvidersSection({
-  footer,
-  onOpenChange,
-  open,
-  providerRows,
-}: {
-  footer?: ReactNode;
-  onOpenChange: (isOpen: boolean) => void;
-  open: boolean;
-  providerRows: readonly VaultDashboardProviderRowViewModel[];
-}) {
-  return (
-    <div
-      data-testid="dashboard-sidebar-providers-section"
-      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
-    >
-      <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild nativeButton>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
-          >
-            <span>Providers</span>
-            <ChevronDownIcon className="h-4 w-4 transition-transform" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div data-testid="dashboard-shell-sidebar-panel" className="space-y-3">
-            {providerRows.map((providerRow) => (
-              <div key={providerRow.key} className="flex flex-wrap items-start gap-3">
-                <div
-                  data-provider-key={providerRow.key}
-                  data-testid="dashboard-sidebar-provider-row"
-                  className={SIDEBAR_ROW_CONTENT_CLASS}
-                >
-                  <div
-                    data-testid="dashboard-sidebar-provider-icon"
-                    className={SIDEBAR_ROW_ICON_CLASS}
-                  >
-                    {providerRow.icon}
-                  </div>
-                  <div
-                    data-testid="dashboard-sidebar-provider-text"
-                    className={SIDEBAR_ROW_TEXT_CLASS}
-                  >
-                    <div className="text-sm font-medium">{providerRow.label}</div>
-                    <div
-                      className={clsx(
-                        SIDEBAR_METADATA_TEXT_CLASS,
-                        "text-xs leading-5 text-muted-foreground",
-                      )}
-                      title={providerRow.status}
-                    >
-                      {providerRow.status}
-                    </div>
-                  </div>
-                </div>
-                {providerRow.actions.length > 0 ? (
-                  <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-                    {providerRow.actions.map((action) => (
-                      <Button
-                        key={action.key}
-                        variant="outline"
-                        size="sm"
-                        onClick={action.onClick}
-                        className="h-auto max-w-full whitespace-normal py-2 text-left"
-                        disabled={action.disabled}
-                      >
-                        {action.isPending ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            {action.pendingLabel ?? action.label}
-                          </>
-                        ) : (
-                          action.label
-                        )}
-                      </Button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            {footer}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
   );
 }
 

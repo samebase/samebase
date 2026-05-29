@@ -7,6 +7,7 @@ import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./landingMarkdownPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./noterSync";
+import { PROVIDERS_ROUTE } from "./providersRoute";
 
 export type PageMetadata = {
   title: string;
@@ -102,6 +103,14 @@ export const MACHINES_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const PROVIDERS_PAGE_METADATA: PageMetadata = {
+  title: "Providers | noter",
+  description: "Manage authenticated provider connections for noter.",
+  canonicalPath: PROVIDERS_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export const LOCAL_STORAGE_PAGE_METADATA: PageMetadata = {
   title: "localStorage | noter",
   description: "Browser localStorage diagnostic route for noter.",
@@ -171,6 +180,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return MACHINES_PAGE_METADATA.title;
   }
 
+  if (pathname === PROVIDERS_ROUTE) {
+    return PROVIDERS_PAGE_METADATA.title;
+  }
+
   if (pathname === LANDING_MARKDOWN_PREVIEW_ROUTE) {
     return LANDING_MARKDOWN_PREVIEW_PAGE_METADATA.title;
   }
@@ -220,6 +233,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === MACHINES_ROUTE) {
     return MACHINES_PAGE_METADATA;
+  }
+
+  if (args.pathname === PROVIDERS_ROUTE) {
+    return PROVIDERS_PAGE_METADATA;
   }
 
   if (args.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE) {

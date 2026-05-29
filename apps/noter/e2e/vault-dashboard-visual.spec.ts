@@ -207,18 +207,14 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expectInlinePadding(page.getByTestId("dashboard-sidebar-account-section"), "4px");
-  await expectInlinePadding(page.getByTestId("dashboard-sidebar-providers-section"), "4px");
+  await expectInlinePadding(page.getByTestId("dashboard-sidebar-providers-link"), "4px");
   await expectInlinePadding(page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID), "4px");
   await expectSidebarTextOwnsWrappedLine({
     iconTestId: "dashboard-sidebar-account-icon",
     row: page.getByTestId("dashboard-sidebar-account-row"),
     textTestId: "dashboard-sidebar-account-text",
   });
-  await expectSidebarTextOwnsWrappedLine({
-    iconTestId: "dashboard-sidebar-provider-icon",
-    row: page.getByTestId("dashboard-sidebar-provider-row").filter({ hasText: "GitHub" }),
-    textTestId: "dashboard-sidebar-provider-text",
-  });
+  await expect(page.getByTestId("dashboard-sidebar-providers-link")).toContainText("Providers");
   await expect(fixture).toHaveScreenshot("vault-sidebar-account-clamp.png", {
     animations: "disabled",
     caret: "hide",
@@ -257,7 +253,7 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, t
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   await expect(rightPane).toHaveCSS("width", "96px");
   await expectInlinePadding(page.getByTestId("dashboard-sidebar-account-section"), "4px");
-  await expectInlinePadding(page.getByTestId("dashboard-sidebar-providers-section"), "4px");
+  await expectInlinePadding(page.getByTestId("dashboard-sidebar-providers-link"), "4px");
   await expectInlinePadding(page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID), "4px");
   await expect
     .poll(() => rightPane.evaluate((pane) => pane.scrollWidth <= pane.clientWidth))
@@ -267,11 +263,7 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, t
     row: page.getByTestId("dashboard-sidebar-account-row"),
     textTestId: "dashboard-sidebar-account-text",
   });
-  await expectSidebarTextOwnsWrappedLine({
-    iconTestId: "dashboard-sidebar-provider-icon",
-    row: page.getByTestId("dashboard-sidebar-provider-row").filter({ hasText: "GitHub" }),
-    textTestId: "dashboard-sidebar-provider-text",
-  });
+  await expect(page.getByTestId("dashboard-sidebar-providers-link")).toContainText("Providers");
 
   await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-min.png", {
     animations: "disabled",

@@ -8,6 +8,7 @@ import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./lib/landingMarkdownPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/noterSync";
+import { PROVIDERS_ROUTE } from "./lib/providersRoute";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 
 /**
@@ -39,6 +40,7 @@ export const routes = rootRoute("root.tsx", [
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route(LANDING_MARKDOWN_PREVIEW_ROUTE, "landing-preview.tsx"),
   route(DASHBOARD_ROUTE, "dashboard-home.tsx"),
+  route(PROVIDERS_ROUTE, "providers.tsx"),
   route("/pricing", "pricing.tsx"),
   route("/add", "add-repository.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),

@@ -31,6 +31,7 @@ const noterRouteAccessMetadataByPath = {
   "/pitch/print": { permission: "admin" },
   "/pitch/print/mobile": { permission: "admin" },
   "/pricing": { permission: "admin" },
+  "/providers": { permission: "admin" },
   "/privacy": { permission: "public" },
   "/research/codex-app-server": { permission: "admin" },
   "/research/codex-app-server/browser": { permission: "admin" },
