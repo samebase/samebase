@@ -31,6 +31,7 @@ import {
 } from "./WorkspaceLayoutV2ResizeHandleConfigs";
 import { useWorkspaceLayoutV2MobileCarouselController } from "./useWorkspaceLayoutV2MobileCarousel";
 import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLayoutV2MobileResize";
+import { useWorkspaceLayoutV2KeyboardViewport } from "./useWorkspaceLayoutV2KeyboardViewport";
 
 type WorkspaceLayoutV2Props = {
   left?: ReactElement;
@@ -101,6 +102,10 @@ export function WorkspaceLayoutV2({
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
   } = useWorkspacePaneActions();
+  const keyboardViewportState = useWorkspaceLayoutV2KeyboardViewport({
+    isMobile,
+    viewportRef,
+  });
   const hasLeftPane = !!left;
   const hasRightPane = !!right;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
@@ -283,9 +288,19 @@ export function WorkspaceLayoutV2({
     >
       <div
         ref={viewportRef}
+        data-mobile-keyboard-open={keyboardViewportState === null ? undefined : "true"}
+        data-mobile-keyboard-inset={keyboardViewportState?.keyboardInsetPx.toString()}
         data-mobile-pane={mobilePane}
         data-workspace-layout-v2="responsive"
         className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
+        style={
+          keyboardViewportState === null
+            ? undefined
+            : {
+                height: `${keyboardViewportState.visibleHeightPx}px`,
+                maxHeight: `${keyboardViewportState.visibleHeightPx}px`,
+              }
+        }
       >
         <WorkspaceLayoutV2Viewport
           activeResizeSide={activeResizeSide}

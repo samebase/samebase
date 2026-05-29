@@ -34,6 +34,12 @@ let latestSetRenderedMobilePane: ((nextPane: WorkspaceSidebarState["mobilePane"]
 let testViewportWidthPx = VIEWPORT_WIDTH_PX;
 let testViewportHeightPx = VIEWPORT_HEIGHT_PX;
 
+type MockVisualViewport = EventTarget & {
+  height: number;
+  offsetTop: number;
+  width: number;
+};
+
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
   value: vi.fn((query: string) => ({
@@ -72,6 +78,7 @@ type RenderMobileLayoutArgs = {
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
   leftToggleVisibility?: "all" | "desktop" | "hidden";
+  mainContent?: React.ReactNode;
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePanePeekWidthPx?: number;
@@ -104,6 +111,7 @@ function renderMobileLayoutContent({
   includeLeftPane = true,
   includeRightPane = true,
   leftToggleVisibility,
+  mainContent = <div>main pane</div>,
   mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
   mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
@@ -113,12 +121,12 @@ function renderMobileLayoutContent({
     mainHeader === OMIT_HEADER
       ? {
           headerTestId: "workspace-layout-v2-main-header-row",
-          content: <div>main pane</div>,
+          content: mainContent,
         }
       : {
           header: mainHeader,
           headerTestId: "workspace-layout-v2-main-header-row",
-          content: <div>main pane</div>,
+          content: mainContent,
         };
 
   return (
@@ -208,6 +216,28 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
   return element;
 }
 
+function mockAnimationFrame() {
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  });
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+}
+
+function mockVisualViewport(): MockVisualViewport {
+  const visualViewport = Object.assign(new EventTarget(), {
+    height: VIEWPORT_HEIGHT_PX,
+    offsetTop: 0,
+    width: VIEWPORT_WIDTH_PX,
+  });
+  Object.defineProperty(window, "visualViewport", {
+    configurable: true,
+    value: visualViewport,
+  });
+
+  return visualViewport;
+}
+
 function expectMobilePaneSeparatorOwnership(
   root: ParentNode,
   activePane: "left" | "main" | "right",
@@ -253,6 +283,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     testViewportWidthPx = VIEWPORT_WIDTH_PX;
     testViewportHeightPx = VIEWPORT_HEIGHT_PX;
     latestSetRenderedMobilePane = null;
+    Reflect.deleteProperty(window, "visualViewport");
     if (root !== null) {
       const mountedRoot = root;
       act(() => {
@@ -262,6 +293,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     root = null;
     rootElement?.remove();
     rootElement = null;
+    vi.restoreAllMocks();
   });
 
   it("boots mobile routes onto the main pane by default", () => {
@@ -285,6 +317,82 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
     ).toBeNull();
+  });
+
+  it("shrinks the inner workspace viewport while the mobile keyboard covers a focused editor", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+    mockAnimationFrame();
+    const visualViewport = mockVisualViewport();
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          mainContent: (
+            <div data-testid="keyboard-editor" role="textbox" tabIndex={0}>
+              draft
+            </div>
+          ),
+        }),
+      );
+    });
+
+    const editor = getRequiredElement(rootElement, '[data-testid="keyboard-editor"]');
+    act(() => {
+      editor.focus();
+      editor.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    });
+    act(() => {
+      visualViewport.height = 520;
+      visualViewport.dispatchEvent(new Event("resize"));
+    });
+
+    const layout = getRequiredElement(rootElement, "[data-workspace-layout-v2]");
+    expect(layout.getAttribute("data-mobile-pane")).toBe("main");
+    expect(layout.getAttribute("data-mobile-keyboard-open")).toBe("true");
+    expect(layout.getAttribute("data-mobile-keyboard-inset")).toBe("324");
+    expect(layout.style.height).toBe("520px");
+    expect(layout.style.maxHeight).toBe("520px");
+  });
+
+  it("clears the mobile keyboard viewport clamp when the visual viewport recovers", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+    mockAnimationFrame();
+    const visualViewport = mockVisualViewport();
+
+    act(() => {
+      mountedRoot.render(
+        renderMobileLayout({
+          mainContent: <textarea data-testid="keyboard-editor" defaultValue="draft" />,
+        }),
+      );
+    });
+
+    const editor = getRequiredElement(rootElement, '[data-testid="keyboard-editor"]');
+    act(() => {
+      editor.focus();
+      editor.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      visualViewport.height = 520;
+      visualViewport.dispatchEvent(new Event("resize"));
+    });
+
+    const layout = getRequiredElement(rootElement, "[data-workspace-layout-v2]");
+    expect(layout.getAttribute("data-mobile-keyboard-open")).toBe("true");
+
+    act(() => {
+      visualViewport.height = VIEWPORT_HEIGHT_PX;
+      visualViewport.dispatchEvent(new Event("resize"));
+    });
+
+    expect(layout.getAttribute("data-mobile-keyboard-open")).toBeNull();
+    expect(layout.getAttribute("data-mobile-keyboard-inset")).toBeNull();
+    expect(layout.style.height).toBe("");
+    expect(layout.style.maxHeight).toBe("");
   });
 
   it("boots mobile routes onto the persisted pane when one is provided", () => {

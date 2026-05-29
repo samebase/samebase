@@ -854,6 +854,7 @@ export type TrackedFilePath =
   | "apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Viewports.tsx"
   | "apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx"
   | "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface.ts"
+  | "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2KeyboardViewport.ts"
   | "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MemorySidebarController.ts"
   | "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileCarousel.ts"
   | "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts"
