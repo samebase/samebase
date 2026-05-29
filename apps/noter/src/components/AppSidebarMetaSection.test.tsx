@@ -323,6 +323,48 @@ describe("AppSidebarMetaSection", () => {
     expect(devLink.getAttribute("aria-label")).toBe("?dev-");
   });
 
+  it("keeps query preview targets stable when the previewed toggle re-enters", async () => {
+    const element = await renderSidebarMetaSection("/?dev&light");
+    const darkLink = element.querySelector<HTMLAnchorElement>("#public-landing-theme-dark-toggle");
+    if (!darkLink) {
+      throw new Error("Expected public landing dark shortcut.");
+    }
+
+    await act(async () => {
+      darkLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationHref()).toBe("/?dev&dark");
+
+    const previewDarkLink = element.querySelector<HTMLAnchorElement>(
+      "#public-landing-theme-dark-toggle",
+    );
+    if (!previewDarkLink) {
+      throw new Error("Expected public landing dark shortcut after preview.");
+    }
+
+    await act(async () => {
+      previewDarkLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationHref()).toBe("/?dev&dark");
+
+    await act(async () => {
+      previewDarkLink.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationHref()).toBe("/?dev&dark");
+  });
+
   it("previews and restores landing path links on hover", async () => {
     const element = await renderSidebarMetaSection();
     const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
