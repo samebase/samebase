@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { AppWorkspaceShell } from "./AppWorkspaceShell";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
@@ -21,20 +21,8 @@ vi.mock("@/components/RouteUrlEditor", () => ({
   RouteUrlEditor: () => <input data-testid="route-url-editor" readOnly value="/machines" />,
 }));
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-function stubBuildGlobals() {
-  vi.stubGlobal("__APP_COMMIT__", "test-commit");
-  vi.stubGlobal("__APP_COMMIT_NUMBER__", 1);
-  vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-}
-
 describe("AppWorkspaceShell", () => {
   it("server-renders route content inside the workspace layout", () => {
-    stubBuildGlobals();
-
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>
         <AppWorkspaceShell>
@@ -51,8 +39,6 @@ describe("AppWorkspaceShell", () => {
   });
 
   it("bounds the workspace shell to the root height instead of a viewport-unit height", () => {
-    stubBuildGlobals();
-
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>
         <AppWorkspaceShell>

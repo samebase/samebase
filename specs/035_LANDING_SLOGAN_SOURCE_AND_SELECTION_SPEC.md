@@ -1,41 +1,48 @@
-# 035 Landing Slogan Source And Selection Spec
+# 035 Landing Slogan Source And Build-Time Selection Spec
 
 ## Document Control
 
-- Status: Proposed
+- Status: Accepted
 - Owner: Noter product
-- Last updated: 2026-03-04
+- Last updated: 2026-05-29
 - Related files:
   - `slogans.md`
-  - `apps/noter/src/SignInForm.tsx`
-  - `TODO.md`
+  - `apps/noter/dev/landingSlogan.ts`
+  - `apps/noter/vite.config.ts`
+  - `apps/noter/src/lib/noterBuildConfig.ts`
+  - `apps/noter/src/lib/landingCopy.ts`
+  - `specs/102_NOTER_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
 
 ## Summary
 
 Define a markdown-first source of truth for landing slogans so copy can be updated without touching
-code, and select a random slogan for each separate landing request in the sign-in view.
+app code, and select one slogan during the static build/prerender step.
 
 ## Why This Spec Exists
 
-Landing copy should be easy to evolve. Right now, the headline is hard-coded. We want slogan
-management to be content-first:
+Landing copy should be easy to evolve. The headline variants live as content, while production
+selection happens at build time:
 
 1. edit one markdown file,
 2. keep slogans short and memorable,
-3. pick one slogan at random for each request.
+3. pick one slogan for the generated landing HTML.
+
+This supersedes the older per-request slogan rotation. Static Site Generation is the intended middle
+ground for the public landing route: cheaper than request-time SSR, but faster on first load than a
+basic SPA shell because exact `/` has useful prerendered HTML.
 
 ## Goals
 
-1. Keep slogans in a single markdown file with one slogan per line.
+1. Keep slogans in a single markdown file with one slogan per Markdown bullet.
 2. Make slogan updates possible with no code changes.
-3. Select one slogan at random for each separate request.
-4. Preserve the existing landing headline as one of the options.
+3. Select one slogan at build/prerender time.
 
 ## Non-Goals (This Step)
 
 1. Building admin UI for slogan editing.
 2. Per-user targeting of slogan variants.
 3. Dynamic runtime editing from the browser UI.
+4. Browser-refresh or client-navigation slogan rotation.
 
 ## Source Of Truth
 
@@ -48,28 +55,30 @@ Format contract:
 3. Empty lines are ignored by parser logic.
 4. Keep slogans concise; target 3-7 words when possible.
 
-Initial file content:
+## Selection Strategy
 
-1. `- Noter is a collaborative markdown workspace on top of GitHub`
-2. `- Junior devs, senior stack`
-3. `- If Notion and Obsidian had a baby`
-
-## Selection Strategy (Implemented)
-
-The current implementation selects randomly per request:
+The current implementation selects one slogan from the app build identity:
 
 1. Read slogans from `slogans.md`.
 2. Parse Markdown bullet items (`- slogan`) into a slogan array.
-3. Select `slogans[floor(Math.random() * slogans.length)]`.
+3. Fail the build if no slogans are available.
+4. Hash the app build identity and select `slogans[hash % slogans.length]` inside Vite config/build
+   code.
+5. Inject the selected slogan into the app bundle through the typed build config constant.
+6. Render all SPA and prerendered landing surfaces from that same build constant.
+
+The browser must not read `slogans.md`, run slogan selection, or refresh the slogan during
+hydration, reload, client navigation, or route-loader execution.
 
 ## UX Constraints
 
-1. Slogan changes must not require deploy-time code edits.
+1. Slogan changes must not require app code edits.
 2. Landing should still work if file has one slogan.
-3. If parsing fails, fall back to current static headline.
+3. If the file has no usable slogan lines, fail the build.
 
 ## Acceptance Criteria
 
 1. A non-technical edit to `slogans.md` can add/remove slogans.
 2. The file contains only line-based slogans and stays human-readable.
-3. Landing integration can be implemented later without changing file format.
+3. The selected slogan varies between builds, not between browser refreshes.
+4. The SPA runtime uses the same selected slogan as the prerendered exact-root HTML.

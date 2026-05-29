@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { DEFAULT_LANDING_SLOGAN } from "@/lib/landingSlogans";
 import {
   buildLandingPageMarkdown,
   landingPageBullets,
   landingPageMarkdown,
-  landingPageSlogans,
-  selectLandingPageMarkdown,
+  landingPageSlogan,
 } from "./landingCopy";
 
 describe("landingCopy", () => {
@@ -18,14 +16,8 @@ describe("landingCopy", () => {
     }
   });
 
-  it("keeps the module default deterministic for SSR-safe fallbacks", () => {
-    expect(landingPageMarkdown).toBe(buildLandingPageMarkdown(DEFAULT_LANDING_SLOGAN));
-  });
-
-  it("selects request markdown from the caller-provided random source", () => {
-    const firstMarkdown = selectLandingPageMarkdown(() => 0);
-    const selectedSlogan = landingPageSlogans[0] ?? DEFAULT_LANDING_SLOGAN;
-
-    expect(firstMarkdown).toContain(`## ${selectedSlogan}`);
+  it("uses the build-selected slogan for runtime copy", () => {
+    expect(landingPageSlogan).toBe("test landing slogan");
+    expect(landingPageMarkdown).toBe(buildLandingPageMarkdown("test landing slogan"));
   });
 });

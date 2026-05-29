@@ -39,6 +39,10 @@ Use TanStack Start in SPA mode for the first production migration. Do not add SS
 or Worker runtime handlers in this phase. Noter already uses Convex for application state and
 browser-side auth flows, so the Worker can serve static assets only.
 
+For the public landing route, prefer SSG over request-time SSR and over a plain SPA shell. SSG keeps
+hosting cheaper and operationally simpler than SSR while still giving exact `/` useful first-load
+HTML instead of waiting for the browser to boot the SPA before the headline appears.
+
 Keep the app universal enough that the same route and component tree can also run as Worker SSR on
 the stable `ssr` branch. Production staying SPA-first is a deploy-safety choice, not evidence that
 the app cannot render on the server. Browser-only compatibility code needed to preserve that choice
@@ -102,10 +106,13 @@ Disable Workers Static Assets `html_handling` for this deploy shape. The `_redir
 explicit `.html` files, and the default HTML handling redirects those targets back to extensionless
 paths before the proxy can serve the intended asset.
 
-The landing slogan list remains dynamic in source. The prerender step selects one slogan during the
-build render, so the deployed exact-root SSG asset varies per build rather than per browser refresh.
-Changing that back to per-request randomness requires request-time SSR; changing it to client-only
-mutation would risk hydration or layout movement.
+The landing slogan list remains dynamic in source. The build/prerender step selects one slogan
+during the build, so the deployed exact-root SSG asset varies per build rather than per browser
+refresh. The selection is derived from the app build identity and injected through the typed build
+config constant so the client bundle and prerendered HTML agree. The SPA runtime uses the same
+build-selected slogan and must not rerun slogan selection in route loaders, hydration, client
+navigation, or browser refreshes. Changing that back to per-request randomness requires request-time
+SSR; changing it to client-only mutation would risk hydration or layout movement.
 
 Do not replace this with copied static shell markup. Public, legal, static, or prerendered output
 must come from the canonical React route tree, as specified in

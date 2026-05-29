@@ -17,11 +17,14 @@ import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
+import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
+import type { NoterBuildConfig } from "./src/lib/noterBuildConfig";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
 const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
+const slogansPath = path.resolve(gitRoot, "slogans.md");
 const BROWSER_CONVEX_PROXY_PATH = "/__noter_convex_proxy";
 const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
@@ -101,6 +104,17 @@ const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
   localEnvConvexUrl: readEnvFileValue(localEnvPath, "VITE_CONVEX_URL"),
 });
 const browserConvexProxyPath = browserConvexProxyTarget ? BROWSER_CONVEX_PROXY_PATH : null;
+const landingPageSlogan = readBuildLandingSlogan({
+  buildSeed: process.env.PLAYWRIGHT === "1" ? "" : `${appCommitNumber ?? appCommit}`,
+  slogansPath,
+});
+const noterBuildConfig: NoterBuildConfig = {
+  appCommit,
+  appCommitNumber,
+  appRepoUrl,
+  browserConvexProxyPath,
+  landingPageSlogan,
+};
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
 const staticInstallIconSvgAssetPath = path.resolve(currentDir, "public/install-icon.svg");
 const noterSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/noter.ts");
@@ -544,10 +558,7 @@ const browserConvexProxyServerConfig = (() => {
 // https://vitejs.dev/config/
 export default defineConfig({
   define: {
-    __APP_COMMIT__: JSON.stringify(appCommit),
-    __APP_COMMIT_NUMBER__: JSON.stringify(appCommitNumber),
-    __APP_REPO_URL__: JSON.stringify(appRepoUrl),
-    __BROWSER_CONVEX_PROXY_PATH__: JSON.stringify(browserConvexProxyPath),
+    __NOTER_BUILD_CONFIG__: JSON.stringify(noterBuildConfig),
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
