@@ -259,6 +259,10 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
   );
 
   const restoreRoutePreview = useCallback(() => {
+    if (!routePreviewEnabled) {
+      return;
+    }
+
     const preview = routePreviewRef.current;
     if (preview === null) {
       return;
@@ -268,10 +272,14 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
     if (preview.baseHref !== currentHref) {
       void navigateRouteHref(preview.baseHref, true);
     }
-  }, [currentHref, navigateRouteHref, routePreviewRef]);
+  }, [currentHref, navigateRouteHref, routePreviewEnabled, routePreviewRef]);
 
   const commitRoutePreview = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!routePreviewEnabled) {
+        return;
+      }
+
       const preview = routePreviewRef.current;
       if (preview === null || shouldLetBrowserHandleClick(event)) {
         return;
@@ -290,7 +298,7 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
       };
       void commitPreview();
     },
-    [currentHref, navigateRouteHref, routePreviewRef],
+    [currentHref, navigateRouteHref, routePreviewEnabled, routePreviewRef],
   );
 
   return (

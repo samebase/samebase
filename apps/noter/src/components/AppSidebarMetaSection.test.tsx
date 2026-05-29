@@ -110,6 +110,33 @@ describe("AppSidebarMetaSection", () => {
     return element;
   }
 
+  async function renderSharedSidebarMetaSections(initialEntry = "/") {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const element = rootElement;
+    const mountedRoot = createRoot(rootElement);
+    root = mountedRoot;
+
+    await act(async () => {
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={[initialEntry]}>
+          <AppSidebarMetaRoutePreviewProvider>
+            <section data-testid="right-rail">
+              <AppSidebarMetaSection side="right" />
+            </section>
+            <section data-testid="left-rail">
+              <AppSidebarMetaSection side="left" />
+            </section>
+            <LocationProbe />
+          </AppSidebarMetaRoutePreviewProvider>
+        </TestRouterProvider>,
+      );
+      await settleRouteUpdate();
+    });
+
+    return element;
+  }
+
   it("omits hidden dev shortcuts from prerendered markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
@@ -390,5 +417,52 @@ describe("AppSidebarMetaSection", () => {
     });
 
     expect(readLocationText()).toBe("/terms");
+  });
+
+  it("keeps left rail handlers from consuming right rail previews", async () => {
+    const element = await renderSharedSidebarMetaSections();
+    const rightRail = element.querySelector('[data-testid="right-rail"]');
+    const leftRail = element.querySelector('[data-testid="left-rail"]');
+    const rightTermsLink = [...(rightRail?.querySelectorAll<HTMLAnchorElement>("a") ?? [])].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!rightTermsLink || !leftRail) {
+      throw new Error("Expected shared rail terms links.");
+    }
+
+    await act(async () => {
+      rightTermsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    const leftTermsLink = [...leftRail.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!leftTermsLink) {
+      throw new Error("Expected left rail terms link.");
+    }
+
+    await act(async () => {
+      leftTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    const previewRightTermsLink = [
+      ...(rightRail?.querySelectorAll<HTMLAnchorElement>("a") ?? []),
+    ].find((link) => link.textContent === "/terms");
+    if (!previewRightTermsLink) {
+      throw new Error("Expected right rail terms link after preview.");
+    }
+
+    await act(async () => {
+      previewRightTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
   });
 });
