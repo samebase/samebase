@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { useLocation } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
+import { AppSidebarMetaRoutePreviewProvider, AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
 const { act } = React;
 
@@ -34,7 +34,7 @@ describe("AppSidebarMetaSection", () => {
     const location = useLocation();
 
     return (
-      <output data-testid="router-location">
+      <output data-href={location.href} data-testid="router-location">
         {location.pathname}
         {location.searchStr}
       </output>
@@ -68,6 +68,73 @@ describe("AppSidebarMetaSection", () => {
 
   function readLocationText() {
     return rootElement?.querySelector('[data-testid="router-location"]')?.textContent ?? "";
+  }
+
+  function readLocationHref() {
+    return (
+      rootElement?.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? ""
+    );
+  }
+
+  async function renderRouteOwnedSidebar(initialEntry = "/home#noter") {
+    function RouteOwnedSidebarHarness() {
+      const pathname = useLocation({
+        select: (location) => location.pathname,
+      });
+
+      return (
+        <>
+          <AppSidebarMetaSection key={pathname} side="right" />
+          <LocationProbe />
+        </>
+      );
+    }
+
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const element = rootElement;
+    const mountedRoot = createRoot(rootElement);
+    root = mountedRoot;
+
+    await act(async () => {
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={[initialEntry]}>
+          <AppSidebarMetaRoutePreviewProvider>
+            <RouteOwnedSidebarHarness />
+          </AppSidebarMetaRoutePreviewProvider>
+        </TestRouterProvider>,
+      );
+      await settleRouteUpdate();
+    });
+
+    return element;
+  }
+
+  async function renderSharedSidebarMetaSections(initialEntry = "/") {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const element = rootElement;
+    const mountedRoot = createRoot(rootElement);
+    root = mountedRoot;
+
+    await act(async () => {
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={[initialEntry]}>
+          <AppSidebarMetaRoutePreviewProvider>
+            <section data-testid="right-rail">
+              <AppSidebarMetaSection side="right" />
+            </section>
+            <section data-testid="left-rail">
+              <AppSidebarMetaSection side="left" />
+            </section>
+            <LocationProbe />
+          </AppSidebarMetaRoutePreviewProvider>
+        </TestRouterProvider>,
+      );
+      await settleRouteUpdate();
+    });
+
+    return element;
   }
 
   it("omits hidden dev shortcuts from prerendered markup", () => {
@@ -280,6 +347,37 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/");
   });
 
+  it("restores path previews after route-owned rail remounts", async () => {
+    const element = await renderRouteOwnedSidebar();
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!termsLink) {
+      throw new Error("Expected terms link.");
+    }
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    const previewTermsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!previewTermsLink) {
+      throw new Error("Expected preview terms link.");
+    }
+
+    await act(async () => {
+      previewTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationHref()).toBe("/home#noter");
+  });
+
   it("previews shared right rail links outside the landing route", async () => {
     const element = await renderSidebarMetaSection("/terms");
     const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
@@ -319,5 +417,52 @@ describe("AppSidebarMetaSection", () => {
     });
 
     expect(readLocationText()).toBe("/terms");
+  });
+
+  it("keeps left rail handlers from consuming right rail previews", async () => {
+    const element = await renderSharedSidebarMetaSections();
+    const rightRail = element.querySelector('[data-testid="right-rail"]');
+    const leftRail = element.querySelector('[data-testid="left-rail"]');
+    const rightTermsLink = [...(rightRail?.querySelectorAll<HTMLAnchorElement>("a") ?? [])].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!rightTermsLink || !leftRail) {
+      throw new Error("Expected shared rail terms links.");
+    }
+
+    await act(async () => {
+      rightTermsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    const leftTermsLink = [...leftRail.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!leftTermsLink) {
+      throw new Error("Expected left rail terms link.");
+    }
+
+    await act(async () => {
+      leftTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    const previewRightTermsLink = [
+      ...(rightRail?.querySelectorAll<HTMLAnchorElement>("a") ?? []),
+    ].find((link) => link.textContent === "/terms");
+    if (!previewRightTermsLink) {
+      throw new Error("Expected right rail terms link after preview.");
+    }
+
+    await act(async () => {
+      previewRightTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
   });
 });

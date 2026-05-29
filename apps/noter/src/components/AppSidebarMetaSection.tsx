@@ -34,7 +34,14 @@ import { noterBuildConfig } from "@/lib/noterBuildConfig";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -45,6 +52,24 @@ type AppSidebarMetaRoutePreview = {
   baseHref: string;
   targetHref: string;
 };
+
+type AppSidebarMetaRoutePreviewStore = {
+  current: AppSidebarMetaRoutePreview | null;
+};
+
+const AppSidebarMetaRoutePreviewContext = createContext<AppSidebarMetaRoutePreviewStore | null>(
+  null,
+);
+
+export function AppSidebarMetaRoutePreviewProvider({ children }: { children: ReactNode }) {
+  const routePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
+
+  return (
+    <AppSidebarMetaRoutePreviewContext.Provider value={routePreviewRef}>
+      {children}
+    </AppSidebarMetaRoutePreviewContext.Provider>
+  );
+}
 
 const APP_SIDEBAR_META_SECTION_CLASS_NAMES = {
   left: "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-end gap-3 overflow-hidden px-2 pt-3 pb-8 text-right text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]",
@@ -150,7 +175,9 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
   const router = useRouter();
   const currentHref = location.href;
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const routePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
+  const sharedRoutePreviewRef = useContext(AppSidebarMetaRoutePreviewContext);
+  const localRoutePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
+  const routePreviewRef = sharedRoutePreviewRef ?? localRoutePreviewRef;
 
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const landingDevLabel = landingDevEnabled
@@ -159,7 +186,8 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
   const themeMode = readRootThemeMode(rootRouteSearch);
   const lightModeActive = themeMode === "light";
   const darkModeActive = themeMode === "dark";
-  const routePreview = routePreviewRef.current;
+  const routePreviewEnabled = side === "right";
+  const routePreview = routePreviewEnabled ? routePreviewRef.current : null;
   const showSearchResetLink =
     location.searchStr.length > 0 ||
     (routePreview ? isAppSidebarMetaSearchResetHref(routePreview.targetHref) : false);
@@ -170,7 +198,6 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
     ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
     : ROOT_THEME_DARK_MODE_LINK_LABEL;
 
-  const routePreviewEnabled = side === "right";
   const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
 
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
@@ -211,28 +238,6 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
     },
     [currentHref, router],
   );
-  const currentHrefRef = useRef(currentHref);
-  const navigateRouteHrefRef = useRef(navigateRouteHref);
-
-  useEffect(() => {
-    currentHrefRef.current = currentHref;
-    navigateRouteHrefRef.current = navigateRouteHref;
-  }, [currentHref, navigateRouteHref]);
-
-  // If a path preview unmounts this rail before pointer leave, restore the base URL.
-  useEffect(
-    () => () => {
-      const preview = routePreviewRef.current;
-      if (preview === null) {
-        return;
-      }
-
-      routePreviewRef.current = null;
-      void navigateRouteHrefRef.current(preview.baseHref, true, currentHrefRef.current);
-    },
-    [],
-  );
-
   const previewRouteLink = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
       if (!routePreviewEnabled) {
@@ -250,10 +255,14 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
       };
       void navigateRouteHref(targetHref, true);
     },
-    [currentHref, navigateRouteHref, routePreviewEnabled],
+    [currentHref, navigateRouteHref, routePreviewEnabled, routePreviewRef],
   );
 
   const restoreRoutePreview = useCallback(() => {
+    if (!routePreviewEnabled) {
+      return;
+    }
+
     const preview = routePreviewRef.current;
     if (preview === null) {
       return;
@@ -263,10 +272,14 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
     if (preview.baseHref !== currentHref) {
       void navigateRouteHref(preview.baseHref, true);
     }
-  }, [currentHref, navigateRouteHref]);
+  }, [currentHref, navigateRouteHref, routePreviewEnabled, routePreviewRef]);
 
   const commitRoutePreview = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!routePreviewEnabled) {
+        return;
+      }
+
       const preview = routePreviewRef.current;
       if (preview === null || shouldLetBrowserHandleClick(event)) {
         return;
@@ -285,7 +298,7 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
       };
       void commitPreview();
     },
-    [currentHref, navigateRouteHref],
+    [currentHref, navigateRouteHref, routePreviewEnabled, routePreviewRef],
   );
 
   return (
