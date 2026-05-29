@@ -1,14 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.resetModules();
-});
+import { describe, expect, it } from "vite-plus/test";
+import {
+  buildLandingPageMarkdown,
+  landingPageBullets,
+  landingPageMarkdown,
+  landingPageSlogan,
+} from "./landingCopy";
 
 describe("landingCopy", () => {
-  it("builds landing markdown from an explicit slogan", async () => {
-    vi.stubGlobal("__LANDING_PAGE_SLOGAN__", "build selected");
-    const { buildLandingPageMarkdown, landingPageBullets } = await import("./landingCopy");
+  it("builds landing markdown from an explicit slogan", () => {
     const markdown = buildLandingPageMarkdown("ship from your notes");
 
     expect(markdown).toContain("## ship from your notes");
@@ -17,12 +16,8 @@ describe("landingCopy", () => {
     }
   });
 
-  it("uses the build-selected slogan for runtime copy", async () => {
-    vi.stubGlobal("__LANDING_PAGE_SLOGAN__", "build selected");
-    const { buildLandingPageMarkdown, landingPageMarkdown, landingPageSlogan } =
-      await import("./landingCopy");
-
-    expect(landingPageSlogan.length).toBeGreaterThan(0);
-    expect(landingPageMarkdown).toBe(buildLandingPageMarkdown(landingPageSlogan));
+  it("uses the build-selected slogan for runtime copy", () => {
+    expect(landingPageSlogan).toBe("test landing slogan");
+    expect(landingPageMarkdown).toBe(buildLandingPageMarkdown("test landing slogan"));
   });
 });

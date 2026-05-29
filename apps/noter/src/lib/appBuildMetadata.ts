@@ -1,15 +1,14 @@
+import { noterBuildConfig } from "@/lib/noterBuildConfig";
+
 export function readAppBuildCommit(): string {
-  const commit = typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__.trim() : "";
+  const commit = noterBuildConfig.appCommit.trim();
   if (commit.length > 0 && commit !== "unknown") {
     return commit;
   }
 
-  if (
-    typeof __APP_COMMIT_NUMBER__ === "number" &&
-    Number.isFinite(__APP_COMMIT_NUMBER__) &&
-    __APP_COMMIT_NUMBER__ > 0
-  ) {
-    return `build-${__APP_COMMIT_NUMBER__}`;
+  const appCommitNumber = noterBuildConfig.appCommitNumber;
+  if (appCommitNumber !== null && appCommitNumber > 0) {
+    return `build-${appCommitNumber}`;
   }
 
   return "dev";

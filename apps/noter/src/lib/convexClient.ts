@@ -1,8 +1,8 @@
 import { ConvexReactClient } from "convex/react";
 import { readBrowserOrigin } from "@/lib/isomorphic";
+import { noterBuildConfig } from "@/lib/noterBuildConfig";
 
-const browserConvexProxyPath =
-  typeof __BROWSER_CONVEX_PROXY_PATH__ === "undefined" ? null : __BROWSER_CONVEX_PROXY_PATH__;
+const browserConvexProxyPath = noterBuildConfig.browserConvexProxyPath;
 const fallbackConvexUrl = import.meta.env.MODE === "test" ? "http://127.0.0.1:3210" : null;
 
 function readBrowserConvexProxyUrl(proxyPath: string): string | null {

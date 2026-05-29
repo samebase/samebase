@@ -30,6 +30,7 @@ import {
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
+import { noterBuildConfig } from "@/lib/noterBuildConfig";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
@@ -144,9 +145,7 @@ function isAppSidebarMetaSearchResetHref(href: string): boolean {
  * peeks beside the main pane in the mobile workspace carousel.
  */
 export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMetaSectionSide }) {
-  const appCommit = __APP_COMMIT__ || "unknown";
-  const appCommitNumber = __APP_COMMIT_NUMBER__;
-  const repoUrl = __APP_REPO_URL__ || "";
+  const { appCommit, appCommitNumber, appRepoUrl } = noterBuildConfig;
   const location = useLocation();
   const router = useRouter();
   const currentHref = location.href;
@@ -176,7 +175,7 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
 
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitLabel = formatAppBuildCommitLabel(appCommit);
-  const normalizedRepoUrl = repoUrl ? normalizeRepoUrl(repoUrl) : "";
+  const normalizedRepoUrl = normalizeRepoUrl(appRepoUrl);
   const commitUrl =
     normalizedRepoUrl && appCommit !== "unknown" ? `${normalizedRepoUrl}/commit/${appCommit}` : "";
 

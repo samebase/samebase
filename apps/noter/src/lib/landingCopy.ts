@@ -1,3 +1,5 @@
+import { noterBuildConfig } from "@/lib/noterBuildConfig";
+
 export const landingPageBullets = [
   "your notes and code live in a real repository",
   "collaborate in real time with your team",
@@ -5,7 +7,7 @@ export const landingPageBullets = [
   "use Codex to ship small apps directly from your workspace",
 ] as const;
 
-export const landingPageSlogan = __LANDING_PAGE_SLOGAN__;
+export const landingPageSlogan = noterBuildConfig.landingPageSlogan;
 
 export function buildLandingPageMarkdown(slogan: string): string {
   return `## ${slogan}

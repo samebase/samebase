@@ -108,12 +108,11 @@ paths before the proxy can serve the intended asset.
 
 The landing slogan list remains dynamic in source. The build/prerender step selects one slogan
 during the build, so the deployed exact-root SSG asset varies per build rather than per browser
-refresh. The selection is derived from the app build identity so the client bundle, server bundle,
-and prerendered HTML agree without process state. The SPA runtime uses the same build-selected
-slogan and must not rerun slogan selection in route loaders, hydration, client navigation, or
-browser refreshes. Changing that back to per-request randomness requires request-time SSR; changing
-it to client-only mutation would risk hydration or layout movement. This supersedes the older
-per-request wording in `specs/035_LANDING_SLOGAN_SOURCE_AND_SELECTION_SPEC.md`.
+refresh. The selection is derived from the app build identity and injected through the typed build
+config constant so the client bundle and prerendered HTML agree. The SPA runtime uses the same
+build-selected slogan and must not rerun slogan selection in route loaders, hydration, client
+navigation, or browser refreshes. Changing that back to per-request randomness requires request-time
+SSR; changing it to client-only mutation would risk hydration or layout movement.
 
 Do not replace this with copied static shell markup. Public, legal, static, or prerendered output
 must come from the canonical React route tree, as specified in

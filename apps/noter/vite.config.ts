@@ -19,6 +19,7 @@ import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
+import type { NoterBuildConfig } from "./src/lib/noterBuildConfig";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
@@ -107,6 +108,13 @@ const landingPageSlogan = readBuildLandingSlogan({
   buildSeed: process.env.PLAYWRIGHT === "1" ? "" : `${appCommitNumber ?? appCommit}`,
   slogansPath,
 });
+const noterBuildConfig: NoterBuildConfig = {
+  appCommit,
+  appCommitNumber,
+  appRepoUrl,
+  browserConvexProxyPath,
+  landingPageSlogan,
+};
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
 const staticInstallIconSvgAssetPath = path.resolve(currentDir, "public/install-icon.svg");
 const noterSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/noter.ts");
@@ -550,11 +558,7 @@ const browserConvexProxyServerConfig = (() => {
 // https://vitejs.dev/config/
 export default defineConfig({
   define: {
-    __APP_COMMIT__: JSON.stringify(appCommit),
-    __APP_COMMIT_NUMBER__: JSON.stringify(appCommitNumber),
-    __APP_REPO_URL__: JSON.stringify(appRepoUrl),
-    __BROWSER_CONVEX_PROXY_PATH__: JSON.stringify(browserConvexProxyPath),
-    __LANDING_PAGE_SLOGAN__: JSON.stringify(landingPageSlogan),
+    __NOTER_BUILD_CONFIG__: JSON.stringify(noterBuildConfig),
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),

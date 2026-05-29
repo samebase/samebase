@@ -1,10 +1,22 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
+import type { NoterBuildConfig } from "./apps/noter/src/lib/noterBuildConfig";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
+const testNoterBuildConfig = {
+  appCommit: "test",
+  appCommitNumber: null,
+  appRepoUrl: "https://github.com/noter-md/noter",
+  browserConvexProxyPath: null,
+  landingPageSlogan: "test landing slogan",
+} satisfies NoterBuildConfig;
+
 export default defineConfig({
+  define: {
+    __NOTER_BUILD_CONFIG__: JSON.stringify(testNoterBuildConfig),
+  },
   fmt: {
     ignorePatterns: ["**/convex/_generated/**"],
     printWidth: 100,

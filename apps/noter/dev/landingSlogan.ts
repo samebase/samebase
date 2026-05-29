@@ -1,23 +1,24 @@
 import { readFileSync } from "node:fs";
-import { parseLandingSlogans } from "../src/lib/landingSlogans";
 
 type BuildLandingSlogans = readonly [string, ...string[]];
 
-export function selectBuildLandingSlogan({
+export function parseLandingSlogans(rawSlogans: string): string[] {
+  return rawSlogans
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2).trim())
+    .filter((line) => line.length > 0);
+}
+
+function selectBuildLandingSlogan({
   buildSeed,
   slogans,
 }: {
   buildSeed: string;
   slogans: BuildLandingSlogans;
 }): string {
-  const selectedIndex = hashBuildSeed(buildSeed) % slogans.length;
-  const selectedSlogan = slogans[selectedIndex];
-
-  if (!selectedSlogan) {
-    throw new Error(`Landing slogan selection produced invalid index ${selectedIndex}.`);
-  }
-
-  return selectedSlogan;
+  return slogans[hashBuildSeed(buildSeed) % slogans.length];
 }
 
 export function readBuildLandingSlogan({

@@ -1,29 +1,50 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { readAppBuildCommit } from "@/lib/appBuildMetadata";
+import type { NoterBuildConfig } from "@/lib/noterBuildConfig";
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  vi.doUnmock("@/lib/noterBuildConfig");
+  vi.resetModules();
 });
 
+const testNoterBuildConfig: NoterBuildConfig = __NOTER_BUILD_CONFIG__;
+
+async function readAppBuildCommitFor(buildConfig: NoterBuildConfig) {
+  vi.doMock("@/lib/noterBuildConfig", () => ({
+    noterBuildConfig: buildConfig,
+  }));
+
+  const { readAppBuildCommit } = await import("@/lib/appBuildMetadata");
+  return readAppBuildCommit();
+}
+
 describe("readAppBuildCommit", () => {
-  it("returns the commit hash when it is present", () => {
-    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+  it("returns the commit hash when it is present", async () => {
+    const appBuildCommit = await readAppBuildCommitFor({
+      ...testNoterBuildConfig,
+      appCommit: "0123456789abcdef",
+      appCommitNumber: 463,
+    });
 
-    expect(readAppBuildCommit()).toBe("0123456789abcdef");
+    expect(appBuildCommit).toBe("0123456789abcdef");
   });
 
-  it("falls back to the build number when the commit marker is unknown", () => {
-    vi.stubGlobal("__APP_COMMIT__", "unknown");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 463);
+  it("falls back to the build number when the commit marker is unknown", async () => {
+    const appBuildCommit = await readAppBuildCommitFor({
+      ...testNoterBuildConfig,
+      appCommit: "unknown",
+      appCommitNumber: 463,
+    });
 
-    expect(readAppBuildCommit()).toBe("build-463");
+    expect(appBuildCommit).toBe("build-463");
   });
 
-  it("falls back to dev when neither a commit nor build number is available", () => {
-    vi.stubGlobal("__APP_COMMIT__", "   ");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", null);
+  it("falls back to dev when neither a commit nor build number is available", async () => {
+    const appBuildCommit = await readAppBuildCommitFor({
+      ...testNoterBuildConfig,
+      appCommit: "   ",
+      appCommitNumber: null,
+    });
 
-    expect(readAppBuildCommit()).toBe("dev");
+    expect(appBuildCommit).toBe("dev");
   });
 });

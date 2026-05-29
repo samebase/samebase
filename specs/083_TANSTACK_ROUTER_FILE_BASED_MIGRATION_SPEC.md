@@ -117,10 +117,10 @@ issues, attempted fixes, and outcomes from each landed slice.
 
 - Problem: once route files stopped hiding imports behind `React.lazy(...)`, the broader Vitest
   suite started importing some route-owned components in plain test contexts where Vite compile-time
-  defines are not always injected. Tried: let `convexClient.ts` treat
-  `__BROWSER_CONVEX_PROXY_PATH__` as optional when the define is absent, then allow a test-only
-  fallback local Convex URL when repo-wide Vitest does not inject `VITE_CONVEX_URL` either. Result:
-  full-test imports keep working outside the Vite dev/build pipeline without changing the shipped
+  defines are not always injected. Tried: read the optional browser proxy path through the typed
+  build config object and give repo-wide Vitest the same test build config shape, then allow a
+  test-only fallback local Convex URL when Vitest does not inject `VITE_CONVEX_URL` either. Result:
+  full-test imports keep working outside the app Vite build pipeline without changing the shipped
   proxy behavior in real app runtime.
 
 - Problem: even after the first wrapper cleanup, `-publicRouteComponents.tsx` still carried

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import { useLocation } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
@@ -17,12 +17,6 @@ describe("AppSidebarMetaSection", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
 
-  beforeEach(() => {
-    vi.stubGlobal("__APP_COMMIT__", "0123456789abcdef");
-    vi.stubGlobal("__APP_COMMIT_NUMBER__", 1388);
-    vi.stubGlobal("__APP_REPO_URL__", "https://github.com/noter-md/noter");
-  });
-
   afterEach(() => {
     if (root) {
       const mountedRoot = root;
@@ -34,7 +28,6 @@ describe("AppSidebarMetaSection", () => {
 
     rootElement?.remove();
     rootElement = null;
-    vi.unstubAllGlobals();
   });
 
   function LocationProbe() {

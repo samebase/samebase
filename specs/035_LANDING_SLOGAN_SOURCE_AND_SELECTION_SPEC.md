@@ -9,6 +9,7 @@
   - `slogans.md`
   - `apps/noter/dev/landingSlogan.ts`
   - `apps/noter/vite.config.ts`
+  - `apps/noter/src/lib/noterBuildConfig.ts`
   - `apps/noter/src/lib/landingCopy.ts`
   - `specs/102_NOTER_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
 
@@ -32,10 +33,9 @@ basic SPA shell because exact `/` has useful prerendered HTML.
 
 ## Goals
 
-1. Keep slogans in a single markdown file with one slogan per line.
+1. Keep slogans in a single markdown file with one slogan per Markdown bullet.
 2. Make slogan updates possible with no code changes.
 3. Select one slogan at build/prerender time.
-4. Preserve the existing landing headline as one of the options.
 
 ## Non-Goals (This Step)
 
@@ -55,12 +55,6 @@ Format contract:
 3. Empty lines are ignored by parser logic.
 4. Keep slogans concise; target 3-7 words when possible.
 
-Initial file content:
-
-1. `- Noter is a collaborative markdown workspace on top of GitHub`
-2. `- Junior devs, senior stack`
-3. `- If Notion and Obsidian had a baby`
-
 ## Selection Strategy
 
 The current implementation selects one slogan from the app build identity:
@@ -70,7 +64,7 @@ The current implementation selects one slogan from the app build identity:
 3. Fail the build if no slogans are available.
 4. Hash the app build identity and select `slogans[hash % slogans.length]` inside Vite config/build
    code.
-5. Inject the selected slogan into the app bundle as a build constant.
+5. Inject the selected slogan into the app bundle through the typed build config constant.
 6. Render all SPA and prerendered landing surfaces from that same build constant.
 
 The browser must not read `slogans.md`, run slogan selection, or refresh the slogan during

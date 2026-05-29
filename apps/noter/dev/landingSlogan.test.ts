@@ -2,15 +2,17 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { readBuildLandingSlogan, selectBuildLandingSlogan } from "./landingSlogan";
+import { parseLandingSlogans, readBuildLandingSlogan } from "./landingSlogan";
 
-describe("selectBuildLandingSlogan", () => {
-  it("selects a slogan from the build seed", () => {
-    const slogans = ["first", "second", "third"] as const;
+describe("parseLandingSlogans", () => {
+  it("ignores non-bullet lines", () => {
+    expect(parseLandingSlogans("\n  one  \n\n two\n")).toEqual([]);
+  });
 
-    expect(selectBuildLandingSlogan({ buildSeed: "", slogans })).toBe("first");
-    expect(selectBuildLandingSlogan({ buildSeed: "a", slogans })).toBe("second");
-    expect(selectBuildLandingSlogan({ buildSeed: "b", slogans })).toBe("third");
+  it("parses markdown bullet items", () => {
+    const raw = `- first
+- second`;
+    expect(parseLandingSlogans(raw)).toEqual(["first", "second"]);
   });
 });
 
@@ -21,7 +23,10 @@ describe("readBuildLandingSlogan", () => {
     writeFileSync(slogansPath, "- first\n- second\n");
 
     try {
-      expect(readBuildLandingSlogan({ buildSeed: "a", slogansPath })).toBe("second");
+      const selectedSlogan = readBuildLandingSlogan({ buildSeed: "a", slogansPath });
+
+      expect(["first", "second"]).toContain(selectedSlogan);
+      expect(readBuildLandingSlogan({ buildSeed: "a", slogansPath })).toBe(selectedSlogan);
     } finally {
       rmSync(tempDir, { force: true, recursive: true });
     }
