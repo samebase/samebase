@@ -744,16 +744,14 @@ export function RouteUrlEditor() {
   const router = useRouter();
   const currentHref = location.href;
   const locationRouteHistoryIndex = location.state.__TSR_index;
-  const initialRouteHistoryIndexes = readRouteUrlEditorHistoryIndexesFromState({
-    currentRouteHistoryIndex: locationRouteHistoryIndex,
-    historyState: typeof window === "undefined" ? undefined : window.history.state,
-  });
   const inputId = useId();
   const suggestionsId = `${inputId}-suggestions`;
+  // Keep SSR and the first client render identical; the layout effect below
+  // reads the browser entry before paint and updates the live controls.
   const routeUrlEditorStore = useCreateRouteUrlEditorStore({
     currentHref,
-    currentRouteHistoryIndex: initialRouteHistoryIndexes.currentRouteHistoryIndex,
-    forwardRouteHistoryIndex: initialRouteHistoryIndexes.forwardRouteHistoryIndex,
+    currentRouteHistoryIndex: 0,
+    forwardRouteHistoryIndex: 0,
   });
   const {
     currentRouteHistoryIndex,
@@ -793,6 +791,7 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
+  const restoredRouteHistoryIndexesRef = useRef(false);
   const origin = readIsomorphicOrigin();
   const {
     activeIndex: activeSuggestionIndex,
@@ -852,6 +851,10 @@ export function RouteUrlEditor() {
             };
           }
 
+          if (action.type === "REPLACE") {
+            return currentRouteHistoryIndexes;
+          }
+
           const nextRouteHistoryIndexes = readRouteUrlEditorHistoryIndexesFromState({
             currentRouteHistoryIndex: nextHistoryIndex,
             historyState: nextLocation.state,
@@ -868,6 +871,22 @@ export function RouteUrlEditor() {
     [router, updateRouteHistoryIndexes],
   );
 
+  // Keep the first render server-compatible, then restore saved browser-entry
+  // indexes before paint so reloads do not visibly disable working controls.
+  useLayoutEffect(() => {
+    if (restoredRouteHistoryIndexesRef.current) {
+      return;
+    }
+
+    restoredRouteHistoryIndexesRef.current = true;
+    updateRouteHistoryIndexes(() =>
+      readRouteUrlEditorHistoryIndexesFromState({
+        currentRouteHistoryIndex: locationRouteHistoryIndex,
+        historyState: typeof window === "undefined" ? undefined : window.history.state,
+      }),
+    );
+  }, [locationRouteHistoryIndex, updateRouteHistoryIndexes]);
+
   // If the user hard-refreshes, browser session history remains but TanStack
   // can restart its current index at zero; carry the app-history position on
   // each browser history entry so this chrome can re-enable Back/Forward.
@@ -876,7 +895,7 @@ export function RouteUrlEditor() {
       currentRouteHistoryIndex,
       forwardRouteHistoryIndex,
     });
-  }, [currentRouteHistoryIndex, forwardRouteHistoryIndex]);
+  }, [currentHref, currentRouteHistoryIndex, forwardRouteHistoryIndex]);
 
   // Links and Back/Forward change URL reality. Keep an untouched focused input
   // aligned with the route while preserving user-edited local drafts.
