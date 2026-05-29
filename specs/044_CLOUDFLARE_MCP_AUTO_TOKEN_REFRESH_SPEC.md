@@ -7,6 +7,7 @@
 - Last updated: 2026-05-12
 - Related specs:
   - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `specs/029_AUTHENTICATED_PROVIDERS_ROUTE_SPEC.md`
   - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
   - `specs/036_MCP_CONNECTION_TOKEN_HEALTH_VISIBILITY_SPEC.md`
   - `specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
@@ -89,7 +90,7 @@ browser duplicate-request guard.
 1. Backend lock/debounce API for Cloudflare token refresh.
 2. Backend expiry-aware scheduling policy and retry window.
 3. Backend user action for auto-refresh entrypoint with trigger context.
-4. Frontend automatic trigger wiring in Providers UI host (`VaultDashboard`).
+4. Frontend automatic trigger wiring in the `/providers` route.
 5. Manual check path migration to shared backend refresh entrypoint.
 6. Polling visibility UI (countdown + state text).
 7. Observability and test coverage for refresh orchestration.
@@ -216,9 +217,9 @@ flows share one lock/debounce path.
 1. replaced by the new action, or
 2. retained as a thin wrapper for backward compatibility.
 
-### 7) Frontend automatic triggers in VaultDashboard
+### 7) Frontend automatic triggers in `/providers`
 
-In `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`:
+In the authenticated `/providers` route host:
 
 1. Add `refreshCloudflareMcpTokenIfNeeded` action hook.
 2. Trigger background check when:
@@ -320,7 +321,7 @@ Reuse existing refresh success/failure events from `cloudflareMcpOAuth.ts`.
 
 1. Add backend lock metadata + claim/release mutations.
 2. Add new refresh action and wire manual check through it.
-3. Add dashboard focus/page-load/poll triggers with client debounce + countdown UI.
+3. Add `/providers` focus/page-load/poll triggers with client debounce + countdown UI.
 4. Add telemetry and monitor refresh volume/error rate.
 5. Remove legacy manual-only code path once verified stable.
 
@@ -343,8 +344,8 @@ Reuse existing refresh success/failure events from `cloudflareMcpOAuth.ts`.
 
 ## Open Questions
 
-1. Should automatic token refresh run only in `VaultDashboard`, or globally in app shell routes
-   where Cloudflare operations are likely?
+1. Should automatic token refresh run only in `/providers`, or globally in app shell routes where
+   Cloudflare operations are likely?
 2. Should create-flow actions (`New app/agent` with Cloudflare selected) synchronously call
    refresh-if-needed right before submit as an extra guard?
 3. Should `invalid` token state become a hard block for Cloudflare create flow in a follow-up phase?

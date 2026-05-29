@@ -139,10 +139,13 @@ existing Worker or create a new one without waiting for hidden state cleanup.
 
 ## Route Semantics
 
-`?add-cloudflare#vault-name` opens the Cloudflare Worker connection dialog for the vault matched by
-the dashboard hash.
+`/home?add-cloudflare#vault-name` opens the Cloudflare Worker connection dialog for the vault
+matched by the dashboard hash.
 
 The dialog closes by clearing `add-cloudflare` while preserving the hash.
+
+Provider credential connect/disconnect and token-health work belongs on `/providers`; this route
+only attaches or creates a Cloudflare Worker resource for the selected vault.
 
 ## Deployment Wiring
 

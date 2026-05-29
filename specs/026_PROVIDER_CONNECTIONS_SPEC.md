@@ -4,10 +4,11 @@
 
 - Status: Proposed
 - Owner: Noter auth + platform
-- Last updated: 2026-02-26
+- Last updated: 2026-05-29
 - Related specs:
   - `specs/025_MULTI_WORKTREE_OAUTH_BROKER_SPEC.md`
   - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
+  - `specs/029_AUTHENTICATED_PROVIDERS_ROUTE_SPEC.md`
   - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `specs/009_CODESPACE_PORT_VISIBILITY_SPEC.md`
 
@@ -142,7 +143,7 @@ No fallback to app-login provider tokens.
 ## Frontend Contract
 
 1. `SignInForm` removes GitHub app sign-in.
-2. GitHub connection uses dedicated provider OAuth flow (dashboard + add repo).
+2. GitHub connection uses dedicated provider OAuth flow (`/providers` + add repo).
 3. Connection UIs show method labels (`OAuth`, `API key`).
 4. Chat/vault surfaces gate behavior using `viewer.hasGithubConnection`.
 

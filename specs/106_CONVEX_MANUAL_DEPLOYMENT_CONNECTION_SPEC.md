@@ -162,10 +162,13 @@ for hidden state cleanup.
 
 ## Route Semantics
 
-`?add-convex#vault-name` opens the Convex project connection dialog for the vault matched by the
-dashboard hash.
+`/home?add-convex#vault-name` opens the Convex project connection dialog for the vault matched by
+the dashboard hash.
 
 The dialog closes by clearing `add-convex` while preserving the hash.
+
+Provider credential connect/disconnect work belongs on `/providers`; this route only attaches or
+creates a Convex deployment resource for the selected vault.
 
 ## Deployment Wiring
 

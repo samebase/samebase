@@ -7,7 +7,7 @@
 - Last updated: 2026-03-04
 - Related specs:
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
-  - `specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md`
+  - `specs/029_AUTHENTICATED_PROVIDERS_ROUTE_SPEC.md`
   - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
 
@@ -47,7 +47,7 @@ available.
 
 1. Backend: token-health metadata model and Cloudflare MCP health resolution.
 2. Backend: connection-status query returns MCP token health.
-3. Frontend: Providers panel shows health status and reconnect guidance.
+3. Frontend: Providers route shows health status and reconnect guidance.
 4. Frontend: optional manual "Check token" action for MCP connections.
 
 ## State Model
@@ -144,7 +144,7 @@ Behavior:
 
 ## Frontend UX Contract
 
-### Providers Panel
+### Providers Route
 
 For Cloudflare row when `authMethod = "mcp_oauth"`:
 
@@ -218,7 +218,7 @@ Log fields:
 ## Rollout Plan
 
 1. Backend schema/query/action changes.
-2. Providers panel MCP health rendering.
+2. Providers route MCP health rendering.
 3. Manual `Check token` action.
 4. Post-release monitor for:
    - invalid-token rates,
