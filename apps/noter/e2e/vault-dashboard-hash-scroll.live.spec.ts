@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { signInIfNeeded } from "./liveHelpers";
 
 const PREVIOUS_REPOSITORY_HASH = "noter";
 const TARGET_REPOSITORY_FULL_NAME = "nicu-chiciuc/tmp-flow";
@@ -26,19 +27,6 @@ async function waitForOptionalVisible(locator: ReturnType<typeof vaultHashTarget
     return true;
   } catch {
     return false;
-  }
-}
-
-async function signInWithAutofillWhenPresent(page: Page): Promise<void> {
-  const autofillButton = page.getByRole("button", {
-    name: "Autofill & sign in",
-  });
-
-  try {
-    await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
-    await autofillButton.click();
-  } catch {
-    // The autofill shortcut is absent once a session is already active.
   }
 }
 
@@ -184,7 +172,7 @@ test.describe("vault dashboard hash scrolling", () => {
     await page.goto(`/home#${TARGET_REPOSITORY_HASH}`, {
       waitUntil: "domcontentloaded",
     });
-    await signInWithAutofillWhenPresent(page);
+    await signInIfNeeded(page, `/home#${TARGET_REPOSITORY_HASH}`);
 
     const previousVault = vaultHashTarget(page, PREVIOUS_REPOSITORY_HASH);
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
@@ -259,7 +247,7 @@ test.describe("vault dashboard hash scrolling", () => {
     await page.goto(`/home#${TARGET_REPOSITORY_HASH}`, {
       waitUntil: "domcontentloaded",
     });
-    await signInWithAutofillWhenPresent(page);
+    await signInIfNeeded(page, `/home#${TARGET_REPOSITORY_HASH}`);
 
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
     test.skip(
@@ -286,7 +274,7 @@ test.describe("vault dashboard hash scrolling", () => {
     test.slow();
 
     await page.goto("/home?delete", { waitUntil: "domcontentloaded" });
-    await signInWithAutofillWhenPresent(page);
+    await signInIfNeeded(page, "/home?delete");
 
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
     test.skip(

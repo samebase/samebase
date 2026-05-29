@@ -4,7 +4,14 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
 
-export async function signInIfNeeded(page: Page): Promise<void> {
+function buildSameOriginPath(page: Page, path: string): string {
+  const targetUrl = new URL(path, page.url());
+
+  return `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+}
+
+export async function signInIfNeeded(page: Page, routeAfterSignIn?: string): Promise<void> {
+  const targetPath = routeAfterSignIn ? buildSameOriginPath(page, routeAfterSignIn) : null;
   const emailInput = page.getByPlaceholder("you@example.com");
   const passwordInput = page.getByPlaceholder("Password");
   const signInButton = page.getByRole("button", { exact: true, name: "Sign in" });
@@ -12,6 +19,7 @@ export async function signInIfNeeded(page: Page): Promise<void> {
 
   try {
     await waitForAnyVisible(signedInMarkers, 1_000);
+    await navigateAfterSignIn(page, targetPath);
     return;
   } catch {
     // Fall through to the password form below.
@@ -22,6 +30,7 @@ export async function signInIfNeeded(page: Page): Promise<void> {
       await emailInput.waitFor({ state: "visible", timeout: 5_000 });
     } catch {
       await waitForAnyVisible(signedInMarkers, 30_000);
+      await navigateAfterSignIn(page, targetPath);
       return;
     }
 
@@ -31,6 +40,7 @@ export async function signInIfNeeded(page: Page): Promise<void> {
 
     try {
       await waitForAnyVisible(signedInMarkers, 10_000);
+      await navigateAfterSignIn(page, targetPath);
       return;
     } catch (error) {
       if (attempt === 5) {
@@ -56,4 +66,12 @@ function getSignedInMarkers(page: Page): Locator[] {
 
 async function waitForAnyVisible(locators: Locator[], timeout: number): Promise<void> {
   await Promise.any(locators.map((locator) => locator.waitFor({ state: "visible", timeout })));
+}
+
+async function navigateAfterSignIn(page: Page, targetPath: string | null): Promise<void> {
+  if (targetPath === null || buildSameOriginPath(page, page.url()) === targetPath) {
+    return;
+  }
+
+  await page.goto(targetPath, { waitUntil: "domcontentloaded" });
 }

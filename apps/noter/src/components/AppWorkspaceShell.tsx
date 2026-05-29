@@ -1,5 +1,6 @@
 import {
   createContext,
+  memo,
   useContext,
   useLayoutEffect,
   useMemo,
@@ -156,9 +157,16 @@ function useAppWorkspaceRouteChrome(store: AppWorkspaceRouteChromeStore) {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }
 
-function AppWorkspaceMainContent({ children }: { children?: ReactNode }) {
+const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
+  children,
+}: {
+  children?: ReactNode;
+}) {
+  // Route chrome updates re-render AppWorkspaceShell; the route content owns
+  // the AppWorkspaceRouteChrome publisher and must not re-render just because
+  // the shell read the new chrome.
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
-}
+});
 
 function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
   return (

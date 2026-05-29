@@ -22,6 +22,7 @@ declare global {
 async function installLandingFrameCapture(page: Parameters<typeof test>[0]["page"]) {
   await page.addInitScript(() => {
     const sampleCount = 60;
+    const maxAttempts = 300;
     const frameStore: LandingReloadFrame[] = [];
     window.__landingReloadFrames = frameStore;
 
@@ -38,14 +39,17 @@ async function installLandingFrameCapture(page: Parameters<typeof test>[0]["page
       };
     };
 
-    let frame = 0;
+    let attempts = 0;
     const capture = () => {
-      frameStore.push({
+      const frame = {
         content: readRect(document.querySelector('[data-testid="public-landing-content"]')),
         copy: readRect(document.querySelector('[data-testid="public-landing-copy"]')),
-      });
-      frame += 1;
-      if (frame >= sampleCount) {
+      };
+      if (frame.content !== null && frame.copy !== null) {
+        frameStore.push(frame);
+      }
+      attempts += 1;
+      if (frameStore.length >= sampleCount || attempts >= maxAttempts) {
         return;
       }
       requestAnimationFrame(capture);
@@ -56,7 +60,13 @@ async function installLandingFrameCapture(page: Parameters<typeof test>[0]["page
 }
 
 async function readLandingFrames(page: Parameters<typeof test>[0]["page"]) {
-  await page.waitForTimeout(1000);
+  try {
+    await page.waitForFunction(() => (window.__landingReloadFrames?.length ?? 0) >= 10, {
+      timeout: 5_000,
+    });
+  } catch {
+    // The assertion below reports how many stable-content frames were captured.
+  }
 
   return await page.evaluate(() => {
     const landingReloadFrames = window.__landingReloadFrames;
