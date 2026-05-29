@@ -1,5 +1,6 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { isObject } from "@samebase/sure";
 import { useQuery } from "convex/react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import {
@@ -56,6 +57,7 @@ const routeUrlEditorTouchSuggestionsScrollportClassName =
 const routeUrlEditorTouchScrollSlateClassName =
   "pointer-events-none absolute inset-x-0 z-10 bg-accent/80 ring-1 ring-ring/30";
 
+const routeUrlEditorHistoryIndexesStateKey = "__noter_route_url_editor_history_indexes";
 const routeUrlEditorTouchScrollPickerMediaQuery = "(hover: none), (pointer: coarse)";
 const routeUrlEditorSuggestionRowHeightPx = 28;
 const routeUrlEditorTouchScrollSlateOptionOffset = 2;
@@ -83,6 +85,7 @@ type RouteUrlEditorPointerPreviewBase = {
 };
 
 type RouteUrlEditorStoreState = {
+  currentRouteHistoryIndex: number;
   documentHashSuggestionKeys: readonly string[];
   draftRouteAddress: string;
   forwardRouteHistoryIndex: number;
@@ -93,14 +96,21 @@ type RouteUrlEditorStoreState = {
   touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics | null;
 };
 
+type RouteUrlEditorHistoryIndexes = {
+  currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
+};
+
 function useCreateRouteUrlEditorStore(args: {
   currentHref: string;
   currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
 }) {
   const initialState: RouteUrlEditorStoreState = {
+    currentRouteHistoryIndex: args.currentRouteHistoryIndex,
     documentHashSuggestionKeys: [],
     draftRouteAddress: args.currentHref,
-    forwardRouteHistoryIndex: args.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: args.forwardRouteHistoryIndex,
     inputFocused: false,
     suggestionState: {
       activeIndex: null,
@@ -167,16 +177,25 @@ function useCreateRouteUrlEditorStore(args: {
           : { ...state, touchScrollPickerMetrics },
       );
     },
-    updateForwardRouteHistoryIndex: (
-      readNextForwardRouteHistoryIndex: (forwardRouteHistoryIndex: number) => number,
+    updateRouteHistoryIndexes: (
+      readNextRouteHistoryIndexes: (
+        routeHistoryIndexes: RouteUrlEditorHistoryIndexes,
+      ) => RouteUrlEditorHistoryIndexes,
     ) => {
       setState((state) => {
-        const forwardRouteHistoryIndex = readNextForwardRouteHistoryIndex(
-          state.forwardRouteHistoryIndex,
+        const routeHistoryIndexes = readNextRouteHistoryIndexes(state);
+        const forwardRouteHistoryIndex = Math.max(
+          routeHistoryIndexes.currentRouteHistoryIndex,
+          routeHistoryIndexes.forwardRouteHistoryIndex,
         );
-        return state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
+        return state.currentRouteHistoryIndex === routeHistoryIndexes.currentRouteHistoryIndex &&
+          state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
           ? state
-          : { ...state, forwardRouteHistoryIndex };
+          : {
+              ...state,
+              currentRouteHistoryIndex: routeHistoryIndexes.currentRouteHistoryIndex,
+              forwardRouteHistoryIndex,
+            };
       });
     },
     updateSuggestionState: (
@@ -631,6 +650,90 @@ function readRouteUrlEditorExactSearch(args: {
   return nextSearch;
 }
 
+function readRouteUrlEditorHistoryIndex(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function readRouteUrlEditorHistoryIndexesFromState(args: {
+  currentRouteHistoryIndex: number;
+  historyState: unknown;
+}): RouteUrlEditorHistoryIndexes {
+  const fallback = {
+    currentRouteHistoryIndex: args.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: args.currentRouteHistoryIndex,
+  };
+
+  if (!isObject(args.historyState)) {
+    return fallback;
+  }
+
+  const persistedIndexes = args.historyState[routeUrlEditorHistoryIndexesStateKey];
+  if (!isObject(persistedIndexes)) {
+    return fallback;
+  }
+
+  const persistedCurrentRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+    persistedIndexes.currentRouteHistoryIndex,
+  );
+  const persistedForwardRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+    persistedIndexes.forwardRouteHistoryIndex,
+  );
+  if (persistedCurrentRouteHistoryIndex === null || persistedForwardRouteHistoryIndex === null) {
+    return fallback;
+  }
+
+  return {
+    currentRouteHistoryIndex: persistedCurrentRouteHistoryIndex,
+    forwardRouteHistoryIndex: Math.max(
+      persistedCurrentRouteHistoryIndex,
+      persistedForwardRouteHistoryIndex,
+    ),
+  };
+}
+
+function persistRouteUrlEditorHistoryIndexes(args: {
+  currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
+}): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const historyState: unknown = window.history.state;
+  if (!isObject(historyState)) {
+    return;
+  }
+
+  const nextIndexes: RouteUrlEditorHistoryIndexes = {
+    currentRouteHistoryIndex: args.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: args.forwardRouteHistoryIndex,
+  };
+  const currentIndexes = historyState[routeUrlEditorHistoryIndexesStateKey];
+
+  if (isObject(currentIndexes)) {
+    const currentRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+      currentIndexes.currentRouteHistoryIndex,
+    );
+    const forwardRouteHistoryIndex = readRouteUrlEditorHistoryIndex(
+      currentIndexes.forwardRouteHistoryIndex,
+    );
+    if (
+      currentRouteHistoryIndex === nextIndexes.currentRouteHistoryIndex &&
+      forwardRouteHistoryIndex === nextIndexes.forwardRouteHistoryIndex
+    ) {
+      return;
+    }
+  }
+
+  window.history.replaceState(
+    {
+      ...historyState,
+      [routeUrlEditorHistoryIndexesStateKey]: nextIndexes,
+    },
+    "",
+  );
+}
+
 /**
  * Displays route reality separately from the focused local draft. Valid edits
  * apply while typing, but router normalization does not replace the draft text
@@ -640,14 +743,18 @@ export function RouteUrlEditor() {
   const location = useLocation();
   const router = useRouter();
   const currentHref = location.href;
-  const currentRouteHistoryIndex = location.state.__TSR_index;
+  const locationRouteHistoryIndex = location.state.__TSR_index;
   const inputId = useId();
   const suggestionsId = `${inputId}-suggestions`;
+  // Keep SSR and the first client render identical; the layout effect below
+  // reads the browser entry before paint and updates the live controls.
   const routeUrlEditorStore = useCreateRouteUrlEditorStore({
     currentHref,
-    currentRouteHistoryIndex,
+    currentRouteHistoryIndex: 0,
+    forwardRouteHistoryIndex: 0,
   });
   const {
+    currentRouteHistoryIndex,
     documentHashSuggestionKeys,
     draftRouteAddress,
     forwardRouteHistoryIndex,
@@ -664,7 +771,7 @@ export function RouteUrlEditor() {
     setInputFocused,
     setTouchScrollPickerEnabled,
     syncTouchScrollPickerMetrics,
-    updateForwardRouteHistoryIndex,
+    updateRouteHistoryIndexes,
     updateSuggestionState,
   } = routeUrlEditorStore.actions;
   const formRef = useRef<HTMLFormElement>(null);
@@ -684,6 +791,7 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
+  const restoredRouteHistoryIndexesRef = useRef(false);
   const origin = readIsomorphicOrigin();
   const {
     activeIndex: activeSuggestionIndex,
@@ -729,26 +837,65 @@ export function RouteUrlEditor() {
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
 
-  // TanStack writes __TSR_index into each route entry; keep the largest seen
-  // index so Forward only enables after this chrome has observed one.
+  // TanStack writes __TSR_index into each route entry. When our saved indexes
+  // are present on that entry, prefer them so reloads keep Back/Forward state.
   useEffect(
     () =>
       router.history.subscribe(({ action, location: nextLocation }) => {
         const nextHistoryIndex = nextLocation.state.__TSR_index;
-        updateForwardRouteHistoryIndex((currentForwardHistoryIndex) => {
+        updateRouteHistoryIndexes((currentRouteHistoryIndexes) => {
           if (action.type === "PUSH") {
-            return nextHistoryIndex;
+            return {
+              currentRouteHistoryIndex: nextHistoryIndex,
+              forwardRouteHistoryIndex: nextHistoryIndex,
+            };
           }
 
-          if (action.type === "FORWARD" || action.type === "GO") {
-            return Math.max(currentForwardHistoryIndex, nextHistoryIndex);
+          if (action.type === "REPLACE") {
+            return currentRouteHistoryIndexes;
           }
 
-          return currentForwardHistoryIndex;
+          const nextRouteHistoryIndexes = readRouteUrlEditorHistoryIndexesFromState({
+            currentRouteHistoryIndex: nextHistoryIndex,
+            historyState: nextLocation.state,
+          });
+          return {
+            currentRouteHistoryIndex: nextRouteHistoryIndexes.currentRouteHistoryIndex,
+            forwardRouteHistoryIndex: Math.max(
+              currentRouteHistoryIndexes.forwardRouteHistoryIndex,
+              nextRouteHistoryIndexes.forwardRouteHistoryIndex,
+            ),
+          };
         });
       }),
-    [router, updateForwardRouteHistoryIndex],
+    [router, updateRouteHistoryIndexes],
   );
+
+  // Keep the first render server-compatible, then restore saved browser-entry
+  // indexes before paint so reloads do not visibly disable working controls.
+  useLayoutEffect(() => {
+    if (restoredRouteHistoryIndexesRef.current) {
+      return;
+    }
+
+    restoredRouteHistoryIndexesRef.current = true;
+    updateRouteHistoryIndexes(() =>
+      readRouteUrlEditorHistoryIndexesFromState({
+        currentRouteHistoryIndex: locationRouteHistoryIndex,
+        historyState: typeof window === "undefined" ? undefined : window.history.state,
+      }),
+    );
+  }, [locationRouteHistoryIndex, updateRouteHistoryIndexes]);
+
+  // If the user hard-refreshes, browser session history remains but TanStack
+  // can restart its current index at zero; carry the app-history position on
+  // each browser history entry so this chrome can re-enable Back/Forward.
+  useEffect(() => {
+    persistRouteUrlEditorHistoryIndexes({
+      currentRouteHistoryIndex,
+      forwardRouteHistoryIndex,
+    });
+  }, [currentHref, currentRouteHistoryIndex, forwardRouteHistoryIndex]);
 
   // Links and Back/Forward change URL reality. Keep an untouched focused input
   // aligned with the route while preserving user-edited local drafts.

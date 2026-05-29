@@ -11,6 +11,15 @@
   `Local backend isn't running`, run `pnpm dev --once` and retry.
 - `rg` is not available in this environment. Use `grep` and `find` instead.
 
+## Communication
+
+- Prefer concrete, step-by-step explanations over compressed implementation shorthand. Name the
+  thing that changes, where it is stored, when it is read, and why that fixes the user-visible
+  behavior.
+- Avoid opaque phrases like "per-entry `history.state` persistence" in final handoffs. Say the
+  direct version, such as "the app now saves the Back/Forward indexes into the current browser
+  history entry before reload and reads them back after reload."
+
 ## Repo Knowledge Map
 
 - `specs/` contains accepted, current source-of-truth behavior and accepted implementation plans.

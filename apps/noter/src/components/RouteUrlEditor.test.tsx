@@ -16,6 +16,7 @@ const { useQueryMock } = vi.hoisted(() => ({
 }));
 const scrollIntoViewMock = vi.fn();
 const DEFAULT_LOGO_VOXEL_STATE_SUGGESTION = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
+const routeUrlEditorHistoryIndexesStateKey = "__noter_route_url_editor_history_indexes";
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -55,9 +56,10 @@ describe("RouteUrlEditor", () => {
     rootElement = null;
     scrollIntoViewMock.mockReset();
     useQueryMock.mockReset();
+    window.history.replaceState(null, "", "/");
   });
 
-  function renderEditor(initialEntries: string[] = ["/"]): HTMLInputElement {
+  function renderEditor(initialEntries: string[] = ["/"], initialIndex?: number): HTMLInputElement {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -65,7 +67,7 @@ describe("RouteUrlEditor", () => {
 
     act(() => {
       mountedRoot.render(
-        <TestRouterProvider initialEntries={initialEntries}>
+        <TestRouterProvider initialEntries={initialEntries} initialIndex={initialIndex}>
           <RouteUrlEditor />
           <RouteUrlEditorLocationProbe />
         </TestRouterProvider>,
@@ -104,6 +106,15 @@ describe("RouteUrlEditor", () => {
     }
 
     return input;
+  }
+
+  function readRequiredHistoryButton(label: "Back" | "Forward" | "Refresh"): HTMLButtonElement {
+    const button = rootElement?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    if (!button) {
+      throw new Error(`Expected route URL editor ${label} button.`);
+    }
+
+    return button;
   }
 
   function readSuggestions(): HTMLElement | null {
@@ -167,6 +178,32 @@ describe("RouteUrlEditor", () => {
       ),
     ).toHaveLength(3);
     expect(display.value).toBe(`${window.location.origin}/`);
+  });
+
+  it("enables browser navigation controls from the current history entry", () => {
+    window.history.replaceState(
+      {
+        __TSR_index: 0,
+        [routeUrlEditorHistoryIndexesStateKey]: {
+          currentRouteHistoryIndex: 1,
+          forwardRouteHistoryIndex: 2,
+        },
+      },
+      "",
+      "/logo",
+    );
+
+    renderEditor(["/logo"], 0);
+
+    expect(readRequiredHistoryButton("Back").disabled).toBe(false);
+    expect(readRequiredHistoryButton("Forward").disabled).toBe(false);
+  });
+
+  it("keeps browser navigation controls disabled without app history", () => {
+    renderEditor(["/logo"], 0);
+
+    expect(readRequiredHistoryButton("Back").disabled).toBe(true);
+    expect(readRequiredHistoryButton("Forward").disabled).toBe(true);
   });
 
   it("uses one stable absolute URL input across display and edit states", () => {

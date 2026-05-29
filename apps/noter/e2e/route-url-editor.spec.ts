@@ -825,6 +825,46 @@ test("route URL editor previews path suggestions on hover", async ({ page }) => 
   await expect(forwardButton).toBeEnabled();
 });
 
+test("route URL editor restores history controls after hard refresh", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await page.goto("/", {
+    waitUntil: "domcontentloaded",
+  });
+  const origin = await page.evaluate(() => window.location.origin);
+
+  const editor = page.getByTestId("route-url-editor");
+  const backButton = editor.getByRole("button", { name: "Back" });
+  const forwardButton = editor.getByRole("button", { name: "Forward" });
+  const input = await editRouteUrl(page);
+
+  await input.fill(`${origin}/logo`);
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await input.press("Enter");
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(backButton).toBeEnabled();
+  await expect(forwardButton).toBeDisabled();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(backButton).toBeEnabled();
+  await expect(forwardButton).toBeDisabled();
+
+  await backButton.click();
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(backButton).toBeDisabled();
+  await expect(forwardButton).toBeEnabled();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(backButton).toBeDisabled();
+  await expect(forwardButton).toBeEnabled();
+
+  await forwardButton.click();
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(backButton).toBeEnabled();
+  await expect(forwardButton).toBeDisabled();
+});
+
 test("route URL editor restores the typed draft after leaving a hovered dropdown option", async ({
   page,
 }) => {
