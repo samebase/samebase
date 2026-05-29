@@ -349,6 +349,9 @@ Key domain entities:
   screenshots as baselines.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth wiring, or route shell
   behavior, reproduce and test the real app route first.
+- Before calling a UI/router PR merge-ready, run the focused Playwright coverage for the affected
+  route locally. If the issue is browser- or CI-sensitive, also run that focused coverage in a
+  Blacksmith Testbox before marking the PR ready.
 - Do not create fake visual fixtures just to show or approve a product behavior screenshot. If the
   user needs to review behavior, use the real app route or an editable production-component harness
   that exercises the actual code path.

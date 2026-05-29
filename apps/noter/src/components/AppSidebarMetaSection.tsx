@@ -243,6 +243,10 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
       if (!routePreviewEnabled) {
         return;
       }
+      // A previewed query toggle re-renders into its "disable" href; keep the first hover target.
+      if (routePreviewRef.current) {
+        return;
+      }
 
       const targetHref = readAppSidebarMetaAnchorHref(event.currentTarget);
       if (targetHref === currentHref) {
@@ -250,7 +254,7 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
       }
 
       routePreviewRef.current = {
-        baseHref: routePreviewRef.current?.baseHref ?? currentHref,
+        baseHref: currentHref,
         targetHref,
       };
       void navigateRouteHref(targetHref, true);
