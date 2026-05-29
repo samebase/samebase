@@ -98,6 +98,10 @@ import {
   type SidebarMediaUploadVisualMode,
 } from "@/components/SidebarMediaUploadVisualFixture";
 import {
+  ProvidersPageVisualFixture,
+  type ProvidersPageVisualMode,
+} from "@/components/ProvidersPageVisualFixture";
+import {
   RouteUrlEditorVisualFixture,
   type RouteUrlEditorVisualMode,
 } from "@/components/RouteUrlEditorVisualFixture";
@@ -122,6 +126,7 @@ type VisualFixtureMode =
   | VaultBranchPreviewVisualMode
   | VaultResourceRailVisualMode
   | VaultSyncStatusVisualMode
+  | ProvidersPageVisualMode
   | WorkspaceLayoutV2VisualMode
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
@@ -216,6 +221,10 @@ const VAULT_RESOURCE_RAIL_VISUAL_MODES = [
 const VAULT_SYNC_STATUS_VISUAL_MODES = [
   "vault-sync-status-states",
 ] as const satisfies readonly VaultSyncStatusVisualMode[];
+
+const PROVIDERS_PAGE_VISUAL_MODES = [
+  "providers-page",
+] as const satisfies readonly ProvidersPageVisualMode[];
 
 const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-sidebar",
@@ -315,6 +324,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Vault Sync Status",
     modes: VAULT_SYNC_STATUS_VISUAL_MODES,
+  },
+  {
+    label: "Providers",
+    modes: PROVIDERS_PAGE_VISUAL_MODES,
   },
   {
     label: "Route URL",
@@ -424,6 +437,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "vault-sync-status-states") {
     return <VaultSyncStatusVisualFixture mode={mode} />;
+  }
+
+  if (mode === "providers-page") {
+    return <ProvidersPageVisualFixture />;
   }
 
   if (isFileViewPushActionsVisualMode(mode)) {
@@ -590,6 +607,8 @@ export function VisualFixturePage(props: { mode?: string }) {
             invalidMode: selection.value,
           })}
         </VisualFixtureChrome>
+      ) : selection.mode === "providers-page" ? (
+        renderVisualFixture(selection.mode)
       ) : (
         <VisualFixtureChrome>{renderVisualFixture(selection.mode)}</VisualFixtureChrome>
       )}

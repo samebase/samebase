@@ -1,5 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
+import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { useApiKeyConnectDialog, type ApiKeyProvider } from "@/components/ApiKeyConnectDialog";
 import { AppDialogContent } from "@/components/AppDialogContent";
@@ -18,6 +19,7 @@ import {
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { isInIframe } from "@/authClient";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -27,6 +29,7 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
 } from "../../shared/cloudflareTokenRefresh";
 import { Loader2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   useCallback,
@@ -35,13 +38,15 @@ import {
   useState,
   type MutableRefObject,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
+import { VaultDashboardSidebarContent } from "@/components/vault-dashboard/VaultDashboardChrome";
 
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 
-type ProviderKey = (typeof PROVIDER_KEYS)[number];
-type ProviderAction = {
+export type ProviderKey = (typeof PROVIDER_KEYS)[number];
+export type ProvidersPageAction = {
   disabled?: boolean;
   isPending?: boolean;
   key: string;
@@ -49,8 +54,8 @@ type ProviderAction = {
   onClick: () => void;
   pendingLabel?: string;
 };
-type ProviderRow = {
-  actions: readonly ProviderAction[];
+export type ProvidersPageRow = {
+  actions: readonly ProvidersPageAction[];
   icon: ReactElement;
   key: ProviderKey;
   label: string;
@@ -422,6 +427,94 @@ function CloudflareAccountDialog({
   );
 }
 
+function ProvidersPageSidebar() {
+  return (
+    <VaultDashboardSidebarContent>
+      <div className="vault-dashboard-sidebar-inset py-3" data-testid="providers-sidebar-home">
+        <Button variant="outline" className="w-full" asChild>
+          <Link to={DASHBOARD_ROUTE}>Home</Link>
+        </Button>
+      </div>
+      <div className="mt-auto">
+        <AppSidebarMetaSection side="right" />
+      </div>
+    </VaultDashboardSidebarContent>
+  );
+}
+
+export function ProvidersPageView({
+  apiKeyDialog,
+  cloudflareAccountDialog,
+  providerError,
+  providerRows,
+}: {
+  apiKeyDialog: ReactNode;
+  cloudflareAccountDialog: ReactNode;
+  providerError: string | null;
+  providerRows: readonly ProvidersPageRow[];
+}) {
+  return (
+    <AppWorkspaceRouteChrome
+      right={{
+        header: null,
+        content: <ProvidersPageSidebar />,
+      }}
+    >
+      <main className="min-h-full px-4 py-6 md:px-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h1 className="text-2xl font-semibold tracking-normal">Providers</h1>
+          </div>
+          {providerError ? <div className="text-sm text-red-600">{providerError}</div> : null}
+          <div className="divide-y rounded-md border">
+            {providerRows.map((providerRow) => (
+              <section
+                key={providerRow.key}
+                data-provider-key={providerRow.key}
+                data-testid="providers-page-provider-row"
+                className="flex flex-wrap items-start gap-4 p-4"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+                  {providerRow.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-medium">{providerRow.label}</h2>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                    {providerRow.status}
+                  </p>
+                </div>
+                <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2">
+                  {providerRow.actions.map((action) => (
+                    <Button
+                      key={action.key}
+                      variant="outline"
+                      size="sm"
+                      className="h-auto min-h-8 max-w-full whitespace-normal py-2 text-left"
+                      onClick={action.onClick}
+                      disabled={action.disabled}
+                    >
+                      {action.isPending ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          {action.pendingLabel ?? action.label}
+                        </>
+                      ) : (
+                        action.label
+                      )}
+                    </Button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      </main>
+      {cloudflareAccountDialog}
+      {apiKeyDialog}
+    </AppWorkspaceRouteChrome>
+  );
+}
+
 export function ProvidersPage() {
   const now = useNow();
   const user = useQuery(api.users.viewer);
@@ -759,7 +852,7 @@ export function ProvidersPage() {
     },
   };
 
-  const providerRows: ProviderRow[] = PROVIDER_KEYS.map((provider) => {
+  const providerRows: ProvidersPageRow[] = PROVIDER_KEYS.map((provider) => {
     const providerMetadata = PROVIDER_METADATA[provider];
     const providerState = providerConnectionState[provider];
     const apiKeyProvider = providerMetadata.apiKeyProvider;
@@ -842,76 +935,31 @@ export function ProvidersPage() {
   });
 
   return (
-    <AppWorkspaceRouteChrome right={null}>
-      <main className="min-h-full px-4 py-6 md:px-6">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h1 className="text-2xl font-semibold tracking-normal">Providers</h1>
-          </div>
-          {providerError ? <div className="text-sm text-red-600">{providerError}</div> : null}
-          <div className="divide-y rounded-md border">
-            {providerRows.map((providerRow) => (
-              <section
-                key={providerRow.key}
-                data-provider-key={providerRow.key}
-                data-testid="providers-page-provider-row"
-                className="flex flex-wrap items-start gap-4 p-4"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center">
-                  {providerRow.icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-medium">{providerRow.label}</h2>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
-                    {providerRow.status}
-                  </p>
-                </div>
-                <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2">
-                  {providerRow.actions.map((action) => (
-                    <Button
-                      key={action.key}
-                      variant="outline"
-                      size="sm"
-                      className="h-auto min-h-8 max-w-full whitespace-normal py-2 text-left"
-                      onClick={action.onClick}
-                      disabled={action.disabled}
-                    >
-                      {action.isPending ? (
-                        <>
-                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                          {action.pendingLabel ?? action.label}
-                        </>
-                      ) : (
-                        action.label
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </div>
-      </main>
-      <CloudflareAccountDialog
-        accounts={cloudflareAccountDialog.options}
-        error={cloudflareAccountDialog.error}
-        isLoading={cloudflareAccountDialog.isLoadingAccounts}
-        isSubmitting={cloudflareAccountDialog.isSubmitting}
-        onAccountChange={(accountId) => {
-          setCloudflareAccountDialog((state) => ({
-            ...state,
-            error: null,
-            selectedAccountId: accountId,
-          }));
-        }}
-        onOpenChange={handleCloudflareAccountDialogOpenChange}
-        onSubmit={() => {
-          void handleSubmitCloudflareAccount();
-        }}
-        open={cloudflareAccountDialog.isOpen}
-        selectedAccountId={cloudflareAccountDialog.selectedAccountId}
-      />
-      {apiKeyDialog}
-    </AppWorkspaceRouteChrome>
+    <ProvidersPageView
+      apiKeyDialog={apiKeyDialog}
+      cloudflareAccountDialog={
+        <CloudflareAccountDialog
+          accounts={cloudflareAccountDialog.options}
+          error={cloudflareAccountDialog.error}
+          isLoading={cloudflareAccountDialog.isLoadingAccounts}
+          isSubmitting={cloudflareAccountDialog.isSubmitting}
+          onAccountChange={(accountId) => {
+            setCloudflareAccountDialog((state) => ({
+              ...state,
+              error: null,
+              selectedAccountId: accountId,
+            }));
+          }}
+          onOpenChange={handleCloudflareAccountDialogOpenChange}
+          onSubmit={() => {
+            void handleSubmitCloudflareAccount();
+          }}
+          open={cloudflareAccountDialog.isOpen}
+          selectedAccountId={cloudflareAccountDialog.selectedAccountId}
+        />
+      }
+      providerError={providerError}
+      providerRows={providerRows}
+    />
   );
 }
