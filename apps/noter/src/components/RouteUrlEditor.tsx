@@ -654,24 +654,20 @@ function readRouteUrlEditorHistoryIndex(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
-function readRouteUrlEditorPersistedHistoryIndexes(
-  currentRouteHistoryIndex: number,
-): RouteUrlEditorHistoryIndexes {
+function readRouteUrlEditorHistoryIndexesFromState(args: {
+  currentRouteHistoryIndex: number;
+  historyState: unknown;
+}): RouteUrlEditorHistoryIndexes {
   const fallback = {
-    currentRouteHistoryIndex,
-    forwardRouteHistoryIndex: currentRouteHistoryIndex,
+    currentRouteHistoryIndex: args.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: args.currentRouteHistoryIndex,
   };
 
-  if (typeof window === "undefined") {
+  if (!isObject(args.historyState)) {
     return fallback;
   }
 
-  const historyState: unknown = window.history.state;
-  if (!isObject(historyState)) {
-    return fallback;
-  }
-
-  const persistedIndexes = historyState[routeUrlEditorHistoryIndexesStateKey];
+  const persistedIndexes = args.historyState[routeUrlEditorHistoryIndexesStateKey];
   if (!isObject(persistedIndexes)) {
     return fallback;
   }
@@ -710,10 +706,7 @@ function persistRouteUrlEditorHistoryIndexes(args: {
 
   const nextIndexes: RouteUrlEditorHistoryIndexes = {
     currentRouteHistoryIndex: args.currentRouteHistoryIndex,
-    forwardRouteHistoryIndex: Math.max(
-      args.currentRouteHistoryIndex,
-      args.forwardRouteHistoryIndex,
-    ),
+    forwardRouteHistoryIndex: args.forwardRouteHistoryIndex,
   };
   const currentIndexes = historyState[routeUrlEditorHistoryIndexesStateKey];
 
@@ -751,12 +744,16 @@ export function RouteUrlEditor() {
   const router = useRouter();
   const currentHref = location.href;
   const locationRouteHistoryIndex = location.state.__TSR_index;
+  const initialRouteHistoryIndexes = readRouteUrlEditorHistoryIndexesFromState({
+    currentRouteHistoryIndex: locationRouteHistoryIndex,
+    historyState: typeof window === "undefined" ? undefined : window.history.state,
+  });
   const inputId = useId();
   const suggestionsId = `${inputId}-suggestions`;
   const routeUrlEditorStore = useCreateRouteUrlEditorStore({
     currentHref,
-    currentRouteHistoryIndex: locationRouteHistoryIndex,
-    forwardRouteHistoryIndex: locationRouteHistoryIndex,
+    currentRouteHistoryIndex: initialRouteHistoryIndexes.currentRouteHistoryIndex,
+    forwardRouteHistoryIndex: initialRouteHistoryIndexes.forwardRouteHistoryIndex,
   });
   const {
     currentRouteHistoryIndex,
@@ -796,7 +793,6 @@ export function RouteUrlEditor() {
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
   // to the text the user typed until they type, click, blur, or commit.
   const suggestionPreviewActiveRef = useRef(false);
-  const hydratedRouteHistoryIndexesRef = useRef(false);
   const origin = readIsomorphicOrigin();
   const {
     activeIndex: activeSuggestionIndex,
@@ -842,8 +838,8 @@ export function RouteUrlEditor() {
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
 
-  // TanStack writes __TSR_index into each route entry; keep the largest seen
-  // index so Forward only enables after this chrome has observed one.
+  // TanStack writes __TSR_index into each route entry. When our saved indexes
+  // are present on that entry, prefer them so reloads keep Back/Forward state.
   useEffect(
     () =>
       router.history.subscribe(({ action, location: nextLocation }) => {
@@ -856,50 +852,21 @@ export function RouteUrlEditor() {
             };
           }
 
-          if (action.type === "FORWARD" || action.type === "GO") {
-            return {
-              currentRouteHistoryIndex: nextHistoryIndex,
-              forwardRouteHistoryIndex: Math.max(
-                currentRouteHistoryIndexes.forwardRouteHistoryIndex,
-                nextHistoryIndex,
-              ),
-            };
-          }
-
-          return {
+          const nextRouteHistoryIndexes = readRouteUrlEditorHistoryIndexesFromState({
             currentRouteHistoryIndex: nextHistoryIndex,
-            forwardRouteHistoryIndex: currentRouteHistoryIndexes.forwardRouteHistoryIndex,
+            historyState: nextLocation.state,
+          });
+          return {
+            currentRouteHistoryIndex: nextRouteHistoryIndexes.currentRouteHistoryIndex,
+            forwardRouteHistoryIndex: Math.max(
+              currentRouteHistoryIndexes.forwardRouteHistoryIndex,
+              nextRouteHistoryIndexes.forwardRouteHistoryIndex,
+            ),
           };
         });
       }),
     [router, updateRouteHistoryIndexes],
   );
-
-  // Hydrate before paint so hard reloads do not flash disabled controls from
-  // TanStack's restarted index when the browser entry still has app history.
-  useLayoutEffect(() => {
-    if (hydratedRouteHistoryIndexesRef.current) {
-      return;
-    }
-
-    hydratedRouteHistoryIndexesRef.current = true;
-    const syncPersistedRouteHistoryIndexes = () => {
-      updateRouteHistoryIndexes(() =>
-        readRouteUrlEditorPersistedHistoryIndexes(locationRouteHistoryIndex),
-      );
-    };
-
-    syncPersistedRouteHistoryIndexes();
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(syncPersistedRouteHistoryIndexes, 0);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [locationRouteHistoryIndex, updateRouteHistoryIndexes]);
 
   // If the user hard-refreshes, browser session history remains but TanStack
   // can restart its current index at zero; carry the app-history position on

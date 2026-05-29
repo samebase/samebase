@@ -108,6 +108,15 @@ describe("RouteUrlEditor", () => {
     return input;
   }
 
+  function readRequiredHistoryButton(label: "Back" | "Forward" | "Refresh"): HTMLButtonElement {
+    const button = rootElement?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    if (!button) {
+      throw new Error(`Expected route URL editor ${label} button.`);
+    }
+
+    return button;
+  }
+
   function readSuggestions(): HTMLElement | null {
     return (
       rootElement?.querySelector<HTMLElement>('[data-testid="route-url-editor-suggestions"]') ??
@@ -171,7 +180,7 @@ describe("RouteUrlEditor", () => {
     expect(display.value).toBe(`${window.location.origin}/`);
   });
 
-  it("hydrates browser navigation controls from the current history entry", async () => {
+  it("enables browser navigation controls from the current history entry", () => {
     window.history.replaceState(
       {
         __TSR_index: 0,
@@ -186,21 +195,15 @@ describe("RouteUrlEditor", () => {
 
     renderEditor(["/logo"], 0);
 
-    await act(async () => {
-      await Promise.resolve();
-      await new Promise((resolve) => window.setTimeout(resolve, 0));
-    });
+    expect(readRequiredHistoryButton("Back").disabled).toBe(false);
+    expect(readRequiredHistoryButton("Forward").disabled).toBe(false);
+  });
 
-    const backButton = rootElement?.querySelector<HTMLButtonElement>('button[aria-label="Back"]');
-    const forwardButton = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Forward"]',
-    );
-    if (!backButton || !forwardButton) {
-      throw new Error("Expected route URL editor history buttons.");
-    }
+  it("keeps browser navigation controls disabled without app history", () => {
+    renderEditor(["/logo"], 0);
 
-    expect(backButton.disabled).toBe(false);
-    expect(forwardButton.disabled).toBe(false);
+    expect(readRequiredHistoryButton("Back").disabled).toBe(true);
+    expect(readRequiredHistoryButton("Forward").disabled).toBe(true);
   });
 
   it("uses one stable absolute URL input across display and edit states", () => {
