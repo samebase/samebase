@@ -1,16 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/lib/logoRouteSearch";
 import { LogoTransitionTransformsLabPage } from "@/components/logo/LogoTransitionTransformsLabPage";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
-import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/transition/transforms";
 
 function LogoTransitionTransformsLabRouteComponent() {
   return (
-    <RoutedPage pathname={pathname}>
+    <AuthenticatedAppRoutePage>
       <LogoTransitionTransformsLabPage />
-    </RoutedPage>
+    </AuthenticatedAppRoutePage>
   );
 }
 

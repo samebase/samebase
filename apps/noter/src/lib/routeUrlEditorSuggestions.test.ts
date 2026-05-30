@@ -53,6 +53,7 @@ describe("readRouteUrlEditorSuggestions", () => {
     });
 
     expect(suggestions.map((suggestion) => suggestion.value)).toContain("/logo");
+    expect(suggestions.map((suggestion) => suggestion.value)).not.toContain("/logo/transition");
   });
 
   it("suggests matching search params for the current route", () => {
