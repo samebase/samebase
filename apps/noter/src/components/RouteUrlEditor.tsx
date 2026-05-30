@@ -512,6 +512,14 @@ function readRouteUrlEditorHash(url: URL): string {
   return url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
 }
 
+function readRouteUrlEditorBrowserHref(fallbackHref: string): string {
+  if (typeof window === "undefined") {
+    return fallbackHref;
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
 function readRouteUrlEditorSearchDraftSelectionRouteIndex(routeAddress: string): number {
   const hashIndex = routeAddress.indexOf("#");
   return hashIndex === -1 ? routeAddress.length : hashIndex;
@@ -704,6 +712,11 @@ function persistRouteUrlEditorHistoryIndexes(args: {
     return;
   }
 
+  const historyRouteIndex = readRouteUrlEditorHistoryIndex(historyState.__TSR_index);
+  if (historyRouteIndex !== null && historyRouteIndex !== args.currentRouteHistoryIndex) {
+    return;
+  }
+
   const nextIndexes: RouteUrlEditorHistoryIndexes = {
     currentRouteHistoryIndex: args.currentRouteHistoryIndex,
     forwardRouteHistoryIndex: args.forwardRouteHistoryIndex,
@@ -786,6 +799,9 @@ export function RouteUrlEditor() {
   const previewBaseHrefRef = useRef<string | null>(null);
   const pointerPreviewBaseRef = useRef<RouteUrlEditorPointerPreviewBase | null>(null);
   const skipNextBlurCommitRef = useRef(false);
+  const currentHrefRef = useRef(currentHref);
+  const optimisticHrefRef = useRef<string | null>(null);
+  const routeNavigationQueueRef = useRef<Promise<void>>(Promise.resolve());
   // Keyboard edits can render suggestions under a stationary cursor; hover previews resume after pointer movement.
   const suppressSuggestionMousePreviewUntilMoveRef = useRef(false);
   // Arrow-key previews rewrite the input value, while suggestions stay anchored
@@ -802,15 +818,16 @@ export function RouteUrlEditor() {
     selectionRouteIndex,
   } = suggestionState;
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
+  const latestRouteHref = currentHrefRef.current;
   const draftHref = normalizeRouteUrlEditorHref({
-    currentHref,
+    currentHref: latestRouteHref,
     origin,
     rawHref: draftRouteAddress,
   });
   const routeInputInvalid = draftRouteAddress.trim() !== "" && draftHref === null;
   const inputValue = `${origin}${draftRouteAddress}`;
   const routeInputTitle = draftHref === null ? inputValue : `${origin}${draftHref}`;
-  const suggestionCurrentHref = previewBaseHrefRef.current ?? currentHref;
+  const suggestionCurrentHref = previewBaseHrefRef.current ?? latestRouteHref;
   const suggestions = readRouteUrlEditorSuggestions({
     currentHref: suggestionCurrentHref,
     draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
@@ -836,6 +853,17 @@ export function RouteUrlEditor() {
 
   const canGoBack = currentRouteHistoryIndex > 0;
   const canGoForward = currentRouteHistoryIndex < forwardRouteHistoryIndex;
+
+  useLayoutEffect(() => {
+    const latestLocationHref = readRouteUrlEditorBrowserHref(router.latestLocation.href);
+    if (optimisticHrefRef.current === latestLocationHref) {
+      optimisticHrefRef.current = null;
+    }
+    if (optimisticHrefRef.current !== null) {
+      return;
+    }
+    currentHrefRef.current = latestLocationHref;
+  }, [currentHref, router]);
 
   // TanStack writes __TSR_index into each route entry. When our saved indexes
   // are present on that entry, prefer them so reloads keep Back/Forward state.
@@ -900,16 +928,27 @@ export function RouteUrlEditor() {
   // Links and Back/Forward change URL reality. Keep an untouched focused input
   // aligned with the route while preserving user-edited local drafts.
   useEffect(() => {
+    if (suggestionPreviewActiveRef.current) {
+      return;
+    }
+
+    const latestLocationHref = readRouteUrlEditorBrowserHref(router.latestLocation.href);
+
+    if (optimisticHrefRef.current !== null && optimisticHrefRef.current !== latestLocationHref) {
+      return;
+    }
+
     if (inputFocused && suggestionDraftEditedSinceFocus) {
       return;
     }
 
-    setDraftRouteAddress(currentHref);
-    patchSuggestionState({ baseRouteAddress: currentHref });
+    setDraftRouteAddress(latestLocationHref);
+    patchSuggestionState({ baseRouteAddress: latestLocationHref });
   }, [
     currentHref,
     inputFocused,
     patchSuggestionState,
+    router,
     setDraftRouteAddress,
     suggestionDraftEditedSinceFocus,
   ]);
@@ -1064,6 +1103,7 @@ export function RouteUrlEditor() {
       routeAddress: string,
       selectionRouteIndex: number,
     ): RouteUrlEditorSearchContinuation | null => {
+      const latestCurrentHref = currentHrefRef.current;
       const draftRouteAddress = readRouteUrlEditorSearchContinuationDraft({
         routeAddress,
         selectionRouteIndex,
@@ -1074,7 +1114,7 @@ export function RouteUrlEditor() {
 
       if (
         !isRouteUrlEditorRouteUpdateReady({
-          currentHref,
+          currentHref: latestCurrentHref,
           draftRouteAddress: routeAddress,
           origin,
           routesByPath: router.routesByPath,
@@ -1086,7 +1126,7 @@ export function RouteUrlEditor() {
 
       if (
         !isRouteUrlPathReadyForNavigation({
-          currentHref,
+          currentHref: latestCurrentHref,
           draftHref: routeAddress,
           origin,
           routesByPath: router.routesByPath,
@@ -1099,7 +1139,7 @@ export function RouteUrlEditor() {
       const continuationSelectionRouteIndex =
         readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress);
       const continuationSuggestions = readRouteUrlEditorSuggestions({
-        currentHref,
+        currentHref: latestCurrentHref,
         draftEditedSinceFocus: true,
         draftRouteAddress,
         hashKeys: [],
@@ -1118,7 +1158,7 @@ export function RouteUrlEditor() {
         selectionRouteIndex: continuationSelectionRouteIndex,
       };
     },
-    [currentHref, origin, router.routesByPath, viewerIsAdmin],
+    [origin, router.routesByPath, viewerIsAdmin],
   );
 
   const openSearchContinuationFromInput = useCallback(
@@ -1263,77 +1303,93 @@ export function RouteUrlEditor() {
     (
       nextHref: string,
       options: { replaceRouteNavigation: boolean; replaceRouteOptions: boolean },
-      navigationCurrentHref = currentHref,
+      navigationCurrentHref = currentHrefRef.current,
     ) => {
       const commitMode = getRouteUrlEditorCommitMode({
         currentHref: navigationCurrentHref,
         nextHref,
         origin,
       });
+      const nextUrl = new URL(nextHref, new URL(origin));
+      const nextRouteHref = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+      currentHrefRef.current = nextRouteHref;
+      optimisticHrefRef.current = nextRouteHref;
 
-      switch (commitMode) {
-        case "route-options": {
-          const routeOptionsUrl = new URL(nextHref, new URL(origin));
-          return router.navigate({
-            hash: readRouteUrlEditorHash(routeOptionsUrl),
-            replace: options.replaceRouteOptions,
-            search: () =>
-              readRouteUrlEditorExactSearch({
-                currentHref: navigationCurrentHref,
-                nextHref,
-                origin,
-              }),
-            resetScroll: false,
-            to: routeOptionsUrl.pathname,
-          });
+      const runNavigation = async () => {
+        switch (commitMode) {
+          case "route-options": {
+            await router.navigate({
+              hash: readRouteUrlEditorHash(nextUrl),
+              replace: options.replaceRouteOptions,
+              search: () =>
+                readRouteUrlEditorExactSearch({
+                  currentHref: navigationCurrentHref,
+                  nextHref,
+                  origin,
+                }),
+              resetScroll: false,
+              to: nextUrl.pathname,
+            });
+            break;
+          }
+          case "route-navigation": {
+            await router.navigate({
+              hash: readRouteUrlEditorHash(nextUrl),
+              replace: options.replaceRouteNavigation,
+              search: () =>
+                readRouteUrlEditorExactSearch({
+                  currentHref: navigationCurrentHref,
+                  nextHref,
+                  origin,
+                }),
+              to: nextUrl.pathname,
+            });
+            break;
+          }
         }
-        case "route-navigation": {
-          const routeNavigationUrl = new URL(nextHref, new URL(origin));
-          return router.navigate({
-            hash: readRouteUrlEditorHash(routeNavigationUrl),
-            replace: options.replaceRouteNavigation,
-            search: () =>
-              readRouteUrlEditorExactSearch({
-                currentHref: navigationCurrentHref,
-                nextHref,
-                origin,
-              }),
-            to: routeNavigationUrl.pathname,
-          });
+
+        if (optimisticHrefRef.current === nextRouteHref) {
+          const latestLocationHref = readRouteUrlEditorBrowserHref(router.latestLocation.href);
+          currentHrefRef.current = latestLocationHref;
+          optimisticHrefRef.current = null;
         }
-      }
+      };
+      const navigation = routeNavigationQueueRef.current.then(runNavigation, runNavigation);
+      routeNavigationQueueRef.current = navigation.catch(() => {});
+      return navigation;
     },
-    [currentHref, origin, router],
+    [origin, router],
   );
 
   const previewDraftRouteAddress = useCallback(
     (nextDraftRouteAddress: string) => {
+      const latestCurrentHref = currentHrefRef.current;
       const routeUpdateDraftRouteAddress = readRouteUrlEditorRouteUpdateDraft({
-        currentHref,
+        currentHref: latestCurrentHref,
         draftRouteAddress: nextDraftRouteAddress,
         origin,
         routesByPath: router.routesByPath,
         viewer: { isAdmin: viewerIsAdmin === true },
       });
       const nextHref = normalizeRouteUrlEditorHref({
-        currentHref,
+        currentHref: latestCurrentHref,
         origin,
         rawHref: routeUpdateDraftRouteAddress,
       });
 
-      if (nextHref === null || nextHref === currentHref) {
+      if (nextHref === null || nextHref === latestCurrentHref) {
         return;
       }
 
       const commitMode = getRouteUrlEditorCommitMode({
-        currentHref,
+        currentHref: latestCurrentHref,
         nextHref,
         origin,
       });
       if (
         commitMode === "route-navigation" &&
         !isRouteUrlPathReadyForNavigation({
-          currentHref,
+          currentHref: latestCurrentHref,
           draftHref: nextHref,
           origin,
           routesByPath: router.routesByPath,
@@ -1343,13 +1399,13 @@ export function RouteUrlEditor() {
         return;
       }
 
-      previewBaseHrefRef.current ??= currentHref;
+      previewBaseHrefRef.current ??= latestCurrentHref;
       void navigateRouteUrlEditorHref(nextHref, {
         replaceRouteNavigation: true,
         replaceRouteOptions: true,
       });
     },
-    [currentHref, navigateRouteUrlEditorHref, origin, router.routesByPath, viewerIsAdmin],
+    [navigateRouteUrlEditorHref, origin, router.routesByPath, viewerIsAdmin],
   );
 
   const applyRouteBoundaryDeletion = useCallback(
@@ -1438,19 +1494,21 @@ export function RouteUrlEditor() {
   );
 
   const resetInput = useCallback(() => {
+    const latestCurrentHref = currentHrefRef.current;
     suggestionPreviewActiveRef.current = false;
     pointerPreviewBaseRef.current = null;
     previewBaseHrefRef.current = null;
     touchScrollPreviewCommitPendingRef.current = false;
     touchScrollPreviewDraftRouteAddressRef.current = null;
-    setDraftRouteAddress(currentHref);
-    patchSuggestionState({ baseRouteAddress: currentHref });
-  }, [currentHref, patchSuggestionState, setDraftRouteAddress]);
+    setDraftRouteAddress(latestCurrentHref);
+    patchSuggestionState({ baseRouteAddress: latestCurrentHref });
+  }, [patchSuggestionState, setDraftRouteAddress]);
 
   const commitInput = useCallback(
     async (rawAddress: string, options: RouteUrlEditorCommitOptions) => {
+      const latestCurrentHref = currentHrefRef.current;
       const draftHref = normalizeRouteUrlEditorHref({
-        currentHref,
+        currentHref: latestCurrentHref,
         origin,
         rawHref: rawAddress,
       });
@@ -1459,20 +1517,20 @@ export function RouteUrlEditor() {
         suggestionPreviewActiveRef.current = false;
         pointerPreviewBaseRef.current = null;
         previewBaseHrefRef.current = null;
-        setDraftRouteAddress(currentHref);
-        patchSuggestionState({ baseRouteAddress: currentHref });
+        setDraftRouteAddress(latestCurrentHref);
+        patchSuggestionState({ baseRouteAddress: latestCurrentHref });
         return;
       }
 
       const routeUpdateDraftRouteAddress = readRouteUrlEditorRouteUpdateDraft({
-        currentHref,
+        currentHref: latestCurrentHref,
         draftRouteAddress: draftHref,
         origin,
         routesByPath: router.routesByPath,
         viewer: { isAdmin: viewerIsAdmin === true },
       });
       const href = normalizeRouteUrlEditorHref({
-        currentHref,
+        currentHref: latestCurrentHref,
         origin,
         rawHref: routeUpdateDraftRouteAddress,
       });
@@ -1493,14 +1551,14 @@ export function RouteUrlEditor() {
 
       if (options.commitPreviewToHistory && previewBaseHref !== null) {
         if (href === previewBaseHref) {
-          if (href !== currentHref) {
+          if (href !== latestCurrentHref) {
             await navigateRouteUrlEditorHref(
               href,
               {
                 replaceRouteNavigation: true,
                 replaceRouteOptions: true,
               },
-              currentHref,
+              latestCurrentHref,
             );
           }
           return;
@@ -1512,7 +1570,7 @@ export function RouteUrlEditor() {
             replaceRouteNavigation: true,
             replaceRouteOptions: true,
           },
-          currentHref,
+          latestCurrentHref,
         );
         await navigateRouteUrlEditorHref(
           href,
@@ -1525,7 +1583,7 @@ export function RouteUrlEditor() {
         return;
       }
 
-      if (href === currentHref) {
+      if (href === latestCurrentHref) {
         return;
       }
 
@@ -1535,7 +1593,6 @@ export function RouteUrlEditor() {
       });
     },
     [
-      currentHref,
       navigateRouteUrlEditorHref,
       origin,
       patchSuggestionState,
@@ -1616,13 +1673,13 @@ export function RouteUrlEditor() {
     (nextActiveSuggestionIndex: number) => {
       pointerPreviewBaseRef.current ??= {
         draftRouteAddress,
-        href: currentHref,
+        href: currentHrefRef.current,
         previewBaseHrefBeforePointerPreview: previewBaseHrefRef.current,
       };
 
       return previewSuggestionByIndex(nextActiveSuggestionIndex);
     },
-    [currentHref, draftRouteAddress, previewSuggestionByIndex],
+    [draftRouteAddress, previewSuggestionByIndex],
   );
 
   const restorePointerSuggestionPreview = useCallback(
@@ -1643,20 +1700,21 @@ export function RouteUrlEditor() {
         baseRouteAddress: pointerPreviewBase.draftRouteAddress,
       });
 
-      if (pointerPreviewBase.href !== currentHref) {
+      const latestCurrentHref = currentHrefRef.current;
+      if (pointerPreviewBase.href !== latestCurrentHref) {
         void navigateRouteUrlEditorHref(
           pointerPreviewBase.href,
           {
             replaceRouteNavigation: true,
             replaceRouteOptions: true,
           },
-          currentHref,
+          latestCurrentHref,
         );
       }
 
       return true;
     },
-    [currentHref, navigateRouteUrlEditorHref, patchSuggestionState, setDraftRouteAddress],
+    [navigateRouteUrlEditorHref, patchSuggestionState, setDraftRouteAddress],
   );
 
   const previewSuggestionUnderTouchScrollSlate = useCallback(() => {
@@ -1721,9 +1779,10 @@ export function RouteUrlEditor() {
     touchScrollPreviewDraftRouteAddressRef.current = null;
 
     if (skipNextBlurCommitRef.current) {
+      const latestCurrentHref = currentHrefRef.current;
       skipNextBlurCommitRef.current = false;
-      setDraftRouteAddress(currentHref);
-      patchSuggestionState({ baseRouteAddress: currentHref });
+      setDraftRouteAddress(latestCurrentHref);
+      patchSuggestionState({ baseRouteAddress: latestCurrentHref });
       return;
     }
 
@@ -1738,7 +1797,6 @@ export function RouteUrlEditor() {
     });
   }, [
     commitInput,
-    currentHref,
     draftRouteAddress,
     patchSuggestionState,
     previewSuggestionUnderTouchScrollSlate,
@@ -1775,6 +1833,7 @@ export function RouteUrlEditor() {
 
   const selectSuggestion = useCallback(
     (suggestion: RouteUrlEditorSuggestion) => {
+      const latestCurrentHref = currentHrefRef.current;
       touchScrollPreviewCommitPendingRef.current = false;
       touchScrollPreviewDraftRouteAddressRef.current = null;
       pointerPreviewBaseRef.current = null;
@@ -1785,7 +1844,7 @@ export function RouteUrlEditor() {
         suggestion,
       });
       const routeUpdateReady = isRouteUrlEditorRouteUpdateReady({
-        currentHref,
+        currentHref: latestCurrentHref,
         draftRouteAddress: nextDraftRouteAddress,
         origin,
         routesByPath: router.routesByPath,
@@ -1846,7 +1905,7 @@ export function RouteUrlEditor() {
         searchFollowup === null
           ? []
           : readRouteUrlEditorSuggestions({
-              currentHref,
+              currentHref: latestCurrentHref,
               draftEditedSinceFocus: true,
               draftRouteAddress: searchFollowup.draftRouteAddress,
               hashKeys: documentHashSuggestionKeys,
@@ -1908,7 +1967,6 @@ export function RouteUrlEditor() {
     },
     [
       commitInput,
-      currentHref,
       documentHashSuggestionKeys,
       origin,
       patchSuggestionState,
