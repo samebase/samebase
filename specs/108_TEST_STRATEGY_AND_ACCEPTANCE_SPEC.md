@@ -29,12 +29,17 @@ and `docs/playwright-visual-testing.md` remains the operator runbook.
 
 This policy follows common test-suite guidance:
 
-- Playwright recommends testing user-visible behavior, isolating each test's storage/session/data,
-  using Linux on CI, using sharding when the suite is large, and keeping visual regression runs on
-  the same operating system and browser versions.
-- Testing Library's guiding principle is that tests should resemble how the software is used.
-- Google's Testing Blog and the test pyramid both argue against putting most confidence in large
-  end-to-end tests because they are slower, less isolated, and harder to debug.
+- [Playwright best practices](https://playwright.dev/docs/best-practices) recommends testing
+  user-visible behavior, isolating each test's storage/session/data, using Linux on CI, using
+  sharding when the suite is large, and keeping visual regression runs on the same operating system
+  and browser versions.
+- [Testing Library's guiding principle](https://testing-library.com/docs/guiding-principles) is that
+  tests should resemble how the software is used.
+- Google's Testing Blog pieces on
+  [fixing a test hourglass](https://testing.googleblog.com/2020/11/fixing-test-hourglass.html) and
+  [limiting end-to-end growth](https://testing.googleblog.com/2015/04/just-say-no-to-more-end-to-end-tests.html)
+  argue against putting most confidence in large end-to-end tests because they are slower, less
+  isolated, and harder to debug.
 
 The Noter-specific choices are the exact command names, the Linux Docker ARM64 baseline, the
 classification labels, and which product contracts are allowed to block release.
