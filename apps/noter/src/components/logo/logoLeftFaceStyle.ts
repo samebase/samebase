@@ -27,7 +27,7 @@ export type LogoLeftFaceStyle = LogoSecondaryLeftFaceStyle | LogoStripedLeftFace
 
 export const LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE = {
   kind: "striped",
-  stripeAngleDegrees: -45,
+  stripeAngleDegrees: 45,
   stripeBasis: "vertical",
   stripeGap: 0.25,
   stripeGapLinked: false,
