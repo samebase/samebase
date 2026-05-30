@@ -26,6 +26,15 @@ async function openMachinesWorkspaceFixture(page: Page) {
 test("machines workspace fixture", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
+  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(leftPane.getByRole("button", { name: "Home", exact: true })).toHaveCount(0);
+  await expect(leftPane.getByRole("button", { name: "Open user menu", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(leftPane.getByRole("link", { name: "/home", exact: true })).toHaveCount(0);
+  await expect(rightPane.getByRole("link", { name: "/home", exact: true })).toHaveCount(1);
+
   const workspace = page.getByTestId("machines-workspace-visual-fixture-page");
   await expect(workspace).toHaveScreenshot("machines-workspace-page.png", {
     animations: "disabled",
