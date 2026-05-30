@@ -21,7 +21,16 @@ unless the command already passes `--fully-parallel` or `--workers` / `-j`.
 
 ## Acceptance Command
 
-The canonical local acceptance command for Playwright visual coverage is the unmodified Linux
+The canonical local acceptance command for a branch is:
+
+```bash
+pnpm test:acceptance
+```
+
+That command runs CI checks, the Vite+/Vitest suite, and the Docker Linux Playwright visual suite in
+one explicit local pass.
+
+The canonical local acceptance command for Playwright visual coverage alone is the unmodified Linux
 wrapper:
 
 ```bash

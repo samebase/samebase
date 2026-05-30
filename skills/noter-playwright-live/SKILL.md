@@ -153,6 +153,8 @@ await page.goto("/admin-route", { waitUntil: "networkidle" });
 
 ## Test Runner Acceptance
 
+- `pnpm test:acceptance` is the canonical local branch acceptance command. It runs `pnpm check:ci`,
+  `pnpm test`, and the Linux Docker Playwright visual suite.
 - `pnpm test:visual:linux` with no Playwright flags is the canonical local acceptance command for
   the Playwright visual suite.
 - Use focused commands such as `pnpm test:visual:linux -- e2e/foo.spec.ts` only as a triage loop. If
