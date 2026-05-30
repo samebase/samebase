@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
 import { closeSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,6 +10,7 @@ const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "noter", ".env.local");
 const convexEnvSetMaxAttempts = 4;
+const keepBackendRunning = process.argv.slice(2).includes("--keep-running");
 
 await main();
 
@@ -23,7 +25,7 @@ async function main(): Promise<void> {
       "exec",
       "node",
       "scripts/convex-dev.ts",
-      "--until-success",
+      ...(keepBackendRunning ? [] : ["--until-success"]),
       "--typecheck=disable",
       "--tail-logs=disable",
     ],
@@ -74,6 +76,8 @@ async function main(): Promise<void> {
     );
 
     for (const [key, value] of [
+      ...buildConvexAuthEnvEntries(),
+      ["CONVEX_AGENT_MODE", "anonymous"],
       ["PROVIDER_GITHUB_OAUTH_CLIENT_ID", "ci-placeholder"],
       ["PROVIDER_GITHUB_OAUTH_CLIENT_SECRET", "ci-placeholder"],
       ["PROVIDER_GITHUB_OAUTH_REDIRECT_URL", "https://example.com/oauth/github/callback"],
@@ -89,6 +93,7 @@ async function main(): Promise<void> {
       "Timed out waiting for Convex functions to become ready.",
       bootstrapProcess,
     );
+    await runConvexPasswordAccountSeed();
   } catch (error) {
     await stopProcess(bootstrapProcess);
     await printLogTail();
@@ -102,7 +107,11 @@ async function main(): Promise<void> {
     closeSync(logFileDescriptor);
   }
 
-  await stopProcess(bootstrapProcess);
+  if (keepBackendRunning) {
+    bootstrapProcess.unref();
+  } else {
+    await stopProcess(bootstrapProcess);
+  }
   await printLogTail();
 }
 
@@ -111,7 +120,7 @@ async function main(): Promise<void> {
  * for fatal errors and the idempotent single-key write contract.
  */
 async function runConvexEnvSet(key: string, value: string): Promise<void> {
-  const args = ["--filter", "noter", "exec", "convex", "env", "set", key, value];
+  const args = ["--filter", "noter", "exec", "convex", "env", "set", "--", key, value];
 
   for (let attempt = 1; attempt <= convexEnvSetMaxAttempts; attempt += 1) {
     const result = spawnSync(PNPM_COMMAND, args, {
@@ -138,6 +147,54 @@ async function runConvexEnvSet(key: string, value: string): Promise<void> {
   }
 
   throw new Error(`convex env set ${key} retry loop ended unexpectedly.`);
+}
+
+function normalizePrivateKey(privateKey: string | Buffer): string {
+  return privateKey.toString().trimEnd().replace(/\n/g, " ");
+}
+
+function buildConvexAuthEnvEntries(): readonly [string, string][] {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicExponent: 0x10001,
+  });
+  const privatePem = privateKey.export({ format: "pem", type: "pkcs8" });
+  const publicJwk = publicKey.export({ format: "jwk" });
+
+  return [
+    ["JWT_PRIVATE_KEY", normalizePrivateKey(privatePem)],
+    ["JWKS", JSON.stringify({ keys: [{ use: "sig", ...publicJwk }] })],
+  ];
+}
+
+async function runConvexPasswordAccountSeed(): Promise<void> {
+  const result = spawnSync(
+    PNPM_COMMAND,
+    [
+      "--filter",
+      "noter",
+      "exec",
+      "convex",
+      "run",
+      "devAuth:seedPasswordAccount",
+      "--typecheck",
+      "disable",
+      "--codegen",
+      "disable",
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  writeProcessOutput(result.stdout, result.stderr);
+  if (result.status !== 0) {
+    throw new Error(
+      `convex run devAuth:seedPasswordAccount failed with exit code ${result.status ?? "unknown"}.`,
+    );
+  }
 }
 
 function isTransientConvexEnvSetFailure(output: string): boolean {

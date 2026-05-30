@@ -3,6 +3,7 @@ import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { signInIfNeeded } from "./liveHelpers";
 
 test.setTimeout(120_000);
 
@@ -13,16 +14,7 @@ const EXPECTED_LOGO_DEPTH_HARD_MAX = {
   svg: 3,
   three: 5,
 } as const;
-const logoPublicRoutePaths = [
-  "/logo",
-  "/logo/iso",
-  "/logo/raster",
-  "/logo/raster-seams",
-  "/logo/svg",
-  "/logo/single-cube",
-  "/logo/transition",
-  "/logo/transition/transforms",
-] as const;
+const logoPublicRouteUrls = ["/logo", "/logo?light", "/logo?dark"] as const;
 
 async function waitForPaint(page: Page) {
   await page.evaluate(async () => {
@@ -83,11 +75,33 @@ async function expectLogoSearchEntries(page: Page, expectedEntries: LogoSearchEn
     });
 }
 
-test("logo iso controls sidebar", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/iso?isoSide=6", {
+async function signInForLogoAdminRoute(page: Page): Promise<void> {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page);
+}
+
+async function gotoLogoAdminRoute(page: Page, url: string): Promise<void> {
+  await signInForLogoAdminRoute(page);
+  await page.goto(url, {
     waitUntil: "domcontentloaded",
   });
+}
+
+async function navigateWithRouteUrlEditor(page: Page, url: string): Promise<void> {
+  const input = page.getByTestId("route-url-editor-input");
+  if (!(await input.isVisible())) {
+    const display = page.getByTestId("route-url-editor-display");
+    await expect(display).toBeVisible();
+    await display.focus();
+    await expect(input).toBeFocused();
+  }
+  await input.fill(url);
+  await input.press("Enter");
+}
+
+test("logo iso controls sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await gotoLogoAdminRoute(page, "/logo/iso?isoSide=6");
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   await expect(controlsSidebar).toBeVisible();
@@ -167,7 +181,7 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
 test("logo routes share the public account right sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
 
-  for (const pathname of logoPublicRoutePaths) {
+  for (const pathname of logoPublicRouteUrls) {
     await page.goto(pathname, { waitUntil: "domcontentloaded" });
 
     const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
@@ -311,6 +325,7 @@ test("logo public query links cancel conflicting root theme modes", async ({ pag
 
 test("logo recursive depth renders a rotatable shuffleable Three scene", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInForLogoAdminRoute(page);
   await page.goto("/logo?depth=3&rot=45", {
     waitUntil: "domcontentloaded",
   });
@@ -327,14 +342,21 @@ test("logo recursive depth renders a rotatable shuffleable Three scene", async (
   await expect(controlsSidebar.getByRole("button", { name: "Stop shuffle" })).toBeVisible();
   await controlsSidebar.getByRole("button", { name: "Stop shuffle" }).click();
   await expect(controlsSidebar.getByRole("button", { name: "Start shuffle" })).toBeVisible();
-  await controlsSidebar.getByRole("button", { name: "SVG" }).click();
+  const origin = new URL(page.url()).origin;
+  await navigateWithRouteUrlEditor(page, `${origin}/logo/svg?depth=3`);
   await expect
     .poll(() => {
       const url = new URL(page.url());
       return `${url.pathname}:${url.searchParams.get("depth")}`;
     })
     .toBe("/logo/svg:3");
-  await page.goBack({ waitUntil: "domcontentloaded" });
+  await navigateWithRouteUrlEditor(page, `${origin}/logo?depth=3&rot=45`);
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      return `${url.pathname}:${url.searchParams.get("depth")}:${url.searchParams.get("rot")}`;
+    })
+    .toBe("/logo:3:45");
 
   await controlsSidebar.getByLabel("Yaw value").fill("90");
   await expect
@@ -402,9 +424,7 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({ page }) =
 
 test("logo iso depth 5 keeps recursive preview responsive", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/iso?depth=5&vox=xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/iso?depth=5&vox=xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx");
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const canvas = page.locator('canvas[data-logo-renderer="iso"]').first();
@@ -427,9 +447,7 @@ test("logo iso depth 5 keeps recursive preview responsive", async ({ page }) => 
 
 test("logo raster depth 6 keeps recursive preview responsive", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/raster?depth=6&top=red-500&elev=359.9&freeView", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster?depth=6&top=red-500&elev=359.9&freeView");
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
@@ -460,11 +478,9 @@ test("logo raster depth 6 keeps recursive preview responsive", async ({ page }) 
 
 test("logo raster face-on recursion renders without tile seams", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(
+  await gotoLogoAdminRoute(
+    page,
     "/logo/raster?depth=2&top=red-500&elev=0&rot=180&vox=xxx_oox_xxo-xoo_ooo_xox-oxx_xox_xox",
-    {
-      waitUntil: "domcontentloaded",
-    },
   );
 
   const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
@@ -481,9 +497,7 @@ test("logo raster face-on recursion renders without tile seams", async ({ page }
 
 test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/raster-seams?elev=22&rot=22", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster-seams?elev=22&rot=22");
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
   const sourceCanvas = currentCase.locator('canvas[data-logo-raster-seam-lab="source"]');
@@ -546,9 +560,7 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
 
 test("logo raster seam lab inflation input allows partial edits", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/raster-seams?elev=22&rot=22", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster-seams?elev=22&rot=22");
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
   const inflationInput = page.getByLabel("Inflation scale");
@@ -570,9 +582,7 @@ test("logo raster seam lab inflation input allows partial edits", async ({ page 
 
 test("logo raster seam lab spacing scale moves the fake 3d centers", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/raster-seams?depth=2&elev=22&rot=22", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster-seams?depth=2&elev=22&rot=22");
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
   const composedCanvas = currentCase.locator('canvas[data-logo-raster-seam-lab="composed"]');
@@ -608,9 +618,7 @@ test("logo raster seam lab spacing scale moves the fake 3d centers", async ({ pa
 
 test("logo raster seam lab source size input allows larger custom rasters", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/raster-seams?elev=22&rot=22", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster-seams?elev=22&rot=22");
 
   const currentCase = page.getByTestId("logo-raster-seam-lab-current-case");
   const maskCanvas = currentCase.locator('canvas[data-logo-raster-seam-lab="mask"]');
@@ -641,9 +649,7 @@ test("logo raster seam lab source size input allows larger custom rasters", asyn
 
 test("logo shape presets include seam stress models", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/raster?top=red-500", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster?top=red-500");
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const shapeSelect = controlsSidebar.getByRole("combobox").filter({ hasText: "Checker 3" });
@@ -693,6 +699,7 @@ test("logo depth slider clears default depth from the URL", async ({ page }) => 
 
 test("logo pages cap URL-edited recursive depth before rendering", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInForLogoAdminRoute(page);
   await page.goto("/logo?depth=99&rot=45", {
     waitUntil: "domcontentloaded",
   });
@@ -733,6 +740,7 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({ page
 
 test("logo distance scale controls Three and raster previews", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInForLogoAdminRoute(page);
   await page.goto("/logo?dist=1.25&rot=45", {
     waitUntil: "domcontentloaded",
   });
@@ -769,9 +777,7 @@ test("logo distance scale controls Three and raster previews", async ({ page }) 
 
 test("logo raster distance scale keeps depth 3 on the geometric base path", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo/raster?depth=3&dist=1.5&top=red-500&elev=22&rot=45", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster?depth=3&dist=1.5&top=red-500&elev=22&rot=45");
 
   const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
 
@@ -786,6 +792,8 @@ test("logo raster distance scale keeps depth 3 on the geometric base path", asyn
 });
 
 test("logo iso controls mobile boot", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInForLogoAdminRoute(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo/iso?isoSide=6", {
     waitUntil: "domcontentloaded",
