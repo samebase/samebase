@@ -286,6 +286,7 @@ It also demotes the first diagnostic group out of default Playwright acceptance 
   one default `/logo` route smoke for excessive URL-edited depth recovery.
 - detailed route URL editor dropdown screenshots inside `route-url-editor.spec.ts`, while moving the
   manually typed value-suggestion case into `RouteUrlEditor.test.tsx`.
+- workspace gesture debug overlay checks inside `workspace-sidebar-drag.spec.ts`.
 
 ### Phase 4. Split High-Cost Specs
 
@@ -309,6 +310,14 @@ Initial route URL editor split status: the manually typed search-value suggestio
 `apps/noter/src/components/RouteUrlEditor.test.tsx`, and the numeric/color dropdown screenshot
 details are diagnostic. The remaining default file still needs a broader contract split around
 browser editing, hover preview, history, mobile picker, prod mode, and boundary rejection.
+
+Initial public landing split status: prod-ui shortcut absence and dev-toggle query preservation now
+run in `apps/noter/src/components/AppSidebarMetaSection.test.tsx`; the serial Playwright file keeps
+route, auth-slot, mobile shell, logo fallback/drag, and navigation budget coverage.
+
+Initial workspace sidebar split status: gesture debug overlay checks now run only with
+`PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`; default Playwright keeps shipped mobile carousel, resize grip,
+logo sidebar, and localStorage persistence behavior.
 
 ### Phase 5. Improve Runtime Reporting
 

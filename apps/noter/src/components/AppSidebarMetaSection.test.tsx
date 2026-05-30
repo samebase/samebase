@@ -6,6 +6,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { useLocation } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import {
+  LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+  LANDING_DEV_MODE_LINK_LABEL,
+} from "@/lib/landingDevMode";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import { AppSidebarMetaRoutePreviewProvider, AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
@@ -173,6 +177,36 @@ describe("AppSidebarMetaSection", () => {
     expect(rootElement.textContent).not.toContain("?prod-ui");
     expect(rootElement.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
     expect(rootElement.textContent).not.toContain("/landing-preview");
+  });
+
+  it("keeps prod-ui hidden while preserving it across the landing dev toggle", async () => {
+    const element = await renderSidebarMetaSection("/?prod-ui");
+    const prodUiShortcut = element.querySelector("#public-landing-prod-ui-toggle");
+    const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
+    if (!devLink) {
+      throw new Error("Expected public landing dev shortcut.");
+    }
+
+    expect(prodUiShortcut).toBeNull();
+    expect(devLink.textContent).toBe(LANDING_DEV_MODE_LINK_LABEL);
+    expect(devLink.getAttribute("aria-label")).toBe(LANDING_DEV_MODE_LINK_LABEL);
+    expect(devLink.getAttribute("href")).toBe("/?prod-ui&dev");
+
+    await act(async () => {
+      devLink.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationHref()).toBe("/?prod-ui&dev");
+    expect(devLink.textContent).toBe(LANDING_DEV_MODE_LINK_LABEL);
+    expect(devLink.getAttribute("aria-label")).toBe(LANDING_DEV_MODE_DISABLE_LINK_LABEL);
+    expect(devLink.getAttribute("href")).toBe("/?prod-ui");
   });
 
   it("omits the landing preview path link while keeping preview query shortcuts", async () => {

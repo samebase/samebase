@@ -1726,49 +1726,6 @@ test.describe("production public host landing", () => {
   });
 });
 
-test("landing dev toggle preserves unrelated query params", async ({ page }) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  const shellToggleLink = page.getByRole("link", {
-    name: LANDING_DEV_MODE_LINK_LABEL,
-  });
-  await expect(shellToggleLink).toHaveAttribute("href", "/?prod-ui&dev");
-
-  await shellToggleLink.focus();
-  await shellToggleLink.press("Enter");
-  await expect(page).toHaveURL(/\/\?(?:prod-ui&dev|dev&prod-ui)$/);
-
-  const appToggleLink = page.getByRole("link", {
-    name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
-    exact: true,
-  });
-  await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
-});
-
-test("prod-ui mode omits the prod-ui shortcut", async ({ page }) => {
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-
-  await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
-  await expect(
-    page.getByRole("link", {
-      name: LANDING_DEV_MODE_LINK_LABEL,
-      exact: true,
-    }),
-  ).toBeVisible();
-});
-
-test("prod-ui shortcut is not rendered before entry", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
-  await expect(
-    page.getByRole("link", {
-      name: LANDING_DEV_MODE_LINK_LABEL,
-      exact: true,
-    }),
-  ).toBeVisible();
-});
-
 test("landing dev edits stay visible after toggling back to the plain landing view", async ({
   page,
 }) => {

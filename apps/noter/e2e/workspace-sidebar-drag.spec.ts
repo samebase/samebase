@@ -655,7 +655,7 @@ test("fileview mobile sidebar grips resize the active sidebars", async ({ page }
   await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(1);
 });
 
-test("global swipe debug overlay stops the trace as soon as touch leaves the viewport", async ({
+test("@diagnostic global swipe debug overlay stops the trace as soon as touch leaves the viewport", async ({
   page,
 }) => {
   await gotoVisualFixtureDirectory(page, { swipeDebug: true });
@@ -680,7 +680,7 @@ test("global swipe debug overlay stops the trace as soon as touch leaves the vie
   await expect(overlay).toContainText("dy: +8.0px");
 });
 
-test("bootstrap gesture debug overlay follows query param changes without reload", async ({
+test("@diagnostic bootstrap gesture debug overlay follows query param changes without reload", async ({
   page,
 }) => {
   await page.goto("/privacy", {
