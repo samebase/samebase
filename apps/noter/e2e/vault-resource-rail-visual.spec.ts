@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("vault resource rail fixture", async ({ page }) => {
+test("@diagnostic vault resource rail fixture", async ({ page }) => {
   await page.setViewportSize({ width: 760, height: 1040 });
   await page.goto("/visual-fixture?mode=vault-resource-rail", {
     waitUntil: "domcontentloaded",

@@ -24,8 +24,8 @@ pnpm --filter noter exec playwright test -c playwright.config.ts --list
 
 Current default surface:
 
-- `212` tests
-- `38` files
+- `210` tests
+- `37` files
 - Chromium project only
 - `*.live.spec.ts` excluded
 - `@diagnostic` tests excluded unless `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`
@@ -33,11 +33,11 @@ Current default surface:
 
 Last audited full Linux wrapper summary from `.tmp/playwright-linux/summary.json`:
 
-- `212` passed
+- `210` passed
 - `0` skipped
 - `0` unexpected
 - `4` workers
-- `100302.157` ms
+- `98278.686` ms
 
 ## Classification Meanings
 
@@ -79,7 +79,7 @@ Actions:
 | `landing-copy-visual.spec.ts`              |     1 | `rewrite`          | Landing copy remains editable in dev mode while ProseMark stays behind it.                                                    | Low runtime, but behavior may be cheaper in component coverage.                                  | Landing                   | `rewrite`                                                                                  |
 | `landing-markdown-preview-visual.spec.ts`  |     2 | `visual-contract`  | Markdown preview route desktop/mobile shell and mobile sidebar hash behavior.                                                 | Medium: real route screenshots.                                                                  | Landing preview           | `keep`; split hash behavior from screenshots if it grows.                                  |
 | `local-storage-route-visual.spec.ts`       |     4 | `release-blocking` | Admin localStorage route shows values, previews links, reflects same-tab writes, and hides the shortcut.                      | Medium: auth setup and storage writes.                                                           | Admin storage routes      | `keep`; uses the shared admin route helper.                                                |
-| `logo-iso-controls-visual.spec.ts`         |    23 | `rewrite`          | Logo controls, query params, scene rendering, mobile controls, and color pickers.                                             | High: broad mixed concerns; slowest default case is about `26.8s`.                               | Logo tooling              | `rewrite`; seam and mixed mobile boot diagnostics demoted.                                 |
+| `logo-iso-controls-visual.spec.ts`         |    22 | `rewrite`          | Logo controls, query params, scene rendering, mobile controls, and color pickers.                                             | High: broad mixed concerns; slowest default case is about `20.5s`.                               | Logo tooling              | `rewrite`; seam, raster geometry, and mixed mobile boot diagnostics demoted.               |
 | `logo-snap-angles-visual.spec.ts`          |     1 | `diagnostic`       | Logo snap-angle matrix visual stress fixture.                                                                                 | High: slowest list at about `29.6s`.                                                             | Logo tooling              | `demoted`; runs only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`.                              |
 | `logo-three-visual.spec.ts`                |     1 | `diagnostic`       | Three logo reference and diff rendering.                                                                                      | Medium: WebGL/canvas fixture, not a real route.                                                  | Logo tooling              | `demoted`; keep route-level logo coverage separately.                                      |
 | `machine-connect-visual.spec.ts`           |     1 | `visual-contract`  | Machine connect fixture text and layout after fonts settle.                                                                   | Low: compact fixture snapshot.                                                                   | Machine connect           | `keep`                                                                                     |
@@ -88,14 +88,14 @@ Actions:
 | `pitch-deck-visual.spec.ts`                |     3 | `visual-contract`  | Pitch and print surfaces stay visually stable.                                                                                | Low: shipped public pages.                                                                       | Public pitch              | `keep`                                                                                     |
 | `public-landing-shell.spec.ts`             |    37 | `rewrite`          | Public landing route, auth slots, legal/sidebar links, mobile shell, logo fallback/drag, prod UI mode, and navigation budget. | High: `1755` lines, serial, mixed behavior and visual assertions.                                | Landing                   | `rewrite`; prod-ui shortcut/dev-toggle query behavior moved to component coverage.         |
 | `public-legal-route-shell.spec.ts`         |     2 | `visual-contract`  | Terms/privacy routes use routed app surface and public account sidebar.                                                       | Low: real-route screenshots.                                                                     | Public legal routes       | `keep`                                                                                     |
-| `repository-media-visual.spec.ts`          |     3 | `visual-contract`  | Repository media fixtures for PNG, SVG, and VOX.                                                                              | Medium: VOX case appears in slowest list at about `6.4s`.                                        | Repository media          | `keep`; reduce VOX setup if it stays slow.                                                 |
+| `repository-media-visual.spec.ts`          |     3 | `visual-contract`  | Repository media fixtures for PNG, SVG, and VOX.                                                                              | Medium: VOX case appears in slowest list at about `4.4s`.                                        | Repository media          | `keep`; reduce VOX setup if it stays slow.                                                 |
 | `route-url-editor.spec.ts`                 |    40 | `rewrite`          | Route URL editor editing, suggestions, hover previews, history restore, mobile picker, prod mode, and boundary rejection.     | High: largest file, serial, many `/visual-fixture` paths; focused Linux rerun passed in `22.7s`. | Route URL editor          | `rewrite`; suggestion duplicates moved lower, two detailed dropdown screenshots demoted.   |
 | `sidebar-media-upload-visual.spec.ts`      |     2 | `visual-contract`  | Sidebar media upload desktop and mobile dialog/page states.                                                                   | Low: compact fixture snapshots.                                                                  | Media upload              | `keep`                                                                                     |
 | `vault-branch-preview-visual.spec.ts`      |     3 | `visual-contract`  | Branch preview link, failed, and missing states.                                                                              | Low: compact fixture snapshots.                                                                  | Vault dashboard           | `keep`                                                                                     |
 | `vault-dashboard-branch-visual.spec.ts`    |     1 | `visual-contract`  | Vault dashboard branch PR title rendering.                                                                                    | Low: tiny fixture snapshot.                                                                      | Vault dashboard           | `keep`; fold into dashboard branch coverage if nearby work touches it.                     |
 | `vault-dashboard-visual.spec.ts`           |    23 | `rewrite`          | Vault create/delete/connect/provisioning/list/branch filter visual states.                                                    | High: `1020` lines, 22 screenshot callsites, broad fixture gallery.                              | Vault dashboard           | `rewrite`; group by workflow and keep only named visual contracts in default acceptance.   |
 | `vault-last-updated-status.spec.ts`        |     2 | `release-blocking` | Last-updated status renders and refreshes on click.                                                                           | Low: one snapshot plus behavior.                                                                 | Vault dashboard           | `keep`; split refresh behavior from screenshot if it grows.                                |
-| `vault-resource-rail-visual.spec.ts`       |     1 | `visual-contract`  | Vault resource rail fixture.                                                                                                  | Low: tiny fixture snapshot.                                                                      | Vault dashboard           | `keep`                                                                                     |
+| `vault-resource-rail-visual.spec.ts`       |     1 | `diagnostic`       | Vault resource rail fixture gallery.                                                                                          | Low: tiny fixture snapshot; lower-layer component/dashboard coverage owns behavior.              | Vault dashboard           | `demoted`; runs only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`.                              |
 | `vault-sync-status-visual.spec.ts`         |     1 | `visual-contract`  | Vault sync status fixture.                                                                                                    | Low: tiny fixture snapshot.                                                                      | Vault dashboard           | `keep`                                                                                     |
 | `visual-fixture-local-only.spec.ts`        |     1 | `release-blocking` | `/visual-fixture` stays unavailable on deployed hostnames.                                                                    | Low runtime, high security/routing value.                                                        | Router/access policy      | `keep`                                                                                     |
 | `workspace-frame-geometry.spec.ts`         |     4 | `release-blocking` | File-view pane persistence, right sidebar resize, and mobile swipe behavior.                                                  | Medium: real browser geometry and local state.                                                   | Workspace shell           | `keep`                                                                                     |
@@ -115,11 +115,11 @@ Actions:
    independently. This branch moved prod-ui shortcut/dev-toggle query behavior to component
    coverage.
 3. `logo-iso-controls-visual.spec.ts`: split shipped logo controls from raster seam diagnostics.
-   Seam labs and seam-stress preset checks are diagnostic unless an owner names a current shipped
-   logo contract. Preset data and route URL editor values stay covered lower in
-   `logoPresets.test.ts` and `routeUrlEditorSuggestions.test.ts`. The mixed mobile boot smoke is
-   diagnostic because workspace mobile boot, iso route search, and desktop iso controls have more
-   focused coverage.
+   Seam labs, seam-stress preset checks, and the raster distance/depth geometry screenshot are
+   diagnostic unless an owner names a current shipped logo contract. Preset data and route URL
+   editor values stay covered lower in `logoPresets.test.ts` and
+   `routeUrlEditorSuggestions.test.ts`. The mixed mobile boot smoke is diagnostic because workspace
+   mobile boot, iso route search, and desktop iso controls have more focused coverage.
 4. `vault-dashboard-visual.spec.ts`: replace the broad visual gallery with smaller workflow-owned
    contracts.
 5. `workspace-sidebar-drag.spec.ts`: continue separating core gesture behavior from diagnostics; the
@@ -162,9 +162,11 @@ release-blocking contract:
 - `logo-three-visual.spec.ts`
 - raster seam lab cases, seam-stress preset checks, and the face-on seam screenshot inside
   `logo-iso-controls-visual.spec.ts`
+- raster distance/depth geometry screenshot inside `logo-iso-controls-visual.spec.ts`
 - mixed logo iso mobile boot smoke inside `logo-iso-controls-visual.spec.ts`
 - extra renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts`
 - detailed route URL editor dropdown screenshots inside `route-url-editor.spec.ts`
+- `vault-resource-rail-visual.spec.ts`
 - workspace gesture debug overlay checks inside `workspace-sidebar-drag.spec.ts`
 
 ## Classification Review Notes

@@ -731,9 +731,11 @@ test("@diagnostic logo renderer pages cap URL-edited recursive depth before rend
   ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.raster}`);
 });
 
-test("logo distance scale controls Three and raster previews", async ({ page }) => {
+test("logo distance scale controls the Three preview", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await gotoLogoAdminRoute(page, "/logo?dist=1.25&rot=45");
+  await page.goto("/logo?dist=1.25&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const distanceSlider = controlsSidebar.getByLabel("Distance slider");
@@ -755,17 +757,11 @@ test("logo distance scale controls Three and raster previews", async ({ page }) 
   await distanceInput.fill("1");
   await distanceInput.press("Enter");
   await expect.poll(() => new URL(page.url()).searchParams.has("dist")).toBe(false);
-
-  await page.goto("/logo/raster?dist=0.5&rot=45", {
-    waitUntil: "domcontentloaded",
-  });
-  await expect(page.locator('canvas[data-logo-renderer="raster"]').first()).toBeVisible();
-  await expect(
-    page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Distance scale"),
-  ).toHaveValue("0.500");
 });
 
-test("logo raster distance scale keeps depth 3 on the geometric base path", async ({ page }) => {
+test("@diagnostic logo raster distance scale keeps depth 3 on the geometric base path", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster?depth=3&dist=1.5&top=red-500&elev=22&rot=45");
 

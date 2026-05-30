@@ -283,10 +283,14 @@ It also demotes the first diagnostic group out of default Playwright acceptance 
 - `logo-three-visual.spec.ts`,
 - raster seam lab cases, seam-stress preset checks, the mixed logo iso mobile boot smoke, and the
   face-on raster seam screenshot inside `logo-iso-controls-visual.spec.ts`.
+- the raster distance/depth geometry screenshot inside `logo-iso-controls-visual.spec.ts`, while
+  keeping default distance-control coverage.
 - the extra logo renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts`, while keeping
   one default `/logo` route smoke for excessive URL-edited depth recovery.
 - detailed route URL editor dropdown screenshots inside `route-url-editor.spec.ts`, while moving the
   manually typed value-suggestion case into `RouteUrlEditor.test.tsx`.
+- `vault-resource-rail-visual.spec.ts`, while relying on `VaultResourceRail.test.tsx` and
+  `VaultDashboard.test.tsx` for rail behavior.
 - workspace gesture debug overlay checks inside `workspace-sidebar-drag.spec.ts`.
 
 ### Phase 4. Split High-Cost Specs
@@ -319,10 +323,16 @@ run in `apps/noter/src/components/AppSidebarMetaSection.test.tsx`; the serial Pl
 route, auth-slot, mobile shell, logo fallback/drag, and navigation budget coverage.
 
 Initial logo split status: the face-on raster seam screenshot, seam-stress preset combobox check,
-and mixed iso mobile boot smoke now run only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`. Preset data
-stays covered lower in `logoPresets.test.ts`, route URL editor value suggestions cover entering
-those voxel states, workspace layout component tests cover mobile boot alignment, and route search
-tests cover `isoSide` parsing without treating the admin-only logo route as a default release gate.
+mixed iso mobile boot smoke, and raster distance/depth geometry screenshot now run only with
+`PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`. Preset data stays covered lower in `logoPresets.test.ts`, route
+URL editor value suggestions cover entering those voxel states, workspace layout component tests
+cover mobile boot alignment, route search tests cover `isoSide` parsing, and the default distance
+control test stays on the public Three preview without treating the admin-only logo geometry
+screenshot as a default release gate.
+
+Initial vault resource rail split status: the broad fixture gallery now runs only with
+`PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`; component and dashboard tests own provider rows, links, actions,
+grouping, provisioning, failure, and add/root resource behavior.
 
 Initial workspace sidebar split status: gesture debug overlay checks now run only with
 `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`; default Playwright keeps shipped mobile carousel, resize grip,

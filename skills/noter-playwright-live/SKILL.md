@@ -132,23 +132,26 @@ Use these defaults when working in this repository.
 When a formerly public route becomes admin-only, do not make it public just to keep tests green.
 First check whether the failing Playwright specs are unauthenticated tests hitting app routes.
 
-1. Use the existing test login helper before admin-only navigation:
+1. Use the shared admin route helper for admin-only route specs:
 
 ```ts
-import { signInIfNeeded } from "./liveHelpers";
+import { gotoAdminRoute } from "./liveHelpers";
 
-await page.goto("/", { waitUntil: "domcontentloaded" });
-await signInIfNeeded(page);
-await page.goto("/admin-route", { waitUntil: "networkidle" });
+await gotoAdminRoute(page, "/admin-route");
 ```
 
-2. Keep genuinely public routes unauthenticated. For logo coverage, `/logo` and root query variants
+`gotoAdminRoute` opens the local app, signs in with the seeded password account, runs any optional
+browser-state setup, and then opens the target admin route.
+
+2. Use `signInIfNeeded` directly only for live specs or flows that continue from an already-open
+   route instead of loading one admin target.
+3. Keep genuinely public routes unauthenticated. For logo coverage, `/logo` and root query variants
    such as `/logo?light` stay public; `/logo/**` lab routes require sign-in.
-3. If a Docker or CI-like run cannot sign in, inspect the bootstrap path before rewriting tests:
+4. If a Docker or CI-like run cannot sign in, inspect the bootstrap path before rewriting tests:
    - `scripts/ci-bootstrap-convex.ts`
    - `runtime/localWorktreePasswordAuth.ts`
    - `apps/noter/convex/devAuth.ts`
-4. In CI/bootstrap contexts, the Vite-only `Autofill & sign in` shortcut may be absent. Tests should
+5. In CI/bootstrap contexts, the Vite-only `Autofill & sign in` shortcut may be absent. Tests should
    fill the seeded email/password and click the exact `Sign in` button through `signInIfNeeded`.
 
 ## Test Runner Acceptance
