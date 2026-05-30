@@ -55,7 +55,7 @@ Use this treatment whenever the Noter mark must work with one foreground color:
 - Right face: fill solid foreground color.
 - Top face: leave as background/knockout.
 - Left face: fill with foreground stripes over background.
-- Stripe angle: `-45deg` in the left face's local square.
+- Stripe angle: `45deg` in the left face's local square.
 - Stripe basis: `vertical`.
 - Stripe width: `1/4` face unit.
 - Stripe gap: `1/4` face unit.
@@ -66,20 +66,20 @@ left-to-right from `0` to `1`, and let `y` run bottom-to-top from `0` to `1`. Dr
 lines at:
 
 ```text
-x + y = n / 4
+y - x = n / 4
 ```
 
 for each integer `n` where the line crosses the square. Fill the bands where:
 
 ```text
-(x + y) mod (1 / 2) < 1 / 4
+(y - x) mod (1 / 2) < 1 / 4
 ```
 
-and leave the alternating bands as background. This means the lower-left corner of every exposed
-left face starts as foreground, each foreground band and gap is one quarter of a face unit along a
-vertical or horizontal cross-section, and the full foreground-plus-gap period is one half of a face
-unit. Because each cube face is one unit wide and the period divides one unit exactly, every cube
-gets the same stripe phase.
+using a non-negative modulo result, and leave the alternating bands as background. This means the
+lower-left corner of every exposed left face starts as foreground, each foreground band and gap is
+one quarter of a face unit along a vertical or horizontal cross-section, and the full
+foreground-plus-gap period is one half of a face unit. Because each cube face is one unit wide and
+the period divides one unit exactly, every cube gets the same stripe phase.
 
 ## Asset Contract
 

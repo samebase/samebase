@@ -324,7 +324,7 @@ describe("logoRouteSearch", () => {
   it("preserves striped left-face route state", () => {
     const defaultStripedSearch = validateLogoRouteSearch({
       leftFace: "striped",
-      stripeA: "-45",
+      stripeA: "45",
       stripeBasis: "vertical",
       stripeG: "0.25",
       stripeW: "0.25",
