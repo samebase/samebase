@@ -264,17 +264,17 @@ export function createTools(toolCtx: ToolContext) {
   return {
     read_file: createTool({
       description: catalogDescription("read_file"),
-      args: z.object({
+      inputSchema: z.object({
         path: z.string().describe("File path relative to repository root"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeReadFile(toolCtx, input);
       },
     }),
 
     list_files: createTool({
       description: catalogDescription("list_files"),
-      args: z.object({
+      inputSchema: z.object({
         directory: z
           .string()
           .optional()
@@ -282,68 +282,68 @@ export function createTools(toolCtx: ToolContext) {
             "Optional directory path to filter by (e.g. 'src/components'). Omit to list all files.",
           ),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeListFiles(toolCtx, input);
       },
     }),
 
     get_vault_remote_branches: createTool({
       description: catalogDescription("get_vault_remote_branches"),
-      args: z.object({}),
-      handler: async () => {
+      inputSchema: z.object({}),
+      execute: async () => {
         return await executeGetVaultRemoteBranches(toolCtx);
       },
     }),
 
     edit_file: createTool({
       description: catalogDescription("edit_file"),
-      args: z.object({
+      inputSchema: z.object({
         path: z.string().describe("File path relative to repository root"),
         content: z.string().describe("The new full content of the file"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeEditFile(toolCtx, input);
       },
     }),
 
     replace_in_file: createTool({
       description: catalogDescription("replace_in_file"),
-      args: z.object({
+      inputSchema: z.object({
         path: z.string().describe("File path relative to repository root"),
         replacements: z
           .array(replaceInFileReplacementSchema)
           .min(1)
           .describe("Exact oldText/newText replacements to apply atomically to the file"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeReplaceInFile(toolCtx, input);
       },
     }),
 
     create_file: createTool({
       description: catalogDescription("create_file"),
-      args: z.object({
+      inputSchema: z.object({
         path: z.string().describe("File path relative to repository root"),
         content: z.string().describe("The content of the new file"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeCreateFile(toolCtx, input);
       },
     }),
 
     delete_file: createTool({
       description: catalogDescription("delete_file"),
-      args: z.object({
+      inputSchema: z.object({
         path: z.string().describe("File path relative to repository root"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeDeleteFile(toolCtx, input);
       },
     }),
 
     github_api: createTool({
       description: catalogDescription("github_api"),
-      args: z.object({
+      inputSchema: z.object({
         endpoint: z
           .string()
           .describe(
@@ -356,17 +356,17 @@ export function createTools(toolCtx: ToolContext) {
             "Parameters passed to the GitHub API method. Owner and repo are auto-injected.",
           ),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeGithubApi(toolCtx, input);
       },
     }),
 
     commit_and_push: createTool({
       description: catalogDescription("commit_and_push"),
-      args: z.object({
+      inputSchema: z.object({
         message: z.string().describe("A short commit message describing the changes"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         // This tool result is a signal — the chat action turns it into an approval card.
         return `__COMMIT_PROPOSAL__:${input.message}`;
       },
@@ -374,8 +374,8 @@ export function createTools(toolCtx: ToolContext) {
 
     request_convex_status_read: createTool({
       description: catalogDescription("request_convex_status_read"),
-      args: z.object({}),
-      handler: async () => {
+      inputSchema: z.object({}),
+      execute: async () => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_convex_status_read",
           input: {},
@@ -385,7 +385,7 @@ export function createTools(toolCtx: ToolContext) {
 
     request_convex_logs_read: createTool({
       description: catalogDescription("request_convex_logs_read"),
-      args: z.object({
+      inputSchema: z.object({
         maxLines: z
           .number()
           .int()
@@ -398,7 +398,7 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_convex_logs_read",
           input,
@@ -408,8 +408,8 @@ export function createTools(toolCtx: ToolContext) {
 
     request_cloudflare_status_read: createTool({
       description: catalogDescription("request_cloudflare_status_read"),
-      args: z.object({}),
-      handler: async () => {
+      inputSchema: z.object({}),
+      execute: async () => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_cloudflare_status_read",
           input: {},
@@ -419,7 +419,7 @@ export function createTools(toolCtx: ToolContext) {
 
     request_cloudflare_logs_read: createTool({
       description: catalogDescription("request_cloudflare_logs_read"),
-      args: z.object({
+      inputSchema: z.object({
         maxEntries: z
           .number()
           .int()
@@ -432,7 +432,7 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_cloudflare_logs_read",
           input,
@@ -442,14 +442,14 @@ export function createTools(toolCtx: ToolContext) {
 
     request_convex_projects_read: createTool({
       description: catalogDescription("request_convex_projects_read"),
-      args: z.object({
+      inputSchema: z.object({
         limit: z.number().int().min(1).max(100).optional().describe("Maximum projects to include"),
         allowRawFallback: z
           .boolean()
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_convex_projects_read",
           input,
@@ -459,14 +459,14 @@ export function createTools(toolCtx: ToolContext) {
 
     request_cloudflare_accounts_read: createTool({
       description: catalogDescription("request_cloudflare_accounts_read"),
-      args: z.object({
+      inputSchema: z.object({
         limit: z.number().int().min(1).max(100).optional().describe("Maximum accounts to include"),
         allowRawFallback: z
           .boolean()
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_cloudflare_accounts_read",
           input,
@@ -476,7 +476,7 @@ export function createTools(toolCtx: ToolContext) {
 
     request_cloudflare_workers_inventory_read: createTool({
       description: catalogDescription("request_cloudflare_workers_inventory_read"),
-      args: z.object({
+      inputSchema: z.object({
         accountId: z
           .string()
           .optional()
@@ -489,7 +489,7 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_cloudflare_workers_inventory_read",
           input,
@@ -499,7 +499,7 @@ export function createTools(toolCtx: ToolContext) {
 
     request_convex_data_read: createTool({
       description: catalogDescription("request_convex_data_read"),
-      args: z.object({
+      inputSchema: z.object({
         table: dataTableSchema.describe("Convex table to sample"),
         scope: z
           .enum(["vault", "global"])
@@ -511,7 +511,7 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-      handler: async (_ctx, input) => {
+      execute: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_convex_data_read",
           input,
