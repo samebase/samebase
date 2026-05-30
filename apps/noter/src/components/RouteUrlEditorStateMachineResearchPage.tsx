@@ -453,7 +453,7 @@ export function RouteUrlEditorStateMachineResearchPage() {
   return (
     <main className="grid min-h-screen gap-4 bg-background p-4 text-foreground">
       <div
-        className="flex h-8 min-w-0 items-center gap-2"
+        className="mb-96 flex h-8 min-w-0 items-center gap-2"
         data-testid="route-url-editor-state-machine-live-editor"
       >
         <div className="min-w-0 flex-1">
