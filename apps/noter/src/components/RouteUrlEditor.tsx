@@ -19,6 +19,8 @@ import {
   fromTransition,
   type ActorSystem,
   type ActorSystemInfo,
+  type InspectionEvent,
+  type Observer,
   type SnapshotStatus,
 } from "xstate";
 import {
@@ -168,6 +170,8 @@ export type RouteUrlEditorXStateDebugState = {
   status: SnapshotStatus;
 };
 
+export type RouteUrlEditorXStateInspect = Observer<InspectionEvent>;
+
 export type RouteUrlEditorDebugState = {
   activeSuggestionId: string | undefined;
   activeSuggestionIndex: number | null;
@@ -200,6 +204,7 @@ export type RouteUrlEditorDebugState = {
 
 type RouteUrlEditorProps = {
   onDebugStateChange?: (state: RouteUrlEditorDebugState) => void;
+  xstateInspect?: RouteUrlEditorXStateInspect;
 };
 
 function readInitialRouteUrlEditorStoreState(
@@ -299,8 +304,13 @@ function useCreateRouteUrlEditorStore(args: {
   currentHref: string;
   currentRouteHistoryIndex: number;
   forwardRouteHistoryIndex: number;
+  xstateInspect: RouteUrlEditorXStateInspect | undefined;
 }) {
-  const [snapshot, send] = useActor(routeUrlEditorXStateStoreLogic, { input: args });
+  const { xstateInspect, ...storeInput } = args;
+  const [snapshot, send] = useActor(routeUrlEditorXStateStoreLogic, {
+    input: storeInput,
+    inspect: xstateInspect,
+  });
   const actions = useMemo(
     () => ({
       clearTouchScrollPickerMetrics: () => {
@@ -924,7 +934,7 @@ function persistRouteUrlEditorHistoryIndexes(args: {
  * apply while typing, but router normalization does not replace the draft text
  * until the user leaves the field.
  */
-export function RouteUrlEditor({ onDebugStateChange }: RouteUrlEditorProps = {}) {
+export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEditorProps = {}) {
   const location = useLocation();
   const router = useRouter();
   const currentHref = location.href;
@@ -937,6 +947,7 @@ export function RouteUrlEditor({ onDebugStateChange }: RouteUrlEditorProps = {})
     currentHref,
     currentRouteHistoryIndex: 0,
     forwardRouteHistoryIndex: 0,
+    xstateInspect,
   });
   const { state: routeUrlEditorState, xstate: routeUrlEditorXState } = routeUrlEditorStore;
   const {

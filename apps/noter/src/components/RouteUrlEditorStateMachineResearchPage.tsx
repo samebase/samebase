@@ -1,12 +1,18 @@
 import {
+  createBrowserInspector,
+  type StatelyInspectionEvent,
+  type StatelySnapshotEvent,
+} from "@statelyai/inspect";
+import {
   RouteUrlEditor,
   type RouteUrlEditorDebugState,
   type RouteUrlEditorSuggestionState,
   type RouteUrlEditorTouchScrollPickerMetrics,
+  type RouteUrlEditorXStateInspect,
 } from "@/components/RouteUrlEditor";
 import { routeUrlEditorXStateStoreEventTypes } from "@/components/RouteUrlEditorXState";
 import { Textarea } from "@/components/ui/textarea";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ResearchMachineStateSnapshot = {
   currentHref: string;
@@ -51,6 +57,8 @@ type ResearchStateNode = {
   kind: ResearchMachineStateKind;
   title: string;
 };
+
+type RouteUrlEditorStatelyInspector = ReturnType<typeof createBrowserInspector>;
 
 const researchStateNodes = [
   {
@@ -152,6 +160,61 @@ function getResearchEventClassName(active: boolean): string {
     : "border border-border bg-background px-2 py-1 font-mono text-xs text-foreground";
 }
 
+function countStatelyInspectionEvents(
+  events: readonly StatelyInspectionEvent[],
+  eventType: StatelyInspectionEvent["type"],
+): number {
+  return events.filter((event) => event.type === eventType).length;
+}
+
+function readLatestStatelySnapshotEvent(
+  events: readonly StatelyInspectionEvent[],
+): StatelySnapshotEvent | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event.type === "@xstate.snapshot") {
+      return event;
+    }
+  }
+
+  return null;
+}
+
+function readLatestStatelyInspectionEvents(
+  events: readonly StatelyInspectionEvent[],
+): StatelyInspectionEvent[] {
+  const latestEvents: StatelyInspectionEvent[] = [];
+
+  for (let index = events.length - 1; index >= 0 && latestEvents.length < 12; index -= 1) {
+    const event = events[index];
+    latestEvents.push(event);
+  }
+
+  return latestEvents;
+}
+
+function readStatelyInspectionEventTitle(event: StatelyInspectionEvent): string {
+  switch (event.type) {
+    case "@xstate.actor":
+      return "actor";
+    case "@xstate.event":
+      return "event";
+    case "@xstate.snapshot":
+      return "snapshot";
+  }
+}
+
+function readStatelyInspectionEventSubject(event: StatelyInspectionEvent): string {
+  switch (event.type) {
+    case "@xstate.actor":
+      return event.name;
+    case "@xstate.event":
+      return event.event.type;
+    case "@xstate.snapshot":
+      return event.event.type;
+  }
+}
+
 function readResearchPrimaryEventType(state: ResearchMachineState | null): string | null {
   if (state === null) {
     return null;
@@ -240,32 +303,6 @@ function RouteUrlEditorXStateVisualization({
           </div>
         </div>
       </div>
-      <div className="grid gap-2 md:grid-cols-3">
-        <a
-          className="border border-border p-3 font-mono text-sm underline"
-          href="https://stately.ai/docs/inspector"
-          rel="noreferrer"
-          target="_blank"
-        >
-          Stately Inspector
-        </a>
-        <a
-          className="border border-border p-3 font-mono text-sm underline"
-          href="https://stately.ai/docs/studio"
-          rel="noreferrer"
-          target="_blank"
-        >
-          Stately Studio
-        </a>
-        <a
-          className="border border-border p-3 font-mono text-sm underline"
-          href="https://stately.ai/docs/inspection"
-          rel="noreferrer"
-          target="_blank"
-        >
-          XState Inspect API
-        </a>
-      </div>
     </section>
   );
 }
@@ -274,8 +311,88 @@ function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function RouteUrlEditorXStateInspectorPanel({
+  events,
+}: {
+  events: readonly StatelyInspectionEvent[];
+}) {
+  const latestSnapshotEvent = readLatestStatelySnapshotEvent(events);
+  const latestEvents = readLatestStatelyInspectionEvents(events);
+  const formattedLatestSnapshot = formatJson(latestSnapshotEvent?.snapshot ?? null);
+
+  return (
+    <section
+      aria-label="Route URL editor XState inspector"
+      className="grid gap-3 border border-border p-3"
+      data-testid="route-url-editor-state-machine-xstate-inspector"
+    >
+      <div className="grid gap-2 sm:grid-cols-4">
+        <div className="border border-border p-3">
+          <div className="font-mono text-sm">actors</div>
+          <div className="mt-2 font-mono text-2xl">
+            {countStatelyInspectionEvents(events, "@xstate.actor")}
+          </div>
+        </div>
+        <div className="border border-border p-3">
+          <div className="font-mono text-sm">events</div>
+          <div className="mt-2 font-mono text-2xl">
+            {countStatelyInspectionEvents(events, "@xstate.event")}
+          </div>
+        </div>
+        <div className="border border-border p-3">
+          <div className="font-mono text-sm">snapshots</div>
+          <div className="mt-2 font-mono text-2xl">
+            {countStatelyInspectionEvents(events, "@xstate.snapshot")}
+          </div>
+        </div>
+        <div className="border border-border p-3">
+          <div className="font-mono text-sm">latest</div>
+          <div className="mt-2 break-all font-mono text-sm">
+            {latestSnapshotEvent?.sessionId ?? "pending"}
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,32rem)]">
+        <div className="border border-border p-3">
+          <div className="font-mono text-sm">inspection stream</div>
+          <div className="mt-3 grid gap-2">
+            {latestEvents.map((event) => (
+              <div
+                className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2 border border-border p-2 text-sm"
+                key={`${event.createdAt}-${event.type}-${event.sessionId}`}
+              >
+                <div className="font-mono">{readStatelyInspectionEventTitle(event)}</div>
+                <div className="min-w-0 break-all font-mono">
+                  {readStatelyInspectionEventSubject(event)}
+                </div>
+              </div>
+            ))}
+            {latestEvents.length === 0 ? (
+              <div className="border border-border p-2 font-mono text-sm">pending</div>
+            ) : null}
+          </div>
+        </div>
+        <Textarea
+          readOnly
+          value={formattedLatestSnapshot}
+          aria-label="Route URL editor latest XState inspection snapshot"
+          data-testid="route-url-editor-state-machine-inspection-snapshot-json"
+          className="min-h-80 resize-y rounded-none font-mono text-sm"
+        />
+      </div>
+    </section>
+  );
+}
+
 export function RouteUrlEditorStateMachineResearchPage() {
   const [debugState, setDebugState] = useState<RouteUrlEditorDebugState | null>(null);
+  const [statelyInspector, setStatelyInspector] = useState<RouteUrlEditorStatelyInspector | null>(
+    null,
+  );
+  const [xstateInspect, setXstateInspect] = useState<RouteUrlEditorXStateInspect | null>(null);
+  const [xstateInspectionEvents, setXstateInspectionEvents] = useState<
+    readonly StatelyInspectionEvent[]
+  >([]);
   const syncDebugState = useCallback((nextState: RouteUrlEditorDebugState) => {
     setDebugState((currentState) =>
       formatJson(currentState) === formatJson(nextState) ? currentState : nextState,
@@ -293,6 +410,46 @@ export function RouteUrlEditorStateMachineResearchPage() {
   );
   const formattedDebugState = useMemo(() => formatJson(debugState), [debugState]);
 
+  useEffect(() => {
+    const inspector = createBrowserInspector({
+      autoStart: false,
+      sanitizeContext: () => ({ redactedForResearchInspector: true }),
+      sanitizeEvent: (event) => ({ type: event.type }),
+      send: (event) => {
+        setXstateInspectionEvents((currentEvents) => [...currentEvents.slice(-79), event]);
+      },
+    });
+    setStatelyInspector(inspector);
+    setXstateInspect(inspector.inspect);
+
+    return () => {
+      inspector.stop();
+      setStatelyInspector(null);
+      setXstateInspect(null);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!statelyInspector || !debugState) {
+      return;
+    }
+
+    const event = {
+      type: readResearchPrimaryEventType(machineState) ?? "routeUrlEditor.observed",
+    };
+    const snapshot = {
+      context: {
+        derivedState: machineState?.kind ?? "pending",
+        redactedForResearchInspector: true,
+      },
+      status: debugState.xstate.status,
+    };
+
+    statelyInspector.actor("RouteUrlEditor", snapshot);
+    statelyInspector.event("RouteUrlEditor", event);
+    statelyInspector.snapshot("RouteUrlEditor", snapshot, { event });
+  }, [debugState, machineState, statelyInspector]);
+
   return (
     <main className="grid min-h-screen gap-4 bg-background p-4 text-foreground">
       <div
@@ -300,7 +457,11 @@ export function RouteUrlEditorStateMachineResearchPage() {
         data-testid="route-url-editor-state-machine-live-editor"
       >
         <div className="min-w-0 flex-1">
-          <RouteUrlEditor onDebugStateChange={syncDebugState} />
+          <RouteUrlEditor
+            key={xstateInspect === null ? "plain" : "inspected"}
+            onDebugStateChange={syncDebugState}
+            xstateInspect={xstateInspect ?? undefined}
+          />
         </div>
       </div>
       <Textarea
@@ -334,6 +495,7 @@ export function RouteUrlEditorStateMachineResearchPage() {
         />
       </div>
       <RouteUrlEditorXStateVisualization debugState={debugState} machineState={machineState} />
+      <RouteUrlEditorXStateInspectorPanel events={xstateInspectionEvents} />
     </main>
   );
 }
