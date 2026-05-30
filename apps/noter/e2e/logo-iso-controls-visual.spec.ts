@@ -644,7 +644,7 @@ test("@diagnostic logo raster seam lab source size input allows larger custom ra
   await expect(currentCase).toContainText("elevation 22.4°");
 });
 
-test("logo shape presets include seam stress models", async ({ page }) => {
+test("@diagnostic logo shape presets include seam stress models", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster?top=red-500");
 
