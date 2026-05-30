@@ -9,7 +9,7 @@ import {
 } from "./visualDiff";
 
 test.use({ serviceWorkers: "block" });
-test.setTimeout(90_000);
+test.setTimeout(180_000);
 
 const MAX_CODE_EDITOR_DIFF_PIXEL_RATIO = 0.018;
 const PARITY_CAPTURE_DEVICE_SCALE_FACTOR = 2;

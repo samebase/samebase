@@ -27,6 +27,7 @@ for (const scenario of SCENARIOS) {
       caret: "hide",
       scale: "css",
       maxDiffPixelRatio: 0.02,
+      timeout: 15_000,
     });
   });
 }

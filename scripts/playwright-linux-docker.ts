@@ -12,7 +12,7 @@ const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
 const DEFAULT_PNPM_STORE_VOLUME = "noter-playwright-linux-pnpm-store";
 const DEFAULT_CONVEX_CACHE_VOLUME = "noter-playwright-linux-convex-cache";
 const DEFAULT_VITE_PORT = "43121";
-const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "8";
+const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "4";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
@@ -44,7 +44,7 @@ tar \
 cd /work
 pnpm config set store-dir /pnpm-store >/dev/null
 pnpm install --frozen-lockfile
-node ./scripts/ci-bootstrap-convex.ts
+node ./scripts/ci-bootstrap-convex.ts --keep-running
 PLAYWRIGHT=1 pnpm --filter noter build:ci
 
 set +e

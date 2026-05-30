@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { signInIfNeeded } from "./liveHelpers";
 
 const indexedDbRouteScreenshotOptions = {
   animations: "disabled",
@@ -65,8 +66,14 @@ async function seedIndexedDbRouteDatabase(page: Page): Promise<void> {
   );
 }
 
+async function signInForIndexedDbRoute(page: Page): Promise<void> {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page);
+}
+
 test("indexedDB route shows database store keys and formatted values", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  await signInForIndexedDbRoute(page);
   await seedIndexedDbRouteDatabase(page);
 
   await page.goto(INDEXED_DB_ROUTE, { waitUntil: "networkidle" });
@@ -77,7 +84,7 @@ test("indexedDB route shows database store keys and formatted values", async ({ 
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
   const accountSection = rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toHaveCount(0);
   await expect(rightSidebar.getByRole("link", { name: "/terms", exact: true })).toHaveAttribute(
     "href",
     "/terms",

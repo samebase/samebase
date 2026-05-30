@@ -115,9 +115,10 @@ fi
 Use these defaults when working in this repository.
 
 1. Bootstrap with `pnpm dev:worktree` (sets Convex local env and seeds dev auth).
-2. If sign-in is needed, read seeded credentials from `apps/noter/convex/devAuth.ts` constants:
-   - `DEV_SEED_EMAIL`
-   - `DEV_SEED_PASSWORD`
+2. If sign-in is needed, use the seeded password account constants from
+   `runtime/localWorktreePasswordAuth.ts`:
+   - `LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL`
+   - `LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD`
 3. Typical smoke flow after sign-in:
    - Open dashboard
    - Fill `New app name`
@@ -125,6 +126,41 @@ Use these defaults when working in this repository.
    - Wait for new vault card and infra status text
 4. For UI regressions in shared shells or editors, prefer the shipped route over `/visual-fixture`
    unless the fixture is already an honest production component mount.
+
+## Admin-Only Route Test Triage
+
+When a formerly public route becomes admin-only, do not make it public just to keep tests green.
+First check whether the failing Playwright specs are unauthenticated tests hitting app routes.
+
+1. Use the existing test login helper before admin-only navigation:
+
+```ts
+import { signInIfNeeded } from "./liveHelpers";
+
+await page.goto("/", { waitUntil: "domcontentloaded" });
+await signInIfNeeded(page);
+await page.goto("/admin-route", { waitUntil: "networkidle" });
+```
+
+2. Keep genuinely public routes unauthenticated. For logo coverage, `/logo` and root query variants
+   such as `/logo?light` stay public; `/logo/**` lab routes require sign-in.
+3. If a Docker or CI-like run cannot sign in, inspect the bootstrap path before rewriting tests:
+   - `scripts/ci-bootstrap-convex.ts`
+   - `runtime/localWorktreePasswordAuth.ts`
+   - `apps/noter/convex/devAuth.ts`
+4. In CI/bootstrap contexts, the Vite-only `Autofill & sign in` shortcut may be absent. Tests should
+   fill the seeded email/password and click the exact `Sign in` button through `signInIfNeeded`.
+
+## Test Runner Acceptance
+
+- `pnpm test:visual:linux` with no Playwright flags is the canonical local acceptance command for
+  the Playwright visual suite.
+- Use focused commands such as `pnpm test:visual:linux -- e2e/foo.spec.ts` only as a triage loop. If
+  a full local run failed, rerun the full wrapper after the fix.
+- Do not treat PR Playwright rows marked `skipping`, Testbox shards, `--workers=1`, `--shard`, or
+  `PLAYWRIGHT_LINUX_FULLY_PARALLEL=0` as equivalent to the default local wrapper.
+- Use CI-shaped shards only to diagnose that exact CI surface, and report the command shape in the
+  handoff.
 
 ## Playwright Session Rules
 
