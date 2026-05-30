@@ -196,18 +196,19 @@ contract and demoted where assertions can move to unit/component tests.
 
 ### 4. Some visual files are not visual contracts
 
-`app-boot-failure-visual.spec.ts` and `not-found-visual.spec.ts` have visual naming but no
-screenshot or custom visual-diff assertion. That does not mean they are worthless, but their naming
-and placement make the suite harder to reason about.
+The initial inventory found `app-boot-failure-visual.spec.ts` and `not-found-visual.spec.ts` with
+visual naming but no screenshot or custom visual-diff assertion. This branch renames them to
+`app-boot-failure.spec.ts` and `not-found.spec.ts` so the file names match their behavior
+assertions.
 
 ### 5. There is stale or diagnostic residue
 
-The inventory found an orphan snapshot directory:
+The initial inventory found an orphan snapshot directory:
 
 - `apps/noter/e2e/file-view-monaco-drag.spec.ts-snapshots`
 
-The matching spec file is not present. This is a low-risk cleanup candidate after confirming no
-active branch still owns the deleted spec.
+The matching spec file is not present. This branch deletes that directory and removes the stale
+simple-view fixture entries.
 
 Text-heavy research-style fixture snapshots are also diagnostic candidates:
 
@@ -233,9 +234,10 @@ tests stay in `.test.ts`.
 
 ### 7. Small hygiene issues should not remain silent
 
-The audit found:
+The initial audit found:
 
-- one skipped unit test in `packages/sure/src/__tests__/tuple.test.ts`,
+- one skipped unit test in `packages/sure/src/__tests__/tuple.test.ts`, removed in this branch
+  because it asserted runtime spread behavior for the deprecated `spread_NOT_IMPLEMENTED` helper,
 - one excluded diagnostic type file at
   `packages/sure/src/__tests__/types/understandingInferGoodRaw.tsc_test.ts`,
 - zero strict test files in `apps/domain-router`, `apps/workspace-layout-v2-solid`,
@@ -250,9 +252,7 @@ tools. They should still be classified so the absence is intentional.
 
 1. Use `pnpm test:acceptance` as the one local command for full branch acceptance.
 2. Keep `pnpm test:visual:linux` as the one authoritative visual acceptance surface.
-3. Delete the orphan `file-view-monaco-drag.spec.ts-snapshots` directory in a cleanup PR.
-4. Fix or delete the skipped tuple test.
-5. Move the three unsuffixed `makeConvexTest()` files into clearer `.convex.test.ts` or `.test.ts`
+3. Move the three unsuffixed `makeConvexTest()` files into clearer `.convex.test.ts` or `.test.ts`
    ownership.
 
 ### Playwright Pruning

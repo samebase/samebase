@@ -204,7 +204,7 @@ not automatic preservation.
 
 ### Phase 1. Make Commands Honest
 
-Status: started.
+Status: started in this branch.
 
 - Add `pnpm test:acceptance`.
 - Point `pnpm test:ci` at `pnpm test:acceptance` so the old command no longer runs native Playwright
@@ -230,7 +230,7 @@ hold the maintained inventory after the direction is accepted.
 
 ### Phase 3. Low-Risk Cleanup
 
-Open small PRs for:
+Start with small changes for:
 
 - orphan snapshot deletion,
 - skipped unit test fix/delete,
@@ -238,6 +238,12 @@ Open small PRs for:
 - stale research fixtures demoted to diagnostic or deleted.
 
 Each PR should remove or clarify one class of test debt.
+
+This branch handles the first three low-risk cleanup items for the initial audit:
+
+- deletes the orphan `file-view-monaco-drag.spec.ts-snapshots` directory,
+- removes the skipped tuple test for deprecated `spread_NOT_IMPLEMENTED` runtime behavior,
+- renames the two non-screenshot `*-visual.spec.ts` behavior specs.
 
 ### Phase 4. Split High-Cost Specs
 

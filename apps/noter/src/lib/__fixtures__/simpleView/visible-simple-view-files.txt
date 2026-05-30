@@ -25,8 +25,6 @@ apps/noter/e2e/file-view-connect-route-visual.spec.ts-snapshots/file-view-connec
 apps/noter/e2e/file-view-developer-tools-visual.spec.ts-snapshots/file-view-developer-tools-codemirror.png
 apps/noter/e2e/file-view-developer-tools-visual.spec.ts-snapshots/file-view-developer-tools-collapsed.png
 apps/noter/e2e/file-view-developer-tools-visual.spec.ts-snapshots/file-view-developer-tools-graph.png
-apps/noter/e2e/file-view-monaco-drag.spec.ts-snapshots/fileview-monaco-drag-return-main.png
-apps/noter/e2e/file-view-monaco-drag.spec.ts-snapshots/fileview-monaco-drag.png
 apps/noter/e2e/file-view-monaco-height.spec.ts-snapshots/fileview-monaco-flex-height.png
 apps/noter/e2e/file-view-prosemark-height.spec.ts-snapshots/fileview-prosemark-flex-height.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-create-draft.png
