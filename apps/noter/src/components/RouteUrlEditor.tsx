@@ -517,6 +517,14 @@ function readRouteUrlEditorBrowserHref(fallbackHref: string): string {
     return fallbackHref;
   }
 
+  const historyState: unknown = window.history.state;
+  if (
+    !isObject(historyState) ||
+    readRouteUrlEditorHistoryIndex(historyState.__TSR_index) === null
+  ) {
+    return fallbackHref;
+  }
+
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
