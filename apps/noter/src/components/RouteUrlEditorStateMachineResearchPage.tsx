@@ -372,13 +372,22 @@ function RouteUrlEditorXStateInspectorPanel({
             ) : null}
           </div>
         </div>
-        <Textarea
-          readOnly
-          value={formattedLatestSnapshot}
-          aria-label="Route URL editor latest XState inspection snapshot"
-          data-testid="route-url-editor-state-machine-inspection-snapshot-json"
-          className="min-h-80 resize-y rounded-none font-mono text-sm"
-        />
+        <div className="grid gap-2">
+          <label
+            className="font-mono text-sm"
+            htmlFor="route-url-editor-state-machine-inspection-snapshot-json"
+          >
+            Latest inspection snapshot
+          </label>
+          <Textarea
+            readOnly
+            id="route-url-editor-state-machine-inspection-snapshot-json"
+            value={formattedLatestSnapshot}
+            aria-label="Route URL editor latest XState inspection snapshot"
+            data-testid="route-url-editor-state-machine-inspection-snapshot-json"
+            className="min-h-80 resize-y rounded-none font-mono text-sm"
+          />
+        </div>
       </div>
     </section>
   );
@@ -464,35 +473,59 @@ export function RouteUrlEditorStateMachineResearchPage() {
           />
         </div>
       </div>
-      <Textarea
-        readOnly
-        value={formattedMachineState}
-        aria-label="Route URL editor derived machine state"
-        data-testid="route-url-editor-state-machine-json"
-        className="min-h-80 resize-y rounded-none font-mono text-sm"
-      />
+      <div className="grid gap-2">
+        <label className="font-mono text-sm" htmlFor="route-url-editor-state-machine-json">
+          Derived FSM state
+        </label>
+        <Textarea
+          readOnly
+          id="route-url-editor-state-machine-json"
+          value={formattedMachineState}
+          aria-label="Route URL editor derived machine state"
+          data-testid="route-url-editor-state-machine-json"
+          className="min-h-80 resize-y rounded-none font-mono text-sm"
+        />
+      </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        <Textarea
-          readOnly
-          value={formattedXState}
-          aria-label="Route URL editor XState actor snapshot"
-          data-testid="route-url-editor-state-machine-xstate-json"
-          className="min-h-64 resize-y rounded-none font-mono text-sm"
-        />
-        <Textarea
-          readOnly
-          value={formattedStoreState}
-          aria-label="Route URL editor XState context"
-          data-testid="route-url-editor-state-machine-store-json"
-          className="min-h-64 resize-y rounded-none font-mono text-sm"
-        />
-        <Textarea
-          readOnly
-          value={formattedDebugState}
-          aria-label="Route URL editor debug state"
-          data-testid="route-url-editor-state-machine-debug-json"
-          className="min-h-64 resize-y rounded-none font-mono text-sm"
-        />
+        <div className="grid gap-2">
+          <label className="font-mono text-sm" htmlFor="route-url-editor-state-machine-xstate-json">
+            XState actor snapshot
+          </label>
+          <Textarea
+            readOnly
+            id="route-url-editor-state-machine-xstate-json"
+            value={formattedXState}
+            aria-label="Route URL editor XState actor snapshot"
+            data-testid="route-url-editor-state-machine-xstate-json"
+            className="min-h-64 resize-y rounded-none font-mono text-sm"
+          />
+        </div>
+        <div className="grid gap-2">
+          <label className="font-mono text-sm" htmlFor="route-url-editor-state-machine-store-json">
+            XState context
+          </label>
+          <Textarea
+            readOnly
+            id="route-url-editor-state-machine-store-json"
+            value={formattedStoreState}
+            aria-label="Route URL editor XState context"
+            data-testid="route-url-editor-state-machine-store-json"
+            className="min-h-64 resize-y rounded-none font-mono text-sm"
+          />
+        </div>
+        <div className="grid gap-2">
+          <label className="font-mono text-sm" htmlFor="route-url-editor-state-machine-debug-json">
+            Component debug state
+          </label>
+          <Textarea
+            readOnly
+            id="route-url-editor-state-machine-debug-json"
+            value={formattedDebugState}
+            aria-label="Route URL editor debug state"
+            data-testid="route-url-editor-state-machine-debug-json"
+            className="min-h-64 resize-y rounded-none font-mono text-sm"
+          />
+        </div>
       </div>
       <RouteUrlEditorXStateVisualization debugState={debugState} machineState={machineState} />
       <RouteUrlEditorXStateInspectorPanel events={xstateInspectionEvents} />
