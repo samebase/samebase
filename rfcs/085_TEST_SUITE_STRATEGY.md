@@ -273,11 +273,15 @@ This branch handles the first three low-risk cleanup items for the initial audit
   and mobile carousel gesture coverage.
 - moves unsuffixed Convex-harness-backed tests into the `.convex.test.ts` lane while keeping pure
   `infraProvisioning` helper coverage in `.test.ts`.
+- moves landing copy static/editable rendering coverage into `LandingCopy.test.tsx` and deletes the
+  separate browser visual parity spec.
 
 It also demotes the first diagnostic group out of default Playwright acceptance with an
 `@diagnostic` tag and `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` override:
 
 - Codex research visual fixtures,
+- `corner-notch-detail-visual.spec.ts`, while keeping `corner-notch-visual.spec.ts` as the default
+  primitive visual contract.
 - `file-view-code-parity.spec.ts`,
 - `logo-snap-angles-visual.spec.ts`,
 - `logo-three-visual.spec.ts`,
@@ -320,7 +324,9 @@ history, mobile picker, prod mode, and boundary rejection.
 
 Initial public landing split status: prod-ui shortcut absence and dev-toggle query preservation now
 run in `apps/noter/src/components/AppSidebarMetaSection.test.tsx`; the serial Playwright file keeps
-route, auth-slot, mobile shell, logo fallback/drag, and navigation budget coverage.
+route, auth-slot, mobile shell, logo fallback/drag, and navigation budget coverage. The separate
+landing copy static/editable rendering check now runs in
+`apps/noter/src/components/LandingCopy.test.tsx`.
 
 Initial logo split status: the face-on raster seam screenshot, seam-stress preset combobox check,
 mixed iso mobile boot smoke, and raster distance/depth geometry screenshot now run only with
