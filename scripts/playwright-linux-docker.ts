@@ -50,6 +50,7 @@ PLAYWRIGHT=1 pnpm --filter noter build:ci
 
 set +e
 PLAYWRIGHT_SKIP_BUILD=1 \
+  PLAYWRIGHT_INCLUDE_DIAGNOSTICS="$PLAYWRIGHT_INCLUDE_DIAGNOSTICS" \
   PLAYWRIGHT_JSON_REPORT_OUTPUT="$PLAYWRIGHT_JSON_REPORT_OUTPUT" \
   PLAYWRIGHT_VITE_PORT="$PLAYWRIGHT_VITE_PORT" \
   pnpm --filter noter exec playwright test -c playwright.config.ts "$@"
@@ -247,6 +248,7 @@ function runDocker(
     `${DEFAULT_CONVEX_CACHE_VOLUME}-${toDockerVolumeSuffix(platform)}`,
   );
   const vitePort = readEnv("PLAYWRIGHT_VITE_PORT", DEFAULT_VITE_PORT);
+  const includeDiagnostics = readEnv("PLAYWRIGHT_INCLUDE_DIAGNOSTICS", "0");
   const hostBuildMetadata = resolveHostBuildMetadata(repoRoot);
   const updateSnapshots = hasSnapshotUpdateArg(args) ? "1" : "0";
   const outDir = path.relative(repoRoot, outDirPath) || outDirPath;
@@ -260,6 +262,8 @@ function runDocker(
     platform,
     "-e",
     `PLAYWRIGHT_LINUX_UPDATE_SNAPSHOTS=${updateSnapshots}`,
+    "-e",
+    `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=${includeDiagnostics}`,
     "-e",
     `PLAYWRIGHT_VITE_PORT=${vitePort}`,
     "-e",

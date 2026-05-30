@@ -123,7 +123,7 @@ The largest default Playwright files by line count:
 
 - `apps/noter/e2e/route-url-editor.spec.ts`: `1864` lines, `43` listed tests.
 - `apps/noter/e2e/public-landing-shell.spec.ts`: `1798` lines, `40` listed tests.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts`: `1049` lines, `30` listed tests.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts`: `1039` lines, `26` default listed tests.
 - `apps/noter/e2e/vault-dashboard-visual.spec.ts`: `1020` lines, `23` listed tests.
 - `apps/noter/e2e/workspace-sidebar-drag.spec.ts`: `703` lines, `14` listed tests.
 
@@ -162,10 +162,12 @@ the default suite after diagnostic demotion and skipped-test cleanup:
 - `4` workers,
 - about `125.4s` runtime.
 
-Slowest known local candidates from `.tmp/playwright-linux/summary.json`:
+Slowest known local candidates from `.tmp/playwright-linux/summary.json` before the renderer
+depth-cap matrix split:
 
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts:674`: about `37.0s`.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:697`: about `16.2s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:697`: about `16.2s`, since split so default
+  acceptance keeps one route smoke and the extra renderer matrix is diagnostic.
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts:320`: about `7.6s`.
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts:392`: about `6.0s`.
 - `apps/noter/e2e/repository-media-visual.spec.ts:22`: about `5.1s`.
@@ -234,8 +236,11 @@ Text-heavy research-style fixture snapshots are also diagnostic candidates:
 - `codex-thread-history-visual.spec.ts`
 
 This branch demotes those research fixtures, `file-view-code-parity.spec.ts`,
-`logo-snap-angles-visual.spec.ts`, `logo-three-visual.spec.ts`, and the raster seam lab cases inside
-`logo-iso-controls-visual.spec.ts` behind the diagnostic opt-in.
+`logo-snap-angles-visual.spec.ts`, `logo-three-visual.spec.ts`, the raster seam lab cases, and the
+extra renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts` behind the diagnostic
+opt-in. The default route-level depth-cap smoke remains because it proves a real `/logo` page can
+recover from an excessive URL-edited depth before rendering; the all-renderer cap matrix is already
+covered cheaply in `apps/noter/src/lib/logoRouteSearch.test.ts`.
 
 This branch also removes the skipped
 `mobile prose scroll › ProseMark keeps the real file-view workspace body scrollable on mobile`

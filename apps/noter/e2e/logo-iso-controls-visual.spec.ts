@@ -694,7 +694,7 @@ test("logo depth slider clears default depth from the URL", async ({ page }) => 
     .toBe(false);
 });
 
-test("logo pages cap URL-edited recursive depth before rendering", async ({ page }) => {
+test("logo page caps URL-edited recursive depth before rendering", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo?depth=99&rot=45");
 
@@ -702,10 +702,13 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({ page
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue(
     `${EXPECTED_LOGO_DEPTH_HARD_MAX.three}`,
   );
+});
 
-  await page.goto("/logo/svg?depth=99&vox=xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx", {
-    waitUntil: "domcontentloaded",
-  });
+test("@diagnostic logo renderer pages cap URL-edited recursive depth before rendering", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await gotoLogoAdminRoute(page, "/logo/svg?depth=99&vox=xxx_xxx_xxx-xxx_xxx_xxx-xxx_xxx_xxx");
 
   const staticLogo = page.getByTestId("logo-static-svg-image");
   await expect(staticLogo).toBeVisible();
@@ -717,16 +720,12 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({ page
     })
     .toBe(true);
 
-  await page.goto("/logo/iso?depth=99", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/iso?depth=99");
   await expect(
     page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
   ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.iso}`);
 
-  await page.goto("/logo/raster?depth=99", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo/raster?depth=99");
   await expect(
     page.getByTestId("workspace-layout-v2-pane-left").getByLabel("Depth value"),
   ).toHaveValue(`${EXPECTED_LOGO_DEPTH_HARD_MAX.raster}`);

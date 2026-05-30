@@ -282,6 +282,8 @@ It also demotes the first diagnostic group out of default Playwright acceptance 
 - `logo-snap-angles-visual.spec.ts`,
 - `logo-three-visual.spec.ts`,
 - raster seam lab cases inside `logo-iso-controls-visual.spec.ts`.
+- the extra logo renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts`, while keeping
+  one default `/logo` route smoke for excessive URL-edited depth recovery.
 
 ### Phase 4. Split High-Cost Specs
 
