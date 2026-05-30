@@ -500,6 +500,32 @@ describe("VaultDashboardDeleteDialog", () => {
     expect(markup).toContain("Also remove Convex project/deployment");
     expect(markup).not.toContain("Only available for infrastructure provisioned by Noter.");
   });
+
+  it("starts every available external cleanup option unchecked", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardDeleteDialog
+        {...baseProps}
+        vaultToDelete={{
+          repositoryFullName: "ada/existing-repo",
+          isNoterManaged: true,
+          canRemoveGithubRepo: true,
+          hasConvexProvision: true,
+          hasCloudflareProvision: true,
+          canRemoveConvexProvision: true,
+          canRemoveCloudflareProvision: true,
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Also remove GitHub repository");
+    expect(markup).toContain("Also remove Convex project/deployment");
+    expect(markup).toContain("Also remove Cloudflare Worker");
+    expect(markup).toContain('id="remove-github-repo"');
+    expect(markup).toContain('id="remove-convex-provision"');
+    expect(markup).toContain('id="remove-cloudflare-provision"');
+    expect(markup.match(/aria-checked="false"/g)?.length).toBe(3);
+    expect(markup).not.toContain('aria-checked="true"');
+  });
 });
 
 describe("VaultDashboardCloudflareAccountDialog", () => {

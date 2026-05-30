@@ -24,7 +24,7 @@ pnpm --filter noter exec playwright test -c playwright.config.ts --list
 
 Current default surface:
 
-- `207` tests
+- `206` tests
 - `35` files
 - Chromium project only
 - `*.live.spec.ts` excluded
@@ -33,11 +33,11 @@ Current default surface:
 
 Last audited full Linux wrapper summary from `.tmp/playwright-linux/summary.json`:
 
-- `207` passed
+- `206` passed
 - `0` skipped
 - `0` unexpected
 - `4` workers
-- `96175.115` ms
+- `95042.987` ms
 
 ## Classification Meanings
 
@@ -92,7 +92,7 @@ Actions:
 | `sidebar-media-upload-visual.spec.ts`      |     2 | `visual-contract`  | Sidebar media upload desktop and mobile dialog/page states.                                                                   | Low: compact fixture snapshots.                                                                  | Media upload              | `keep`                                                                                     |
 | `vault-branch-preview-visual.spec.ts`      |     3 | `visual-contract`  | Branch preview link, failed, and missing states.                                                                              | Low: compact fixture snapshots.                                                                  | Vault dashboard           | `keep`                                                                                     |
 | `vault-dashboard-branch-visual.spec.ts`    |     1 | `visual-contract`  | Vault dashboard branch PR title rendering.                                                                                    | Low: tiny fixture snapshot.                                                                      | Vault dashboard           | `keep`; fold into dashboard branch coverage if nearby work touches it.                     |
-| `vault-dashboard-visual.spec.ts`           |    23 | `rewrite`          | Vault create/delete/connect/provisioning/list/branch filter visual states.                                                    | High: `1020` lines, 22 screenshot callsites, broad fixture gallery.                              | Vault dashboard           | `rewrite`; group by workflow and keep only named visual contracts in default acceptance.   |
+| `vault-dashboard-visual.spec.ts`           |    22 | `rewrite`          | Vault create/delete/connect/provisioning/list/branch filter visual states.                                                    | High: `1020` lines, broad fixture gallery; focused Linux rerun passed in `9.1s`.                 | Vault dashboard           | `rewrite`; mobile delete dialog is diagnostic after lower-layer cleanup default coverage.  |
 | `vault-last-updated-status.spec.ts`        |     2 | `release-blocking` | Last-updated status renders and refreshes on click.                                                                           | Low: one snapshot plus behavior.                                                                 | Vault dashboard           | `keep`; split refresh behavior from screenshot if it grows.                                |
 | `vault-resource-rail-visual.spec.ts`       |     1 | `diagnostic`       | Vault resource rail fixture gallery.                                                                                          | Low: tiny fixture snapshot; lower-layer component/dashboard coverage owns behavior.              | Vault dashboard           | `demoted`; runs only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`.                              |
 | `vault-sync-status-visual.spec.ts`         |     1 | `visual-contract`  | Vault sync status fixture.                                                                                                    | Low: tiny fixture snapshot.                                                                      | Vault dashboard           | `keep`                                                                                     |
@@ -122,7 +122,8 @@ Actions:
    `routeUrlEditorSuggestions.test.ts`. The mixed mobile boot smoke is diagnostic because workspace
    mobile boot, iso route search, and desktop iso controls have more focused coverage.
 4. `vault-dashboard-visual.spec.ts`: replace the broad visual gallery with smaller workflow-owned
-   contracts.
+   contracts. This branch moved delete-dialog cleanup default-state coverage into
+   `VaultDashboard.test.tsx` and demoted the duplicate mobile delete-dialog screenshot.
 5. `workspace-sidebar-drag.spec.ts`: continue separating core gesture behavior from diagnostics; the
    debug overlay checks now run only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`.
 
@@ -168,6 +169,7 @@ release-blocking contract:
 - mixed logo iso mobile boot smoke inside `logo-iso-controls-visual.spec.ts`
 - extra renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts`
 - detailed route URL editor dropdown screenshots inside `route-url-editor.spec.ts`
+- mobile delete dialog screenshot inside `vault-dashboard-visual.spec.ts`
 - `vault-resource-rail-visual.spec.ts`
 - workspace gesture debug overlay checks inside `workspace-sidebar-drag.spec.ts`
 

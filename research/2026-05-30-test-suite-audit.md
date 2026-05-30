@@ -102,16 +102,16 @@ Full Playwright and Windows sync smoke are push-only:
 ### Playwright Default Suite
 
 After the branch's diagnostic demotions and skipped-test cleanup, `apps/noter/playwright.config.ts`
-lists `207` Chromium tests in `35` default files. The default config ignores `*.live.spec.ts` and
+lists `206` Chromium tests in `35` default files. The default config ignores `*.live.spec.ts` and
 excludes `@diagnostic` tests unless `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` is set.
 
 Approximate shape from local inventory:
 
 - `50` total Playwright spec files including live specs.
-- `35` default Playwright files, `207` listed tests.
+- `35` default Playwright files, `206` listed tests.
 - `7` live specs, run by `apps/noter/playwright.live.config.ts`.
-- `40` snapshot directories.
-- `122` tracked PNG-style visual artifacts under `apps/noter/e2e`.
+- `39` snapshot directories.
+- `124` tracked PNG-style visual artifacts under `apps/noter/e2e`.
 - `32` default files with screenshot or snapshot assertions.
 - `32` default files that use `/visual-fixture` or fixture-style harnesses.
 - `9` default files hit real routes rather than fixture-only pages.
@@ -123,7 +123,7 @@ The largest default Playwright files by line count:
 - `apps/noter/e2e/route-url-editor.spec.ts`: `1752` lines, `39` default listed tests.
 - `apps/noter/e2e/public-landing-shell.spec.ts`: `1755` lines, `37` listed tests.
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts`: `1041` lines, `22` default listed tests.
-- `apps/noter/e2e/vault-dashboard-visual.spec.ts`: `1020` lines, `23` listed tests.
+- `apps/noter/e2e/vault-dashboard-visual.spec.ts`: `1020` lines, `22` default listed tests.
 - `apps/noter/e2e/workspace-sidebar-drag.spec.ts`: `703` lines, `12` default listed tests.
 
 ### Non-Playwright Tests
@@ -154,12 +154,12 @@ The current Vite+ config already separates:
 The saved Docker Playwright report at `.tmp/playwright-linux/playwright-report/index.html` now shows
 the default suite after diagnostic demotion and skipped-test cleanup:
 
-- `207` tests,
-- `207` passed,
+- `206` tests,
+- `206` passed,
 - `0` skipped,
 - `0` unexpected failures,
 - `4` workers,
-- about `96.2s` runtime.
+- about `95.0s` runtime.
 
 Slowest known local candidates from the latest `.tmp/playwright-linux/summary.json`:
 

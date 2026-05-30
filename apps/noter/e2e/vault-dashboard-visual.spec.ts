@@ -555,7 +555,9 @@ test("vault dashboard fixture (connect Convex dialog)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testInfo) => {
+test("@diagnostic vault dashboard fixture (delete dialog mobile)", async ({
+  browser,
+}, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
     throw new Error("Playwright baseURL is required for mobile fixture tests.");
