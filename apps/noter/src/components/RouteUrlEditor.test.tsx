@@ -361,6 +361,23 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("uses prod UI mode to filter local-only path suggestions", async () => {
+    useQueryMock.mockReturnValue(true);
+    const input = startEditing(["/?prod-ui"]);
+    const origin = window.location.origin;
+
+    await act(async () => {
+      input.setSelectionRange(0, 0);
+      input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Home" }));
+      await Promise.resolve();
+    });
+
+    expect(input.value).toBe(`${origin}/?prod-ui`);
+    expect(rootElement?.querySelector('button[aria-label="Use /logo"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use /visual-fixture"]')).toBeNull();
+    expect(document.activeElement).toBe(input);
+  });
+
   it("opens another search param slot when clicking the end of a complete query", async () => {
     const input = startEditing(["/logo?leftFace=secondary"]);
     const origin = window.location.origin;

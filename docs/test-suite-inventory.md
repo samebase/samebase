@@ -24,7 +24,7 @@ pnpm --filter noter exec playwright test -c playwright.config.ts --list
 
 Current default surface:
 
-- `208` tests
+- `207` tests
 - `35` files
 - Chromium project only
 - `*.live.spec.ts` excluded
@@ -33,11 +33,11 @@ Current default surface:
 
 Last audited full Linux wrapper summary from `.tmp/playwright-linux/summary.json`:
 
-- `208` passed
+- `207` passed
 - `0` skipped
 - `0` unexpected
 - `4` workers
-- `96382.689` ms
+- `96175.115` ms
 
 ## Classification Meanings
 
@@ -88,7 +88,7 @@ Actions:
 | `public-landing-shell.spec.ts`             |    37 | `rewrite`          | Public landing route, auth slots, legal/sidebar links, mobile shell, logo fallback/drag, prod UI mode, and navigation budget. | High: `1755` lines, serial, mixed behavior and visual assertions.                                | Landing                   | `rewrite`; prod-ui shortcut/dev-toggle query behavior moved to component coverage.         |
 | `public-legal-route-shell.spec.ts`         |     2 | `visual-contract`  | Terms/privacy routes use routed app surface and public account sidebar.                                                       | Low: real-route screenshots.                                                                     | Public legal routes       | `keep`                                                                                     |
 | `repository-media-visual.spec.ts`          |     3 | `visual-contract`  | Repository media fixtures for PNG, SVG, and VOX.                                                                              | Medium: VOX case appears in slowest list at about `4.2s`.                                        | Repository media          | `keep`; reduce VOX setup if it stays slow.                                                 |
-| `route-url-editor.spec.ts`                 |    40 | `rewrite`          | Route URL editor editing, suggestions, hover previews, history restore, mobile picker, prod mode, and boundary rejection.     | High: largest file, serial, many `/visual-fixture` paths; focused Linux rerun passed in `22.7s`. | Route URL editor          | `rewrite`; suggestion duplicates moved lower, two detailed dropdown screenshots demoted.   |
+| `route-url-editor.spec.ts`                 |    39 | `rewrite`          | Route URL editor editing, suggestions, hover previews, history restore, mobile picker, and boundary rejection.                | High: largest file, serial, many `/visual-fixture` paths; focused Linux rerun passed in `24.4s`. | Route URL editor          | `rewrite`; suggestion duplicates, prod UI filtering, and screenshots moved lower/demoted.  |
 | `sidebar-media-upload-visual.spec.ts`      |     2 | `visual-contract`  | Sidebar media upload desktop and mobile dialog/page states.                                                                   | Low: compact fixture snapshots.                                                                  | Media upload              | `keep`                                                                                     |
 | `vault-branch-preview-visual.spec.ts`      |     3 | `visual-contract`  | Branch preview link, failed, and missing states.                                                                              | Low: compact fixture snapshots.                                                                  | Vault dashboard           | `keep`                                                                                     |
 | `vault-dashboard-branch-visual.spec.ts`    |     1 | `visual-contract`  | Vault dashboard branch PR title rendering.                                                                                    | Low: tiny fixture snapshot.                                                                      | Vault dashboard           | `keep`; fold into dashboard branch coverage if nearby work touches it.                     |
@@ -107,8 +107,9 @@ Actions:
 1. `route-url-editor.spec.ts`: continue moving pure route/search suggestion behavior into unit
    tests, then keep a smaller browser file for selection, editing, hover preview, history, and
    mobile picker behavior. This branch moved the manually typed value-suggestion case to component
-   coverage, deleted the auth-flow suggestion duplicate after confirming lower-layer coverage, and
-   demoted two detailed dropdown screenshot checks.
+   coverage, deleted the auth-flow suggestion duplicate after confirming lower-layer coverage, moved
+   prod UI local-route filtering to component coverage, and demoted two detailed dropdown screenshot
+   checks.
 2. `public-landing-shell.spec.ts`: split the serial file by contract so landing route behavior, auth
    slot behavior, mobile shell geometry, logo fallback/drag, and budget checks can fail
    independently. This branch moved prod-ui shortcut/dev-toggle query behavior to component
