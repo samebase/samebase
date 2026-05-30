@@ -11,17 +11,21 @@
     "apps/noter-starter-template/src/index.css": "apps/noter-starter-template/src/**"
   },
   // Tailwind CSS IntelliSense already shows class meanings on hover in JSX
-  // attributes like `className="h-8"`, but it does not know that a plain object
-  // constant can also contain Tailwind classes. These patterns make hover work
-  // for class maps named like `TOGGLE_BUTTON_CLASS_NAMES`, `ClassNames`, or
-  // `classNames`.
+  // attributes like `className="h-8"`, but it does not know that plain
+  // constants can also contain Tailwind classes. These patterns make hover work
+  // for class strings named like `routeUrlEditorIconButtonClassName` and class
+  // maps named like `TOGGLE_BUTTON_CLASS_NAMES`, `ClassNames`, or `classNames`.
   //
-  // The first regex in each pair finds the object body between `{` and `}`.
-  // The second regex then finds one quote style inside that body. Keeping this
-  // as a two-step match means Tailwind sees `"h-8 w-8 rounded-none"` from an
-  // object value, but does not inspect unrelated type text after the object,
-  // such as the `"hidden"` literal in `satisfies Record<..., "hidden">`.
+  // For class-map entries below, the first regex in each pair finds the object
+  // body between `{` and `}`. The second regex then finds one quote style inside
+  // that body. Keeping this as a two-step match means Tailwind sees
+  // `"h-8 w-8 rounded-none"` from an object value, but does not inspect
+  // unrelated type text after the object, such as the `"hidden"` literal in
+  // `satisfies Record<..., "hidden">`.
   "tailwindCSS.experimental.classRegex": [
+    "\\b[A-Za-z0-9_$]*(?:CLASS_NAME|ClassName|className)\\s*=\\s*\"([^\"]*)\"",
+    "\\b[A-Za-z0-9_$]*(?:CLASS_NAME|ClassName|className)\\s*=\\s*'([^']*)'",
+    "\\b[A-Za-z0-9_$]*(?:CLASS_NAME|ClassName|className)\\s*=\\s*`([^`$]*)`",
     [
       "\\b[A-Za-z0-9_$]*(?:CLASS_NAMES?|ClassNames|classNames)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*(?:as\\s+const\\s*)?(?:satisfies\\s+[\\s\\S]*?)?;?",
       "\"([^\"]*)\""

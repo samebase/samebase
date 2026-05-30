@@ -54,7 +54,7 @@ function WorkspaceLayoutV2MainPaneHeader({
           className={leftToggleButtonClassName}
           onClick={toggleLeftPane}
         >
-          <PanelLeft className="h-4 w-4" />
+          <PanelLeft className="size-5" />
         </Button>
       ) : null}
 
@@ -71,7 +71,7 @@ function WorkspaceLayoutV2MainPaneHeader({
           className={rightToggleButtonClassName}
           onClick={toggleRightPane}
         >
-          <PanelRight className="h-4 w-4 rotate-180" />
+          <PanelRight className="size-5 rotate-180" />
         </Button>
       ) : null}
     </div>

@@ -37,6 +37,8 @@ import { api } from "../../convex/_generated/api";
 const routeUrlEditorIconButtonClassName =
   "flex size-11 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
+const routeUrlEditorIconClassName = "size-5";
+
 // iOS WebKit zooms focused text controls below 16 CSS px, which breaks the route editor chrome.
 const routeUrlEditorInputClassName =
   "h-11 min-w-0 flex-1 border-0 bg-transparent px-1 font-mono text-base leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive";
@@ -2087,7 +2089,7 @@ export function RouteUrlEditor() {
         title="Back"
         type="button"
       >
-        <ArrowLeft aria-hidden="true" className="size-4" />
+        <ArrowLeft aria-hidden="true" className={routeUrlEditorIconClassName} />
       </button>
       <button
         aria-label="Forward"
@@ -2097,7 +2099,7 @@ export function RouteUrlEditor() {
         title="Forward"
         type="button"
       >
-        <ArrowRight aria-hidden="true" className="size-4" />
+        <ArrowRight aria-hidden="true" className={routeUrlEditorIconClassName} />
       </button>
       <button
         aria-label="Refresh"
@@ -2106,7 +2108,7 @@ export function RouteUrlEditor() {
         title="Refresh"
         type="button"
       >
-        <RefreshCw aria-hidden="true" className="size-4" />
+        <RefreshCw aria-hidden="true" className={routeUrlEditorIconClassName} />
       </button>
       <input
         ref={inputRef}
