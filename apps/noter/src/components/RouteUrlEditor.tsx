@@ -1,5 +1,5 @@
 import { useLocation, useRouter } from "@tanstack/react-router";
-import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { useActor } from "@xstate/react";
 import { isObject } from "@samebase/sure";
 import { useQuery } from "convex/react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
@@ -8,12 +8,23 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent,
   type SyntheticEvent,
 } from "react";
+import {
+  fromTransition,
+  type ActorSystem,
+  type ActorSystemInfo,
+  type SnapshotStatus,
+} from "xstate";
+import {
+  routeUrlEditorXStateStoreEventTypes,
+  type RouteUrlEditorXStateStoreEventType,
+} from "./RouteUrlEditorXState";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import {
@@ -101,6 +112,62 @@ type RouteUrlEditorHistoryIndexes = {
   forwardRouteHistoryIndex: number;
 };
 
+type RouteUrlEditorXStateStoreInput = {
+  currentHref: string;
+  currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
+};
+
+type RouteUrlEditorXStateActorSystem = ActorSystem<ActorSystemInfo>;
+
+type RouteUrlEditorXStateStoreEvent =
+  | {
+      type: "routeUrlEditor.clearTouchScrollPickerMetrics";
+    }
+  | {
+      nextState: Partial<RouteUrlEditorSuggestionState>;
+      type: "routeUrlEditor.patchSuggestionState";
+    }
+  | {
+      documentHashSuggestionKeys: readonly string[];
+      type: "routeUrlEditor.setDocumentHashSuggestionKeys";
+    }
+  | {
+      draftRouteAddress: string;
+      type: "routeUrlEditor.setDraftRouteAddress";
+    }
+  | {
+      inputFocused: boolean;
+      type: "routeUrlEditor.setInputFocused";
+    }
+  | {
+      touchScrollPickerEnabled: boolean;
+      type: "routeUrlEditor.setTouchScrollPickerEnabled";
+    }
+  | {
+      touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics;
+      type: "routeUrlEditor.syncTouchScrollPickerMetrics";
+    }
+  | {
+      readNextRouteHistoryIndexes: (
+        routeHistoryIndexes: RouteUrlEditorHistoryIndexes,
+      ) => RouteUrlEditorHistoryIndexes;
+      type: "routeUrlEditor.updateRouteHistoryIndexes";
+    }
+  | {
+      readNextSuggestionState: (
+        suggestionState: RouteUrlEditorSuggestionState,
+      ) => RouteUrlEditorSuggestionState;
+      type: "routeUrlEditor.updateSuggestionState";
+    };
+
+export type RouteUrlEditorXStateDebugState = {
+  context: RouteUrlEditorStoreState;
+  eventTypes: readonly RouteUrlEditorXStateStoreEventType[];
+  logic: "fromTransition";
+  status: SnapshotStatus;
+};
+
 export type RouteUrlEditorDebugState = {
   activeSuggestionId: string | undefined;
   activeSuggestionIndex: number | null;
@@ -128,26 +195,25 @@ export type RouteUrlEditorDebugState = {
   touchScrollPreviewCommitPending: boolean;
   touchScrollPreviewDraftRouteAddress: string | null;
   viewerIsAdmin: boolean;
+  xstate: RouteUrlEditorXStateDebugState;
 };
 
 type RouteUrlEditorProps = {
   onDebugStateChange?: (state: RouteUrlEditorDebugState) => void;
 };
 
-function useCreateRouteUrlEditorStore(args: {
-  currentHref: string;
-  currentRouteHistoryIndex: number;
-  forwardRouteHistoryIndex: number;
-}) {
-  const initialState: RouteUrlEditorStoreState = {
-    currentRouteHistoryIndex: args.currentRouteHistoryIndex,
+function readInitialRouteUrlEditorStoreState(
+  input: RouteUrlEditorXStateStoreInput,
+): RouteUrlEditorStoreState {
+  return {
+    currentRouteHistoryIndex: input.currentRouteHistoryIndex,
     documentHashSuggestionKeys: [],
-    draftRouteAddress: args.currentHref,
-    forwardRouteHistoryIndex: args.forwardRouteHistoryIndex,
+    draftRouteAddress: input.currentHref,
+    forwardRouteHistoryIndex: input.forwardRouteHistoryIndex,
     inputFocused: false,
     suggestionState: {
       activeIndex: null,
-      baseRouteAddress: args.currentHref,
+      baseRouteAddress: input.currentHref,
       dismissed: false,
       draftEditedSinceFocus: false,
       kind: "path",
@@ -156,92 +222,157 @@ function useCreateRouteUrlEditorStore(args: {
     touchScrollPickerEnabled: false,
     touchScrollPickerMetrics: null,
   };
+}
 
-  return useCreateStore(initialState, ({ setState }) => ({
-    clearTouchScrollPickerMetrics: () => {
-      setState((state) =>
-        state.touchScrollPickerMetrics === null
-          ? state
-          : { ...state, touchScrollPickerMetrics: null },
-      );
-    },
-    patchSuggestionState: (nextState: Partial<RouteUrlEditorSuggestionState>) => {
-      setState((state) => ({
+function readNextRouteUrlEditorStoreState(
+  state: RouteUrlEditorStoreState,
+  event: RouteUrlEditorXStateStoreEvent,
+): RouteUrlEditorStoreState {
+  switch (event.type) {
+    case "routeUrlEditor.clearTouchScrollPickerMetrics":
+      return state.touchScrollPickerMetrics === null
+        ? state
+        : { ...state, touchScrollPickerMetrics: null };
+    case "routeUrlEditor.patchSuggestionState":
+      return {
         ...state,
-        suggestionState: { ...state.suggestionState, ...nextState },
-      }));
-    },
-    setDocumentHashSuggestionKeys: (documentHashSuggestionKeys: readonly string[]) => {
-      setState((state) =>
-        areRouteUrlEditorHashSuggestionKeysEqual(
-          state.documentHashSuggestionKeys,
+        suggestionState: { ...state.suggestionState, ...event.nextState },
+      };
+    case "routeUrlEditor.setDocumentHashSuggestionKeys":
+      return areRouteUrlEditorHashSuggestionKeysEqual(
+        state.documentHashSuggestionKeys,
+        event.documentHashSuggestionKeys,
+      )
+        ? state
+        : { ...state, documentHashSuggestionKeys: event.documentHashSuggestionKeys };
+    case "routeUrlEditor.setDraftRouteAddress":
+      return state.draftRouteAddress === event.draftRouteAddress
+        ? state
+        : { ...state, draftRouteAddress: event.draftRouteAddress };
+    case "routeUrlEditor.setInputFocused":
+      return state.inputFocused === event.inputFocused
+        ? state
+        : { ...state, inputFocused: event.inputFocused };
+    case "routeUrlEditor.setTouchScrollPickerEnabled":
+      return state.touchScrollPickerEnabled === event.touchScrollPickerEnabled
+        ? state
+        : { ...state, touchScrollPickerEnabled: event.touchScrollPickerEnabled };
+    case "routeUrlEditor.syncTouchScrollPickerMetrics":
+      return areRouteUrlEditorTouchScrollPickerMetricsEqual(
+        state.touchScrollPickerMetrics,
+        event.touchScrollPickerMetrics,
+      )
+        ? state
+        : { ...state, touchScrollPickerMetrics: event.touchScrollPickerMetrics };
+    case "routeUrlEditor.updateRouteHistoryIndexes": {
+      const routeHistoryIndexes = event.readNextRouteHistoryIndexes(state);
+      const forwardRouteHistoryIndex = Math.max(
+        routeHistoryIndexes.currentRouteHistoryIndex,
+        routeHistoryIndexes.forwardRouteHistoryIndex,
+      );
+      return state.currentRouteHistoryIndex === routeHistoryIndexes.currentRouteHistoryIndex &&
+        state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
+        ? state
+        : {
+            ...state,
+            currentRouteHistoryIndex: routeHistoryIndexes.currentRouteHistoryIndex,
+            forwardRouteHistoryIndex,
+          };
+    }
+    case "routeUrlEditor.updateSuggestionState": {
+      const suggestionState = event.readNextSuggestionState(state.suggestionState);
+      return state.suggestionState === suggestionState ? state : { ...state, suggestionState };
+    }
+  }
+}
+
+// XState owns the editor's local UI context; router navigation, DOM measurement,
+// focus, and pointer side effects stay in the existing React handlers.
+const routeUrlEditorXStateStoreLogic = fromTransition<
+  RouteUrlEditorStoreState,
+  RouteUrlEditorXStateStoreEvent,
+  RouteUrlEditorXStateActorSystem,
+  RouteUrlEditorXStateStoreInput
+>(readNextRouteUrlEditorStoreState, ({ input }) => readInitialRouteUrlEditorStoreState(input));
+
+function useCreateRouteUrlEditorStore(args: {
+  currentHref: string;
+  currentRouteHistoryIndex: number;
+  forwardRouteHistoryIndex: number;
+}) {
+  const [snapshot, send] = useActor(routeUrlEditorXStateStoreLogic, { input: args });
+  const actions = useMemo(
+    () => ({
+      clearTouchScrollPickerMetrics: () => {
+        send({ type: "routeUrlEditor.clearTouchScrollPickerMetrics" });
+      },
+      patchSuggestionState: (nextState: Partial<RouteUrlEditorSuggestionState>) => {
+        send({ nextState, type: "routeUrlEditor.patchSuggestionState" });
+      },
+      setDocumentHashSuggestionKeys: (documentHashSuggestionKeys: readonly string[]) => {
+        send({
           documentHashSuggestionKeys,
-        )
-          ? state
-          : { ...state, documentHashSuggestionKeys },
-      );
-    },
-    setDraftRouteAddress: (draftRouteAddress: string) => {
-      setState((state) =>
-        state.draftRouteAddress === draftRouteAddress ? state : { ...state, draftRouteAddress },
-      );
-    },
-    setInputFocused: (inputFocused: boolean) => {
-      setState((state) =>
-        state.inputFocused === inputFocused ? state : { ...state, inputFocused },
-      );
-    },
-    setTouchScrollPickerEnabled: (touchScrollPickerEnabled: boolean) => {
-      setState((state) =>
-        state.touchScrollPickerEnabled === touchScrollPickerEnabled
-          ? state
-          : { ...state, touchScrollPickerEnabled },
-      );
-    },
-    syncTouchScrollPickerMetrics: (
-      touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics,
-    ) => {
-      setState((state) =>
-        areRouteUrlEditorTouchScrollPickerMetricsEqual(
-          state.touchScrollPickerMetrics,
+          type: "routeUrlEditor.setDocumentHashSuggestionKeys",
+        });
+      },
+      setDraftRouteAddress: (draftRouteAddress: string) => {
+        send({ draftRouteAddress, type: "routeUrlEditor.setDraftRouteAddress" });
+      },
+      setInputFocused: (inputFocused: boolean) => {
+        send({ inputFocused, type: "routeUrlEditor.setInputFocused" });
+      },
+      setTouchScrollPickerEnabled: (touchScrollPickerEnabled: boolean) => {
+        send({
+          touchScrollPickerEnabled,
+          type: "routeUrlEditor.setTouchScrollPickerEnabled",
+        });
+      },
+      syncTouchScrollPickerMetrics: (
+        touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics,
+      ) => {
+        send({
           touchScrollPickerMetrics,
-        )
-          ? state
-          : { ...state, touchScrollPickerMetrics },
-      );
-    },
-    updateRouteHistoryIndexes: (
-      readNextRouteHistoryIndexes: (
-        routeHistoryIndexes: RouteUrlEditorHistoryIndexes,
-      ) => RouteUrlEditorHistoryIndexes,
-    ) => {
-      setState((state) => {
-        const routeHistoryIndexes = readNextRouteHistoryIndexes(state);
-        const forwardRouteHistoryIndex = Math.max(
-          routeHistoryIndexes.currentRouteHistoryIndex,
-          routeHistoryIndexes.forwardRouteHistoryIndex,
-        );
-        return state.currentRouteHistoryIndex === routeHistoryIndexes.currentRouteHistoryIndex &&
-          state.forwardRouteHistoryIndex === forwardRouteHistoryIndex
-          ? state
-          : {
-              ...state,
-              currentRouteHistoryIndex: routeHistoryIndexes.currentRouteHistoryIndex,
-              forwardRouteHistoryIndex,
-            };
-      });
-    },
-    updateSuggestionState: (
-      readNextSuggestionState: (
-        suggestionState: RouteUrlEditorSuggestionState,
-      ) => RouteUrlEditorSuggestionState,
-    ) => {
-      setState((state) => {
-        const suggestionState = readNextSuggestionState(state.suggestionState);
-        return state.suggestionState === suggestionState ? state : { ...state, suggestionState };
-      });
-    },
-  }));
+          type: "routeUrlEditor.syncTouchScrollPickerMetrics",
+        });
+      },
+      updateRouteHistoryIndexes: (
+        readNextRouteHistoryIndexes: (
+          routeHistoryIndexes: RouteUrlEditorHistoryIndexes,
+        ) => RouteUrlEditorHistoryIndexes,
+      ) => {
+        send({
+          readNextRouteHistoryIndexes,
+          type: "routeUrlEditor.updateRouteHistoryIndexes",
+        });
+      },
+      updateSuggestionState: (
+        readNextSuggestionState: (
+          suggestionState: RouteUrlEditorSuggestionState,
+        ) => RouteUrlEditorSuggestionState,
+      ) => {
+        send({
+          readNextSuggestionState,
+          type: "routeUrlEditor.updateSuggestionState",
+        });
+      },
+    }),
+    [send],
+  );
+  const xstate = useMemo<RouteUrlEditorXStateDebugState>(
+    () => ({
+      context: snapshot.context,
+      eventTypes: routeUrlEditorXStateStoreEventTypes,
+      logic: "fromTransition",
+      status: snapshot.status,
+    }),
+    [snapshot.context, snapshot.status],
+  );
+
+  return {
+    actions,
+    state: snapshot.context,
+    xstate,
+  };
 }
 
 function getRouteUrlEditorSuggestionButtonClassName(active: boolean): string {
@@ -807,6 +938,7 @@ export function RouteUrlEditor({ onDebugStateChange }: RouteUrlEditorProps = {})
     currentRouteHistoryIndex: 0,
     forwardRouteHistoryIndex: 0,
   });
+  const { state: routeUrlEditorState, xstate: routeUrlEditorXState } = routeUrlEditorStore;
   const {
     currentRouteHistoryIndex,
     documentHashSuggestionKeys,
@@ -816,7 +948,7 @@ export function RouteUrlEditor({ onDebugStateChange }: RouteUrlEditorProps = {})
     suggestionState,
     touchScrollPickerEnabled,
     touchScrollPickerMetrics,
-  } = useSelector(routeUrlEditorStore);
+  } = routeUrlEditorState;
   const {
     clearTouchScrollPickerMetrics,
     patchSuggestionState,
@@ -955,6 +1087,7 @@ export function RouteUrlEditor({ onDebugStateChange }: RouteUrlEditorProps = {})
       touchScrollPreviewCommitPending: touchScrollPreviewCommitPendingRef.current,
       touchScrollPreviewDraftRouteAddress: touchScrollPreviewDraftRouteAddressRef.current,
       viewerIsAdmin: viewerIsAdmin === true,
+      xstate: routeUrlEditorXState,
     });
   }, [
     activeSuggestionId,
@@ -980,6 +1113,7 @@ export function RouteUrlEditor({ onDebugStateChange }: RouteUrlEditorProps = {})
     touchScrollPickerEnabled,
     touchScrollPickerMetrics,
     touchScrollPickerVisible,
+    routeUrlEditorXState,
     viewerIsAdmin,
   ]);
 

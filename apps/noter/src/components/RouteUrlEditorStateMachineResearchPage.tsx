@@ -4,6 +4,7 @@ import {
   type RouteUrlEditorSuggestionState,
   type RouteUrlEditorTouchScrollPickerMetrics,
 } from "@/components/RouteUrlEditor";
+import { routeUrlEditorXStateStoreEventTypes } from "@/components/RouteUrlEditorXState";
 import { Textarea } from "@/components/ui/textarea";
 import { useCallback, useMemo, useState } from "react";
 
@@ -42,107 +43,6 @@ type ResearchMachineState = ResearchMachineStateSnapshot &
         touchScrollPickerMetrics: RouteUrlEditorTouchScrollPickerMetrics;
       }
   );
-
-type ResearchMachineStateKind = ResearchMachineState["kind"];
-
-type ResearchTransitionEventsByState = {
-  blurred: "focus" | "hashSuggestionsRefreshed" | "historyIndexObserved" | "routeRealityChanged";
-  "focused.clean":
-    | "blur"
-    | "draftChanged"
-    | "hashSuggestionsRefreshed"
-    | "historyIndexObserved"
-    | "routeRealityChanged"
-    | "suggestionHighlighted"
-    | "touchPickerStarted";
-  "focused.editing":
-    | "blur"
-    | "draftChanged"
-    | "escapePressed"
-    | "hashSuggestionsRefreshed"
-    | "historyIndexObserved"
-    | "routeRealityChanged"
-    | "suggestionHighlighted"
-    | "suggestionPreviewed"
-    | "suggestionSelected"
-    | "touchPickerStarted";
-  "focused.previewing":
-    | "blur"
-    | "draftChanged"
-    | "escapePressed"
-    | "hashSuggestionsRefreshed"
-    | "historyIndexObserved"
-    | "routeRealityChanged"
-    | "suggestionSelected"
-    | "touchPickerStarted";
-  "focused.touchPicking":
-    | "blur"
-    | "draftChanged"
-    | "escapePressed"
-    | "hashSuggestionsRefreshed"
-    | "historyIndexObserved"
-    | "routeRealityChanged"
-    | "touchPickerCanceled"
-    | "touchPickerCommitted"
-    | "touchPickerPreviewed";
-};
-
-type ResearchTransitionTable = {
-  [TKind in ResearchMachineStateKind]: {
-    [TEventType in ResearchTransitionEventsByState[TKind]]: ResearchMachineStateKind;
-  };
-};
-
-const routeUrlEditorTransitions = {
-  blurred: {
-    focus: "focused.clean",
-    hashSuggestionsRefreshed: "blurred",
-    historyIndexObserved: "blurred",
-    routeRealityChanged: "blurred",
-  },
-  "focused.clean": {
-    blur: "blurred",
-    draftChanged: "focused.editing",
-    hashSuggestionsRefreshed: "focused.clean",
-    historyIndexObserved: "focused.clean",
-    routeRealityChanged: "focused.clean",
-    suggestionHighlighted: "focused.clean",
-    touchPickerStarted: "focused.touchPicking",
-  },
-  "focused.editing": {
-    blur: "blurred",
-    draftChanged: "focused.editing",
-    escapePressed: "blurred",
-    hashSuggestionsRefreshed: "focused.editing",
-    historyIndexObserved: "focused.editing",
-    routeRealityChanged: "focused.editing",
-    suggestionHighlighted: "focused.editing",
-    suggestionPreviewed: "focused.previewing",
-    suggestionSelected: "focused.editing",
-    touchPickerStarted: "focused.touchPicking",
-  },
-  "focused.previewing": {
-    blur: "blurred",
-    draftChanged: "focused.editing",
-    escapePressed: "focused.editing",
-    hashSuggestionsRefreshed: "focused.previewing",
-    historyIndexObserved: "focused.previewing",
-    routeRealityChanged: "focused.previewing",
-    suggestionSelected: "focused.editing",
-    touchPickerStarted: "focused.touchPicking",
-  },
-  "focused.touchPicking": {
-    blur: "blurred",
-    draftChanged: "focused.editing",
-    escapePressed: "focused.editing",
-    hashSuggestionsRefreshed: "focused.touchPicking",
-    historyIndexObserved: "focused.touchPicking",
-    routeRealityChanged: "focused.touchPicking",
-    touchPickerCanceled: "focused.editing",
-    touchPickerCommitted: "focused.previewing",
-    touchPickerPreviewed: "focused.touchPicking",
-  },
-} as const satisfies ResearchTransitionTable;
 
 function readResearchMachineState(
   debugState: RouteUrlEditorDebugState | null,
@@ -204,13 +104,15 @@ function readResearchMachineState(
   };
 }
 
-function renderRouteUrlEditorMermaidTransitions() {
-  const lines = ["stateDiagram-v2"];
+function renderRouteUrlEditorXStateMermaid() {
+  const lines = [
+    "stateDiagram-v2",
+    '  state "RouteUrlEditor XState transition actor" as route_url_editor_store',
+    "  [*] --> route_url_editor_store",
+  ];
 
-  for (const [from, byEvent] of Object.entries(routeUrlEditorTransitions)) {
-    for (const [event, to] of Object.entries(byEvent)) {
-      lines.push(`  ${from} --> ${to}: ${event}`);
-    }
+  for (const eventType of routeUrlEditorXStateStoreEventTypes) {
+    lines.push(`  route_url_editor_store --> route_url_editor_store: ${eventType}`);
   }
 
   return lines.join("\n");
@@ -230,11 +132,15 @@ export function RouteUrlEditorStateMachineResearchPage() {
   const machineState = useMemo(() => readResearchMachineState(debugState), [debugState]);
   const formattedMachineState = useMemo(() => formatJson(machineState), [machineState]);
   const formattedStoreState = useMemo(
-    () => formatJson(debugState?.store ?? null),
-    [debugState?.store],
+    () => formatJson(debugState?.xstate.context ?? null),
+    [debugState?.xstate.context],
+  );
+  const formattedXState = useMemo(
+    () => formatJson(debugState?.xstate ?? null),
+    [debugState?.xstate],
   );
   const formattedDebugState = useMemo(() => formatJson(debugState), [debugState]);
-  const mermaidTransitions = useMemo(renderRouteUrlEditorMermaidTransitions, []);
+  const mermaidTransitions = useMemo(renderRouteUrlEditorXStateMermaid, []);
 
   return (
     <main className="grid min-h-screen gap-4 bg-background p-4 text-foreground">
@@ -253,11 +159,18 @@ export function RouteUrlEditorStateMachineResearchPage() {
         data-testid="route-url-editor-state-machine-json"
         className="min-h-80 resize-y rounded-none font-mono text-sm"
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-4">
+        <Textarea
+          readOnly
+          value={formattedXState}
+          aria-label="Route URL editor XState actor snapshot"
+          data-testid="route-url-editor-state-machine-xstate-json"
+          className="min-h-64 resize-y rounded-none font-mono text-sm"
+        />
         <Textarea
           readOnly
           value={formattedStoreState}
-          aria-label="Route URL editor store state"
+          aria-label="Route URL editor XState context"
           data-testid="route-url-editor-state-machine-store-json"
           className="min-h-64 resize-y rounded-none font-mono text-sm"
         />
