@@ -781,7 +781,7 @@ test("logo raster distance scale keeps depth 3 on the geometric base path", asyn
   });
 });
 
-test("logo iso controls mobile boot", async ({ page }) => {
+test("@diagnostic logo iso controls mobile boot", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo");
   await page.setViewportSize({ width: 390, height: 844 });

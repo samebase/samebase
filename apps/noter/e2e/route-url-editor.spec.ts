@@ -988,50 +988,6 @@ test("route URL editor previews search suggestions on hover", async ({ page }) =
   ).toBe(true);
 });
 
-test("route URL editor keeps auth-flow params manual in suggestions", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 420 });
-  await page.goto("/", {
-    waitUntil: "domcontentloaded",
-  });
-  const origin = await page.evaluate(() => window.location.origin);
-
-  const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
-  const authOption = page.getByRole("option", {
-    exact: true,
-    name: "Use ?auth=",
-  });
-  const signupOption = page.getByRole("option", {
-    exact: true,
-    name: "Use ?signup=",
-  });
-
-  await input.fill(`${origin}/?a`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(authOption).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use ?auth=google" })).toHaveCount(0);
-
-  await authOption.hover();
-
-  await expect(input).toHaveValue(`${origin}/?auth=`);
-  await expect(page).toHaveURL(`${origin}/`);
-  await expect(suggestions).toBeVisible();
-
-  await input.fill(`${origin}/?auth=g`);
-
-  await expect(page.getByTestId("route-url-editor-suggestions")).toHaveCount(0);
-  await expect(page).toHaveURL(`${origin}/`);
-
-  await input.fill(`${origin}/?s`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(signupOption).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use ?signup=google" })).toHaveCount(
-    0,
-  );
-});
-
 test("@diagnostic route URL editor previews numeric search examples from the dropdown on hover", async ({
   page,
 }) => {
