@@ -71,3 +71,26 @@ day-to-day loop.
 The full Playwright suite remains intentionally skipped on pull requests because it is too expensive
 to run on every PR. Prefer focused local Linux runs, Testbox verification, and targeted browser
 checks instead of enabling the full PR matrix by default.
+
+For a main-CI parity check from a local machine, run the same shard shape that main uses instead of
+the wrapper default 8-worker stress shape:
+
+```bash
+pnpm test:visual:linux -- --workers=1 --shard=1/3
+pnpm test:visual:linux -- --workers=1 --shard=2/3
+pnpm test:visual:linux -- --workers=1 --shard=3/3
+```
+
+Pull-request CI proves the lightweight `checks` job and aggregate status, but it does not run the
+Playwright matrix. Treat PR Playwright rows marked `skipping` as expected workflow behavior, not as
+evidence that browser coverage ran.
+
+## Admin-Only Route Coverage
+
+When browser tests fail after a route is moved behind auth, authenticate the test through the
+existing local password account instead of weakening the route policy. The shared helper lives in
+`apps/noter/e2e/liveHelpers.ts` as `signInIfNeeded`.
+
+The seeded credentials are defined once in `runtime/localWorktreePasswordAuth.ts`. CI and Linux
+Docker bootstrap should seed that account through `apps/noter/convex/devAuth.ts` before Playwright
+starts. If a test cannot log in inside Docker or CI, inspect that bootstrap chain first.
