@@ -206,7 +206,7 @@ describe("AppSidebarMetaSection", () => {
     expect(termsLink.className).toContain("route-preview-link-interaction");
   });
 
-  it("previews and restores non-reset landing query shortcuts on hover", async () => {
+  it("previews landing query shortcuts without retargeting the hovered link", async () => {
     const element = await renderSidebarMetaSection();
     const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
     if (!devLink) {
@@ -220,7 +220,8 @@ describe("AppSidebarMetaSection", () => {
 
     expect(readLocationText()).toBe("/?dev");
     expect(devLink.textContent).toBe("?dev");
-    expect(devLink.getAttribute("aria-label")).toBe("?dev-");
+    expect(devLink.getAttribute("aria-label")).toBe("?dev");
+    expect(rootElement?.querySelector("#public-landing-search-reset")).toBeNull();
 
     await act(async () => {
       devLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
@@ -305,7 +306,7 @@ describe("AppSidebarMetaSection", () => {
     });
 
     expect(devLink.textContent).toBe("?dev");
-    expect(devLink.getAttribute("aria-label")).toBe("?dev-");
+    expect(devLink.getAttribute("aria-label")).toBe("?dev");
 
     await act(async () => {
       devLink.dispatchEvent(
@@ -321,6 +322,29 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/?dev");
     expect(devLink.textContent).toBe("?dev");
     expect(devLink.getAttribute("aria-label")).toBe("?dev-");
+  });
+
+  it("toggles an active theme shortcut without requiring a fresh hover preview", async () => {
+    const element = await renderSidebarMetaSection("/?dev&dark");
+    const darkLink = element.querySelector<HTMLAnchorElement>("#public-landing-theme-dark-toggle");
+    if (!darkLink) {
+      throw new Error("Expected public landing dark shortcut.");
+    }
+
+    await act(async () => {
+      darkLink.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationHref()).toBe("/?dev");
+    expect(darkLink.textContent).toBe("?dark");
+    expect(darkLink.getAttribute("aria-label")).toBe("?dark");
   });
 
   it("keeps query preview targets stable when the previewed toggle re-enters", async () => {
