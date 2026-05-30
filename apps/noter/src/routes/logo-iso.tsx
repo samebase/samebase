@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoPreviewPage } from "@/components/logo/LogoPreviewPage";
 import {
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
-import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/iso";
 
@@ -14,7 +14,7 @@ function LogoIsoRouteComponent() {
   const navigate = Route.useNavigate();
 
   return (
-    <RoutedPage pathname={pathname}>
+    <AuthenticatedAppRoutePage>
       <LogoPreviewPage
         renderMode="iso"
         replaceRouteSearch={(nextSearch) => {
@@ -25,7 +25,7 @@ function LogoIsoRouteComponent() {
         }}
         routeSearch={routeSearch}
       />
-    </RoutedPage>
+    </AuthenticatedAppRoutePage>
   );
 }
 

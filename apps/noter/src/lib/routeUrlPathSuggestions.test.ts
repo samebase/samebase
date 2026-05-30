@@ -56,7 +56,12 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/add");
     expect(suggestions).not.toContain("/home");
+    expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/landing-preview");
+    expect(suggestions).not.toContain("/localStorage");
+    expect(suggestions).not.toContain("/logo/iso");
+    expect(suggestions).not.toContain("/logo/raster");
+    expect(suggestions).not.toContain("/logo/svg");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
     expect(suggestions).not.toContain("/research/codex-app-server");
@@ -241,6 +246,16 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         viewer: publicViewer,
       }),
     ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/logo/iso",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(false);
   });
 
   it("accepts concrete dynamic and catch-all route paths", () => {
@@ -360,6 +375,26 @@ describe("isRouteUrlPathReadyForNavigation", () => {
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/home",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/indexDB",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: publicViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/localStorage",
         origin: ORIGIN,
         routesByPath,
         viewer: publicViewer,

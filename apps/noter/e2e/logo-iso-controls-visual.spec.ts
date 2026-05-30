@@ -812,7 +812,8 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
   const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
 
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
-  await expect(controlsSidebar).toContainText("Pages");
+  await expect(controlsSidebar).toContainText("Shape");
+  await expect(controlsSidebar).not.toContainText("Pages");
   await expect(carousel).toBeVisible();
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
@@ -1021,7 +1022,8 @@ test("logo view desktop header toggle collapses and reopens the sidebar", async 
   });
 
   await expect(leftToggle).toBeVisible();
-  await expect(controlsSidebar).toContainText("Pages");
+  await expect(controlsSidebar).toContainText("Shape");
+  await expect(controlsSidebar).not.toContainText("Pages");
 
   await leftToggle.click();
   await expect

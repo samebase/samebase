@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoPreviewPage } from "@/components/logo/LogoPreviewPage";
 import {
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
-import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/raster";
 
@@ -14,7 +14,7 @@ function LogoRasterRouteComponent() {
   const navigate = Route.useNavigate();
 
   return (
-    <RoutedPage pathname={pathname}>
+    <AuthenticatedAppRoutePage>
       <LogoPreviewPage
         renderMode="raster"
         replaceRouteSearch={(nextSearch) => {
@@ -25,7 +25,7 @@ function LogoRasterRouteComponent() {
         }}
         routeSearch={routeSearch}
       />
-    </RoutedPage>
+    </AuthenticatedAppRoutePage>
   );
 }
 

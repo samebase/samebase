@@ -1,11 +1,11 @@
 import { LogoRasterSeamLabPage } from "@/components/logo/LogoRasterSeamLabPage";
+import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import {
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateLogoRouteSearch,
 } from "@/lib/logoRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
-import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo/raster-seams";
 
@@ -13,9 +13,9 @@ function LogoRasterSeamsRouteComponent() {
   const routeSearch = Route.useSearch();
 
   return (
-    <RoutedPage pathname={pathname}>
+    <AuthenticatedAppRoutePage>
       <LogoRasterSeamLabPage routeSearch={routeSearch} />
-    </RoutedPage>
+    </AuthenticatedAppRoutePage>
   );
 }
 
