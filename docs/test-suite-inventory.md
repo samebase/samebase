@@ -24,20 +24,25 @@ pnpm --filter noter exec playwright test -c playwright.config.ts --list
 
 Current default surface:
 
-- `206` tests
+- `205` tests
 - `35` files
 - Chromium project only
 - `*.live.spec.ts` excluded
 - `@diagnostic` tests excluded unless `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`
 - canonical local run: `pnpm test:visual:linux`
 
+Diagnostic opt-in surface:
+
+- `227` tests
+- `43` files
+
 Last audited full Linux wrapper summary from `.tmp/playwright-linux/summary.json`:
 
-- `206` passed
+- `205` passed
 - `0` skipped
 - `0` unexpected
 - `4` workers
-- `95042.987` ms
+- `109359.949` ms
 
 ## Classification Meanings
 
@@ -99,7 +104,7 @@ Actions:
 | `visual-fixture-local-only.spec.ts`        |     1 | `release-blocking` | `/visual-fixture` stays unavailable on deployed hostnames.                                                                    | Low runtime, high security/routing value.                                                        | Router/access policy      | `keep`                                                                                     |
 | `workspace-frame-geometry.spec.ts`         |     4 | `release-blocking` | File-view pane persistence, right sidebar resize, and mobile swipe behavior.                                                  | Medium: real browser geometry and local state.                                                   | Workspace shell           | `keep`                                                                                     |
 | `workspace-layout-v2-status-bar.spec.ts`   |     2 | `visual-contract`  | Workspace layout v2 status bar and mobile side peeks.                                                                         | Low: compact fixture snapshots.                                                                  | Workspace shell           | `keep`                                                                                     |
-| `workspace-sidebar-drag.spec.ts`           |    12 | `rewrite`          | Mobile carousel, resize grips, logo sidebars, and localStorage persistence.                                                   | High: `703` lines and broad gesture matrix.                                                      | Workspace shell           | `rewrite`; debug overlay checks are diagnostic.                                            |
+| `workspace-sidebar-drag.spec.ts`           |    11 | `rewrite`          | Mobile carousel, resize grips, logo sidebars, and localStorage persistence.                                                   | High: `664` lines and broad gesture matrix.                                                      | Workspace shell           | `rewrite`; debug overlay checks are diagnostic; mobile minimum clamp moved lower.          |
 | `workspace-sidebar-visual.spec.ts`         |     2 | `visual-contract`  | File-view desktop shell and mobile carousel visibility.                                                                       | Low: focused layout screenshots.                                                                 | Workspace shell           | `keep`                                                                                     |
 
 ## Priority Cleanup Queue
@@ -125,7 +130,8 @@ Actions:
    contracts. This branch moved delete-dialog cleanup default-state coverage into
    `VaultDashboard.test.tsx` and demoted the duplicate mobile delete-dialog screenshot.
 5. `workspace-sidebar-drag.spec.ts`: continue separating core gesture behavior from diagnostics; the
-   debug overlay checks now run only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`.
+   debug overlay checks now run only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`, and the duplicate
+   mobile sidebar minimum clamp browser case moved to `WorkspaceLayoutV2.mobile.test.tsx`.
 
 ## Auth And Admin Route Follow-Up
 

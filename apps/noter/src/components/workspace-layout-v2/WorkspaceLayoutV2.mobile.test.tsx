@@ -721,6 +721,69 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(rightHandle.parentElement?.style.left).toBe("294px");
   });
 
+  it("keeps the active mobile sidebar at the minimum after resizing below it", () => {
+    vi.useFakeTimers();
+    try {
+      const mountedRoot = root;
+      if (mountedRoot === null || rootElement === null) {
+        throw new Error("Expected mounted root");
+      }
+
+      for (const side of ["left", "right"] as const) {
+        act(() => {
+          mountedRoot.render(
+            renderMobileLayout({
+              leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX + 4,
+              mobilePane: side,
+              rightMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX + 4,
+            }),
+          );
+        });
+
+        const pane = getRequiredElement(
+          rootElement,
+          `[data-testid="workspace-layout-v2-pane-${side}"]`,
+        );
+        const handle = getRequiredElement(
+          rootElement,
+          `[data-testid="workspace-layout-v2-${side}-resize"]`,
+        );
+        const shrinkKey = side === "left" ? "ArrowLeft" : "ArrowRight";
+
+        expect(handle.getAttribute("aria-valuemin")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
+        expect(pane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 4}px`);
+
+        act(() => {
+          handle.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              bubbles: true,
+              key: shrinkKey,
+            }),
+          );
+        });
+        act(() => {
+          vi.advanceTimersByTime(121);
+        });
+
+        expect(
+          rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        ).toBe(side);
+        expect(
+          getRequiredElement(rootElement, `[data-testid="workspace-layout-v2-pane-${side}"]`).style
+            .width,
+        ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+        expect(
+          getRequiredElement(
+            rootElement,
+            `[data-testid="workspace-layout-v2-${side}-resize"]`,
+          ).getAttribute("aria-valuenow"),
+        ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("lets default merge mode finish a below-min left resize into a fitted main pane", () => {
     vi.useFakeTimers();
     try {

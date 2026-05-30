@@ -283,45 +283,6 @@ test("fileview mobile left sidebar exposes fixture links", async ({ page }) => {
   await expect(leftLinks.getByRole("link", { name: "Pricing" })).toBeVisible();
 });
 
-test("fileview mobile sidebar minimum uses the configured mobile pane width", async ({ page }) => {
-  await gotoFileViewFixture(page);
-
-  const minWidthPx = await getMobileSidebarMinWidthPx(page);
-  expect(minWidthPx).toBe(MOBILE_SIDEBAR_MIN_WIDTH_PX);
-
-  await scrollFileViewCarouselToPane(page, "left");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveAttribute(
-    "aria-valuemin",
-    `${minWidthPx}`,
-  );
-  const leftPaneWidthBefore = (await getBox(page, "workspace-layout-v2-pane-left")).width;
-  await dragHandleByPx(
-    page,
-    "workspace-layout-v2-left-resize",
-    minWidthPx - leftPaneWidthBefore - 4,
-  );
-  await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "left");
-  await expect
-    .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width))
-    .toBe(minWidthPx);
-
-  await scrollFileViewCarouselToPane(page, "right");
-  await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveAttribute(
-    "aria-valuemin",
-    `${minWidthPx}`,
-  );
-  const rightPaneWidthBefore = (await getBox(page, "workspace-layout-v2-pane-right")).width;
-  await dragHandleByPx(
-    page,
-    "workspace-layout-v2-right-resize",
-    rightPaneWidthBefore - minWidthPx + 4,
-  );
-  await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "right");
-  await expect
-    .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width))
-    .toBe(minWidthPx);
-});
-
 test("fileview mobile merge resize keeps the sidebar beside a complete main pane", async ({
   page,
 }) => {

@@ -102,13 +102,14 @@ Full Playwright and Windows sync smoke are push-only:
 ### Playwright Default Suite
 
 After the branch's diagnostic demotions and skipped-test cleanup, `apps/noter/playwright.config.ts`
-lists `206` Chromium tests in `35` default files. The default config ignores `*.live.spec.ts` and
+lists `205` Chromium tests in `35` default files. The default config ignores `*.live.spec.ts` and
 excludes `@diagnostic` tests unless `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` is set.
 
 Approximate shape from local inventory:
 
 - `50` total Playwright spec files including live specs.
-- `35` default Playwright files, `206` listed tests.
+- `35` default Playwright files, `205` listed tests.
+- `43` diagnostic opt-in Playwright files, `227` listed tests.
 - `7` live specs, run by `apps/noter/playwright.live.config.ts`.
 - `39` snapshot directories.
 - `124` tracked PNG-style visual artifacts under `apps/noter/e2e`.
@@ -124,7 +125,7 @@ The largest default Playwright files by line count:
 - `apps/noter/e2e/public-landing-shell.spec.ts`: `1755` lines, `37` listed tests.
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts`: `1041` lines, `22` default listed tests.
 - `apps/noter/e2e/vault-dashboard-visual.spec.ts`: `1020` lines, `22` default listed tests.
-- `apps/noter/e2e/workspace-sidebar-drag.spec.ts`: `703` lines, `12` default listed tests.
+- `apps/noter/e2e/workspace-sidebar-drag.spec.ts`: `664` lines, `11` default listed tests.
 
 ### Non-Playwright Tests
 
@@ -154,21 +155,21 @@ The current Vite+ config already separates:
 The saved Docker Playwright report at `.tmp/playwright-linux/playwright-report/index.html` now shows
 the default suite after diagnostic demotion and skipped-test cleanup:
 
-- `206` tests,
-- `206` passed,
+- `205` tests,
+- `205` passed,
 - `0` skipped,
 - `0` unexpected failures,
 - `4` workers,
-- about `95.0s` runtime.
+- about `109.4s` runtime.
 
 Slowest known local candidates from the latest `.tmp/playwright-linux/summary.json`:
 
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:822`: about `24.0s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:734`: about `35.1s`.
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts:697`: about `6.9s`; default acceptance keeps one
   route smoke and the extra renderer matrix is diagnostic.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:320`: about `6.1s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:320`: about `7.0s`.
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts:392`: about `6.0s`.
-- `apps/noter/e2e/repository-media-visual.spec.ts:22`: about `4.2s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:439`: about `5.8s`.
 
 The Docker wrapper now also writes `.tmp/playwright-linux/summary.json`, so future scans can read
 totals, failures, worker count, duration, and slowest tests without scraping the HTML report or
@@ -255,7 +256,10 @@ is diagnostic because `VaultResourceRail.test.tsx` and `VaultDashboard.test.tsx`
 row, link, action, grouping, provisioning, failure, and add/root resource behavior. The auth-flow
 route-editor suggestion browser test was deleted after
 `apps/noter/src/lib/routeUrlEditorSuggestions.test.ts` proved the auth/signup suggestion contract
-and the remaining browser file kept generic unfinished-value behavior coverage.
+and the remaining browser file kept generic unfinished-value behavior coverage. The duplicate
+workspace sidebar mobile minimum browser case was deleted after `WorkspaceLayoutV2.mobile.test.tsx`
+covered active left/right sidebar resizing below the configured minimum and `workspacePaneSizes`
+kept the pure clamp contract covered lower.
 
 The separate landing-copy visual parity browser spec was deleted after adding
 `LandingCopy.test.tsx`, which covers the static renderer and editable ProseMark handoff directly.
