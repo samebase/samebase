@@ -151,6 +151,17 @@ await page.goto("/admin-route", { waitUntil: "networkidle" });
 4. In CI/bootstrap contexts, the Vite-only `Autofill & sign in` shortcut may be absent. Tests should
    fill the seeded email/password and click the exact `Sign in` button through `signInIfNeeded`.
 
+## Test Runner Acceptance
+
+- `pnpm test:visual:linux` with no Playwright flags is the canonical local acceptance command for
+  the Playwright visual suite.
+- Use focused commands such as `pnpm test:visual:linux -- e2e/foo.spec.ts` only as a triage loop. If
+  a full local run failed, rerun the full wrapper after the fix.
+- Do not treat PR Playwright rows marked `skipping`, Testbox shards, `--workers=1`, `--shard`, or
+  `PLAYWRIGHT_LINUX_FULLY_PARALLEL=0` as equivalent to the default local wrapper.
+- Use CI-shaped shards only to diagnose that exact CI surface, and report the command shape in the
+  handoff.
+
 ## Playwright Session Rules
 
 - In this repo, prefer `node ./scripts/playwright-branch-browser.ts` or `pnpm playwright:open` over
