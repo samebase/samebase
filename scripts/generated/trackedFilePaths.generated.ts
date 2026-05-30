@@ -722,6 +722,7 @@ export const trackedFilePaths = [
   "apps/noter/src/components/RouteUrlEditor.tsx",
   "apps/noter/src/components/RouteUrlEditorStateMachineResearchPage.tsx",
   "apps/noter/src/components/RouteUrlEditorVisualFixture.tsx",
+  "apps/noter/src/components/RouteUrlEditorXState.ts",
   "apps/noter/src/components/RouterGestureDebugOverlay.tsx",
   "apps/noter/src/components/SidebarAccountSection.tsx",
   "apps/noter/src/components/SidebarHomeAccountHeader.tsx",
