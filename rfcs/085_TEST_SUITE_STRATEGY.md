@@ -8,6 +8,7 @@
 - Related research:
   - `research/2026-05-30-test-suite-audit.md`
 - Related references:
+  - `docs/test-suite-inventory.md`
   - `docs/playwright-visual-testing.md`
   - `specs/095_CONVEX_BACKEND_CONTRACT_TESTING_SPEC.md`
   - `rfcs/082_PLAYWRIGHT_CI_SPEEDUPS_RESEARCH.md`
@@ -233,6 +234,8 @@ Status: started in this branch.
 - Update the Playwright docs and Noter Playwright skill with the command split.
 
 ### Phase 2. Add Inventory Labels
+
+Status: started in this branch.
 
 Create a small owned inventory file, likely `docs/test-suite-inventory.md`, with one row per
 Playwright spec:

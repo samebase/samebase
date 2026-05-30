@@ -1129,6 +1129,7 @@ export type TrackedFilePath =
   | "docs/noter-pr-preview-cleanup.md"
   | "docs/playwright-visual-testing.md"
   | "docs/samebase-domains-workers-builds.md"
+  | "docs/test-suite-inventory.md"
   | "docs/tracked-file-paths.md"
   | "links.md"
   | "manual-tests/.runs/.gitignore"

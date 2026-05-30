@@ -11,6 +11,7 @@
   - `vite.config.ts`
   - `apps/noter/playwright.config.ts`
   - `apps/noter/playwright.live.config.ts`
+  - `docs/test-suite-inventory.md`
   - `docs/playwright-visual-testing.md`
   - `specs/095_CONVEX_BACKEND_CONTRACT_TESTING_SPEC.md`
 
@@ -30,6 +31,9 @@ The main improvement should be classification before deletion:
 3. rewrite important browser tests that are only using screenshots because that was convenient,
 4. delete stale snapshots, skipped tests, and old research fixtures after each one has a named owner
    or no owner.
+
+The maintained per-spec classification lives in `docs/test-suite-inventory.md`. Keep this research
+document as evidence and context, not as the operator-facing inventory.
 
 ## Evidence Sources
 
