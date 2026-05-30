@@ -1,18 +1,32 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signInIfNeeded } from "./liveHelpers";
 
 async function ensureMachinesRouteReady(page: Page): Promise<void> {
-  const autofillButton = page.getByRole("button", {
-    name: "Autofill & sign in",
-  });
+  await signInIfNeeded(page, "/machines");
+  await expect(page.locator("[data-workspace-layout-v2]")).toBeVisible();
+}
 
-  try {
-    await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
-    await autofillButton.click();
-  } catch {
-    // The page may already be authenticated and rendering the machines shell.
-  }
+async function scrollWorkspaceCarouselToPane(page: Page, pane: "left" | "main" | "right") {
+  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element, nextPane) => {
+    const mainPane = element.querySelector(".snap-center");
+    if (!(mainPane instanceof HTMLElement)) {
+      throw new Error("Expected mobile carousel main pane.");
+    }
+    const panePeekPx = Number.parseFloat(window.getComputedStyle(element).paddingLeft);
 
-  await expect(page.locator('[data-sidebar-shell="mobile"]')).toBeVisible();
+    element.scrollLeft =
+      nextPane === "left"
+        ? panePeekPx
+        : nextPane === "main"
+          ? mainPane.offsetLeft - panePeekPx
+          : element.scrollWidth - element.clientWidth;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, pane);
+
+  await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+    "data-mobile-pane",
+    pane,
+  );
 }
 
 test("mobile machines route keeps the left sidebar open after reload", async ({ page }) => {
@@ -24,11 +38,16 @@ test("mobile machines route keeps the left sidebar open after reload", async ({ 
   });
   await ensureMachinesRouteReady(page);
 
-  const shell = page.locator('[data-sidebar-shell="mobile"]');
-  const leftTrigger = page.locator('[data-sidebar="trigger"][data-side="left"]');
+  const shell = page.locator("[data-workspace-layout-v2]");
+  const leftPaneBox = await page.getByTestId("workspace-layout-v2-pane-left").boundingBox();
+  test.skip(
+    leftPaneBox === null || leftPaneBox.width < 1,
+    "Machines route has no left sidebar in this live environment.",
+  );
+
   const initialPane = await shell.getAttribute("data-mobile-pane");
   if (initialPane !== "left") {
-    await leftTrigger.press("Enter");
+    await scrollWorkspaceCarouselToPane(page, "left");
   }
 
   await expect(shell).toHaveAttribute("data-mobile-pane", "left");

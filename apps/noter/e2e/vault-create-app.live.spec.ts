@@ -29,8 +29,16 @@ function vaultCard(page: Page, repoName: string): Locator {
     .locator("xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]");
 }
 
+function setupFailedVaultCard(page: Page, repoName: string): Locator {
+  return page
+    .getByRole("link", {
+      name: new RegExp(`^#${escapeRegExp(repoName)} \\(setup failed\\)$`),
+    })
+    .locator("xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]");
+}
+
 async function createAppIfAvailable(page: Page, repoName: string): Promise<void> {
-  await page.getByRole("link", { name: "New App" }).click();
+  await page.getByRole("button", { name: "New App" }).click();
   await expect(page).toHaveURL(/(?:\?|&)new-app(?:[=&]|&|#|$)/);
 
   const createDialog = page.getByRole("dialog", { name: "New App" });
@@ -82,7 +90,7 @@ async function removeTemporaryVault(page: Page, repoName: string): Promise<void>
     const cleanupCheckbox = removeDialog.getByRole("checkbox", {
       name: label,
     });
-    if ((await cleanupCheckbox.count()) > 0) {
+    if ((await cleanupCheckbox.count()) > 0 && !(await cleanupCheckbox.isDisabled())) {
       await expect(cleanupCheckbox).not.toBeChecked();
       await cleanupCheckbox.click();
     }
@@ -93,6 +101,27 @@ async function removeTemporaryVault(page: Page, repoName: string): Promise<void>
   await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/);
   await expect(page).not.toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
   await expect(removeControl).toHaveCount(0, { timeout: 120_000 });
+}
+
+async function waitForVaultCreationResult(args: {
+  createdVaultCard: Locator;
+  failedVaultCard: Locator;
+}): Promise<"ready" | "setup-failed"> {
+  const readyPromise = args.createdVaultCard
+    .waitFor({ state: "visible", timeout: 120_000 })
+    .then(() => "ready" as const);
+  const failedPromise = args.failedVaultCard
+    .waitFor({ state: "visible", timeout: 120_000 })
+    .then(() => "setup-failed" as const);
+
+  try {
+    return await Promise.race([readyPromise, failedPromise]);
+  } finally {
+    // The other wait keeps running after Promise.race settles; observe it so
+    // page cleanup cannot surface its later timeout as an unhandled rejection.
+    void readyPromise.catch(() => undefined);
+    void failedPromise.catch(() => undefined);
+  }
 }
 
 test.describe("vault create app live flow", () => {
@@ -114,16 +143,25 @@ test.describe("vault create app live flow", () => {
 
     try {
       await page.goto("/home?dev", { waitUntil: "domcontentloaded" });
-      await signInIfNeeded(page);
+      await signInIfNeeded(page, "/home?dev");
       await createAppIfAvailable(page, repositoryName);
       createdRepository = true;
 
       const createdVaultCard = vaultCard(page, repositoryName);
+      const failedVaultCard = setupFailedVaultCard(page, repositoryName);
+      const creationResult = await waitForVaultCreationResult({
+        createdVaultCard,
+        failedVaultCard,
+      });
+      test.skip(
+        creationResult === "setup-failed",
+        "App creation is unavailable because provisioning failed in this environment.",
+      );
+
       const repositoryLink = createdVaultCard.locator(
         `a[href^="https://github.com/"][href$="/${repositoryName}"]`,
       );
 
-      await expect(createdVaultCard).toBeVisible({ timeout: 120_000 });
       await expect(repositoryLink).toBeVisible({ timeout: 120_000 });
       await expect(createdVaultCard.getByRole("button", { name: "Developer tools" })).toBeVisible({
         timeout: 120_000,
@@ -138,7 +176,7 @@ test.describe("vault create app live flow", () => {
       // repo does not linger after the live test completes.
       if (createdRepository) {
         await page.goto("/home?dev", { waitUntil: "domcontentloaded" });
-        await signInIfNeeded(page);
+        await signInIfNeeded(page, "/home?dev");
         await removeTemporaryVault(page, repositoryName);
       }
     }

@@ -100,7 +100,7 @@ test.describe("vault multi-branch live flows", () => {
     page,
   }) => {
     await page.goto("/home");
-    await signInIfNeeded(page);
+    await signInIfNeeded(page, "/home");
     await requireVaultOrSkip(page);
     await expect(branchLinkLocator(page, BRANCHES.main)).toBeVisible({
       timeout: 15_000,
@@ -137,7 +137,7 @@ test.describe("vault multi-branch live flows", () => {
     page,
   }, testInfo) => {
     await page.goto("/home");
-    await signInIfNeeded(page);
+    await signInIfNeeded(page, "/home");
     await requireVaultOrSkip(page);
 
     let beforeUnloadDialogCount = 0;

@@ -1,5 +1,6 @@
 import {
   createContext,
+  memo,
   useContext,
   useLayoutEffect,
   useMemo,
@@ -114,7 +115,12 @@ function createAppWorkspaceRouteChromeStore(): AppWorkspaceRouteChromeStore {
   };
 
   const refreshSnapshot = () => {
-    snapshot = readActiveSnapshot();
+    const nextSnapshot = readActiveSnapshot();
+    if (snapshot === nextSnapshot) {
+      return;
+    }
+
+    snapshot = nextSnapshot;
     notify();
   };
 
@@ -142,6 +148,10 @@ function createAppWorkspaceRouteChromeStore(): AppWorkspaceRouteChromeStore {
     update: (id, chrome) => {
       const registration = registrations.get(id);
       if (registration) {
+        if (registration.chrome === chrome) {
+          return;
+        }
+
         registrations.set(id, {
           ...registration,
           chrome,
@@ -156,9 +166,16 @@ function useAppWorkspaceRouteChrome(store: AppWorkspaceRouteChromeStore) {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }
 
-function AppWorkspaceMainContent({ children }: { children?: ReactNode }) {
+const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
+  children,
+}: {
+  children?: ReactNode;
+}) {
+  // Route chrome updates re-render AppWorkspaceShell; the route content owns
+  // the AppWorkspaceRouteChrome publisher and must not re-render just because
+  // the shell read the new chrome.
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
-}
+});
 
 function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
   return (
@@ -252,15 +269,23 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
 
 export function AppWorkspaceRouteChrome({
   children,
-  ...chrome
+  dataTestId,
+  headerAccessory,
+  left,
+  leftToggleVisibility,
+  mobileMinResizeBehavior,
+  mobilePanePeekWidthPx,
+  panel,
+  right,
+  rightToggleVisibility,
+  shortcutPaneSide,
 }: AppWorkspaceRouteChromeConfig & { children?: ReactNode }) {
   const context = useContext(AppWorkspaceRouteChromeContext);
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
   const idRef = useRef<symbol | null>(null);
-  const chromeRef = useRef(chrome);
-  chromeRef.current = chrome;
+  const registeredChromeRef = useRef<AppWorkspaceRouteChromeSnapshot | null>(null);
   if (idRef.current === null) {
     idRef.current = Symbol("app-workspace-route-chrome");
   }
@@ -277,17 +302,55 @@ export function AppWorkspaceRouteChrome({
     }),
     [depth, store],
   );
+  const chrome = useMemo(
+    () => ({
+      dataTestId,
+      headerAccessory,
+      left,
+      leftToggleVisibility,
+      mobileMinResizeBehavior,
+      mobilePanePeekWidthPx,
+      panel,
+      pathname,
+      right,
+      rightToggleVisibility,
+      shortcutPaneSide,
+    }),
+    [
+      dataTestId,
+      headerAccessory,
+      left,
+      leftToggleVisibility,
+      mobileMinResizeBehavior,
+      mobilePanePeekWidthPx,
+      panel,
+      pathname,
+      right,
+      rightToggleVisibility,
+      shortcutPaneSide,
+    ],
+  );
+  const chromeRef = useRef(chrome);
+  chromeRef.current = chrome;
 
   useLayoutEffect(() => {
-    store.register(id, { ...chromeRef.current, pathname }, depth);
+    const registeredChrome = chromeRef.current;
+    registeredChromeRef.current = registeredChrome;
+    store.register(id, registeredChrome, depth);
     return () => {
+      registeredChromeRef.current = null;
       store.unregister(id);
     };
   }, [depth, id, pathname, store]);
 
   useLayoutEffect(() => {
-    store.update(id, { ...chrome, pathname });
-  });
+    if (registeredChromeRef.current === chrome) {
+      return;
+    }
+
+    registeredChromeRef.current = chrome;
+    store.update(id, chrome);
+  }, [chrome, id, store]);
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>

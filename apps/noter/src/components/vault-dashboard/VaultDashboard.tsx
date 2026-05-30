@@ -897,6 +897,7 @@ export function VaultDashboardDeleteControl({
   repositoryFullName: string;
   repositoryHashId: string;
 }) {
+  const navigate = useNavigate();
   const deleteTriggerDisabled = isRemovingVault || deleteAction.state === "disabled";
   const title = deleteAction.state === "disabled" ? deleteAction.reason : "Remove vault";
 
@@ -916,7 +917,23 @@ export function VaultDashboardDeleteControl({
         onClick={(event) => {
           if (deleteTriggerDisabled) {
             event.preventDefault();
+            return;
           }
+          if (
+            event.button !== 0 ||
+            event.metaKey ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.shiftKey
+          ) {
+            return;
+          }
+          event.preventDefault();
+          void navigate({
+            hash: repositoryHashId,
+            search: (currentSearch) => applySearchPatch(currentSearch, { delete: true }),
+            to: DASHBOARD_ROUTE,
+          });
         }}
         className={clsx(
           buttonVariants({ variant: "destructive", size: "icon-sm" }),
@@ -4605,6 +4622,22 @@ export function VaultDashboard() {
       to: ".",
     });
   };
+  const openNewAppDialog = () => {
+    void navigate({
+      hash: true,
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, {
+          [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
+          "add-cloudflare": null,
+          "add-convex": null,
+          [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+          delete: null,
+          [DASHBOARD_NEW_APP_QUERY_PARAM]: true,
+        }),
+      state: true,
+      to: ".",
+    });
+  };
 
   const clearAddAppRootSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
@@ -5910,31 +5943,21 @@ export function VaultDashboard() {
   );
   const createControl = (
     <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-      <Button className="w-full" asChild>
-        <Link
-          to={DASHBOARD_ROUTE}
-          search={(currentSearch) =>
-            applySearchPatch(currentSearch, {
-              [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
-              "add-cloudflare": null,
-              "add-convex": null,
-              [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
-              delete: null,
-              [DASHBOARD_NEW_APP_QUERY_PARAM]: true,
-            })
-          }
-        >
-          New App
-        </Link>
+      <Button className="w-full" type="button" onClick={openNewAppDialog}>
+        New App
       </Button>
       {githubConnected ? (
-        <Button variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2" asChild>
-          <Link to="/add">
-            <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-              Connect existing app
-            </span>
-          </Link>
-        </Button>
+        <Link
+          className={clsx(
+            buttonVariants({ variant: "outline" }),
+            "h-auto min-h-8 w-full whitespace-normal py-2",
+          )}
+          to="/add"
+        >
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+            Connect existing app
+          </span>
+        </Link>
       ) : (
         <Button variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2" disabled>
           <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">

@@ -1,4 +1,4 @@
-import { getRouteApi } from "@tanstack/react-router";
+import { useLocation } from "@tanstack/react-router";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
@@ -25,9 +25,6 @@ import {
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 
-// TanStack Router's root route id is the stable "__root__" literal, and using
-// it directly keeps this helper on the app package boundary.
-const ROOT_ROUTE_ID = "__root__";
 export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
 export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
 
@@ -281,8 +278,10 @@ export function readRootRouteSearch(search: string | URLSearchParams | undefined
   );
 }
 
-const rootRouteApi = getRouteApi(ROOT_ROUTE_ID);
-
 export function useRootRouteSearch(): RootRouteSearch {
-  return rootRouteApi.useSearch();
+  const searchStr = useLocation({
+    select: (location) => location.searchStr,
+  });
+
+  return readRootRouteSearch(searchStr);
 }

@@ -717,6 +717,8 @@ function FileViewInner({
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
   const { setMobilePane } = useWorkspacePaneActions();
+  const setMobilePaneRef = useRef(setMobilePane);
+  setMobilePaneRef.current = setMobilePane;
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
@@ -807,6 +809,8 @@ function FileViewInner({
       );
     }
   });
+  const setFolderExpansionStateRef = useRef(setFolderExpansionState);
+  setFolderExpansionStateRef.current = setFolderExpansionState;
 
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -1341,10 +1345,10 @@ function FileViewInner({
         );
 
         // File picks should land back on the editor pane immediately on mobile.
-        setMobilePane("main");
+        setMobilePaneRef.current("main");
       }
     },
-    [buildVaultFileUrl, navigateByHref, owner, repoName, setMobilePane],
+    [buildVaultFileUrl, navigateByHref, owner, repoName],
   );
 
   const handleOpenFileFromGraph = useCallback(
@@ -1355,157 +1359,204 @@ function FileViewInner({
     [handleFileSelect],
   );
 
-  const handleFileRename = async (originalPath: string, newPath: string) => {
-    if (!owner || !repoName) return;
+  const handleFileRename = useCallback(
+    async (originalPath: string, newPath: string) => {
+      if (!owner || !repoName) return;
 
-    try {
-      await stageFileForEditing({
-        repositoryFullName: `${owner}/${repoName}`,
-        originalFilePath: originalPath,
-        branch,
-      });
+      try {
+        await stageFileForEditing({
+          repositoryFullName: `${owner}/${repoName}`,
+          originalFilePath: originalPath,
+          branch,
+        });
 
-      // Rename the file in staging instead of committing immediately
-      await renameFileInStaging({
-        vaultId: vault._id,
-        originalPath,
-        newPath,
-        branch,
-      });
+        // Rename the file in staging instead of committing immediately
+        await renameFileInStaging({
+          vaultId: vault._id,
+          originalPath,
+          newPath,
+          branch,
+        });
 
-      // Renamed staging rows keep their initial path as the mutation key, so a
-      // second rename needs to follow either the current selected path or the
-      // selected staged row's initial path.
-      if (selectedFile === originalPath || stagedFile?.initialFilePath === originalPath) {
-        navigateByHref(buildVaultFileUrl(newPath));
+        // Renamed staging rows keep their initial path as the mutation key, so a
+        // second rename needs to follow either the current selected path or the
+        // selected staged row's initial path.
+        if (selectedFile === originalPath || stagedFile?.initialFilePath === originalPath) {
+          navigateByHref(buildVaultFileUrl(newPath));
+        }
+
+        console.log(`File ${originalPath} renamed to ${newPath} in staging`);
+      } catch (error) {
+        console.error("Failed to rename file:", error);
       }
-
-      console.log(`File ${originalPath} renamed to ${newPath} in staging`);
-    } catch (error) {
-      console.error("Failed to rename file:", error);
-    }
-  };
+    },
+    [
+      branch,
+      buildVaultFileUrl,
+      navigateByHref,
+      owner,
+      renameFileInStaging,
+      repoName,
+      selectedFile,
+      stageFileForEditing,
+      stagedFile?.initialFilePath,
+      vault._id,
+    ],
+  );
 
   // Handler for deleting files from the file tree
-  const handleFileDelete = async (filePath: string, originalPath = filePath) => {
-    if (!owner || !repoName) return;
+  const handleFileDelete = useCallback(
+    async (filePath: string, originalPath = filePath) => {
+      if (!owner || !repoName) return;
 
-    try {
-      // Get the file's SHA from the tree (null for new files)
-      const fileSha =
-        vault.treeData.tree.find((t: GithubTree) => t.path === originalPath)?.sha ?? null;
+      try {
+        // Get the file's SHA from the tree (null for new files)
+        const fileSha =
+          vault.treeData.tree.find((t: GithubTree) => t.path === originalPath)?.sha ?? null;
 
-      // Ensure we retain original file content in staging for review mode.
-      if (fileSha) {
-        try {
-          await stageFileForEditing({
-            repositoryFullName: `${owner}/${repoName}`,
-            originalFilePath: originalPath,
-            branch,
-          });
-        } catch (error) {
-          if (!isStorageBackedFileError(error)) {
-            throw error;
+        // Ensure we retain original file content in staging for review mode.
+        if (fileSha) {
+          try {
+            await stageFileForEditing({
+              repositoryFullName: `${owner}/${repoName}`,
+              originalFilePath: originalPath,
+              branch,
+            });
+          } catch (error) {
+            if (!isStorageBackedFileError(error)) {
+              throw error;
+            }
           }
         }
-      }
 
-      // Mark the file for deletion in staging
-      await markFileForDeletion({
-        vaultId: vault._id,
-        filePath,
-        parentCommitSha: fileSha,
-        branch,
-      });
-
-      // If the deleted file is currently selected, navigate away
-      if (selectedFile === filePath) {
-        if (commitReviewMode === "review") {
-          return;
-        }
-        navigateByHref(buildVaultFileUrl("", { reviewMode: "editor" }));
-      }
-
-      console.log(`File ${filePath} marked for deletion`);
-    } catch (error) {
-      console.error("Failed to delete file:", error);
-    }
-  };
-
-  const handleRestoreDeletedFile = async (filePath: string, originalPath = filePath) => {
-    if (restoringDeletedFilePathRef.current !== null) {
-      return;
-    }
-
-    restoringDeletedFilePathRef.current = filePath;
-    setRestoringDeletedFilePath(filePath);
-
-    try {
-      const deletedStagedFile =
-        stagedFiles?.find(
-          (candidate) => candidate.filePath === filePath && candidate.fileDeleted,
-        ) ?? null;
-      const comparedDeletedFile =
-        branchComparePreview?.files.find(
-          (file) => file.path === filePath && file.status === "deleted",
-        ) ?? null;
-
-      if (deletedStagedFile) {
-        await revertDeletedFileInStaging({
+        // Mark the file for deletion in staging
+        await markFileForDeletion({
           vaultId: vault._id,
           filePath,
+          parentCommitSha: fileSha,
           branch,
         });
-      } else if (comparedDeletedFile) {
-        await restoreComparedDeletedFileToStaging({
-          repositoryFullName,
-          branch,
-          filePath,
-          previousPath: originalPath !== filePath ? originalPath : comparedDeletedFile.previousPath,
-        });
-      } else {
-        throw new Error("Deleted file is not available to restore.");
+
+        // If the deleted file is currently selected, navigate away
+        if (selectedFile === filePath) {
+          if (commitReviewMode === "review") {
+            return;
+          }
+          navigateByHref(buildVaultFileUrl("", { reviewMode: "editor" }));
+        }
+
+        console.log(`File ${filePath} marked for deletion`);
+      } catch (error) {
+        console.error("Failed to delete file:", error);
+      }
+    },
+    [
+      branch,
+      buildVaultFileUrl,
+      commitReviewMode,
+      markFileForDeletion,
+      navigateByHref,
+      owner,
+      repoName,
+      selectedFile,
+      stageFileForEditing,
+      vault._id,
+      vault.treeData.tree,
+    ],
+  );
+
+  const handleRestoreDeletedFile = useCallback(
+    async (filePath: string, originalPath = filePath) => {
+      if (restoringDeletedFilePathRef.current !== null) {
+        return;
       }
 
-      if (selectedFile === filePath) {
-        navigateByHref(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
-          replace: true,
-        });
+      restoringDeletedFilePathRef.current = filePath;
+      setRestoringDeletedFilePath(filePath);
+
+      try {
+        const deletedStagedFile =
+          stagedFiles?.find(
+            (candidate) => candidate.filePath === filePath && candidate.fileDeleted,
+          ) ?? null;
+        const comparedDeletedFile =
+          branchComparePreview?.files.find(
+            (file) => file.path === filePath && file.status === "deleted",
+          ) ?? null;
+
+        if (deletedStagedFile) {
+          await revertDeletedFileInStaging({
+            vaultId: vault._id,
+            filePath,
+            branch,
+          });
+        } else if (comparedDeletedFile) {
+          await restoreComparedDeletedFileToStaging({
+            repositoryFullName,
+            branch,
+            filePath,
+            previousPath:
+              originalPath !== filePath ? originalPath : comparedDeletedFile.previousPath,
+          });
+        } else {
+          throw new Error("Deleted file is not available to restore.");
+        }
+
+        if (selectedFile === filePath) {
+          navigateByHref(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
+            replace: true,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to restore deleted file:", error);
+      } finally {
+        if (restoringDeletedFilePathRef.current === filePath) {
+          restoringDeletedFilePathRef.current = null;
+        }
+        setRestoringDeletedFilePath((current) => (current === filePath ? null : current));
       }
-    } catch (error) {
-      console.error("Failed to restore deleted file:", error);
-    } finally {
-      if (restoringDeletedFilePathRef.current === filePath) {
-        restoringDeletedFilePathRef.current = null;
-      }
-      setRestoringDeletedFilePath((current) => (current === filePath ? null : current));
-    }
-  };
+    },
+    [
+      branch,
+      branchComparePreview,
+      buildVaultFileUrl,
+      navigateByHref,
+      repositoryFullName,
+      restoreComparedDeletedFileToStaging,
+      revertDeletedFileInStaging,
+      selectedFile,
+      stagedFiles,
+      vault._id,
+    ],
+  );
 
   // Handler for creating files in specific folders from the file tree
-  const handleCreateFileInFolder = (folderPath: string, fileName: string) => {
-    if (!owner || !repoName || !fileName.trim()) return;
+  const handleCreateFileInFolder = useCallback(
+    (folderPath: string, fileName: string) => {
+      if (!owner || !repoName || !fileName.trim()) return;
 
-    const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
+      const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
 
-    createFileInStaging({
-      vaultId: vault._id,
-      filePath,
-      content: "",
-      branch,
-    })
-      .then(() => {
-        navigateByHref(
-          buildVaultFileUrl(filePath, {
-            reviewMode: "editor",
-            compare: false,
-          }),
-        );
+      createFileInStaging({
+        vaultId: vault._id,
+        filePath,
+        content: "",
+        branch,
       })
-      .catch((error) => {
-        console.error("Failed to create file:", error);
-      });
-  };
+        .then(() => {
+          navigateByHref(
+            buildVaultFileUrl(filePath, {
+              reviewMode: "editor",
+              compare: false,
+            }),
+          );
+        })
+        .catch((error) => {
+          console.error("Failed to create file:", error);
+        });
+    },
+    [branch, buildVaultFileUrl, createFileInStaging, navigateByHref, owner, repoName, vault._id],
+  );
 
   // Handler for creating folders in specific paths from the file tree
   const handleCreateFolderInFolder = (folderPath: string, folderName: string) => {
@@ -1816,13 +1867,13 @@ function FileViewInner({
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
-      void setFolderExpansionState({
+      void setFolderExpansionStateRef.current({
         vaultId: vault._id,
         folderPath,
         isExpanded,
       });
     },
-    [setFolderExpansionState, vault._id],
+    [vault._id],
   );
 
   if (!owner || !repoName) {
@@ -2337,9 +2388,10 @@ function FileViewInner({
   // MARK: Return
 
   const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
-  const sidebarHeader = userDisplayName ? (
-    <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
-  ) : null;
+  const sidebarHeader = useMemo(
+    () => (userDisplayName ? <SidebarHomeAccountHeader userDisplayName={userDisplayName} /> : null),
+    [userDisplayName],
+  );
   const handleSidebarModeChange = useCallback(
     (value: string) => {
       if (value === "simple" || value === "all") {
@@ -2354,47 +2406,88 @@ function FileViewInner({
     },
     [isCompareRequested, setCompareModeInQuery],
   );
-
-  const sidebarContent = (
-    <FileViewSidebarContent
-      owner={owner}
-      repoName={repoName}
-      effectiveSidebarMode={effectiveSidebarMode}
-      isCompareRequested={isCompareRequested}
-      compareModeSummary={compareModeSummary}
-      emptyRepository={emptyRepository}
-      items={visibleTreeData}
-      onFileSelect={handleFileSelect}
-      onFileRename={(originalPath, newPath) => void handleFileRename(originalPath, newPath)}
-      onFileCreate={handleCreateFileInFolder}
-      onMediaUploadRequest={handleRequestMediaUpload}
-      onFileDelete={(filePath, originalPath) => void handleFileDelete(filePath, originalPath)}
-      onFileRestore={(filePath, originalPath) =>
-        void handleRestoreDeletedFile(filePath, originalPath)
-      }
-      restoringFilePath={restoringDeletedFilePath}
-      selectedFile={sidebarSelectedFile}
-      folderExpansionStates={folderExpansionStates ?? []}
-      onFolderToggle={handleFolderToggle}
-      autoExpandedPaths={autoExpandedSidebarPaths}
-      forceAutoExpandedPaths={forceSidebarSelectionVisible || effectiveSidebarMode === "compare"}
-      onOpenFileCreation={() => openFileCreation("")}
-      onOpenFolderCreation={() => openFolderCreation("")}
-      onSidebarModeChange={handleSidebarModeChange}
-    />
+  const handleOpenRootFileCreation = useCallback(() => openFileCreation(""), [openFileCreation]);
+  const handleOpenRootFolderCreation = useCallback(
+    () => openFolderCreation(""),
+    [openFolderCreation],
   );
-  const sidebarFooter = (
-    <>
-      <FileViewSidebarFooter
-        mediaUploadError={mediaUploadError}
-        isMediaUploadDragOver={isMediaUploadDragOver}
-        isUploadingMedia={isUploadingMedia}
-        onRequestMediaUpload={handleRequestMediaUpload}
-        onMediaUploadDragOverChange={setIsMediaUploadDragOver}
-        onMediaUploadDrop={handleMediaUploadDrop}
+
+  const sidebarContent = useMemo(
+    () => (
+      <FileViewSidebarContent
+        owner={owner}
+        repoName={repoName}
+        effectiveSidebarMode={effectiveSidebarMode}
+        isCompareRequested={isCompareRequested}
+        compareModeSummary={compareModeSummary}
+        emptyRepository={emptyRepository}
+        items={visibleTreeData}
+        onFileSelect={handleFileSelect}
+        onFileRename={(originalPath, newPath) => void handleFileRename(originalPath, newPath)}
+        onFileCreate={handleCreateFileInFolder}
+        onMediaUploadRequest={handleRequestMediaUpload}
+        onFileDelete={(filePath, originalPath) => void handleFileDelete(filePath, originalPath)}
+        onFileRestore={(filePath, originalPath) =>
+          void handleRestoreDeletedFile(filePath, originalPath)
+        }
+        restoringFilePath={restoringDeletedFilePath}
+        selectedFile={sidebarSelectedFile}
+        folderExpansionStates={folderExpansionStates ?? []}
+        onFolderToggle={handleFolderToggle}
+        autoExpandedPaths={autoExpandedSidebarPaths}
+        forceAutoExpandedPaths={forceSidebarSelectionVisible || effectiveSidebarMode === "compare"}
+        onOpenFileCreation={handleOpenRootFileCreation}
+        onOpenFolderCreation={handleOpenRootFolderCreation}
+        onSidebarModeChange={handleSidebarModeChange}
       />
-      <AppSidebarMetaSection />
-    </>
+    ),
+    [
+      autoExpandedSidebarPaths,
+      compareModeSummary,
+      effectiveSidebarMode,
+      emptyRepository,
+      folderExpansionStates,
+      forceSidebarSelectionVisible,
+      handleCreateFileInFolder,
+      handleFileDelete,
+      handleFileRename,
+      handleFileSelect,
+      handleFolderToggle,
+      handleOpenRootFileCreation,
+      handleOpenRootFolderCreation,
+      handleRequestMediaUpload,
+      handleRestoreDeletedFile,
+      handleSidebarModeChange,
+      isCompareRequested,
+      owner,
+      repoName,
+      restoringDeletedFilePath,
+      sidebarSelectedFile,
+      visibleTreeData,
+    ],
+  );
+  const sidebarFooter = useMemo(
+    () => (
+      <>
+        <FileViewSidebarFooter
+          mediaUploadError={mediaUploadError}
+          isMediaUploadDragOver={isMediaUploadDragOver}
+          isUploadingMedia={isUploadingMedia}
+          onRequestMediaUpload={handleRequestMediaUpload}
+          onMediaUploadDragOverChange={setIsMediaUploadDragOver}
+          onMediaUploadDrop={handleMediaUploadDrop}
+        />
+        <AppSidebarMetaSection />
+      </>
+    ),
+    [
+      handleMediaUploadDrop,
+      handleRequestMediaUpload,
+      isMediaUploadDragOver,
+      isUploadingMedia,
+      mediaUploadError,
+      setIsMediaUploadDragOver,
+    ],
   );
 
   const headerTitle = selectedFile
@@ -2425,11 +2518,14 @@ function FileViewInner({
       className="flex-1 min-h-0"
     />
   ) : null;
-  const fileViewMainHeader = (
-    <FileViewMainHeader
-      headerTitle={headerTitle}
-      onQuickOpen={() => setIsCommandPaletteOpen(true)}
-    />
+  const fileViewMainHeader = useMemo(
+    () => (
+      <FileViewMainHeader
+        headerTitle={headerTitle}
+        onQuickOpen={() => setIsCommandPaletteOpen(true)}
+      />
+    ),
+    [headerTitle],
   );
   useEffect(() => {
     if (dashboardEditorChatOpen === undefined) {
@@ -2895,15 +2991,26 @@ function FileViewInner({
       </div>
     </div>
   );
-
+  const fileViewLeftPane = useMemo(
+    () => ({
+      header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
+      content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
+      footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarFooter : null,
+    }),
+    [sidebarContent, sidebarFooter, sidebarHeader],
+  );
+  const fileViewRightPane = useMemo(
+    () => ({
+      header: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
+      content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
+      footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
+    }),
+    [sidebarContent, sidebarFooter, sidebarHeader],
+  );
   return (
     <AppWorkspaceRouteChrome
       headerAccessory={fileViewMainHeader}
-      left={{
-        header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
-        content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
-        footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarFooter : null,
-      }}
+      left={fileViewLeftPane}
       panel={
         CHAT_ENABLED
           ? {
@@ -2924,11 +3031,7 @@ function FileViewInner({
             }
           : undefined
       }
-      right={{
-        header: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
-        content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
-        footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
-      }}
+      right={fileViewRightPane}
     >
       {fileViewMainContent}
 

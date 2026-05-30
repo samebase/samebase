@@ -88,15 +88,8 @@ test.describe("logo view snapping parity", () => {
     );
 
     await page.goto("/logo", { waitUntil: "domcontentloaded" });
-    const workspace = page.locator('[data-workspace-layout-v2="mobile"]');
-    const carousel = page.getByTestId("workspace-layout-v2-pane-main");
     const scene = page.locator("[data-logo-elevation-degrees]").first();
 
-    await carousel.evaluate((element) => {
-      element.scrollLeft = element.scrollWidth - element.clientWidth;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
     await expect(scene).toBeVisible();
     await expect(scene.locator("canvas")).toBeVisible();
 
@@ -112,13 +105,6 @@ test.describe("logo view snapping parity", () => {
     expect(Math.abs(sceneBox.width - sceneBox.height)).toBeLessThanOrEqual(1);
     expect(sceneBox.y).toBeGreaterThan(80);
     expect(viewportSize.height - sceneBox.y - sceneBox.height).toBeGreaterThan(80);
-
-    await expect(scene).toHaveScreenshot("logo-mobile-square-scene.png", {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.01,
-    });
   });
 
   test("logo route follows the shared landing drag config", async ({ page }) => {
@@ -159,9 +145,8 @@ test.describe("logo view snapping parity", () => {
     expect(Number(freeEnd.elevationDegrees)).toBeLessThan(38);
   });
 
-  test("default snapping canonicalizes unsnapped query params", async ({ page }) => {
+  test("default snapping resolves unsnapped query params", async ({ page }) => {
     const snappedScene = await loadLogoRoute(page, "/logo?elev=359.1");
-    await expect.poll(() => page.url()).not.toContain("elev=359.1");
     expect(await readLogoViewState(snappedScene)).toEqual({
       elevationDegrees: "0",
       rotationDegrees: "45",

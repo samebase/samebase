@@ -156,13 +156,13 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({ page 
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
 
   await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(1);
 
   await scrollWorkspaceCarouselToPane(page, "main");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
 
   await scrollWorkspaceCarouselToPane(page, "right");
-  await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(1);
 });
 
 test("mobile v2 fixture keeps grip targets centered while rendering dots outside the active sidebar", async ({
@@ -202,21 +202,20 @@ test("mobile v2 fixture keeps grip targets centered while rendering dots outside
   expect(rightDotsBox.x + rightDotsBox.width).toBeLessThanOrEqual(rightPaneBox.x);
 });
 
-test("mobile v2 fixture renders sidebar grip targets only with the dev flag", async ({ page }) => {
+test("mobile v2 fixture renders sidebar grip targets on the active sidebar", async ({ page }) => {
   const viewport = page.viewportSize();
   test.skip(viewport === null || viewport.width >= 768, "mobile-only repro");
 
   await openWorkspaceLayoutV2Fixture(page);
-  await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
-
-  await openWorkspaceLayoutV2Fixture(page, { dev: true });
   await scrollWorkspaceCarouselToPane(page, "left");
   await expect(
     page
       .getByTestId("workspace-layout-v2-left-resize")
       .locator("[data-workspace-layout-v2-resize-grip-dots]"),
   ).toHaveCount(1);
+
+  await scrollWorkspaceCarouselToPane(page, "main");
+  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
 });
 
 test("mobile v2 fixture keeps the visible pane borderless while adjacent panes own separators", async ({
