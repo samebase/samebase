@@ -33,8 +33,8 @@ test("providers page keeps the right sidebar available", async ({ page }) => {
   await expect(page.getByTestId("providers-page-provider-row")).toHaveCount(3, {
     timeout: 15_000,
   });
-  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toContainText("Home");
-  await expect(page.getByTestId("providers-sidebar-home")).toBeVisible();
+  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toContainText("/home");
+  await expect(page.getByTestId("providers-sidebar-home")).toHaveCount(0);
   await expect(page).toHaveScreenshot("providers-page-right-sidebar.png", {
     animations: "disabled",
     caret: "hide",

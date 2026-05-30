@@ -55,8 +55,8 @@ The route shows the current user's provider rows:
 Provider OAuth start and callback flows may return users to `/providers` when the user initiated the
 flow from that route.
 
-The route uses the shared app workspace chrome and keeps a right sidebar with a Home navigation
-control plus the standard route/meta links.
+The route uses the shared app workspace chrome and the standard right sidebar. Navigation back to
+`/home` is provided by the shared route/meta links instead of a route-specific top control.
 
 ## Data Contract
 
@@ -91,4 +91,4 @@ do not create, disconnect, or health-check provider credentials inline.
    persistence.
 5. `/home?add-convex#vault-name` and `/home?add-cloudflare#vault-name` continue to own vault
    resource attach/create flows.
-6. `/providers` has a right sidebar with Home navigation and shared route/meta links.
+6. `/providers` has the standard right sidebar, including the shared `/home` route/meta link.

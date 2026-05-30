@@ -1,6 +1,5 @@
 import { api } from "../../convex/_generated/api";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { useApiKeyConnectDialog, type ApiKeyProvider } from "@/components/ApiKeyConnectDialog";
 import { AppDialogContent } from "@/components/AppDialogContent";
@@ -19,7 +18,6 @@ import {
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { isInIframe } from "@/authClient";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -29,7 +27,6 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
 } from "../../shared/cloudflareTokenRefresh";
 import { Loader2 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   useCallback,
@@ -41,7 +38,6 @@ import {
   type ReactNode,
 } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
-import { VaultDashboardSidebarContent } from "@/components/vault-dashboard/VaultDashboardChrome";
 
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 
@@ -427,21 +423,6 @@ function CloudflareAccountDialog({
   );
 }
 
-function ProvidersPageSidebar() {
-  return (
-    <VaultDashboardSidebarContent>
-      <div className="vault-dashboard-sidebar-inset py-3" data-testid="providers-sidebar-home">
-        <Button variant="outline" className="w-full" asChild>
-          <Link to={DASHBOARD_ROUTE}>Home</Link>
-        </Button>
-      </div>
-      <div className="mt-auto">
-        <AppSidebarMetaSection side="right" />
-      </div>
-    </VaultDashboardSidebarContent>
-  );
-}
-
 export function ProvidersPageView({
   apiKeyDialog,
   cloudflareAccountDialog,
@@ -454,12 +435,7 @@ export function ProvidersPageView({
   providerRows: readonly ProvidersPageRow[];
 }) {
   return (
-    <AppWorkspaceRouteChrome
-      right={{
-        header: null,
-        content: <ProvidersPageSidebar />,
-      }}
-    >
+    <AppWorkspaceRouteChrome>
       <main className="min-h-full px-4 py-6 md:px-6">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
