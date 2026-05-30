@@ -44,6 +44,42 @@ type ResearchMachineState = ResearchMachineStateSnapshot &
       }
   );
 
+type ResearchMachineStateKind = ResearchMachineState["kind"];
+
+type ResearchStateNode = {
+  description: string;
+  kind: ResearchMachineStateKind;
+  title: string;
+};
+
+const researchStateNodes = [
+  {
+    description: "Input is not focused.",
+    kind: "blurred",
+    title: "blurred",
+  },
+  {
+    description: "Focused and still aligned to route reality.",
+    kind: "focused.clean",
+    title: "focused clean",
+  },
+  {
+    description: "Focused with user-edited local draft text.",
+    kind: "focused.editing",
+    title: "editing",
+  },
+  {
+    description: "Focused while a suggestion preview is replacing route reality.",
+    kind: "focused.previewing",
+    title: "previewing",
+  },
+  {
+    description: "Touch scroll picker is active over the suggestions list.",
+    kind: "focused.touchPicking",
+    title: "touch picking",
+  },
+] as const satisfies readonly ResearchStateNode[];
+
 function readResearchMachineState(
   debugState: RouteUrlEditorDebugState | null,
 ): ResearchMachineState | null {
@@ -104,18 +140,134 @@ function readResearchMachineState(
   };
 }
 
-function renderRouteUrlEditorXStateMermaid() {
-  const lines = [
-    "stateDiagram-v2",
-    '  state "RouteUrlEditor XState transition actor" as route_url_editor_store',
-    "  [*] --> route_url_editor_store",
-  ];
+function getResearchStateNodeClassName(active: boolean): string {
+  return active
+    ? "min-h-24 border border-foreground bg-foreground p-3 text-background"
+    : "min-h-24 border border-border bg-background p-3 text-foreground";
+}
 
-  for (const eventType of routeUrlEditorXStateStoreEventTypes) {
-    lines.push(`  route_url_editor_store --> route_url_editor_store: ${eventType}`);
+function getResearchEventClassName(active: boolean): string {
+  return active
+    ? "border border-foreground bg-foreground px-2 py-1 font-mono text-xs text-background"
+    : "border border-border bg-background px-2 py-1 font-mono text-xs text-foreground";
+}
+
+function readResearchPrimaryEventType(state: ResearchMachineState | null): string | null {
+  if (state === null) {
+    return null;
   }
 
-  return lines.join("\n");
+  switch (state.kind) {
+    case "blurred":
+      return "routeUrlEditor.setInputFocused";
+    case "focused.clean":
+      return "routeUrlEditor.setInputFocused";
+    case "focused.editing":
+      return "routeUrlEditor.patchSuggestionState";
+    case "focused.previewing":
+      return "routeUrlEditor.updateSuggestionState";
+    case "focused.touchPicking":
+      return "routeUrlEditor.syncTouchScrollPickerMetrics";
+  }
+}
+
+function RouteUrlEditorXStateVisualization({
+  debugState,
+  machineState,
+}: {
+  debugState: RouteUrlEditorDebugState | null;
+  machineState: ResearchMachineState | null;
+}) {
+  const activeKind = machineState?.kind ?? null;
+  const primaryEventType = readResearchPrimaryEventType(machineState);
+
+  return (
+    <section
+      aria-label="Route URL editor visual state"
+      className="grid gap-3 border border-border p-3"
+      data-testid="route-url-editor-state-machine-visualization"
+    >
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {researchStateNodes.map((node) => {
+          const active = node.kind === activeKind;
+          return (
+            <div
+              aria-current={active ? "step" : undefined}
+              className={getResearchStateNodeClassName(active)}
+              data-active={active}
+              key={node.kind}
+            >
+              <div className="break-words font-mono text-sm">{node.title}</div>
+              <div className="mt-2 break-words text-sm">{node.description}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="grid gap-2 md:grid-cols-3">
+        <div className="border border-border p-3">
+          <div className="font-mono text-sm">actor</div>
+          <dl className="mt-2 grid gap-1 text-sm">
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
+              <dt>logic</dt>
+              <dd className="min-w-0 break-all font-mono">
+                {debugState?.xstate.logic ?? "pending"}
+              </dd>
+            </div>
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
+              <dt>status</dt>
+              <dd className="min-w-0 break-all font-mono">
+                {debugState?.xstate.status ?? "pending"}
+              </dd>
+            </div>
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
+              <dt>derived</dt>
+              <dd className="min-w-0 break-all font-mono">{activeKind ?? "pending"}</dd>
+            </div>
+          </dl>
+        </div>
+        <div className="border border-border p-3 md:col-span-2">
+          <div className="font-mono text-sm">event surface</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {routeUrlEditorXStateStoreEventTypes.map((eventType) => (
+              <span
+                className={getResearchEventClassName(eventType === primaryEventType)}
+                data-active={eventType === primaryEventType}
+                key={eventType}
+              >
+                {eventType}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-2 md:grid-cols-3">
+        <a
+          className="border border-border p-3 font-mono text-sm underline"
+          href="https://stately.ai/docs/inspector"
+          rel="noreferrer"
+          target="_blank"
+        >
+          Stately Inspector
+        </a>
+        <a
+          className="border border-border p-3 font-mono text-sm underline"
+          href="https://stately.ai/docs/studio"
+          rel="noreferrer"
+          target="_blank"
+        >
+          Stately Studio
+        </a>
+        <a
+          className="border border-border p-3 font-mono text-sm underline"
+          href="https://stately.ai/docs/inspection"
+          rel="noreferrer"
+          target="_blank"
+        >
+          XState Inspect API
+        </a>
+      </div>
+    </section>
+  );
 }
 
 function formatJson(value: unknown): string {
@@ -140,7 +292,6 @@ export function RouteUrlEditorStateMachineResearchPage() {
     [debugState?.xstate],
   );
   const formattedDebugState = useMemo(() => formatJson(debugState), [debugState]);
-  const mermaidTransitions = useMemo(renderRouteUrlEditorXStateMermaid, []);
 
   return (
     <main className="grid min-h-screen gap-4 bg-background p-4 text-foreground">
@@ -159,7 +310,7 @@ export function RouteUrlEditorStateMachineResearchPage() {
         data-testid="route-url-editor-state-machine-json"
         className="min-h-80 resize-y rounded-none font-mono text-sm"
       />
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Textarea
           readOnly
           value={formattedXState}
@@ -181,14 +332,8 @@ export function RouteUrlEditorStateMachineResearchPage() {
           data-testid="route-url-editor-state-machine-debug-json"
           className="min-h-64 resize-y rounded-none font-mono text-sm"
         />
-        <Textarea
-          readOnly
-          value={mermaidTransitions}
-          aria-label="Route URL editor Mermaid transitions"
-          data-testid="route-url-editor-state-machine-mermaid"
-          className="min-h-64 resize-y rounded-none font-mono text-sm"
-        />
       </div>
+      <RouteUrlEditorXStateVisualization debugState={debugState} machineState={machineState} />
     </main>
   );
 }
