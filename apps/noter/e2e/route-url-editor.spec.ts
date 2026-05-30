@@ -442,9 +442,9 @@ test("route URL editor lists route paths and filters them while typing", async (
   await input.type("lo");
 
   await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
-  await expect(
-    page.getByRole("option", { exact: true, name: "Use /logo/transition" }),
-  ).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /logo/transition" })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("option", { exact: true, name: "Use /pricing" })).toHaveCount(0);
 
   await page.getByRole("option", { exact: true, name: "Use /logo" }).dispatchEvent("click");
@@ -557,23 +557,23 @@ test("route URL editor keeps the same input focused while typing between app rou
   );
   expect(keptFocusOnLogo).toBe(true);
 
-  await input.type("/iso");
+  await input.fill(`${origin}/terms`);
 
-  await expect(page).toHaveURL(`${origin}/logo/iso`);
-  await expect(input).toHaveValue(`${origin}/logo/iso`);
-  const keptFocusOnLogoIso = await inputHandle.evaluate(
+  await expect(page).toHaveURL(`${origin}/terms`);
+  await expect(input).toHaveValue(`${origin}/terms`);
+  const keptFocusOnTerms = await inputHandle.evaluate(
     (element) => document.activeElement === element && element.isConnected,
   );
-  expect(keptFocusOnLogoIso).toBe(true);
+  expect(keptFocusOnTerms).toBe(true);
 
-  await input.fill(`${origin}/localStorage`);
+  await input.fill(`${origin}/privacy`);
 
-  await expect(page).toHaveURL(`${origin}/localStorage`);
-  await expect(input).toHaveValue(`${origin}/localStorage`);
-  const keptFocusOnLocalStorage = await inputHandle.evaluate(
+  await expect(page).toHaveURL(`${origin}/privacy`);
+  await expect(input).toHaveValue(`${origin}/privacy`);
+  const keptFocusOnPrivacy = await inputHandle.evaluate(
     (element) => document.activeElement === element && element.isConnected,
   );
-  expect(keptFocusOnLocalStorage).toBe(true);
+  expect(keptFocusOnPrivacy).toBe(true);
 });
 
 test("route URL editor previews trailing-slash app routes while typing", async ({ page }) => {
@@ -713,47 +713,46 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   const backButton = editor.getByRole("button", { name: "Back" });
   const forwardButton = editor.getByRole("button", { name: "Forward" });
   const input = await editRouteUrl(page);
+  const rootOption = page.getByRole("option", {
+    exact: true,
+    name: "Use /",
+  });
   const logoOption = page.getByRole("option", {
     exact: true,
     name: "Use /logo",
   });
-  const logoIsoOption = page.getByRole("option", {
-    exact: true,
-    name: "Use /logo/iso",
-  });
 
-  await input.press("End");
-  await input.type("log");
-
+  await expect(rootOption).toBeVisible();
   await expect(logoOption).toBeVisible();
-  await expect(logoIsoOption).toBeVisible();
   const initialEditorLeft = await readRoundedLeft(editor, "route URL editor");
   const initialSuggestionsLeft = await readRoundedLeft(suggestions, "route URL suggestions");
 
   await input.press("ArrowDown");
-  await expect(logoOption).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(rootOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(input).toHaveValue(`${origin}/`);
   expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
   expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
   await expect(backButton).toBeDisabled();
 
   await input.press("ArrowDown");
-  await expect(logoIsoOption).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(`${origin}/logo/iso`);
-  await expect(input).toHaveValue(`${origin}/logo/iso`);
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
   expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
   expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
   await expect(backButton).toBeDisabled();
 
   await input.press("ArrowUp");
-  await expect(logoOption).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(rootOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/`);
+  await expect(input).toHaveValue(`${origin}/`);
   expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
   expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
   await expect(backButton).toBeDisabled();
 
+  await input.press("ArrowDown");
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
   await input.press("Enter");
 
   await expect(page).toHaveURL(`${origin}/logo`);
@@ -1449,18 +1448,20 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
 
   const input = await editRouteUrl(page);
   const rootOption = page.getByRole("option", { exact: true, name: "Use /" });
-  const localStorageOption = page.getByRole("option", {
+  const logoOption = page.getByRole("option", {
     exact: true,
-    name: "Use /localStorage",
+    name: "Use /logo",
   });
-  const indexedDbOption = page.getByRole("option", {
+  const privacyOption = page.getByRole("option", {
     exact: true,
-    name: "Use /indexDB",
+    name: "Use /privacy",
   });
 
   await expect(rootOption).toBeVisible();
-  await expect(indexedDbOption).toBeVisible();
-  await expect(localStorageOption).toBeVisible();
+  await expect(logoOption).toBeVisible();
+  await expect(privacyOption).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use /indexDB" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "Use /localStorage" })).toHaveCount(0);
 
   await input.press("ArrowDown");
   await expect(rootOption).toHaveAttribute("aria-selected", "true");
@@ -1468,14 +1469,14 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
   await expect(input).toHaveValue(`${origin}/`);
 
   await input.press("ArrowDown");
-  await expect(indexedDbOption).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(`${origin}/indexDB`);
-  await expect(input).toHaveValue(`${origin}/indexDB`);
+  await expect(logoOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo`);
 
   await input.press("ArrowDown");
-  await expect(localStorageOption).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(`${origin}/localStorage`);
-  await expect(input).toHaveValue(`${origin}/localStorage`);
+  await expect(privacyOption).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(`${origin}/privacy`);
+  await expect(input).toHaveValue(`${origin}/privacy`);
 });
 
 test("route URL editor mobile scroll picker previews and commits the slated option", async ({
@@ -1493,22 +1494,22 @@ test("route URL editor mobile scroll picker previews and commits the slated opti
     const suggestions = page.getByTestId("route-url-editor-suggestions");
     const popover = page.getByTestId("route-url-editor-suggestions-popover");
     const slate = page.getByTestId("route-url-editor-scroll-slate");
-    const localStorageOption = page.getByRole("option", {
+    const termsOption = page.getByRole("option", {
       exact: true,
-      name: "Use /localStorage",
+      name: "Use /terms",
     });
     const backButton = editor.getByRole("button", { name: "Back" });
 
     await expect(suggestions).toBeVisible();
     await expect(slate).toBeVisible();
-    await expect(localStorageOption).toBeVisible();
+    await expect(termsOption).toBeVisible();
 
-    await scrollRouteUrlEditorOptionToSlate(page, "Use /localStorage");
+    await scrollRouteUrlEditorOptionToSlate(page, "Use /terms");
 
-    await expect(localStorageOption).toHaveAttribute("aria-selected", "true");
+    await expect(termsOption).toHaveAttribute("aria-selected", "true");
     await expect(input).toBeFocused();
-    await expect(input).toHaveValue(`${origin}/localStorage`);
-    await expect(page).toHaveURL(`${origin}/localStorage`);
+    await expect(input).toHaveValue(`${origin}/terms`);
+    await expect(page).toHaveURL(`${origin}/terms`);
     await expect(backButton).toBeDisabled();
     await expect(popover).toHaveScreenshot(
       "route-url-editor-mobile-scroll-picker-preview.png",
@@ -1519,7 +1520,7 @@ test("route URL editor mobile scroll picker previews and commits the slated opti
 
     await expect(input).toHaveCount(0);
     await expect(suggestions).toHaveCount(0);
-    await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/localStorage`);
+    await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/terms`);
     await expect(backButton).toBeEnabled();
 
     await backButton.click();
