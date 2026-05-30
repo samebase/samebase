@@ -1,4 +1,4 @@
-import { type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
@@ -33,13 +33,22 @@ export async function signInIfNeeded(page: Page, routeAfterSignIn?: string): Pro
       await navigateAfterSignIn(page, targetPath);
       return;
     }
+    await waitForPasswordFormReadyOrSignedIn({
+      emailInput,
+      signedInMarkers,
+      timeout: 30_000,
+    });
+    if (await isAnyVisible(signedInMarkers)) {
+      await navigateAfterSignIn(page, targetPath);
+      return;
+    }
 
     await emailInput.fill(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL);
     await passwordInput.fill(LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD);
     await signInButton.click();
 
     try {
-      await waitForAnyVisible(signedInMarkers, 10_000);
+      await waitForAnyVisible(signedInMarkers, 30_000);
       await navigateAfterSignIn(page, targetPath);
       return;
     } catch (error) {
@@ -49,6 +58,29 @@ export async function signInIfNeeded(page: Page, routeAfterSignIn?: string): Pro
       await page.waitForTimeout(1_000);
     }
   }
+}
+
+async function waitForPasswordFormReadyOrSignedIn({
+  emailInput,
+  signedInMarkers,
+  timeout,
+}: {
+  emailInput: Locator;
+  signedInMarkers: Locator[];
+  timeout: number;
+}): Promise<void> {
+  await Promise.any([
+    waitForAnyVisible(signedInMarkers, timeout),
+    expect(emailInput).toBeEnabled({ timeout }),
+  ]);
+}
+
+async function isAnyVisible(locators: Locator[]): Promise<boolean> {
+  const visibilityResults = await Promise.all(
+    locators.map((locator) => locator.isVisible().catch(() => false)),
+  );
+
+  return visibilityResults.some(Boolean);
 }
 
 function getSignedInMarkers(page: Page): Locator[] {

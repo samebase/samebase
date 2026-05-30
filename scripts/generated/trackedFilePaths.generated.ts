@@ -431,6 +431,7 @@ export type TrackedFilePath =
   | "apps/noter/e2e/vault-create-app.live.spec.ts"
   | "apps/noter/e2e/vault-dashboard-branch-visual.spec.ts"
   | "apps/noter/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png"
+  | "apps/noter/e2e/vault-dashboard-editor.live.spec.ts"
   | "apps/noter/e2e/vault-dashboard-hash-scroll.live.spec.ts"
   | "apps/noter/e2e/vault-dashboard-visual.spec.ts"
   | "apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-mobile.png"

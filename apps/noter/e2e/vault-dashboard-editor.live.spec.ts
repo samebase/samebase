@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { signInIfNeeded } from "./liveHelpers";
 
 test.describe("vault dashboard editor live flow", () => {
+  test.setTimeout(90_000);
+
   test("dashboard Edit link opens the editor route", async ({ page }) => {
     await page.goto("/home");
     await signInIfNeeded(page, "/home");

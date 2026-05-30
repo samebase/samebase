@@ -40,7 +40,7 @@ export function FileViewDeveloperTools({
 }: FileViewDeveloperToolsProps) {
   return (
     <Collapsible className="space-y-1.5" open={open} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger asChild>
+      <CollapsibleTrigger asChild nativeButton>
         <Button
           variant="ghost"
           size="sm"
