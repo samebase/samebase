@@ -281,7 +281,8 @@ It also demotes the first diagnostic group out of default Playwright acceptance 
 - `file-view-code-parity.spec.ts`,
 - `logo-snap-angles-visual.spec.ts`,
 - `logo-three-visual.spec.ts`,
-- raster seam lab cases inside `logo-iso-controls-visual.spec.ts`.
+- raster seam lab cases and the face-on raster seam screenshot inside
+  `logo-iso-controls-visual.spec.ts`.
 - the extra logo renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts`, while keeping
   one default `/logo` route smoke for excessive URL-edited depth recovery.
 - detailed route URL editor dropdown screenshots inside `route-url-editor.spec.ts`, while moving the
@@ -314,6 +315,11 @@ browser editing, hover preview, history, mobile picker, prod mode, and boundary 
 Initial public landing split status: prod-ui shortcut absence and dev-toggle query preservation now
 run in `apps/noter/src/components/AppSidebarMetaSection.test.tsx`; the serial Playwright file keeps
 route, auth-slot, mobile shell, logo fallback/drag, and navigation budget coverage.
+
+Initial logo split status: the face-on raster seam screenshot now runs only with
+`PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`; the shape preset combobox test stays in default because it is
+the only current coverage for applying Sierpinski and Full Cube 3 through the real UI. Replace it
+with lower-layer combobox coverage before deleting that browser path.
 
 Initial workspace sidebar split status: gesture debug overlay checks now run only with
 `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`; default Playwright keeps shipped mobile carousel, resize grip,

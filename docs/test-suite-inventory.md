@@ -24,7 +24,7 @@ pnpm --filter noter exec playwright test -c playwright.config.ts --list
 
 Current default surface:
 
-- `216` tests
+- `215` tests
 - `38` files
 - Chromium project only
 - `*.live.spec.ts` excluded
@@ -33,11 +33,11 @@ Current default surface:
 
 Last audited full Linux wrapper summary from `.tmp/playwright-linux/summary.json`:
 
-- `216` passed
+- `215` passed
 - `0` skipped
 - `0` unexpected
 - `4` workers
-- `112855.502` ms
+- `99781.218` ms
 
 ## Classification Meanings
 
@@ -79,7 +79,7 @@ Actions:
 | `landing-copy-visual.spec.ts`              |     1 | `rewrite`          | Landing copy remains editable in dev mode while ProseMark stays behind it.                                                    | Low runtime, but behavior may be cheaper in component coverage.                                  | Landing                   | `rewrite`                                                                                                                 |
 | `landing-markdown-preview-visual.spec.ts`  |     2 | `visual-contract`  | Markdown preview route desktop/mobile shell and mobile sidebar hash behavior.                                                 | Medium: real route screenshots.                                                                  | Landing preview           | `keep`; split hash behavior from screenshots if it grows.                                                                 |
 | `local-storage-route-visual.spec.ts`       |     4 | `release-blocking` | Admin localStorage route shows values, previews links, reflects same-tab writes, and hides the shortcut.                      | Medium: auth setup and storage writes.                                                           | Admin storage routes      | `keep`; uses the shared admin route helper.                                                                               |
-| `logo-iso-controls-visual.spec.ts`         |    26 | `rewrite`          | Logo controls, query params, scene rendering, mobile controls, and color pickers.                                             | High: broad mixed concerns; slowest default case is about `32.2s`.                               | Logo tooling              | `rewrite`; raster seam labs and the extra renderer depth-cap matrix are demoted.                                          |
+| `logo-iso-controls-visual.spec.ts`         |    25 | `rewrite`          | Logo controls, query params, scene rendering, mobile controls, and color pickers.                                             | High: broad mixed concerns; slowest default case is about `26.7s`.                               | Logo tooling              | `rewrite`; raster seam labs, the face-on seam screenshot, and the extra renderer depth-cap matrix are demoted.            |
 | `logo-snap-angles-visual.spec.ts`          |     1 | `diagnostic`       | Logo snap-angle matrix visual stress fixture.                                                                                 | High: slowest list at about `29.6s`.                                                             | Logo tooling              | `demoted`; runs only with `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1`.                                                             |
 | `logo-three-visual.spec.ts`                |     1 | `diagnostic`       | Three logo reference and diff rendering.                                                                                      | Medium: WebGL/canvas fixture, not a real route.                                                  | Logo tooling              | `demoted`; keep route-level logo coverage separately.                                                                     |
 | `machine-connect-visual.spec.ts`           |     1 | `visual-contract`  | Machine connect fixture text and layout after fonts settle.                                                                   | Low: compact fixture snapshot.                                                                   | Machine connect           | `keep`                                                                                                                    |
@@ -114,7 +114,9 @@ Actions:
    independently. This branch moved prod-ui shortcut/dev-toggle query behavior to component
    coverage.
 3. `logo-iso-controls-visual.spec.ts`: split shipped logo controls from raster seam diagnostics.
-   Demote seam labs unless they are tied to a current shipped logo contract.
+   Demote seam labs unless they are tied to a current shipped logo contract. Keep the shape preset
+   combobox test in default until lower-layer coverage proves applying Sierpinski and Full Cube 3
+   through the real UI.
 4. `vault-dashboard-visual.spec.ts`: replace the broad visual gallery with smaller workflow-owned
    contracts.
 5. `workspace-sidebar-drag.spec.ts`: continue separating core gesture behavior from diagnostics; the
@@ -155,7 +157,7 @@ release-blocking contract:
 - `file-view-code-parity.spec.ts`
 - `logo-snap-angles-visual.spec.ts`
 - `logo-three-visual.spec.ts`
-- raster seam lab cases inside `logo-iso-controls-visual.spec.ts`
+- raster seam lab cases and the face-on seam screenshot inside `logo-iso-controls-visual.spec.ts`
 - extra renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts`
 - detailed route URL editor dropdown screenshots inside `route-url-editor.spec.ts`
 - workspace gesture debug overlay checks inside `workspace-sidebar-drag.spec.ts`

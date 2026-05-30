@@ -467,7 +467,7 @@ test("logo raster depth 6 keeps recursive preview responsive", async ({ page }) 
     .toBe("/logo/raster:6:90");
 });
 
-test("logo raster face-on recursion renders without tile seams", async ({ page }) => {
+test("@diagnostic logo raster face-on recursion renders without tile seams", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(
     page,
