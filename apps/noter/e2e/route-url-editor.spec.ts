@@ -25,6 +25,10 @@ const routeUrlEditorMobilePickerScreenshotOptions = {
   maxDiffPixelRatio: 0.03,
 } as const;
 
+// The local Linux wrapper forces file-level full parallelism; these tests drive
+// browser history and focus in the shared route shell, so keep this spec ordered.
+test.describe.configure({ mode: "serial" });
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

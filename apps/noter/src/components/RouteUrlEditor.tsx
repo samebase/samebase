@@ -788,7 +788,7 @@ export function RouteUrlEditor() {
     clearTouchScrollPickerMetrics,
     patchSuggestionState,
     setDocumentHashSuggestionKeys,
-    setDraftRouteAddress,
+    setDraftRouteAddress: setDraftRouteAddressAction,
     setInputFocused,
     setTouchScrollPickerEnabled,
     syncTouchScrollPickerMetrics,
@@ -808,6 +808,7 @@ export function RouteUrlEditor() {
   const pointerPreviewBaseRef = useRef<RouteUrlEditorPointerPreviewBase | null>(null);
   const skipNextBlurCommitRef = useRef(false);
   const currentHrefRef = useRef(currentHref);
+  const draftRouteAddressRef = useRef(draftRouteAddress);
   const optimisticHrefRef = useRef<string | null>(null);
   const routeNavigationQueueRef = useRef<Promise<void>>(Promise.resolve());
   // Keyboard edits can render suggestions under a stationary cursor; hover previews resume after pointer movement.
@@ -817,6 +818,14 @@ export function RouteUrlEditor() {
   const suggestionPreviewActiveRef = useRef(false);
   const restoredRouteHistoryIndexesRef = useRef(false);
   const origin = readIsomorphicOrigin();
+  draftRouteAddressRef.current = draftRouteAddress;
+  const setDraftRouteAddress = useCallback(
+    (nextDraftRouteAddress: string) => {
+      draftRouteAddressRef.current = nextDraftRouteAddress;
+      setDraftRouteAddressAction(nextDraftRouteAddress);
+    },
+    [setDraftRouteAddressAction],
+  );
   const {
     activeIndex: activeSuggestionIndex,
     baseRouteAddress: suggestionBaseRouteAddress,
@@ -1930,11 +1939,16 @@ export function RouteUrlEditor() {
         dismissed: activeFollowup === null,
         draftEditedSinceFocus: activeFollowup !== null || !routeUpdateReady,
       });
+      const selectedDraftRouteAddress = nextDraftRouteAddress;
       void commitInput(nextDraftRouteAddress, {
         commitPreviewToHistory: true,
         replaceRouteOptions: false,
         resetIncompleteDraft: false,
       }).then(() => {
+        if (draftRouteAddressRef.current !== selectedDraftRouteAddress) {
+          return;
+        }
+
         if (activeFollowup === null) {
           if (suggestion.kind === "search" && suggestion.searchParamKind === "value") {
             const input = inputRef.current;
