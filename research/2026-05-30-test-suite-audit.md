@@ -129,19 +129,19 @@ The largest default Playwright files by line count:
 
 ### Non-Playwright Tests
 
-Strict non-`apps/noter/e2e` test inventory found `207` files:
+Strict non-`apps/noter/e2e` test inventory found `209` files:
 
-- `apps/noter`: `181`
+- `apps/noter`: `182`
 - `packages/sure`: `16`
-- `scripts`: `8`
+- `scripts`: `9`
 - `packages/dependent`: `1`
 - `packages/sync`: `1`
 
 Suffix shape:
 
-- `.test.ts`: `154`
+- `.test.ts`: `153`
 - `.test.tsx`: `38`
-- `.convex.test.ts`: `11`
+- `.convex.test.ts`: `14`
 - `.tsc_test.ts`: `3`
 - `.type_test.ts`: `1`
 
@@ -250,14 +250,21 @@ stronger around vaults/users/deletion and thinner around registered-function or 
 file staging ownership, connected machines, chat approval/audit, MCP HTTP, and billing/webhooks if
 active.
 
-Three unsuffixed tests use `makeConvexTest()` outside the `.convex.test.ts` lane:
+The initial audit found three unsuffixed tests using `makeConvexTest()` outside the
+`.convex.test.ts` lane:
 
 - `apps/noter/convex/infraProvisioning.test.ts`
 - `apps/noter/convex/repositoryRefresh.test.ts`
 - `apps/noter/convex/repositoryRefreshModel.test.ts`
 
-Those should be split so real Convex contract coverage lives in `.convex.test.ts`, while pure helper
-tests stay in `.test.ts`.
+This branch moves their Convex-harness-backed coverage into:
+
+- `apps/noter/convex/infraProvisioning.convex.test.ts`
+- `apps/noter/convex/repositoryRefresh.convex.test.ts`
+- `apps/noter/convex/repositoryRefreshModel.convex.test.ts`
+
+The pure `infraProvisioning` selector and failure-provider helper tests stay in
+`apps/noter/convex/infraProvisioning.test.ts`.
 
 ### 7. Small hygiene issues should not remain silent
 
@@ -279,8 +286,8 @@ tools. They should still be classified so the absence is intentional.
 
 1. Use `pnpm test:acceptance` as the one local command for full branch acceptance.
 2. Keep `pnpm test:visual:linux` as the one authoritative visual acceptance surface.
-3. Move the three unsuffixed `makeConvexTest()` files into clearer `.convex.test.ts` or `.test.ts`
-   ownership.
+3. Keep checking for unsuffixed `makeConvexTest()` coverage so Convex contract tests stay in the
+   `.convex.test.ts` lane and pure helpers stay in `.test.ts`.
 
 ### Playwright Pruning
 

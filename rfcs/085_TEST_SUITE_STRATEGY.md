@@ -271,6 +271,8 @@ This branch handles the first three low-risk cleanup items for the initial audit
 - removes the skipped ProseMark mobile body-scroll Playwright assertion after a focused Linux Docker
   repro still failed with `scrollTop === 0`; the default suite keeps the passing desktop body-scroll
   and mobile carousel gesture coverage.
+- moves unsuffixed Convex-harness-backed tests into the `.convex.test.ts` lane while keeping pure
+  `infraProvisioning` helper coverage in `.test.ts`.
 
 It also demotes the first diagnostic group out of default Playwright acceptance with an
 `@diagnostic` tag and `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` override:
