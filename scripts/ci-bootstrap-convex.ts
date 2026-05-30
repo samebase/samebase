@@ -10,6 +10,7 @@ const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "noter", ".env.local");
 const convexEnvSetMaxAttempts = 4;
+const convexEnvLocalWaitTimeoutMs = 300_000;
 const keepBackendRunning = process.argv.slice(2).includes("--keep-running");
 
 await main();
@@ -52,7 +53,7 @@ async function main(): Promise<void> {
           fileContents.includes("CONVEX_DEPLOYMENT=") && fileContents.includes("VITE_CONVEX_URL=")
         );
       },
-      180_000,
+      convexEnvLocalWaitTimeoutMs,
       "Timed out waiting for apps/noter/.env.local to include Convex local env values.",
       bootstrapProcess,
     );
