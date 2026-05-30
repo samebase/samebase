@@ -8,6 +8,7 @@
 - Related research:
   - `research/2026-05-30-test-suite-audit.md`
 - Related references:
+  - `specs/108_TEST_STRATEGY_AND_ACCEPTANCE_SPEC.md`
   - `docs/test-suite-inventory.md`
   - `docs/playwright-visual-testing.md`
   - `specs/095_CONVEX_BACKEND_CONTRACT_TESTING_SPEC.md`
@@ -267,6 +268,9 @@ This branch handles the first three low-risk cleanup items for the initial audit
 - deletes the orphan `file-view-monaco-drag.spec.ts-snapshots` directory,
 - removes the skipped tuple test for deprecated `spread_NOT_IMPLEMENTED` runtime behavior,
 - renames the two non-screenshot `*-visual.spec.ts` behavior specs.
+- removes the skipped ProseMark mobile body-scroll Playwright assertion after a focused Linux Docker
+  repro still failed with `scrollTop === 0`; the default suite keeps the passing desktop body-scroll
+  and mobile carousel gesture coverage.
 
 It also demotes the first diagnostic group out of default Playwright acceptance with an
 `@diagnostic` tag and `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` override:

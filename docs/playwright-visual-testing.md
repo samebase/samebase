@@ -1,5 +1,7 @@
 # Playwright Visual Testing
 
+Accepted strategy: `specs/108_TEST_STRATEGY_AND_ACCEPTANCE_SPEC.md`.
+
 ## Canonical Environment
 
 Required Playwright screenshot baselines are Linux ARM64 baselines. Native macOS visual runs are
@@ -105,7 +107,7 @@ checks instead of enabling the full PR matrix by default. PR Playwright rows mar
 not evidence that browser coverage ran.
 
 For a main-CI parity diagnostic from a local machine, run the same shard shape that main uses
-instead of the wrapper default 8-worker stress shape:
+instead of the wrapper's default local parallel shape:
 
 ```bash
 pnpm test:visual:linux -- --workers=1 --shard=1/3
