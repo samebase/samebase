@@ -246,7 +246,7 @@ function buildMatrixHtml(matrices: readonly RenderedLogoSnapMatrix[]): string {
 </html>`;
 }
 
-test("logo snap angle matrix visual fixture", async ({ page }, testInfo) => {
+test("@diagnostic logo snap angle matrix visual fixture", async ({ page }, testInfo) => {
   mkdirSync(SNAPSHOT_DIRECTORY_PATH, { recursive: true });
 
   const renderedMatrices: RenderedLogoSnapMatrix[] = [];

@@ -98,7 +98,7 @@ function scaleForegroundBoundsMetricsToCssPixels(
   };
 }
 
-test("file view code parity fixture keeps ProseMark close to Monaco", async ({
+test("@diagnostic file view code parity fixture keeps ProseMark close to Monaco", async ({
   page,
 }, testInfo) => {
   const shouldWriteRecordedArtifacts = shouldWriteParityArtifacts(testInfo);

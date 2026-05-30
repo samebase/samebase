@@ -15,6 +15,7 @@ const playwrightAllowedHosts = Array.from(
   ]),
 );
 const playwrightAllowedHostsEnv = `NOTER_DEV_ALLOWED_HOSTS=${playwrightAllowedHosts.join(",")}`;
+const includeDiagnosticTests = process.env.PLAYWRIGHT_INCLUDE_DIAGNOSTICS === "1";
 // CI sets PLAYWRIGHT_SKIP_BUILD=1 after prebuilding the app in the workflow, so
 // this branch reuses the built preview while local non-dev-server runs still
 // rely on webServerCommand to perform the build first.
@@ -45,6 +46,7 @@ if (playwrightJsonReportOutput) {
 export default defineConfig({
   testDir: "./e2e",
   testIgnore: ["**/*.live.spec.ts"],
+  grepInvert: includeDiagnosticTests ? undefined : /@diagnostic/,
   outputDir: "./e2e/test-results",
   // The local Linux wrapper runs multiple Chromium workers in Docker; browser
   // context setup can briefly consume most of the default 30s test budget.

@@ -7,7 +7,7 @@ test.setTimeout(120_000);
 // transparent-gap regression count so hidden back faces cannot show through.
 const MAX_PARITY_MISMATCH_PIXELS = 30_000;
 
-test("logo three reference fixture", async ({ page }) => {
+test("@diagnostic logo three reference fixture", async ({ page }) => {
   await page.setViewportSize({ width: 3400, height: 2600 });
   await page.goto("/visual-fixture?mode=logo-three-reference", {
     waitUntil: "domcontentloaded",

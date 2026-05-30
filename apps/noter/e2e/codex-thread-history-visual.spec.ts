@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("codex thread history visual fixture", async ({ page }) => {
+test("@diagnostic codex thread history visual fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1480, height: 1600 });
   await page.goto("/visual-fixture?mode=codex-thread-history", {
     waitUntil: "domcontentloaded",

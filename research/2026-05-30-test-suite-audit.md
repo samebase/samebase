@@ -35,6 +35,9 @@ The main improvement should be classification before deletion:
 The maintained per-spec classification lives in `docs/test-suite-inventory.md`. Keep this research
 document as evidence and context, not as the operator-facing inventory.
 
+Status update: this branch now tags the first diagnostic group with `@diagnostic` and excludes it
+from default Playwright acceptance unless `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` is set.
+
 ## Evidence Sources
 
 Local commands:
@@ -223,6 +226,10 @@ Text-heavy research-style fixture snapshots are also diagnostic candidates:
 - `codex-app-server-research-visual.spec.ts`
 - `codex-thread-browser-visual.spec.ts`
 - `codex-thread-history-visual.spec.ts`
+
+This branch demotes those research fixtures, `file-view-code-parity.spec.ts`,
+`logo-snap-angles-visual.spec.ts`, `logo-three-visual.spec.ts`, and the raster seam lab cases inside
+`logo-iso-controls-visual.spec.ts` behind the diagnostic opt-in.
 
 ### 6. Backend contract coverage is improving but uneven
 

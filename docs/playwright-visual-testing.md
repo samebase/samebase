@@ -144,3 +144,19 @@ route setup hook, and then opens the target admin route.
 The seeded credentials are defined once in `runtime/localWorktreePasswordAuth.ts`. CI and Linux
 Docker bootstrap should seed that account through `apps/noter/convex/devAuth.ts` before Playwright
 starts. If a test cannot log in inside Docker or CI, inspect that bootstrap chain first.
+
+## Diagnostic Coverage
+
+Default Playwright acceptance excludes tests tagged with `@diagnostic`. These tests stay in the
+repository for focused debugging, stress views, and research fixtures, but they should not block an
+unrelated branch unless the branch is touching that surface.
+
+Run them explicitly by setting `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` and passing a focused file or
+grep:
+
+```bash
+PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1 pnpm test:visual:linux -- e2e/logo-three-visual.spec.ts
+```
+
+Use `@diagnostic` only when the same behavior is either non-shipped, stress-only, or already covered
+by a smaller release-blocking contract.

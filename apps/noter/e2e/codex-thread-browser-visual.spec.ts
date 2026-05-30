@@ -7,7 +7,7 @@ async function openBrowserFixture(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
-test("codex thread browser visual fixture", async ({ page }) => {
+test("@diagnostic codex thread browser visual fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1480, height: 1600 });
   await openBrowserFixture(page);
   await expect(page.getByTestId("codex-thread-browser-visual-fixture")).toHaveScreenshot(

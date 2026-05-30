@@ -268,6 +268,15 @@ This branch handles the first three low-risk cleanup items for the initial audit
 - removes the skipped tuple test for deprecated `spread_NOT_IMPLEMENTED` runtime behavior,
 - renames the two non-screenshot `*-visual.spec.ts` behavior specs.
 
+It also demotes the first diagnostic group out of default Playwright acceptance with an
+`@diagnostic` tag and `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` override:
+
+- Codex research visual fixtures,
+- `file-view-code-parity.spec.ts`,
+- `logo-snap-angles-visual.spec.ts`,
+- `logo-three-visual.spec.ts`,
+- raster seam lab cases inside `logo-iso-controls-visual.spec.ts`.
+
 ### Phase 4. Split High-Cost Specs
 
 Start with:
@@ -320,7 +329,8 @@ protects.
 
 - Should CI use the same Docker Linux wrapper as local visual acceptance, or should local gain an
   explicit x64 CI-parity mode?
-- Which Playwright diagnostic tests should remain in the repository but outside default acceptance?
+- Which remaining Playwright diagnostic tests should stay in the repository but outside default
+  acceptance?
 - Should the full Playwright suite stay off PRs after the default path is pruned, or should a
   smaller release-blocking browser subset run on PRs?
 - What runtime target should block adding new visual coverage? A practical first target is full

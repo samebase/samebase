@@ -7,7 +7,7 @@ async function openResearchFixture(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
-test("codex app-server research visual fixture", async ({ page }) => {
+test("@diagnostic codex app-server research visual fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1480, height: 2200 });
   await openResearchFixture(page);
   await expect(page.getByTestId("codex-app-server-research-visual-fixture")).toHaveScreenshot(

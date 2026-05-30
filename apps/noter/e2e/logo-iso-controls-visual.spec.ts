@@ -486,7 +486,9 @@ test("logo raster face-on recursion renders without tile seams", async ({ page }
   });
 });
 
-test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({ page }) => {
+test("@diagnostic logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster-seams?elev=22&rot=22");
 
@@ -549,7 +551,7 @@ test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", asy
   await expect(currentCase.getByText(/0 \/ \d+ \(0\.0%\)/)).toHaveCount(4);
 });
 
-test("logo raster seam lab inflation input allows partial edits", async ({ page }) => {
+test("@diagnostic logo raster seam lab inflation input allows partial edits", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster-seams?elev=22&rot=22");
 
@@ -571,7 +573,9 @@ test("logo raster seam lab inflation input allows partial edits", async ({ page 
   await expect(inflationInput).toHaveValue("1.500");
 });
 
-test("logo raster seam lab spacing scale moves the fake 3d centers", async ({ page }) => {
+test("@diagnostic logo raster seam lab spacing scale moves the fake 3d centers", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster-seams?depth=2&elev=22&rot=22");
 
@@ -607,7 +611,9 @@ test("logo raster seam lab spacing scale moves the fake 3d centers", async ({ pa
   await expect(spacingInput).toHaveValue("0.990");
 });
 
-test("logo raster seam lab source size input allows larger custom rasters", async ({ page }) => {
+test("@diagnostic logo raster seam lab source size input allows larger custom rasters", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster-seams?elev=22&rot=22");
 
