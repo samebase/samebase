@@ -7,10 +7,11 @@ describe("readPublicPrerenderPages", () => {
     const paths = pages.map((page) => page.path);
 
     expect(paths).toContain("/");
-    expect(paths).toContain("/indexDB");
     expect(paths).toContain("/privacy");
     expect(paths).toContain("/terms");
     expect(paths).not.toContain("/add");
+    expect(paths).not.toContain("/indexDB");
+    expect(paths).not.toContain("/localStorage");
     expect(paths).not.toContain("/visual-fixture");
     expect(paths).not.toContain("/vault/$");
   });
