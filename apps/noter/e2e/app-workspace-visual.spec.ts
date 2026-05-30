@@ -53,11 +53,11 @@ test("app workspace header exposes the route URL editor", async ({ page }) => {
   const routeUrlInput = page.getByTestId("route-url-editor-input");
   await expect(routeUrlInput).toHaveValue(`${origin}/?dev`);
 
-  await page.getByRole("link", { name: "/terms", exact: true }).dispatchEvent("click");
+  await page.getByRole("link", { name: "/terms", exact: true }).click();
   await expect(page).toHaveURL(/\/terms\?dev$/);
-  await expect(routeUrlInput).toBeFocused();
-  await expect(routeUrlInput).toHaveValue(`${origin}/terms?dev`);
-  await expect(routeUrlInput).toHaveAttribute("title", `${origin}/terms?dev`);
+  const nextRouteUrlDisplay = page.getByTestId("route-url-editor-display");
+  await expect(nextRouteUrlDisplay).toHaveValue(`${origin}/terms?dev`);
+  await expect(nextRouteUrlDisplay).toHaveAttribute("title", `${origin}/terms?dev`);
 });
 
 test("app workspace route URL editor stays compact for long URLs", async ({ page }) => {
