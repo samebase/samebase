@@ -284,6 +284,8 @@ It also demotes the first diagnostic group out of default Playwright acceptance 
 - raster seam lab cases inside `logo-iso-controls-visual.spec.ts`.
 - the extra logo renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts`, while keeping
   one default `/logo` route smoke for excessive URL-edited depth recovery.
+- detailed route URL editor dropdown screenshots inside `route-url-editor.spec.ts`, while moving the
+  manually typed value-suggestion case into `RouteUrlEditor.test.tsx`.
 
 ### Phase 4. Split High-Cost Specs
 
@@ -302,6 +304,11 @@ For each spec:
 3. keep one real-route browser path for browser-only behavior,
 4. keep screenshots only for real visual contracts,
 5. move stress/diagnostic cases out of the default path.
+
+Initial route URL editor split status: the manually typed search-value suggestion case now runs in
+`apps/noter/src/components/RouteUrlEditor.test.tsx`, and the numeric/color dropdown screenshot
+details are diagnostic. The remaining default file still needs a broader contract split around
+browser editing, hover preview, history, mobile picker, prod mode, and boundary rejection.
 
 ### Phase 5. Improve Runtime Reporting
 

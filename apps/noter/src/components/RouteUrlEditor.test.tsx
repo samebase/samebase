@@ -463,6 +463,30 @@ describe("RouteUrlEditor", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("shows value suggestions for a manually typed valued search param", async () => {
+    const input = startEditing(["/logo"]);
+    const origin = window.location.origin;
+    const defaultVoxelStateSuggestion = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?leftFace=`);
+
+    expect(input.value).toBe(`${origin}/logo?leftFace=`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+    expect(rootElement?.querySelector('button[aria-label="Use secondary"]')).not.toBeNull();
+    expect(rootElement?.querySelector('button[aria-label="Use striped"]')).not.toBeNull();
+
+    await fillRouteUrlEditorInput(input, `${origin}/logo?vox=`);
+
+    expect(input.value).toBe(`${origin}/logo?vox=`);
+    expect(readRouteHref()).toBe("/logo");
+    expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search-value");
+    expect(
+      rootElement?.querySelector(`button[aria-label="Use ${defaultVoxelStateSuggestion}"]`),
+    ).not.toBeNull();
+    expect(document.activeElement).toBe(input);
+  });
+
   it("keeps mouse-selected follow-up search params in the query", async () => {
     const input = startEditing();
     const origin = window.location.origin;

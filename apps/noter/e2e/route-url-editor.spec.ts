@@ -8,7 +8,6 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
-import { DEFAULT_LOGO_PRESET_ID, getLogoPreset } from "../src/components/logo/logoPresets";
 import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 
 const landingPreviewMarkdown = readFileSync(
@@ -266,12 +265,11 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
   const backButton = page.getByRole("button", { name: "Back" });
   const forwardButton = page.getByRole("button", { name: "Forward" });
   const refreshButton = page.getByRole("button", { name: "Refresh" });
-  const editorBox = await editor.boundingBox();
-  if (editorBox === null) {
-    throw new Error("Expected route URL editor to be visible.");
-  }
+  await expect(editor).toBeVisible();
 
-  expect(editorBox.height).toBeLessThanOrEqual(40);
+  const editorHeight = await editor.evaluate((element) => element.getBoundingClientRect().height);
+  expect(editorHeight).toBeGreaterThan(0);
+  expect(editorHeight).toBeLessThanOrEqual(40);
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(fixtureHref);
   await expect(display).toHaveAttribute("title", fixtureHref);
@@ -1034,7 +1032,7 @@ test("route URL editor keeps auth-flow params manual in suggestions", async ({ p
   );
 });
 
-test("route URL editor previews numeric search examples from the dropdown on hover", async ({
+test("@diagnostic route URL editor previews numeric search examples from the dropdown on hover", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 720, height: 420 });
@@ -1078,59 +1076,9 @@ test("route URL editor previews numeric search examples from the dropdown on hov
   ).toBe(true);
 });
 
-test("route URL editor lists search param value options after equals", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 420 });
-  await page.goto("/logo", {
-    waitUntil: "domcontentloaded",
-  });
-  const origin = await page.evaluate(() => window.location.origin);
-
-  const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
-  const secondaryOption = page.getByRole("option", {
-    exact: true,
-    name: "Use secondary",
-  });
-  const stripedOption = page.getByRole("option", {
-    exact: true,
-    name: "Use striped",
-  });
-  const defaultVoxelStateSuggestion = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
-  const defaultVoxelStateOption = page.getByRole("option", {
-    exact: true,
-    name: `Use ${defaultVoxelStateSuggestion}`,
-  });
-
-  await input.fill(`${origin}/logo?leftFace=`);
-
-  await expect(input).toHaveValue(`${origin}/logo?leftFace=`);
-  await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
-  await expect(secondaryOption).toBeVisible();
-  await expect(stripedOption).toBeVisible();
-
-  await secondaryOption.hover();
-
-  await expect(secondaryOption).toHaveAttribute("aria-selected", "true");
-  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
-  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
-  await expect(suggestions).toBeVisible();
-
-  await input.fill(`${origin}/logo?dev&leftFace=s`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
-  await expect(secondaryOption).toBeVisible();
-  await expect(stripedOption).toBeVisible();
-
-  await input.fill(`${origin}/logo?vox=`);
-
-  await expect(input).toHaveValue(`${origin}/logo?vox=`);
-  await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
-  await expect(defaultVoxelStateOption).toBeVisible();
-});
-
-test("route URL editor previews color samples from composed value options", async ({ page }) => {
+test("@diagnostic route URL editor previews color samples from composed value options", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/logo", {
     waitUntil: "domcontentloaded",

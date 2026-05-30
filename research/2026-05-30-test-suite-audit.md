@@ -101,15 +101,14 @@ Full Playwright and Windows sync smoke are push-only:
 
 ### Playwright Default Suite
 
-After the branch's initial diagnostic demotions and skipped-test cleanup,
-`apps/noter/playwright.config.ts` lists `224` Chromium tests in `38` default files. The default
-config ignores `*.live.spec.ts` and excludes `@diagnostic` tests unless
-`PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` is set.
+After the branch's diagnostic demotions and skipped-test cleanup, `apps/noter/playwright.config.ts`
+lists `221` Chromium tests in `38` default files. The default config ignores `*.live.spec.ts` and
+excludes `@diagnostic` tests unless `PLAYWRIGHT_INCLUDE_DIAGNOSTICS=1` is set.
 
 Approximate shape from local inventory:
 
 - `51` total Playwright spec files including live specs.
-- `38` default Playwright files, `224` listed tests.
+- `38` default Playwright files, `221` listed tests.
 - `7` live specs, run by `apps/noter/playwright.live.config.ts`.
 - `40` snapshot directories.
 - `122` tracked PNG-style visual artifacts under `apps/noter/e2e`.
@@ -117,11 +116,11 @@ Approximate shape from local inventory:
 - `34` default files that use `/visual-fixture` or fixture-style harnesses.
 - `10` default files hit real routes rather than fixture-only pages.
 - `6` default files require auth or local sign-in.
-- `2` default files are serial; together they carry `83` listed tests.
+- `2` default files are serial; together they carry `81` listed tests.
 
 The largest default Playwright files by line count:
 
-- `apps/noter/e2e/route-url-editor.spec.ts`: `1864` lines, `43` listed tests.
+- `apps/noter/e2e/route-url-editor.spec.ts`: `1813` lines, `41` default listed tests.
 - `apps/noter/e2e/public-landing-shell.spec.ts`: `1798` lines, `40` listed tests.
 - `apps/noter/e2e/logo-iso-controls-visual.spec.ts`: `1039` lines, `26` default listed tests.
 - `apps/noter/e2e/vault-dashboard-visual.spec.ts`: `1020` lines, `23` listed tests.
@@ -155,26 +154,29 @@ The current Vite+ config already separates:
 The saved Docker Playwright report at `.tmp/playwright-linux/playwright-report/index.html` now shows
 the default suite after diagnostic demotion and skipped-test cleanup:
 
-- `224` tests,
-- `224` passed,
+- `221` tests,
+- `221` passed,
 - `0` skipped,
 - `0` unexpected failures,
 - `4` workers,
-- about `125.4s` runtime.
+- about `109.2s` runtime.
 
-Slowest known local candidates from `.tmp/playwright-linux/summary.json` before the renderer
-depth-cap matrix split:
+Slowest known local candidates from the latest `.tmp/playwright-linux/summary.json`:
 
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:674`: about `37.0s`.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:697`: about `16.2s`, since split so default
-  acceptance keeps one route smoke and the extra renderer matrix is diagnostic.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:320`: about `7.6s`.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:392`: about `6.0s`.
-- `apps/noter/e2e/repository-media-visual.spec.ts:22`: about `5.1s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:674`: about `24.3s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:320`: about `8.0s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:697`: about `7.0s`; default acceptance keeps one
+  route smoke and the extra renderer matrix is diagnostic.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:392`: about `6.6s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:734`: about `5.9s`.
 
 The Docker wrapper now also writes `.tmp/playwright-linux/summary.json`, so future scans can read
 totals, failures, worker count, duration, and slowest tests without scraping the HTML report or
 terminal logs.
+
+A focused rerun of `apps/noter/e2e/commit-review-visual.spec.ts` passed `7` tests in `6.9s`, so the
+earlier `80.6s` deleted-fixture result should be treated as stale unless it reappears in a future
+full-suite slowest list.
 
 Recent failure classes:
 
@@ -238,9 +240,11 @@ Text-heavy research-style fixture snapshots are also diagnostic candidates:
 This branch demotes those research fixtures, `file-view-code-parity.spec.ts`,
 `logo-snap-angles-visual.spec.ts`, `logo-three-visual.spec.ts`, the raster seam lab cases, and the
 extra renderer depth-cap matrix inside `logo-iso-controls-visual.spec.ts` behind the diagnostic
-opt-in. The default route-level depth-cap smoke remains because it proves a real `/logo` page can
-recover from an excessive URL-edited depth before rendering; the all-renderer cap matrix is already
-covered cheaply in `apps/noter/src/lib/logoRouteSearch.test.ts`.
+opt-in. It also demotes the detailed route URL editor numeric and color dropdown screenshots after
+moving the manually typed value-suggestion case to component coverage. The default route-level
+depth-cap smoke remains because it proves a real `/logo` page can recover from an excessive
+URL-edited depth before rendering; the all-renderer cap matrix is already covered cheaply in
+`apps/noter/src/lib/logoRouteSearch.test.ts`.
 
 This branch also removes the skipped
 `mobile prose scroll › ProseMark keeps the real file-view workspace body scrollable on mobile`
