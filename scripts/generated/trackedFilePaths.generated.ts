@@ -388,7 +388,6 @@ export type TrackedFilePath =
   | "apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png"
   | "apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png"
   | "apps/noter/e2e/logo-view-snap.live.spec.ts"
-  | "apps/noter/e2e/logo-view-snap.live.spec.ts-snapshots/logo-mobile-square-scene-chromium-mobile-darwin.png"
   | "apps/noter/e2e/machine-connect-visual.spec.ts"
   | "apps/noter/e2e/machine-connect-visual.spec.ts-snapshots/machine-connect-page.png"
   | "apps/noter/e2e/machines-workspace-visual.spec.ts"
