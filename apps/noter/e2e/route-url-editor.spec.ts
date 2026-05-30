@@ -266,12 +266,11 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
   const backButton = page.getByRole("button", { name: "Back" });
   const forwardButton = page.getByRole("button", { name: "Forward" });
   const refreshButton = page.getByRole("button", { name: "Refresh" });
-  const editorBox = await editor.boundingBox();
-  if (editorBox === null) {
-    throw new Error("Expected route URL editor to be visible.");
-  }
+  await expect(editor).toBeVisible();
 
-  expect(editorBox.height).toBeLessThanOrEqual(40);
+  const editorHeight = await editor.evaluate((element) => element.getBoundingClientRect().height);
+  expect(editorHeight).toBeGreaterThan(0);
+  expect(editorHeight).toBeLessThanOrEqual(40);
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(fixtureHref);
   await expect(display).toHaveAttribute("title", fixtureHref);
