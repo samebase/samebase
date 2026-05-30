@@ -83,15 +83,23 @@ test("app workspace route URL editor stays compact for long URLs", async ({ page
     if (!(display instanceof HTMLInputElement)) {
       throw new Error("Expected route URL editor display");
     }
+    const backButton = element.querySelector('button[aria-label="Back"]');
+    if (!(backButton instanceof HTMLButtonElement)) {
+      throw new Error("Expected route URL editor back button");
+    }
 
     return {
+      backButtonHeight: backButton.getBoundingClientRect().height,
+      backButtonWidth: backButton.getBoundingClientRect().width,
       height: element.getBoundingClientRect().height,
       displayClientWidth: display.clientWidth,
       displayScrollWidth: display.scrollWidth,
     };
   });
 
-  expect(metrics.height).toBeLessThanOrEqual(32);
+  expect(metrics.height).toBe(44);
+  expect(metrics.backButtonHeight).toBe(44);
+  expect(metrics.backButtonWidth).toBe(44);
   expect(metrics.displayScrollWidth).toBeGreaterThan(metrics.displayClientWidth);
 });
 
