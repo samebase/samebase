@@ -103,6 +103,27 @@ async function removeTemporaryVault(page: Page, repoName: string): Promise<void>
   await expect(removeControl).toHaveCount(0, { timeout: 120_000 });
 }
 
+async function waitForVaultCreationResult(args: {
+  createdVaultCard: Locator;
+  failedVaultCard: Locator;
+}): Promise<"ready" | "setup-failed"> {
+  const readyPromise = args.createdVaultCard
+    .waitFor({ state: "visible", timeout: 120_000 })
+    .then(() => "ready" as const);
+  const failedPromise = args.failedVaultCard
+    .waitFor({ state: "visible", timeout: 120_000 })
+    .then(() => "setup-failed" as const);
+
+  try {
+    return await Promise.race([readyPromise, failedPromise]);
+  } finally {
+    // The other wait keeps running after Promise.race settles; observe it so
+    // page cleanup cannot surface its later timeout as an unhandled rejection.
+    void readyPromise.catch(() => undefined);
+    void failedPromise.catch(() => undefined);
+  }
+}
+
 test.describe("vault create app live flow", () => {
   test("creates a temporary app and shows it on the dashboard", async ({ page }, testInfo) => {
     test.slow();
@@ -128,10 +149,10 @@ test.describe("vault create app live flow", () => {
 
       const createdVaultCard = vaultCard(page, repositoryName);
       const failedVaultCard = setupFailedVaultCard(page, repositoryName);
-      const creationResult = await Promise.race([
-        createdVaultCard.waitFor({ state: "visible", timeout: 120_000 }).then(() => "ready"),
-        failedVaultCard.waitFor({ state: "visible", timeout: 120_000 }).then(() => "setup-failed"),
-      ]);
+      const creationResult = await waitForVaultCreationResult({
+        createdVaultCard,
+        failedVaultCard,
+      });
       test.skip(
         creationResult === "setup-failed",
         "App creation is unavailable because provisioning failed in this environment.",
