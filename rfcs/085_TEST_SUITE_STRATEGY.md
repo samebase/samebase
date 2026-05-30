@@ -41,6 +41,26 @@ are comparable, and whether a failed test protects a real user contract.
 - Do not replace targeted real-route browser repros with fake fixtures for production interaction
   bugs.
 
+## External Baseline
+
+This plan follows the current Playwright guidance rather than inventing a Noter-only testing model:
+
+- Test user-visible behavior and avoid implementation-detail assertions:
+  <https://playwright.dev/docs/best-practices>
+- Keep tests isolated, with their own storage, cookies, data, and session state:
+  <https://playwright.dev/docs/best-practices>
+- Reuse authenticated state intentionally through setup projects, `storageState`, or worker-scoped
+  fixtures instead of ad hoc login flows in every spec: <https://playwright.dev/docs/auth>
+- Use Linux for CI/browser parity and keep worker counts matched to runner capacity:
+  <https://playwright.dev/docs/ci>
+- Prefer sharding and smaller, parallelizable files when the suite is too slow:
+  <https://playwright.dev/docs/test-sharding>
+- Emit machine-readable reporter output for tooling and triage:
+  <https://playwright.dev/docs/test-reporters>
+
+The Noter-specific decisions are the layer boundaries, which specs block release, and which
+diagnostic fixtures should stay available without running in the default acceptance path.
+
 ## Proposed Test Layers
 
 ### 1. Static Checks
@@ -265,7 +285,9 @@ For each spec:
 
 ### Phase 5. Improve Runtime Reporting
 
-Add a report summary file from the Docker wrapper:
+Status: started in this branch.
+
+The Docker wrapper now writes `.tmp/playwright-linux/summary.json` with:
 
 - totals,
 - failures,

@@ -72,8 +72,12 @@ Reports are written locally after each run:
 
 ```text
 .tmp/playwright-linux/playwright-report/index.html
+.tmp/playwright-linux/summary.json
 .tmp/playwright-linux/test-results/
 ```
+
+`summary.json` contains the test totals, duration, worker count, failures, and slowest tests from
+the Playwright JSON report. Use it for quick triage before opening the full HTML report.
 
 ## Useful Overrides
 

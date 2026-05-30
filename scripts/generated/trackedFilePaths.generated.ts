@@ -1371,6 +1371,8 @@ export type TrackedFilePath =
   | "scripts/playwright-branch-browser.test.ts"
   | "scripts/playwright-branch-browser.ts"
   | "scripts/playwright-linux-docker.ts"
+  | "scripts/playwright-report-summary.test.ts"
+  | "scripts/playwright-report-summary.ts"
   | "scripts/playwright-session.ts"
   | "scripts/run-context-dev.test.ts"
   | "scripts/run-context-dev.ts"

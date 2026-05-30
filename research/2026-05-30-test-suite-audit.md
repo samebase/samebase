@@ -147,15 +147,19 @@ The saved Docker Playwright report at `.tmp/playwright-linux/playwright-report/i
 - `1` skipped,
 - `0` unexpected failures,
 - `4` workers,
-- about `127.3s` runtime.
+- about `162.6s` runtime.
 
-Slowest known local candidates from that report:
+Slowest known local candidates from `.tmp/playwright-linux/summary.json`:
 
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts`: about `118.2s` total.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:583`: about `33.0s`.
-- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:700`: about `16.1s`.
-- `apps/noter/e2e/logo-snap-angles-visual.spec.ts:249`: about `28.5s`.
-- `apps/noter/e2e/file-view-code-parity.spec.ts:101`: about `10.7s`.
+- `apps/noter/e2e/commit-review-visual.spec.ts:23`: about `80.6s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:479`: about `42.5s`.
+- `apps/noter/e2e/logo-snap-angles-visual.spec.ts:249`: about `29.6s`.
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts:700`: about `16.0s`.
+- `apps/noter/e2e/file-view-code-parity.spec.ts:101`: about `12.3s`.
+
+The Docker wrapper now also writes `.tmp/playwright-linux/summary.json`, so future scans can read
+totals, failures, worker count, duration, and slowest tests without scraping the HTML report or
+terminal logs.
 
 Recent failure classes:
 

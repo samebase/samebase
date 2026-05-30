@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type ReporterDescription } from "@playwright/test";
 
 const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
 const playwrightBaseUrl = `http://127.0.0.1:${playwrightVitePort}`;
@@ -25,6 +25,22 @@ const webServerCommand = useDevServer
   : reuseBuiltPreview
     ? previewCommand
     : `PLAYWRIGHT=1 npm run build:ci && ${previewCommand}`;
+const playwrightJsonReportOutput = process.env.PLAYWRIGHT_JSON_REPORT_OUTPUT?.trim();
+
+const reporter: ReporterDescription[] = [
+  ["list"],
+  [
+    "html",
+    {
+      open: "never",
+      outputFolder: "./e2e/playwright-report",
+    },
+  ],
+];
+
+if (playwrightJsonReportOutput) {
+  reporter.push(["json", { outputFile: playwrightJsonReportOutput }]);
+}
 
 export default defineConfig({
   testDir: "./e2e",
@@ -38,16 +54,7 @@ export default defineConfig({
   fullyParallel: process.env.CI === "true",
   retries: 0,
   workers: 1,
-  reporter: [
-    ["list"],
-    [
-      "html",
-      {
-        open: "never",
-        outputFolder: "./e2e/playwright-report",
-      },
-    ],
-  ],
+  reporter,
   snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
   use: {
     baseURL: playwrightBaseUrl,

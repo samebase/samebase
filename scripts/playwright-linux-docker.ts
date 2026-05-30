@@ -14,6 +14,7 @@ const DEFAULT_CONVEX_CACHE_VOLUME = "noter-playwright-linux-convex-cache";
 const DEFAULT_VITE_PORT = "43121";
 const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "4";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
+const PLAYWRIGHT_JSON_REPORT_PATH = "/tmp/noter-playwright-report.json";
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
@@ -49,10 +50,20 @@ PLAYWRIGHT=1 pnpm --filter noter build:ci
 
 set +e
 PLAYWRIGHT_SKIP_BUILD=1 \
+  PLAYWRIGHT_JSON_REPORT_OUTPUT="$PLAYWRIGHT_JSON_REPORT_OUTPUT" \
   PLAYWRIGHT_VITE_PORT="$PLAYWRIGHT_VITE_PORT" \
   pnpm --filter noter exec playwright test -c playwright.config.ts "$@"
 status=$?
 set -e
+
+summary_status=0
+if [ -f "$PLAYWRIGHT_JSON_REPORT_OUTPUT" ]; then
+  node ./scripts/playwright-report-summary.ts "$PLAYWRIGHT_JSON_REPORT_OUTPUT" /out/summary.json ||
+    summary_status=$?
+else
+  echo "Playwright JSON report was not written: $PLAYWRIGHT_JSON_REPORT_OUTPUT" >&2
+  summary_status=1
+fi
 
 rm -rf /out/playwright-report /out/test-results
 if [ -d apps/noter/e2e/playwright-report ]; then
@@ -75,6 +86,10 @@ if [ "$PLAYWRIGHT_LINUX_UPDATE_SNAPSHOTS" = "1" ]; then
     mkdir -p /src/apps/noter/public/visual-fixtures
     cp -a apps/noter/public/visual-fixtures/. /src/apps/noter/public/visual-fixtures/
   fi
+fi
+
+if [ "$status" -eq 0 ] && [ "$summary_status" -ne 0 ]; then
+  exit "$summary_status"
 fi
 
 exit "$status"
@@ -211,6 +226,7 @@ function printArtifactPaths(outDir: string): void {
   console.log(`
 Linux Playwright artifacts:
   ${outDir}/playwright-report/index.html
+  ${outDir}/summary.json
   ${outDir}/test-results/
 `);
 }
@@ -246,6 +262,8 @@ function runDocker(
     `PLAYWRIGHT_LINUX_UPDATE_SNAPSHOTS=${updateSnapshots}`,
     "-e",
     `PLAYWRIGHT_VITE_PORT=${vitePort}`,
+    "-e",
+    `PLAYWRIGHT_JSON_REPORT_OUTPUT=${PLAYWRIGHT_JSON_REPORT_PATH}`,
     "-e",
     `VITE_APP_COMMIT=${hostBuildMetadata.appCommit}`,
     "-e",
