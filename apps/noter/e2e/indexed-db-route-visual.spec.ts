@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
-import { signInIfNeeded } from "./liveHelpers";
+import { gotoAdminRoute } from "./liveHelpers";
 
 const indexedDbRouteScreenshotOptions = {
   animations: "disabled",
@@ -27,7 +27,6 @@ async function deleteIndexedDbDatabase(page: Page, databaseName: string): Promis
 async function seedIndexedDbRouteDatabase(page: Page): Promise<void> {
   const databaseName = "noterIndexedDbRouteTest";
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
   await deleteIndexedDbDatabase(page, databaseName);
   await page.evaluate(
     (name) =>
@@ -66,17 +65,11 @@ async function seedIndexedDbRouteDatabase(page: Page): Promise<void> {
   );
 }
 
-async function signInForIndexedDbRoute(page: Page): Promise<void> {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page);
-}
-
 test("indexedDB route shows database store keys and formatted values", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await signInForIndexedDbRoute(page);
-  await seedIndexedDbRouteDatabase(page);
-
-  await page.goto(INDEXED_DB_ROUTE, { waitUntil: "networkidle" });
+  await gotoAdminRoute(page, INDEXED_DB_ROUTE, {
+    beforeRoute: () => seedIndexedDbRouteDatabase(page),
+  });
 
   await expect(page.getByTestId("app-workspace")).toBeVisible();
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);

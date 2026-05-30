@@ -138,7 +138,8 @@ the shared state that requires ordered execution.
 
 When browser tests fail after a route is moved behind auth, authenticate the test through the
 existing local password account instead of weakening the route policy. The shared helper lives in
-`apps/noter/e2e/liveHelpers.ts` as `signInIfNeeded`.
+`apps/noter/e2e/liveHelpers.ts` as `gotoAdminRoute`; it signs in with the local account, runs any
+route setup hook, and then opens the target admin route.
 
 The seeded credentials are defined once in `runtime/localWorktreePasswordAuth.ts`. CI and Linux
 Docker bootstrap should seed that account through `apps/noter/convex/devAuth.ts` before Playwright

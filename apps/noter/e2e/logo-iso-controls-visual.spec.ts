@@ -3,7 +3,7 @@ import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
-import { signInIfNeeded } from "./liveHelpers";
+import { gotoAdminRoute } from "./liveHelpers";
 
 test.setTimeout(120_000);
 
@@ -75,14 +75,8 @@ async function expectLogoSearchEntries(page: Page, expectedEntries: LogoSearchEn
     });
 }
 
-async function signInForLogoAdminRoute(page: Page): Promise<void> {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page);
-}
-
 async function gotoLogoAdminRoute(page: Page, url: string): Promise<void> {
-  await signInForLogoAdminRoute(page);
-  await page.goto(url, {
+  await gotoAdminRoute(page, url, {
     waitUntil: "domcontentloaded",
   });
 }
@@ -325,10 +319,7 @@ test("logo public query links cancel conflicting root theme modes", async ({ pag
 
 test("logo recursive depth renders a rotatable shuffleable Three scene", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInForLogoAdminRoute(page);
-  await page.goto("/logo?depth=3&rot=45", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo?depth=3&rot=45");
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const canvas = page.locator("canvas").first();
@@ -699,10 +690,7 @@ test("logo depth slider clears default depth from the URL", async ({ page }) => 
 
 test("logo pages cap URL-edited recursive depth before rendering", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInForLogoAdminRoute(page);
-  await page.goto("/logo?depth=99&rot=45", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo?depth=99&rot=45");
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue(
@@ -740,10 +728,7 @@ test("logo pages cap URL-edited recursive depth before rendering", async ({ page
 
 test("logo distance scale controls Three and raster previews", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInForLogoAdminRoute(page);
-  await page.goto("/logo?dist=1.25&rot=45", {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoLogoAdminRoute(page, "/logo?dist=1.25&rot=45");
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const distanceSlider = controlsSidebar.getByLabel("Distance slider");
@@ -793,7 +778,7 @@ test("logo raster distance scale keeps depth 3 on the geometric base path", asyn
 
 test("logo iso controls mobile boot", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInForLogoAdminRoute(page);
+  await gotoLogoAdminRoute(page, "/logo");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/logo/iso?isoSide=6", {
     waitUntil: "domcontentloaded",

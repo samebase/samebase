@@ -4,6 +4,28 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
 
+type AdminRouteWaitUntil = "commit" | "domcontentloaded" | "load" | "networkidle";
+
+type AdminRouteOptions = {
+  beforeRoute?: () => Promise<void>;
+  waitUntil?: AdminRouteWaitUntil;
+};
+
+/**
+ * Admin route specs should enter through the same local account and then load
+ * the target route after any browser-state setup the route reads on first render.
+ */
+export async function gotoAdminRoute(
+  page: Page,
+  url: string,
+  options: AdminRouteOptions = {},
+): Promise<void> {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page);
+  await options.beforeRoute?.();
+  await page.goto(url, { waitUntil: options.waitUntil ?? "networkidle" });
+}
+
 export async function signInIfNeeded(page: Page): Promise<void> {
   const emailInput = page.getByPlaceholder("you@example.com");
   const passwordInput = page.getByPlaceholder("Password");

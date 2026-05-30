@@ -68,10 +68,10 @@ Actions:
 | `file-view-monaco-height.spec.ts`          |     1 | `release-blocking` | Monaco stays visible in the file-view flex-height layout.                                                                     | Low: focused browser layout check.                                                                | File view editor          | `keep`                                                                                               |
 | `file-view-prosemark-height.spec.ts`       |     3 | `release-blocking` | ProseMark desktop/mobile scroll and carousel gestures stay usable.                                                            | Medium: real browser layout, one skipped mobile case.                                             | File view editor          | `keep`; resolve or remove the skipped mobile test.                                                   |
 | `file-view-push-actions-visual.spec.ts`    |     3 | `visual-contract`  | Push action states for default draft, create draft, and open PR.                                                              | Low: compact fixture snapshots.                                                                   | File view git actions     | `keep`                                                                                               |
-| `indexed-db-route-visual.spec.ts`          |     1 | `release-blocking` | Admin IndexedDB route shows store keys and formatted values after sign-in.                                                    | Medium: auth setup and browser storage.                                                           | Admin storage routes      | `keep`; standardize through an admin route helper.                                                   |
+| `indexed-db-route-visual.spec.ts`          |     1 | `release-blocking` | Admin IndexedDB route shows store keys and formatted values after sign-in.                                                    | Medium: auth setup and browser storage.                                                           | Admin storage routes      | `keep`; uses the shared admin route helper.                                                          |
 | `landing-copy-visual.spec.ts`              |     1 | `rewrite`          | Landing copy remains editable in dev mode while ProseMark stays behind it.                                                    | Low runtime, but behavior may be cheaper in component coverage.                                   | Landing                   | `rewrite`                                                                                            |
 | `landing-markdown-preview-visual.spec.ts`  |     2 | `visual-contract`  | Markdown preview route desktop/mobile shell and mobile sidebar hash behavior.                                                 | Medium: real route screenshots.                                                                   | Landing preview           | `keep`; split hash behavior from screenshots if it grows.                                            |
-| `local-storage-route-visual.spec.ts`       |     4 | `release-blocking` | Admin localStorage route shows values, previews links, reflects same-tab writes, and hides the shortcut.                      | Medium: auth setup and storage writes.                                                            | Admin storage routes      | `keep`; standardize through an admin route helper.                                                   |
+| `local-storage-route-visual.spec.ts`       |     4 | `release-blocking` | Admin localStorage route shows values, previews links, reflects same-tab writes, and hides the shortcut.                      | Medium: auth setup and storage writes.                                                            | Admin storage routes      | `keep`; uses the shared admin route helper.                                                          |
 | `logo-iso-controls-visual.spec.ts`         |    30 | `rewrite`          | Logo controls, query params, scene rendering, raster seam diagnostics, mobile controls, and color pickers.                    | High: broad mixed concerns; slowest cases about `42.5s`, `16.0s`, `9.3s`, and `6.5s`.             | Logo tooling              | `rewrite`; split shipped controls from seam diagnostics and move pure query behavior lower.          |
 | `logo-snap-angles-visual.spec.ts`          |     1 | `diagnostic`       | Logo snap-angle matrix visual stress fixture.                                                                                 | High: slowest list at about `29.6s`.                                                              | Logo tooling              | `demote`                                                                                             |
 | `logo-three-visual.spec.ts`                |     1 | `diagnostic`       | Three logo reference and diff rendering.                                                                                      | Medium: WebGL/canvas fixture, not a real route.                                                   | Logo tooling              | `demote`; keep route-level logo coverage separately.                                                 |
@@ -114,19 +114,19 @@ Actions:
 
 ## Auth And Admin Route Follow-Up
 
-The admin-only route specs currently call `signInIfNeeded` directly. Add one shared helper around
-that flow before adding more admin route coverage:
+Admin-only route specs should use `gotoAdminRoute` from `apps/noter/e2e/liveHelpers.ts` before
+adding more admin route coverage. The helper:
 
 - sign in using the local password account,
-- navigate to the admin route,
-- wait for an authenticated route marker,
-- fail closed if the dev account was not seeded.
+- runs any browser-state setup hook needed before first route render,
+- navigates to the admin route,
+- fails closed if the dev account was not seeded.
 
 Target files:
 
 - `apps/noter/e2e/indexed-db-route-visual.spec.ts`
 - `apps/noter/e2e/local-storage-route-visual.spec.ts`
-- any future `/logo/**` admin-only tests
+- `apps/noter/e2e/logo-iso-controls-visual.spec.ts`
 
 ## Diagnostic Demotion Candidates
 

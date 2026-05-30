@@ -3,7 +3,7 @@ import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
-import { signInIfNeeded } from "./liveHelpers";
+import { gotoAdminRoute } from "./liveHelpers";
 
 const localStorageRouteScreenshotOptions = {
   animations: "disabled",
@@ -25,11 +25,6 @@ async function readPreviewLinkStyle(link: Locator) {
       textUnderlineOffset: style.textUnderlineOffset,
     };
   });
-}
-
-async function signInForLocalStorageRoute(page: Page): Promise<void> {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page);
 }
 
 async function seedLocalStorageRouteValues(page: Page): Promise<void> {
@@ -56,10 +51,9 @@ async function notifyStorageChanged(page: Page): Promise<void> {
 
 test("localStorage route shows raw strings and formatted JSON values", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await signInForLocalStorageRoute(page);
-  await seedLocalStorageRouteValues(page);
-
-  await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
+  await gotoAdminRoute(page, LOCAL_STORAGE_ROUTE, {
+    beforeRoute: () => seedLocalStorageRouteValues(page),
+  });
 
   await expect(page.getByTestId("app-workspace")).toBeVisible();
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
@@ -91,8 +85,7 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
 
 test("storage sidebar previews linked pages on hover", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await signInForLocalStorageRoute(page);
-  await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
+  await gotoAdminRoute(page, LOCAL_STORAGE_ROUTE);
   const origin = new URL(page.url()).origin;
   const leftSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
@@ -130,9 +123,7 @@ test("localStorage route reflects same-tab storage writes without manual refresh
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await signInForLocalStorageRoute(page);
-
-  await page.goto("/localStorage?dev", { waitUntil: "networkidle" });
+  await gotoAdminRoute(page, "/localStorage?dev");
 
   await page.evaluate(() => {
     window.localStorage.setItem(
@@ -159,8 +150,7 @@ test("localStorage route reflects same-tab storage writes without manual refresh
 
 test("localStorage right sidebar omits the route shortcut", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await signInForLocalStorageRoute(page);
-  await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
+  await gotoAdminRoute(page, LOCAL_STORAGE_ROUTE);
 
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
   const publicLinks = rightSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
