@@ -16,7 +16,7 @@ The default platform is always `linux/arm64`. That is intentional: local screens
 not depend on the host CPU, and Linux ARM64 avoids the macOS text-rendering drift that makes
 screenshot baselines noisy.
 
-Local Linux visual runs are parallel by default. The wrapper adds `--fully-parallel --workers=8`
+Local Linux visual runs are parallel by default. The wrapper adds `--fully-parallel --workers=4`
 unless the command already passes `--fully-parallel` or `--workers` / `-j`.
 
 ## Acceptance Command
@@ -76,8 +76,8 @@ Reports are written locally after each run:
 - `PLAYWRIGHT_LINUX_IMAGE=mcr.microsoft.com/playwright:v1.58.2-noble` pins the Playwright browser
   image. Keep this aligned with `@playwright/test`.
 - `PLAYWRIGHT_LINUX_OUT=.tmp/playwright-linux` changes the report output directory.
-- `PLAYWRIGHT_LINUX_WORKERS=4` changes the default worker count when the command does not pass
-  `--workers` / `-j`.
+- `PLAYWRIGHT_LINUX_WORKERS=8` runs a higher-concurrency stress diagnostic when the command does not
+  pass `--workers` / `-j`. Do not use this as the normal acceptance command.
 - `PLAYWRIGHT_LINUX_FULLY_PARALLEL=0` disables the wrapper's default `--fully-parallel` flag.
 
 ## When To Use Testbox
