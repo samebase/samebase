@@ -137,7 +137,6 @@ import { useAnimationFrameLoop } from "@/lib/useAnimationFrameLoop";
 import { usePacedCommittedState } from "@/lib/usePacedCommittedState";
 import { cn } from "@/lib/utils";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { Link } from "@tanstack/react-router";
 import { PaletteIcon } from "lucide-react";
 import {
   useEffect,
@@ -1394,8 +1393,6 @@ export function LogoPreviewPage({
       ? matchingIsoCubePixelSpritePresets
       : LOGO_ISO_CUBE_PIXEL_SPRITE_PRESETS.filter((preset) => preset.cubeSidePixels === 8);
 
-  const modeSearch = buildLogoPreviewRouteSearch(state, routeSearch, renderMode);
-
   const logoScene =
     renderMode === "iso" ? (
       <NLogoIsoScene
@@ -1482,56 +1479,6 @@ export function LogoPreviewPage({
 
   const controlsContent = (
     <div data-testid="logo-preview-controls" className="flex min-h-full flex-col gap-0 px-1 py-2">
-      <LogoPreviewSection title="Pages">
-        <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
-          <Button
-            asChild
-            size="sm"
-            variant={renderMode === "iso" ? "outline" : "default"}
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-          >
-            <Link search={modeSearch} to="/logo">
-              3D
-            </Link>
-          </Button>
-          <Button
-            asChild
-            size="sm"
-            variant={renderMode === "raster" ? "default" : "outline"}
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-          >
-            <Link search={modeSearch} to="/logo/raster">
-              Raster
-            </Link>
-          </Button>
-          <Button
-            asChild
-            size="sm"
-            variant={renderMode === "iso" ? "default" : "outline"}
-            className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-          >
-            <Link search={modeSearch} to="/logo/iso">
-              Iso
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline" className={LOGO_CONTROL_BUTTON_CLASS_NAME}>
-            <Link search={modeSearch} to="/logo/svg">
-              SVG
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline" className={LOGO_CONTROL_BUTTON_CLASS_NAME}>
-            <Link search={modeSearch} to="/logo/single-cube">
-              Study
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline" className={LOGO_CONTROL_BUTTON_CLASS_NAME}>
-            <Link search={modeSearch} to="/logo/raster-seams">
-              Seams
-            </Link>
-          </Button>
-        </div>
-      </LogoPreviewSection>
-
       <LogoPreviewSection title="Shape">
         <LogoRangeControl
           formatValue={(value) => Math.round(value).toString()}
