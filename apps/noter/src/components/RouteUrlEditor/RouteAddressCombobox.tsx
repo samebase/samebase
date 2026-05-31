@@ -1,72 +1,16 @@
 import type { ChangeEvent, FocusEvent, KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
-import { useCallback, useEffect, useId, useMemo } from "react";
+import { useCallback, useId, useRef } from "react";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
-import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { useLocation } from "@tanstack/react-router";
 import { includes } from "@noter-md/dependent";
-
-// MARK: Start
-
-type Transition<TState extends { kind: string }, TEvent extends { type: string }> = {
-  [CurrentState in TState["kind"]]: {
-    [CurrentEvent in TEvent["type"]]: (
-      prev: Extract<TState, { kind: CurrentState }>,
-      event: Extract<TEvent, { type: CurrentEvent }>,
-    ) => TState;
-  };
-};
-
-function identity<T>(x: T): T {
-  return x;
-}
-
-// MARK: End
-
-const routeAddressComboboxTransition: Transition<RouteEditorState, RouteEditorEvent> = {
-  blurred: {
-    changedInput: (prev, event) => ({
-      ...prev,
-      path: event.path,
-    }),
-    changedSelection: identity,
-    clickedInput: (prev, event) => ({
-      kind: "focused",
-      initialPath: prev.path,
-      latestPath: prev.path,
-      selection: event.selection,
-    }),
-    clickedOutside: identity,
-    selectedSuggestion: (_prev, event) => ({
-      kind: "blurred",
-      path: event.path,
-    }),
-  },
-
-  focused: {
-    changedInput: (prev, event) => ({
-      ...prev,
-      latestPath: event.path,
-      selection: event.selection,
-    }),
-    changedSelection: (prev, event) => ({
-      ...prev,
-      selection: event.selection,
-    }),
-    clickedInput: (prev, event) => ({
-      ...prev,
-      selection: event.selection,
-    }),
-    clickedOutside: (prev) => ({
-      kind: "blurred",
-      path: prev.initialPath,
-    }),
-    selectedSuggestion: (_prev, event) => ({
-      kind: "blurred",
-      path: event.path,
-    }),
-  },
-};
+import { keepState, runTransitionActions } from "./typedTransitionTable";
+import { useTypedTransitionMachine } from "./useTypedTransitionMachine";
+import type {
+  TypedTransitionActionHandlerTable,
+  TypedTransitionResult,
+  TypedTransitionTable,
+} from "./typedTransitionTable";
 
 type RouteAddressSelection = {
   start: number;
@@ -123,9 +67,99 @@ export type RouteEditorEvent =
       type: "clickedInput";
     }
   | {
+      type: "pressedEscape";
+    }
+  | {
       path: string;
       type: "selectedSuggestion";
     };
+
+type RouteEditorAction = {
+  brand: "blurInput";
+};
+
+type RouteEditorActionHandlerTable = TypedTransitionActionHandlerTable<
+  RouteEditorAction["brand"],
+  RouteEditorAction
+>;
+
+type RouteEditorTransitionResult = TypedTransitionResult<RouteEditorState, RouteEditorAction>;
+
+type RouteEditorTransitionTable = TypedTransitionTable<
+  RouteEditorState["kind"],
+  RouteEditorEvent["type"],
+  RouteEditorState,
+  RouteEditorEvent,
+  RouteEditorTransitionResult
+>;
+
+const routeAddressComboboxTransition: RouteEditorTransitionTable = {
+  blurred: {
+    changedInput: (prev, event) =>
+      keepState({
+        ...prev,
+        path: event.path,
+      }),
+    changedSelection: keepState,
+    clickedInput: (prev, event) =>
+      keepState({
+        kind: "focused",
+        initialPath: prev.path,
+        latestPath: prev.path,
+        selection: event.selection,
+      }),
+    clickedOutside: keepState,
+    pressedEscape: (prev) => ({
+      actions: [{ brand: "blurInput" }],
+      state: prev,
+    }),
+    selectedSuggestion: (_prev, event) => ({
+      actions: [{ brand: "blurInput" }],
+      state: {
+        kind: "blurred",
+        path: event.path,
+      },
+    }),
+  },
+
+  focused: {
+    changedInput: (prev, event) =>
+      keepState({
+        ...prev,
+        latestPath: event.path,
+        selection: event.selection,
+      }),
+    changedSelection: (prev, event) =>
+      keepState({
+        ...prev,
+        selection: event.selection,
+      }),
+    clickedInput: (prev, event) =>
+      keepState({
+        ...prev,
+        selection: event.selection,
+      }),
+    clickedOutside: (prev) =>
+      keepState({
+        kind: "blurred",
+        path: prev.initialPath,
+      }),
+    pressedEscape: (prev) => ({
+      actions: [{ brand: "blurInput" }],
+      state: {
+        kind: "blurred",
+        path: prev.initialPath,
+      },
+    }),
+    selectedSuggestion: (_prev, event) => ({
+      actions: [{ brand: "blurInput" }],
+      state: {
+        kind: "blurred",
+        path: event.path,
+      },
+    }),
+  },
+};
 
 function readRouteAddressSelection(input: HTMLInputElement): RouteAddressSelection {
   const fallbackPosition = input.value.length;
@@ -139,198 +173,164 @@ function readRouteAddressSelection(input: HTMLInputElement): RouteAddressSelecti
   };
 }
 
-function logRouteAddressInputHandler(name: string, input: HTMLInputElement) {
-  console.log(name, {
-    selection: readRouteAddressSelection(input),
-    value: input.value,
-  });
-}
-
-function useRouterUrlVm({
-  location,
-  onDebugEvent,
-  onDebugStateChange,
-}: {
-  location: ReturnType<typeof useLocation>;
-  onDebugEvent?: (event: RouteEditorEvent) => void;
-  onDebugStateChange?: (state: RouteEditorState) => void;
-}) {
-  const store = useCreateStore<RouteEditorState>({
-    kind: "blurred",
-    path: location.pathname,
-  });
-
-  const state = useSelector(store);
-
-  useEffect(() => {
-    onDebugStateChange?.(state);
-  }, [state, onDebugStateChange]);
-
-  // TODO: will be moved to generic utility later
-  const sendEvent = useCallback(
-    (event: RouteEditorEvent) => {
-      onDebugEvent?.(event);
-
-      store.setState((prev) => {
-        const callback = routeAddressComboboxTransition[prev.kind][event.type];
-
-        // @ts-expect-error Cannot prove yet
-        const nextState = callback(prev, event);
-
-        console.log({
-          prev,
-          event,
-          nextState,
-        });
-
-        onDebugStateChange?.(nextState);
-
-        return nextState;
-      });
-    },
-    [onDebugEvent, onDebugStateChange, store],
-  );
-
-  return useMemo(
-    () => ({
-      store,
-      sendEvent,
-    }),
-    [store, sendEvent],
-  );
-}
-
-export function RouteAddressCombobox({
+function useRouteAddressComboboxVm({
   onDebugEvent,
   onDebugStateChange,
 }: RouteAddressComboboxProps) {
   const location = useLocation();
-
   const inputId = useId();
   const listboxId = useId();
-  const { store, sendEvent } = useRouterUrlVm({
-    location,
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const runRouteEditorTransitionActions = useCallback(
+    (actions: RouteEditorAction[]) => {
+      const actionHandlers: RouteEditorActionHandlerTable = {
+        blurInput: () => {
+          inputRef.current?.blur();
+        },
+      };
+
+      runTransitionActions(actionHandlers, actions);
+    },
+    [inputRef],
+  );
+
+  const { state, sendEvent } = useTypedTransitionMachine({
+    initialState: {
+      kind: "blurred",
+      path: location.pathname,
+    },
+    transitionTable: routeAddressComboboxTransition,
+    runActions: runRouteEditorTransitionActions,
     onDebugEvent,
     onDebugStateChange,
   });
 
-  const state = useSelector(store);
+  const handleInputFocus = useCallback(
+    (event: FocusEvent<HTMLInputElement>) => {
+      sendEvent({
+        selection: readRouteAddressSelection(event.currentTarget),
+        type: "clickedInput",
+      });
+    },
+    [sendEvent],
+  );
 
-  // MARK: Start Handlers
-  function handleInputFocus(event: FocusEvent<HTMLInputElement>) {
-    logRouteAddressInputHandler("onFocus", event.currentTarget);
-    sendEvent({
-      selection: readRouteAddressSelection(event.currentTarget),
-      type: "clickedInput",
-    });
-  }
+  const handleRootBlur = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      const nextFocusedElement = event.relatedTarget;
+      if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) {
+        return;
+      }
 
-  function hideDropdown() {
-    sendEvent({
-      type: "clickedOutside",
-    });
-  }
+      sendEvent({
+        type: "clickedOutside",
+      });
+    },
+    [sendEvent],
+  );
 
-  function handleRootBlur(event: FocusEvent<HTMLDivElement>) {
-    const nextFocusedElement = event.relatedTarget;
-    if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) {
-      return;
-    }
+  const handleInputKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== "Escape") {
+        return;
+      }
 
-    hideDropdown();
-  }
+      sendEvent({
+        type: "pressedEscape",
+      });
+    },
+    [sendEvent],
+  );
 
-  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    logRouteAddressInputHandler("onKeyDown", event.currentTarget);
-    if (event.key !== "Escape") {
-      return;
-    }
+  const handleInputSelect = useCallback(
+    (event: SyntheticEvent<HTMLInputElement>) => {
+      sendEvent({
+        selection: readRouteAddressSelection(event.currentTarget),
+        type: "changedSelection",
+      });
+    },
+    [sendEvent],
+  );
 
-    hideDropdown();
-    event.currentTarget.blur();
-  }
+  const handleInputChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      sendEvent({
+        path: event.currentTarget.value,
+        selection: readRouteAddressSelection(event.currentTarget),
+        type: "changedInput",
+      });
+    },
+    [sendEvent],
+  );
 
-  function handleInputKeyUp(event: KeyboardEvent<HTMLInputElement>) {
-    logRouteAddressInputHandler("onKeyUp", event.currentTarget);
-    sendEvent({
-      selection: readRouteAddressSelection(event.currentTarget),
-      type: "changedSelection",
-    });
-  }
-
-  function handleInputSelect(event: SyntheticEvent<HTMLInputElement>) {
-    logRouteAddressInputHandler("onSelect", event.currentTarget);
-    sendEvent({
-      selection: readRouteAddressSelection(event.currentTarget),
-      type: "changedSelection",
-    });
-  }
-
-  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
-    logRouteAddressInputHandler("onChange", event.currentTarget);
-    sendEvent({
-      path: event.currentTarget.value,
-      selection: readRouteAddressSelection(event.currentTarget),
-      type: "changedInput",
-    });
-  }
-
-  function handleSuggestionMouseDown(event: MouseEvent<HTMLDivElement>, routeAddress: string) {
-    event.preventDefault();
-    sendEvent({
-      path: routeAddress,
-      type: "selectedSuggestion",
-    });
-
-    const activeElement = event.currentTarget.ownerDocument.activeElement;
-    if (activeElement instanceof HTMLElement) {
-      activeElement.blur();
-    }
-  }
-
-  // MARK: End Handlers
+  const handleSuggestionMouseDown = useCallback(
+    (event: MouseEvent<HTMLDivElement>, routeAddress: string) => {
+      event.preventDefault();
+      sendEvent({
+        path: routeAddress,
+        type: "selectedSuggestion",
+      });
+    },
+    [sendEvent],
+  );
 
   const inputValue = state.kind === "blurred" ? state.path : state.latestPath;
   const suggestionsVisible = state.kind === "focused";
 
+  return {
+    getSuggestionProps: (routeAddress: string) => ({
+      onMouseDown: (event: MouseEvent<HTMLDivElement>) =>
+        handleSuggestionMouseDown(event, routeAddress),
+    }),
+    inputProps: {
+      "aria-controls": suggestionsVisible ? listboxId : undefined,
+      "aria-expanded": suggestionsVisible,
+      "aria-haspopup": "listbox" as const,
+      autoComplete: "off",
+      id: inputId,
+      onChange: handleInputChange,
+      onFocus: handleInputFocus,
+      onKeyDown: handleInputKeyDown,
+      onSelect: handleInputSelect,
+      ref: inputRef,
+      value: inputValue,
+    },
+    listboxProps: {
+      id: listboxId,
+    },
+    rootProps: {
+      "data-state": state.kind,
+      onBlur: handleRootBlur,
+    },
+    state,
+    suggestionsVisible,
+  };
+}
+
+export function RouteAddressCombobox(props: RouteAddressComboboxProps) {
+  const vm = useRouteAddressComboboxVm(props);
+
   return (
-    <div
-      className="grid w-full gap-2"
-      data-state={state.kind}
-      data-testid="route-address-combobox"
-      onBlur={handleRootBlur}
-    >
-      <label className="sr-only" htmlFor={inputId}>
+    <div {...vm.rootProps} className="grid w-full gap-2" data-testid="route-address-combobox">
+      <label className="sr-only" htmlFor={vm.inputProps.id}>
         Route address
       </label>
-      <Input
-        aria-controls={suggestionsVisible ? listboxId : undefined}
-        aria-expanded={suggestionsVisible}
-        aria-haspopup="listbox"
-        autoComplete="off"
-        data-testid="route-address-combobox-input"
-        id={inputId}
-        onChange={handleInputChange}
-        onFocus={handleInputFocus}
-        onKeyDown={handleInputKeyDown}
-        onKeyUp={handleInputKeyUp}
-        onSelect={handleInputSelect}
-        value={inputValue}
-      />
-      {suggestionsVisible ? (
+      <Input {...vm.inputProps} data-testid="route-address-combobox-input" />
+      {vm.suggestionsVisible ? (
         <Command
           className="h-auto rounded-md! border border-border bg-background shadow-xs"
           data-testid="route-address-combobox-suggestions"
           label="Route address suggestions"
           shouldFilter={false}
         >
-          <CommandList id={listboxId}>
+          <CommandList {...vm.listboxProps}>
             <CommandGroup heading="Suggestions">
               {routeAddressComboboxSuggestions.map((suggestion) => (
                 <CommandItem
                   data-testid="route-address-combobox-suggestion"
                   key={suggestion.routeAddress}
-                  onMouseDown={(event) => handleSuggestionMouseDown(event, suggestion.routeAddress)}
+                  {...vm.getSuggestionProps(suggestion.routeAddress)}
                   value={suggestion.routeAddress}
                 >
                   <span className="min-w-0 truncate font-mono">{suggestion.routeAddress}</span>
