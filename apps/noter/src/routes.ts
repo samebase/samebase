@@ -41,6 +41,7 @@ export const routes = rootRoute("root.tsx", [
   route(DASHBOARD_ROUTE, "dashboard-home.tsx"),
   route("/pricing", "pricing.tsx"),
   route("/add", "add-repository.tsx"),
+  route("/research/route-address-combobox", "route-address-combobox-research.tsx"),
   route("/research/route-url-editor-state-machine", "route-url-editor-state-machine.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),
   route(MACHINE_CONNECT_ROUTE, "machine-connect.tsx"),
