@@ -4,6 +4,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { RouteAddressCombobox, type RouteAddressComboboxState } from "./RouteAddressCombobox";
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;
 Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
@@ -51,7 +52,11 @@ describe("RouteAddressCombobox", () => {
     root = mountedRoot;
 
     act(() => {
-      mountedRoot.render(<RouteAddressCombobox onDebugStateChange={onDebugStateChange} />);
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={["/machines"]}>
+          <RouteAddressCombobox onDebugStateChange={onDebugStateChange} />
+        </TestRouterProvider>,
+      );
     });
 
     return readRequiredInput();
@@ -87,11 +92,21 @@ describe("RouteAddressCombobox", () => {
     const input = renderCombobox(onDebugStateChange);
 
     act(() => {
+      input.setSelectionRange(2, 4, "forward");
       input.focus();
     });
 
     expect(readSuggestions()).not.toBeNull();
-    expect(onDebugStateChange).toHaveBeenCalledWith({ kind: "focused" });
+    expect(onDebugStateChange).toHaveBeenCalledWith({
+      initialPath: "/machines",
+      kind: "focused",
+      latestPath: "/machines",
+      selection: {
+        direction: "forward",
+        end: 4,
+        start: 2,
+      },
+    });
   });
 
   it("closes the dropdown on escape and reports the blurred state", () => {
@@ -106,6 +121,9 @@ describe("RouteAddressCombobox", () => {
     });
 
     expect(readSuggestions()).toBeNull();
-    expect(onDebugStateChange).toHaveBeenLastCalledWith({ kind: "blurred" });
+    expect(onDebugStateChange).toHaveBeenLastCalledWith({
+      kind: "blurred",
+      path: "/machines",
+    });
   });
 });
