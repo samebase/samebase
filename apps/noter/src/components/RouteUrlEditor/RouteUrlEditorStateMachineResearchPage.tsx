@@ -10,6 +10,7 @@ import {
   type RouteUrlEditorTouchScrollPickerMetrics,
   type RouteUrlEditorXStateInspect,
 } from "./RouteUrlEditor";
+import { RouteAddressCombobox, type RouteAddressComboboxState } from "./RouteAddressCombobox";
 import { routeUrlEditorXStateStoreEventTypes } from "./RouteUrlEditorXState";
 import { Textarea } from "@/components/ui/textarea";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -394,6 +395,8 @@ function RouteUrlEditorXStateInspectorPanel({
 }
 
 export function RouteUrlEditorStateMachineResearchPage() {
+  const [routeAddressComboboxState, setRouteAddressComboboxState] =
+    useState<RouteAddressComboboxState>({ kind: "blurred" });
   const [debugState, setDebugState] = useState<RouteUrlEditorDebugState | null>(null);
   const [statelyInspector, setStatelyInspector] = useState<RouteUrlEditorStatelyInspector | null>(
     null,
@@ -418,6 +421,10 @@ export function RouteUrlEditorStateMachineResearchPage() {
     [debugState?.xstate],
   );
   const formattedDebugState = useMemo(() => formatJson(debugState), [debugState]);
+  const formattedRouteAddressComboboxState = useMemo(
+    () => formatJson(routeAddressComboboxState),
+    [routeAddressComboboxState],
+  );
 
   useEffect(() => {
     const inspector = createBrowserInspector({
@@ -461,6 +468,20 @@ export function RouteUrlEditorStateMachineResearchPage() {
 
   return (
     <main className="grid min-h-screen gap-4 bg-background p-4 text-foreground">
+      <div className="grid max-w-3xl gap-2" data-testid="route-address-combobox-research-fixture">
+        <RouteAddressCombobox onDebugStateChange={setRouteAddressComboboxState} />
+        <label className="font-mono text-sm" htmlFor="route-address-combobox-state-json">
+          RouteAddressCombobox state
+        </label>
+        <Textarea
+          readOnly
+          id="route-address-combobox-state-json"
+          value={formattedRouteAddressComboboxState}
+          aria-label="RouteAddressCombobox state"
+          data-testid="route-address-combobox-state-json"
+          className="min-h-24 resize-y rounded-none font-mono text-sm"
+        />
+      </div>
       <div
         className="mb-96 flex h-8 min-w-0 items-center gap-2"
         data-testid="route-url-editor-state-machine-live-editor"
