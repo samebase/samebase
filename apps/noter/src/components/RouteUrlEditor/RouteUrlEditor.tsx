@@ -45,7 +45,7 @@ import {
 import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { isRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
   "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
@@ -1002,14 +1002,6 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
     },
     [setDraftRouteAddressAction],
   );
-  const {
-    activeIndex: activeSuggestionIndex,
-    baseRouteAddress: suggestionBaseRouteAddress,
-    dismissed: suggestionsDismissed,
-    draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
-    kind: suggestionKind,
-    selectionRouteIndex,
-  } = suggestionState;
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
   const latestRouteHref = currentHrefRef.current;
   const draftHref = normalizeRouteUrlEditorHref({
@@ -1023,24 +1015,24 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
   const suggestionCurrentHref = previewBaseHrefRef.current ?? latestRouteHref;
   const suggestions = readRouteUrlEditorSuggestions({
     currentHref: suggestionCurrentHref,
-    draftEditedSinceFocus: suggestionDraftEditedSinceFocus,
-    draftRouteAddress: suggestionBaseRouteAddress,
+    draftEditedSinceFocus: suggestionState.draftEditedSinceFocus,
+    draftRouteAddress: suggestionState.baseRouteAddress,
     hashKeys: documentHashSuggestionKeys,
-    kind: suggestionKind,
+    kind: suggestionState.kind,
     origin,
     routesByPath: router.routesByPath,
-    selectionRouteIndex,
+    selectionRouteIndex: suggestionState.selectionRouteIndex,
     viewer: { isAdmin: viewerIsAdmin === true },
   });
   const suggestionCount = suggestions.length;
-  const suggestionsVisible = inputFocused && !suggestionsDismissed && suggestions.length > 0;
+  const suggestionsVisible = inputFocused && !suggestionState.dismissed && suggestions.length > 0;
   const touchScrollPickerVisible = touchScrollPickerEnabled && touchScrollPickerMetrics !== null;
   const activeSuggestion =
-    activeSuggestionIndex === null ? undefined : suggestions[activeSuggestionIndex];
+    suggestionState.activeIndex === null ? undefined : suggestions[suggestionState.activeIndex];
   const activeSuggestionId =
-    suggestionsVisible && activeSuggestionIndex !== null
+    suggestionsVisible && suggestionState.activeIndex !== null
       ? readRouteUrlEditorSuggestionOptionId({
-          index: activeSuggestionIndex,
+          index: suggestionState.activeIndex,
           suggestionsId,
         })
       : undefined;
@@ -1068,7 +1060,7 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
 
     onDebugStateChange({
       activeSuggestionId,
-      activeSuggestionIndex,
+      activeSuggestionIndex: suggestionState.activeIndex,
       canGoBack,
       canGoForward,
       currentHref,
@@ -1102,7 +1094,6 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
     });
   }, [
     activeSuggestionId,
-    activeSuggestionIndex,
     canGoBack,
     canGoForward,
     currentHref,
@@ -1201,7 +1192,7 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
       return;
     }
 
-    if (inputFocused && suggestionDraftEditedSinceFocus) {
+    if (inputFocused && suggestionState.draftEditedSinceFocus) {
       return;
     }
 
@@ -1213,7 +1204,7 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
     patchSuggestionState,
     router,
     setDraftRouteAddress,
-    suggestionDraftEditedSinceFocus,
+    suggestionState.draftEditedSinceFocus,
   ]);
 
   useEffect(() => {
@@ -1906,8 +1897,8 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
 
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
         mode: "preview",
-        routeAddress: suggestionBaseRouteAddress,
-        selectionRouteIndex,
+        routeAddress: suggestionState.baseRouteAddress,
+        selectionRouteIndex: suggestionState.selectionRouteIndex,
         suggestion: nextSuggestion,
       });
 
@@ -1924,9 +1915,9 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
     },
     [
       previewDraftRouteAddress,
-      selectionRouteIndex,
-      suggestionBaseRouteAddress,
       setDraftRouteAddress,
+      suggestionState.baseRouteAddress,
+      suggestionState.selectionRouteIndex,
       suggestions,
       updateSuggestionState,
     ],
@@ -1990,7 +1981,7 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
       suggestions.length - 1,
       Math.max(0, Math.round(suggestionsElement.scrollTop / routeUrlEditorSuggestionRowHeightPx)),
     );
-    if (nextActiveSuggestionIndex === activeSuggestionIndex) {
+    if (nextActiveSuggestionIndex === suggestionState.activeIndex) {
       return;
     }
 
@@ -1998,8 +1989,8 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
     touchScrollPreviewDraftRouteAddressRef.current =
       previewSuggestionByIndex(nextActiveSuggestionIndex);
   }, [
-    activeSuggestionIndex,
     previewSuggestionByIndex,
+    suggestionState.activeIndex,
     suggestions.length,
     suggestionsVisible,
     touchScrollPickerEnabled,
@@ -2078,16 +2069,16 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
       }
 
       const nextActiveSuggestionIndex =
-        activeSuggestionIndex === null
+        suggestionState.activeIndex === null
           ? step > 0
             ? 0
             : suggestions.length - 1
-          : (activeSuggestionIndex + step + suggestions.length) % suggestions.length;
+          : (suggestionState.activeIndex + step + suggestions.length) % suggestions.length;
       previewSuggestionByIndex(nextActiveSuggestionIndex);
     },
     [
-      activeSuggestionIndex,
       previewSuggestionByIndex,
+      suggestionState.activeIndex,
       suggestions,
       suggestionsVisible,
       updateSuggestionState,
@@ -2102,8 +2093,8 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
       pointerPreviewBaseRef.current = null;
       const nextDraftRouteAddress = applyRouteUrlEditorSuggestion({
         mode: "select",
-        routeAddress: suggestionBaseRouteAddress,
-        selectionRouteIndex,
+        routeAddress: suggestionState.baseRouteAddress,
+        selectionRouteIndex: suggestionState.selectionRouteIndex,
         suggestion,
       });
       const routeUpdateReady = isRouteUrlEditorRouteUpdateReady({
@@ -2239,9 +2230,9 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
       origin,
       patchSuggestionState,
       router.routesByPath,
-      selectionRouteIndex,
       setDraftRouteAddress,
-      suggestionBaseRouteAddress,
+      suggestionState.baseRouteAddress,
+      suggestionState.selectionRouteIndex,
       viewerIsAdmin,
     ],
   );
@@ -2415,7 +2406,7 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
                 ? routeUrlEditorTouchSuggestionsScrollportClassName
                 : routeUrlEditorSuggestionsScrollportClassName
             }
-            data-suggestion-kind={suggestionKind}
+            data-suggestion-kind={suggestionState.kind}
             data-testid="route-url-editor-suggestions"
             id={suggestionsId}
             onMouseLeave={() => {
@@ -2431,7 +2422,7 @@ export function RouteUrlEditor({ onDebugStateChange, xstateInspect }: RouteUrlEd
               />
             ) : null}
             {suggestions.map((suggestion, suggestionIndex) => {
-              const active = suggestionIndex === activeSuggestionIndex;
+              const active = suggestionIndex === suggestionState.activeIndex;
               const suggestionLabel = readRouteUrlEditorSuggestionLabel(suggestion);
               return (
                 <button

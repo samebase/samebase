@@ -12,7 +12,7 @@ import { useConvexAuth } from "convex/react";
 import { useLocation } from "@tanstack/react-router";
 import { AppSidebarMetaRoutePreviewProvider } from "@/components/AppSidebarMetaSection";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
-import { RouteUrlEditor } from "@/components/RouteUrlEditor";
+import { RouteUrlEditor } from "@/components/RouteUrlEditor/RouteUrlEditor";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
   WorkspacePaneRuntimeProvider,

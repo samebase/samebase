@@ -1,4 +1,4 @@
-import { RouteUrlEditorStateMachineResearchPage } from "@/components/RouteUrlEditorStateMachineResearchPage";
+import { RouteUrlEditorStateMachineResearchPage } from "@/components/RouteUrlEditor/RouteUrlEditorStateMachineResearchPage";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 import { RoutedPage } from "./-publicRouteComponents";
