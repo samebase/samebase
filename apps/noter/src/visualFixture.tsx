@@ -100,7 +100,7 @@ import {
 import {
   RouteUrlEditorVisualFixture,
   type RouteUrlEditorVisualMode,
-} from "@/components/RouteUrlEditorVisualFixture";
+} from "@/components/RouteUrlEditor/RouteUrlEditorVisualFixture";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import "./index.css";
 

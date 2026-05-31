@@ -9,8 +9,8 @@ import {
   type RouteUrlEditorSuggestionState,
   type RouteUrlEditorTouchScrollPickerMetrics,
   type RouteUrlEditorXStateInspect,
-} from "@/components/RouteUrlEditor";
-import { routeUrlEditorXStateStoreEventTypes } from "@/components/RouteUrlEditorXState";
+} from "./RouteUrlEditor";
+import { routeUrlEditorXStateStoreEventTypes } from "./RouteUrlEditorXState";
 import { Textarea } from "@/components/ui/textarea";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
