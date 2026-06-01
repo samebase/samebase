@@ -1,9 +1,11 @@
 import type { ChangeEvent, FocusEvent, KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
-import { useCallback, useId, useRef } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "@tanstack/react-router";
 import { includes } from "@noter-md/dependent";
+import { readIsomorphicOrigin } from "@/lib/isomorphic";
+import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { keepState, runTransitionActions } from "./typedTransitionTable";
 import { useTypedTransitionMachine } from "./useTypedTransitionMachine";
 import type {
@@ -21,12 +23,14 @@ type RouteAddressSelection = {
 export type RouteEditorState =
   | {
       kind: "blurred";
+      origin: string;
       path: string;
     }
   | {
       kind: "focused";
       initialPath: string;
       latestPath: string;
+      origin: string;
       selection: RouteAddressSelection;
     };
 
@@ -93,6 +97,25 @@ type RouteEditorTransitionTable = TypedTransitionTable<
   RouteEditorTransitionResult
 >;
 
+function readRouteAddressFocusedDraft(routeAddress: string): string {
+  if (routeAddress === "/") {
+    return routeAddress;
+  }
+
+  const continuation = routeAddress.includes("?") ? "&" : "?";
+  return `${routeAddress}${continuation}`;
+}
+
+function readRouteAddressFromInputValue(inputValue: string): string {
+  const url = new URL(inputValue);
+  const routeAddress = `${url.pathname}${url.search}`;
+  if (inputValue.endsWith("?") && url.search.length === 0) {
+    return `${url.pathname}?`;
+  }
+
+  return routeAddress;
+}
+
 const routeAddressComboboxTransition: RouteEditorTransitionTable = {
   blurred: {
     changedInput: (prev, event) =>
@@ -105,7 +128,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       keepState({
         kind: "focused",
         initialPath: prev.path,
-        latestPath: prev.path,
+        latestPath: readRouteAddressFocusedDraft(prev.path),
+        origin: prev.origin,
         selection: event.selection,
       }),
     clickedOutside: keepState,
@@ -113,10 +137,11 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       actions: [{ brand: "blurInput" }],
       state: prev,
     }),
-    selectedSuggestion: (_prev, event) => ({
+    selectedSuggestion: (prev, event) => ({
       actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
+        origin: prev.origin,
         path: event.path,
       },
     }),
@@ -139,22 +164,29 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         ...prev,
         selection: event.selection,
       }),
-    clickedOutside: (prev) =>
-      keepState({
+    clickedOutside: (prev) => {
+      const url = new URL(prev.latestPath, prev.origin);
+      const search = stringifyTanStackSearch(parseTanStackSearch(url.search));
+
+      return keepState({
         kind: "blurred",
-        path: prev.initialPath,
-      }),
+        origin: prev.origin,
+        path: `${url.pathname}${search}`,
+      });
+    },
     pressedEscape: (prev) => ({
       actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
+        origin: prev.origin,
         path: prev.initialPath,
       },
     }),
-    selectedSuggestion: (_prev, event) => ({
+    selectedSuggestion: (prev, event) => ({
       actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
+        origin: prev.origin,
         path: event.path,
       },
     }),
@@ -178,6 +210,7 @@ function useRouteAddressComboboxVm({
   onDebugStateChange,
 }: RouteAddressComboboxProps) {
   const location = useLocation();
+  const [origin] = useState(readIsomorphicOrigin);
   const inputId = useId();
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -198,7 +231,8 @@ function useRouteAddressComboboxVm({
   const { state, sendEvent } = useTypedTransitionMachine({
     initialState: {
       kind: "blurred",
-      path: location.pathname,
+      origin,
+      path: `${location.pathname}${location.searchStr}`,
     },
     transitionTable: routeAddressComboboxTransition,
     runActions: runRouteEditorTransitionActions,
@@ -256,7 +290,7 @@ function useRouteAddressComboboxVm({
   const handleInputChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       sendEvent({
-        path: event.currentTarget.value,
+        path: readRouteAddressFromInputValue(event.currentTarget.value),
         selection: readRouteAddressSelection(event.currentTarget),
         type: "changedInput",
       });
@@ -275,7 +309,9 @@ function useRouteAddressComboboxVm({
     [sendEvent],
   );
 
-  const inputValue = state.kind === "blurred" ? state.path : state.latestPath;
+  const routeAddress = state.kind === "blurred" ? state.path : state.latestPath;
+  const inputValue = new URL(routeAddress, state.origin).href;
+  const suggestions = routeAddressComboboxSuggestions;
   const suggestionsVisible = state.kind === "focused";
 
   return {
@@ -304,6 +340,7 @@ function useRouteAddressComboboxVm({
       onBlur: handleRootBlur,
     },
     state,
+    suggestions,
     suggestionsVisible,
   };
 }
@@ -326,7 +363,7 @@ export function RouteAddressCombobox(props: RouteAddressComboboxProps) {
         >
           <CommandList {...vm.listboxProps}>
             <CommandGroup heading="Suggestions">
-              {routeAddressComboboxSuggestions.map((suggestion) => (
+              {vm.suggestions.map((suggestion) => (
                 <CommandItem
                   data-testid="route-address-combobox-suggestion"
                   key={suggestion.routeAddress}

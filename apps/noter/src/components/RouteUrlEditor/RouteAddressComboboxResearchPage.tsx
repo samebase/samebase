@@ -1,7 +1,6 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { useCallback } from "react";
 import {
   RouteAddressCombobox,
   type RouteEditorEvent,
@@ -9,23 +8,25 @@ import {
 } from "./RouteAddressCombobox";
 
 type RouteAddressComboboxResearchState = {
-  combobox: RouteEditorState;
+  combobox: RouteEditorState | null;
   events: readonly RouteEditorEvent[];
 };
 
 function useRouteAddressComboboxResearchStore() {
-  return useCreateStore<RouteAddressComboboxResearchState>({
-    combobox: { kind: "blurred", path: "" },
+  const initialState: RouteAddressComboboxResearchState = {
+    combobox: null,
     events: [],
-  });
-}
+  };
 
-export function RouteAddressComboboxResearchPage() {
-  const store = useRouteAddressComboboxResearchStore();
-  const state = useSelector(store);
-  const setComboboxState = useCallback(
-    (combobox: RouteEditorState) => {
-      store.setState((currentState) =>
+  return useCreateStore(initialState, ({ setState }) => ({
+    appendComboboxEvent: (event: RouteEditorEvent) => {
+      setState((currentState) => ({
+        ...currentState,
+        events: [...currentState.events, event],
+      }));
+    },
+    setComboboxState: (combobox: RouteEditorState) => {
+      setState((currentState) =>
         currentState.combobox === combobox
           ? currentState
           : {
@@ -34,17 +35,13 @@ export function RouteAddressComboboxResearchPage() {
             },
       );
     },
-    [store],
-  );
-  const appendComboboxEvent = useCallback(
-    (event: RouteEditorEvent) => {
-      store.setState((currentState) => ({
-        ...currentState,
-        events: [...currentState.events, event],
-      }));
-    },
-    [store],
-  );
+  }));
+}
+
+export function RouteAddressComboboxResearchPage() {
+  const store = useRouteAddressComboboxResearchStore();
+  const state = useSelector(store);
+  const { appendComboboxEvent, setComboboxState } = store.actions;
   const stateJson = JSON.stringify(state, null, 2);
 
   return (

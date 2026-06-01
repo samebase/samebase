@@ -45,7 +45,10 @@ describe("RouteAddressCombobox", () => {
     vi.unstubAllGlobals();
   });
 
-  function renderCombobox(onDebugStateChange?: (state: RouteAddressComboboxState) => void) {
+  function renderCombobox(
+    onDebugStateChange?: (state: RouteAddressComboboxState) => void,
+    initialEntries = ["/machines"],
+  ) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -53,7 +56,7 @@ describe("RouteAddressCombobox", () => {
 
     act(() => {
       mountedRoot.render(
-        <TestRouterProvider initialEntries={["/machines"]}>
+        <TestRouterProvider initialEntries={initialEntries}>
           <RouteAddressCombobox onDebugStateChange={onDebugStateChange} />
         </TestRouterProvider>,
       );
@@ -100,13 +103,59 @@ describe("RouteAddressCombobox", () => {
     expect(onDebugStateChange).toHaveBeenCalledWith({
       initialPath: "/machines",
       kind: "focused",
-      latestPath: "/machines",
+      latestPath: "/machines?",
+      origin: "http://localhost:3000",
       selection: {
         direction: "forward",
         end: 4,
         start: 2,
       },
     });
+  });
+
+  it("does not add an empty search marker on focus for the root route", () => {
+    const input = renderCombobox(undefined, ["/"]);
+
+    act(() => {
+      input.focus();
+    });
+
+    expect(input.value).toBe("http://localhost:3000/");
+  });
+
+  it("adds an empty search marker on focus for non-root routes", () => {
+    const input = renderCombobox();
+
+    act(() => {
+      input.focus();
+    });
+
+    expect(input.value).toBe("http://localhost:3000/machines?");
+  });
+
+  it("adds an empty next-param marker on focus when search params already exist", () => {
+    const input = renderCombobox(undefined, ["/logo?leftFace=secondary"]);
+
+    act(() => {
+      input.focus();
+    });
+
+    expect(input.value).toBe("http://localhost:3000/logo?leftFace=secondary&");
+  });
+
+  it("normalizes the empty search marker away on blur", () => {
+    const input = renderCombobox();
+
+    act(() => {
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.focus();
+    });
+    act(() => {
+      input.blur();
+    });
+
+    expect(input.value).toBe("http://localhost:3000/machines");
+    expect(readSuggestions()).toBeNull();
   });
 
   it("closes the dropdown on escape and reports the blurred state", () => {
@@ -123,6 +172,7 @@ describe("RouteAddressCombobox", () => {
     expect(readSuggestions()).toBeNull();
     expect(onDebugStateChange).toHaveBeenLastCalledWith({
       kind: "blurred",
+      origin: "http://localhost:3000",
       path: "/machines",
     });
   });
