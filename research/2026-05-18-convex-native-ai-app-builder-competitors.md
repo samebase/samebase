@@ -5,7 +5,7 @@
 - Status: Draft research
 - Owner: Noter market positioning and recommended app stack
 - Created: 2026-05-18
-- Last checked: 2026-05-25
+- Last checked: 2026-06-01
 
 ## Prompt
 
@@ -30,6 +30,35 @@ positions editable workflow graphs as the antidote to black-box AI-generated bac
 Mobile-native Convex app builders are also clustering around Expo, React Native, and Convex. That
 category includes BNA, Vibra Code, Bloom, and a0.dev.
 
+June 1 update: `CLONK` should be added as a likely direct watch target, but not yet as a confirmed
+Convex-default builder. Its homepage advertises one-shot full-stack app generation, Expo mobile
+apps, one-click deploy, existing Claude Code/Codex usage, and "Backend Pre-Cooked convex". That is
+strong public stack evidence, but generated-output evidence is still needed before treating Convex
+as proven default.
+
+## High-Priority Watch Items
+
+### 2026-06-01
+
+1. `cto.new` is pushing beyond hosted app generation into a free local CLI. The new CLI page says
+   users can build web apps, mobile apps, CLIs, and AI agents locally, with Convex built in for auth
+   and database, one-click deployment, multi-agent teams, web browsing, email, scheduling, and MCP
+   or skills support. The CLI docs say it runs on Mac and Linux and is a provider/plugin built on
+   OpenCode. This matters because cto.new is no longer only competing on prompt-to-hosted-app; it is
+   moving into the local operator workflow where Noter wants durable source and environment control.
+2. `VibeFlow` now has stronger public control-plane evidence. Its MCP docs expose project tools to
+   initiate builds, poll status, open editor URLs, export flow JSON, and manage design systems from
+   MCP-compatible clients. Its founder page shows generated `convex/` code and says workflows get a
+   real database, auth, TypeScript code, export, and optional generated UI. Its terms say deployed
+   applications utilize Convex infrastructure and discuss Convex usage monitoring and billing. This
+   strengthens VibeFlow as a direct control-and-observability competitor, not just a prompt builder.
+3. Convex added more app-builder substrate: the Platform API docs now describe per-deployment usage
+   tracking for AI app builders that create many deployments, and the May 29 Convex releases add
+   typesafe environment variable declarations, request metadata, local deployment options, and
+   snapshot queries. This is not competitor movement by itself, but it reduces the amount of custom
+   platform work Convex-native builders need for metering, quotas, abuse response, and reliable
+   generated-app operations.
+
 ## Direct Web Competitors
 
 ### cto.new
@@ -50,6 +79,18 @@ May 25 update: the latest public changelog entry found is April 30, 2026. Materi
 the baseline includes improved Convex dashboard support, Expo app generation and preview support,
 agent team marketplace features, email wakeups for agents, and reliability work around preview
 recovery, restart handling, proxy behavior, and sandbox cleanup.
+
+June 1 update: the latest public changelog entry found is still April 30, 2026, but cto.new has a
+new public CLI surface:
+
+- CLI evidence: [cto.new CLI](https://cto.new/cli) and [CLI docs](https://docs.cto.new/cli)
+- GitHub evidence: [Engine Labs GitHub](https://github.com/Engine-Labs)
+
+The CLI page advertises a free local builder for web apps, mobile apps, agents, and CLIs, with
+Convex built in for auth and database, one-click deployment, cloud sandboxes, multi-agent teams, and
+MCP or skills support. The GitHub org shows public `homebrew-cto` and `cto-cli` repositories updated
+May 18, 2026. Competitive read: treat cto.new as a local-workflow competitor now, not only a hosted
+AI web-app-builder competitor.
 
 ### Converge
 
@@ -72,6 +113,10 @@ default, assets stored in the project's Convex backend, Claude 4.6 model default
 custom domains through Netlify, sandbox reliability, and components for maps, email, payments,
 scheduled tasks, RAG, and AI agents.
 
+June 1 update: no newer public changelog entry was found after February 26, 2026. Converge remains a
+direct narrative competitor because the changelog and positioning still say generated apps use
+Convex and project assets live in the project's Convex backend.
+
 ### VibeFlow
 
 - URL: [VibeFlow docs](https://docs.vibeflow.ai/introduction)
@@ -90,10 +135,25 @@ backend logic, not only prompt-to-UI generation. GitHub sync, frontend import or
 custom domains, integrations, and visual workflow graphs all overlap with the "make generated apps
 operable and inspectable" part of Noter's thesis.
 
+June 1 update:
+
+- MCP evidence: [VibeFlow MCP](https://docs.vibeflow.ai/features/mcp)
+- Founder positioning evidence: [VibeFlow for Founders](https://vibeflow.ai/founders/)
+- Terms evidence: [VibeFlow terms](https://app.vibeflow.ai/terms)
+
+VibeFlow now publicly documents an MCP server for editor-based project creation and control. The
+`initiate_project` tool handles workflows, database, frontend, and auth when needed; other tools
+poll build status, open editor URLs, export flow JSON, and manage design systems. The founder page
+shows a generated `convex/` folder and Convex imports in the code layer, and the terms say deployed
+applications use Convex infrastructure with usage monitoring and user responsibility for Convex
+charges. Competitive read: this makes VibeFlow more directly comparable to a Noter control plane
+because it exposes app creation through MCP and talks about per-app Convex cost management.
+
 ### Chef by Convex
 
 - URL: [Meet Chef](https://news.convex.dev/meet-chef/)
 - Platform update evidence: [Ship by Convex](https://ship.convex.dev/)
+- Platform API evidence: [Tracking Usage](https://docs.convex.dev/platform-apis/track-usage)
 - Directness: High, but platform-owned
 
 Chef is the official Convex app builder/reference product. It is a direct Convex-backed
@@ -106,6 +166,14 @@ expectations, and seed patterns that independent builders copy or specialize.
 May 25 update: Convex's May 8, 2026 release added deployment-token support for scripts that
 configure agent environments with access scoped to their own cloud deployment. That is not
 Chef-specific, but it strengthens the operational substrate for Convex-native AI app builders.
+
+June 1 update: Convex's May 29, 2026 releases added typesafe required environment variables, request
+metadata in mutations and actions, local deployment selection improvements, and snapshot queries.
+Convex's Platform API docs now explicitly describe tracking usage for products like AI app builders
+that create one Convex deployment per generated app. Competitive read: Chef and the broader Convex
+ecosystem are making metering, generated deployment management, and agent-risk reduction more
+first-class, which can narrow Noter's infrastructure differentiation unless Noter stays ahead on
+operator workflow and auditability.
 
 ### Vly
 
@@ -126,6 +194,37 @@ homepage emphasizes vly agent 2.0, Claude Code, OpenAI Codex, Gemini CLI, Convex
 backend visualization, 1000+ integrations, and a $3 starting price. A trust/reputation watch item is
 also warranted: Trustpilot currently marks Vly's rating unavailable due to a guidelines breach and
 says the company is displaying Trustpilot content in a misleading way.
+
+June 1 update:
+
+- Feature docs: [Vly features](https://docs.vly.ai/features)
+- Database docs: [Vly database access](https://docs.vly.ai/features/database-access)
+- Versioning docs: [Vly version control](https://docs.vly.ai/features/version-control)
+
+Vly's docs now publicly detail direct Convex database access through a Vly interface, with
+development and production environments, schema visualization and editing, query history, JSON/CSV
+export, environment variables, and role-based access. The feature overview also lists automatic
+checkpoints, Git-based versioning, rollback, and branch management; the versioning page says every
+AI iteration creates a git checkpoint and collaborators stay synced when reverting. Competitive
+read: Vly is explicitly competing on backend visibility and safe rollback now, not only generation
+and deployment. The Trustpilot warning remained visible in the June 1 pass.
+
+### CLONK
+
+- URL: [CLONK](https://www.clonk.ai/)
+- Convex evidence: homepage says "Backend Pre-Cooked convex" and lists Convex in the "build with"
+  stack.
+- Directness: Likely high, but generated-output evidence still needed
+
+CLONK positions itself as a low-cost one-shot full-stack app builder and Mac app for commanding code
+agents. It advertises real deployed apps, one-click deploy, full-stack apps with auth, database,
+payments, deployment, Expo mobile apps, Vercel, GitHub, Convex, Claude Code, OpenAI Codex, and
+pricing framed against Lovable, Bolt, Replit, and other credit-burning builders.
+
+Convex read: public evidence makes Convex look like a core backend choice, but it does not yet prove
+that every generated app uses Convex by default. Competitive read: monitor immediately because its
+positioning attacks the same failure loop as Convex-native builders: "real deployed apps, not
+mockups", cheaper than credit-based builders, and backend pre-wired.
 
 ## Mobile And Native Convex Builders
 
@@ -221,6 +320,12 @@ default Convex backend path.
 May 25 update: no new public evidence was found that Bolt, Lovable, Replit, v0, or Blink now use
 Convex as a default generated backend path.
 
+June 1 update: no new public evidence was found that Bolt, Lovable, Replit, v0, or Blink now use
+Convex as a default generated backend path. v0's May 2026 changelog and full-stack docs are still
+worth watching because v0 is adding stronger full-stack project, Git, sandbox, terminal, and Python
+services support, but its full-stack docs say v0 defaults to Next.js and connects to databases such
+as Supabase, Neon, and Upstash rather than Convex by default.
+
 ## Market Interpretation
 
 The competitive pattern is:
@@ -261,6 +366,8 @@ Search phrases worth reusing:
 - `"VibeFlow" "Convex"`
 - `"VibeFlow" "GitHub" "Convex"`
 - `"Lovable" "n8n" "Convex"`
+- `"CLONK" "Convex"`
+- `"Backend Pre-Cooked" "convex"`
 
 New findings should update this document with:
 
