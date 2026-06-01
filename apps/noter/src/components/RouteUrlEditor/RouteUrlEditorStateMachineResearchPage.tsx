@@ -396,7 +396,7 @@ function RouteUrlEditorXStateInspectorPanel({
 
 export function RouteUrlEditorStateMachineResearchPage() {
   const [routeAddressComboboxState, setRouteAddressComboboxState] =
-    useState<RouteAddressComboboxState>({ kind: "blurred", path: "" });
+    useState<RouteAddressComboboxState | null>(null);
   const [debugState, setDebugState] = useState<RouteUrlEditorDebugState | null>(null);
   const [statelyInspector, setStatelyInspector] = useState<RouteUrlEditorStatelyInspector | null>(
     null,
