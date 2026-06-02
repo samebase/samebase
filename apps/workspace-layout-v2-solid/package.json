@@ -10,15 +10,15 @@
     "preview": "vp preview"
   },
   "dependencies": {
-    "@codemirror/commands": "^6.8.0",
+    "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-markdown": "^6.3.1",
-    "@codemirror/state": "^6.4.1",
-    "@codemirror/view": "^6.28.4",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.43.0",
     "@prosemark/core": "^0.0.7",
     "@tanstack/solid-router": "1.169.2",
     "@tanstack/solid-router-devtools": "1.166.13",
     "monaco-editor": "^0.55.1",
-    "solid-js": "^1.9.12"
+    "solid-js": "^1.9.13"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
