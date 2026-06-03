@@ -1,5 +1,5 @@
 import type { ChangeEvent, FocusEvent, KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef } from "react";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "@tanstack/react-router";
@@ -23,14 +23,14 @@ type RouteAddressSelection = {
 export type RouteEditorState =
   | {
       kind: "blurred";
-      origin: string;
       path: string;
+      prefix: string;
     }
   | {
       kind: "focused";
       initialPath: string;
       latestPath: string;
-      origin: string;
+      prefix: string;
       selection: RouteAddressSelection;
     };
 
@@ -42,9 +42,6 @@ type RouteAddressComboboxProps = {
 };
 
 const routeAddressComboboxSuggestions = [
-  {
-    routeAddress: "/research/route-url-editor-state-machine",
-  },
   {
     routeAddress: "/logo",
   },
@@ -147,7 +144,7 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         kind: "focused",
         initialPath: prev.path,
         latestPath: readRouteAddressFocusedDraft(prev.path),
-        origin: prev.origin,
+        prefix: prev.prefix,
         selection: event.selection,
       }),
     clickedOutside: keepState,
@@ -161,8 +158,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
-        origin: prev.origin,
         path: event.path,
+        prefix: prev.prefix,
       },
     }),
   },
@@ -185,25 +182,25 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         selection: event.selection,
       }),
     clickedOutside: (prev) => {
-      const url = new URL(prev.latestPath, prev.origin);
+      const url = new URL(prev.latestPath, prev.prefix);
       const search = stringifyTanStackSearch(parseTanStackSearch(url.search));
 
       return keepState({
         kind: "blurred",
-        origin: prev.origin,
         path: `${url.pathname}${search}`,
+        prefix: prev.prefix,
       });
     },
     pressedEscape: (prev) => ({
       actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
-        origin: prev.origin,
         path: prev.initialPath,
+        prefix: prev.prefix,
       },
     }),
     requestedProtectedBackspace: (prev, event) => {
-      const lockedPrefixEnd = `${prev.origin}/`.length;
+      const lockedPrefixEnd = prev.prefix.length;
       const selection = {
         direction: "none" as const,
         end: Math.max(event.selection.end, lockedPrefixEnd),
@@ -228,7 +225,7 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
     // Interesting implementation: we do not delete text here. We clamp the selection so the browser
     // performs the Backspace edit natively, which keeps the input's own undo/redo behavior.
     requestedDeleteToRoutePrefix: (prev, event) => {
-      const lockedPrefixEnd = `${prev.origin}/`.length;
+      const lockedPrefixEnd = prev.prefix.length;
       const selection = {
         direction: "none" as const,
         end: Math.max(event.selection.end, lockedPrefixEnd),
@@ -247,8 +244,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
-        origin: prev.origin,
         path: event.path,
+        prefix: prev.prefix,
       },
     }),
   },
@@ -271,7 +268,7 @@ function useRouteAddressComboboxVm({
   onDebugStateChange,
 }: RouteAddressComboboxProps) {
   const location = useLocation();
-  const [origin] = useState(readIsomorphicOrigin);
+  const prefix = useMemo(() => `${readIsomorphicOrigin()}/`, []);
   const inputId = useId();
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -302,8 +299,8 @@ function useRouteAddressComboboxVm({
   const { state, sendEvent } = useTypedTransitionMachine({
     initialState: {
       kind: "blurred",
-      origin,
       path: `${location.pathname}${location.searchStr}`,
+      prefix,
     },
     transitionTable: routeAddressComboboxTransition,
     runActions: runRouteEditorTransitionActions,
@@ -347,7 +344,7 @@ function useRouteAddressComboboxVm({
 
       if (event.key === "Backspace") {
         const selection = readRouteAddressSelection(event.currentTarget);
-        const lockedPrefixEnd = `${origin}/`.length;
+        const lockedPrefixEnd = prefix.length;
         const backspaceWouldDeleteLockedPrefix =
           selection.start < lockedPrefixEnd ||
           (selection.start === lockedPrefixEnd && selection.end === lockedPrefixEnd);
@@ -375,7 +372,7 @@ function useRouteAddressComboboxVm({
         });
       }
     },
-    [origin, sendEvent],
+    [prefix, sendEvent],
   );
 
   const handleInputSelect = useCallback(
@@ -413,7 +410,7 @@ function useRouteAddressComboboxVm({
   );
 
   const routeAddress = state.kind === "blurred" ? state.path : state.latestPath;
-  const inputValue = new URL(routeAddress, state.origin).href;
+  const inputValue = `${state.prefix}${routeAddress.slice(1)}`;
   const suggestions = routeAddressComboboxSuggestions;
   const suggestionsVisible = state.kind === "focused";
 
