@@ -4,7 +4,7 @@
 
 - Status: Draft requirements inventory
 - Owner: Noter frontend/app shell
-- Last updated: 2026-06-01
+- Last updated: 2026-06-03
 - Depends on:
   - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.tsx`
   - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.test.tsx`
@@ -97,16 +97,28 @@ behavior.
    `aria-activedescendant` when a suggestion is active.
 3. The current selection route index chooses one of the editor suggestion modes: `path`, `search`,
    `search-value`, or hash suggestions.
-4. Path suggestions come from registered, user-facing, permission-accessible routes.
-5. Internal underscore paths are excluded from path suggestions.
-6. Dynamic paths preview only when the typed path has enough concrete segments to load.
-7. Search suggestions combine the matched route's params with global root params, filter by viewer
-   permission, remove duplicate keys, and sort by key.
-8. Hash suggestions include global, route-specific, and current-document anchor metadata.
-9. Current-document hash suggestions refresh on route change and while focused DOM hash-suggestion
-   metadata changes.
-10. Search-param suggestion behavior follows `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`.
-11. Key-only presence flag behavior follows `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`.
+4. Current prod uses URL section boundaries, not selected text, to choose suggestion mode. Cursor at
+   or before `?` shows paths; cursor after `?` through `#` shows search key/value suggestions;
+   cursor after `#` shows hash suggestions.
+5. Current prod path filtering depends on edit state. A clean focused draft shows all accessible
+   paths. After the draft is edited, paths are filtered by the whole draft pathname, not by the
+   caret-local prefix before the cursor.
+6. Example: for `/logo?top=blue-500`, a cursor between `o` and `g` is path mode. If the draft is
+   clean, prod shows all accessible paths; if edited, prod filters against `/logo`, not `/lo`.
+7. Search key suggestions filter by the current query-token key prefix. Search-value suggestions
+   filter by the current token value and the selected param's value metadata.
+8. Hash suggestions filter by the hash text after `#` and combine global keys, route-specific keys,
+   and current-document keys when the draft path matches the current route path.
+9. Path suggestions come from registered, user-facing, permission-accessible routes.
+10. Internal underscore paths are excluded from path suggestions.
+11. Dynamic paths preview only when the typed path has enough concrete segments to load.
+12. Search suggestions combine the matched route's params with global root params, filter by viewer
+    permission, remove duplicate keys, and sort by key.
+13. Hash suggestions include global, route-specific, and current-document anchor metadata.
+14. Current-document hash suggestions refresh on route change and while focused DOM hash-suggestion
+    metadata changes.
+15. Search-param suggestion behavior follows `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`.
+16. Key-only presence flag behavior follows `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`.
 
 ### Preview
 
