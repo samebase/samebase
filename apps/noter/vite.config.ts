@@ -125,6 +125,7 @@ const runtimeNoterConnectConfigPath = path.resolve(
   `dist/client${noterConnectConfigPathname}`,
 );
 const spaShellOutputPath = "/index";
+const spaShellMaskPath = "/#__noter-spa-shell";
 const publicPrerenderPages = readPublicPrerenderPages();
 const prerenderHeaders = readPrerenderHeaders(process.env.NOTER_PRERENDER_ORIGIN);
 
@@ -584,11 +585,12 @@ export default defineConfig({
       },
       spa: {
         enabled: true,
-        // The SPA shell prerender emits /index.html. Use a public mask route
-        // so the shell does not serialize authenticated-route state, and keep
-        // it distinct from the explicit /terms prerender entry because
-        // TanStack skips duplicate page paths.
-        maskPath: "/terms/",
+        // wrangler.jsonc uses Cloudflare's single-page-application asset mode,
+        // and that mode serves /index.html for unknown app routes. TanStack
+        // Start defaults the SPA shell to /_shell.html, so emit it here
+        // instead. The hash marker keeps the shell request on the public root
+        // route while staying distinct from the explicit / prerender entry.
+        maskPath: spaShellMaskPath,
         prerender: {
           outputPath: spaShellOutputPath,
         },
