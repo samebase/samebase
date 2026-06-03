@@ -554,6 +554,8 @@ export type TrackedFilePath =
   | "apps/noter/scripts/convex-local-utils.ts"
   | "apps/noter/scripts/deploy-cloudflare.ts"
   | "apps/noter/scripts/generate-cloudflare-api.ts"
+  | "apps/noter/scripts/generate-cloudflare-redirects.test.ts"
+  | "apps/noter/scripts/generate-cloudflare-redirects.ts"
   | "apps/noter/scripts/generate-convex-management-api.ts"
   | "apps/noter/scripts/generate-install-icon-assets.ts"
   | "apps/noter/scripts/normalizeEnvValue.ts"

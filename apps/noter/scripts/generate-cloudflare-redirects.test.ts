@@ -85,6 +85,45 @@ describe("generate-cloudflare-redirects", () => {
     ).toThrow("Missing # @noter-md/cloudflare-prerender-redirects:start");
   });
 
+  it("rejects broad custom redirects outside the generated block", () => {
+    expect(() =>
+      replaceGeneratedCloudflareRedirectsBlock({
+        contents: [
+          GENERATED_REDIRECTS_START_TAG,
+          GENERATED_REDIRECTS_END_TAG,
+          "/* /index.html 200",
+        ].join("\n"),
+        generatedBlock: createCloudflarePrerenderRedirectsBlock(pages),
+      }),
+    ).toThrow("cannot include whitespace, wildcards, params, queries, or hashes");
+  });
+
+  it("rejects custom redirects that duplicate generated sources", () => {
+    expect(() =>
+      replaceGeneratedCloudflareRedirectsBlock({
+        contents: [
+          "/terms /other.html 200",
+          GENERATED_REDIRECTS_START_TAG,
+          GENERATED_REDIRECTS_END_TAG,
+        ].join("\n"),
+        generatedBlock: createCloudflarePrerenderRedirectsBlock(pages),
+      }),
+    ).toThrow("Duplicate Cloudflare redirect source");
+  });
+
+  it("rejects custom proxies to the SPA shell", () => {
+    expect(() =>
+      replaceGeneratedCloudflareRedirectsBlock({
+        contents: [
+          GENERATED_REDIRECTS_START_TAG,
+          GENERATED_REDIRECTS_END_TAG,
+          "/app /index.html 200",
+        ].join("\n"),
+        generatedBlock: createCloudflarePrerenderRedirectsBlock(pages),
+      }),
+    ).toThrow("must not proxy to /index.html");
+  });
+
   it("rejects broad or dynamic route aliases", () => {
     expect(() =>
       createCloudflarePrerenderRedirectRules([

@@ -28,6 +28,14 @@ type CloudflareRedirectRule = {
   status: 200;
 };
 
+type ParsedRedirectRule = {
+  destination: string;
+  line: string;
+  lineNumber: number;
+  source: string;
+  status: string | undefined;
+};
+
 type PublicPrerenderPagesModule = {
   readPublicPrerenderPages: () => PublicPrerenderPage[];
 };
@@ -175,6 +183,70 @@ function formatRedirectRule(rule: CloudflareRedirectRule) {
   return line;
 }
 
+function readRedirectRules(contents: string) {
+  const rules: ParsedRedirectRule[] = [];
+  const lines = contents.replace(/\r\n/g, "\n").split("\n");
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      return;
+    }
+
+    const parts = trimmedLine.split(/\s+/);
+    const source = parts[0];
+    const destination = parts[1];
+    const status = parts[2];
+    if (!source || !destination || parts.length > 3) {
+      throw new Error(`Invalid Cloudflare redirect rule on line ${index + 1}: ${line}`);
+    }
+
+    rules.push({
+      destination,
+      line,
+      lineNumber: index + 1,
+      source,
+      status,
+    });
+  });
+
+  return rules;
+}
+
+function validateCloudflareRedirectsFile(contents: string) {
+  const rules = readRedirectRules(contents);
+  const sources = new Set<string>();
+
+  if (rules.length > CLOUDFLARE_STATIC_REDIRECT_RULE_LIMIT) {
+    throw new Error(
+      `Found ${rules.length} Cloudflare redirects, above the static rule limit of ${CLOUDFLARE_STATIC_REDIRECT_RULE_LIMIT}.`,
+    );
+  }
+
+  for (const rule of rules) {
+    assertRedirectPath(`Cloudflare redirect source on line ${rule.lineNumber}`, rule.source);
+
+    if (rule.line.length > CLOUDFLARE_STATIC_REDIRECT_RULE_LENGTH_LIMIT) {
+      throw new Error(
+        `Cloudflare redirect rule on line ${rule.lineNumber} is ${rule.line.length} characters, above the ${CLOUDFLARE_STATIC_REDIRECT_RULE_LENGTH_LIMIT} character limit.`,
+      );
+    }
+
+    if (sources.has(rule.source)) {
+      throw new Error(
+        `Duplicate Cloudflare redirect source on line ${rule.lineNumber}: ${rule.source}`,
+      );
+    }
+    sources.add(rule.source);
+
+    if (rule.status === "200" && rule.destination === "/index.html") {
+      throw new Error(
+        `Cloudflare redirect rule on line ${rule.lineNumber} must not proxy to /index.html because Cloudflare SPA mode owns that shell.`,
+      );
+    }
+  }
+}
+
 export function createCloudflarePrerenderRedirectsBlock(pages: readonly PublicPrerenderPage[]) {
   const rules = createCloudflarePrerenderRedirectRules(pages);
 
@@ -227,6 +299,7 @@ export function replaceGeneratedCloudflareRedirectsBlock(args: {
     ...args.generatedBlock.split("\n"),
     ...lines.slice(endLine),
   ].join("\n");
+  validateCloudflareRedirectsFile(nextContents);
 
   return nextContents.endsWith("\n") ? nextContents : `${nextContents}\n`;
 }
