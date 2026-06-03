@@ -319,16 +319,8 @@ if (
   args.push("--codegen=disable");
 }
 if (process.env.CONVEX_AGENT_MODE === "anonymous") {
-  if (
-    !hasCliOption(args, "--local") &&
-    !hasCliOption(args, "--cloud") &&
-    !hasCliOption(args, "--prod") &&
-    !hasCliOption(args, "--url") &&
-    !hasCliOption(args, "--admin-key")
-  ) {
-    args.push("--local");
-  }
-
+  // Convex selects anonymous local mode from CONVEX_AGENT_MODE and the
+  // deployment env value; passing the old --local flag now makes dev fail.
   if (!hasCliOption(args, "--local-cloud-port") && !hasCliOption(args, "--local-site-port")) {
     anonymousLocalPorts = pickAnonymousLocalPorts();
     if (anonymousLocalPorts) {
