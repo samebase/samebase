@@ -32,6 +32,9 @@ type TestAction =
   | {
       brand: "announce";
       message: string;
+      context: {
+        prefix: string;
+      };
     };
 
 type TestResult = TypedTransitionResult<TestState, TestAction>;
@@ -118,7 +121,7 @@ describe("typedTransitionTable", () => {
     const handledActions: string[] = [];
     const handlers: TypedTransitionActionHandlerTable<TestAction["brand"], TestAction> = {
       announce: (action) => {
-        handledActions.push(action.message);
+        handledActions.push(`${action.context.prefix}: ${action.message}`);
       },
       blurInput: () => {
         handledActions.push("blurred");
@@ -132,9 +135,12 @@ describe("typedTransitionTable", () => {
       {
         brand: "announce",
         message: "Route selected",
+        context: {
+          prefix: "action",
+        },
       },
     ]);
 
-    expect(handledActions).toEqual(["blurred", "Route selected"]);
+    expect(handledActions).toEqual(["blurred", "action: Route selected"]);
   });
 });

@@ -45,7 +45,6 @@ export function useTypedTransitionMachine<
   const sendEvent = useCallback(
     (event: Event) => {
       onDebugEvent?.(event);
-      console.log(event);
       let transitionActions: Action[] = [];
 
       store.setState((prev) => {
@@ -54,6 +53,8 @@ export function useTypedTransitionMachine<
 
         return next.state;
       });
+
+      console.log(JSON.stringify(event, null, 2));
 
       runActions(transitionActions);
     },

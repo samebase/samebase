@@ -32,3 +32,25 @@ The locked display prefix is derived from the origin. The app route address stay
 keeps the leading `/`.
 
 Until the prefix is split into separate UI, the input value is derived as the full URL.
+
+### R3: Locked prefix edits
+
+The locked prefix is `${origin}/`. Edits must not remove it from state or from the restored input
+value.
+
+If the next input value still starts with `${origin}/`, accept it and derive route text after the
+prefix.
+
+If Cmd/Ctrl+Backspace would remove the locked prefix, keep `${origin}/` and delete only route text
+after the prefix.
+
+For any other edit that removes the locked prefix, reject it and restore the previous input value
+and selection.
+
+### R4: Select All and Copy
+
+Select All + Copy must copy the complete address represented by the editor.
+
+If the editor hides the origin and displays only an app route starting with `/`, the copy contract
+must be chosen explicitly before implementation: copy the visible app route, or copy the absolute
+URL with the hidden origin.
