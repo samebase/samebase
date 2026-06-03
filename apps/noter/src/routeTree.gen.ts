@@ -24,7 +24,6 @@ import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
-import { Route as routeUrlEditorStateMachineRouteImport } from "./routes/route-url-editor-state-machine";
 import { Route as routeAddressComboboxResearchRouteImport } from "./routes/route-address-combobox-research";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
@@ -116,12 +115,6 @@ const vaultFileRoute = vaultFileRouteImport.update({
   path: "/vault/$",
   getParentRoute: () => rootRouteImport,
 } as any);
-const routeUrlEditorStateMachineRoute =
-  routeUrlEditorStateMachineRouteImport.update({
-    id: "/research/route-url-editor-state-machine",
-    path: "/research/route-url-editor-state-machine",
-    getParentRoute: () => rootRouteImport,
-  } as any);
 const routeAddressComboboxResearchRoute =
   routeAddressComboboxResearchRouteImport.update({
     id: "/research/route-address-combobox",
@@ -224,7 +217,6 @@ export interface FileRoutesByFullPath {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/research/route-address-combobox": typeof routeAddressComboboxResearchRoute;
-  "/research/route-url-editor-state-machine": typeof routeUrlEditorStateMachineRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -257,7 +249,6 @@ export interface FileRoutesByTo {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/research/route-address-combobox": typeof routeAddressComboboxResearchRoute;
-  "/research/route-url-editor-state-machine": typeof routeUrlEditorStateMachineRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -291,7 +282,6 @@ export interface FileRoutesById {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/research/route-address-combobox": typeof routeAddressComboboxResearchRoute;
-  "/research/route-url-editor-state-machine": typeof routeUrlEditorStateMachineRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -326,7 +316,6 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/research/route-address-combobox"
-    | "/research/route-url-editor-state-machine"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -359,7 +348,6 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/research/route-address-combobox"
-    | "/research/route-url-editor-state-machine"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -392,7 +380,6 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/research/route-address-combobox"
-    | "/research/route-url-editor-state-machine"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -426,7 +413,6 @@ export interface RootRouteChildren {
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
   routeAddressComboboxResearchRoute: typeof routeAddressComboboxResearchRoute;
-  routeUrlEditorStateMachineRoute: typeof routeUrlEditorStateMachineRoute;
   vaultFileRoute: typeof vaultFileRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
@@ -540,13 +526,6 @@ declare module "@tanstack/react-router" {
       path: "/vault/$";
       fullPath: "/vault/$";
       preLoaderRoute: typeof vaultFileRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/research/route-url-editor-state-machine": {
-      id: "/research/route-url-editor-state-machine";
-      path: "/research/route-url-editor-state-machine";
-      fullPath: "/research/route-url-editor-state-machine";
-      preLoaderRoute: typeof routeUrlEditorStateMachineRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/research/route-address-combobox": {
@@ -682,7 +661,6 @@ const rootRouteChildren: RootRouteChildren = {
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
   routeAddressComboboxResearchRoute: routeAddressComboboxResearchRoute,
-  routeUrlEditorStateMachineRoute: routeUrlEditorStateMachineRoute,
   vaultFileRoute: vaultFileRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,

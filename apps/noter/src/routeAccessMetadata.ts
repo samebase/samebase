@@ -35,7 +35,6 @@ const noterRouteAccessMetadataByPath = {
   "/research/codex-app-server": { permission: "admin" },
   "/research/codex-app-server/browser": { permission: "admin" },
   "/research/route-address-combobox": { availableOn: ["local"], permission: "public" },
-  "/research/route-url-editor-state-machine": { availableOn: ["local"], permission: "public" },
   "/terms": { permission: "public" },
   "/test": { availableOn: ["local"], permission: "admin" },
   "/vault/$": { permission: "admin" },
