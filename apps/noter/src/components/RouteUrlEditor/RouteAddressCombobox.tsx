@@ -1,4 +1,11 @@
-import type { ChangeEvent, FocusEvent, KeyboardEvent, MouseEvent, SyntheticEvent } from "react";
+import type {
+  ChangeEvent,
+  ClipboardEvent,
+  FocusEvent,
+  KeyboardEvent,
+  MouseEvent,
+  SyntheticEvent,
+} from "react";
 import { useCallback, useId, useMemo, useRef } from "react";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
@@ -80,7 +87,7 @@ export type RouteEditorEvent =
       context: RouteEditorPreventNativeEditContext;
     }
   | {
-      type: "requestedDeleteToRoutePrefix";
+      type: "requestedRouteTextSelection";
       selection: RouteAddressSelection;
     }
   | {
@@ -153,7 +160,7 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       state: prev,
     }),
     requestedProtectedBackspace: keepState,
-    requestedDeleteToRoutePrefix: keepState,
+    requestedRouteTextSelection: keepState,
     selectedSuggestion: (prev, event) => ({
       actions: [{ brand: "blurInput" }],
       state: {
@@ -223,8 +230,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       };
     },
     // Interesting implementation: we do not delete text here. We clamp the selection so the browser
-    // performs the Backspace edit natively, which keeps the input's own undo/redo behavior.
-    requestedDeleteToRoutePrefix: (prev, event) => {
+    // performs the edit natively, which keeps the input's own undo/redo behavior.
+    requestedRouteTextSelection: (prev, event) => {
       const lockedPrefixEnd = prev.prefix.length;
       const selection = {
         direction: "none" as const,
@@ -332,11 +339,26 @@ function useRouteAddressComboboxVm({
     [sendEvent],
   );
 
+  const clampSelectionToRouteText = useCallback(
+    (input: HTMLInputElement) => {
+      const selection = readRouteAddressSelection(input);
+      if (selection.start >= prefix.length || selection.end <= prefix.length) {
+        return;
+      }
+
+      sendEvent({
+        type: "requestedRouteTextSelection",
+        selection,
+      });
+    },
+    [prefix.length, sendEvent],
+  );
+
   const handleInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Backspace") {
         sendEvent({
-          type: "requestedDeleteToRoutePrefix",
+          type: "requestedRouteTextSelection",
           selection: readRouteAddressSelection(event.currentTarget),
         });
         return;
@@ -366,13 +388,39 @@ function useRouteAddressComboboxVm({
         return;
       }
 
+      if (event.key === "Delete") {
+        clampSelectionToRouteText(event.currentTarget);
+        return;
+      }
+
+      // Printable keys replace the current selection natively; if that selection starts inside
+      // the locked URL prefix, clamp it first so only route text is replaced.
+      if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        clampSelectionToRouteText(event.currentTarget);
+        return;
+      }
+
       if (event.key === "Escape") {
         sendEvent({
           type: "pressedEscape",
         });
       }
     },
-    [prefix, sendEvent],
+    [clampSelectionToRouteText, prefix, sendEvent],
+  );
+
+  const handleInputCut = useCallback(
+    (event: ClipboardEvent<HTMLInputElement>) => {
+      clampSelectionToRouteText(event.currentTarget);
+    },
+    [clampSelectionToRouteText],
+  );
+
+  const handleInputPaste = useCallback(
+    (event: ClipboardEvent<HTMLInputElement>) => {
+      clampSelectionToRouteText(event.currentTarget);
+    },
+    [clampSelectionToRouteText],
   );
 
   const handleInputSelect = useCallback(
@@ -426,8 +474,10 @@ function useRouteAddressComboboxVm({
       autoComplete: "off",
       id: inputId,
       onChange: handleInputChange,
+      onCut: handleInputCut,
       onFocus: handleInputFocus,
       onKeyDown: handleInputKeyDown,
+      onPaste: handleInputPaste,
       onSelect: handleInputSelect,
       ref: inputRef,
       value: inputValue,
