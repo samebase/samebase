@@ -330,4 +330,3 @@ specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md
 specs/README.md
 TODO.md
 VISION.md
-worktree.md

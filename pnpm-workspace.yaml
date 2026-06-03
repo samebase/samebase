@@ -9,7 +9,7 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future Convex releases do not bypass the
 # cooling period automatically.
 minimumReleaseAgeExclude:
-  - convex@1.39.1
+  - convex@1.40.0
   - qs@6.15.2
   - ws@8.20.1
 minimumReleaseAgeStrict: true

@@ -45,6 +45,9 @@
 - Always load and apply the repo-owned `skills/delegation-orchestrator/SKILL.md` before deciding how
   to handle implementation, research, review, workflow, or shortcut tasks. The skill may decide that
   a small task should keep all work local, but consulting it is not optional.
+- This section is a standing repo-level request and permission to use sub-agents whenever they would
+  improve the work. Do not wait for a separate user message that says "delegate" before spawning
+  agents; decide based on critical path, independence, cost, and expected signal.
 - Treat available sub-agent tooling as a cheap default option for sidecar research, log/test sweeps,
   public-doc comparisons, or technical spikes whose details are not needed in the main thread.
 - Keep the main thread on the critical path. Split independent questions into narrowly scoped
@@ -145,6 +148,8 @@ Key domain entities:
 - When suppression is unavoidable, use the narrowest possible `@ts-expect-error`. Never use
   `@ts-nocheck`.
 - Prefer inference when it keeps the code clear.
+- For discriminated union variants, put the discriminant property first in each object shape so the
+  variant is immediately visible when reading the type.
 - When passing inline validators to `pure(...)` or `sure(...)`, omit redundant `unknown` parameter
   annotations; let the helper infer the input type unless a narrower input is intentional.
 - When a schema exists, derive the TypeScript type from it instead of duplicating a manual type.

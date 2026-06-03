@@ -1505,5 +1505,4 @@ export type TrackedFilePath =
   | "tsconfig.base.json"
   | "tsconfig.json"
   | "tsconfig.scripts.json"
-  | "vite.config.ts"
-  | "worktree.md";
+  | "vite.config.ts";
