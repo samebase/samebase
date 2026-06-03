@@ -84,12 +84,12 @@ describe("useAppAuthRuntimeEffects", () => {
     );
   }
 
-  it("clears the Google signup marker after successful authentication", () => {
+  it("clears the Google signup marker after successful authentication away from root", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     Object.defineProperty(globalThis, "window", {
       value: {
         location: {
-          pathname: "/",
+          pathname: "/pricing",
           search: "?prod-ui&signup=google",
           hash: "#top",
         },
@@ -102,7 +102,7 @@ describe("useAppAuthRuntimeEffects", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    useAppAuthRuntimeEffects("/", {
+    useAppAuthRuntimeEffects("/pricing", {
       "prod-ui": true,
       signup: "google",
     });
@@ -111,12 +111,13 @@ describe("useAppAuthRuntimeEffects", () => {
       "prod-ui": true,
       signup: "google",
     });
-    expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/", true);
+    expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/pricing", true);
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 4, __TSR_key: "landing" },
       "",
-      "/?prod-ui#top",
+      "/pricing?prod-ui#top",
     );
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it("leaves the URL alone while still unauthenticated", () => {
@@ -170,6 +171,56 @@ describe("useAppAuthRuntimeEffects", () => {
       href: "/",
       replace: true,
       state: true,
+    });
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it("moves authenticated root loads to the dashboard route", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: "?signup=google&sign-in&create-account",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    useAppAuthRuntimeEffects("/", {
+      "create-account": true,
+      signup: "google",
+      "sign-in": true,
+    });
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      replace: true,
+      search: expect.any(Function),
+      state: true,
+      to: "/home",
+    });
+    const navigateOptions = navigateMock.mock.calls[0]?.[0];
+    if (!navigateOptions || typeof navigateOptions.search !== "function") {
+      throw new Error("Expected authenticated root navigation with search updater.");
+    }
+    expect(
+      navigateOptions.search({
+        "create-account": true,
+        "prod-ui": true,
+        signup: "google",
+        "sign-in": true,
+      }),
+    ).toEqual({
+      auth: undefined,
+      "auth-return": undefined,
+      "create-account": undefined,
+      "prod-ui": true,
+      signup: undefined,
+      "sign-in": undefined,
     });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
@@ -230,13 +281,18 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(
       navigateOptions.search({
         "auth-return": "dashboard",
+        "create-account": true,
         "prod-ui": true,
         signup: "google",
+        "sign-in": true,
       }),
     ).toEqual({
+      auth: undefined,
       "auth-return": undefined,
+      "create-account": undefined,
       "prod-ui": true,
       signup: undefined,
+      "sign-in": undefined,
     });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
