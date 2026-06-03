@@ -97,9 +97,9 @@ test("app workspace route URL editor stays compact for long URLs", async ({ page
     };
   });
 
-  expect(metrics.height).toBe(44);
-  expect(metrics.backButtonHeight).toBe(44);
-  expect(metrics.backButtonWidth).toBe(44);
+  expect(metrics.height).toBe(36);
+  expect(metrics.backButtonHeight).toBe(36);
+  expect(metrics.backButtonWidth).toBe(36);
   expect(metrics.displayScrollWidth).toBeGreaterThan(metrics.displayClientWidth);
 });
 

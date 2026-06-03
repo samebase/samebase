@@ -16,7 +16,7 @@ export function WorkspaceLayoutV2PaneFrame({
   headerVisibility = "all",
 }: WorkspaceLayoutV2PaneFrameProps) {
   const headerClassName =
-    headerVisibility === "desktop" ? "hidden h-11 shrink-0 md:block" : "h-11 shrink-0";
+    headerVisibility === "desktop" ? "hidden h-9 shrink-0 md:block" : "h-9 shrink-0";
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-background">

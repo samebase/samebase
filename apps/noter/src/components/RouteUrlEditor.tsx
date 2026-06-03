@@ -35,13 +35,13 @@ import { isRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions"
 import { api } from "../../convex/_generated/api";
 
 const routeUrlEditorIconButtonClassName =
-  "flex size-11 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
+  "flex size-9 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
 const routeUrlEditorIconClassName = "size-5";
 
 // iOS WebKit zooms focused text controls below 16 CSS px, which breaks the route editor chrome.
 const routeUrlEditorInputClassName =
-  "h-11 min-w-0 flex-1 border-0 bg-transparent px-1 font-mono text-base leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive";
+  "h-9 min-w-0 flex-1 border-0 bg-transparent px-1 font-mono text-base leading-7 outline-none selection:bg-primary/20 aria-invalid:text-destructive";
 
 const routeUrlEditorBlurredInputClassName = `${routeUrlEditorInputClassName} cursor-text hover:bg-muted`;
 
@@ -2074,7 +2074,7 @@ export function RouteUrlEditor() {
   return (
     <form
       ref={formRef}
-      className="relative flex h-11 w-full min-w-0 items-center gap-1 bg-background text-foreground"
+      className="relative flex h-9 w-full min-w-0 items-center gap-1 bg-background text-foreground"
       data-testid="route-url-editor"
       onSubmit={submitInput}
     >

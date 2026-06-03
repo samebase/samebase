@@ -117,7 +117,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('data-testid="main-header-actions"');
     expect(markup).toContain("/machines");
     expect(markup).not.toContain("hidden justify-between md:flex");
-    expect((markup.match(/hidden h-11 w-11 md:inline-flex/g) ?? []).length).toBe(2);
+    expect((markup.match(/hidden h-9 w-9 md:inline-flex/g) ?? []).length).toBe(2);
   });
 
   it("omits the right pane and right toggle when a route does not provide a right pane", () => {
@@ -139,7 +139,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).not.toContain("right pane");
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
-    expect((markup.match(/hidden h-11 w-11 md:inline-flex/g) ?? []).length).toBe(1);
+    expect((markup.match(/hidden h-9 w-9 md:inline-flex/g) ?? []).length).toBe(1);
   });
 
   it("omits the left pane and left toggle when a route does not provide a left pane", () => {
@@ -179,7 +179,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain("main pane");
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
-    expect(markup).not.toContain('class="h-11 shrink-0"');
+    expect(markup).not.toContain('class="h-9 shrink-0"');
   });
 
   it("can hide the right toggle and collapse an otherwise empty header row", () => {
@@ -204,7 +204,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("right pane");
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
-    expect(markup).not.toContain('class="h-11 shrink-0"');
+    expect(markup).not.toContain('class="h-9 shrink-0"');
   });
 
   it("treats omitted and null main headers the same outside mobile mode", () => {
@@ -247,7 +247,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
 
     expect(markup).toContain("public pane");
-    expect(markup).not.toContain('class="h-11 shrink-0"');
+    expect(markup).not.toContain('class="h-9 shrink-0"');
   });
 
   it("keeps idle grip handles visually unobtrusive", () => {
