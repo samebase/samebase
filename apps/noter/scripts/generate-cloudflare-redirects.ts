@@ -12,7 +12,6 @@ export const GENERATED_REDIRECTS_END_TAG = "# @noter-md/cloudflare-prerender-red
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(currentDir, "..");
-const publicPrerenderPagesModulePath = noterAppFilePath("dev/publicPrerenderPages.ts");
 const defaultRedirectsFilePath = path.resolve(
   currentDir,
   `../${noterAppFilePath("public/_redirects")}`,
@@ -54,7 +53,9 @@ async function loadPublicPrerenderPages() {
   });
 
   try {
-    const module = await server.ssrLoadModule(`/${publicPrerenderPagesModulePath}`);
+    const module = await server.ssrLoadModule(
+      `/${noterAppFilePath("dev/publicPrerenderPages.ts")}`,
+    );
     if (!isPublicPrerenderPagesModule(module)) {
       throw new Error("Expected dev/publicPrerenderPages.ts to export readPublicPrerenderPages.");
     }
