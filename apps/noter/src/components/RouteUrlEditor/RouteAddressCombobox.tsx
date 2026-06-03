@@ -62,6 +62,7 @@ type RouteEditorPreventNativeEditContext = {
 };
 
 export type RouteEditorEvent =
+  // Input value and selection tracking.
   | {
       type: "changedInput";
       nextInputValue: string;
@@ -71,6 +72,7 @@ export type RouteEditorEvent =
       type: "changedSelection";
       selection: RouteAddressSelection;
     }
+  // Focus and dropdown lifecycle.
   | {
       type: "clickedOutside";
     }
@@ -81,21 +83,24 @@ export type RouteEditorEvent =
   | {
       type: "pressedEscape";
     }
+  // Locked-prefix editing.
   | {
-      type: "requestedProtectedBackspace";
+      type: "requestedLockedPrefixBackspace";
       selection: RouteAddressSelection;
       context: RouteEditorPreventNativeEditContext;
     }
   | {
-      type: "requestedRouteTextSelection";
+      type: "requestedEditableSelection";
       selection: RouteAddressSelection;
     }
+  // Suggestion commit.
   | {
       type: "selectedSuggestion";
       path: string;
     };
 
 type RouteEditorAction =
+  // DOM focus/edit prevention.
   | {
       brand: "blurInput";
     }
@@ -103,6 +108,7 @@ type RouteEditorAction =
       brand: "preventNativeEdit";
       context: RouteEditorPreventNativeEditContext;
     }
+  // DOM selection repair.
   | {
       brand: "setInputSelection";
       selection: RouteAddressSelection;
@@ -159,8 +165,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       actions: [{ brand: "blurInput" }],
       state: prev,
     }),
-    requestedProtectedBackspace: keepState,
-    requestedRouteTextSelection: keepState,
+    requestedEditableSelection: keepState,
+    requestedLockedPrefixBackspace: keepState,
     selectedSuggestion: (prev, event) => ({
       actions: [{ brand: "blurInput" }],
       state: {
@@ -206,7 +212,26 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         prefix: prev.prefix,
       },
     }),
-    requestedProtectedBackspace: (prev, event) => {
+    // Interesting implementation: for Delete, Cut, Paste, and printable replacement, we only clamp
+    // the selection. The browser still performs the edit natively, so undo/redo stays browser-owned.
+    requestedEditableSelection: (prev, event) => {
+      const lockedPrefixEnd = prev.prefix.length;
+      const selection = {
+        direction: "none" as const,
+        end: Math.max(event.selection.end, lockedPrefixEnd),
+        start: lockedPrefixEnd,
+      };
+
+      return {
+        actions: [{ brand: "setInputSelection", selection }],
+        state: {
+          ...prev,
+          selection,
+        },
+      };
+    },
+    // Backspace at the prefix boundary has no editable text selected, so it needs preventDefault.
+    requestedLockedPrefixBackspace: (prev, event) => {
       const lockedPrefixEnd = prev.prefix.length;
       const selection = {
         direction: "none" as const,
@@ -223,24 +248,6 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
 
       return {
         actions,
-        state: {
-          ...prev,
-          selection,
-        },
-      };
-    },
-    // Interesting implementation: we do not delete text here. We clamp the selection so the browser
-    // performs the edit natively, which keeps the input's own undo/redo behavior.
-    requestedRouteTextSelection: (prev, event) => {
-      const lockedPrefixEnd = prev.prefix.length;
-      const selection = {
-        direction: "none" as const,
-        end: Math.max(event.selection.end, lockedPrefixEnd),
-        start: lockedPrefixEnd,
-      };
-
-      return {
-        actions: [{ brand: "setInputSelection", selection }],
         state: {
           ...prev,
           selection,
@@ -347,7 +354,7 @@ function useRouteAddressComboboxVm({
       }
 
       sendEvent({
-        type: "requestedRouteTextSelection",
+        type: "requestedEditableSelection",
         selection,
       });
     },
@@ -358,7 +365,7 @@ function useRouteAddressComboboxVm({
     (event: KeyboardEvent<HTMLInputElement>) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Backspace") {
         sendEvent({
-          type: "requestedRouteTextSelection",
+          type: "requestedEditableSelection",
           selection: readRouteAddressSelection(event.currentTarget),
         });
         return;
@@ -377,7 +384,7 @@ function useRouteAddressComboboxVm({
         }
 
         sendEvent({
-          type: "requestedProtectedBackspace",
+          type: "requestedLockedPrefixBackspace",
           selection,
           context: {
             preventDefault: () => {
