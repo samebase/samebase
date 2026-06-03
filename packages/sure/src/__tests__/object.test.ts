@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vite-plus/test'
-import { object, bad, number, string, good, pure, sure, optional, union, literal, is, or } from '../index.js'
-import type { InferBad, InferGood, InferInput, InferMeta, InferSchemaGood, MetaNever, MetaObj, Sure } from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
-import { Prettify, PrettifyRec } from '../utils.js'
-import { ExtractPrimitives, InferJustMeta } from '../meta_wip.js'
+import { object, bad, number, string, good, pure, sure, optional, union, literal, is, or } from '../index.ts'
+import type { InferBad, InferGood, InferInput, InferMeta, InferSchemaGood, MetaNever, MetaObj, Sure } from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
+import { Prettify, PrettifyRec } from '../utils.ts'
+import { ExtractPrimitives, InferJustMeta } from '../meta_wip.ts'
 
 const someObj = object({
   age: number,

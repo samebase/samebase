@@ -11,8 +11,8 @@ import {
   MetaObj,
   pure,
   MetaNever,
-} from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
+} from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
 
 export const nonEmptyString = pure(x => {
   return typeof x === 'string' //

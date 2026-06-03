@@ -1,4 +1,5 @@
-import { MetaNever, MetaObj, Sure, sure, bad, good } from './core.js'
+import { sure, bad, good } from './core.ts'
+import type { MetaNever, MetaObj, Sure } from './core.ts'
 
 export function intersection<
   //

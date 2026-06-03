@@ -1,6 +1,6 @@
-import { sure, good, bad } from './core.js'
-import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from './core.js'
-import { KVPair, Objectify, Prettify, Unionize } from './utils.js'
+import { sure, good, bad } from './core.ts'
+import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from './core.ts'
+import type { KVPair, Objectify, Prettify, Unionize } from './utils.ts'
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
   v: Sure<

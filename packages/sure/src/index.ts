@@ -1,15 +1,15 @@
-export * from './core.js'
+export * from './core.ts'
 
-export * from './after.js'
+export * from './after.ts'
 
-export * from './primitives.js'
-export * from './object.js'
-export * from './array.js'
-export * from './literal.js'
+export * from './primitives.ts'
+export * from './object.ts'
+export * from './array.ts'
+export * from './literal.ts'
 
-export * from './tuple.js'
-export * from './union.js'
-export * from './intersection.js'
-export * from './recursive.js'
+export * from './tuple.ts'
+export * from './union.ts'
+export * from './intersection.ts'
+export * from './recursive.ts'
 
-export * from './err.js'
+export * from './err.ts'

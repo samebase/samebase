@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { array, isObject, literal, object, optional, string, type InferGood } from "@samebase/sure";
 import { createServer } from "vite";
 
 export const GENERATED_REDIRECTS_START_TAG = "# @noter-md/cloudflare-prerender-redirects:start";
@@ -11,42 +12,28 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(currentDir, "..");
 const defaultRedirectsFilePath = path.resolve(currentDir, "../public/_redirects");
 
-export type PublicPrerenderPage = {
-  path: string;
-  prerender: {
-    enabled: true;
-    outputPath?: string;
-  };
-};
+const publicPrerenderPageSchema = object({
+  path: string,
+  prerender: object({
+    enabled: literal(true),
+    outputPath: optional(string),
+  }),
+});
+
+const publicPrerenderPagesSchema = array(publicPrerenderPageSchema);
+
+export type PublicPrerenderPage = InferGood<typeof publicPrerenderPageSchema>;
 
 type PublicPrerenderPagesModule = {
-  readPublicPrerenderPages: () => PublicPrerenderPage[];
+  readPublicPrerenderPages: () => unknown;
 };
 
-function isPublicPrerenderPage(value: unknown): value is PublicPrerenderPage {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const pathValue = Reflect.get(value, "path");
-  const prerender = Reflect.get(value, "prerender");
-  if (typeof pathValue !== "string" || typeof prerender !== "object" || prerender === null) {
-    return false;
-  }
-
-  const outputPath = Reflect.get(prerender, "outputPath");
-  return (
-    Reflect.get(prerender, "enabled") === true &&
-    (outputPath === undefined || typeof outputPath === "string")
-  );
-}
-
 function isPublicPrerenderPagesModule(value: unknown): value is PublicPrerenderPagesModule {
-  if (typeof value !== "object" || value === null) {
+  if (!isObject(value)) {
     return false;
   }
 
-  return typeof Reflect.get(value, "readPublicPrerenderPages") === "function";
+  return typeof value["readPublicPrerenderPages"] === "function";
 }
 
 async function loadPublicPrerenderPages() {
@@ -66,11 +53,9 @@ async function loadPublicPrerenderPages() {
       throw new Error("Expected dev/publicPrerenderPages.ts to export readPublicPrerenderPages.");
     }
 
-    const pages = module.readPublicPrerenderPages();
-    for (const page of pages) {
-      if (!isPublicPrerenderPage(page)) {
-        throw new Error("Expected readPublicPrerenderPages to return public prerender pages.");
-      }
+    const [pagesAreValid, pages] = publicPrerenderPagesSchema(module.readPublicPrerenderPages());
+    if (!pagesAreValid) {
+      throw new Error("Expected readPublicPrerenderPages to return public prerender pages.");
     }
 
     return pages;

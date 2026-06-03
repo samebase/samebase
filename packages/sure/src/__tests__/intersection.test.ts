@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test'
-import { number, intersection, string, object } from '../index.js'
-import type { InferBad, InferGood, InferInput, InferMeta, InferSchemaGood, MetaNever, MetaObj, Sure } from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
+import { number, intersection, string, object } from '../index.ts'
+import type { InferBad, InferGood, InferInput, InferMeta, InferSchemaGood, MetaNever, MetaObj, Sure } from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
 
 const option1 = object({
   name: string,

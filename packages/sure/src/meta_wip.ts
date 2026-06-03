@@ -1,6 +1,7 @@
-import { Sure } from './core.js'
-import { object } from './object.js'
-import { PrettifyRec, objMapEntries } from './utils.js'
+import type { Sure } from './core.ts'
+import { object } from './object.ts'
+import { objMapEntries } from './utils.ts'
+import type { PrettifyRec } from './utils.ts'
 
 export type ExtractPrimitives<TSchema> = {
   [t in keyof TSchema]: InferJustMeta<TSchema[t]>

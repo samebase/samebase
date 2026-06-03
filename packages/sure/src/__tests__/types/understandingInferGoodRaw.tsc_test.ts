@@ -1,5 +1,5 @@
-import { InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../../core.js'
-import { assertEqual } from '../typeTestUtils.js'
+import { InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../../core.ts'
+import { assertEqual } from '../typeTestUtils.ts'
 
 type InferBad_initial<
   T extends Sure<

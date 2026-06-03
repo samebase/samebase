@@ -1,4 +1,4 @@
-import { MetaObj, Sure, array, number, spread_NOT_IMPLEMENTED, string, tuple } from '../../index.js'
+import { MetaObj, Sure, array, number, spread_NOT_IMPLEMENTED, string, tuple } from '../../index.ts'
 
 // Doesn't work
 export type TupleInferGoods01<T> = //

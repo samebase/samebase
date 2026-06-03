@@ -14,8 +14,8 @@ import {
   Sure,
   Good,
   Bad,
-} from '../index.js'
-import { assertEqual, assertIs } from './typeTestUtils.js'
+} from '../index.ts'
+import { assertEqual, assertIs } from './typeTestUtils.ts'
 
 const sureNumber = (value: unknown) =>
   typeof value === 'number' //
