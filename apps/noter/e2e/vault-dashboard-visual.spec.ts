@@ -214,7 +214,7 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
     row: page.getByTestId("dashboard-sidebar-account-row"),
     textTestId: "dashboard-sidebar-account-text",
   });
-  await expect(page.getByTestId("dashboard-sidebar-providers-link")).toContainText("Providers");
+  await expect(page.getByTestId("dashboard-sidebar-providers-link")).toContainText("/providers");
   await expect(fixture).toHaveScreenshot("vault-sidebar-account-clamp.png", {
     animations: "disabled",
     caret: "hide",
@@ -263,7 +263,7 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, t
     row: page.getByTestId("dashboard-sidebar-account-row"),
     textTestId: "dashboard-sidebar-account-text",
   });
-  await expect(page.getByTestId("dashboard-sidebar-providers-link")).toContainText("Providers");
+  await expect(page.getByTestId("dashboard-sidebar-providers-link")).toContainText("/providers");
 
   await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-min.png", {
     animations: "disabled",

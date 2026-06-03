@@ -35,6 +35,8 @@ import {
   VaultSetupProgressSection,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
+import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
 import {
   getDefaultVaultBranchFilters,
   type VaultBranchFilters,
@@ -1176,9 +1178,9 @@ function FixtureDashboardProvidersLink() {
       className="vault-dashboard-sidebar-inset py-2"
       data-testid="dashboard-sidebar-providers-link"
     >
-      <Button variant="outline" className="w-full">
-        Providers
-      </Button>
+      <Link to={PROVIDERS_ROUTE} className={routePreviewLinkInteractionClassName}>
+        {PROVIDERS_ROUTE}
+      </Link>
     </div>
   );
 }

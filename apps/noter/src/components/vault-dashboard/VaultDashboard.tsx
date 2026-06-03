@@ -56,6 +56,7 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
+import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
@@ -3935,9 +3936,6 @@ export function VaultDashboard() {
   const addConvexModeActive = rootRouteSearch["add-convex"];
   const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"];
   const providerAddAppRoot = rootRouteSearch[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM] ?? null;
-  const openProvidersRoute = useCallback(() => {
-    void navigate({ to: PROVIDERS_ROUTE });
-  }, [navigate]);
   const deleteRepositoryFullName =
     deleteModeActive && vaults
       ? resolveVaultDashboardRepositoryFullNameForHash({
@@ -5550,9 +5548,9 @@ export function VaultDashboard() {
         className="vault-dashboard-sidebar-inset py-2"
         data-testid="dashboard-sidebar-providers-link"
       >
-        <Button variant="outline" className="w-full" onClick={openProvidersRoute}>
-          Providers
-        </Button>
+        <Link to={PROVIDERS_ROUTE} className={routePreviewLinkInteractionClassName}>
+          {PROVIDERS_ROUTE}
+        </Link>
       </div>
       {createControl}
       <div className="mt-auto">
