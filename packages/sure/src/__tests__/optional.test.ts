@@ -13,9 +13,9 @@ import {
   or,
   string,
   undef,
-} from '../index.js'
+} from '../index.ts'
 
-import { assertEqual } from './typeTestUtils.js'
+import { assertEqual } from './typeTestUtils.ts'
 
 const optionalObj = object({
   name: string,

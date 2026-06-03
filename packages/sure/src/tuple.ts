@@ -1,5 +1,6 @@
-import { InferBad, InferGood, MetaNever, MetaObj, Sure, bad, good, sure } from './core.js'
-import { isObject } from './object.js'
+import { bad, good, sure } from './core.ts'
+import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from './core.ts'
+import { isObject } from './object.ts'
 
 // TODO: add tests, also implement tuple spread
 export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer InferRest]

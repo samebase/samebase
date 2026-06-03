@@ -1,4 +1,5 @@
-import { Primitive, bad, good, pure, sure } from './core.js'
+import { bad, good, pure, sure } from './core.ts'
+import type { Primitive } from './core.ts'
 
 export const literal = <
   // so that `as const` is not needed

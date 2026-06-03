@@ -88,13 +88,15 @@ for the child process.
 
 TanStack Start SPA mode produces the client assets, an SPA shell, and static prerenders for selected
 routes during `vp build`. The SPA shell is written to `dist/client/index.html`. The public landing
-route is prerendered to `dist/client/_landing.html`, and legal pages are prerendered to
-`dist/client/terms/index.html` and `dist/client/privacy/index.html`.
+route is prerendered to `dist/client/_landing.html`, and non-root public pages are prerendered to
+their route `index.html` files, such as `dist/client/terms/index.html`,
+`dist/client/privacy/index.html`, and `dist/client/logo/index.html`.
 
 The production build does not run request-time SSR and does not run a separate root-prerender
 helper. All static HTML comes from the canonical TanStack route tree at build time. Cloudflare
-Workers Static Assets deploys only `dist/client`, and `apps/noter/public/_redirects` owns the exact
-prerender aliases. Unknown app-route navigations use Workers' `single-page-application` fallback to
+Workers Static Assets deploys only `dist/client`, and the tagged generated block in
+`apps/noter/public/_redirects` owns the exact prerender aliases. User-owned exact redirects may live
+outside that block. Unknown app-route navigations use Workers' `single-page-application` fallback to
 the SPA shell at `/index.html`.
 
 This section describes the production branch. The stable `ssr` proof branch keeps request-time
@@ -105,9 +107,9 @@ matching prerendered files before falling through to the Worker.
 
 Cloudflare Workers `_redirects` rules are first-match and are followed even when an asset exists, so
 the `_redirects` file must not include a broad `/*` fallback or generated-asset pass-through rules.
-Those routes caused deployed Workers to proxy hashed CSS and JavaScript requests to HTML. Keep
-`_redirects` limited to exact prerender aliases and let Workers Static Assets serve matching files
-directly.
+Those routes caused deployed Workers to proxy hashed CSS and JavaScript requests to HTML. Keep the
+generated `_redirects` block limited to exact prerender aliases and let Workers Static Assets serve
+matching files directly.
 
 Disable Workers Static Assets `html_handling` for this deploy shape. The `_redirects` rules proxy to
 explicit `.html` files, and the default HTML handling redirects those targets back to extensionless
@@ -185,11 +187,12 @@ Noter production itself.
 2. Replace the TanStack Router Vite plugin with the TanStack Start Vite plugin configured for SPA
    mode.
 3. Keep TanStack Start's SPA shell output at `/index.html` by configuring the installed plugin with
-   `spa.maskPath = "/terms/"` and `spa.prerender.outputPath = "/index"`. The non-default mask path
-   prevents the shell prerender from sharing the root page's request path, and it must point at an
-   existing route so the prerender request succeeds.
-4. Prerender the public landing route to `/_landing.html`, `/terms` to `/terms/index.html`, and
-   `/privacy` to `/privacy/index.html` through TanStack Start's `pages` config.
+   `spa.maskPath = "/#__noter-spa-shell"` and `spa.prerender.outputPath = "/index"`. The hash marker
+   keeps the shell request on the public root route while staying distinct from the explicit `/`
+   prerender entry.
+4. Prerender production-available public routes through TanStack Start's `pages` config, including
+   the public landing route to `/_landing.html` and non-root public routes to route `index.html`
+   files.
 5. Preserve the existing virtual route config and generated route tree shape.
 6. Preserve router options:
    - `defaultPreload: false`
@@ -213,8 +216,11 @@ Noter production itself.
    serve the SPA shell from `/index.html` without routing generated assets through `_redirects`.
 6. Set `assets.html_handling` to `none` so `_redirects` 200 rewrites can serve explicit `.html`
    files.
-7. Keep runtime bindings empty for this phase.
-8. Do not hard-code secrets in source or config.
+7. Generate the exact prerender alias block in `apps/noter/public/_redirects` from the same public
+   prerender page list used by TanStack Start, and preserve user-owned redirects outside the tagged
+   block.
+8. Keep runtime bindings empty for this phase.
+9. Do not hard-code secrets in source or config.
 
 ### Build And Deploy Scripts
 
@@ -262,7 +268,8 @@ Validation:
 1. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run`
 2. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:preview:dry-run`
 3. inspect generated `dist/client/index.html`, `dist/client/_landing.html`,
-   `dist/client/terms/index.html`, and `dist/client/privacy/index.html`
+   `dist/client/logo/index.html`, `dist/client/terms/index.html`, `dist/client/privacy/index.html`,
+   and `dist/client/_redirects`
 
 Current implementation result:
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { err, number, object, string } from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
+import { err, number, object, string } from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
 
 const parser = err(
   object({

@@ -1,4 +1,5 @@
-import { Sure, InferBad, InferGood, sure, bad, good, MetaNever, MetaObj } from './core.js'
+import { sure, bad, good } from './core.ts'
+import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from './core.ts'
 
 export function array<
   //

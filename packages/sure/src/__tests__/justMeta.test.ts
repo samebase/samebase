@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { MetaNever, MetaObj } from '../core.js'
-import { InferJustMeta, ExtractPrimitives, justMeta, metaToJsonSchema } from '../meta_wip.js'
-import { object, optional } from '../object.js'
-import { string, number } from '../primitives.js'
-import { PrettifyRec } from '../utils.js'
-import { assertEqual } from './typeTestUtils.js'
-import { array } from '../array.js'
+import { MetaNever, MetaObj } from '../core.ts'
+import { InferJustMeta, ExtractPrimitives, justMeta, metaToJsonSchema } from '../meta_wip.ts'
+import { object, optional } from '../object.ts'
+import { string, number } from '../primitives.ts'
+import { PrettifyRec } from '../utils.ts'
+import { assertEqual } from './typeTestUtils.ts'
+import { array } from '../array.ts'
 
 import { Ajv } from 'ajv'
 

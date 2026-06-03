@@ -1,4 +1,5 @@
-import { Sure, sure, bad, MetaObj, InferBad, InferGood, InferInput } from './core.js'
+import { sure, bad } from './core.ts'
+import type { Sure, MetaObj, InferBad, InferGood, InferInput } from './core.ts'
 
 /**
 A common use-case is to first validate that a value is a string.

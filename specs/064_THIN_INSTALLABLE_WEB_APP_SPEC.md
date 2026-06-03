@@ -169,8 +169,8 @@ Requirements:
 
 - `/manifest.webmanifest` returns `application/manifest+json` or another JSON content type, not
   `text/html`
-- explicit manifest/icon asset routes win over the catch-all SPA fallback in
-  `apps/noter/public/_redirects`
+- explicit manifest/icon asset routes win over Cloudflare's SPA fallback, and
+  `apps/noter/public/_redirects` stays limited to exact prerender aliases
 - install icon URLs return the committed image assets
 - Apple touch icon URLs return the committed image asset
 - the install path works without changing the normal browser refresh behavior

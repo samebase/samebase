@@ -1,5 +1,5 @@
 import { describe, it, expect, assert } from 'vite-plus/test'
-import { tuple, number, string, boolean, good, bad, spread_NOT_IMPLEMENTED, array, nil, undef } from '../index.js'
+import { tuple, number, string, boolean, good, bad, spread_NOT_IMPLEMENTED, array, nil, undef } from '../index.ts'
 import type {
   InferGood,
   InferBad,
@@ -12,8 +12,8 @@ import type {
   Bad,
   TupleInferGoods,
   TupleInferBads,
-} from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
+} from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
 
 const someTuple = tuple([number, string, boolean])
 

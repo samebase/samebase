@@ -1,5 +1,5 @@
-import { InferBad, InferGood, InferInput, InferMeta, MetaObj, after, bad, good } from '../../index.js'
-import { assertEqual } from '../typeTestUtils.js'
+import { InferBad, InferGood, InferInput, InferMeta, MetaObj, after, bad, good } from '../../index.ts'
+import { assertEqual } from '../typeTestUtils.ts'
 
 const coerceNumber = (input: string | number) => {
   if (typeof input === 'string') {

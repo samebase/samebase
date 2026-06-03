@@ -16,9 +16,9 @@ import {
   number,
   tuple,
   literal,
-} from '../index.js'
-import type { InferBad, InferGood, InferInput, InferMeta, MetaNever, MetaObj, RecurseSymbol, Sure } from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
+} from '../index.ts'
+import type { InferBad, InferGood, InferInput, InferMeta, MetaNever, MetaObj, RecurseSymbol, Sure } from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
 
 describe('recursive', () => {
   describe('simple recursive array', () => {

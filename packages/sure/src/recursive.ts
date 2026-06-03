@@ -1,5 +1,5 @@
-import { bad, good, pure, sure } from './core.js'
-import type { MetaObj, Sure } from './core.js'
+import { bad, good, pure, sure } from './core.ts'
+import type { MetaObj, Sure } from './core.ts'
 
 export const RecurseSymbol = Symbol('recurse')
 

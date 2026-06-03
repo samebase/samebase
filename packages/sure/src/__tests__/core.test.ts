@@ -11,8 +11,8 @@ import {
   MetaObj,
   MetaNever,
   pure,
-} from '../index.js'
-import { assertIs, assertEqual } from './typeTestUtils.js'
+} from '../index.ts'
+import { assertIs, assertEqual } from './typeTestUtils.ts'
 
 /**
 Validator for numbers without any meta.

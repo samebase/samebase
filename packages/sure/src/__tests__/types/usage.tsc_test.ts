@@ -1,5 +1,5 @@
-import { InferBad, InferGood, InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../../core.js'
-import { assertEqual } from '../typeTestUtils.js'
+import { InferBad, InferGood, InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../../core.ts'
+import { assertEqual } from '../typeTestUtils.ts'
 
 {
   const rawNumber = (value: unknown) => {

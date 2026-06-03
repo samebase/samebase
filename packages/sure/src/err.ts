@@ -1,4 +1,4 @@
-import { InferGood, InferInput, MetaNever, MetaObj, Sure } from './index.js'
+import type { InferGood, InferInput, Sure } from './index.ts'
 
 export const err =
   <TSure extends Sure>(schema: TSure) =>

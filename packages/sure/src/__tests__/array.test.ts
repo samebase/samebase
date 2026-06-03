@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test'
-import { array, number } from '../index.js'
-import type { InferGood, InferBad, InferInput, InferMeta, Sure, MetaObj, MetaNever } from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
+import { array, number } from '../index.ts'
+import type { InferGood, InferBad, InferInput, InferMeta, Sure, MetaObj, MetaNever } from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
 
 const someArray = array(number)
 

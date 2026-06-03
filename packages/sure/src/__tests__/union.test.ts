@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vite-plus/test'
-import { number, union, string } from '../index.js'
-import type { InferBad, InferGood, InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../index.js'
-import { assertEqual } from './typeTestUtils.js'
+import { number, union, string } from '../index.ts'
+import type { InferBad, InferGood, InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../index.ts'
+import { assertEqual } from './typeTestUtils.ts'
 
 const simple = union(number, string)
 
