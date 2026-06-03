@@ -3,6 +3,10 @@
 `scripts/generated/trackedFilePaths.generated.ts` is a typechecking aid for static file references
 in repo scripts. It is not a freshness gate for every tracked file in the repository.
 
+When adding hard-coded references to tracked repo files in scripts, try to wrap the literal in
+`trackedFilePath(...)` or a scoped wrapper such as `noterAppFilePath(...)` before falling back to an
+untyped string path.
+
 The invariant is:
 
 1. Script checks regenerate the tracked-file union before TypeScript runs.

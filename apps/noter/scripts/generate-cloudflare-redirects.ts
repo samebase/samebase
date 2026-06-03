@@ -5,12 +5,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { array, isObject, literal, object, optional, string, type InferGood } from "@samebase/sure";
 import { createServer } from "vite";
 
+import { noterAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
+
 export const GENERATED_REDIRECTS_START_TAG = "# @noter-md/cloudflare-prerender-redirects:start";
 export const GENERATED_REDIRECTS_END_TAG = "# @noter-md/cloudflare-prerender-redirects:end";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(currentDir, "..");
-const defaultRedirectsFilePath = path.resolve(currentDir, "../public/_redirects");
+const publicPrerenderPagesModulePath = noterAppFilePath("dev/publicPrerenderPages.ts");
+const defaultRedirectsFilePath = path.resolve(
+  currentDir,
+  `../${noterAppFilePath("public/_redirects")}`,
+);
 
 const publicPrerenderPageSchema = object({
   path: string,
@@ -48,7 +54,7 @@ async function loadPublicPrerenderPages() {
   });
 
   try {
-    const module = await server.ssrLoadModule("/dev/publicPrerenderPages.ts");
+    const module = await server.ssrLoadModule(`/${publicPrerenderPagesModulePath}`);
     if (!isPublicPrerenderPagesModule(module)) {
       throw new Error("Expected dev/publicPrerenderPages.ts to export readPublicPrerenderPages.");
     }
