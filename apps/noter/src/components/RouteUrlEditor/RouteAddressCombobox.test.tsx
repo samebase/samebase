@@ -3,7 +3,11 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { RouteAddressCombobox, type RouteAddressComboboxState } from "./RouteAddressCombobox";
+import {
+  RouteAddressCombobox,
+  type RouteAddressComboboxState,
+  type RouteEditorEvent,
+} from "./RouteAddressCombobox";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;
@@ -48,6 +52,7 @@ describe("RouteAddressCombobox", () => {
   function renderCombobox(
     onDebugStateChange?: (state: RouteAddressComboboxState) => void,
     initialEntries = ["/machines"],
+    onDebugEvent?: (event: RouteEditorEvent) => void,
   ) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -57,7 +62,10 @@ describe("RouteAddressCombobox", () => {
     act(() => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={initialEntries}>
-          <RouteAddressCombobox onDebugStateChange={onDebugStateChange} />
+          <RouteAddressCombobox
+            onDebugEvent={onDebugEvent}
+            onDebugStateChange={onDebugStateChange}
+          />
         </TestRouterProvider>,
       );
     });
@@ -84,6 +92,15 @@ describe("RouteAddressCombobox", () => {
     );
   }
 
+  function setInputValue(input: HTMLInputElement, value: string) {
+    const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    if (typeof valueDescriptor?.set !== "function") {
+      throw new Error("Expected HTMLInputElement value setter.");
+    }
+
+    valueDescriptor.set.call(input, value);
+  }
+
   it("shows only the input while blurred", () => {
     renderCombobox();
 
@@ -101,8 +118,8 @@ describe("RouteAddressCombobox", () => {
 
     expect(readSuggestions()).not.toBeNull();
     expect(onDebugStateChange).toHaveBeenCalledWith({
-      initialPath: "/machines",
       kind: "focused",
+      initialPath: "/machines",
       latestPath: "/machines?",
       origin: "http://localhost:3000",
       selection: {
@@ -156,6 +173,162 @@ describe("RouteAddressCombobox", () => {
 
     expect(input.value).toBe("http://localhost:3000/machines");
     expect(readSuggestions()).toBeNull();
+  });
+
+  it("moves a plain backspace inside the origin to the route prefix without deleting", () => {
+    const input = renderCombobox();
+
+    act(() => {
+      input.focus();
+    });
+
+    const lockedPrefix = "http://localhost:3000/";
+    const backspaceEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Backspace",
+    });
+
+    act(() => {
+      input.setSelectionRange(5, 5);
+      input.dispatchEvent(backspaceEvent);
+    });
+
+    expect(backspaceEvent.defaultPrevented).toBe(true);
+    expect(input.value).toBe("http://localhost:3000/machines?");
+    expect(input.selectionStart).toBe(lockedPrefix.length);
+    expect(input.selectionEnd).toBe(lockedPrefix.length);
+  });
+
+  it("prevents plain backspace at the route prefix boundary", () => {
+    const input = renderCombobox();
+
+    act(() => {
+      input.focus();
+    });
+
+    const lockedPrefix = "http://localhost:3000/";
+    const backspaceEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Backspace",
+    });
+
+    act(() => {
+      input.setSelectionRange(lockedPrefix.length, lockedPrefix.length);
+      input.dispatchEvent(backspaceEvent);
+    });
+
+    expect(backspaceEvent.defaultPrevented).toBe(true);
+    expect(input.value).toBe("http://localhost:3000/machines?");
+    expect(input.selectionStart).toBe(lockedPrefix.length);
+    expect(input.selectionEnd).toBe(lockedPrefix.length);
+  });
+
+  it("clamps a plain backspace selection that crosses the route prefix", () => {
+    const input = renderCombobox();
+
+    act(() => {
+      input.focus();
+    });
+
+    const lockedPrefix = "http://localhost:3000/";
+    const selectionEnd = lockedPrefix.length + 3;
+    const backspaceEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Backspace",
+    });
+
+    act(() => {
+      input.setSelectionRange(5, selectionEnd);
+      input.dispatchEvent(backspaceEvent);
+    });
+
+    expect(backspaceEvent.defaultPrevented).toBe(false);
+    expect(input.selectionStart).toBe(lockedPrefix.length);
+    expect(input.selectionEnd).toBe(selectionEnd);
+  });
+
+  it("keeps editable plain backspace out of the pre-native state machine path", () => {
+    const onDebugEvent = vi.fn();
+    const input = renderCombobox(undefined, ["/machines"], onDebugEvent);
+
+    act(() => {
+      input.focus();
+    });
+    onDebugEvent.mockClear();
+
+    const lockedPrefix = "http://localhost:3000/";
+    const backspaceEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Backspace",
+    });
+
+    act(() => {
+      input.setSelectionRange(lockedPrefix.length + 3, lockedPrefix.length + 3);
+      input.dispatchEvent(backspaceEvent);
+    });
+
+    expect(backspaceEvent.defaultPrevented).toBe(false);
+    expect(onDebugEvent.mock.calls.map(([event]) => event.type)).not.toContain(
+      "requestedProtectedBackspace",
+    );
+  });
+
+  it("clamps cmd-backspace to the route prefix before the native edit runs", () => {
+    const input = renderCombobox();
+
+    act(() => {
+      input.focus();
+    });
+
+    const lockedPrefix = "http://localhost:3000/";
+    const selectionStart = lockedPrefix.length + 3;
+    act(() => {
+      input.setSelectionRange(selectionStart, selectionStart);
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Backspace",
+          metaKey: true,
+        }),
+      );
+    });
+
+    expect(input.selectionStart).toBe(lockedPrefix.length);
+    expect(input.selectionEnd).toBe(selectionStart);
+  });
+
+  it("mirrors the native cmd-backspace deletion after the browser edits the input", () => {
+    const input = renderCombobox();
+
+    act(() => {
+      input.focus();
+    });
+
+    const lockedPrefix = "http://localhost:3000/";
+    const selectionStart = lockedPrefix.length + 3;
+    act(() => {
+      input.setSelectionRange(selectionStart, selectionStart);
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Backspace",
+          metaKey: true,
+        }),
+      );
+      setInputValue(input, "http://localhost:3000/hines?");
+      input.setSelectionRange(lockedPrefix.length, lockedPrefix.length);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(input.value).toBe("http://localhost:3000/hines?");
+    expect(input.selectionStart).toBe(lockedPrefix.length);
+    expect(input.selectionEnd).toBe(lockedPrefix.length);
   });
 
   it("closes the dropdown on escape and reports the blurred state", () => {

@@ -53,34 +53,56 @@ const routeAddressComboboxSuggestions = [
   },
 ] as const;
 
+type RouteEditorPreventNativeEditContext = {
+  preventDefault: () => void;
+};
+
 export type RouteEditorEvent =
   | {
-      path: string;
-      selection: RouteAddressSelection;
       type: "changedInput";
+      nextInputValue: string;
+      nextSelection: RouteAddressSelection;
     }
   | {
-      selection: RouteAddressSelection;
       type: "changedSelection";
+      selection: RouteAddressSelection;
     }
   | {
       type: "clickedOutside";
     }
   | {
-      selection: RouteAddressSelection;
       type: "clickedInput";
+      selection: RouteAddressSelection;
     }
   | {
       type: "pressedEscape";
     }
   | {
-      path: string;
+      type: "requestedProtectedBackspace";
+      selection: RouteAddressSelection;
+      context: RouteEditorPreventNativeEditContext;
+    }
+  | {
+      type: "requestedDeleteToRoutePrefix";
+      selection: RouteAddressSelection;
+    }
+  | {
       type: "selectedSuggestion";
+      path: string;
     };
 
-type RouteEditorAction = {
-  brand: "blurInput";
-};
+type RouteEditorAction =
+  | {
+      brand: "blurInput";
+    }
+  | {
+      brand: "preventNativeEdit";
+      context: RouteEditorPreventNativeEditContext;
+    }
+  | {
+      brand: "setInputSelection";
+      selection: RouteAddressSelection;
+    };
 
 type RouteEditorActionHandlerTable = TypedTransitionActionHandlerTable<
   RouteEditorAction["brand"],
@@ -118,11 +140,7 @@ function readRouteAddressFromInputValue(inputValue: string): string {
 
 const routeAddressComboboxTransition: RouteEditorTransitionTable = {
   blurred: {
-    changedInput: (prev, event) =>
-      keepState({
-        ...prev,
-        path: event.path,
-      }),
+    changedInput: keepState,
     changedSelection: keepState,
     clickedInput: (prev, event) =>
       keepState({
@@ -137,6 +155,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
       actions: [{ brand: "blurInput" }],
       state: prev,
     }),
+    requestedProtectedBackspace: keepState,
+    requestedDeleteToRoutePrefix: keepState,
     selectedSuggestion: (prev, event) => ({
       actions: [{ brand: "blurInput" }],
       state: {
@@ -151,8 +171,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
     changedInput: (prev, event) =>
       keepState({
         ...prev,
-        latestPath: event.path,
-        selection: event.selection,
+        latestPath: readRouteAddressFromInputValue(event.nextInputValue),
+        selection: event.nextSelection,
       }),
     changedSelection: (prev, event) =>
       keepState({
@@ -182,6 +202,47 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         path: prev.initialPath,
       },
     }),
+    requestedProtectedBackspace: (prev, event) => {
+      const lockedPrefixEnd = `${prev.origin}/`.length;
+      const selection = {
+        direction: "none" as const,
+        end: Math.max(event.selection.end, lockedPrefixEnd),
+        start: lockedPrefixEnd,
+      };
+      const actions: RouteEditorAction[] = [{ brand: "setInputSelection", selection }];
+      if (selection.start === selection.end) {
+        actions.push({
+          brand: "preventNativeEdit",
+          context: event.context,
+        });
+      }
+
+      return {
+        actions,
+        state: {
+          ...prev,
+          selection,
+        },
+      };
+    },
+    // Interesting implementation: we do not delete text here. We clamp the selection so the browser
+    // performs the Backspace edit natively, which keeps the input's own undo/redo behavior.
+    requestedDeleteToRoutePrefix: (prev, event) => {
+      const lockedPrefixEnd = `${prev.origin}/`.length;
+      const selection = {
+        direction: "none" as const,
+        end: Math.max(event.selection.end, lockedPrefixEnd),
+        start: lockedPrefixEnd,
+      };
+
+      return {
+        actions: [{ brand: "setInputSelection", selection }],
+        state: {
+          ...prev,
+          selection,
+        },
+      };
+    },
     selectedSuggestion: (prev, event) => ({
       actions: [{ brand: "blurInput" }],
       state: {
@@ -221,6 +282,16 @@ function useRouteAddressComboboxVm({
         blurInput: () => {
           inputRef.current?.blur();
         },
+        preventNativeEdit: (action) => {
+          action.context.preventDefault();
+        },
+        setInputSelection: (action) => {
+          inputRef.current?.setSelectionRange(
+            action.selection.start,
+            action.selection.end,
+            action.selection.direction,
+          );
+        },
       };
 
       runTransitionActions(actionHandlers, actions);
@@ -243,8 +314,8 @@ function useRouteAddressComboboxVm({
   const handleInputFocus = useCallback(
     (event: FocusEvent<HTMLInputElement>) => {
       sendEvent({
-        selection: readRouteAddressSelection(event.currentTarget),
         type: "clickedInput",
+        selection: readRouteAddressSelection(event.currentTarget),
       });
     },
     [sendEvent],
@@ -266,22 +337,52 @@ function useRouteAddressComboboxVm({
 
   const handleInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== "Escape") {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Backspace") {
+        sendEvent({
+          type: "requestedDeleteToRoutePrefix",
+          selection: readRouteAddressSelection(event.currentTarget),
+        });
         return;
       }
 
-      sendEvent({
-        type: "pressedEscape",
-      });
+      if (event.key === "Backspace") {
+        const selection = readRouteAddressSelection(event.currentTarget);
+        const lockedPrefixEnd = `${origin}/`.length;
+        const backspaceWouldDeleteLockedPrefix =
+          selection.start < lockedPrefixEnd ||
+          (selection.start === lockedPrefixEnd && selection.end === lockedPrefixEnd);
+
+        // Normal editable Backspace stays native so key-repeat undo grouping remains browser-owned.
+        if (!backspaceWouldDeleteLockedPrefix) {
+          return;
+        }
+
+        sendEvent({
+          type: "requestedProtectedBackspace",
+          selection,
+          context: {
+            preventDefault: () => {
+              event.preventDefault();
+            },
+          },
+        });
+        return;
+      }
+
+      if (event.key === "Escape") {
+        sendEvent({
+          type: "pressedEscape",
+        });
+      }
     },
-    [sendEvent],
+    [origin, sendEvent],
   );
 
   const handleInputSelect = useCallback(
     (event: SyntheticEvent<HTMLInputElement>) => {
       sendEvent({
-        selection: readRouteAddressSelection(event.currentTarget),
         type: "changedSelection",
+        selection: readRouteAddressSelection(event.currentTarget),
       });
     },
     [sendEvent],
@@ -289,10 +390,12 @@ function useRouteAddressComboboxVm({
 
   const handleInputChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
+      const nextSelection = readRouteAddressSelection(event.currentTarget);
+
       sendEvent({
-        path: readRouteAddressFromInputValue(event.currentTarget.value),
-        selection: readRouteAddressSelection(event.currentTarget),
         type: "changedInput",
+        nextInputValue: event.currentTarget.value,
+        nextSelection,
       });
     },
     [sendEvent],
@@ -302,8 +405,8 @@ function useRouteAddressComboboxVm({
     (event: MouseEvent<HTMLDivElement>, routeAddress: string) => {
       event.preventDefault();
       sendEvent({
-        path: routeAddress,
         type: "selectedSuggestion",
+        path: routeAddress,
       });
     },
     [sendEvent],
