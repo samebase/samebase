@@ -9,12 +9,15 @@
 # public pages without catching hashed assets.
 
 / /_landing.html 200
+
 /logo /logo/index.html 200
 /logo/ /logo/index.html 200
 /logo/index.html /logo/index.html 200
+
 /privacy /privacy/index.html 200
 /privacy/ /privacy/index.html 200
 /privacy/index.html /privacy/index.html 200
+
 /terms /terms/index.html 200
 /terms/ /terms/index.html 200
 /terms/index.html /terms/index.html 200

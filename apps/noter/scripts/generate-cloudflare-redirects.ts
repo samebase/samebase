@@ -107,9 +107,11 @@ function createRedirectAliases(routePath: string) {
 }
 
 export function createCloudflarePrerenderRedirectsBlock(pages: readonly PublicPrerenderPage[]) {
-  const redirectLines = pages.flatMap((page) => {
+  const redirectGroups = pages.map((page) => {
     const outputPath = readHtmlOutputPath(page);
-    return createRedirectAliases(page.path).map((alias) => `${alias} ${outputPath} 200`);
+    return createRedirectAliases(page.path)
+      .map((alias) => `${alias} ${outputPath} 200`)
+      .join("\n");
   });
 
   return [
@@ -118,7 +120,7 @@ export function createCloudflarePrerenderRedirectsBlock(pages: readonly PublicPr
     "# the SPA shell owns that file. These exact aliases expose prerendered",
     "# public pages without catching hashed assets.",
     "",
-    ...redirectLines,
+    redirectGroups.join("\n\n"),
   ].join("\n");
 }
 
