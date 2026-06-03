@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-05-01
+- Last updated: 2026-06-03
 - Depends on:
   - `apps/noter/src/lib/appRouter.ts`
   - `apps/noter/src/components/NotFoundRoutePage.tsx`
@@ -54,6 +54,10 @@ Intentional remaining router-level boundary:
 1. `apps/noter/src/lib/tanstackSearchParams.ts` still defines the router-wide query
    parser/stringifier because Noter intentionally preserves key-only URLs such as `/?dev` instead of
    adopting TanStack Router's default JSON-style search semantics.
+2. `/` remains the public landing route, and `/home` remains the canonical signed-in dashboard
+   route. `apps/noter/src/lib/useAppAuthRuntimeEffects.ts` enforces that boundary after Convex auth
+   state resolves by replacing authenticated `/` visits with `/home` and clearing one-shot public
+   auth query state.
 
 Already completed in this step:
 

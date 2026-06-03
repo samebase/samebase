@@ -25,11 +25,14 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
       return;
     }
 
-    if (isAuthenticated && authReturn === "dashboard") {
+    // `/` is the public landing route; authenticated sessions belong on the
+    // canonical dashboard route even if the one-shot return marker is absent.
+    if (isAuthenticated && (pathname === "/" || authReturn === "dashboard")) {
       void router.navigate({
         replace: true,
         search: (currentSearch) => ({
           ...currentSearch,
+          auth: undefined,
           "auth-return": undefined,
           "create-account": undefined,
           signup: undefined,
