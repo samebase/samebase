@@ -72,6 +72,7 @@
   "devDependencies": {
     "@convex-dev/eslint-plugin": "2.0.0",
     "@edge-runtime/vm": "^5.0.0",
+    "@noter-md/dependent": "workspace:*",
     "@playwright/test": "1.58.2",
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
     "convex-test": "^0.0.51",

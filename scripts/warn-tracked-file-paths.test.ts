@@ -16,7 +16,11 @@ function createRepoWithTrackedGeneratedFile(): string {
 
   const generatedOutputPath = path.join(repoRoot, trackedFilePathsOutputPath);
   mkdirSync(path.dirname(generatedOutputPath), { recursive: true });
-  writeFileSync(generatedOutputPath, "export type TrackedFilePath = never;\n", "utf8");
+  writeFileSync(
+    generatedOutputPath,
+    "export const trackedFilePaths = [] as const;\nexport type TrackedFilePath = never;\n",
+    "utf8",
+  );
   execFileSync("git", ["add", trackedFilePathsOutputPath], { cwd: repoRoot });
 
   return repoRoot;
@@ -31,7 +35,7 @@ describe("warn-tracked-file-paths", () => {
 
       writeFileSync(
         path.join(repoRoot, trackedFilePathsOutputPath),
-        'export type TrackedFilePath = "new-file.ts";\n',
+        'export const trackedFilePaths = ["new-file.ts"] as const;\nexport type TrackedFilePath = (typeof trackedFilePaths)[number];\n',
         "utf8",
       );
 

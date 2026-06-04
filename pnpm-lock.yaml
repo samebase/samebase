@@ -37,6 +37,9 @@ importers:
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
+      '@noter-md/dependent':
+        specifier: workspace:*
+        version: link:packages/dependent
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
