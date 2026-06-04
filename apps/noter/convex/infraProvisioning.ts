@@ -548,6 +548,33 @@ async function createConvexDeployKey(args: {
   };
 }
 
+async function createConvexPreviewDeployKey(args: {
+  convexToken: string;
+  projectId: string;
+  name: string;
+  recordApiCall?: ProviderApiCallRecorder;
+}): Promise<ConvexDeployKeyResult> {
+  // Cloudflare branch builds run `convex deploy --preview-create`, which
+  // requires a project-level preview deploy key instead of a dev deployment key.
+  const { previewDeployKey } = await requestConvexManagementApi(
+    args.convexToken,
+    "POST",
+    "/projects/{project_id}/create_preview_deploy_key",
+    {
+      params: { path: { project_id: args.projectId } },
+      body: {
+        name: args.name,
+      },
+      recordApiCall: args.recordApiCall,
+    },
+  );
+
+  return {
+    convexDeployKeyId: parseDeployKeyIdentifier(previewDeployKey),
+    deployKey: previewDeployKey,
+  };
+}
+
 function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareBuildConfig {
   return {
     rootDir: build.rootDirectory,
@@ -1628,9 +1655,9 @@ export const ensureCloudflareInfrastructure = internalAction({
       });
       return null;
     }
-    const previewDeployKey = await createConvexDeployKey({
+    const previewDeployKey = await createConvexPreviewDeployKey({
       convexToken,
-      deploymentName: previewConvex.previewDeploymentName,
+      projectId: existing.projectId,
       name: `noter-preview-${vaultSuffix(args.vaultId)}`,
       recordApiCall,
     });
