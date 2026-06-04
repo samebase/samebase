@@ -16,6 +16,7 @@ import {
   readPositiveIntegerEnvValue,
 } from "./lib/env.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
+import { noterAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
@@ -199,7 +200,7 @@ export function buildWorktreeDevCommandPlan(
       label: "stop existing local backend listeners",
       cwd: repoRoot,
       command: process.execPath,
-      args: [path.join(repoRoot, "scripts", "killport.ts")],
+      args: [path.join(repoRoot, trackedFilePath("scripts/killport.ts"))],
       phase: "always",
     },
     {
@@ -207,7 +208,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: repoRoot,
       command: process.execPath,
       args: [
-        path.join(repoRoot, "scripts", "convex-sync-dev-env.ts"),
+        path.join(repoRoot, trackedFilePath("scripts/convex-sync-dev-env.ts")),
         ...buildWorktreeDevSeedEnvArgs(options, "check-prereqs"),
       ],
       env: seedEnv,
@@ -218,7 +219,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: repoRoot,
       command: process.execPath,
       args: [
-        path.join(repoRoot, "scripts", "bootstrap-worktree.ts"),
+        path.join(repoRoot, trackedFilePath("scripts/bootstrap-worktree.ts")),
         ...buildWorktreeDevBootstrapArgs(options),
       ],
       phase: "always",
@@ -227,7 +228,7 @@ export function buildWorktreeDevCommandPlan(
       label: "generate tracked file path types",
       cwd: repoRoot,
       command: process.execPath,
-      args: [path.join(repoRoot, "scripts", "generate-tracked-file-paths.ts")],
+      args: [path.join(repoRoot, trackedFilePath("scripts/generate-tracked-file-paths.ts"))],
       phase: "always",
     },
     {
@@ -235,7 +236,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: appDir,
       command: process.execPath,
       args: [
-        path.join(appDir, "scripts", "convex-dev.ts"),
+        path.join(appDir, noterAppFilePath("scripts/convex-dev.ts")),
         "--once",
         "--codegen=enable",
         "--tail-logs=disable",
@@ -249,7 +250,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: repoRoot,
       command: process.execPath,
       args: [
-        path.join(repoRoot, "scripts", "convex-sync-dev-env.ts"),
+        path.join(repoRoot, trackedFilePath("scripts/convex-sync-dev-env.ts")),
         ...buildWorktreeDevSeedEnvArgs(options, "sync"),
       ],
       env: seedEnv,
@@ -259,7 +260,7 @@ export function buildWorktreeDevCommandPlan(
       label: "seed the local password-auth development account",
       cwd: repoRoot,
       command: process.execPath,
-      args: [path.join(repoRoot, "scripts", "convex-seed-dev-auth.ts")],
+      args: [path.join(repoRoot, trackedFilePath("scripts/convex-seed-dev-auth.ts"))],
       phase: "once-bootstrap",
     },
     {
@@ -267,7 +268,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: appDir,
       command: process.execPath,
       args: [
-        path.join(appDir, "scripts", "convex-dev.ts"),
+        path.join(appDir, noterAppFilePath("scripts/convex-dev.ts")),
         "--refresh-anon-auth",
         "--once",
         "--codegen=disable",

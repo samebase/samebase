@@ -6,6 +6,7 @@ import process from "node:process";
 
 import { parsePositiveInteger } from "../apps/noter/dev/appBuildMetadata.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
+import { noterAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.58.2-noble";
 const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
@@ -14,6 +15,8 @@ const DEFAULT_CONVEX_CACHE_VOLUME = "noter-playwright-linux-convex-cache";
 const DEFAULT_VITE_PORT = "43121";
 const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "4";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
+const ciBootstrapConvexScriptPath = `./${trackedFilePath("scripts/ci-bootstrap-convex.ts")}`;
+const noterPlaywrightConfigPath = noterAppFilePath("playwright.config.ts");
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
@@ -44,13 +47,13 @@ tar \
 cd /work
 pnpm config set store-dir /pnpm-store >/dev/null
 pnpm install --frozen-lockfile
-node ./scripts/ci-bootstrap-convex.ts --keep-running
+node ${ciBootstrapConvexScriptPath} --keep-running
 PLAYWRIGHT=1 pnpm --filter noter build:ci
 
 set +e
 PLAYWRIGHT_SKIP_BUILD=1 \
   PLAYWRIGHT_VITE_PORT="$PLAYWRIGHT_VITE_PORT" \
-  pnpm --filter noter exec playwright test -c playwright.config.ts "$@"
+  pnpm --filter noter exec playwright test -c ${noterPlaywrightConfigPath} "$@"
 status=$?
 set -e
 
