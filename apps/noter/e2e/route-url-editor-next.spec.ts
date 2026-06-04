@@ -1,11 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function openRouteAddressCombobox(page: Page): Promise<Locator> {
-  await page.goto("/research/route-address-combobox", {
+async function openRouteUrlEditor(page: Page): Promise<Locator> {
+  await page.goto("/privacy", {
     waitUntil: "domcontentloaded",
   });
 
-  const input = page.getByTestId("route-address-combobox-input");
+  const input = page.getByTestId("route-url-editor-display");
   await expect(input).toBeVisible();
 
   return input;
@@ -24,7 +24,7 @@ async function setInputSelection(
 ): Promise<void> {
   await input.evaluate((element, nextSelection) => {
     if (!(element instanceof HTMLInputElement)) {
-      throw new Error("Expected route address combobox input.");
+      throw new Error("Expected route URL editor input.");
     }
 
     element.setSelectionRange(nextSelection.start, nextSelection.end);
@@ -54,11 +54,19 @@ async function expectNoPageErrorDuring(page: Page, action: () => Promise<void>):
 }
 
 async function focusRouteAddressInput(page: Page) {
-  const input = await openRouteAddressCombobox(page);
+  const displayInput = await openRouteUrlEditor(page);
   const prefix = await readRouteAddressPrefix(page);
-  const focusedInputValue = `${prefix}research/route-address-combobox?`;
+  const focusedInputValue = `${prefix}privacy?`;
 
-  await input.click();
+  await displayInput.evaluate((element) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor display input.");
+    }
+
+    element.blur();
+  });
+  await displayInput.focus();
+  const input = page.getByTestId("route-url-editor-input");
   await expect(input).toHaveValue(focusedInputValue);
 
   return {
@@ -68,7 +76,7 @@ async function focusRouteAddressInput(page: Page) {
   };
 }
 
-test("route address combobox keeps the prefix visible when Backspace deletes a selection that crosses it", async ({
+test("route URL editor keeps the prefix visible when Backspace deletes a selection that crosses it", async ({
   page,
 }) => {
   const { focusedInputValue, input, prefix } = await focusRouteAddressInput(page);
@@ -81,14 +89,12 @@ test("route address combobox keeps the prefix visible when Backspace deletes a s
 
   await expectNoPageErrorDuring(page, () => input.press("Backspace"));
 
-  expect(focusedInputValue.slice(selectionEnd)).toBe("earch/route-address-combobox?");
-  await expect(input).toHaveValue(`${prefix}earch/route-address-combobox?`);
+  expect(focusedInputValue.slice(selectionEnd)).toBe("vacy?");
+  await expect(input).toHaveValue(`${prefix}vacy?`);
   await expectInputSelection(input, prefix.length);
 });
 
-test("route address combobox ignores Backspace at the protected prefix boundary", async ({
-  page,
-}) => {
+test("route URL editor ignores Backspace at the protected prefix boundary", async ({ page }) => {
   const { focusedInputValue, input, prefix } = await focusRouteAddressInput(page);
 
   await setInputSelection(input, {
@@ -102,7 +108,7 @@ test("route address combobox ignores Backspace at the protected prefix boundary"
   await expectInputSelection(input, prefix.length);
 });
 
-test("route address combobox keeps focus and advances the cursor after selecting suggestions", async ({
+test("route URL editor keeps focus and advances the cursor after selecting suggestions", async ({
   page,
 }) => {
   const { input, prefix } = await focusRouteAddressInput(page);
@@ -137,12 +143,12 @@ test("route address combobox keeps focus and advances the cursor after selecting
   await expect(page.getByRole("option", { exact: true, name: "&secondary=" })).toBeVisible();
 });
 
-test("route address combobox clamps modifier Backspace to the route boundary", async ({ page }) => {
+test("route URL editor clamps modifier Backspace to the route boundary", async ({ page }) => {
   const { input, prefix } = await focusRouteAddressInput(page);
 
   await setInputSelection(input, {
-    end: prefix.length + "research/route-address-combobox?".length,
-    start: prefix.length + "research/route-address-combobox?".length,
+    end: prefix.length + "privacy?".length,
+    start: prefix.length + "privacy?".length,
   });
 
   await expectNoPageErrorDuring(page, () => input.press("ControlOrMeta+Backspace"));
@@ -151,7 +157,7 @@ test("route address combobox clamps modifier Backspace to the route boundary", a
   await expectInputSelection(input, prefix.length);
 });
 
-test("route address combobox keeps the prefix visible when Delete removes a selection that crosses it", async ({
+test("route URL editor keeps the prefix visible when Delete removes a selection that crosses it", async ({
   page,
 }) => {
   const { input, prefix } = await focusRouteAddressInput(page);
@@ -163,11 +169,11 @@ test("route address combobox keeps the prefix visible when Delete removes a sele
 
   await expectNoPageErrorDuring(page, () => input.press("Delete"));
 
-  await expect(input).toHaveValue(`${prefix}earch/route-address-combobox?`);
+  await expect(input).toHaveValue(`${prefix}vacy?`);
   await expectInputSelection(input, prefix.length);
 });
 
-test("route address combobox cuts only route text when Cut crosses the prefix and preserves undo", async ({
+test("route URL editor cuts only route text when Cut crosses the prefix and preserves undo", async ({
   page,
 }) => {
   const { focusedInputValue, input, prefix } = await focusRouteAddressInput(page);
@@ -184,9 +190,9 @@ test("route address combobox cuts only route text when Cut crosses the prefix an
 
   await expectNoPageErrorDuring(page, () => input.press("ControlOrMeta+X"));
 
-  await expect(input).toHaveValue(`${prefix}earch/route-address-combobox?`);
+  await expect(input).toHaveValue(`${prefix}vacy?`);
   await expectInputSelection(input, prefix.length);
-  await expect(page.evaluate(() => navigator.clipboard.readText())).resolves.toBe("res");
+  await expect(page.evaluate(() => navigator.clipboard.readText())).resolves.toBe("pri");
 
   await expectNoPageErrorDuring(page, () => input.press("ControlOrMeta+Z"));
 
@@ -195,7 +201,7 @@ test("route address combobox cuts only route text when Cut crosses the prefix an
   await expect(input).toHaveJSProperty("selectionEnd", selectionEnd);
 });
 
-test("route address combobox replaces only route text when typing over a selection that crosses the prefix", async ({
+test("route URL editor replaces only route text when typing over a selection that crosses the prefix", async ({
   page,
 }) => {
   const { input, prefix } = await focusRouteAddressInput(page);
@@ -207,11 +213,11 @@ test("route address combobox replaces only route text when typing over a selecti
 
   await expectNoPageErrorDuring(page, () => input.press("x"));
 
-  await expect(input).toHaveValue(`${prefix}xearch/route-address-combobox?`);
+  await expect(input).toHaveValue(`${prefix}xvacy?`);
   await expectInputSelection(input, prefix.length + 1);
 });
 
-test("route address combobox replaces only route text when pasting over a selection that crosses the prefix", async ({
+test("route URL editor replaces only route text when pasting over a selection that crosses the prefix", async ({
   page,
 }) => {
   const { input, prefix } = await focusRouteAddressInput(page);
@@ -227,6 +233,6 @@ test("route address combobox replaces only route text when pasting over a select
 
   await expectNoPageErrorDuring(page, () => input.press("ControlOrMeta+V"));
 
-  await expect(input).toHaveValue(`${prefix}routeearch/route-address-combobox?`);
+  await expect(input).toHaveValue(`${prefix}routevacy?`);
   await expectInputSelection(input, prefix.length + "route".length);
 });
