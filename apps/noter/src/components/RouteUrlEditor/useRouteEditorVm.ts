@@ -13,7 +13,7 @@ import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import { api } from "../../../convex/_generated/api";
-import { readSuggestions, type Suggestion } from "./RouteAddressComboboxSuggestions";
+import { readSuggestions, type Suggestion } from "./RouteUrlEditorSuggestions";
 import { keepState, runTransitionActions } from "./typedTransitionTable";
 import { useTypedTransitionMachine } from "./useTypedTransitionMachine";
 import type {
@@ -42,9 +42,7 @@ export type RouteEditorState =
       selection: RouteAddressSelection;
     };
 
-export type RouteAddressComboboxState = RouteEditorState;
-
-export type RouteAddressComboboxProps = {
+export type RouteEditorVmProps = {
   onDebugStateChange?: (state: RouteEditorState) => void;
 };
 
@@ -305,7 +303,7 @@ function readRouteAddressFromRouteHref(routeHref: string): string {
   return `${url.pathname}${url.search}`;
 }
 
-export function useRouteEditorVm({ onDebugStateChange }: RouteAddressComboboxProps) {
+export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   const router = useRouter();
   const location = useLocation();
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
@@ -378,7 +376,7 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteAddressComboboxPro
   );
 
   const handleRootBlur = useCallback(
-    (event: FocusEvent<HTMLDivElement>) => {
+    (event: FocusEvent<HTMLElement>) => {
       const nextFocusedElement = event.relatedTarget;
       if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) {
         return;
@@ -499,7 +497,7 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteAddressComboboxPro
   );
 
   const handleSuggestionMouseDown = useCallback(
-    (event: MouseEvent<HTMLDivElement>, suggestion: Suggestion) => {
+    (event: MouseEvent<HTMLElement>, suggestion: Suggestion) => {
       event.preventDefault();
       sendEvent({
         type: "selectedSuggestion",
@@ -523,8 +521,7 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteAddressComboboxPro
 
   return {
     getSuggestionProps: (suggestion: Suggestion) => ({
-      onMouseDown: (event: MouseEvent<HTMLDivElement>) =>
-        handleSuggestionMouseDown(event, suggestion),
+      onMouseDown: (event: MouseEvent<HTMLElement>) => handleSuggestionMouseDown(event, suggestion),
     }),
     inputProps: {
       "aria-controls": suggestionsVisible ? listboxId : undefined,

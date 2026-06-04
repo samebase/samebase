@@ -24,7 +24,6 @@ import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
 import { Route as addRepositoryRouteImport } from "./routes/add-repository";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
-import { Route as routeAddressComboboxResearchRouteImport } from "./routes/route-address-combobox-research";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as machineConnectRouteImport } from "./routes/machine-connect";
@@ -115,12 +114,6 @@ const vaultFileRoute = vaultFileRouteImport.update({
   path: "/vault/$",
   getParentRoute: () => rootRouteImport,
 } as any);
-const routeAddressComboboxResearchRoute =
-  routeAddressComboboxResearchRouteImport.update({
-    id: "/research/route-address-combobox",
-    path: "/research/route-address-combobox",
-    getParentRoute: () => rootRouteImport,
-  } as any);
 const codexResearchRoute = codexResearchRouteImport.update({
   id: "/research/codex-app-server",
   path: "/research/codex-app-server",
@@ -166,12 +159,11 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
-const codexThreadBrowserResearchRoute =
-  codexThreadBrowserResearchRouteImport.update({
-    id: "/research/codex-app-server/browser",
-    path: "/research/codex-app-server/browser",
-    getParentRoute: () => rootRouteImport,
-  } as any);
+const codexThreadBrowserResearchRoute = codexThreadBrowserResearchRouteImport.update({
+  id: "/research/codex-app-server/browser",
+  path: "/research/codex-app-server/browser",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -182,12 +174,11 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoTransitionTransformsLabRoute =
-  logoTransitionTransformsLabRouteImport.update({
-    id: "/logo/transition/transforms",
-    path: "/logo/transition/transforms",
-    getParentRoute: () => rootRouteImport,
-  } as any);
+const logoTransitionTransformsLabRoute = logoTransitionTransformsLabRouteImport.update({
+  id: "/logo/transition/transforms",
+  path: "/logo/transition/transforms",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -218,7 +209,6 @@ export interface FileRoutesByFullPath {
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
-  "/research/route-address-combobox": typeof routeAddressComboboxResearchRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -250,7 +240,6 @@ export interface FileRoutesByTo {
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
-  "/research/route-address-combobox": typeof routeAddressComboboxResearchRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -283,7 +272,6 @@ export interface FileRoutesById {
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
-  "/research/route-address-combobox": typeof routeAddressComboboxResearchRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -317,7 +305,6 @@ export interface FileRouteTypes {
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
-    | "/research/route-address-combobox"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -349,7 +336,6 @@ export interface FileRouteTypes {
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
-    | "/research/route-address-combobox"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -381,7 +367,6 @@ export interface FileRouteTypes {
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
-    | "/research/route-address-combobox"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -414,7 +399,6 @@ export interface RootRouteChildren {
   machineConnectRoute: typeof machineConnectRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
-  routeAddressComboboxResearchRoute: typeof routeAddressComboboxResearchRoute;
   vaultFileRoute: typeof vaultFileRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
@@ -528,13 +512,6 @@ declare module "@tanstack/react-router" {
       path: "/vault/$";
       fullPath: "/vault/$";
       preLoaderRoute: typeof vaultFileRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/research/route-address-combobox": {
-      id: "/research/route-address-combobox";
-      path: "/research/route-address-combobox";
-      fullPath: "/research/route-address-combobox";
-      preLoaderRoute: typeof routeAddressComboboxResearchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/research/codex-app-server": {
@@ -662,7 +639,6 @@ const rootRouteChildren: RootRouteChildren = {
   machineConnectRoute: machineConnectRoute,
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
-  routeAddressComboboxResearchRoute: routeAddressComboboxResearchRoute,
   vaultFileRoute: vaultFileRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
