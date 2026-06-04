@@ -6,6 +6,7 @@ import path from "node:path";
 import process from "node:process";
 import { readOptionalEnvValue, readPositiveIntegerEnvValue } from "./lib/env.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
+import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
 const DEFAULT_RECORDINGS_DIRNAME = "noter-browser-recordings";
@@ -49,7 +50,7 @@ function getActiveSessionPath(repoRoot: string): string {
 }
 
 function getBranchBrowserScriptPath(repoRoot: string): string {
-  return path.join(repoRoot, "scripts", "playwright-branch-browser.ts");
+  return path.join(repoRoot, trackedFilePath("scripts/playwright-branch-browser.ts"));
 }
 
 function runBranchBrowser(

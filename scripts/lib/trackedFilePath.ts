@@ -10,7 +10,7 @@ type StripTrackedPrefix<
 export type TrackedPathUnder<Prefix extends string> = StripTrackedPrefix<TrackedFilePath, Prefix>;
 export type NoterAppFilePath = TrackedPathUnder<"apps/noter">;
 
-export function isTrackedFilePath(filePath: unknown): filePath is TrackedFilePath {
+export function isTrackedFilePath(filePath: unknown) {
   return includes(trackedFilePaths, filePath);
 }
 

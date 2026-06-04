@@ -2,6 +2,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readEnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
+import { noterAppFilePath } from "./lib/trackedFilePath.ts";
 import path from "node:path";
 import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
 import { listListeningPids, parsePort, sleep } from "../apps/noter/scripts/convex-local-utils.ts";
@@ -40,7 +41,12 @@ let backendOutputTail = "";
 
 const backend = spawn(
   "node",
-  ["scripts/convex-dev.ts", "--tail-logs=disable", "--typecheck=disable", "--codegen=disable"],
+  [
+    noterAppFilePath("scripts/convex-dev.ts"),
+    "--tail-logs=disable",
+    "--typecheck=disable",
+    "--codegen=disable",
+  ],
   {
     cwd: appDir,
     env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },

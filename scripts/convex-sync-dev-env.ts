@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
+import { noterAppFilePath } from "./lib/trackedFilePath.ts";
 import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
 import {
   buildCloudDeploymentUrl,
@@ -392,7 +393,7 @@ async function listDeploymentEnvVarsWithDeployKey({
   deploymentName: string;
   deployKey: string;
 }): Promise<EnvEntry[]> {
-  const requireFromApp = createRequire(path.join(appDir, "package.json"));
+  const requireFromApp = createRequire(path.join(appDir, noterAppFilePath("package.json")));
 
   const convexBrowserModule: unknown = requireFromApp("convex/browser");
 
