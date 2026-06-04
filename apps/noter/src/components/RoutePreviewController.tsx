@@ -1,40 +1,122 @@
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { useLocation, useRouter } from "@tanstack/react-router";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import {
   createContext,
   useCallback,
   useContext,
   useLayoutEffect,
   useMemo,
-  useRef,
-  useState,
   type MouseEvent,
   type ReactNode,
 } from "react";
+import {
+  keepState,
+  runTransition,
+  runTransitionActions,
+} from "@/components/RouteUrlEditor/typedTransitionTable";
+import type {
+  TypedTransitionActionHandlerTable,
+  TypedTransitionResult,
+  TypedTransitionTable,
+} from "@/components/RouteUrlEditor/typedTransitionTable";
 
-type RoutePreview = {
-  /**
-   * URL restored on mouseleave.
-   *
-   * Example: hovering "/terms" while currently at "/?dev" stores "/?dev".
-   */
-  restoreHref: string;
-  /**
-   * URL the router actually shows or is expected to show during preview.
-   *
-   * Example: a reset-link preview can request targetHref "/?reset" while the
-   * router displays previewHref "/".
-   */
-  previewHref: string;
-  /**
-   * URL requested when the preview started.
-   *
-   * Example: clicking the hovered "/terms" link commits targetHref "/terms",
-   * even if the link re-rendered while the preview was active.
-   */
-  targetHref: string;
+const ROUTE_PREVIEW_LINK_SELECTOR = 'a[data-route-preview-link="true"]';
+
+type RoutePreviewState =
+  | {
+      kind: "idle";
+      /**
+       * URL that should be visible when no temporary route preview is active.
+       */
+      href: string;
+      /**
+       * Last URL requested by the controller that has not settled in TanStack Router yet.
+       */
+      pendingHref: string | null;
+    }
+  | {
+      kind: "previewing";
+      /**
+       * URL restored when the pointer leaves the preview surface.
+       */
+      restoreHref: string;
+      /**
+       * URL that should be visible while previewing.
+       */
+      href: string;
+      /**
+       * Last URL requested by the controller that has not settled in TanStack Router yet.
+       */
+      pendingHref: string | null;
+      /**
+       * Original preview target committed on click even if the link re-renders.
+       */
+      targetHref: string;
+    };
+
+type RoutePreviewClickContext = {
+  preventDefault: () => void;
+  setAnchorHref: (href: string) => void;
+  stopPropagation: () => void;
 };
+
+type RoutePreviewEvent =
+  | {
+      type: "clickedPreviewLink";
+      context: RoutePreviewClickContext;
+      targetHref: string;
+    }
+  | {
+      type: "leftPreviewSurface";
+    }
+  | {
+      type: "movedPointer";
+      /**
+       * Route href under the pointer, or null when the pointer is not over a preview link.
+       */
+      targetHref: string | null;
+    }
+  | {
+      type: "routeChanged";
+      href: string;
+    };
+
+type RoutePreviewAction =
+  | {
+      brand: "commitPreviewRoute";
+      context: RoutePreviewClickContext;
+      currentHref: string;
+      restoreHref: string;
+      targetHref: string;
+    }
+  | {
+      brand: "navigateClickedRoute";
+      context: RoutePreviewClickContext;
+      fromHref: string;
+      targetHref: string;
+    }
+  | {
+      brand: "replaceRoute";
+      fromHref: string;
+      toHref: string;
+    };
+
+type RoutePreviewTransitionResult = TypedTransitionResult<RoutePreviewState, RoutePreviewAction>;
+
+type RoutePreviewTransitionTable = TypedTransitionTable<
+  RoutePreviewState["kind"],
+  RoutePreviewEvent["type"],
+  RoutePreviewState,
+  RoutePreviewEvent,
+  RoutePreviewTransitionResult
+>;
+
+type RoutePreviewActionHandlerTable = TypedTransitionActionHandlerTable<
+  RoutePreviewAction["brand"],
+  RoutePreviewAction
+>;
 
 type RoutePreviewSnapshot =
   | {
@@ -48,7 +130,7 @@ type RoutePreviewSnapshot =
   | {
       kind: "previewing";
       /**
-       * Search string restored on mouseleave.
+       * Search string restored on pointer leave.
        */
       restoreSearch: string;
       /**
@@ -68,13 +150,19 @@ type RoutePreviewController = {
   snapshot: RoutePreviewSnapshot;
   /**
    * Standard props for links that preview on hover and commit on left click.
-   *
-   * Example: a sidebar link only spreads these props. The controller keeps the
-   * ref-backed current URL, restore URL, and exact search clearing logic here.
    */
   previewLinkProps: {
+    "data-route-preview-link": "true";
     onClickCapture: (event: MouseEvent<HTMLAnchorElement>) => void;
     onMouseEnter: (event: MouseEvent<HTMLAnchorElement>) => void;
+  };
+  /**
+   * Standard props for the container that owns a group of preview links.
+   *
+   * The surface sends pointer leave as the direct restore path. While previewing,
+   * the provider also samples document mouseover events for replaced rails.
+   */
+  previewSurfaceProps: {
     onMouseLeave: () => void;
   };
 };
@@ -124,6 +212,19 @@ function readAnchorRouteHref(anchor: HTMLAnchorElement): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function readDocumentRoutePreviewLinkHref(target: EventTarget | null): string | null {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+
+  const routePreviewLink = target.closest(ROUTE_PREVIEW_LINK_SELECTOR);
+  if (!(routePreviewLink instanceof HTMLAnchorElement)) {
+    return null;
+  }
+
+  return readAnchorRouteHref(routePreviewLink);
+}
+
 function shouldLetBrowserHandleClick(event: MouseEvent<HTMLAnchorElement>): boolean {
   return event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 }
@@ -132,22 +233,210 @@ function setAnchorHref(anchor: HTMLAnchorElement, routeHref: string) {
   anchor.href = new URL(routeHref, new URL(readIsomorphicOrigin())).href;
 }
 
-function readRoutePreviewSnapshot(
-  preview: RoutePreview | null,
-  currentHref: string,
-): RoutePreviewSnapshot {
-  if (preview === null) {
+function readSamePath(leftHref: string, rightHref: string): boolean {
+  const appOrigin = new URL(readIsomorphicOrigin());
+  return new URL(leftHref, appOrigin).pathname === new URL(rightHref, appOrigin).pathname;
+}
+
+function readRouteChangedIdleState(
+  prev: Extract<RoutePreviewState, { kind: "idle" }>,
+  href: string,
+): RoutePreviewTransitionResult {
+  if (prev.pendingHref) {
+    if (readSamePath(prev.pendingHref, href)) {
+      return keepState({
+        ...prev,
+        href,
+        pendingHref: null,
+      });
+    }
+
+    return keepState(prev);
+  }
+
+  if (prev.href === href) {
+    return keepState(prev);
+  }
+
+  return keepState({
+    kind: "idle",
+    href,
+    pendingHref: null,
+  });
+}
+
+function readRouteChangedPreviewingState(
+  prev: Extract<RoutePreviewState, { kind: "previewing" }>,
+  href: string,
+): RoutePreviewTransitionResult {
+  if (prev.pendingHref) {
+    if (readSamePath(prev.pendingHref, href)) {
+      return keepState({
+        ...prev,
+        href,
+        pendingHref: null,
+      });
+    }
+
+    return keepState(prev);
+  }
+
+  if (!readSamePath(prev.href, href)) {
+    return keepState({
+      kind: "idle",
+      href,
+      pendingHref: null,
+    });
+  }
+
+  return keepState({
+    ...prev,
+    href,
+  });
+}
+
+function startPreview(
+  prev: Extract<RoutePreviewState, { kind: "idle" }>,
+  targetHref: string,
+): RoutePreviewTransitionResult {
+  if (targetHref === prev.href) {
+    return keepState(prev);
+  }
+
+  return {
+    actions: [
+      {
+        brand: "replaceRoute",
+        fromHref: prev.href,
+        toHref: targetHref,
+      },
+    ],
+    state: {
+      kind: "previewing",
+      href: targetHref,
+      pendingHref: targetHref,
+      restoreHref: prev.href,
+      targetHref,
+    },
+  };
+}
+
+function restorePreview(
+  prev: Extract<RoutePreviewState, { kind: "previewing" }>,
+): RoutePreviewTransitionResult {
+  if (prev.href === prev.restoreHref) {
+    return keepState({
+      kind: "idle",
+      href: prev.restoreHref,
+      pendingHref: null,
+    });
+  }
+
+  return {
+    actions: [
+      {
+        brand: "replaceRoute",
+        fromHref: prev.href,
+        toHref: prev.restoreHref,
+      },
+    ],
+    state: {
+      kind: "idle",
+      href: prev.restoreHref,
+      pendingHref: prev.restoreHref,
+    },
+  };
+}
+
+function retargetPreview(
+  prev: Extract<RoutePreviewState, { kind: "previewing" }>,
+  targetHref: string,
+): RoutePreviewTransitionResult {
+  if (targetHref === prev.targetHref) {
+    return keepState(prev);
+  }
+
+  if (targetHref === prev.restoreHref) {
+    return restorePreview(prev);
+  }
+
+  return {
+    actions: [
+      {
+        brand: "replaceRoute",
+        fromHref: prev.href,
+        toHref: targetHref,
+      },
+    ],
+    state: {
+      ...prev,
+      href: targetHref,
+      pendingHref: targetHref,
+      targetHref,
+    },
+  };
+}
+
+const routePreviewTransition: RoutePreviewTransitionTable = {
+  idle: {
+    clickedPreviewLink: (prev, event) => ({
+      actions: [
+        {
+          brand: "navigateClickedRoute",
+          context: event.context,
+          fromHref: prev.href,
+          targetHref: event.targetHref,
+        },
+      ],
+      state: {
+        kind: "idle",
+        href: event.targetHref,
+        pendingHref: event.targetHref,
+      },
+    }),
+    leftPreviewSurface: keepState,
+    movedPointer: (prev, event) =>
+      event.targetHref ? startPreview(prev, event.targetHref) : keepState(prev),
+    routeChanged: (prev, event) => readRouteChangedIdleState(prev, event.href),
+  },
+
+  previewing: {
+    clickedPreviewLink: (prev, event) => ({
+      actions: [
+        {
+          brand: "commitPreviewRoute",
+          context: event.context,
+          currentHref: prev.href,
+          restoreHref: prev.restoreHref,
+          targetHref: prev.targetHref,
+        },
+      ],
+      state: {
+        kind: "idle",
+        href: prev.targetHref,
+        pendingHref: prev.targetHref,
+      },
+    }),
+    leftPreviewSurface: restorePreview,
+    movedPointer: (prev, event) =>
+      event.targetHref ? retargetPreview(prev, event.targetHref) : restorePreview(prev),
+    routeChanged: (prev, event) => readRouteChangedPreviewingState(prev, event.href),
+  },
+};
+
+function readRoutePreviewSnapshot(state: RoutePreviewState): RoutePreviewSnapshot {
+  if (state.kind === "idle") {
     return {
       kind: "idle",
-      href: currentHref,
-      search: readSearch(currentHref),
+      href: state.href,
+      search: readSearch(state.href),
     };
   }
 
   return {
     kind: "previewing",
-    restoreSearch: readSearch(preview.restoreHref),
-    targetHref: preview.targetHref,
+    restoreSearch: readSearch(state.restoreHref),
+    targetHref: state.targetHref,
   };
 }
 
@@ -160,231 +449,212 @@ function readRoutePreviewSnapshot(
 export function RoutePreviewProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const router = useRouter();
-  // The href this controller believes the URL bar should show now. It changes
-  // synchronously when we call router.navigate, before TanStack location updates.
-  const currentHrefRef = useRef(location.href);
-  // The newest controller-owned navigation that has not settled yet. Older
-  // queued navigations must not overwrite currentHrefRef after a newer request.
-  const pendingNavigationHrefRef = useRef<string | null>(null);
-  const routeNavigationQueueRef = useRef<Promise<void>>(Promise.resolve());
-  // Event handlers can run again before React renders the latest state update.
-  const activePreviewRef = useRef<RoutePreview | null>(null);
-  const [activePreview, setActivePreviewState] = useState<RoutePreview | null>(null);
+  const store = useCreateStore<RoutePreviewState>({
+    kind: "idle",
+    href: location.href,
+    pendingHref: null,
+  });
+  const state = useSelector(store);
 
-  const setActivePreview = useCallback((preview: RoutePreview | null) => {
-    activePreviewRef.current = preview;
-    setActivePreviewState(preview);
-  }, []);
+  const navigateHref = useCallback(
+    async ({
+      fromHref,
+      replace,
+      toHref,
+    }: {
+      fromHref: string;
+      replace: boolean;
+      toHref: string;
+    }) => {
+      const origin = readIsomorphicOrigin();
+      const appOrigin = new URL(origin);
+      const fromUrl = new URL(fromHref, appOrigin);
+      const toUrl = new URL(toHref, appOrigin);
+      const search = () =>
+        readExactSearch({
+          fromHref,
+          toHref,
+          origin,
+        });
 
-  const readSnapshot = useCallback(
-    () => readRoutePreviewSnapshot(activePreviewRef.current, currentHrefRef.current),
-    [],
+      if (fromUrl.pathname === toUrl.pathname) {
+        await router.navigate({
+          hash: readHash(toUrl),
+          replace,
+          resetScroll: false,
+          search,
+          to: toUrl.pathname,
+        });
+        return;
+      }
+
+      await router.navigate({
+        hash: readHash(toUrl),
+        replace,
+        search,
+        to: toUrl.pathname,
+      });
+    },
+    [router],
+  );
+
+  const runRoutePreviewActions = useCallback(
+    (actions: RoutePreviewAction[]) => {
+      const actionHandlers: RoutePreviewActionHandlerTable = {
+        commitPreviewRoute: (action) => {
+          action.context.preventDefault();
+          action.context.stopPropagation();
+          action.context.setAnchorHref(action.targetHref);
+
+          const commitRoute = async () => {
+            if (action.currentHref !== action.restoreHref) {
+              await navigateHref({
+                fromHref: action.currentHref,
+                replace: true,
+                toHref: action.restoreHref,
+              });
+            }
+
+            if (action.targetHref !== action.restoreHref) {
+              await navigateHref({
+                fromHref: action.restoreHref,
+                replace: false,
+                toHref: action.targetHref,
+              });
+            }
+          };
+          void commitRoute();
+        },
+        navigateClickedRoute: (action) => {
+          action.context.preventDefault();
+          action.context.stopPropagation();
+          action.context.setAnchorHref(action.targetHref);
+          void navigateHref({
+            fromHref: action.fromHref,
+            replace: false,
+            toHref: action.targetHref,
+          });
+        },
+        replaceRoute: (action) => {
+          void navigateHref({
+            fromHref: action.fromHref,
+            replace: true,
+            toHref: action.toHref,
+          });
+        },
+      };
+
+      runTransitionActions(actionHandlers, actions);
+    },
+    [navigateHref],
+  );
+
+  const sendEvent = useCallback(
+    (event: RoutePreviewEvent) => {
+      let transitionActions: RoutePreviewAction[] = [];
+
+      store.setState((prev) => {
+        const next = runTransition(routePreviewTransition, prev, event);
+        transitionActions = next.actions;
+
+        return next.state;
+      });
+
+      runRoutePreviewActions(transitionActions);
+    },
+    [runRoutePreviewActions, store],
   );
 
   useLayoutEffect(() => {
-    const latestLocationHref = router.latestLocation.href;
-    const pendingNavigationHref = pendingNavigationHrefRef.current;
+    sendEvent({
+      type: "routeChanged",
+      href: location.href,
+    });
+  }, [location.href, sendEvent]);
 
-    if (pendingNavigationHref === latestLocationHref) {
-      pendingNavigationHrefRef.current = null;
-    } else if (pendingNavigationHref !== null) {
-      currentHrefRef.current = latestLocationHref;
-      const appOrigin = new URL(readIsomorphicOrigin());
-      const pendingNavigationUrl = new URL(pendingNavigationHref, appOrigin);
-      const latestUrl = new URL(latestLocationHref, appOrigin);
-      // Same-path differences can be router canonicalization. Example: a reset
-      // query preview may request a special href but settle at plain "/".
-      if (pendingNavigationUrl.pathname !== latestUrl.pathname) {
-        pendingNavigationHrefRef.current = null;
-        setActivePreview(null);
-      }
+  useLayoutEffect(() => {
+    if (state.kind !== "previewing") {
       return;
     }
 
-    currentHrefRef.current = latestLocationHref;
-
-    const preview = activePreviewRef.current;
-    const appOrigin = new URL(readIsomorphicOrigin());
-    const latestUrl = new URL(latestLocationHref, appOrigin);
-    if (preview && latestUrl.pathname !== new URL(preview.previewHref, appOrigin).pathname) {
-      setActivePreview(null);
+    // Hover navigation can re-render or replace the rail before React delivers
+    // an anchor-level leave event. While previewing, each entered element tells
+    // the FSM whether the pointer is still on a preview link.
+    function handleDocumentMouseOver(event: globalThis.MouseEvent) {
+      sendEvent({
+        type: "movedPointer",
+        targetHref: readDocumentRoutePreviewLinkHref(event.target),
+      });
     }
-  }, [location.href, router, setActivePreview]);
 
-  const navigateHref = useCallback(
-    (toHref: string, replace: boolean, fromHref = currentHrefRef.current) => {
-      const origin = readIsomorphicOrigin();
-      const appOrigin = new URL(origin);
-      const toUrl = new URL(toHref, appOrigin);
-      const toRouteHref = `${toUrl.pathname}${toUrl.search}${toUrl.hash}`;
-      currentHrefRef.current = toRouteHref;
-      pendingNavigationHrefRef.current = toRouteHref;
-
-      const runNavigation = async () => {
-        const fromUrl = new URL(fromHref, appOrigin);
-        const search = () =>
-          readExactSearch({
-            fromHref,
-            toHref,
-            origin,
-          });
-
-        if (fromUrl.pathname === toUrl.pathname) {
-          await router.navigate({
-            hash: readHash(toUrl),
-            replace,
-            resetScroll: false,
-            search,
-            to: toUrl.pathname,
-          });
-        } else {
-          await router.navigate({
-            hash: readHash(toUrl),
-            replace,
-            search,
-            to: toUrl.pathname,
-          });
-        }
-
-        const latestRouterHref = router.latestLocation.href;
-        const preview = activePreviewRef.current;
-        if (preview && (preview.targetHref === toHref || preview.targetHref === toRouteHref)) {
-          setActivePreview({
-            ...preview,
-            previewHref: latestRouterHref,
-          });
-        }
-
-        if (pendingNavigationHrefRef.current === toRouteHref) {
-          currentHrefRef.current = latestRouterHref;
-          pendingNavigationHrefRef.current = null;
-        }
-      };
-
-      const navigation = routeNavigationQueueRef.current.then(runNavigation, runNavigation);
-      routeNavigationQueueRef.current = navigation.catch(() => {});
-      return navigation;
-    },
-    [router, setActivePreview],
-  );
-
-  const startPreview = useCallback(
-    (targetHref: string) => {
-      if (activePreviewRef.current) {
+    function handleDocumentMouseOut(event: globalThis.MouseEvent) {
+      if (event.relatedTarget) {
         return;
       }
 
-      const restoreHref = currentHrefRef.current;
-      if (targetHref === restoreHref) {
-        return;
-      }
-
-      const preview = {
-        previewHref: targetHref,
-        restoreHref,
-        targetHref,
-      } satisfies RoutePreview;
-
-      setActivePreview(preview);
-      void navigateHref(targetHref, true, restoreHref);
-    },
-    [navigateHref, setActivePreview],
-  );
-
-  const restorePreview = useCallback(() => {
-    const preview = activePreviewRef.current;
-    if (!preview) {
-      return;
+      sendEvent({
+        type: "leftPreviewSurface",
+      });
     }
 
-    setActivePreview(null);
+    document.addEventListener("mouseover", handleDocumentMouseOver, true);
+    document.addEventListener("mouseout", handleDocumentMouseOut, true);
 
-    const currentHref = currentHrefRef.current;
-    if (currentHref !== preview.previewHref || preview.restoreHref === currentHref) {
-      return;
-    }
-
-    void navigateHref(preview.restoreHref, true, currentHref);
-  }, [navigateHref, setActivePreview]);
-
-  const commitPreview = useCallback(() => {
-    const preview = activePreviewRef.current;
-    if (!preview) {
-      return null;
-    }
-
-    setActivePreview(null);
-
-    const currentHref = currentHrefRef.current;
-    const commitRoute = async () => {
-      if (currentHref !== preview.restoreHref) {
-        await navigateHref(preview.restoreHref, true, currentHref);
-      }
-      if (preview.targetHref !== preview.restoreHref) {
-        await navigateHref(preview.targetHref, false, preview.restoreHref);
-      }
+    return () => {
+      document.removeEventListener("mouseover", handleDocumentMouseOver, true);
+      document.removeEventListener("mouseout", handleDocumentMouseOut, true);
     };
-    void commitRoute();
-
-    return preview.targetHref;
-  }, [navigateHref, setActivePreview]);
+  }, [sendEvent, state.kind]);
 
   const previewLinkProps = useMemo(
     () => ({
+      "data-route-preview-link": "true" as const,
       onClickCapture(event: MouseEvent<HTMLAnchorElement>) {
         if (shouldLetBrowserHandleClick(event)) {
           return;
         }
 
-        const previewTargetHref = commitPreview();
-        if (previewTargetHref) {
-          event.preventDefault();
-          event.stopPropagation();
-          setAnchorHref(event.currentTarget, previewTargetHref);
-          return;
-        }
-
-        const snapshot = readSnapshot();
-        if (snapshot.kind !== "idle") {
-          return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        const linkHref = readAnchorRouteHref(event.currentTarget);
-        setAnchorHref(event.currentTarget, linkHref);
-        void navigateHref(linkHref, false, snapshot.href);
+        sendEvent({
+          type: "clickedPreviewLink",
+          context: {
+            preventDefault: () => {
+              event.preventDefault();
+            },
+            setAnchorHref: (href) => {
+              setAnchorHref(event.currentTarget, href);
+            },
+            stopPropagation: () => {
+              event.stopPropagation();
+            },
+          },
+          targetHref: readAnchorRouteHref(event.currentTarget),
+        });
       },
       onMouseEnter(event: MouseEvent<HTMLAnchorElement>) {
-        const snapshot = readSnapshot();
-        // A previewed query toggle can re-render into its "disable" href. Keep
-        // the first hover target until the user leaves or clicks.
-        if (snapshot.kind === "previewing") {
-          return;
-        }
-
-        const targetHref = readAnchorRouteHref(event.currentTarget);
-        if (targetHref === snapshot.href) {
-          return;
-        }
-
-        startPreview(targetHref);
-      },
-      onMouseLeave() {
-        restorePreview();
+        sendEvent({
+          type: "movedPointer",
+          targetHref: readAnchorRouteHref(event.currentTarget),
+        });
       },
     }),
-    [commitPreview, navigateHref, readSnapshot, restorePreview, startPreview],
+    [sendEvent],
   );
 
-  const snapshot = readRoutePreviewSnapshot(
-    activePreview,
-    activePreview === null ? location.href : currentHrefRef.current,
+  const previewSurfaceProps = useMemo(
+    () => ({
+      onMouseLeave() {
+        sendEvent({
+          type: "leftPreviewSurface",
+        });
+      },
+    }),
+    [sendEvent],
   );
 
   const controller = {
     previewLinkProps,
-    snapshot,
+    previewSurfaceProps,
+    snapshot: readRoutePreviewSnapshot(state),
   } satisfies RoutePreviewController;
 
   return (

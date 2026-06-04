@@ -26,6 +26,7 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
 
 vi.mock("@/components/AppWorkspaceShell", async () => {
   const ReactModule = await import("react");
+  const { RoutePreviewProvider } = await import("@/components/RoutePreviewController");
   type MockPaneProps = Pick<WorkspaceLayoutV2PaneFrameProps, "content" | "footer" | "header">;
 
   return {
@@ -38,10 +39,12 @@ vi.mock("@/components/AppWorkspaceShell", async () => {
       }, []);
 
       return (
-        <div data-testid="app-workspace">
-          <div data-testid="app-workspace-left-pane" />
-          {children}
-        </div>
+        <RoutePreviewProvider>
+          <div data-testid="app-workspace">
+            <div data-testid="app-workspace-left-pane" />
+            {children}
+          </div>
+        </RoutePreviewProvider>
       );
     },
     AppWorkspaceRouteChrome: ({
@@ -641,6 +644,76 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
     expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("previews and commits browser storage sidebar routes", async () => {
+    const router = await renderRoute("/localStorage");
+    const indexedDbLink = rootElement?.querySelector<HTMLAnchorElement>(
+      '[data-testid="indexed-db-sidebar-file"]',
+    );
+    if (!indexedDbLink) {
+      throw new Error("Expected indexedDB sidebar link.");
+    }
+
+    await act(async () => {
+      indexedDbLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouterRender();
+    });
+
+    expect(router.latestLocation.href).toBe("/indexDB");
+
+    const previewIndexedDbLink = rootElement?.querySelector<HTMLAnchorElement>(
+      '[data-testid="indexed-db-sidebar-file"]',
+    );
+    const storageNavigation = rootElement?.querySelector<HTMLElement>(
+      'nav[aria-label="Storage views"]',
+    );
+    if (!previewIndexedDbLink || !storageNavigation) {
+      throw new Error("Expected indexedDB sidebar link and storage navigation after preview.");
+    }
+
+    await act(async () => {
+      storageNavigation.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouterRender();
+    });
+
+    expect(router.latestLocation.href).toBe("/localStorage");
+
+    await act(async () => {
+      indexedDbLink.dispatchEvent(
+        new MouseEvent("mouseover", {
+          bubbles: true,
+        }),
+      );
+      await settleRouterRender();
+    });
+
+    const clickedIndexedDbLink = rootElement?.querySelector<HTMLAnchorElement>(
+      '[data-testid="indexed-db-sidebar-file"]',
+    );
+    if (!clickedIndexedDbLink) {
+      throw new Error("Expected indexedDB sidebar link before commit.");
+    }
+
+    await act(async () => {
+      clickedIndexedDbLink.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouterRender();
+    });
+
+    expect(router.latestLocation.href).toBe("/indexDB");
+
+    await act(async () => {
+      router.history.back();
+      await settleRouterRender();
+    });
+
+    expect(router.latestLocation.href).toBe("/localStorage");
   });
 
   it("keeps the app left pane mounted for logo lab routes without route chrome", async () => {

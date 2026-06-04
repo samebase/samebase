@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { APP_BUILD_STATUS_BAR_TEST_ID } from "@/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
 import { RoutePreviewProvider } from "@/components/RoutePreviewController";
 import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
@@ -119,6 +120,17 @@ describe("AppSidebarMetaSection", () => {
     return (
       rootElement?.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? ""
     );
+  }
+
+  function readPreviewSurface() {
+    const surface = rootElement?.querySelector<HTMLElement>(
+      `[data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}"]`,
+    );
+    if (!surface) {
+      throw new Error("Expected app sidebar meta preview surface.");
+    }
+
+    return surface;
   }
 
   async function renderRouteOwnedSidebar(initialEntry = "/home#noter") {
@@ -246,7 +258,7 @@ describe("AppSidebarMetaSection", () => {
     expect(rootElement?.querySelector("#public-landing-search-reset")).toBeNull();
 
     await act(async () => {
-      devLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
@@ -278,7 +290,7 @@ describe("AppSidebarMetaSection", () => {
     }
 
     await act(async () => {
-      previewResetLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
@@ -415,7 +427,7 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/privacy");
 
     await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
@@ -504,7 +516,31 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/terms");
 
     await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
+  });
+
+  it("restores when the pointer moves inside the rail but not over a preview link", async () => {
+    const element = await renderSidebarMetaSection();
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!termsLink) {
+      throw new Error("Expected terms link.");
+    }
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    await act(async () => {
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
       await settleRouteUpdate();
     });
 
@@ -522,7 +558,7 @@ describe("AppSidebarMetaSection", () => {
 
     await act(async () => {
       termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      termsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
@@ -553,7 +589,7 @@ describe("AppSidebarMetaSection", () => {
     }
 
     await act(async () => {
-      previewTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
@@ -577,7 +613,7 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/privacy");
 
     await act(async () => {
-      privacyLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
@@ -603,7 +639,7 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/privacy");
 
     await act(async () => {
-      privacyLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
