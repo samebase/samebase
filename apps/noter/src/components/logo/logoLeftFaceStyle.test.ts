@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  LOGO_LEFT_FACE_STRIPE,
   getLogoLeftFaceStripeBasisScale,
   normalizeLogoLeftFaceStyle,
 } from "@/components/logo/logoLeftFaceStyle";
@@ -21,11 +17,11 @@ describe("logoLeftFaceStyle", () => {
       stripeOffset: 0,
       stripeWidth: 0.25,
     });
-    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES).toBe(45);
-    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS).toBe("vertical");
-    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP).toBe(0.25);
-    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET).toBe(0);
-    expect(DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH).toBe(0.25);
+    expect(LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue).toBe(45);
+    expect(LOGO_LEFT_FACE_STRIPE.basis.defaultValue).toBe("vertical");
+    expect(LOGO_LEFT_FACE_STRIPE.gap.defaultValue).toBe(0.25);
+    expect(LOGO_LEFT_FACE_STRIPE.offset.defaultValue).toBe(0);
+    expect(LOGO_LEFT_FACE_STRIPE.width.defaultValue).toBe(0.25);
   });
 
   it("converts cross-section stripe measures to perpendicular shader scale", () => {

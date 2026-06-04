@@ -1,11 +1,8 @@
 import { keys } from "@noter-md/dependent/object";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
-  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-  LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
-  MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
@@ -19,32 +16,15 @@ import {
 } from "@/components/logo/logoDepthLimits";
 import { type LogoThemeColors } from "@/components/logo/logoTailwindColors";
 import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
-  MIN_LOGO_DISTANCE_SCALE,
+  LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STYLE_KINDS,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
-  LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
+  LOGO_LEFT_FACE_STRIPE,
   LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
-  LOGO_LEFT_FACE_STRIPE_GAP_STEP,
-  LOGO_LEFT_FACE_STRIPE_OFFSET_STEP,
-  LOGO_LEFT_FACE_STRIPE_WIDTH_STEP,
-  MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-  MAX_LOGO_LEFT_FACE_STRIPE_GAP,
-  MAX_LOGO_LEFT_FACE_STRIPE_OFFSET,
-  MAX_LOGO_LEFT_FACE_STRIPE_WIDTH,
-  MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-  MIN_LOGO_LEFT_FACE_STRIPE_GAP,
-  MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
-  MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
   areLogoLeftFaceStylesEqual,
   normalizeLogoLeftFaceStyle,
   normalizeLogoLeftFaceStripeAngleDegrees,
@@ -213,14 +193,14 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     },
   ),
   dist: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeLogoDistanceScale), {
-    numericDefaultValue: DEFAULT_LOGO_DISTANCE_SCALE,
+    numericDefaultValue: LOGO_DISTANCE_SCALE.defaultValue,
     numericRange: {
-      minValue: MIN_LOGO_DISTANCE_SCALE,
+      minValue: LOGO_DISTANCE_SCALE.min,
       rangeType: "min",
     },
     numericStepValue: 1,
     permission: "public",
-    sampleValue: `${DEFAULT_LOGO_DISTANCE_SCALE + 1}`,
+    sampleValue: `${LOGO_DISTANCE_SCALE.defaultValue + 1}`,
     suggestion: "route",
     valueType: "numeric",
   }),
@@ -252,16 +232,16 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   isoSide: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoIsometricCubeSidePixels),
     {
-      numericDefaultValue: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      numericDefaultValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
       numericRange: {
-        maxValue: MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-        minValue: MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        maxValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max,
+        minValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.min,
         rangeType: "closed",
       },
-      numericStepValue: LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
+      numericStepValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
       permission: "public",
       sampleValue: `${normalizeLogoIsometricCubeSidePixels(
-        DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX + LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
+        LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue + LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
       )}`,
       suggestion: "route",
       valueType: "numeric",
@@ -300,16 +280,16 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   stripeA: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeAngleDegrees),
     {
-      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+      numericDefaultValue: LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue,
       numericRange: {
-        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-        minValue: MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+        maxValue: LOGO_LEFT_FACE_STRIPE.angleDegrees.max,
+        minValue: LOGO_LEFT_FACE_STRIPE.angleDegrees.min,
         rangeType: "closed",
       },
-      numericStepValue: LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
+      numericStepValue: LOGO_LEFT_FACE_STRIPE.angleDegrees.step,
       permission: "public",
       sampleValue: `${normalizeLogoLeftFaceStripeAngleDegrees(
-        DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES + 1,
+        LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue + 1,
       )}`,
       suggestion: "route",
       valueType: "numeric",
@@ -325,15 +305,15 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   stripeG: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeGap),
     {
-      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+      numericDefaultValue: LOGO_LEFT_FACE_STRIPE.gap.defaultValue,
       numericRange: {
-        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_GAP,
-        minValue: MIN_LOGO_LEFT_FACE_STRIPE_GAP,
+        maxValue: LOGO_LEFT_FACE_STRIPE.gap.max,
+        minValue: LOGO_LEFT_FACE_STRIPE.gap.min,
         rangeType: "closed",
       },
-      numericStepValue: LOGO_LEFT_FACE_STRIPE_GAP_STEP,
+      numericStepValue: LOGO_LEFT_FACE_STRIPE.gap.step,
       permission: "public",
-      sampleValue: `${normalizeLogoLeftFaceStripeGap(DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP + 1)}`,
+      sampleValue: `${normalizeLogoLeftFaceStripeGap(LOGO_LEFT_FACE_STRIPE.gap.defaultValue + 1)}`,
       suggestion: "route",
       valueType: "numeric",
     },
@@ -345,15 +325,15 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   stripeO: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeOffset),
     {
-      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+      numericDefaultValue: LOGO_LEFT_FACE_STRIPE.offset.defaultValue,
       numericRange: {
-        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_OFFSET,
-        minValue: MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
+        maxValue: LOGO_LEFT_FACE_STRIPE.offset.max,
+        minValue: LOGO_LEFT_FACE_STRIPE.offset.min,
         rangeType: "closed",
       },
-      numericStepValue: LOGO_LEFT_FACE_STRIPE_OFFSET_STEP,
+      numericStepValue: LOGO_LEFT_FACE_STRIPE.offset.step,
       permission: "public",
-      sampleValue: `${normalizeLogoLeftFaceStripeOffset(DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET + 1)}`,
+      sampleValue: `${normalizeLogoLeftFaceStripeOffset(LOGO_LEFT_FACE_STRIPE.offset.defaultValue + 1)}`,
       suggestion: "route",
       valueType: "numeric",
     },
@@ -361,15 +341,15 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   stripeW: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeWidth),
     {
-      numericDefaultValue: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+      numericDefaultValue: LOGO_LEFT_FACE_STRIPE.width.defaultValue,
       numericRange: {
-        maxValue: MAX_LOGO_LEFT_FACE_STRIPE_WIDTH,
-        minValue: MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
+        maxValue: LOGO_LEFT_FACE_STRIPE.width.max,
+        minValue: LOGO_LEFT_FACE_STRIPE.width.min,
         rangeType: "closed",
       },
-      numericStepValue: LOGO_LEFT_FACE_STRIPE_WIDTH_STEP,
+      numericStepValue: LOGO_LEFT_FACE_STRIPE.width.step,
       permission: "public",
-      sampleValue: `${normalizeLogoLeftFaceStripeWidth(DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH + 1)}`,
+      sampleValue: `${normalizeLogoLeftFaceStripeWidth(LOGO_LEFT_FACE_STRIPE.width.defaultValue + 1)}`,
       suggestion: "route",
       valueType: "numeric",
     },
@@ -593,10 +573,12 @@ export function buildLogoRouteSearch(
     // undefined tombstone to clear a previous recursive preview value.
     depth: fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH ? fractalDepth : undefined,
     dist:
-      distanceScale !== DEFAULT_LOGO_DISTANCE_SCALE ? Number(distanceScale.toFixed(3)) : undefined,
+      distanceScale !== LOGO_DISTANCE_SCALE.defaultValue
+        ? Number(distanceScale.toFixed(3))
+        : undefined,
     ...(args.viewSnapEnabled ? {} : { freeView: true }),
     gridSize: gridSize !== DEFAULT_LOGO_GRID_SIZE ? gridSize : undefined,
-    ...(args.isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
+    ...(args.isoCubeSidePixels !== LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue
       ? { isoSide: args.isoCubeSidePixels }
       : {}),
     ...(args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? { isoStyle: args.isoStyleId } : {}),
@@ -626,20 +608,20 @@ function readLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLeft
 
   return {
     leftFace: "striped",
-    ...(leftFaceStyle.stripeAngleDegrees !== DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
+    ...(leftFaceStyle.stripeAngleDegrees !== LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue
       ? { stripeA: Number(leftFaceStyle.stripeAngleDegrees.toFixed(3)) }
       : {}),
-    ...(leftFaceStyle.stripeBasis !== DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS
+    ...(leftFaceStyle.stripeBasis !== LOGO_LEFT_FACE_STRIPE.basis.defaultValue
       ? { stripeBasis: leftFaceStyle.stripeBasis }
       : {}),
-    ...(leftFaceStyle.stripeGap !== DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP
+    ...(leftFaceStyle.stripeGap !== LOGO_LEFT_FACE_STRIPE.gap.defaultValue
       ? { stripeG: Number(leftFaceStyle.stripeGap.toFixed(2)) }
       : {}),
     ...(leftFaceStyle.stripeGapLinked ? { stripeLink: true as const } : {}),
-    ...(leftFaceStyle.stripeOffset !== DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET
+    ...(leftFaceStyle.stripeOffset !== LOGO_LEFT_FACE_STRIPE.offset.defaultValue
       ? { stripeO: Number(leftFaceStyle.stripeOffset.toFixed(2)) }
       : {}),
-    ...(leftFaceStyle.stripeWidth !== DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH
+    ...(leftFaceStyle.stripeWidth !== LOGO_LEFT_FACE_STRIPE.width.defaultValue
       ? { stripeW: Number(leftFaceStyle.stripeWidth.toFixed(2)) }
       : {}),
   };
@@ -673,24 +655,24 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLef
   return {
     leftFace: "striped",
     stripeA:
-      leftFaceStyle.stripeAngleDegrees !== DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES
+      leftFaceStyle.stripeAngleDegrees !== LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue
         ? Number(leftFaceStyle.stripeAngleDegrees.toFixed(3))
         : undefined,
     stripeBasis:
-      leftFaceStyle.stripeBasis !== DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS
+      leftFaceStyle.stripeBasis !== LOGO_LEFT_FACE_STRIPE.basis.defaultValue
         ? leftFaceStyle.stripeBasis
         : undefined,
     stripeG:
-      leftFaceStyle.stripeGap !== DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP
+      leftFaceStyle.stripeGap !== LOGO_LEFT_FACE_STRIPE.gap.defaultValue
         ? Number(leftFaceStyle.stripeGap.toFixed(2))
         : undefined,
     stripeLink: leftFaceStyle.stripeGapLinked ? true : undefined,
     stripeO:
-      leftFaceStyle.stripeOffset !== DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET
+      leftFaceStyle.stripeOffset !== LOGO_LEFT_FACE_STRIPE.offset.defaultValue
         ? Number(leftFaceStyle.stripeOffset.toFixed(2))
         : undefined,
     stripeW:
-      leftFaceStyle.stripeWidth !== DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH
+      leftFaceStyle.stripeWidth !== LOGO_LEFT_FACE_STRIPE.width.defaultValue
         ? Number(leftFaceStyle.stripeWidth.toFixed(2))
         : undefined,
   };

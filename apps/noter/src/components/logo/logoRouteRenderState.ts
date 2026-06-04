@@ -1,12 +1,12 @@
 import {
-  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logo/logoIsometricRenderer";
 import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
+  LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
@@ -71,7 +71,7 @@ function readRouteIsoStyleId(routeSearch: LogoRouteSearch): LogoIsometricStyleId
 
 function readRouteIsoCubeSidePixels(routeSearch: LogoRouteSearch): number {
   if (typeof routeSearch.isoSide !== "number") {
-    return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
+    return LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue;
   }
 
   return normalizeLogoIsometricCubeSidePixels(routeSearch.isoSide);
@@ -126,7 +126,7 @@ function readRouteElevationDegrees(
 
 function readRouteDistanceScale(routeSearch: LogoRouteSearch): number {
   if (typeof routeSearch.dist !== "number") {
-    return DEFAULT_LOGO_DISTANCE_SCALE;
+    return LOGO_DISTANCE_SCALE.defaultValue;
   }
 
   return normalizeLogoDistanceScale(routeSearch.dist);

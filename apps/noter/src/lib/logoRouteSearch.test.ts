@@ -1,26 +1,18 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
-  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
 } from "@/components/logo/logoIsometricRenderer";
 import {
   getLogoRendererFractalDepthHardMax,
   MAX_LOGO_FRACTAL_DEPTH,
 } from "@/components/logo/logoDepthLimits";
 import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logo/logoTailwindColors";
-import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
-  LOGO_DISTANCE_SCALE_SLIDER_MAX,
-} from "@/components/logo/logoDistanceScale";
+import { LOGO_DISTANCE_SCALE } from "@/components/logo/logoDistanceScale";
 import { LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-  DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+  LOGO_LEFT_FACE_STRIPE,
 } from "@/components/logo/logoLeftFaceStyle";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -96,12 +88,12 @@ describe("logoRouteSearch", () => {
 
   it("drops default logo state when building route search", () => {
     const search = buildLogoRouteSearch({
-      distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+      distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
       zoom: LOGO_PREVIEW_ZOOM.defaultValue,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
       gridSize: DEFAULT_LOGO_GRID_SIZE,
-      isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
       isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
       leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
       rotationAxisMode: "cube-y",
@@ -125,12 +117,12 @@ describe("logoRouteSearch", () => {
   it("preserves canonical theme mode flags when building route search", () => {
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
@@ -144,12 +136,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
@@ -231,12 +223,12 @@ describe("logoRouteSearch", () => {
     });
 
     const builtSearch = buildLogoRouteSearch({
-      distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+      distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
       zoom: LOGO_PREVIEW_ZOOM.defaultValue,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
       gridSize: LOGO_GRID_SIZE_2,
-      isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
       isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
       leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
       rotationAxisMode: "cube-y",
@@ -253,12 +245,12 @@ describe("logoRouteSearch", () => {
   it("preserves non-default logo depth when building route search", () => {
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: 6,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
@@ -273,12 +265,12 @@ describe("logoRouteSearch", () => {
   it("caps built logo depth at the route recovery limit", () => {
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: MAX_LOGO_FRACTAL_DEPTH + 1,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
@@ -308,12 +300,12 @@ describe("logoRouteSearch", () => {
   it("preserves distance values above the slider range", () => {
     expect(
       buildLogoRouteSearch({
-        distanceScale: LOGO_DISTANCE_SCALE_SLIDER_MAX + 1,
+        distanceScale: LOGO_DISTANCE_SCALE.sliderMax + 1,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
@@ -337,12 +329,12 @@ describe("logoRouteSearch", () => {
   it("caps built preview zoom at the current route max", () => {
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: 2,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
@@ -365,12 +357,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: 0.555,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
         rotationAxisMode: "cube-y",
@@ -406,21 +398,21 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: {
           kind: "striped",
-          stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-          stripeBasis: DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
-          stripeGap: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-          stripeGapLinked: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED,
-          stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-          stripeWidth: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
+          stripeAngleDegrees: LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue,
+          stripeBasis: LOGO_LEFT_FACE_STRIPE.basis.defaultValue,
+          stripeGap: LOGO_LEFT_FACE_STRIPE.gap.defaultValue,
+          stripeGapLinked: LOGO_LEFT_FACE_STRIPE.gapLinked.defaultValue,
+          stripeOffset: LOGO_LEFT_FACE_STRIPE.offset.defaultValue,
+          stripeWidth: LOGO_LEFT_FACE_STRIPE.width.defaultValue,
         },
         rotationAxisMode: "cube-y",
         rotationDegrees: DEFAULT_ROTATION_DEGREES,
@@ -441,12 +433,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: {
           kind: "striped",
@@ -482,12 +474,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: { kind: "secondary" },
         rotationAxisMode: "cube-y",
@@ -551,20 +543,20 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
-        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
-        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
         isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
         leftFaceStyle: {
           kind: "striped",
-          stripeAngleDegrees: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-          stripeBasis: DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
+          stripeAngleDegrees: LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue,
+          stripeBasis: LOGO_LEFT_FACE_STRIPE.basis.defaultValue,
           stripeGap: 0.4,
           stripeGapLinked: true,
-          stripeOffset: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+          stripeOffset: LOGO_LEFT_FACE_STRIPE.offset.defaultValue,
           stripeWidth: 0.4,
         },
         rotationAxisMode: "cube-y",

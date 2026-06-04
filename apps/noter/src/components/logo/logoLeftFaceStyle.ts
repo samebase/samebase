@@ -41,30 +41,38 @@ export const LOGO_SECONDARY_LEFT_FACE_STYLE: LogoSecondaryLeftFaceStyle = {
 
 export const DEFAULT_LOGO_LEFT_FACE_STYLE = LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE;
 
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES =
-  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeAngleDegrees;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS: LogoLeftFaceStripeBasis =
-  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeBasis;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP =
-  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeGap;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP_LINKED =
-  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeGapLinked;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET =
-  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeOffset;
-export const DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH =
-  LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeWidth;
-export const LOGO_LEFT_FACE_STRIPE_ANGLE_STEP = 0.001;
-export const LOGO_LEFT_FACE_STRIPE_GAP_STEP = 0.01;
-export const LOGO_LEFT_FACE_STRIPE_OFFSET_STEP = 0.01;
-export const LOGO_LEFT_FACE_STRIPE_WIDTH_STEP = 0.01;
-export const MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES = 90;
-export const MAX_LOGO_LEFT_FACE_STRIPE_GAP = 1;
-export const MAX_LOGO_LEFT_FACE_STRIPE_OFFSET = 1;
-export const MAX_LOGO_LEFT_FACE_STRIPE_WIDTH = 1;
-export const MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES = -90;
-export const MIN_LOGO_LEFT_FACE_STRIPE_GAP = 0;
-export const MIN_LOGO_LEFT_FACE_STRIPE_OFFSET = 0;
-export const MIN_LOGO_LEFT_FACE_STRIPE_WIDTH = 0;
+export const LOGO_LEFT_FACE_STRIPE = {
+  angleDegrees: {
+    defaultValue: LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeAngleDegrees,
+    max: 90,
+    min: -90,
+    step: 0.001,
+  },
+  basis: {
+    defaultValue: LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeBasis,
+  },
+  gap: {
+    defaultValue: LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeGap,
+    max: 1,
+    min: 0,
+    step: 0.01,
+  },
+  gapLinked: {
+    defaultValue: LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeGapLinked,
+  },
+  offset: {
+    defaultValue: LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeOffset,
+    max: 1,
+    min: 0,
+    step: 0.01,
+  },
+  width: {
+    defaultValue: LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE.stripeWidth,
+    max: 1,
+    min: 0,
+    step: 0.01,
+  },
+} as const;
 
 const LOGO_LEFT_FACE_STRIPE_AXIS_EPSILON = 1e-12;
 
@@ -98,36 +106,36 @@ export function isLogoLeftFaceStripeBasis(
 
 export function normalizeLogoLeftFaceStripeAngleDegrees(value: number): number {
   return clampFiniteNumber({
-    fallback: DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-    max: MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-    min: MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
+    fallback: LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue,
+    max: LOGO_LEFT_FACE_STRIPE.angleDegrees.max,
+    min: LOGO_LEFT_FACE_STRIPE.angleDegrees.min,
     value,
   });
 }
 
 export function normalizeLogoLeftFaceStripeGap(value: number): number {
   return clampFiniteNumber({
-    fallback: DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
-    max: MAX_LOGO_LEFT_FACE_STRIPE_GAP,
-    min: MIN_LOGO_LEFT_FACE_STRIPE_GAP,
+    fallback: LOGO_LEFT_FACE_STRIPE.gap.defaultValue,
+    max: LOGO_LEFT_FACE_STRIPE.gap.max,
+    min: LOGO_LEFT_FACE_STRIPE.gap.min,
     value,
   });
 }
 
 export function normalizeLogoLeftFaceStripeOffset(value: number): number {
   return clampFiniteNumber({
-    fallback: DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
-    max: MAX_LOGO_LEFT_FACE_STRIPE_OFFSET,
-    min: MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
+    fallback: LOGO_LEFT_FACE_STRIPE.offset.defaultValue,
+    max: LOGO_LEFT_FACE_STRIPE.offset.max,
+    min: LOGO_LEFT_FACE_STRIPE.offset.min,
     value,
   });
 }
 
 export function normalizeLogoLeftFaceStripeWidth(value: number): number {
   return clampFiniteNumber({
-    fallback: DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH,
-    max: MAX_LOGO_LEFT_FACE_STRIPE_WIDTH,
-    min: MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
+    fallback: LOGO_LEFT_FACE_STRIPE.width.defaultValue,
+    max: LOGO_LEFT_FACE_STRIPE.width.max,
+    min: LOGO_LEFT_FACE_STRIPE.width.min,
     value,
   });
 }
@@ -205,19 +213,19 @@ export function readLogoLeftFaceStyle(search: {
 
   const stripeGapLinked = search.stripeLink === true;
   // Prefer search.stripeW; when stripeGapLinked and search.stripeW is absent,
-  // reuse search.stripeG before DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH.
+  // reuse search.stripeG before LOGO_LEFT_FACE_STRIPE.width.defaultValue.
   const stripeWidth =
     search.stripeW ??
     (stripeGapLinked ? search.stripeG : undefined) ??
-    DEFAULT_LOGO_LEFT_FACE_STRIPE_WIDTH;
+    LOGO_LEFT_FACE_STRIPE.width.defaultValue;
 
   return normalizeLogoLeftFaceStyle({
     kind: "striped",
-    stripeAngleDegrees: search.stripeA ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-    stripeBasis: search.stripeBasis ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_BASIS,
-    stripeGap: search.stripeG ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_GAP,
+    stripeAngleDegrees: search.stripeA ?? LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue,
+    stripeBasis: search.stripeBasis ?? LOGO_LEFT_FACE_STRIPE.basis.defaultValue,
+    stripeGap: search.stripeG ?? LOGO_LEFT_FACE_STRIPE.gap.defaultValue,
     stripeGapLinked,
-    stripeOffset: search.stripeO ?? DEFAULT_LOGO_LEFT_FACE_STRIPE_OFFSET,
+    stripeOffset: search.stripeO ?? LOGO_LEFT_FACE_STRIPE.offset.defaultValue,
     stripeWidth,
   });
 }

@@ -13,7 +13,7 @@ import {
   type LogoRasterProjection as RasterProjection,
 } from "@/components/logo/logoRasterProjection";
 import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
+  LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
@@ -607,7 +607,7 @@ function getRasterDistanceProjectionHalfSize(
 }
 
 function isDefaultRasterDistanceScale(distanceScale: number): boolean {
-  return normalizeLogoDistanceScale(distanceScale) === DEFAULT_LOGO_DISTANCE_SCALE;
+  return normalizeLogoDistanceScale(distanceScale) === LOGO_DISTANCE_SCALE.defaultValue;
 }
 
 function createRasterGridPoint({
@@ -1326,7 +1326,7 @@ function renderRasterRecursiveImage({
   const faceOnState =
     activeMoves.length === 0 &&
     exactCellSize > 0 &&
-    normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE
+    normalizedDistanceScale === LOGO_DISTANCE_SCALE.defaultValue
       ? getFaceOnState({
           baseGridSize,
           filledVoxels,

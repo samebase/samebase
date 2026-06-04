@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
   getLogoIsometricFrameMetrics,
   normalizeLogoIsometricCubeSidePixels,
 } from "@/components/logo/logoIsometricRenderer";
@@ -15,19 +13,19 @@ describe("normalizeLogoIsometricCubeSidePixels", () => {
   });
 
   it("clamps values to the supported cube side range", () => {
-    expect(normalizeLogoIsometricCubeSidePixels(1)).toBe(MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX);
-    expect(normalizeLogoIsometricCubeSidePixels(999)).toBe(MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX);
+    expect(normalizeLogoIsometricCubeSidePixels(1)).toBe(LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.min);
+    expect(normalizeLogoIsometricCubeSidePixels(999)).toBe(LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max);
   });
 
   it("returns the default for non-finite input", () => {
     expect(normalizeLogoIsometricCubeSidePixels(Number.NaN)).toBe(
-      DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
     );
     expect(normalizeLogoIsometricCubeSidePixels(Number.POSITIVE_INFINITY)).toBe(
-      DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
     );
     expect(normalizeLogoIsometricCubeSidePixels(Number.NEGATIVE_INFINITY)).toBe(
-      DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
     );
   });
 });
@@ -37,7 +35,7 @@ describe("getLogoIsometricFrameMetrics", () => {
     expect(getLogoIsometricFrameMetrics()).toMatchObject({
       canvasHeight: 105,
       canvasWidth: 105,
-      cubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+      cubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
       tileHalfHeight: 8,
       tileHalfWidth: 16,
       voxelScreenHeight: 16,
