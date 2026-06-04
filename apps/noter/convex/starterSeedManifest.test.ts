@@ -58,6 +58,12 @@ describe("starterSeedManifest", () => {
     );
   });
 
+  it("uses system fonts without a default webfont dependency", () => {
+    expect(starterTemplateManifest.files["package.json"]).not.toContain("@fontsource");
+    expect(starterTemplateManifest.files["src/style.css"]).not.toContain("@fontsource");
+    expect(starterTemplateManifest.files["src/style.css"]).toContain("ui-sans-serif");
+  });
+
   it("includes durable guest-name reservation in the starter auth flow", () => {
     // The schema index, reservation mutation, and client call must stay aligned for exact guest-name lookup.
     expect(starterTemplateManifest.files["convex/guests.ts"]).toContain('.withIndex("by_name"');
