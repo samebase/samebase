@@ -9,10 +9,13 @@ import type {
 import { useCallback, useId, useMemo, useRef } from "react";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, useRouter } from "@tanstack/react-router";
+import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+import { api } from "../../../convex/_generated/api";
+import { readSuggestions, type Suggestion } from "./RouteAddressComboboxSuggestions";
 import { keepState, runTransitionActions } from "./typedTransitionTable";
 import { useTypedTransitionMachine } from "./useTypedTransitionMachine";
 import type {
@@ -44,24 +47,14 @@ export type RouteEditorState =
 export type RouteAddressComboboxState = RouteEditorState;
 
 type RouteAddressComboboxProps = {
-  onDebugEvent?: (event: RouteEditorEvent) => void;
   onDebugStateChange?: (state: RouteEditorState) => void;
 };
-
-const routeAddressComboboxSuggestions = [
-  {
-    routeAddress: "/logo",
-  },
-  {
-    routeAddress: "/machines",
-  },
-] as const;
 
 type RouteEditorPreventNativeEditContext = {
   preventDefault: () => void;
 };
 
-export type RouteEditorEvent =
+type RouteEditorEvent =
   // Input value and selection tracking.
   | {
       type: "changedInput";
@@ -96,7 +89,8 @@ export type RouteEditorEvent =
   // Suggestion commit.
   | {
       type: "selectedSuggestion";
-      path: string;
+      nextSelectionRouteIndex: number;
+      routeAddress: string;
     };
 
 type RouteEditorAction =
@@ -148,6 +142,19 @@ function readRouteAddressFromInputValue(inputValue: string): string {
   return routeAddress;
 }
 
+function readInputSelectionFromRouteIndex(
+  prefix: string,
+  routeIndex: number,
+): RouteAddressSelection {
+  const position = prefix.length + routeIndex - 1;
+
+  return {
+    direction: "none",
+    end: position,
+    start: position,
+  };
+}
+
 const routeAddressComboboxTransition: RouteEditorTransitionTable = {
   blurred: {
     changedInput: keepState,
@@ -168,12 +175,12 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
     requestedEditableSelection: keepState,
     requestedLockedPrefixBackspace: keepState,
     selectedSuggestion: (prev, event) => ({
-      actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
-        path: event.path,
+        path: event.routeAddress,
         prefix: prev.prefix,
       },
+      actions: [],
     }),
   },
 
@@ -254,14 +261,21 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         },
       };
     },
-    selectedSuggestion: (prev, event) => ({
-      actions: [{ brand: "blurInput" }],
-      state: {
-        kind: "blurred",
-        path: event.path,
-        prefix: prev.prefix,
-      },
-    }),
+    selectedSuggestion: (prev, event) => {
+      const selection = readInputSelectionFromRouteIndex(
+        prev.prefix,
+        event.nextSelectionRouteIndex,
+      );
+
+      return {
+        actions: [{ brand: "setInputSelection", selection }],
+        state: {
+          ...prev,
+          latestPath: event.routeAddress,
+          selection,
+        },
+      };
+    },
   },
 };
 
@@ -277,12 +291,12 @@ function readRouteAddressSelection(input: HTMLInputElement): RouteAddressSelecti
   };
 }
 
-function useRouteAddressComboboxVm({
-  onDebugEvent,
-  onDebugStateChange,
-}: RouteAddressComboboxProps) {
+function useRouteAddressComboboxVm({ onDebugStateChange }: RouteAddressComboboxProps) {
   const location = useLocation();
-  const prefix = useMemo(() => `${readIsomorphicOrigin()}/`, []);
+  const router = useRouter();
+  const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
+  const origin = useMemo(readIsomorphicOrigin, []);
+  const prefix = useMemo(() => `${origin}/`, [origin]);
   const inputId = useId();
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -310,7 +324,14 @@ function useRouteAddressComboboxVm({
     [inputRef],
   );
 
-  const { state, sendEvent } = useTypedTransitionMachine({
+  const { state, sendEvent } = useTypedTransitionMachine<
+    RouteEditorState["kind"],
+    RouteEditorEvent["type"],
+    RouteEditorAction["brand"],
+    RouteEditorState,
+    RouteEditorEvent,
+    RouteEditorAction
+  >({
     initialState: {
       kind: "blurred",
       path: `${location.pathname}${location.searchStr}`,
@@ -318,7 +339,6 @@ function useRouteAddressComboboxVm({
     },
     transitionTable: routeAddressComboboxTransition,
     runActions: runRouteEditorTransitionActions,
-    onDebugEvent,
     onDebugStateChange,
   });
 
@@ -454,11 +474,12 @@ function useRouteAddressComboboxVm({
   );
 
   const handleSuggestionMouseDown = useCallback(
-    (event: MouseEvent<HTMLDivElement>, routeAddress: string) => {
+    (event: MouseEvent<HTMLDivElement>, suggestion: Suggestion) => {
       event.preventDefault();
       sendEvent({
         type: "selectedSuggestion",
-        path: routeAddress,
+        nextSelectionRouteIndex: suggestion.nextSelectionRouteIndex,
+        routeAddress: suggestion.routeAddress,
       });
     },
     [sendEvent],
@@ -466,13 +487,19 @@ function useRouteAddressComboboxVm({
 
   const routeAddress = state.kind === "blurred" ? state.path : state.latestPath;
   const inputValue = `${state.prefix}${routeAddress.slice(1)}`;
-  const suggestions = routeAddressComboboxSuggestions;
+  const suggestions = readSuggestions({
+    prefix: state.prefix,
+    routeAddress,
+    routesByPath: router.routesByPath,
+    selection: state.kind === "focused" ? state.selection : null,
+    viewerIsAdmin: !!viewerIsAdmin,
+  });
   const suggestionsVisible = state.kind === "focused";
 
   return {
-    getSuggestionProps: (routeAddress: string) => ({
+    getSuggestionProps: (suggestion: Suggestion) => ({
       onMouseDown: (event: MouseEvent<HTMLDivElement>) =>
-        handleSuggestionMouseDown(event, routeAddress),
+        handleSuggestionMouseDown(event, suggestion),
     }),
     inputProps: {
       "aria-controls": suggestionsVisible ? listboxId : undefined,
@@ -523,11 +550,11 @@ export function RouteAddressCombobox(props: RouteAddressComboboxProps) {
               {vm.suggestions.map((suggestion) => (
                 <CommandItem
                   data-testid="route-address-combobox-suggestion"
-                  key={suggestion.routeAddress}
-                  {...vm.getSuggestionProps(suggestion.routeAddress)}
-                  value={suggestion.routeAddress}
+                  key={`${suggestion.kind}:${suggestion.value}`}
+                  {...vm.getSuggestionProps(suggestion)}
+                  value={suggestion.value}
                 >
-                  <span className="min-w-0 truncate font-mono">{suggestion.routeAddress}</span>
+                  <span className="min-w-0 truncate font-mono">{suggestion.value}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

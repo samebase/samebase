@@ -1,36 +1,24 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import {
-  RouteAddressCombobox,
-  type RouteEditorEvent,
-  type RouteEditorState,
-} from "./RouteAddressCombobox";
+import { RouteAddressCombobox, type RouteEditorState } from "./RouteAddressCombobox";
+import { parseRouteAddress } from "./RouteAddressComboboxSuggestions";
 
 type RouteAddressComboboxResearchState = {
   combobox: RouteEditorState | null;
-  events: readonly RouteEditorEvent[];
 };
 
 function useRouteAddressComboboxResearchStore() {
   const initialState: RouteAddressComboboxResearchState = {
     combobox: null,
-    events: [],
   };
 
   return useCreateStore(initialState, ({ setState }) => ({
-    appendComboboxEvent: (event: RouteEditorEvent) => {
-      setState((currentState) => ({
-        ...currentState,
-        events: [...currentState.events, event],
-      }));
-    },
     setComboboxState: (combobox: RouteEditorState) => {
       setState((currentState) =>
         currentState.combobox === combobox
           ? currentState
           : {
-              ...currentState,
               combobox,
             },
       );
@@ -41,8 +29,21 @@ function useRouteAddressComboboxResearchStore() {
 export function RouteAddressComboboxResearchPage() {
   const store = useRouteAddressComboboxResearchStore();
   const state = useSelector(store);
-  const { appendComboboxEvent, setComboboxState } = store.actions;
-  const stateJson = JSON.stringify(state, null, 2);
+  const { setComboboxState } = store.actions;
+  const routeAddress =
+    state.combobox === null
+      ? null
+      : state.combobox.kind === "blurred"
+        ? state.combobox.path
+        : state.combobox.latestPath;
+  const stateJson = JSON.stringify(
+    {
+      combobox: state.combobox,
+      parsedRouteAddress: routeAddress === null ? null : parseRouteAddress(routeAddress),
+    },
+    null,
+    2,
+  );
 
   return (
     <AppWorkspaceRouteChrome
@@ -57,10 +58,7 @@ export function RouteAddressComboboxResearchPage() {
         </div>
 
         <div className="grid gap-4">
-          <RouteAddressCombobox
-            onDebugEvent={appendComboboxEvent}
-            onDebugStateChange={setComboboxState}
-          />
+          <RouteAddressCombobox onDebugStateChange={setComboboxState} />
           <Textarea
             aria-label="Route address combobox debug state"
             className="min-h-40 resize-y font-mono text-sm"

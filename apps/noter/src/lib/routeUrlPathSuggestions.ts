@@ -7,6 +7,7 @@ import {
   type NoterRoutePermissionViewer,
   type NoterRouteStaticData,
 } from "@/lib/routePermissions";
+import { entries } from "@noter-md/dependent/object";
 
 type RouteUrlPathSuggestionsInput = {
   currentHref: string;
@@ -24,8 +25,8 @@ export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
   viewer: NoterRoutePermissionViewer,
   surface: NoterRouteSurface,
-): readonly string[] {
-  return Object.entries(routesByPath)
+) {
+  return entries(routesByPath)
     .filter(([path, route]) =>
       isRouteUrlPathSuggestion(path, route.options.staticData, viewer, surface),
     )
@@ -127,6 +128,14 @@ function compareRouteUrlPathSuggestion(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
+/**
+ * Chooses which route set path suggestions should come from.
+ *
+ * Some routes are local-only, preview-only, or production-only. The origin gives
+ * the normal surface for this app instance, while `?prod-ui` in either the
+ * current URL or editable draft forces production suggestions so the editor
+ * doesn't offer local/preview routes while the page is pretending to be prod.
+ */
 export function readRouteUrlPathSuggestionSurface({
   currentHref,
   draftHref,
