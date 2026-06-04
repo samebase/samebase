@@ -6,7 +6,7 @@ import type {
   MouseEvent,
   SyntheticEvent,
 } from "react";
-import { useCallback, useId, useMemo, useRef } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef } from "react";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { useLocation, useRouter } from "@tanstack/react-router";
@@ -91,6 +91,11 @@ type RouteEditorEvent =
       type: "selectedSuggestion";
       nextSelectionRouteIndex: number;
       routeAddress: string;
+    }
+  // External committed route sync.
+  | {
+      type: "changedCommittedRoute";
+      path: string;
     };
 
 type RouteEditorAction =
@@ -157,6 +162,11 @@ function readInputSelectionFromRouteIndex(
 
 const routeAddressComboboxTransition: RouteEditorTransitionTable = {
   blurred: {
+    changedCommittedRoute: (prev, event) =>
+      keepState({
+        ...prev,
+        path: event.path,
+      }),
     changedInput: keepState,
     changedSelection: keepState,
     clickedInput: (prev, event) =>
@@ -185,6 +195,7 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
   },
 
   focused: {
+    changedCommittedRoute: keepState,
     changedInput: (prev, event) =>
       keepState({
         ...prev,
@@ -291,12 +302,21 @@ function readRouteAddressSelection(input: HTMLInputElement): RouteAddressSelecti
   };
 }
 
+function readRouteAddressFromRouteHref(routeHref: string): string {
+  const url = new URL(routeHref, new URL(readIsomorphicOrigin()));
+  return `${url.pathname}${url.search}`;
+}
+
 function useRouteAddressComboboxVm({ onDebugStateChange }: RouteAddressComboboxProps) {
-  const location = useLocation();
   const router = useRouter();
+  const location = useLocation();
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
   const origin = useMemo(readIsomorphicOrigin, []);
   const prefix = useMemo(() => `${origin}/`, [origin]);
+  const committedRouteAddress = useMemo(
+    () => readRouteAddressFromRouteHref(location.href),
+    [location.href],
+  );
   const inputId = useId();
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -334,13 +354,20 @@ function useRouteAddressComboboxVm({ onDebugStateChange }: RouteAddressComboboxP
   >({
     initialState: {
       kind: "blurred",
-      path: `${location.pathname}${location.searchStr}`,
+      path: committedRouteAddress,
       prefix,
     },
     transitionTable: routeAddressComboboxTransition,
     runActions: runRouteEditorTransitionActions,
     onDebugStateChange,
   });
+
+  useEffect(() => {
+    sendEvent({
+      type: "changedCommittedRoute",
+      path: committedRouteAddress,
+    });
+  }, [committedRouteAddress, sendEvent]);
 
   const handleInputFocus = useCallback(
     (event: FocusEvent<HTMLInputElement>) => {
