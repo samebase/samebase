@@ -102,6 +102,41 @@ test("route address combobox ignores Backspace at the protected prefix boundary"
   await expectInputSelection(input, prefix.length);
 });
 
+test("route address combobox keeps focus and advances the cursor after selecting suggestions", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page);
+
+  await input.press("ControlOrMeta+ArrowLeft");
+  await page.getByRole("option", { exact: true, name: "/logo" }).click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?`);
+  await expectInputSelection(input, `${prefix}logo?`.length);
+  await expect(page.getByRole("option", { exact: true, name: "?top=" })).toBeVisible();
+
+  await page.getByRole("option", { exact: true, name: "?top=" }).click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?top=`);
+  await expectInputSelection(input, `${prefix}logo?top=`.length);
+  await expect(page.getByRole("option", { exact: true, name: "blue-" })).toBeVisible();
+
+  await page.getByRole("option", { exact: true, name: "blue-" }).click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?top=blue-`);
+  await expectInputSelection(input, `${prefix}logo?top=blue-`.length);
+  await expect(page.getByRole("option", { exact: true, name: "blue-200" })).toBeVisible();
+
+  await page.getByRole("option", { exact: true, name: "blue-200" }).click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?top=blue-200&`);
+  await expectInputSelection(input, `${prefix}logo?top=blue-200&`.length);
+  await expect(page.getByRole("option", { exact: true, name: "&secondary=" })).toBeVisible();
+});
+
 test("route address combobox clamps modifier Backspace to the route boundary", async ({ page }) => {
   const { input, prefix } = await focusRouteAddressInput(page);
 
