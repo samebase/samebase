@@ -28,7 +28,7 @@ overrides:
   dompurify: 3.4.0
   fast-uri: 3.1.2
   flatted: 3.4.2
-  hono: 4.12.18
+  hono: 4.12.21
   ip-address: 10.1.1
   mailparser: 3.9.8
   "minimatch@3": 3.1.5
