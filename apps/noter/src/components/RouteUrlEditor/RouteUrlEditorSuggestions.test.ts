@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
-import { parseRouteAddress, readSuggestions } from "./RouteAddressComboboxSuggestions";
+import { parseRouteAddress, readSuggestions } from "./RouteUrlEditorSuggestions";
 
 const prefix = "http://localhost:5174/";
 const routesByPath = getRouter().routesByPath;
@@ -284,8 +284,8 @@ describe("readSuggestions", () => {
 
   it("keeps enough cursor information to continue editing after selection", () => {
     const pathRows = readRows({
-      routeAddress: "/research/route-address-combobox?",
-      routeTextBeforeCursor: "/research",
+      routeAddress: "/privacy?",
+      routeTextBeforeCursor: "/pri",
     });
 
     expect(pathRows).toContainEqual({
