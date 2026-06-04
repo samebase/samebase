@@ -476,6 +476,226 @@ describe("infrastructure provisioning ownership", () => {
     });
   });
 
+  it("creates project preview deploy keys for Cloudflare preview builds", async () => {
+    const requests: { method: string; url: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : new Request(input, init);
+        requests.push({ method: request.method, url: request.url });
+        const json = (value: string) =>
+          new Response(value, {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+
+        if (request.url === `https://api.convex.dev/v1/projects/${convexProjectId}`) {
+          return json(`{
+            "createTime": 1710000000000,
+            "id": ${convexProjectId},
+            "name": "Deploy keys",
+            "slug": "deploy-keys",
+            "teamId": ${convexTeamId},
+            "teamSlug": "ada-team"
+          }`);
+        }
+        if (
+          request.url ===
+          `https://api.convex.dev/v1/projects/${convexProjectId}/deployment?defaultDev=true`
+        ) {
+          return json(`{
+            "class": "free",
+            "createTime": 1710000000000,
+            "deploymentType": "dev",
+            "deploymentUrl": "https://deploy-keys-dev.convex.cloud",
+            "id": 123,
+            "isDefault": true,
+            "kind": "cloud",
+            "name": "deploy-keys-dev",
+            "projectId": ${convexProjectId},
+            "reference": "default-dev",
+            "region": "aws-us-east-1"
+          }`);
+        }
+        if (
+          request.url === "https://api.convex.dev/v1/deployments/deploy-keys-prod/create_deploy_key"
+        ) {
+          return json(`{
+            "deployKey": "prod:deploy-keys-prod|production-secret"
+          }`);
+        }
+        if (
+          request.url ===
+          `https://api.convex.dev/v1/projects/${convexProjectId}/create_preview_deploy_key`
+        ) {
+          return json(`{
+            "previewDeployKey": "preview:ada-team:deploy-keys|preview-secret"
+          }`);
+        }
+
+        return new Response("stop after Convex key creation", {
+          status: 500,
+          headers: { "content-type": "text/plain" },
+        });
+      }),
+    );
+
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/deploy-keys",
+        trigger: "create",
+        state: "running",
+        currentStep: "ensure_cloudflare",
+        createdAt: 10,
+        updatedAt: 10,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "deploy-keys",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "github-token",
+        },
+        createdAt: 21,
+        updatedAt: 21,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "convex-token",
+        },
+        teamId: convexTeamId,
+        createdAt: 22,
+        updatedAt: 22,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        userId,
+        auth: {
+          method: "api_key",
+          credential: "cloudflare-token",
+        },
+        defaultAccount: {
+          state: "selected",
+          accountId: "cloudflare-account-id",
+          accountName: "Ada Cloudflare",
+        },
+        createdAt: 23,
+        updatedAt: 23,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId,
+        provisioningVersion: 1,
+        state: "active",
+        updatedAt: 30,
+      });
+      await ctx.db.insert("vaultInfrastructureTargets", {
+        vaultId,
+        appRoot: rootCloudflareAppRoot,
+        convex: {
+          state: "created",
+          projectName: "deploy-keys",
+          projectId: convexProjectId,
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "cloudflare-account-id",
+          workerName: "deploy-keys",
+          build: rootCloudflareBuild,
+        },
+        createdAt: 31,
+        updatedAt: 31,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot: rootCloudflareAppRoot,
+        projectId: convexProjectId,
+        teamSlug: "ada-team",
+        projectSlug: "deploy-keys",
+        deploymentName: "deploy-keys-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://deploy-keys.convex.cloud",
+        siteUrl: "https://deploy-keys.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+        origin: "provisioned",
+        connectedAt: 25,
+        lastObservedAt: 25,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: branchTreeData.sha,
+        treeData: branchTreeData,
+        lastTreeRefreshAt: 32,
+      });
+
+      return { runId, vaultId };
+    });
+
+    await expect(
+      t.action(internal.infraProvisioning.ensureCloudflareInfrastructure, {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+      }),
+    ).rejects.toThrow("GitHub API request failed");
+
+    const convexKeyRequests = requests
+      .filter((request) => request.url.startsWith("https://api.convex.dev/v1/"))
+      .filter((request) => request.method === "POST")
+      .map((request) => new URL(request.url).pathname);
+    const deployment = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultConvexDeployments")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+    });
+
+    expect(convexKeyRequests).toEqual([
+      "/v1/deployments/deploy-keys-prod/create_deploy_key",
+      `/v1/projects/${convexProjectId}/create_preview_deploy_key`,
+    ]);
+    expect(deployment).toMatchObject({
+      deployKeys: {
+        production: { state: "created", id: "prod:deploy-keys-prod" },
+        preview: { state: "created", id: "preview:ada-team:deploy-keys" },
+      },
+    });
+  });
+
   it("keeps active ownership fresh between provider state transitions", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
