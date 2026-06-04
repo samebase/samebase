@@ -1,5 +1,5 @@
 export const DEFAULT_LOGO_PREVIEW_ZOOM = 1;
-export const MIN_LOGO_PREVIEW_ZOOM = 0.1;
+export const MIN_LOGO_PREVIEW_ZOOM = 0;
 export const MAX_LOGO_PREVIEW_ZOOM = 1;
 export const LOGO_PREVIEW_ZOOM_STEP = 0.01;
 

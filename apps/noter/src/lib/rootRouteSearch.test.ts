@@ -158,8 +158,8 @@ describe("rootRouteSearch", () => {
     expect(readRootRouteSearch("?zoom=2")).toEqual({
       zoom: 1,
     });
-    expect(readRootRouteSearch("?zoom=0.01")).toEqual({
-      zoom: 0.1,
+    expect(readRootRouteSearch("?zoom=-1")).toEqual({
+      zoom: 0,
     });
   });
 

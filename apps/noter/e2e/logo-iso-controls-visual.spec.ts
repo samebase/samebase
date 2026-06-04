@@ -803,7 +803,7 @@ test("logo zoom controls shrink the Three preview", async ({ page }) => {
 
   await expect(canvas).toBeVisible();
   await expect(zoomSlider).toHaveAttribute("max", "1");
-  await expect(zoomSlider).toHaveAttribute("min", "0.1");
+  await expect(zoomSlider).toHaveAttribute("min", "0");
   await expect(zoomSlider).toHaveAttribute("step", "0.01");
   await expect(zoomInput).toHaveAttribute("max", "1");
   await expect(zoomInput).toHaveValue("0.50");
