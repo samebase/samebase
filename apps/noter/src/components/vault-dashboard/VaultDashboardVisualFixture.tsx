@@ -8,6 +8,7 @@ import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUp
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
+import { RoutePreviewProvider } from "@/components/RoutePreviewController";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
@@ -1024,7 +1025,7 @@ function VaultDashboardStickyHeaderFixture() {
       rightContent={
         <VaultDashboardSidebarContent>
           <div className="mt-auto">
-            <AppSidebarMetaSection side="right" />
+            <AppSidebarMetaSection linkAlignment="left" />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -1090,16 +1091,18 @@ function FixtureDashboardShell({
 }) {
   return (
     <TestRouterProvider>
-      <WorkspaceLayoutV2FixtureFrame
-        dataTestId="vault-dashboard-visual-fixture"
-        shortcutPaneSide="right"
-        right={{
-          content: rightContent,
-        }}
-        main={{
-          content: mainContent,
-        }}
-      />
+      <RoutePreviewProvider>
+        <WorkspaceLayoutV2FixtureFrame
+          dataTestId="vault-dashboard-visual-fixture"
+          shortcutPaneSide="right"
+          right={{
+            content: rightContent,
+          }}
+          main={{
+            content: mainContent,
+          }}
+        />
+      </RoutePreviewProvider>
     </TestRouterProvider>
   );
 }
@@ -1132,7 +1135,7 @@ function FixtureDashboardSidebarAccountClamp() {
             ]}
           />
           <div className="mt-auto">
-            <AppSidebarMetaSection side="right" />
+            <AppSidebarMetaSection linkAlignment="left" />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -1175,7 +1178,7 @@ function FixtureDashboardCreateControl() {
             </Button>
           </div>
           <div className="mt-auto">
-            <AppSidebarMetaSection side="right" />
+            <AppSidebarMetaSection linkAlignment="left" />
           </div>
         </VaultDashboardSidebarContent>
       }

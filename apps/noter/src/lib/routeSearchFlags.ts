@@ -27,13 +27,8 @@ export type SearchPatch<Search extends object> = {
   [Key in keyof Search]?: Search[Key] | null;
 };
 
-export function formatRouteSearchPresenceFlagLinkLabel(key: string): string {
-  return `?${key}`;
-}
-
-export function formatRouteSearchPresenceFlagDisableLinkLabel(key: string): string {
-  // The enabled label stays as the prefix so hover previews do not move the pointer target.
-  return `${formatRouteSearchPresenceFlagLinkLabel(key)}-`;
+export function formatRouteSearchPresenceFlagLinkLabel(key: string, enable: boolean): string {
+  return `?${key}${enable ? "" : "-"}`;
 }
 
 function isSearchRecord(value: unknown): value is Record<string, unknown> {
