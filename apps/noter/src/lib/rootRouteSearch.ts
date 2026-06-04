@@ -137,6 +137,7 @@ const rootRouteSearchParamMetadata = {
   signup: rootRouteSearchOwnParamMetadata.signup,
   "sign-in": rootRouteSearchOwnParamMetadata["sign-in"],
   top: globalLogoRouteSearchParam("top"),
+  zoom: globalLogoRouteSearchParam("zoom"),
 } as const satisfies RouteSearchParamMetadataByKey<RootRouteSearch>;
 
 const ROOT_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(rootRouteSearchParamMetadata);

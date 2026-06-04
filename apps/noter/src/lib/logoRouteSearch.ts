@@ -24,6 +24,13 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  DEFAULT_LOGO_PREVIEW_ZOOM,
+  LOGO_PREVIEW_ZOOM_STEP,
+  MAX_LOGO_PREVIEW_ZOOM,
+  MIN_LOGO_PREVIEW_ZOOM,
+  normalizeLogoPreviewZoom,
+} from "@/components/logo/logoPreviewZoom";
+import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STYLE_KINDS,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
@@ -381,6 +388,19 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     valueSuggestions: LOGO_VOXEL_STATE_VALUE_SUGGESTIONS,
     valueType: "options",
   }),
+  zoom: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeLogoPreviewZoom), {
+    numericDefaultValue: DEFAULT_LOGO_PREVIEW_ZOOM,
+    numericRange: {
+      maxValue: MAX_LOGO_PREVIEW_ZOOM,
+      minValue: MIN_LOGO_PREVIEW_ZOOM,
+      rangeType: "closed",
+    },
+    numericStepValue: LOGO_PREVIEW_ZOOM_STEP,
+    permission: "public",
+    sampleValue: "0.5",
+    suggestion: "route",
+    valueType: "numeric",
+  }),
 });
 
 type LogoRouteSearchFields = InferRouteSearch<typeof logoRouteSearchFieldSchema>;
@@ -412,6 +432,7 @@ function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
     ...readLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
     ...(typeof search.rot === "number" ? { rot: search.rot } : {}),
     ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
+    ...(typeof search.zoom === "number" ? { zoom: search.zoom } : {}),
   };
 }
 
@@ -430,6 +451,7 @@ export type LogoRouteSearchBuildState = {
   themeColors: LogoThemeColors;
   viewSnapEnabled: boolean;
   voxelState: string;
+  zoom: number;
 };
 
 type LogoLeftFaceStyleSearch = {
@@ -564,6 +586,7 @@ export function buildLogoRouteSearch(
       : defaultVoxelState;
   const distanceScale = normalizeLogoDistanceScale(args.distanceScale);
   const leftFaceStyle = normalizeLogoLeftFaceStyle(args.leftFaceStyle);
+  const zoom = normalizeLogoPreviewZoom(args.zoom);
 
   return {
     ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
@@ -588,6 +611,7 @@ export function buildLogoRouteSearch(
       ? { rot: Number(args.rotationDegrees.toFixed(1)) }
       : {}),
     ...(voxelState !== defaultVoxelState ? { vox: voxelState } : {}),
+    zoom: zoom !== DEFAULT_LOGO_PREVIEW_ZOOM ? Number(zoom.toFixed(2)) : undefined,
   };
 }
 

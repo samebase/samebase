@@ -154,6 +154,15 @@ describe("rootRouteSearch", () => {
     });
   });
 
+  it("normalizes root logo preview zoom inside the supported range", () => {
+    expect(readRootRouteSearch("?zoom=2")).toEqual({
+      zoom: 1,
+    });
+    expect(readRootRouteSearch("?zoom=0.01")).toEqual({
+      zoom: 0.1,
+    });
+  });
+
   it("accepts the old root logo base color alias as background", () => {
     expect(readRootRouteSearch("?base=%23112233")).toEqual({
       background: "#112233",

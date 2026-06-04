@@ -44,6 +44,13 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  DEFAULT_LOGO_PREVIEW_ZOOM,
+  LOGO_PREVIEW_ZOOM_STEP,
+  MAX_LOGO_PREVIEW_ZOOM,
+  MIN_LOGO_PREVIEW_ZOOM,
+  normalizeLogoPreviewZoom,
+} from "@/components/logo/logoPreviewZoom";
+import {
   LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
   LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
@@ -486,6 +493,7 @@ function areLogoPreviewRouteStatesEqual(
     left.rotationDegrees === right.rotationDegrees &&
     left.selectedPresetId === right.selectedPresetId &&
     left.voxelState === right.voxelState &&
+    left.zoom === right.zoom &&
     areLogoThemeColorsEqual(left.themeColors, right.themeColors)
   );
 }
@@ -803,6 +811,7 @@ function useLogoPreviewController({
           }),
           distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
           rotationAxisMode: DEFAULT_ROTATION_AXIS_MODE,
+          zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         }));
       },
       resetShape: () => {
@@ -1066,6 +1075,12 @@ function useLogoPreviewController({
             viewSnapEnabled: true,
           };
         });
+      },
+      setZoom: (zoom: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          zoom: normalizeLogoPreviewZoom(zoom),
+        }));
       },
       startSceneInteraction: () => {
         pacedRouteState.cancelCommit();
@@ -1467,13 +1482,19 @@ export function LogoPreviewPage({
       />
     );
 
+  const logoSceneSizeContainerPercent = `${(normalizeLogoPreviewZoom(state.zoom) * 100).toFixed(
+    2,
+  )}`;
+  const logoSceneSizeValue = `min(${logoSceneSizeContainerPercent}cqw, ${logoSceneSizeContainerPercent}cqh)`;
   const sceneContent = (
     <div
       className="flex h-full min-h-0 items-center justify-center @container-[size]"
       style={{ backgroundColor }}
     >
       {/* Keep touch capture square so mobile top/bottom drag lanes stay free. */}
-      <div className="relative h-[min(100cqw,100cqh)] w-[min(100cqw,100cqh)]">{logoScene}</div>
+      <div className="relative" style={{ height: logoSceneSizeValue, width: logoSceneSizeValue }}>
+        {logoScene}
+      </div>
     </div>
   );
 
@@ -1870,6 +1891,22 @@ export function LogoPreviewPage({
           <LogoDistanceScaleControl
             value={state.distanceScale}
             onValueChange={controls.setDistanceScale}
+          />
+
+          <LogoRangeControl
+            formatValue={(value) => value.toFixed(2)}
+            label="Zoom"
+            max={MAX_LOGO_PREVIEW_ZOOM}
+            min={MIN_LOGO_PREVIEW_ZOOM}
+            normalizeValue={normalizeLogoPreviewZoom}
+            onSliderChange={controls.setZoom}
+            onValueChange={controls.setZoom}
+            sliderAriaLabel="Zoom slider"
+            step={LOGO_PREVIEW_ZOOM_STEP}
+            value={state.zoom}
+            valueAriaLabel="Zoom value"
+            valueInputMax={MAX_LOGO_PREVIEW_ZOOM}
+            valueText={`${state.zoom.toFixed(2)}x`}
           />
 
           <LogoRangeControl

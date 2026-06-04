@@ -12,6 +12,7 @@ import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   LOGO_DISTANCE_SCALE_SLIDER_MAX,
 } from "@/components/logo/logoDistanceScale";
+import { DEFAULT_LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
@@ -64,6 +65,7 @@ describe("logoRouteSearch", () => {
         stripeW: "-1",
         top: "white-base",
         vox: DEFAULT_VOXEL_STATE,
+        zoom: "2",
       }),
     ).toEqual({
       axis: "screen-vertical",
@@ -88,12 +90,14 @@ describe("logoRouteSearch", () => {
       stripeW: 0,
       top: "white-base",
       vox: DEFAULT_VOXEL_STATE,
+      zoom: 1,
     });
   });
 
   it("drops default logo state when building route search", () => {
     const search = buildLogoRouteSearch({
       distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+      zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
       gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -112,6 +116,8 @@ describe("logoRouteSearch", () => {
     expect(search.depth).toBeUndefined();
     expect("dist" in search).toBe(true);
     expect(search.dist).toBeUndefined();
+    expect("zoom" in search).toBe(true);
+    expect(search.zoom).toBeUndefined();
     expect("leftFace" in search).toBe(true);
     expect(search.leftFace).toBeUndefined();
   });
@@ -120,6 +126,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -138,6 +145,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -187,6 +195,7 @@ describe("logoRouteSearch", () => {
         stripeO: null,
         stripeW: Number.NaN,
         vox: "bad-voxel-state",
+        zoom: "not-a-number",
       }),
     ).toEqual({
       freeView: true,
@@ -223,6 +232,7 @@ describe("logoRouteSearch", () => {
 
     const builtSearch = buildLogoRouteSearch({
       distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+      zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
       gridSize: LOGO_GRID_SIZE_2,
@@ -244,6 +254,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: 6,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -263,6 +274,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: MAX_LOGO_FRACTAL_DEPTH + 1,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -297,6 +309,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: LOGO_DISTANCE_SCALE_SLIDER_MAX + 1,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -321,6 +334,64 @@ describe("logoRouteSearch", () => {
     });
   });
 
+  it("caps built preview zoom at the current route max", () => {
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: 2,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      depth: undefined,
+      dist: undefined,
+      leftFace: undefined,
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+      zoom: undefined,
+    });
+
+    expect(
+      buildLogoRouteSearch({
+        distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: 0.555,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
+        isoCubeSidePixels: DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      depth: undefined,
+      dist: undefined,
+      leftFace: undefined,
+      stripeA: undefined,
+      stripeBasis: undefined,
+      stripeG: undefined,
+      stripeO: undefined,
+      stripeW: undefined,
+      zoom: 0.56,
+    });
+  });
+
   it("preserves striped left-face route state", () => {
     const defaultStripedSearch = validateLogoRouteSearch({
       leftFace: "striped",
@@ -336,6 +407,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -370,6 +442,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -410,6 +483,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -478,6 +552,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,

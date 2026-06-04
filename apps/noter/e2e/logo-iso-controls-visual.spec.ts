@@ -775,6 +775,66 @@ test("logo distance scale controls Three and raster previews", async ({ page }) 
   ).toHaveValue("0.500");
 });
 
+test("logo zoom controls shrink the Three preview", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInForLogoAdminRoute(page);
+
+  await page.goto("/logo?zoom=1&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const canvas = page.locator("canvas").first();
+  await expect(canvas).toBeVisible();
+  await waitForPaint(page);
+  const fullZoomBox = await canvas.boundingBox();
+  expect(fullZoomBox).not.toBeNull();
+  if (fullZoomBox === null) {
+    throw new Error("Expected the full-size logo canvas to be visible.");
+  }
+
+  await page.goto("/logo?zoom=0.5&rot=45", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
+  const viewSection = controlsSidebar.getByTestId("logo-preview-view-section");
+  const zoomSlider = controlsSidebar.getByLabel("Zoom slider");
+  const zoomInput = controlsSidebar.getByLabel("Zoom value");
+
+  await expect(canvas).toBeVisible();
+  await expect(zoomSlider).toHaveAttribute("max", "1");
+  await expect(zoomSlider).toHaveAttribute("min", "0.1");
+  await expect(zoomSlider).toHaveAttribute("step", "0.01");
+  await expect(zoomInput).toHaveAttribute("max", "1");
+  await expect(zoomInput).toHaveValue("0.50");
+  await waitForPaint(page);
+
+  const halfZoomBox = await canvas.boundingBox();
+  expect(halfZoomBox).not.toBeNull();
+  if (halfZoomBox === null) {
+    throw new Error("Expected the half-size logo canvas to be visible.");
+  }
+
+  expect(halfZoomBox.width).toBeLessThan(fullZoomBox.width * 0.6);
+  expect(halfZoomBox.width).toBeGreaterThan(fullZoomBox.width * 0.4);
+
+  await expect(viewSection).toHaveScreenshot("logo-view-zoom-controls.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
+
+  await replaceNumberInputValue(zoomInput, "0.25");
+  await expect.poll(() => new URL(page.url()).searchParams.get("zoom")).toBe("0.25");
+  await zoomInput.press("Enter");
+  await expect(zoomInput).toHaveValue("0.25");
+
+  await replaceNumberInputValue(zoomInput, "1");
+  await zoomInput.press("Enter");
+  await expect.poll(() => new URL(page.url()).searchParams.has("zoom")).toBe(false);
+});
+
 test("logo raster distance scale keeps depth 3 on the geometric base path", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster?depth=3&dist=1.5&top=red-500&elev=22&rot=45");

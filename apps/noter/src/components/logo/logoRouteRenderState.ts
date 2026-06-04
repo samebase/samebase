@@ -10,6 +10,10 @@ import {
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
+  DEFAULT_LOGO_PREVIEW_ZOOM,
+  normalizeLogoPreviewZoom,
+} from "@/components/logo/logoPreviewZoom";
+import {
   normalizeLogoLeftFaceStyle,
   readLogoLeftFaceStyle,
 } from "@/components/logo/logoLeftFaceStyle";
@@ -131,6 +135,14 @@ function readRouteDistanceScale(routeSearch: LogoRouteSearch): number {
   return normalizeLogoDistanceScale(routeSearch.dist);
 }
 
+function readRouteZoom(routeSearch: LogoRouteSearch): number {
+  if (typeof routeSearch.zoom !== "number") {
+    return DEFAULT_LOGO_PREVIEW_ZOOM;
+  }
+
+  return normalizeLogoPreviewZoom(routeSearch.zoom);
+}
+
 function readRouteFractalDepth(
   routeSearch: LogoRouteSearch,
   renderMode: LogoRouteRenderMode,
@@ -208,6 +220,7 @@ export function readLogoRouteRenderState({
     themeColors: readLogoThemeColors(routeSearch),
     viewSnapEnabled: view.viewSnapEnabled,
     voxelState,
+    zoom: readRouteZoom(routeSearch),
   };
 }
 
