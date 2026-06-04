@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
+import { Link, useLocation } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { useLocation, useRouter } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "@/lib/appBuild";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import { RoutePreviewProvider } from "@/components/RoutePreviewController";
 import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
 const { act } = React;
@@ -43,36 +42,8 @@ describe("AppSidebarMetaSection", () => {
     );
   }
 
-  function BackButton() {
-    const router = useRouter();
-
-    return (
-      <button
-        type="button"
-        data-testid="router-back"
-        onClick={() => {
-          router.history.back();
-        }}
-      >
-        back
-      </button>
-    );
-  }
-
-  function NavigatePrivacyButton() {
-    const router = useRouter();
-
-    return (
-      <button
-        type="button"
-        data-testid="navigate-privacy"
-        onClick={() => {
-          void router.navigate({ to: "/privacy" });
-        }}
-      >
-        privacy
-      </button>
-    );
+  function BackLink() {
+    return <Link to="/">home</Link>;
   }
 
   async function settleRouteUpdate() {
@@ -99,11 +70,9 @@ describe("AppSidebarMetaSection", () => {
     await act(async () => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={[initialEntry]}>
-          <RoutePreviewProvider>
-            <AppSidebarMetaSection linkAlignment={linkAlignment} />
-            {extra}
-            <LocationProbe />
-          </RoutePreviewProvider>
+          <AppSidebarMetaSection linkAlignment={linkAlignment} />
+          {extra}
+          <LocationProbe />
         </TestRouterProvider>,
       );
       await settleRouteUpdate();
@@ -122,57 +91,23 @@ describe("AppSidebarMetaSection", () => {
     );
   }
 
-  function readPreviewSurface() {
-    const surface = rootElement?.querySelector<HTMLElement>(
-      `[data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}"]`,
-    );
-    if (!surface) {
-      throw new Error("Expected app sidebar meta preview surface.");
-    }
-
-    return surface;
-  }
-
-  async function renderRouteOwnedSidebar(initialEntry = "/home#noter") {
-    function RouteOwnedSidebarHarness() {
-      const pathname = useLocation({
-        select: (location) => location.pathname,
-      });
-
-      return (
-        <>
-          <AppSidebarMetaSection key={pathname} linkAlignment="left" />
-          <LocationProbe />
-        </>
-      );
-    }
-
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const element = rootElement;
-    const mountedRoot = createRoot(rootElement);
-    root = mountedRoot;
-
+  async function clickLink(link: HTMLAnchorElement) {
     await act(async () => {
-      mountedRoot.render(
-        <TestRouterProvider initialEntries={[initialEntry]}>
-          <RoutePreviewProvider>
-            <RouteOwnedSidebarHarness />
-          </RoutePreviewProvider>
-        </TestRouterProvider>,
+      link.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
       );
       await settleRouteUpdate();
     });
-
-    return element;
   }
 
   it("omits hidden dev shortcuts from prerendered markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
-        <RoutePreviewProvider>
-          <AppSidebarMetaSection linkAlignment="left" />
-        </RoutePreviewProvider>
+        <AppSidebarMetaSection linkAlignment="left" />
       </TestRouterProvider>,
     );
 
@@ -183,30 +118,17 @@ describe("AppSidebarMetaSection", () => {
     expect(markup).not.toContain(">/landing-preview<");
   });
 
-  it("does not add hidden dev shortcuts after local browser load", () => {
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const mountedRoot = createRoot(rootElement);
-    root = mountedRoot;
+  it("does not add hidden dev shortcuts after local browser load", async () => {
+    await renderSidebarMetaSection();
 
-    act(() => {
-      mountedRoot.render(
-        <TestRouterProvider initialEntries={["/"]}>
-          <RoutePreviewProvider>
-            <AppSidebarMetaSection linkAlignment="left" />
-          </RoutePreviewProvider>
-        </TestRouterProvider>,
-      );
-    });
-
-    const prodUiShortcut = rootElement.querySelector("#public-landing-prod-ui-toggle");
-    const localStorageShortcut = rootElement.querySelector("#public-local-storage-route-link");
+    const prodUiShortcut = rootElement?.querySelector("#public-landing-prod-ui-toggle");
+    const localStorageShortcut = rootElement?.querySelector("#public-local-storage-route-link");
 
     expect(prodUiShortcut).toBeNull();
     expect(localStorageShortcut).toBeNull();
-    expect(rootElement.textContent).not.toContain("?prod-ui");
-    expect(rootElement.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
-    expect(rootElement.textContent).not.toContain("/landing-preview");
+    expect(rootElement?.textContent).not.toContain("?prod-ui");
+    expect(rootElement?.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
+    expect(rootElement?.textContent).not.toContain("/landing-preview");
   });
 
   it("omits the landing preview path link while keeping preview query shortcuts", async () => {
@@ -222,81 +144,6 @@ describe("AppSidebarMetaSection", () => {
     expect(romanianQueryLink?.textContent).toBe("?lang=ro");
   });
 
-  it("renders hover-preview links with a pressed click state", async () => {
-    const element = await renderSidebarMetaSection();
-    const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
-    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    if (!devLink || !termsLink) {
-      throw new Error("Expected public landing preview shortcuts.");
-    }
-
-    expect(devLink.className).toContain("active:bg-foreground");
-    expect(devLink.className).toContain("active:text-background");
-    expect(devLink.className).toContain("route-preview-link-interaction");
-    expect(termsLink.className).toContain("active:bg-foreground");
-    expect(termsLink.className).toContain("active:text-background");
-    expect(termsLink.className).toContain("route-preview-link-interaction");
-  });
-
-  it("previews landing query shortcuts without retargeting the hovered link", async () => {
-    const element = await renderSidebarMetaSection();
-    const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
-    if (!devLink) {
-      throw new Error("Expected public landing dev shortcut.");
-    }
-
-    await act(async () => {
-      devLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/?dev");
-    expect(devLink.textContent).toBe("?dev");
-    expect(devLink.getAttribute("aria-label")).toBe("?dev");
-    expect(rootElement?.querySelector("#public-landing-search-reset")).toBeNull();
-
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/");
-    expect(devLink.textContent).toBe("?dev");
-    expect(devLink.getAttribute("aria-label")).toBe("?dev");
-  });
-
-  it("previews reset without hiding the reset shortcut", async () => {
-    const element = await renderSidebarMetaSection("/?light");
-    const resetLink = element.querySelector<HTMLAnchorElement>("#public-landing-search-reset");
-    if (!resetLink) {
-      throw new Error("Expected public landing reset shortcut.");
-    }
-
-    await act(async () => {
-      resetLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/");
-    expect(rootElement?.querySelector("#public-landing-search-reset")).not.toBeNull();
-
-    const previewResetLink = rootElement?.querySelector<HTMLAnchorElement>(
-      "#public-landing-search-reset",
-    );
-    if (!previewResetLink) {
-      throw new Error("Expected public landing reset shortcut after preview.");
-    }
-
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/?light");
-  });
-
   it("keeps active suffixes outside the toggle hit target", async () => {
     const element = await renderSidebarMetaSection("/?dev");
     const devSuffix = element.querySelector<HTMLSpanElement>(
@@ -305,13 +152,6 @@ describe("AppSidebarMetaSection", () => {
     if (!devSuffix) {
       throw new Error("Expected public landing dev shortcut suffix.");
     }
-
-    await act(async () => {
-      devSuffix.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/?dev");
 
     await act(async () => {
       devSuffix.dispatchEvent(
@@ -327,185 +167,32 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/?dev");
   });
 
-  it("commits the original landing dev hover target on click", async () => {
-    const element = await renderSidebarMetaSection();
-    const devLink = element.querySelector<HTMLAnchorElement>("#public-landing-dev-toggle");
-    if (!devLink) {
-      throw new Error("Expected public landing dev shortcut.");
-    }
-
-    await act(async () => {
-      devLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(devLink.textContent).toBe("?dev");
-    expect(devLink.getAttribute("aria-label")).toBe("?dev");
-
-    await act(async () => {
-      devLink.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          button: 0,
-          cancelable: true,
-        }),
-      );
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/?dev");
-    expect(devLink.textContent).toBe("?dev");
-    expect(devLink.getAttribute("aria-label")).toBe("?dev-");
-  });
-
-  it("commits a hover preview as a new history entry", async () => {
-    const element = await renderSidebarMetaSection("/", {
-      extra: <BackButton />,
-    });
-    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    const backButton = element.querySelector<HTMLButtonElement>('[data-testid="router-back"]');
-    if (!termsLink || !backButton) {
-      throw new Error("Expected terms link and back button.");
-    }
-
-    await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
-
-    await act(async () => {
-      termsLink.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          button: 0,
-          cancelable: true,
-        }),
-      );
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
-
-    await act(async () => {
-      backButton.click();
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/");
-  });
-
-  it("ignores a stale preview restore after unrelated navigation", async () => {
-    const element = await renderSidebarMetaSection("/", {
-      extra: <NavigatePrivacyButton />,
-    });
-    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    const privacyButton = element.querySelector<HTMLButtonElement>(
-      '[data-testid="navigate-privacy"]',
-    );
-    if (!termsLink || !privacyButton) {
-      throw new Error("Expected terms link and privacy navigation button.");
-    }
-
-    await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
-
-    await act(async () => {
-      privacyButton.click();
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/privacy");
-
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/privacy");
-  });
-
-  it("toggles an active theme shortcut without requiring a fresh hover preview", async () => {
+  it("toggles an active theme shortcut through the committed router location", async () => {
     const element = await renderSidebarMetaSection("/?dev&dark");
     const darkLink = element.querySelector<HTMLAnchorElement>("#public-landing-theme-dark-toggle");
     if (!darkLink) {
       throw new Error("Expected public landing dark shortcut.");
     }
 
-    await act(async () => {
-      darkLink.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          button: 0,
-          cancelable: true,
-        }),
-      );
-      await settleRouteUpdate();
-    });
+    await clickLink(darkLink);
 
     expect(readLocationHref()).toBe("/?dev");
     expect(darkLink.textContent).toBe("?dark");
     expect(darkLink.getAttribute("aria-label")).toBe("?dark");
   });
 
-  it("keeps query preview targets stable when the previewed toggle re-enters", async () => {
-    const element = await renderSidebarMetaSection("/?dev&light");
-    const darkLink = element.querySelector<HTMLAnchorElement>("#public-landing-theme-dark-toggle");
-    if (!darkLink) {
-      throw new Error("Expected public landing dark shortcut.");
-    }
-
-    await act(async () => {
-      darkLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
+  it("navigates path links without hover preview state", async () => {
+    const element = await renderSidebarMetaSection("/", {
+      extra: <BackLink />,
     });
-
-    expect(readLocationHref()).toBe("/?dev&dark");
-
-    const previewDarkLink = element.querySelector<HTMLAnchorElement>(
-      "#public-landing-theme-dark-toggle",
-    );
-    if (!previewDarkLink) {
-      throw new Error("Expected public landing dark shortcut after preview.");
-    }
-
-    await act(async () => {
-      previewDarkLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationHref()).toBe("/?dev&dark");
-
-    await act(async () => {
-      previewDarkLink.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          button: 0,
-          cancelable: true,
-        }),
-      );
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationHref()).toBe("/?dev&dark");
-  });
-
-  it("previews and restores landing path links on hover", async () => {
-    const element = await renderSidebarMetaSection();
     const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/terms",
     );
-    if (!termsLink) {
-      throw new Error("Expected terms link.");
+    const backLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "home",
+    );
+    if (!termsLink || !backLink) {
+      throw new Error("Expected terms and home links.");
     }
 
     await act(async () => {
@@ -513,136 +200,32 @@ describe("AppSidebarMetaSection", () => {
       await settleRouteUpdate();
     });
 
-    expect(readLocationText()).toBe("/terms");
+    expect(readLocationHref()).toBe("/");
 
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
+    await clickLink(termsLink);
 
-    expect(readLocationText()).toBe("/");
+    expect(readLocationHref()).toBe("/terms");
+
+    await clickLink(backLink);
+
+    expect(readLocationHref()).toBe("/");
   });
 
-  it("restores when the pointer moves inside the rail but not over a preview link", async () => {
-    const element = await renderSidebarMetaSection();
-    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    if (!termsLink) {
-      throw new Error("Expected terms link.");
-    }
-
-    await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
-
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/");
-  });
-
-  it("restores when the pointer leaves before the preview navigation settles", async () => {
-    const element = await renderSidebarMetaSection();
-    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    if (!termsLink) {
-      throw new Error("Expected terms link.");
-    }
-
-    await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/");
-  });
-
-  it("restores path previews after route-owned rail remounts", async () => {
-    const element = await renderRouteOwnedSidebar();
-    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    if (!termsLink) {
-      throw new Error("Expected terms link.");
-    }
-
-    await act(async () => {
-      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
-
-    const previewTermsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    if (!previewTermsLink) {
-      throw new Error("Expected preview terms link.");
-    }
-
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationHref()).toBe("/home#noter");
-  });
-
-  it("previews footer links outside the landing route", async () => {
-    const element = await renderSidebarMetaSection("/terms");
-    const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/privacy",
-    );
-    if (!privacyLink) {
-      throw new Error("Expected privacy link.");
-    }
-
-    await act(async () => {
-      privacyLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/privacy");
-
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
-  });
-
-  it("previews right-aligned footer links on hover", async () => {
-    const element = await renderSidebarMetaSection("/terms", {
+  it("uses the same committed search state for right-aligned query links", async () => {
+    const element = await renderSidebarMetaSection("/?light", {
       linkAlignment: "right",
     });
-    const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/privacy",
+    const lightLink = element.querySelector<HTMLAnchorElement>(
+      "#public-landing-theme-light-toggle",
     );
-    if (!privacyLink) {
-      throw new Error("Expected privacy link.");
+    if (!lightLink) {
+      throw new Error("Expected public landing light shortcut.");
     }
 
-    await act(async () => {
-      privacyLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/privacy");
-
-    await act(async () => {
-      readPreviewSurface().dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
+    expect(
+      element.querySelector(`[data-testid="${APP_BUILD_STATUS_BAR_TEST_ID}"]`)?.className,
+    ).toContain("text-right");
+    expect(lightLink.textContent).toBe("?light");
+    expect(lightLink.getAttribute("aria-label")).toBe("?light-");
   });
 });
