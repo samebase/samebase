@@ -1,8 +1,9 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { RouteAddressCombobox, type RouteEditorState } from "./RouteAddressCombobox";
+import { RouteAddressCombobox } from "./RouteAddressCombobox";
 import { parseRouteAddress } from "./RouteAddressComboboxSuggestions";
+import { RouteEditorState } from "./useRouteUrlEditorNextVm";
 
 type RouteAddressComboboxResearchState = {
   combobox: RouteEditorState | null;
