@@ -6,89 +6,47 @@ import {
   formatAppBuildVersionLabel,
   hasSelectedAppBuildVersion,
 } from "@/lib/appBuild";
-import {
-  LANDING_DEV_MODE_DISABLE_LINK_LABEL,
-  LANDING_DEV_MODE_LINK_LABEL,
-  LANDING_DEV_MODE_QUERY_PARAM,
-  isLandingDevModeEnabled,
-} from "@/lib/landingDevMode";
+import { LANDING_DEV_MODE_QUERY_PARAM, isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/lib/landingMarkdownPreview";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { SEARCH_RESET_LINK_LABEL, SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
-import {
-  ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
-  ROOT_THEME_DARK_MODE_LINK_LABEL,
-  ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
-  ROOT_THEME_LIGHT_MODE_LINK_LABEL,
-  buildToggledRootThemeModeSearch,
-  readRootThemeMode,
-  type RootThemeModeSearchKey,
-} from "@/lib/rootThemeModeSearch";
-import { applySearchPatch } from "@/lib/routeSearchFlags";
+import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
+import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
+import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { noterBuildConfig } from "@/lib/noterBuildConfig";
-import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { useRoutePreviewController } from "@/components/RoutePreviewController";
 import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
-import { Link, useLocation, useRouter } from "@tanstack/react-router";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { Link, useLocation } from "@tanstack/react-router";
+import { type ReactNode } from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
 }
 
-type AppSidebarMetaSectionSide = "left" | "right";
-type AppSidebarMetaRoutePreview = {
-  baseHref: string;
-  targetHref: string;
-};
-
-type AppSidebarMetaRoutePreviewStore = {
-  current: AppSidebarMetaRoutePreview | null;
-};
-
-const AppSidebarMetaRoutePreviewContext = createContext<AppSidebarMetaRoutePreviewStore | null>(
-  null,
-);
-
-export function AppSidebarMetaRoutePreviewProvider({ children }: { children: ReactNode }) {
-  const routePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
-
-  return (
-    <AppSidebarMetaRoutePreviewContext.Provider value={routePreviewRef}>
-      {children}
-    </AppSidebarMetaRoutePreviewContext.Provider>
-  );
-}
+type AppSidebarMetaLinkAlignment = "left" | "right";
 
 const APP_SIDEBAR_META_SECTION_CLASS_NAMES = {
-  left: "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-end gap-3 overflow-hidden px-2 pt-3 pb-8 text-right text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]",
+  left: "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-start gap-3 overflow-hidden px-2 pt-3 pb-8 text-left text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]",
   right:
-    "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-start gap-3 overflow-hidden px-2 pt-3 pb-8 text-left text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]",
-} as const satisfies Record<AppSidebarMetaSectionSide, string>;
+    "vault-dashboard-sidebar-meta flex min-w-0 max-w-full flex-col items-end gap-3 overflow-hidden px-2 pt-3 pb-8 text-right text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:[overflow-wrap:anywhere]",
+} as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
 
 const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
-  left: "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
-  right: "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
-} as const satisfies Record<AppSidebarMetaSectionSide, string>;
+  left: "flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-2 gap-y-1 font-mono",
+  right:
+    "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
+} as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
 
 const APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES = {
-  left: "flex max-w-full min-w-0 flex-row items-baseline justify-end",
-  right: "flex max-w-full min-w-0 flex-row items-baseline justify-start",
-} as const satisfies Record<AppSidebarMetaSectionSide, string>;
+  left: "flex max-w-full min-w-0 flex-row items-baseline justify-start",
+  right: "flex max-w-full min-w-0 flex-row items-baseline justify-end",
+} as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
 
 const APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME =
   "min-w-0 max-w-full line-clamp-2 [overflow-wrap:anywhere]";
@@ -101,16 +59,16 @@ const APP_SIDEBAR_META_QUERY_SUFFIX_CLASS_NAMES = {
 function AppSidebarMetaQueryLinkRow({
   active,
   children,
-  side,
+  linkAlignment,
   suffixTestId,
 }: {
   active: boolean;
   children: ReactNode;
-  side: AppSidebarMetaSectionSide;
+  linkAlignment: AppSidebarMetaLinkAlignment;
   suffixTestId: string;
 }) {
   return (
-    <span className={APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES[side]}>
+    <span className={APP_SIDEBAR_META_QUERY_LINK_ROW_CLASS_NAMES[linkAlignment]}>
       {children}
       <span
         aria-hidden="true"
@@ -127,39 +85,6 @@ function AppSidebarMetaQueryLinkRow({
   );
 }
 
-function readAppSidebarMetaExactSearch(args: {
-  currentHref: string;
-  nextHref: string;
-  origin: string;
-}): Record<string, unknown> {
-  const appOrigin = new URL(args.origin);
-  const currentUrl = new URL(args.currentHref, appOrigin);
-  const nextUrl = new URL(args.nextHref, appOrigin);
-  const currentSearch = parseTanStackSearch(currentUrl.search);
-  const nextSearch: Record<string, unknown> = parseTanStackSearch(nextUrl.search);
-
-  for (const key of Object.keys(currentSearch)) {
-    if (!(key in nextSearch)) {
-      nextSearch[key] = undefined;
-    }
-  }
-
-  return nextSearch;
-}
-
-function readAppSidebarMetaHash(url: URL): string {
-  return url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
-}
-
-function readAppSidebarMetaAnchorHref(anchor: HTMLAnchorElement): string {
-  const url = new URL(anchor.href);
-  return `${url.pathname}${url.search}${url.hash}`;
-}
-
-function shouldLetBrowserHandleClick(event: MouseEvent<HTMLAnchorElement>): boolean {
-  return event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
-}
-
 function isAppSidebarMetaSearchResetHref(href: string): boolean {
   const origin = readIsomorphicOrigin();
   const appOrigin = new URL(origin);
@@ -172,42 +97,22 @@ function isAppSidebarMetaSearchResetHref(href: string): boolean {
  * Keep build metadata and public-route escape hatches on the rail edge that
  * peeks beside the main pane in the mobile workspace carousel.
  */
-export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMetaSectionSide }) {
+export function AppSidebarMetaSection({
+  linkAlignment = "right",
+}: {
+  linkAlignment?: AppSidebarMetaLinkAlignment;
+}) {
   const { appCommit, appCommitNumber, appRepoUrl } = noterBuildConfig;
   const location = useLocation();
-  const router = useRouter();
-  const currentHref = location.href;
-  const currentHrefRef = useRef(currentHref);
-  const optimisticHrefRef = useRef<string | null>(null);
-  const routeNavigationQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const [, setRoutePreviewRenderVersion] = useState(0);
-  const sharedRoutePreviewRef = useContext(AppSidebarMetaRoutePreviewContext);
-  const localRoutePreviewRef = useRef<AppSidebarMetaRoutePreview | null>(null);
-  const routePreviewRef = sharedRoutePreviewRef ?? localRoutePreviewRef;
-  const routePreviewEnabled = side === "right";
-  const routePreview = routePreviewEnabled ? routePreviewRef.current : null;
-  const routePreviewBaseSearch =
-    routePreview === null
-      ? location.searchStr
-      : new URL(routePreview.baseHref, new URL(readIsomorphicOrigin())).search;
-  const rootRouteSearch = readRootRouteSearch(routePreviewBaseSearch);
+  const { previewLinkProps, snapshot } = useRoutePreviewController();
+  const routePreviewSearch = snapshot.kind === "idle" ? snapshot.search : snapshot.restoreSearch;
+  const rootRouteSearch = readRootRouteSearch(routePreviewSearch);
 
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
-  const landingDevLabel = landingDevEnabled
-    ? LANDING_DEV_MODE_DISABLE_LINK_LABEL
-    : LANDING_DEV_MODE_LINK_LABEL;
   const themeMode = readRootThemeMode(rootRouteSearch);
-  const lightModeActive = themeMode === "light";
-  const darkModeActive = themeMode === "dark";
   const showSearchResetLink =
-    routePreviewBaseSearch.length > 0 ||
-    (routePreview ? isAppSidebarMetaSearchResetHref(routePreview.targetHref) : false);
-  const lightModeLabel = lightModeActive
-    ? ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL
-    : ROOT_THEME_LIGHT_MODE_LINK_LABEL;
-  const darkModeLabel = darkModeActive
-    ? ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL
-    : ROOT_THEME_DARK_MODE_LINK_LABEL;
+    routePreviewSearch.length > 0 ||
+    (snapshot.kind === "previewing" && isAppSidebarMetaSearchResetHref(snapshot.targetHref));
 
   const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
 
@@ -217,215 +122,10 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
   const commitUrl =
     normalizedRepoUrl && appCommit !== "unknown" ? `${normalizedRepoUrl}/commit/${appCommit}` : "";
 
-  useLayoutEffect(() => {
-    const latestLocationHref = router.latestLocation.href;
-    if (optimisticHrefRef.current === latestLocationHref) {
-      optimisticHrefRef.current = null;
-    }
-    if (optimisticHrefRef.current !== null) {
-      return;
-    }
-    currentHrefRef.current = latestLocationHref;
-  }, [currentHref, router]);
-
-  const navigateRouteHref = useCallback(
-    (nextHref: string, replace: boolean, navigationCurrentHref = currentHrefRef.current) => {
-      const origin = readIsomorphicOrigin();
-      const appOrigin = new URL(origin);
-      const nextUrl = new URL(nextHref, appOrigin);
-      const nextRouteHref = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
-      currentHrefRef.current = nextRouteHref;
-      optimisticHrefRef.current = nextRouteHref;
-
-      const runNavigation = async () => {
-        const currentUrl = new URL(navigationCurrentHref, appOrigin);
-        const search = () =>
-          readAppSidebarMetaExactSearch({
-            currentHref: navigationCurrentHref,
-            nextHref,
-            origin,
-          });
-
-        if (currentUrl.pathname === nextUrl.pathname) {
-          await router.navigate({
-            hash: readAppSidebarMetaHash(nextUrl),
-            replace,
-            resetScroll: false,
-            search,
-            to: nextUrl.pathname,
-          });
-        } else {
-          await router.navigate({
-            hash: readAppSidebarMetaHash(nextUrl),
-            replace,
-            search,
-            to: nextUrl.pathname,
-          });
-        }
-
-        if (optimisticHrefRef.current === nextRouteHref) {
-          currentHrefRef.current = router.latestLocation.href;
-          optimisticHrefRef.current = null;
-        }
-      };
-      const navigation = routeNavigationQueueRef.current.then(runNavigation, runNavigation);
-      routeNavigationQueueRef.current = navigation.catch(() => {});
-      return navigation;
-    },
-    [router],
-  );
-  const previewRouteLink = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (!routePreviewEnabled) {
-        return;
-      }
-      // A previewed query toggle re-renders into its "disable" href; keep the first hover target.
-      if (routePreviewRef.current) {
-        return;
-      }
-
-      const targetHref = readAppSidebarMetaAnchorHref(event.currentTarget);
-      const latestCurrentHref = currentHrefRef.current;
-      if (targetHref === latestCurrentHref) {
-        return;
-      }
-
-      routePreviewRef.current = {
-        baseHref: latestCurrentHref,
-        targetHref,
-      };
-      void navigateRouteHref(targetHref, true);
-    },
-    [navigateRouteHref, routePreviewEnabled, routePreviewRef],
-  );
-
-  const restoreRoutePreview = useCallback(() => {
-    if (!routePreviewEnabled) {
-      return;
-    }
-
-    const preview = routePreviewRef.current;
-    if (preview === null) {
-      return;
-    }
-
-    routePreviewRef.current = null;
-    setRoutePreviewRenderVersion((version) => version + 1);
-    const latestCurrentHref = currentHrefRef.current;
-    if (preview.baseHref !== latestCurrentHref) {
-      void navigateRouteHref(preview.baseHref, true, latestCurrentHref);
-    }
-  }, [navigateRouteHref, routePreviewEnabled, routePreviewRef]);
-
-  const commitRoutePreview = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (!routePreviewEnabled) {
-        return;
-      }
-
-      const preview = routePreviewRef.current;
-      if (preview === null || shouldLetBrowserHandleClick(event)) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      routePreviewRef.current = null;
-      setRoutePreviewRenderVersion((version) => version + 1);
-      event.currentTarget.href = new URL(preview.targetHref, new URL(readIsomorphicOrigin())).href;
-
-      const latestCurrentHref = currentHrefRef.current;
-      if (preview.targetHref !== latestCurrentHref) {
-        void navigateRouteHref(preview.targetHref, false, latestCurrentHref);
-      }
-    },
-    [navigateRouteHref, routePreviewEnabled, routePreviewRef],
-  );
-
-  const navigateAppSidebarLink = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (routePreviewRef.current !== null) {
-        commitRoutePreview(event);
-        return;
-      }
-
-      if (shouldLetBrowserHandleClick(event)) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      const origin = readIsomorphicOrigin();
-      const appOrigin = new URL(origin);
-      const nextHref = readAppSidebarMetaAnchorHref(event.currentTarget);
-      event.currentTarget.href = new URL(nextHref, appOrigin).href;
-      void navigateRouteHref(nextHref, false);
-    },
-    [commitRoutePreview, navigateRouteHref, routePreviewRef],
-  );
-
-  const toggleLandingDevMode = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>) => {
-      if (routePreviewRef.current !== null) {
-        commitRoutePreview(event);
-        return;
-      }
-
-      if (shouldLetBrowserHandleClick(event)) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      const origin = readIsomorphicOrigin();
-      const appOrigin = new URL(origin);
-      const latestHref = currentHrefRef.current;
-      const latestUrl = new URL(latestHref, appOrigin);
-      const latestSearch: Record<string, unknown> = parseTanStackSearch(latestUrl.search);
-      const nextSearch = applySearchPatch(latestSearch, {
-        [LANDING_DEV_MODE_QUERY_PARAM]: isLandingDevModeEnabled(latestSearch) ? null : true,
-      });
-      const nextHref = `${latestUrl.pathname}${stringifyTanStackSearch(nextSearch)}${latestUrl.hash}`;
-      event.currentTarget.href = new URL(nextHref, appOrigin).href;
-      void navigateRouteHref(nextHref, false, latestHref);
-    },
-    [commitRoutePreview, navigateRouteHref, routePreviewRef],
-  );
-
-  const toggleRootThemeMode = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>, nextThemeMode: RootThemeModeSearchKey) => {
-      if (routePreviewRef.current !== null) {
-        commitRoutePreview(event);
-        return;
-      }
-
-      if (shouldLetBrowserHandleClick(event)) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      const origin = readIsomorphicOrigin();
-      const appOrigin = new URL(origin);
-      const latestHref = currentHrefRef.current;
-      const latestUrl = new URL(latestHref, appOrigin);
-      const latestSearch: Record<string, unknown> = parseTanStackSearch(latestUrl.search);
-      const latestRootSearch = readRootRouteSearch(latestUrl.search);
-      const nextSearch = applySearchPatch(
-        latestSearch,
-        buildToggledRootThemeModeSearch(latestRootSearch, nextThemeMode),
-      );
-      const nextHref = `${latestUrl.pathname}${stringifyTanStackSearch(nextSearch)}${latestUrl.hash}`;
-      event.currentTarget.href = new URL(nextHref, appOrigin).href;
-      void navigateRouteHref(nextHref, false, latestHref);
-    },
-    [commitRoutePreview, navigateRouteHref, routePreviewRef],
-  );
-
   return (
     <div
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
-      className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[side]}
+      className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[linkAlignment]}
     >
       {showSearchResetLink ? (
         <Link
@@ -433,30 +133,26 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
           className={routePreviewLinkInteractionClassName}
           to={location.pathname}
           hash={location.hash}
-          onClickCapture={navigateAppSidebarLink}
-          onMouseEnter={previewRouteLink}
-          onMouseLeave={restoreRoutePreview}
+          {...previewLinkProps}
           search={() => ({
             [SEARCH_RESET_QUERY_PARAM]: true as const,
           })}
         >
-          {SEARCH_RESET_LINK_LABEL}
+          {formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true)}
         </Link>
       ) : null}
       <AppSidebarMetaQueryLinkRow
-        active={lightModeActive}
-        side={side}
+        active={themeMode === "light"}
+        linkAlignment={linkAlignment}
         suffixTestId="public-landing-theme-light-toggle-suffix"
       >
         <Link
           id="public-landing-theme-light-toggle"
           className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
-          aria-label={lightModeLabel}
+          aria-label={formatRouteSearchPresenceFlagLinkLabel("light", themeMode !== "light")}
           to={location.pathname}
           hash={location.hash}
-          onClickCapture={(event) => toggleRootThemeMode(event, "light")}
-          onMouseEnter={previewRouteLink}
-          onMouseLeave={restoreRoutePreview}
+          {...previewLinkProps}
           search={() =>
             applySearchPatch(
               rootRouteSearch,
@@ -464,23 +160,21 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
             )
           }
         >
-          {ROOT_THEME_LIGHT_MODE_LINK_LABEL}
+          {formatRouteSearchPresenceFlagLinkLabel("light", true)}
         </Link>
       </AppSidebarMetaQueryLinkRow>
       <AppSidebarMetaQueryLinkRow
-        active={darkModeActive}
-        side={side}
+        active={themeMode === "dark"}
+        linkAlignment={linkAlignment}
         suffixTestId="public-landing-theme-dark-toggle-suffix"
       >
         <Link
           id="public-landing-theme-dark-toggle"
           className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
-          aria-label={darkModeLabel}
+          aria-label={formatRouteSearchPresenceFlagLinkLabel("dark", themeMode !== "dark")}
           to={location.pathname}
           hash={location.hash}
-          onClickCapture={(event) => toggleRootThemeMode(event, "dark")}
-          onMouseEnter={previewRouteLink}
-          onMouseLeave={restoreRoutePreview}
+          {...previewLinkProps}
           search={() =>
             applySearchPatch(
               rootRouteSearch,
@@ -488,23 +182,24 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
             )
           }
         >
-          {ROOT_THEME_DARK_MODE_LINK_LABEL}
+          {formatRouteSearchPresenceFlagLinkLabel("dark", true)}
         </Link>
       </AppSidebarMetaQueryLinkRow>
       <AppSidebarMetaQueryLinkRow
         active={landingDevEnabled}
-        side={side}
+        linkAlignment={linkAlignment}
         suffixTestId="public-landing-dev-toggle-suffix"
       >
         <Link
           id="public-landing-dev-toggle"
           className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
-          aria-label={landingDevLabel}
+          aria-label={formatRouteSearchPresenceFlagLinkLabel(
+            LANDING_DEV_MODE_QUERY_PARAM,
+            !landingDevEnabled,
+          )}
           to={location.pathname}
           hash={location.hash}
-          onClickCapture={toggleLandingDevMode}
-          onMouseEnter={previewRouteLink}
-          onMouseLeave={restoreRoutePreview}
+          {...previewLinkProps}
           search={() =>
             applySearchPatch(rootRouteSearch, {
               [LANDING_DEV_MODE_QUERY_PARAM]: isLandingDevModeEnabled(rootRouteSearch)
@@ -513,7 +208,7 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
             })
           }
         >
-          {LANDING_DEV_MODE_LINK_LABEL}
+          {formatRouteSearchPresenceFlagLinkLabel(LANDING_DEV_MODE_QUERY_PARAM, true)}
         </Link>
       </AppSidebarMetaQueryLinkRow>
       {showLandingPreviewLanguageLink ? (
@@ -522,9 +217,7 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
           className={routePreviewLinkInteractionClassName}
           to={location.pathname}
           hash={location.hash}
-          onClickCapture={navigateAppSidebarLink}
-          onMouseEnter={previewRouteLink}
-          onMouseLeave={restoreRoutePreview}
+          {...previewLinkProps}
           search={(currentSearch) => ({
             ...currentSearch,
             [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
@@ -541,32 +234,18 @@ export function AppSidebarMetaSection({ side = "left" }: { side?: AppSidebarMeta
       <Link
         className={routePreviewLinkInteractionClassName}
         to={DASHBOARD_ROUTE}
-        onClickCapture={navigateAppSidebarLink}
-        onMouseEnter={previewRouteLink}
-        onMouseLeave={restoreRoutePreview}
+        {...previewLinkProps}
       >
         /home
       </Link>
-      <Link
-        className={routePreviewLinkInteractionClassName}
-        to="/terms"
-        onClickCapture={navigateAppSidebarLink}
-        onMouseEnter={previewRouteLink}
-        onMouseLeave={restoreRoutePreview}
-      >
+      <Link className={routePreviewLinkInteractionClassName} to="/terms" {...previewLinkProps}>
         /terms
       </Link>
-      <Link
-        className={routePreviewLinkInteractionClassName}
-        to="/privacy"
-        onClickCapture={navigateAppSidebarLink}
-        onMouseEnter={previewRouteLink}
-        onMouseLeave={restoreRoutePreview}
-      >
+      <Link className={routePreviewLinkInteractionClassName} to="/privacy" {...previewLinkProps}>
         /privacy
       </Link>
 
-      <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[side]}>
+      <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[linkAlignment]}>
         <span className="shrink-0" data-testid={APP_BUILD_VERSION_TEST_ID}>
           {buildVersionLabel}
         </span>

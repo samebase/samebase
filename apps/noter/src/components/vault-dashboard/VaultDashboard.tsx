@@ -6193,7 +6193,7 @@ export function VaultDashboard() {
       />
       {createControl}
       <div className="mt-auto">
-        <AppSidebarMetaSection side="right" />
+        <AppSidebarMetaSection linkAlignment="left" />
       </div>
     </VaultDashboardSidebarContent>
   );

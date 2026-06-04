@@ -2,10 +2,6 @@
 
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 import {
-  ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL,
-  ROOT_THEME_DARK_MODE_LINK_LABEL,
-  ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL,
-  ROOT_THEME_LIGHT_MODE_LINK_LABEL,
   buildRootThemeModeSearch,
   buildToggledRootThemeModeSearch,
   readRootThemeMode,
@@ -22,13 +18,6 @@ describe("rootThemeModeSearch", () => {
   it("normalizes conflicting light and dark flags back to system", () => {
     expect(readRootThemeMode({ dark: true, light: true })).toBe("system");
     expect(readRootThemeModeSearch({ dark: true, light: true })).toEqual({});
-  });
-
-  it("uses cursor-stable search-param-only labels for theme shortcuts", () => {
-    expect(ROOT_THEME_LIGHT_MODE_LINK_LABEL).toBe("?light");
-    expect(ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL).toBe("?light-");
-    expect(ROOT_THEME_DARK_MODE_LINK_LABEL).toBe("?dark");
-    expect(ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL).toBe("?dark-");
   });
 
   it("builds null tombstones for system mode", () => {
