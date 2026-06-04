@@ -2096,6 +2096,11 @@
   },
   "components": {
     "schemas": {
+      "AccessTokenId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
@@ -2496,7 +2501,7 @@
       },
       "PersonalAccessTokenResponse": {
         "type": "object",
-        "required": ["name", "creationTime"],
+        "required": ["id", "name", "creationTime"],
         "properties": {
           "creationTime": {
             "type": "integer",
@@ -2505,6 +2510,10 @@
           "expiresAt": {
             "type": ["integer", "null"],
             "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "Stable identifier for this access token."
           },
           "lastUsedTime": {
             "type": ["integer", "null"],
@@ -2529,6 +2538,36 @@
         "type": "object",
         "required": ["name"],
         "properties": {
+          "allowedActions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "deployment:deploy",
+                "deployment:env:view",
+                "deployment:env:write",
+                "deployment:pause",
+                "deployment:unpause",
+                "deployment:logs:view",
+                "deployment:metrics:view",
+                "deployment:integrations:view",
+                "deployment:integrations:write",
+                "deployment:data:view",
+                "deployment:data:write",
+                "deployment:backups:view",
+                "deployment:backups:create",
+                "deployment:backups:download",
+                "deployment:backups:delete",
+                "deployment:backups:import",
+                "deployment:functions:actAsUser",
+                "deployment:functions:runInternalQueries",
+                "deployment:functions:runInternalMutations",
+                "deployment:functions:runInternalActions",
+                "deployment:functions:runTestQuery",
+                "deployment:auditLog:view"
+              ]
+            }
+          },
           "expiresAt": {
             "type": ["integer", "null"],
             "format": "int64",
@@ -2753,8 +2792,38 @@
       },
       "PlatformDeployKeyResponse": {
         "type": "object",
-        "required": ["name", "creationTime"],
+        "required": ["id", "name", "creationTime", "allowedActions"],
         "properties": {
+          "allowedActions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "deployment:deploy",
+                "deployment:env:view",
+                "deployment:env:write",
+                "deployment:pause",
+                "deployment:unpause",
+                "deployment:logs:view",
+                "deployment:metrics:view",
+                "deployment:integrations:view",
+                "deployment:integrations:write",
+                "deployment:data:view",
+                "deployment:data:write",
+                "deployment:backups:view",
+                "deployment:backups:create",
+                "deployment:backups:download",
+                "deployment:backups:delete",
+                "deployment:backups:import",
+                "deployment:functions:actAsUser",
+                "deployment:functions:runInternalQueries",
+                "deployment:functions:runInternalMutations",
+                "deployment:functions:runInternalActions",
+                "deployment:functions:runTestQuery",
+                "deployment:auditLog:view"
+              ]
+            }
+          },
           "creationTime": {
             "type": "integer",
             "format": "int64",
@@ -2775,6 +2844,10 @@
             "type": ["integer", "null"],
             "format": "int64",
             "description": "Timestamp in milliseconds when this deploy key will expire."
+          },
+          "id": {
+            "$ref": "#/components/schemas/AccessTokenId",
+            "description": "Stable identifier for this deploy key."
           },
           "lastUsedTime": {
             "type": ["integer", "null"],
@@ -3053,12 +3126,16 @@
         "oneOf": [
           {
             "type": "object",
-            "required": ["teamId", "name", "createTime", "type"],
+            "required": ["id", "teamId", "name", "createTime", "type"],
             "properties": {
               "createTime": {
                 "type": "integer",
                 "format": "int64",
                 "description": "Timestamp in milliseconds when this token was created."
+              },
+              "id": {
+                "$ref": "#/components/schemas/AccessTokenId",
+                "description": "Stable identifier for this access token."
               },
               "name": {
                 "$ref": "#/components/schemas/DeviceName",
@@ -3076,12 +3153,16 @@
           },
           {
             "type": "object",
-            "required": ["projectId", "name", "createTime", "type"],
+            "required": ["id", "projectId", "name", "createTime", "type"],
             "properties": {
               "createTime": {
                 "type": "integer",
                 "format": "int64",
                 "description": "Timestamp in milliseconds when this token was created."
+              },
+              "id": {
+                "$ref": "#/components/schemas/AccessTokenId",
+                "description": "Stable identifier for this access token."
               },
               "name": {
                 "$ref": "#/components/schemas/DeviceName",
