@@ -1,18 +1,7 @@
-import {
-  formatRouteSearchPresenceFlagDisableLinkLabel,
-  formatRouteSearchPresenceFlagLinkLabel,
-  normalizeRouteSearchPresenceFlags,
-  type SearchPatch,
-} from "@/lib/routeSearchFlags";
+import { normalizeRouteSearchPresenceFlags, type SearchPatch } from "@/lib/routeSearchFlags";
 import { defineRouteSearchParams, routeSearchPresenceParam } from "@/lib/routeSearchParamMetadata";
 
 export const ROOT_THEME_MODE_SEARCH_KEYS = ["light", "dark"] as const;
-export const ROOT_THEME_LIGHT_MODE_LINK_LABEL = formatRouteSearchPresenceFlagLinkLabel("light");
-export const ROOT_THEME_LIGHT_MODE_DISABLE_LINK_LABEL =
-  formatRouteSearchPresenceFlagDisableLinkLabel("light");
-export const ROOT_THEME_DARK_MODE_LINK_LABEL = formatRouteSearchPresenceFlagLinkLabel("dark");
-export const ROOT_THEME_DARK_MODE_DISABLE_LINK_LABEL =
-  formatRouteSearchPresenceFlagDisableLinkLabel("dark");
 export type RootThemeModeSearchKey = (typeof ROOT_THEME_MODE_SEARCH_KEYS)[number];
 export type RootThemeMode = "system" | RootThemeModeSearchKey;
 type ForcedRootThemeMode = Exclude<RootThemeMode, "system">;

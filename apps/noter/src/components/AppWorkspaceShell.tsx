@@ -10,8 +10,8 @@ import {
 } from "react";
 import { useConvexAuth } from "convex/react";
 import { useLocation } from "@tanstack/react-router";
-import { AppSidebarMetaRoutePreviewProvider } from "@/components/AppSidebarMetaSection";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
+import { RoutePreviewProvider } from "@/components/RoutePreviewController";
 import { RouteUrlEditor } from "@/components/RouteUrlEditor/RouteUrlEditor";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
@@ -257,13 +257,13 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   const chrome = useAppWorkspaceRouteChrome(chromeStore);
 
   return (
-    <AppSidebarMetaRoutePreviewProvider>
+    <RoutePreviewProvider>
       <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
         <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
           <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
         </div>
       </AppWorkspaceRouteChromeContext.Provider>
-    </AppSidebarMetaRoutePreviewProvider>
+    </RoutePreviewProvider>
   );
 }
 

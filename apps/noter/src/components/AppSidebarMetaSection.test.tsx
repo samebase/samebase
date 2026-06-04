@@ -4,10 +4,11 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import { AppSidebarMetaRoutePreviewProvider, AppSidebarMetaSection } from "./AppSidebarMetaSection";
+import { RoutePreviewProvider } from "@/components/RoutePreviewController";
+import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
 const { act } = React;
 
@@ -41,13 +42,54 @@ describe("AppSidebarMetaSection", () => {
     );
   }
 
+  function BackButton() {
+    const router = useRouter();
+
+    return (
+      <button
+        type="button"
+        data-testid="router-back"
+        onClick={() => {
+          router.history.back();
+        }}
+      >
+        back
+      </button>
+    );
+  }
+
+  function NavigatePrivacyButton() {
+    const router = useRouter();
+
+    return (
+      <button
+        type="button"
+        data-testid="navigate-privacy"
+        onClick={() => {
+          void router.navigate({ to: "/privacy" });
+        }}
+      >
+        privacy
+      </button>
+    );
+  }
+
   async function settleRouteUpdate() {
     await Promise.resolve();
     await Promise.resolve();
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
 
-  async function renderSidebarMetaSection(initialEntry = "/", side: "left" | "right" = "right") {
+  async function renderSidebarMetaSection(
+    initialEntry = "/",
+    {
+      extra,
+      linkAlignment = "left",
+    }: {
+      extra?: React.ReactNode;
+      linkAlignment?: "left" | "right";
+    } = {},
+  ) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -56,8 +98,11 @@ describe("AppSidebarMetaSection", () => {
     await act(async () => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={[initialEntry]}>
-          <AppSidebarMetaSection side={side} />
-          <LocationProbe />
+          <RoutePreviewProvider>
+            <AppSidebarMetaSection linkAlignment={linkAlignment} />
+            {extra}
+            <LocationProbe />
+          </RoutePreviewProvider>
         </TestRouterProvider>,
       );
       await settleRouteUpdate();
@@ -84,7 +129,7 @@ describe("AppSidebarMetaSection", () => {
 
       return (
         <>
-          <AppSidebarMetaSection key={pathname} side="right" />
+          <AppSidebarMetaSection key={pathname} linkAlignment="left" />
           <LocationProbe />
         </>
       );
@@ -99,36 +144,9 @@ describe("AppSidebarMetaSection", () => {
     await act(async () => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={[initialEntry]}>
-          <AppSidebarMetaRoutePreviewProvider>
+          <RoutePreviewProvider>
             <RouteOwnedSidebarHarness />
-          </AppSidebarMetaRoutePreviewProvider>
-        </TestRouterProvider>,
-      );
-      await settleRouteUpdate();
-    });
-
-    return element;
-  }
-
-  async function renderSharedSidebarMetaSections(initialEntry = "/") {
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const element = rootElement;
-    const mountedRoot = createRoot(rootElement);
-    root = mountedRoot;
-
-    await act(async () => {
-      mountedRoot.render(
-        <TestRouterProvider initialEntries={[initialEntry]}>
-          <AppSidebarMetaRoutePreviewProvider>
-            <section data-testid="right-rail">
-              <AppSidebarMetaSection side="right" />
-            </section>
-            <section data-testid="left-rail">
-              <AppSidebarMetaSection side="left" />
-            </section>
-            <LocationProbe />
-          </AppSidebarMetaRoutePreviewProvider>
+          </RoutePreviewProvider>
         </TestRouterProvider>,
       );
       await settleRouteUpdate();
@@ -140,7 +158,9 @@ describe("AppSidebarMetaSection", () => {
   it("omits hidden dev shortcuts from prerendered markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
-        <AppSidebarMetaSection side="right" />
+        <RoutePreviewProvider>
+          <AppSidebarMetaSection linkAlignment="left" />
+        </RoutePreviewProvider>
       </TestRouterProvider>,
     );
 
@@ -160,7 +180,9 @@ describe("AppSidebarMetaSection", () => {
     act(() => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={["/"]}>
-          <AppSidebarMetaSection side="right" />
+          <RoutePreviewProvider>
+            <AppSidebarMetaSection linkAlignment="left" />
+          </RoutePreviewProvider>
         </TestRouterProvider>,
       );
     });
@@ -324,6 +346,82 @@ describe("AppSidebarMetaSection", () => {
     expect(devLink.getAttribute("aria-label")).toBe("?dev-");
   });
 
+  it("commits a hover preview as a new history entry", async () => {
+    const element = await renderSidebarMetaSection("/", {
+      extra: <BackButton />,
+    });
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    const backButton = element.querySelector<HTMLButtonElement>('[data-testid="router-back"]');
+    if (!termsLink || !backButton) {
+      throw new Error("Expected terms link and back button.");
+    }
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    await act(async () => {
+      termsLink.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    await act(async () => {
+      backButton.click();
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
+  });
+
+  it("ignores a stale preview restore after unrelated navigation", async () => {
+    const element = await renderSidebarMetaSection("/", {
+      extra: <NavigatePrivacyButton />,
+    });
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    const privacyButton = element.querySelector<HTMLButtonElement>(
+      '[data-testid="navigate-privacy"]',
+    );
+    if (!termsLink || !privacyButton) {
+      throw new Error("Expected terms link and privacy navigation button.");
+    }
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/terms");
+
+    await act(async () => {
+      privacyButton.click();
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/privacy");
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/privacy");
+  });
+
   it("toggles an active theme shortcut without requiring a fresh hover preview", async () => {
     const element = await renderSidebarMetaSection("/?dev&dark");
     const darkLink = element.querySelector<HTMLAnchorElement>("#public-landing-theme-dark-toggle");
@@ -413,6 +511,24 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/");
   });
 
+  it("restores when the pointer leaves before the preview navigation settles", async () => {
+    const element = await renderSidebarMetaSection();
+    const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/terms",
+    );
+    if (!termsLink) {
+      throw new Error("Expected terms link.");
+    }
+
+    await act(async () => {
+      termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      termsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      await settleRouteUpdate();
+    });
+
+    expect(readLocationText()).toBe("/");
+  });
+
   it("restores path previews after route-owned rail remounts", async () => {
     const element = await renderRouteOwnedSidebar();
     const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
@@ -444,7 +560,7 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationHref()).toBe("/home#noter");
   });
 
-  it("previews shared right rail links outside the landing route", async () => {
+  it("previews footer links outside the landing route", async () => {
     const element = await renderSidebarMetaSection("/terms");
     const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/privacy",
@@ -468,8 +584,10 @@ describe("AppSidebarMetaSection", () => {
     expect(readLocationText()).toBe("/terms");
   });
 
-  it("leaves left rail links inert on hover", async () => {
-    const element = await renderSidebarMetaSection("/terms", "left");
+  it("previews right-aligned footer links on hover", async () => {
+    const element = await renderSidebarMetaSection("/terms", {
+      linkAlignment: "right",
+    });
     const privacyLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/privacy",
     );
@@ -482,53 +600,13 @@ describe("AppSidebarMetaSection", () => {
       await settleRouteUpdate();
     });
 
-    expect(readLocationText()).toBe("/terms");
-  });
-
-  it("keeps left rail handlers from consuming right rail previews", async () => {
-    const element = await renderSharedSidebarMetaSections();
-    const rightRail = element.querySelector('[data-testid="right-rail"]');
-    const leftRail = element.querySelector('[data-testid="left-rail"]');
-    const rightTermsLink = [...(rightRail?.querySelectorAll<HTMLAnchorElement>("a") ?? [])].find(
-      (link) => link.textContent === "/terms",
-    );
-    if (!rightTermsLink || !leftRail) {
-      throw new Error("Expected shared rail terms links.");
-    }
+    expect(readLocationText()).toBe("/privacy");
 
     await act(async () => {
-      rightTermsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      privacyLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
       await settleRouteUpdate();
     });
 
     expect(readLocationText()).toBe("/terms");
-
-    const leftTermsLink = [...leftRail.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/terms",
-    );
-    if (!leftTermsLink) {
-      throw new Error("Expected left rail terms link.");
-    }
-
-    await act(async () => {
-      leftTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/terms");
-
-    const previewRightTermsLink = [
-      ...(rightRail?.querySelectorAll<HTMLAnchorElement>("a") ?? []),
-    ].find((link) => link.textContent === "/terms");
-    if (!previewRightTermsLink) {
-      throw new Error("Expected right rail terms link after preview.");
-    }
-
-    await act(async () => {
-      previewRightTermsLink.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-      await settleRouteUpdate();
-    });
-
-    expect(readLocationText()).toBe("/");
   });
 });
