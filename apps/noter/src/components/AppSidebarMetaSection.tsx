@@ -104,7 +104,7 @@ export function AppSidebarMetaSection({
 }) {
   const { appCommit, appCommitNumber, appRepoUrl } = noterBuildConfig;
   const location = useLocation();
-  const { previewLinkProps, snapshot } = useRoutePreviewController();
+  const { previewLinkProps, previewSurfaceProps, snapshot } = useRoutePreviewController();
   const routePreviewSearch = snapshot.kind === "idle" ? snapshot.search : snapshot.restoreSearch;
   const rootRouteSearch = readRootRouteSearch(routePreviewSearch);
 
@@ -126,6 +126,7 @@ export function AppSidebarMetaSection({
     <div
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[linkAlignment]}
+      {...previewSurfaceProps}
     >
       {showSearchResetLink ? (
         <Link
