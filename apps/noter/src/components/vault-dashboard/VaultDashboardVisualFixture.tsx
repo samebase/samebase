@@ -8,7 +8,6 @@ import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUp
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { RoutePreviewProvider } from "@/components/RoutePreviewController";
 import {
   VaultDashboardAccountSection,
   VaultDashboardEmptyState,
@@ -1091,18 +1090,16 @@ function FixtureDashboardShell({
 }) {
   return (
     <TestRouterProvider>
-      <RoutePreviewProvider>
-        <WorkspaceLayoutV2FixtureFrame
-          dataTestId="vault-dashboard-visual-fixture"
-          shortcutPaneSide="right"
-          right={{
-            content: rightContent,
-          }}
-          main={{
-            content: mainContent,
-          }}
-        />
-      </RoutePreviewProvider>
+      <WorkspaceLayoutV2FixtureFrame
+        dataTestId="vault-dashboard-visual-fixture"
+        shortcutPaneSide="right"
+        right={{
+          content: rightContent,
+        }}
+        main={{
+          content: mainContent,
+        }}
+      />
     </TestRouterProvider>
   );
 }

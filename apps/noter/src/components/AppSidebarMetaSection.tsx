@@ -17,11 +17,7 @@ import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
-import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { noterBuildConfig } from "@/lib/noterBuildConfig";
-import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { useRoutePreviewController } from "@/components/RoutePreviewController";
-import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import { Link, useLocation } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
@@ -85,14 +81,6 @@ function AppSidebarMetaQueryLinkRow({
   );
 }
 
-function isAppSidebarMetaSearchResetHref(href: string): boolean {
-  const origin = readIsomorphicOrigin();
-  const appOrigin = new URL(origin);
-  const url = new URL(href, appOrigin);
-
-  return SEARCH_RESET_QUERY_PARAM in parseTanStackSearch(url.search);
-}
-
 /**
  * Keep build metadata and public-route escape hatches on the rail edge that
  * peeks beside the main pane in the mobile workspace carousel.
@@ -104,15 +92,11 @@ export function AppSidebarMetaSection({
 }) {
   const { appCommit, appCommitNumber, appRepoUrl } = noterBuildConfig;
   const location = useLocation();
-  const { previewLinkProps, previewSurfaceProps, snapshot } = useRoutePreviewController();
-  const routePreviewSearch = snapshot.kind === "idle" ? snapshot.search : snapshot.restoreSearch;
-  const rootRouteSearch = readRootRouteSearch(routePreviewSearch);
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
 
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const themeMode = readRootThemeMode(rootRouteSearch);
-  const showSearchResetLink =
-    routePreviewSearch.length > 0 ||
-    (snapshot.kind === "previewing" && isAppSidebarMetaSearchResetHref(snapshot.targetHref));
+  const showSearchResetLink = location.searchStr.length > 0;
 
   const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
 
@@ -126,15 +110,12 @@ export function AppSidebarMetaSection({
     <div
       data-testid={APP_BUILD_STATUS_BAR_TEST_ID}
       className={APP_SIDEBAR_META_SECTION_CLASS_NAMES[linkAlignment]}
-      {...previewSurfaceProps}
     >
       {showSearchResetLink ? (
         <Link
           id="public-landing-search-reset"
-          className={routePreviewLinkInteractionClassName}
           to={location.pathname}
           hash={location.hash}
-          {...previewLinkProps}
           search={() => ({
             [SEARCH_RESET_QUERY_PARAM]: true as const,
           })}
@@ -149,11 +130,10 @@ export function AppSidebarMetaSection({
       >
         <Link
           id="public-landing-theme-light-toggle"
-          className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
+          className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
           aria-label={formatRouteSearchPresenceFlagLinkLabel("light", themeMode !== "light")}
           to={location.pathname}
           hash={location.hash}
-          {...previewLinkProps}
           search={() =>
             applySearchPatch(
               rootRouteSearch,
@@ -171,11 +151,10 @@ export function AppSidebarMetaSection({
       >
         <Link
           id="public-landing-theme-dark-toggle"
-          className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
+          className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
           aria-label={formatRouteSearchPresenceFlagLinkLabel("dark", themeMode !== "dark")}
           to={location.pathname}
           hash={location.hash}
-          {...previewLinkProps}
           search={() =>
             applySearchPatch(
               rootRouteSearch,
@@ -193,14 +172,13 @@ export function AppSidebarMetaSection({
       >
         <Link
           id="public-landing-dev-toggle"
-          className={`${routePreviewLinkInteractionClassName} ${APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}`}
+          className={APP_SIDEBAR_META_QUERY_LINK_LAYOUT_CLASS_NAME}
           aria-label={formatRouteSearchPresenceFlagLinkLabel(
             LANDING_DEV_MODE_QUERY_PARAM,
             !landingDevEnabled,
           )}
           to={location.pathname}
           hash={location.hash}
-          {...previewLinkProps}
           search={() =>
             applySearchPatch(rootRouteSearch, {
               [LANDING_DEV_MODE_QUERY_PARAM]: isLandingDevModeEnabled(rootRouteSearch)
@@ -215,10 +193,8 @@ export function AppSidebarMetaSection({
       {showLandingPreviewLanguageLink ? (
         <Link
           id="landing-preview-romanian-toggle"
-          className={routePreviewLinkInteractionClassName}
           to={location.pathname}
           hash={location.hash}
-          {...previewLinkProps}
           search={(currentSearch) => ({
             ...currentSearch,
             [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
@@ -232,19 +208,9 @@ export function AppSidebarMetaSection({
       <div aria-hidden="true" className="h-3" />
 
       {/* Path links live below query-param shortcuts. */}
-      <Link
-        className={routePreviewLinkInteractionClassName}
-        to={DASHBOARD_ROUTE}
-        {...previewLinkProps}
-      >
-        /home
-      </Link>
-      <Link className={routePreviewLinkInteractionClassName} to="/terms" {...previewLinkProps}>
-        /terms
-      </Link>
-      <Link className={routePreviewLinkInteractionClassName} to="/privacy" {...previewLinkProps}>
-        /privacy
-      </Link>
+      <Link to={DASHBOARD_ROUTE}>/home</Link>
+      <Link to="/terms">/terms</Link>
+      <Link to="/privacy">/privacy</Link>
 
       <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[linkAlignment]}>
         <span className="shrink-0" data-testid={APP_BUILD_VERSION_TEST_ID}>

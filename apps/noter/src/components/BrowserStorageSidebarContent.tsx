@@ -1,7 +1,5 @@
 import { INDEXED_DB_ROUTE } from "@/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import { useRoutePreviewController } from "@/components/RoutePreviewController";
-import { routePreviewLinkInteractionClassName } from "@/components/routePreviewLinkStyles";
 import { Link } from "@tanstack/react-router";
 
 type BrowserStorageView = "indexDB" | "localStorage";
@@ -24,13 +22,10 @@ const browserStorageViews = [
 }[];
 
 export function BrowserStorageSidebarContent({ currentView }: { currentView: BrowserStorageView }) {
-  const { previewLinkProps, previewSurfaceProps } = useRoutePreviewController();
-
   return (
     <nav
       aria-label="Storage views"
       className="flex flex-col items-start gap-3 overflow-hidden px-2 py-3 text-base text-muted-foreground [&>a]:max-w-full [&>a]:line-clamp-2 [&>a]:wrap-anywhere"
-      {...previewSurfaceProps}
     >
       {browserStorageViews.map((view) => (
         <Link
@@ -38,8 +33,6 @@ export function BrowserStorageSidebarContent({ currentView }: { currentView: Bro
           aria-current={view.view === currentView ? "page" : undefined}
           data-testid={view.testId}
           to={view.path}
-          {...previewLinkProps}
-          className={routePreviewLinkInteractionClassName}
         >
           {view.path}
         </Link>
