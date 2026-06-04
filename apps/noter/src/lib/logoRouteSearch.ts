@@ -23,13 +23,7 @@ import {
   MIN_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
-import {
-  DEFAULT_LOGO_PREVIEW_ZOOM,
-  LOGO_PREVIEW_ZOOM_STEP,
-  MAX_LOGO_PREVIEW_ZOOM,
-  MIN_LOGO_PREVIEW_ZOOM,
-  normalizeLogoPreviewZoom,
-} from "@/components/logo/logoPreviewZoom";
+import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STYLE_KINDS,
@@ -389,13 +383,13 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     valueType: "options",
   }),
   zoom: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeLogoPreviewZoom), {
-    numericDefaultValue: DEFAULT_LOGO_PREVIEW_ZOOM,
+    numericDefaultValue: LOGO_PREVIEW_ZOOM.defaultValue,
     numericRange: {
-      maxValue: MAX_LOGO_PREVIEW_ZOOM,
-      minValue: MIN_LOGO_PREVIEW_ZOOM,
+      maxValue: LOGO_PREVIEW_ZOOM.max,
+      minValue: LOGO_PREVIEW_ZOOM.min,
       rangeType: "closed",
     },
-    numericStepValue: LOGO_PREVIEW_ZOOM_STEP,
+    numericStepValue: LOGO_PREVIEW_ZOOM.step,
     permission: "public",
     sampleValue: "0.5",
     suggestion: "route",
@@ -611,7 +605,7 @@ export function buildLogoRouteSearch(
       ? { rot: Number(args.rotationDegrees.toFixed(1)) }
       : {}),
     ...(voxelState !== defaultVoxelState ? { vox: voxelState } : {}),
-    zoom: zoom !== DEFAULT_LOGO_PREVIEW_ZOOM ? Number(zoom.toFixed(2)) : undefined,
+    zoom: zoom !== LOGO_PREVIEW_ZOOM.defaultValue ? Number(zoom.toFixed(2)) : undefined,
   };
 }
 

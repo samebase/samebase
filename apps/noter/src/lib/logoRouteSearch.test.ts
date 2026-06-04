@@ -12,7 +12,7 @@ import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   LOGO_DISTANCE_SCALE_SLIDER_MAX,
 } from "@/components/logo/logoDistanceScale";
-import { DEFAULT_LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
+import { LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   DEFAULT_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
@@ -97,7 +97,7 @@ describe("logoRouteSearch", () => {
   it("drops default logo state when building route search", () => {
     const search = buildLogoRouteSearch({
       distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-      zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+      zoom: LOGO_PREVIEW_ZOOM.defaultValue,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
       gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -126,7 +126,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -145,7 +145,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -232,7 +232,7 @@ describe("logoRouteSearch", () => {
 
     const builtSearch = buildLogoRouteSearch({
       distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-      zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+      zoom: LOGO_PREVIEW_ZOOM.defaultValue,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
       fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
       gridSize: LOGO_GRID_SIZE_2,
@@ -254,7 +254,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: 6,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -274,7 +274,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: MAX_LOGO_FRACTAL_DEPTH + 1,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -309,7 +309,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: LOGO_DISTANCE_SCALE_SLIDER_MAX + 1,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -407,7 +407,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -442,7 +442,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -483,7 +483,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,
@@ -552,7 +552,7 @@ describe("logoRouteSearch", () => {
     expect(
       buildLogoRouteSearch({
         distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
-        zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
         fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
         gridSize: DEFAULT_LOGO_GRID_SIZE,

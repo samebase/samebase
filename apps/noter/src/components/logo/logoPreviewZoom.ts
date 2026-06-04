@@ -1,12 +1,14 @@
-export const DEFAULT_LOGO_PREVIEW_ZOOM = 1;
-export const MIN_LOGO_PREVIEW_ZOOM = 0;
-export const MAX_LOGO_PREVIEW_ZOOM = 1;
-export const LOGO_PREVIEW_ZOOM_STEP = 0.01;
+export const LOGO_PREVIEW_ZOOM = {
+  defaultValue: 1,
+  min: 0,
+  max: 1,
+  step: 0.01,
+} as const;
 
 export function normalizeLogoPreviewZoom(value: number): number {
   if (!Number.isFinite(value)) {
-    return DEFAULT_LOGO_PREVIEW_ZOOM;
+    return LOGO_PREVIEW_ZOOM.defaultValue;
   }
 
-  return Math.min(Math.max(value, MIN_LOGO_PREVIEW_ZOOM), MAX_LOGO_PREVIEW_ZOOM);
+  return Math.min(Math.max(value, LOGO_PREVIEW_ZOOM.min), LOGO_PREVIEW_ZOOM.max);
 }

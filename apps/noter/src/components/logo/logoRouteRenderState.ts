@@ -9,10 +9,7 @@ import {
   DEFAULT_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
-import {
-  DEFAULT_LOGO_PREVIEW_ZOOM,
-  normalizeLogoPreviewZoom,
-} from "@/components/logo/logoPreviewZoom";
+import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   normalizeLogoLeftFaceStyle,
   readLogoLeftFaceStyle,
@@ -137,7 +134,7 @@ function readRouteDistanceScale(routeSearch: LogoRouteSearch): number {
 
 function readRouteZoom(routeSearch: LogoRouteSearch): number {
   if (typeof routeSearch.zoom !== "number") {
-    return DEFAULT_LOGO_PREVIEW_ZOOM;
+    return LOGO_PREVIEW_ZOOM.defaultValue;
   }
 
   return normalizeLogoPreviewZoom(routeSearch.zoom);

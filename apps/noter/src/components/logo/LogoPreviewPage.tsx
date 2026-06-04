@@ -43,13 +43,7 @@ import {
   MIN_LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
-import {
-  DEFAULT_LOGO_PREVIEW_ZOOM,
-  LOGO_PREVIEW_ZOOM_STEP,
-  MAX_LOGO_PREVIEW_ZOOM,
-  MIN_LOGO_PREVIEW_ZOOM,
-  normalizeLogoPreviewZoom,
-} from "@/components/logo/logoPreviewZoom";
+import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
   LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
@@ -811,7 +805,7 @@ function useLogoPreviewController({
           }),
           distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
           rotationAxisMode: DEFAULT_ROTATION_AXIS_MODE,
-          zoom: DEFAULT_LOGO_PREVIEW_ZOOM,
+          zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         }));
       },
       resetShape: () => {
@@ -1896,16 +1890,16 @@ export function LogoPreviewPage({
           <LogoRangeControl
             formatValue={(value) => value.toFixed(2)}
             label="Zoom"
-            max={MAX_LOGO_PREVIEW_ZOOM}
-            min={MIN_LOGO_PREVIEW_ZOOM}
+            max={LOGO_PREVIEW_ZOOM.max}
+            min={LOGO_PREVIEW_ZOOM.min}
             normalizeValue={normalizeLogoPreviewZoom}
             onSliderChange={controls.setZoom}
             onValueChange={controls.setZoom}
             sliderAriaLabel="Zoom slider"
-            step={LOGO_PREVIEW_ZOOM_STEP}
+            step={LOGO_PREVIEW_ZOOM.step}
             value={state.zoom}
             valueAriaLabel="Zoom value"
-            valueInputMax={MAX_LOGO_PREVIEW_ZOOM}
+            valueInputMax={LOGO_PREVIEW_ZOOM.max}
             valueText={`${state.zoom.toFixed(2)}x`}
           />
 
