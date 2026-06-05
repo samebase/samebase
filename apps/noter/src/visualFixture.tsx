@@ -101,6 +101,7 @@ import {
   RouteUrlEditorVisualFixture,
   type RouteUrlEditorVisualMode,
 } from "@/components/RouteUrlEditorVisualFixture";
+import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import "./index.css";
 
@@ -129,6 +130,7 @@ type VisualFixtureMode =
   | RouteUrlEditorVisualMode
   | "machines-workspace"
   | "machine-connect"
+  | "public-account-checking-login"
   | "vault-dashboard-branch-pr-title"
   | "button"
   | AppBootFailureStateVisualMode
@@ -257,6 +259,7 @@ const MISC_VISUAL_MODES = [
   "codex-thread-browser",
   "codex-thread-history",
   "machines-workspace",
+  "public-account-checking-login",
   ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
   "machine-connect",
   "vault-dashboard-branch-pr-title",
@@ -480,6 +483,17 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "machines-workspace") {
     return <MachinesWorkspaceVisualFixture />;
+  }
+
+  if (mode === "public-account-checking-login") {
+    return (
+      <div
+        data-testid="public-account-checking-login-visual-fixture"
+        className="mx-auto w-full max-w-[320px] p-6"
+      >
+        <PublicLandingAccountLoadingSection />
+      </div>
+    );
   }
 
   if (mode === "workspace-layout-v2-status-bar") {
