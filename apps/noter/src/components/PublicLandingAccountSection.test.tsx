@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { readRootRouteSearch, type RootRouteSearch } from "@/lib/rootRouteSearch";
 import { type ReactNode } from "react";
 import { PublicLandingAccountSection } from "./PublicLandingAccountSection";
@@ -8,16 +8,17 @@ const routeState = vi.hoisted<{ pathname: string; search: RootRouteSearch }>(() 
   pathname: "/",
   search: {},
 }));
+const authState = vi.hoisted(() => ({
+  isAuthenticated: false,
+  isLoading: false,
+}));
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
 
   return {
     ...actual,
-    useConvexAuth: () => ({
-      isAuthenticated: false,
-      isLoading: false,
-    }),
+    useConvexAuth: () => authState,
     useQuery: () => undefined,
   };
 });
@@ -90,6 +91,23 @@ function renderLandingAccountSection(initialEntry: string) {
 }
 
 describe("PublicLandingAccountSection", () => {
+  beforeEach(() => {
+    authState.isAuthenticated = false;
+    authState.isLoading = false;
+  });
+
+  it("shows the checking login summary while auth state loads", () => {
+    authState.isLoading = true;
+
+    const markup = renderLandingAccountSection("/");
+
+    expect(markup).toContain("checking login");
+    expect(markup).toContain("animate-spin");
+    expect(markup).not.toContain("not logged in");
+    expect(markup).not.toContain("?sign-in");
+    expect(markup).not.toContain("?create-account");
+  });
+
   it("shows the logged-out account summary collapsed by default", () => {
     const markup = renderLandingAccountSection("/");
 

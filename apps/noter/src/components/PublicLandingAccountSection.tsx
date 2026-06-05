@@ -12,6 +12,7 @@ import { readRootRouteSearch, type RootRouteSearch } from "@/lib/rootRouteSearch
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
+import { Loader2 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -134,6 +135,26 @@ function PublicLandingLoggedOutAccountSection() {
   );
 }
 
+export function PublicLandingAccountLoadingSection() {
+  return (
+    <div
+      data-testid={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
+      <div
+        aria-label="checking login"
+        role="status"
+        className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground"
+      >
+        <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <span className="min-w-0 line-clamp-2 text-left [overflow-wrap:anywhere]">
+          checking login
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function PublicLandingSignedInAccountSection() {
   const viewer = useQuery(api.users.viewer);
   const authProviders = useQuery(api.users.getViewerAuthProviders);
@@ -175,7 +196,11 @@ function PublicLandingSignedInAccountSection() {
 }
 
 export function PublicLandingAccountSection() {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+
+  if (isLoading) {
+    return <PublicLandingAccountLoadingSection />;
+  }
 
   if (isAuthenticated) {
     return <PublicLandingSignedInAccountSection />;
