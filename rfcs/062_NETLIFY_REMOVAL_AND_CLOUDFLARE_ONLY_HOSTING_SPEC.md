@@ -8,14 +8,14 @@
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
-  - `specs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
+  - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
   - `rfcs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
-  - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
   - `rfcs/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md`
-  - `specs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`
+  - `rfcs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`
 
 ## Summary
 
@@ -384,9 +384,9 @@ Chosen approach:
 2. Rewrite these active specs to Cloudflare-only reality:
    - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
    - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
-   - `specs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
+   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
    - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
-   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
    - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
 3. Keep this RFC as the removal decision record until the runtime removal lands, then promote or
    archive it based on the final state.

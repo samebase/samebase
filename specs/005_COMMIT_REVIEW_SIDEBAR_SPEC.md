@@ -138,5 +138,5 @@ visibility for deleted files, not a second sidebar mode.
 - This spec intentionally replaces the earlier `Changes`-mode direction for this area.
 - The existing file tree already carries most staged-status semantics; the main requirement is to
   keep that tree authoritative and ensure deleted files are represented there.
-- This spec complements `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md` by narrowing the
+- This spec complements `rfcs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md` by narrowing the
   commit-review navigation and placement rules without changing the broader preview-pipeline goals.

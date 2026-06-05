@@ -7,7 +7,7 @@
 - Last updated: 2026-05-12
 - Related specs:
   - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
-  - `specs/070_GITHUB_SYNC_PHASED_ROLLOUT_SPEC.md`
+  - `archive/070_GITHUB_SYNC_PHASED_ROLLOUT_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
 
 ## Supersession

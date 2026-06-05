@@ -7,7 +7,7 @@
 - Last updated: 2026-03-25
 - Related specs:
   - `specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md`
-  - `specs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
+  - `rfcs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
 - External references:

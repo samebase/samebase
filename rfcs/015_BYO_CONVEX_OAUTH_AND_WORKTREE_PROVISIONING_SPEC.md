@@ -5,11 +5,11 @@
 - Status: Proposed
 - Owner: Noter platform + dev tooling
 - Last updated: 2026-02-26
-- Supersedes: `specs/014_WORKTREE_CLOUD_PROVISIONING_AND_CLI_AUTH_SPEC.md`
+- Supersedes: `archive/014_WORKTREE_CLOUD_PROVISIONING_AND_CLI_AUTH_SPEC.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
 
 ## Summary
 

@@ -142,7 +142,7 @@ It is not just accidental glue. It currently owns the shipped product contract f
 - hand off state such as scroll position and waitlist draft state into the real app,
 - apply some metadata and theme behavior before the main route tree mounts.
 
-This is documented in `specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`.
+This is documented in `archive/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`.
 
 ### Why It Exists
 
@@ -549,7 +549,7 @@ It proved something narrower and more useful:
 
 ## Related Repo References
 
-- `specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`
+- `archive/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`
 - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
 - `research/2026-04-07-react-router-cloudflare-pages-routing-incident.md`
 - `research/2026-04-07-prebuilt-landing-framework-options.md`

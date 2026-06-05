@@ -8,8 +8,8 @@
 - Amended: 2026-04-29 to remove monorepo starter-template asset sync.
 - Related specs:
   - `specs/001_CODESPACE_CONNECTION_SPEC.md`
-  - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
 - Related code:
   - `apps/noter/convex/codespaces.ts`
   - `apps/noter/convex/vaultCodespaceIntegration.ts`
@@ -60,7 +60,7 @@ Noter needs a deterministic, server-side way to set Codespaces port visibility.
 ## Non-Goals
 
 1. Making all forwarded ports public.
-2. Making Codespaces iframe embedding reliable (see `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`).
+2. Making Codespaces iframe embedding reliable (see `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`).
 3. Solving agent authentication and hardening by itself.
    - Note: enabling a public agent port is only acceptable if the agent requires token auth for all
      non-health endpoints.

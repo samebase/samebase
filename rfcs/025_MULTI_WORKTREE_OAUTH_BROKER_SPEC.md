@@ -7,9 +7,9 @@
 - Last updated: 2026-03-01
 - Supersedes: Previous `025 Multi-Worktree OAuth Broker Spec`
 - Related specs:
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
-  - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
-  - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
+  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
 
 ## Summary
@@ -21,8 +21,8 @@ This spec defines the product behavior for:
    anonymous local development.
 3. Anonymous worktree seed behavior for local development.
 
-Connection data architecture is defined by `specs/026_PROVIDER_CONNECTIONS_SPEC.md` and is the
-source of truth for storage/indexing details.
+Connection data architecture is defined by `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md` and is the source
+of truth for storage/indexing details.
 
 ## Locked Product Decisions
 
@@ -121,4 +121,4 @@ Only these env vars are used:
 ## Notes
 
 The storage model and indexes for provider credentials are intentionally not duplicated here. See
-`specs/026_PROVIDER_CONNECTIONS_SPEC.md`.
+`rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`.

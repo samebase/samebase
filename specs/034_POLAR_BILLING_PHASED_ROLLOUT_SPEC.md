@@ -7,7 +7,7 @@
 - Last updated: 2026-03-02
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/033_POLAR_BILLING_SPEC.md`
 
 ## Summary

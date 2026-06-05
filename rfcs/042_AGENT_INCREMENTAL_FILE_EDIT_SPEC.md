@@ -6,9 +6,9 @@
 - Owner: Noter chat/agent + editor collaboration
 - Last updated: 2026-03-06
 - Related specs:
-  - `specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
-  - `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
-  - `specs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
+  - `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
+  - `rfcs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
+  - `rfcs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
 
 ## Summary
 

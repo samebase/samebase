@@ -6,7 +6,7 @@
 - Owner: File view + repository media preview
 - Last updated: 2026-03-26
 - Related specs:
-  - `specs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
+  - `rfcs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
 - Source of truth files:
   - `apps/noter/shared/repositoryMedia.ts`

@@ -6,7 +6,7 @@
 - Owner: Noter dev environment / local tooling
 - Date: 2026-02-16
 - Related specs:
-  - `specs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
+  - `rfcs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md`
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
 - Related files:
   - `/Users/nicu/dev/my/noter/noter.md`

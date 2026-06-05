@@ -6,9 +6,9 @@
 - Owner: Noter platform
 - Last updated: 2026-03-04
 - Related specs:
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md`
-  - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
 
 ## Summary

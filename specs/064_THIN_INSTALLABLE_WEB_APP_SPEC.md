@@ -6,7 +6,7 @@
 - Owner: Noter frontend
 - Last updated: 2026-04-25
 - Related files: `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
-  `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/noter/index.html`,
+  `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/noter/index.html`,
   `apps/noter/public/_redirects`, `apps/noter/public/favicon.png`,
   `apps/noter/public/favicon-32.png`, `apps/noter/public/install-icon.svg`,
   `apps/noter/public/logo-static.svg`, `apps/noter/scripts/generate-install-icon-assets.ts`,

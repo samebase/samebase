@@ -9,7 +9,7 @@
   projects from a connected GitHub repository, or keep users explicitly selecting/creating provider
   resources outside the main new-app flow.
 - Related:
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`

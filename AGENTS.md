@@ -22,7 +22,8 @@
 
 ## Repo Knowledge Map
 
-- `specs/` contains accepted, current source-of-truth behavior and accepted implementation plans.
+- `specs/` contains accepted, current source-of-truth behavior and active accepted rollout
+  contracts. Do not create a spec for routine one-thread or one-PR changes.
 - `rfcs/` contains proposals, rollout plans, and work that is still under discussion.
 - `research/` contains exploratory investigations, audits, benchmarks, incident notes, and external
   research. It informs decisions but is not itself the source of truth.
@@ -31,14 +32,16 @@
 - `skills/` contains reusable, task-specific playbooks. Keep the `SKILL.md` focused and load heavier
   references/scripts only when needed.
 - `archive/` contains superseded or historical material that should not guide new implementation.
-- When sources conflict, use this priority order: code and tests, then `specs/`, then accepted
-  rollout docs, then `rfcs/`, then `research/`, then `archive/`.
+- When sources conflict, use this priority order: code and tests, then `specs/`, then active
+  accepted rollout contracts, then `rfcs/`, then `research/`, then `archive/`.
 - Keep `AGENTS.md` for broad, stable repo rules only. Move long or conditional workflows into
   `docs/` or `skills/`.
 - When the user says to "remember this", persist durable repo/operator guidance in the appropriate
   repo artifact instead of leaving it only in chat.
 - Avoid bulk doc-folder migrations during active branch churn. Reclassify docs in small batches and
   update references in the same change.
+- Use `docs/repo-documentation-standard.md` for the decision table, spec threshold, expected spec
+  shape, and cleanup rules.
 
 ## Sub-Agent Research
 
