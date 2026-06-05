@@ -41,12 +41,27 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return true;
 }
 
-function isAuthPopupRedirectTo(value: unknown): value is typeof DASHBOARD_ROUTE {
-  return value === DASHBOARD_ROUTE;
+function isAuthPopupRedirectTo(value: unknown): value is string {
+  if (typeof value !== "string" || !value.startsWith("/")) {
+    return false;
+  }
+
+  try {
+    const redirectUrl = new URL(value, window.location.origin);
+    return (
+      redirectUrl.origin === window.location.origin && redirectUrl.pathname === DASHBOARD_ROUTE
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function clearAuthFlag() {
   localStorage.removeItem(AUTH_FLAG_KEY);
+  localStorage.removeItem(AUTH_PROVIDER_KEY);
+}
+
+function clearAuthProvider() {
   localStorage.removeItem(AUTH_PROVIDER_KEY);
 }
 
@@ -176,20 +191,47 @@ export function openAuthPopup(
       popupTimeoutId = null;
     }
   };
+  const clearPendingProvider = () => {
+    try {
+      clearAuthProvider();
+    } catch {
+      // The provider marker is best-effort when browser storage is unavailable.
+    }
+  };
   const handler = (event: MessageEvent) => {
     if (event.origin !== expectedOrigin) return;
     if (popup && event.source !== popup) return;
     const messageData: AuthPopupMessage =
       typeof event.data === "object" && event.data !== null ? event.data : {};
     if (messageData.type !== "convex-auth-tokens") return;
-    cleanup();
     if (!isStringRecord(messageData.tokens)) {
       console.warn("authClient:ignored popup message with invalid token payload");
       return;
     }
-    for (const [key, value] of Object.entries(messageData.tokens)) {
-      localStorage.setItem(key, value);
+    const previousTokenValues = new Map<string, string | null>();
+    try {
+      for (const [key, value] of Object.entries(messageData.tokens)) {
+        previousTokenValues.set(key, localStorage.getItem(key));
+        localStorage.setItem(key, value);
+      }
+    } catch {
+      for (const [key, previousValue] of previousTokenValues) {
+        try {
+          if (previousValue === null) {
+            localStorage.removeItem(key);
+          } else {
+            localStorage.setItem(key, previousValue);
+          }
+        } catch {
+          // Auth fallback rollback is best-effort when browser storage is failing.
+        }
+      }
+      console.warn("authClient:failed to persist popup auth tokens");
+      cleanup();
+      clearPendingProvider();
+      return;
     }
+    cleanup();
     if (isAuthPopupRedirectTo(messageData.redirectTo)) {
       window.location.href = messageData.redirectTo;
       return;
@@ -205,15 +247,18 @@ export function openAuthPopup(
   );
   if (!popup) {
     cleanup();
+    clearPendingProvider();
     return;
   }
   popupPollIntervalId = window.setInterval(() => {
     if (popup.closed) {
       cleanup();
+      clearPendingProvider();
     }
   }, POPUP_WATCH_INTERVAL_MS);
   popupTimeoutId = window.setTimeout(() => {
     cleanup();
+    clearPendingProvider();
   }, POPUP_WATCH_TIMEOUT_MS);
 }
 

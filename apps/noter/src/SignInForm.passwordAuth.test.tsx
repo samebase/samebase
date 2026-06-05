@@ -249,5 +249,31 @@ describe("PasswordAuthForm", () => {
       search: expect.any(Function),
       to: "/home",
     });
+    const navigateOptions = navigateMock.mock.calls[0]?.[0];
+    if (
+      typeof navigateOptions !== "object" ||
+      navigateOptions === null ||
+      !("search" in navigateOptions) ||
+      typeof navigateOptions.search !== "function"
+    ) {
+      throw new Error("Expected dashboard navigation to include a search updater.");
+    }
+    expect(
+      navigateOptions.search({
+        auth: "google",
+        "auth-return": "dashboard",
+        "create-account": true,
+        "prod-ui": true,
+        signup: "google",
+        "sign-in": true,
+      }),
+    ).toEqual({
+      auth: undefined,
+      "auth-return": undefined,
+      "create-account": undefined,
+      "prod-ui": true,
+      signup: undefined,
+      "sign-in": undefined,
+    });
   });
 });

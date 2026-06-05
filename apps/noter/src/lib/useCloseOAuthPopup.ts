@@ -3,6 +3,27 @@ import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 
+function readSameOriginOpener(): Window | null {
+  const opener = window.opener;
+  if (!opener) {
+    return null;
+  }
+
+  try {
+    return opener.location.origin === window.location.origin ? opener : null;
+  } catch {
+    return null;
+  }
+}
+
+function readPopupCompletionRedirect(pathname: string): string | undefined {
+  if (pathname !== DASHBOARD_ROUTE) {
+    return undefined;
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
 export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
 
@@ -19,9 +40,11 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
       setAuthFlag();
     }
 
-    if (!window.opener) {
+    const opener = readSameOriginOpener();
+    if (!opener) {
       return;
     }
+    const redirectTo = readPopupCompletionRedirect(pathname);
 
     const authKeys = Object.keys(localStorage).filter((key) => key.startsWith("__convexAuth"));
     const authTokens: Record<string, string> = {};
@@ -31,25 +54,25 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
     }
 
     try {
-      const parentLocalStorage = window.opener.localStorage;
+      const parentLocalStorage = opener.localStorage;
 
       for (const [key, value] of Object.entries(authTokens)) {
         parentLocalStorage.setItem(key, value);
       }
 
-      if (pathname === DASHBOARD_ROUTE) {
-        window.opener.location.href = DASHBOARD_ROUTE;
+      if (redirectTo) {
+        opener.location.href = redirectTo;
       } else {
-        window.opener.location.reload();
+        opener.location.reload();
       }
     } catch {
-      window.opener.postMessage(
+      opener.postMessage(
         {
-          redirectTo: pathname === DASHBOARD_ROUTE ? DASHBOARD_ROUTE : undefined,
+          redirectTo,
           type: "convex-auth-tokens",
           tokens: authTokens,
         },
-        "*",
+        window.location.origin,
       );
     }
 

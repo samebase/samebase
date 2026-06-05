@@ -87,7 +87,14 @@ function usePublicLandingPasswordAuthControls(): {
     }
 
     void navigate({
-      search: (currentSearch) => currentSearch,
+      search: (currentSearch) => ({
+        ...currentSearch,
+        auth: undefined,
+        "auth-return": undefined,
+        "create-account": undefined,
+        signup: undefined,
+        "sign-in": undefined,
+      }),
       to: DASHBOARD_ROUTE,
     });
   }, [isAuthenticated, navigate, passwordSignInReadyForDashboard]);
