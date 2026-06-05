@@ -3,7 +3,10 @@ import {
   canAccessNoterRoutePermission,
   type NoterRouteSearchParamSuggestion,
 } from "@/lib/routePermissions";
+import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+import { readRouteUrlEditorRouteUpdateDraft } from "@/lib/routeUrlEditorSuggestions";
 import {
+  isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestionSurface,
   readRouteUrlPathSuggestions,
 } from "@/lib/routeUrlPathSuggestions";
@@ -58,6 +61,28 @@ export type ParsedRouteAddress = {
     tokens: SearchToken[];
   } | null;
 };
+
+type RouteReadyInput = {
+  currentRouteAddress: string;
+  draftRouteAddress: string;
+  origin: string;
+  routesByPath: AppRouter["routesByPath"];
+  viewerIsAdmin: boolean;
+};
+
+export type RouteAddressReadiness =
+  | {
+      kind: "local";
+      reason: "draftNotReady" | "invalidRouteAddress" | "pathNotReady" | "sameRoute";
+    }
+  | {
+      kind: "readyExact";
+      routeAddress: string;
+    }
+  | {
+      kind: "readyNormalized";
+      routeAddress: string;
+    };
 
 type CursorContext =
   | {
@@ -125,6 +150,79 @@ export function parseRouteAddress(routeAddress: string): ParsedRouteAddress {
       start: searchStart,
       tokens,
     },
+  };
+}
+
+/**
+ * Decides whether the visible route draft should update the router.
+ *
+ * Example: `/logo?dar` is local on `/logo` because `dar` is a partial known key.
+ *
+ * Example: `/logo?dark` is readyExact because the whole draft can load.
+ *
+ * Example: from `/privacy`, `/logo?dar` is readyNormalized for `/logo`
+ * because the incomplete query token is dropped before navigation.
+ */
+export function readRouteAddressReadiness(args: RouteReadyInput): RouteAddressReadiness {
+  const routeUpdateDraftAddress = readRouteUrlEditorRouteUpdateDraft({
+    currentHref: args.currentRouteAddress,
+    draftRouteAddress: args.draftRouteAddress,
+    origin: args.origin,
+    routesByPath: args.routesByPath,
+    viewer: { isAdmin: args.viewerIsAdmin },
+  });
+  const readyRouteAddress = normalizeRouteUrlEditorHref({
+    currentHref: args.currentRouteAddress,
+    origin: args.origin,
+    rawHref: routeUpdateDraftAddress,
+  });
+
+  if (readyRouteAddress === null) {
+    return {
+      kind: "local",
+      reason: "invalidRouteAddress",
+    };
+  }
+
+  if (
+    !isRouteUrlPathReadyForNavigation({
+      currentHref: args.currentRouteAddress,
+      draftHref: readyRouteAddress,
+      origin: args.origin,
+      routesByPath: args.routesByPath,
+      viewer: { isAdmin: args.viewerIsAdmin },
+    })
+  ) {
+    return {
+      kind: "local",
+      reason: "pathNotReady",
+    };
+  }
+
+  if (routeUpdateDraftAddress !== args.draftRouteAddress) {
+    if (readyRouteAddress === args.currentRouteAddress) {
+      return {
+        kind: "local",
+        reason: "draftNotReady",
+      };
+    }
+
+    return {
+      kind: "readyNormalized",
+      routeAddress: readyRouteAddress,
+    };
+  }
+
+  if (readyRouteAddress === args.currentRouteAddress) {
+    return {
+      kind: "local",
+      reason: "sameRoute",
+    };
+  }
+
+  return {
+    kind: "readyExact",
+    routeAddress: readyRouteAddress,
   };
 }
 
