@@ -56,8 +56,9 @@ Intentional remaining router-level boundary:
    adopting TanStack Router's default JSON-style search semantics.
 2. `/` remains the public landing route, and `/home` remains the canonical signed-in dashboard
    route. `apps/noter/src/lib/useAppAuthRuntimeEffects.ts` sends completed public sign-in returns to
-   `/home` only when `auth-return=dashboard` is present, then clears the one-shot public auth query
-   state. Authenticated users can still open `/` directly when that marker is absent.
+   `/home` only when `auth-return=dashboard` is paired with the short-lived browser marker written
+   when public sign-in starts, then clears the one-shot public auth query state. Authenticated users
+   can still open `/` directly when that browser marker is absent.
 
 Already completed in this step:
 

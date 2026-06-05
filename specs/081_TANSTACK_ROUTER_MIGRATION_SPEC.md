@@ -66,9 +66,10 @@ problems, attempted fixes, and outcomes.
   codespace chat, and the vault/file surfaces), plus the explicit root routes for `/` and `/test`.
 - `apps/noter/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and
   `apps/noter/src/lib/useAppAuthRuntimeEffects.ts` moves completed public sign-in returns to `/home`
-  when the one-shot `auth-return=dashboard` marker is present. Authenticated users can still browse
-  the public landing route when that marker is absent. Unresolved paths now go through a deliberate
-  root-level not-found route instead of a leftover `App.tsx` bridge.
+  when the one-shot `auth-return=dashboard` URL marker matches a short-lived browser marker written
+  when public sign-in starts. Authenticated users can still browse the public landing route when
+  that browser marker is absent. Unresolved paths now go through a deliberate root-level not-found
+  route instead of a leftover `App.tsx` bridge.
 - The fast public landing shell still exists, but it now lives inside routed React runtime code
   (`FastPublicLandingShell`) instead of a separate `bootstrap.ts` HTML path.
 - The repo-owned router seam in `apps/noter/src/lib/router.ts` is still a temporary compatibility

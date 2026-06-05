@@ -11,6 +11,7 @@ const {
   localStorageSetItemMock,
   replaceStateMock,
   resetMock,
+  sessionStorageSetItemMock,
   signInMock,
   signOutMock,
 } = vi.hoisted(() => ({
@@ -19,6 +20,7 @@ const {
   localStorageSetItemMock: vi.fn(),
   replaceStateMock: vi.fn(),
   resetMock: vi.fn(),
+  sessionStorageSetItemMock: vi.fn(),
   signInMock: vi.fn(),
   signOutMock: vi.fn(),
 }));
@@ -60,6 +62,7 @@ describe("useAutoSignIn", () => {
     replaceStateMock.mockReset();
     localStorageRemoveItemMock.mockReset();
     localStorageSetItemMock.mockReset();
+    sessionStorageSetItemMock.mockReset();
     Object.defineProperty(globalThis, "window", {
       value: originalWindow,
       configurable: true,
@@ -214,6 +217,9 @@ describe("useAutoSignIn", () => {
           state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
           replaceState: replaceStateMock,
         },
+        sessionStorage: {
+          setItem: sessionStorageSetItemMock,
+        },
       },
       configurable: true,
     });
@@ -241,6 +247,10 @@ describe("useAutoSignIn", () => {
     expect(signInMock).toHaveBeenCalledWith("google", {
       redirectTo: expectedRedirectTo,
     });
+    expect(sessionStorageSetItemMock).toHaveBeenCalledWith(
+      "noter_public_dashboard_auth_return",
+      expect.stringMatching(/^top-level:\d+$/),
+    );
   });
 
   it("does nothing when the routed auth search is absent", () => {

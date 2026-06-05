@@ -2,6 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
+import { markPublicDashboardAuthReturnStarted } from "@/lib/publicDashboardAuthReturn";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
@@ -222,6 +223,9 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
   const signupReturn = rootRouteSearch.signup;
   useEffect(() => {
     if (authProvider === "google") {
+      if (authReturn === "dashboard" && !window.opener) {
+        markPublicDashboardAuthReturnStarted("top-level");
+      }
       const redirectTo = router.buildLocation({
         hash: true,
         search: (currentSearch) =>

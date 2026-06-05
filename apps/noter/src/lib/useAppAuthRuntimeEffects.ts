@@ -1,5 +1,9 @@
 import { useAutoSignIn } from "@/authClient";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import {
+  clearPublicDashboardAuthReturn,
+  consumePublicDashboardAuthReturnMode,
+} from "@/lib/publicDashboardAuthReturn";
 import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 import { useRouter } from "@tanstack/react-router";
@@ -25,9 +29,25 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
       return;
     }
 
-    // Public-root sign-in writes this one-shot marker before the provider
-    // redirect. Authenticated users can still browse `/` when the marker is absent.
-    if (isAuthenticated && authReturn === "dashboard") {
+    if (!isLoading && !isAuthenticated && pathname === "/" && signupReturn === "google") {
+      clearPublicDashboardAuthReturn();
+      return;
+    }
+
+    const canCompleteDashboardAuthReturn = authReturn === "dashboard" || pathname === "/";
+    const dashboardAuthReturnMode =
+      isAuthenticated && canCompleteDashboardAuthReturn
+        ? consumePublicDashboardAuthReturnMode()
+        : null;
+    const shouldCompleteDashboardAuthReturn =
+      authReturn === "dashboard"
+        ? dashboardAuthReturnMode !== null
+        : dashboardAuthReturnMode === "popup";
+
+    // Public-root sign-in writes this browser marker before the provider
+    // redirect. The URL marker alone is not enough because effects run on every
+    // authenticated render, including ordinary logged-in visits to `/`.
+    if (isAuthenticated && shouldCompleteDashboardAuthReturn) {
       void router.navigate({
         replace: true,
         search: (currentSearch) => ({

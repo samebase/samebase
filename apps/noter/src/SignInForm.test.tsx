@@ -6,14 +6,19 @@ import {
   stringifyTanStackSearch,
 } from "./lib/tanstackSearchParams";
 
-const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
-  () => ({
-    buildLocationMock: vi.fn(),
-    isInIframeMock: vi.fn(() => false),
-    openAuthPopupMock: vi.fn(),
-    signInWithGoogleMock: vi.fn(),
-  }),
-);
+const {
+  buildLocationMock,
+  isInIframeMock,
+  openAuthPopupMock,
+  sessionStorageSetItemMock,
+  signInWithGoogleMock,
+} = vi.hoisted(() => ({
+  buildLocationMock: vi.fn(),
+  isInIframeMock: vi.fn(() => false),
+  openAuthPopupMock: vi.fn(),
+  sessionStorageSetItemMock: vi.fn(),
+  signInWithGoogleMock: vi.fn(),
+}));
 
 vi.mock("@/authClient", () => ({
   isInIframe: isInIframeMock,
@@ -38,6 +43,7 @@ describe("SignInWithGoogle", () => {
     buildLocationMock.mockReset();
     signInWithGoogleMock.mockReset();
     openAuthPopupMock.mockReset();
+    sessionStorageSetItemMock.mockReset();
     isInIframeMock.mockReset();
     isInIframeMock.mockReturnValue(false);
     Object.defineProperty(globalThis, "window", {
@@ -157,6 +163,9 @@ describe("SignInWithGoogle", () => {
           search: "",
           hash: "",
         },
+        sessionStorage: {
+          setItem: sessionStorageSetItemMock,
+        },
       },
       configurable: true,
     });
@@ -177,6 +186,10 @@ describe("SignInWithGoogle", () => {
     element.props.onClick();
 
     expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
+    expect(sessionStorageSetItemMock).toHaveBeenCalledWith(
+      "noter_public_dashboard_auth_return",
+      expect.stringMatching(/^top-level:\d+$/),
+    );
   });
 
   it("propagates the public signup marker through iframe Google auth", () => {
@@ -188,6 +201,9 @@ describe("SignInWithGoogle", () => {
           pathname: "/",
           search: "",
           hash: "",
+        },
+        sessionStorage: {
+          setItem: sessionStorageSetItemMock,
         },
       },
       configurable: true,
@@ -204,6 +220,10 @@ describe("SignInWithGoogle", () => {
     expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
       popupPath: "/?auth=google&auth-return=dashboard&signup=google",
     });
+    expect(sessionStorageSetItemMock).toHaveBeenCalledWith(
+      "noter_public_dashboard_auth_return",
+      expect.stringMatching(/^popup:\d+$/),
+    );
     expect(signInWithGoogleMock).not.toHaveBeenCalled();
   });
 

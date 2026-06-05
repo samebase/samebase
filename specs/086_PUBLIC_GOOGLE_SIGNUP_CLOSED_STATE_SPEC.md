@@ -36,9 +36,9 @@ onto the default landing page.
    notice plus the waitlist form.
 4. Successful authentication must clear the signup-return flag so it does not survive into later
    signed-out sessions. When public Google sign-in completes on `/`, the app must use the
-   `auth-return=dashboard` marker to replace the public route with the canonical signed-in `/home`
-   route. Direct authenticated visits to `/` without that marker must continue rendering the public
-   landing route.
+   `auth-return=dashboard` marker plus a short-lived browser marker written when sign-in starts to
+   replace the public route with the canonical signed-in `/home` route. Direct authenticated visits
+   to `/` without that browser marker must continue rendering the public landing route.
 5. The first version must not put the raw email address into the URL.
 
 ## Acceptance Criteria
@@ -50,7 +50,7 @@ onto the default landing page.
 - [x] Successful Google sign-in clears the signup-return marker.
 - [x] Successful public Google sign-in completion on `/` redirects to `/home` instead of leaving the
       signed-in user on the post-auth return URL.
-- [x] Direct authenticated visits to `/` still render the public landing route when
-      `auth-return=dashboard` is absent.
+- [x] Direct authenticated visits to `/` still render the public landing route when the browser
+      marker for a started public Google sign-in is absent.
 - [x] Iframe-based Google auth preserves the signup-return marker through the popup bootstrap flow.
 - [x] No raw Google email address is put into a URL query param.

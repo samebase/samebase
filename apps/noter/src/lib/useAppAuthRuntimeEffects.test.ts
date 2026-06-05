@@ -47,6 +47,7 @@ vi.mock("convex/react", () => ({
 }));
 
 import { useAppAuthRuntimeEffects } from "./useAppAuthRuntimeEffects";
+import { markPublicDashboardAuthReturnStarted } from "./publicDashboardAuthReturn";
 
 describe("useAppAuthRuntimeEffects", () => {
   const originalWindow = globalThis.window;
@@ -82,6 +83,19 @@ describe("useAppAuthRuntimeEffects", () => {
         };
       },
     );
+  }
+
+  function createMemorySessionStorage(initial: Record<string, string> = {}) {
+    const entries = new Map(Object.entries(initial));
+    return {
+      getItem: vi.fn((key: string) => entries.get(key) ?? null),
+      removeItem: vi.fn((key: string) => {
+        entries.delete(key);
+      }),
+      setItem: vi.fn((key: string, value: string) => {
+        entries.set(key, value);
+      }),
+    };
   }
 
   it("clears the Google signup marker after successful authentication away from root", () => {
@@ -197,6 +211,56 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
+  it("does not redirect authenticated root loads from the dashboard return URL without a started signin marker", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: "?auth-return=dashboard",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    useAppAuthRuntimeEffects("/", {
+      "auth-return": "dashboard",
+    });
+
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it("does not redirect authenticated root loads from an expired started signin marker", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: "?auth-return=dashboard",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+        sessionStorage: createMemorySessionStorage(),
+      },
+      configurable: true,
+    });
+    markPublicDashboardAuthReturnStarted("top-level", 0);
+
+    useAppAuthRuntimeEffects("/", {
+      "auth-return": "dashboard",
+    });
+
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
   it("waits for auth loading before redirecting dashboard loads", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: true });
     Object.defineProperty(globalThis, "window", {
@@ -231,9 +295,11 @@ describe("useAppAuthRuntimeEffects", () => {
         history: {
           replaceState: replaceStateMock,
         },
+        sessionStorage: createMemorySessionStorage(),
       },
       configurable: true,
     });
+    markPublicDashboardAuthReturnStarted("top-level");
 
     useAppAuthRuntimeEffects("/", {
       "auth-return": "dashboard",
@@ -265,6 +331,35 @@ describe("useAppAuthRuntimeEffects", () => {
       "prod-ui": true,
       signup: undefined,
       "sign-in": undefined,
+    });
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
+  it("moves successful iframe popup auth completion on root to the dashboard route", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: "",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+        sessionStorage: createMemorySessionStorage(),
+      },
+      configurable: true,
+    });
+    markPublicDashboardAuthReturnStarted("popup");
+
+    useAppAuthRuntimeEffects("/", {});
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      replace: true,
+      search: expect.any(Function),
+      state: true,
+      to: "/home",
     });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });

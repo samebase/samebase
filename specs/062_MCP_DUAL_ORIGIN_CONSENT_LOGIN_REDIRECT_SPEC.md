@@ -209,10 +209,11 @@ Implemented validation, 2026-03-19:
   - `SignInWithGoogle` now passes the current relative route as `redirectTo`
   - `useAutoSignIn()` now passes the current relative route as `redirectTo`
   - the helper strips `auth` from the return URL so future callback loops are avoided
-  - public-root sign-in marks dashboard return, and the authenticated runtime guard moves the
-    completed return to `/home` when that one-shot marker is present
-  - authenticated users can still browse the public landing route when the one-shot dashboard return
-    marker is absent
+  - public-root sign-in marks dashboard return in the URL and records a short-lived browser marker,
+    and the authenticated runtime guard moves the completed return to `/home` only when those
+    markers line up
+  - authenticated users can still browse the public landing route when the browser marker for a
+    started public sign-in is absent
   - popup launch and popup-close behavior are unchanged in this patch
 - Validation in this patch:
   - `pnpm exec vp test run apps/noter/src/SignInForm.test.tsx apps/noter/src/authClient.test.ts apps/noter/src/lib/useAppAuthRuntimeEffects.test.ts apps/noter/src/lib/tanstackSearchParams.test.ts`
