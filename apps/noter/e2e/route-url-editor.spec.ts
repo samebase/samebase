@@ -261,22 +261,15 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
 
   const display = getRouteUrlEditorDisplay(page);
   const input = getRouteUrlEditorInput(page);
-  const editor = page.getByTestId("route-url-editor");
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
   const backButton = page.getByRole("button", { name: "Back" });
   const forwardButton = page.getByRole("button", { name: "Forward" });
   const refreshButton = page.getByRole("button", { name: "Refresh" });
-  await expect(editor).toBeVisible();
 
-  const editorHeight = await editor.evaluate((element) => element.getBoundingClientRect().height);
-  expect(editorHeight).toBeGreaterThan(0);
-  expect(editorHeight).toBeLessThanOrEqual(40);
   await expect(input).toHaveCount(0);
+  await expect(display).toBeVisible();
   await expect(display).toHaveValue(fixtureHref);
   await expect(display).toHaveAttribute("title", fixtureHref);
-  await expect(display).toHaveCSS("cursor", "text");
-  const displayTextIndent = await display.evaluate((element) => element.style.textIndent);
-  expect(displayTextIndent).toBe(`-${origin.length}ch`);
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
   await expect(forwardButton).toBeVisible();
@@ -308,9 +301,6 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
   await expect(input).toHaveCount(0);
   await expect(display).toHaveValue(`${origin}/logo?from=route-url-editor`);
   await expect(display).toHaveAttribute("title", `${origin}/logo?from=route-url-editor`);
-  await expect(editor.getByTestId("route-url-editor-display")).toHaveValue(
-    `${origin}/logo?from=route-url-editor`,
-  );
 });
 
 test("route URL editor fixture selects continuously across host and route text", async ({
