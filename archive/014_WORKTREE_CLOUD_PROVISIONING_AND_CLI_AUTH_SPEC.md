@@ -8,7 +8,7 @@
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
-  - `specs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md`
+  - `rfcs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md`
 
 ## Summary
 

@@ -9,5 +9,9 @@ acceptance, or a phased rollout document for work that is not yet the accepted c
 Use `research/` instead when the document is still primarily evidence gathering, benchmarking, or
 exploratory analysis rather than a concrete proposal.
 
-Move a doc from `rfcs/` to `specs/` only after the decision is accepted and the implementation is
-active. Move it to `archive/` if it becomes historical without becoming the active source of truth.
+Extract a doc from `rfcs/` into `specs/` only after the decision is accepted and the implementation
+is active. Move it to `archive/` if it becomes historical without becoming the active source of
+truth. If the proposal ships, either reduce the accepted parts into a compact spec or archive the
+RFC when the code and tests are enough.
+
+See `docs/repo-documentation-standard.md` for the full placement decision table.

@@ -2,7 +2,7 @@
 
 ## Related Specs
 
-- `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md` - Master plan for infra
+- `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md` - Master plan for infra
   provisioning and safe AI prod access.
 - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` - Auto-provisioning flow and contracts for Convex +
   Cloudflare per vault.

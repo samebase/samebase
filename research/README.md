@@ -16,3 +16,5 @@ proposal, promote it to `rfcs/`. If that proposal becomes accepted and active, m
 contract into `specs/`.
 
 When a research document is no longer useful for active decisions, move it to `archive/`.
+
+See `docs/repo-documentation-standard.md` for the full placement decision table.

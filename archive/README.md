@@ -8,3 +8,5 @@ document, move it here instead of leaving it in `specs/` or `rfcs/`.
 
 Archive is for history, not for active guidance. If a document still matters to current decisions,
 keep it in `specs/`, `rfcs/`, `research/`, or `docs/` instead.
+
+See `docs/repo-documentation-standard.md` for the full placement decision table.

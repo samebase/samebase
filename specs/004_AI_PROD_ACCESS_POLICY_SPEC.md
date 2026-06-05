@@ -5,7 +5,7 @@
 - Status: Implemented for MVP owner mode (with follow-ups)
 - Owner: Noter chat/agent + platform security
 - Last updated: 2026-02-13
-- Related plan: `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
+- Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
 ## Summary
 

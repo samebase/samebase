@@ -7,7 +7,7 @@
 
 ## Related Specs
 
-- `specs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md`
+- `rfcs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md`
 
 ## Summary
 

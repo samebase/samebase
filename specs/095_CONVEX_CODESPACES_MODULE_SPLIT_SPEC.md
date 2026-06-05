@@ -14,8 +14,8 @@
   - `apps/noter/convex/codespaces/ports.ts`
   - `apps/noter/convex/codespaces/vaultIntegration.ts`
   - `specs/001_CODESPACE_CONNECTION_SPEC.md`
-  - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
-  - `specs/009_CODESPACE_PORT_VISIBILITY_SPEC.md`
+  - `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
+  - `rfcs/009_CODESPACE_PORT_VISIBILITY_SPEC.md`
 
 ## Summary
 

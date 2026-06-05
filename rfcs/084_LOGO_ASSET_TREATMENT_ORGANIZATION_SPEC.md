@@ -6,8 +6,8 @@
 - Owner: Noter frontend
 - Last updated: 2026-05-23
 - Related docs:
-  - `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`
-  - `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`
+  - `rfcs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`
+  - `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`
   - `specs/064_THIN_INSTALLABLE_WEB_APP_SPEC.md`
   - `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`
   - `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
@@ -279,7 +279,7 @@ pattern for left faces. A robust path is:
 5. fill alternating bands with foreground/background according to
    `LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE`
 
-That mirrors the Three shader requirement from `specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`: stripes
+That mirrors the Three shader requirement from `rfcs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`: stripes
 belong to the face geometry, not the screen.
 
 `NLogoScene` can keep accepting the richer `LogoLeftFaceStyle` directly. `NLogoIsoScene` and

@@ -7,7 +7,7 @@
 - Last updated: 2026-05-03
 - Related specs:
   - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
-  - `specs/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
+  - `archive/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
 
 ## Summary
 

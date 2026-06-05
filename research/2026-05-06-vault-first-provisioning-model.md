@@ -9,7 +9,7 @@
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
 - Related research:
   - `research/2026-05-02-workpool-refresh-and-tenant-compute.md`
 

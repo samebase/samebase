@@ -10,7 +10,7 @@
   - `apps/noter/src/components/CodeEditor.tsx`
   - `apps/noter/src/components/MonacoEditor.tsx`
   - `apps/noter/src/components/sidebar.tsx`
-  - `specs/037_MONACO_MOBILE_FULL_BLEED_SPEC.md`
+  - `rfcs/037_MONACO_MOBILE_FULL_BLEED_SPEC.md`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
   - `specs/073_FILE_VIEW_PROSEMARK_MOBILE_PANE_DRAG_SPEC.md`
 

@@ -7,7 +7,7 @@
 - Last updated: 2026-03-26
 - Related specs:
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
-  - `specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
+  - `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
 - Source of truth files:
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/FileViewDeveloperTools.tsx`
@@ -58,8 +58,8 @@ Current implementation in `apps/noter/src/components/FileView.tsx`:
 Current source docs assume the graph toggle is part of the default editor header:
 
 1. `specs/022_AGENT_GRAPH_VIEW_SPEC.md` says the toggle lives in the editor header area.
-2. `specs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md` formalizes only the persistence contract, not
-   the toggle placement.
+2. `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md` formalizes only the persistence contract, not the
+   toggle placement.
 
 ## Goals
 

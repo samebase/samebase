@@ -6,7 +6,7 @@
 - Date: 2026-05-23
 - Related:
   - `AGENTS.md`
-  - `specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md`
+  - `rfcs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md`
   - `packages/agent-context/manifests/noter.md`
 
 ## Decision
@@ -27,7 +27,7 @@ Current `AGENTS.md` already carries the compact operational rule:
 - Noter-owned styling or behavior belongs in wrappers outside `components/ui/*`
 - explicit generated-file edits must stay minimal and be called out
 
-`specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` contains the detailed design-system boundary:
+`rfcs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` contains the detailed design-system boundary:
 
 - `components/ui/*` is generated primitive space
 - app-owned wrappers and composition live outside `components/ui/*`
@@ -45,9 +45,9 @@ new task family.
 
 ## Status Caveat
 
-`specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` currently says `Status: Proposed`. Until that status
-is accepted/current, a shortened `AGENTS.md` should keep the compact shadcn rule as the active
-operator reminder instead of relying on the spec as the only source of truth.
+`rfcs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md` currently says `Status: Proposed`. Until that status is
+accepted/current, a shortened `AGENTS.md` should keep the compact shadcn rule as the active operator
+reminder instead of relying on the spec as the only source of truth.
 
 ## Follow-Up Shape
 

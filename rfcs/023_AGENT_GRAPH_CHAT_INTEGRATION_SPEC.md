@@ -6,7 +6,7 @@
 - Owner: Noter frontend + Convex
 - Date: 2026-02-22
 - Related specs:
-  - `specs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
+  - `rfcs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
 - Related files:
   - `apps/noter/src/components/AgentGraphView.tsx`
