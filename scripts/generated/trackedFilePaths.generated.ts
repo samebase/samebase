@@ -402,6 +402,8 @@ export const trackedFilePaths = [
   "apps/noter/e2e/pitch-deck-visual.spec.ts",
   "apps/noter/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png",
   "apps/noter/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png",
+  "apps/noter/e2e/public-account-loading-visual.spec.ts",
+  "apps/noter/e2e/public-account-loading-visual.spec.ts-snapshots/public-account-checking-login.png",
   "apps/noter/e2e/public-landing-shell.live.spec.ts",
   "apps/noter/e2e/public-landing-shell.spec.ts",
   "apps/noter/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-button.png",

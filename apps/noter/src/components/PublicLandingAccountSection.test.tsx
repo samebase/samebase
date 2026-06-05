@@ -12,6 +12,10 @@ const authState = vi.hoisted(() => ({
   isAuthenticated: false,
   isLoading: false,
 }));
+const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
+  index: 0,
+  results: [],
+}));
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -19,7 +23,11 @@ vi.mock("convex/react", async (importOriginal) => {
   return {
     ...actual,
     useConvexAuth: () => authState,
-    useQuery: () => undefined,
+    useQuery: () => {
+      const result = queryState.results[queryState.index];
+      queryState.index += 1;
+      return result;
+    },
   };
 });
 
@@ -86,6 +94,7 @@ function renderLandingAccountSection(initialEntry: string) {
   const [pathname, search = ""] = initialEntry.split("?");
   routeState.pathname = pathname || "/";
   routeState.search = readRootRouteSearch(search.length > 0 ? `?${search}` : "");
+  queryState.index = 0;
 
   return renderToStaticMarkup(<PublicLandingAccountSection />);
 }
@@ -94,6 +103,8 @@ describe("PublicLandingAccountSection", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
+    queryState.index = 0;
+    queryState.results = [];
   });
 
   it("shows the checking login summary while auth state loads", () => {
@@ -106,6 +117,43 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("not logged in");
     expect(markup).not.toContain("?sign-in");
     expect(markup).not.toContain("?create-account");
+  });
+
+  it("shows the checking login summary while the signed-in viewer loads", () => {
+    authState.isAuthenticated = true;
+    queryState.results = [undefined];
+
+    const markup = renderLandingAccountSection("/");
+
+    expect(markup).toContain("checking login");
+    expect(markup).toContain("animate-spin");
+    expect(markup).not.toContain("Account");
+    expect(markup).not.toContain("not logged in");
+  });
+
+  it("shows the signed-in account name after the viewer loads", () => {
+    authState.isAuthenticated = true;
+    queryState.results = [
+      {
+        _id: "user_123",
+        name: "Nicu",
+        email: "nicu@example.com",
+        hasCloudflareConnection: false,
+        hasConvexConnection: false,
+        hasGithubConnection: false,
+      },
+      {
+        providers: ["google"],
+        primaryProvider: "google",
+      },
+    ];
+
+    const markup = renderLandingAccountSection("/");
+
+    expect(markup).toContain("Nicu");
+    expect(markup).not.toContain("checking login");
+    expect(markup).not.toContain("Account");
+    expect(markup).not.toContain("not logged in");
   });
 
   it("shows the logged-out account summary collapsed by default", () => {

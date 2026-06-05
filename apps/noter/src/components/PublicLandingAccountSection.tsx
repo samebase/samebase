@@ -5,6 +5,7 @@ import {
   VaultDashboardAccountSectionFrame,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
+import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { applySearchPatch, type SearchPatch } from "@/lib/routeSearchFlags";
@@ -17,6 +18,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 
 type PublicLandingAccountMode = "links" | "sign-in" | "create-account";
+type PublicLandingSignedInViewer = NonNullable<
+  GetFunctionReferenceReturnType<typeof api.users.viewer>
+>;
 
 const ACCOUNT_LINK_CLASS_NAME = "text-base underline underline-offset-4";
 
@@ -155,8 +159,11 @@ export function PublicLandingAccountLoadingSection() {
   );
 }
 
-function PublicLandingSignedInAccountSection() {
-  const viewer = useQuery(api.users.viewer);
+function PublicLandingResolvedSignedInAccountSection({
+  viewer,
+}: {
+  viewer: PublicLandingSignedInViewer;
+}) {
   const authProviders = useQuery(api.users.getViewerAuthProviders);
   const { signOut } = useNoterAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -165,8 +172,8 @@ function PublicLandingSignedInAccountSection() {
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
     return formatAuthProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
-  const accountEmail = viewer?.email ?? viewer?.githubUsername ?? viewer?.name ?? "Signed in";
-  const accountDisplayName = viewer?.name ?? viewer?.email ?? viewer?.githubUsername ?? "Account";
+  const accountEmail = viewer.email ?? viewer.githubUsername ?? viewer.name ?? "Signed in";
+  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername ?? "Signed in";
 
   return (
     <VaultDashboardAccountSection
@@ -193,6 +200,16 @@ function PublicLandingSignedInAccountSection() {
       signOutDisabled={false}
     />
   );
+}
+
+function PublicLandingSignedInAccountSection() {
+  const viewer = useQuery(api.users.viewer);
+
+  if (viewer === undefined || viewer === null) {
+    return <PublicLandingAccountLoadingSection />;
+  }
+
+  return <PublicLandingResolvedSignedInAccountSection viewer={viewer} />;
 }
 
 export function PublicLandingAccountSection() {
