@@ -26,38 +26,22 @@ import {
   NLogoIsoScene,
 } from "@/components/logo/NLogoIsoScene";
 import {
-  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
+  LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
   LOGO_ISOMETRIC_STYLES,
-  MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
-  MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   getLogoIsometricStyle,
   isLogoIsometricStyleId,
   normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logo/logoIsometricRenderer";
 import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
-  LOGO_DISTANCE_SCALE_SLIDER_MAX,
-  LOGO_DISTANCE_SCALE_STEP,
-  MIN_LOGO_DISTANCE_SCALE,
+  LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
+  LOGO_LEFT_FACE_STRIPE,
   LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE,
-  LOGO_LEFT_FACE_STRIPE_ANGLE_STEP,
-  LOGO_LEFT_FACE_STRIPE_GAP_STEP,
-  LOGO_LEFT_FACE_STRIPE_OFFSET_STEP,
-  LOGO_LEFT_FACE_STRIPE_WIDTH_STEP,
-  MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-  MAX_LOGO_LEFT_FACE_STRIPE_GAP,
-  MAX_LOGO_LEFT_FACE_STRIPE_OFFSET,
-  MAX_LOGO_LEFT_FACE_STRIPE_WIDTH,
-  MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES,
-  MIN_LOGO_LEFT_FACE_STRIPE_GAP,
-  MIN_LOGO_LEFT_FACE_STRIPE_OFFSET,
-  MIN_LOGO_LEFT_FACE_STRIPE_WIDTH,
   areLogoLeftFaceStylesEqual,
   normalizeLogoLeftFaceStyle,
   normalizeLogoLeftFaceStripeAngleDegrees,
@@ -486,6 +470,7 @@ function areLogoPreviewRouteStatesEqual(
     left.rotationDegrees === right.rotationDegrees &&
     left.selectedPresetId === right.selectedPresetId &&
     left.voxelState === right.voxelState &&
+    left.zoom === right.zoom &&
     areLogoThemeColorsEqual(left.themeColors, right.themeColors)
   );
 }
@@ -801,8 +786,9 @@ function useLogoPreviewController({
             elevationDegrees: DEFAULT_ELEVATION_DEGREES,
             rotationDegrees: DEFAULT_ROTATION_DEGREES,
           }),
-          distanceScale: DEFAULT_LOGO_DISTANCE_SCALE,
+          distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
           rotationAxisMode: DEFAULT_ROTATION_AXIS_MODE,
+          zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         }));
       },
       resetShape: () => {
@@ -1067,6 +1053,12 @@ function useLogoPreviewController({
           };
         });
       },
+      setZoom: (zoom: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          zoom: normalizeLogoPreviewZoom(zoom),
+        }));
+      },
       startSceneInteraction: () => {
         pacedRouteState.cancelCommit();
         store.actions.setAutoRotating(false);
@@ -1319,10 +1311,10 @@ function LogoDistanceScaleControl({
         <input
           aria-label="Distance slider"
           type="range"
-          min={MIN_LOGO_DISTANCE_SCALE}
-          max={LOGO_DISTANCE_SCALE_SLIDER_MAX}
-          step={LOGO_DISTANCE_SCALE_STEP}
-          value={Math.min(normalizedValue, LOGO_DISTANCE_SCALE_SLIDER_MAX)}
+          min={LOGO_DISTANCE_SCALE.min}
+          max={LOGO_DISTANCE_SCALE.sliderMax}
+          step={LOGO_DISTANCE_SCALE.step}
+          value={Math.min(normalizedValue, LOGO_DISTANCE_SCALE.sliderMax)}
           onChange={(event) => {
             const nextValue = Number(event.target.value);
             if (Number.isFinite(nextValue)) {
@@ -1335,10 +1327,10 @@ function LogoDistanceScaleControl({
           <LogoNumberInput
             ariaLabel="Distance scale"
             formatValue={formatLogoDistanceInput}
-            min={MIN_LOGO_DISTANCE_SCALE}
+            min={LOGO_DISTANCE_SCALE.min}
             normalizeValue={normalizeLogoDistanceScale}
             onValueChange={onValueChange}
-            step={LOGO_DISTANCE_SCALE_STEP}
+            step={LOGO_DISTANCE_SCALE.step}
             value={normalizedValue}
             variant="preview"
           />
@@ -1467,13 +1459,19 @@ export function LogoPreviewPage({
       />
     );
 
+  const logoSceneSizeContainerPercent = `${(normalizeLogoPreviewZoom(state.zoom) * 100).toFixed(
+    2,
+  )}`;
+  const logoSceneSizeValue = `min(${logoSceneSizeContainerPercent}cqw, ${logoSceneSizeContainerPercent}cqh)`;
   const sceneContent = (
     <div
       className="flex h-full min-h-0 items-center justify-center @container-[size]"
       style={{ backgroundColor }}
     >
       {/* Keep touch capture square so mobile top/bottom drag lanes stay free. */}
-      <div className="relative h-[min(100cqw,100cqh)] w-[min(100cqw,100cqh)]">{logoScene}</div>
+      <div className="relative" style={{ height: logoSceneSizeValue, width: logoSceneSizeValue }}>
+        {logoScene}
+      </div>
     </div>
   );
 
@@ -1616,16 +1614,16 @@ export function LogoPreviewPage({
             <LogoRangeControl
               formatValue={(value) => Math.round(value).toString()}
               label="Cube side"
-              max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
-              min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+              max={LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max}
+              min={LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.min}
               normalizeValue={normalizeLogoIsometricCubeSidePixels}
               onSliderChange={controls.setIsoCubeSidePixels}
               onValueChange={controls.setIsoCubeSidePixels}
               sliderAriaLabel="Cube side"
-              step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
+              step={LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step}
               value={state.isoCubeSidePixels}
               valueAriaLabel="Cube side pixels"
-              valueInputMax={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+              valueInputMax={LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max}
               valueInputMode="numeric"
               valueText={`${state.isoCubeSidePixels}px`}
             />
@@ -1638,7 +1636,7 @@ export function LogoPreviewPage({
               variant="outline"
               className="w-full rounded-none"
               onClick={() => {
-                controls.setIsoCubeSidePixels(DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX);
+                controls.setIsoCubeSidePixels(LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue);
               }}
             >
               Reset size
@@ -1874,6 +1872,22 @@ export function LogoPreviewPage({
 
           <LogoRangeControl
             formatValue={(value) => value.toFixed(2)}
+            label="Zoom"
+            max={LOGO_PREVIEW_ZOOM.max}
+            min={LOGO_PREVIEW_ZOOM.min}
+            normalizeValue={normalizeLogoPreviewZoom}
+            onSliderChange={controls.setZoom}
+            onValueChange={controls.setZoom}
+            sliderAriaLabel="Zoom slider"
+            step={LOGO_PREVIEW_ZOOM.step}
+            value={state.zoom}
+            valueAriaLabel="Zoom value"
+            valueInputMax={LOGO_PREVIEW_ZOOM.max}
+            valueText={`${state.zoom.toFixed(2)}x`}
+          />
+
+          <LogoRangeControl
+            formatValue={(value) => value.toFixed(2)}
             label="Opacity"
             max={MAX_LOGO_OPACITY}
             min={MIN_LOGO_OPACITY}
@@ -2009,13 +2023,13 @@ export function LogoPreviewPage({
               <LogoRangeControl
                 formatValue={(value) => value.toFixed(2)}
                 label="Width"
-                max={MAX_LOGO_LEFT_FACE_STRIPE_WIDTH}
-                min={MIN_LOGO_LEFT_FACE_STRIPE_WIDTH}
+                max={LOGO_LEFT_FACE_STRIPE.width.max}
+                min={LOGO_LEFT_FACE_STRIPE.width.min}
                 normalizeValue={normalizeLogoLeftFaceStripeWidth}
                 onSliderChange={controls.setLeftFaceStripeWidth}
                 onValueChange={controls.setLeftFaceStripeWidth}
                 sliderAriaLabel="Stripe width slider"
-                step={LOGO_LEFT_FACE_STRIPE_WIDTH_STEP}
+                step={LOGO_LEFT_FACE_STRIPE.width.step}
                 value={stripedLeftFaceStyle.stripeWidth}
                 valueAriaLabel="Stripe width"
                 valueText={stripedLeftFaceStyle.stripeWidth.toFixed(2)}
@@ -2024,13 +2038,13 @@ export function LogoPreviewPage({
               <LogoRangeControl
                 formatValue={(value) => value.toFixed(2)}
                 label="Gap"
-                max={MAX_LOGO_LEFT_FACE_STRIPE_GAP}
-                min={MIN_LOGO_LEFT_FACE_STRIPE_GAP}
+                max={LOGO_LEFT_FACE_STRIPE.gap.max}
+                min={LOGO_LEFT_FACE_STRIPE.gap.min}
                 normalizeValue={normalizeLogoLeftFaceStripeGap}
                 onSliderChange={controls.setLeftFaceStripeGap}
                 onValueChange={controls.setLeftFaceStripeGap}
                 sliderAriaLabel="Stripe gap slider"
-                step={LOGO_LEFT_FACE_STRIPE_GAP_STEP}
+                step={LOGO_LEFT_FACE_STRIPE.gap.step}
                 value={stripedLeftFaceStyle.stripeGap}
                 valueAriaLabel="Stripe gap"
                 valueText={stripedLeftFaceStyle.stripeGap.toFixed(2)}
@@ -2080,13 +2094,13 @@ export function LogoPreviewPage({
               <LogoRangeControl
                 formatValue={(value) => value.toFixed(3)}
                 label="Angle"
-                max={MAX_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES}
-                min={MIN_LOGO_LEFT_FACE_STRIPE_ANGLE_DEGREES}
+                max={LOGO_LEFT_FACE_STRIPE.angleDegrees.max}
+                min={LOGO_LEFT_FACE_STRIPE.angleDegrees.min}
                 normalizeValue={normalizeLogoLeftFaceStripeAngleDegrees}
                 onSliderChange={controls.setLeftFaceStripeAngleDegrees}
                 onValueChange={controls.setLeftFaceStripeAngleDegrees}
                 sliderAriaLabel="Stripe angle slider"
-                step={LOGO_LEFT_FACE_STRIPE_ANGLE_STEP}
+                step={LOGO_LEFT_FACE_STRIPE.angleDegrees.step}
                 value={stripedLeftFaceStyle.stripeAngleDegrees}
                 valueAriaLabel="Stripe angle"
                 valueText={`${stripedLeftFaceStyle.stripeAngleDegrees.toFixed(3)}°`}
@@ -2095,13 +2109,13 @@ export function LogoPreviewPage({
               <LogoRangeControl
                 formatValue={(value) => value.toFixed(2)}
                 label="Offset"
-                max={MAX_LOGO_LEFT_FACE_STRIPE_OFFSET}
-                min={MIN_LOGO_LEFT_FACE_STRIPE_OFFSET}
+                max={LOGO_LEFT_FACE_STRIPE.offset.max}
+                min={LOGO_LEFT_FACE_STRIPE.offset.min}
                 normalizeValue={normalizeLogoLeftFaceStripeOffset}
                 onSliderChange={controls.setLeftFaceStripeOffset}
                 onValueChange={controls.setLeftFaceStripeOffset}
                 sliderAriaLabel="Stripe offset slider"
-                step={LOGO_LEFT_FACE_STRIPE_OFFSET_STEP}
+                step={LOGO_LEFT_FACE_STRIPE.offset.step}
                 value={stripedLeftFaceStyle.stripeOffset}
                 valueAriaLabel="Stripe offset"
                 valueText={stripedLeftFaceStyle.stripeOffset.toFixed(2)}

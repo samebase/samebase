@@ -1,9 +1,8 @@
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
-  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-  LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
+  LOGO_ISOMETRIC_CUBE_SIDE_PIXELS,
   LOGO_ISOMETRIC_ELEVATION_DEGREES,
   LOGO_ISOMETRIC_ROTATION_DEGREES,
   createLogoIsometricCubeCanvas,
@@ -228,7 +227,7 @@ function getBoundedRecursiveCubeSidePixels({
       return nextCubeSidePixels;
     }
 
-    nextCubeSidePixels -= LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX;
+    nextCubeSidePixels -= LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step;
   }
 
   return MIN_RECURSIVE_ISO_CUBE_SIDE_PX;
@@ -393,7 +392,7 @@ export function LogoIsoThumbnail({
   baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   dataTestId,
   faceColors,
   fractalDepth,
@@ -519,7 +518,7 @@ export function LogoIsoCubePixelEditor({
   backgroundColor,
   cubePixelSprite,
   cubePixelTool,
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   disabled = false,
   faceColors,
   onCubePixelSpritePaint,
@@ -713,7 +712,7 @@ export function NLogoIsoScene({
   baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   editMode,
   faceColors,
   fractalDepth,

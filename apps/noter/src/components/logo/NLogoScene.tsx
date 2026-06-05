@@ -8,7 +8,7 @@ import {
 } from "@/components/logo/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
 import {
-  DEFAULT_LOGO_DISTANCE_SCALE,
+  LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
 import {
@@ -397,7 +397,7 @@ type NLogoSceneProps = {
 function getVoxelWorldCenter(
   coordinate: VoxelCoordinate,
   gridSize: number,
-  distanceScale = DEFAULT_LOGO_DISTANCE_SCALE,
+  distanceScale = LOGO_DISTANCE_SCALE.defaultValue,
 ): readonly [number, number, number] {
   const worldCenterOffset = (gridSize - 1) / 2;
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
@@ -791,7 +791,7 @@ function buildDistanceScaledLogoSurfaceQuads(
   distanceScale: number,
 ): LogoSurfaceQuad[] {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
-  if (normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE) {
+  if (normalizedDistanceScale === LOGO_DISTANCE_SCALE.defaultValue) {
     return buildLogoSurfaceQuads(filledVoxels, gridSize);
   }
 
@@ -1080,7 +1080,7 @@ function pointToVoxelCoordinate(
 ): VoxelCoordinate | null {
   const normalizedDistanceScale = normalizeLogoDistanceScale(distanceScale);
   const readAxis = (value: number): number | null => {
-    if (normalizedDistanceScale === DEFAULT_LOGO_DISTANCE_SCALE) {
+    if (normalizedDistanceScale === LOGO_DISTANCE_SCALE.defaultValue) {
       return Math.floor(value + gridSize / 2);
     }
 
@@ -1966,7 +1966,7 @@ export function NLogoScene({
   baseGridSize = DEFAULT_LOGO_GRID_SIZE,
   backgroundColor,
   className,
-  distanceScale = DEFAULT_LOGO_DISTANCE_SCALE,
+  distanceScale = LOGO_DISTANCE_SCALE.defaultValue,
   editMode,
   elevationDegrees,
   faceColors,

@@ -18,10 +18,12 @@ import {
 } from "@/components/logo/logoIsoCubePixelSprite";
 
 const FRAME_PADDING = 4;
-export const DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX = 16;
-export const MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX = 2;
-export const MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX = 40;
-export const LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX = 2;
+export const LOGO_ISOMETRIC_CUBE_SIDE_PIXELS = {
+  defaultValue: 16,
+  min: 2,
+  max: 40,
+  step: 2,
+};
 
 type Point = {
   x: number;
@@ -152,24 +154,24 @@ export function getLogoIsometricStyle(styleId: LogoIsometricStyleId): LogoIsomet
 
 export function normalizeLogoIsometricCubeSidePixels(value: number): number {
   if (!Number.isFinite(value)) {
-    return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
+    return LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue;
   }
 
   const roundedToStep =
-    Math.round(value / LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX) * LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX;
+    Math.round(value / LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step) * LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step;
 
   return Math.min(
-    Math.max(roundedToStep, MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX),
-    MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+    Math.max(roundedToStep, LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.min),
+    LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max,
   );
 }
 
 function normalizeLogoIsometricFrameCubeSidePixels(value: number): number {
   if (!Number.isFinite(value)) {
-    return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
+    return LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue;
   }
 
-  return Math.min(Math.max(Math.round(value), 1), MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX);
+  return Math.min(Math.max(Math.round(value), 1), LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max);
 }
 
 function projectPoint(position: CubePosition, frameMetrics: LogoIsometricFrameMetrics): Point {
@@ -273,7 +275,7 @@ function createLogoIsometricFrameMetrics(
 const isometricFrameMetricsCache = new Map<string, LogoIsometricFrameMetrics>();
 
 export function getLogoIsometricFrameMetrics(
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   gridSize: number = GRID_SIZE,
 ): LogoIsometricFrameMetrics {
   const normalizedCubeSidePixels = normalizeLogoIsometricFrameCubeSidePixels(cubeSidePixels);
@@ -487,7 +489,7 @@ function getLogoIsometricCubeRowSpans({
 }
 
 export function getLogoIsometricCubeHitRows({
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   cubeSidePixels?: number;
@@ -863,7 +865,7 @@ function createIsometricCanvas(frameMetrics: LogoIsometricFrameMetrics): HTMLCan
 
 export function createLogoIsometricCubeCanvas({
   cubePixelSprite,
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   faceColors,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
@@ -941,7 +943,7 @@ function drawRecursiveChildImage({
 
 export function createLogoIsometricRecursiveCanvas({
   baseGridSize = DEFAULT_LOGO_GRID_SIZE,
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   cubePixelSprite,
   depth,
   faceColors,
@@ -1026,7 +1028,7 @@ export function createLogoIsometricRecursiveCanvas({
 export function drawLogoIsometricFrame({
   backgroundColor,
   cubePixelSprite,
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
   context,
   faceColors,
   filledVoxels,
@@ -1108,7 +1110,7 @@ export function drawLogoIsometricRecursiveFrame({
   filledVoxels,
   movingVoxels = [],
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  cubeSidePixels = LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
 }: {
   baseGridSize?: LogoGridSize;
   backgroundColor: string;
@@ -1173,7 +1175,10 @@ export function createLogoIsometricSvgMarkup({
   styleId?: LogoIsometricSvgSafeStyleId;
 }): string {
   const style = getLogoIsometricStyle(styleId);
-  const frameMetrics = getLogoIsometricFrameMetrics(DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX, gridSize);
+  const frameMetrics = getLogoIsometricFrameMetrics(
+    LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
+    gridSize,
+  );
 
   if (style.edgeMode !== "none" || style.capWidth !== 2) {
     throw new Error("SVG export only supports flat four-point face geometry.");
