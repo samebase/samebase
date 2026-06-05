@@ -54,8 +54,6 @@ export function useTypedTransitionMachine<
         return next.state;
       });
 
-      console.log(JSON.stringify(event, null, 2));
-
       runActions(transitionActions);
     },
     [onDebugEvent, runActions, store, transitionTable],

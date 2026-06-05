@@ -11,9 +11,15 @@ import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
-import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
+import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRouteSearch";
+import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { api } from "../../../convex/_generated/api";
-import { readSuggestions, type Suggestion } from "./RouteUrlEditorSuggestions";
+import {
+  readRouteAddressReadiness,
+  readSuggestions,
+  type RouteAddressReadiness,
+  type Suggestion,
+} from "./RouteUrlEditorSuggestions";
 import { keepState, runTransitionActions } from "./typedTransitionTable";
 import { useTypedTransitionMachine } from "./useTypedTransitionMachine";
 import type {
@@ -36,8 +42,8 @@ export type RouteEditorState =
     }
   | {
       kind: "focused";
-      initialPath: string;
-      latestPath: string;
+      draftPath: string;
+      expectedRouteAddress: string;
       prefix: string;
       selection: RouteAddressSelection;
     };
@@ -50,12 +56,18 @@ type RouteEditorPreventNativeEditContext = {
   preventDefault: () => void;
 };
 
+type RouteEditorReplaceRouteContext = {
+  readRouteAddressReadiness: (draftRouteAddress: string) => RouteAddressReadiness;
+  replaceRoute: (routeAddress: string) => void;
+};
+
 type RouteEditorEvent =
   // Input value and selection tracking.
   | {
       type: "changedInput";
       nextInputValue: string;
       nextSelection: RouteAddressSelection;
+      context: RouteEditorReplaceRouteContext;
     }
   | {
       type: "changedSelection";
@@ -85,6 +97,7 @@ type RouteEditorEvent =
   // Suggestion commit.
   | {
       type: "selectedSuggestion";
+      context: RouteEditorReplaceRouteContext;
       nextSelectionRouteIndex: number;
       routeAddress: string;
     }
@@ -107,6 +120,12 @@ type RouteEditorAction =
   | {
       brand: "setInputSelection";
       selection: RouteAddressSelection;
+    }
+  // Router preview.
+  | {
+      brand: "replaceRoute";
+      routeAddress: string;
+      context: RouteEditorReplaceRouteContext;
     };
 
 type RouteEditorActionHandlerTable = TypedTransitionActionHandlerTable<
@@ -133,16 +152,6 @@ function readRouteAddressFocusedDraft(routeAddress: string): string {
   return `${routeAddress}${continuation}`;
 }
 
-function readRouteAddressFromInputValue(inputValue: string): string {
-  const url = new URL(inputValue);
-  const routeAddress = `${url.pathname}${url.search}`;
-  if (inputValue.endsWith("?") && url.search.length === 0) {
-    return `${url.pathname}?`;
-  }
-
-  return routeAddress;
-}
-
 function readInputSelectionFromRouteIndex(
   prefix: string,
   routeIndex: number,
@@ -156,7 +165,7 @@ function readInputSelectionFromRouteIndex(
   };
 }
 
-const routeAddressComboboxTransition: RouteEditorTransitionTable = {
+const routeEditorTransition: RouteEditorTransitionTable = {
   blurred: {
     changedCommittedRoute: (prev, event) =>
       keepState({
@@ -168,8 +177,8 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
     clickedInput: (prev, event) =>
       keepState({
         kind: "focused",
-        initialPath: prev.path,
-        latestPath: readRouteAddressFocusedDraft(prev.path),
+        draftPath: readRouteAddressFocusedDraft(prev.path),
+        expectedRouteAddress: prev.path,
         prefix: prev.prefix,
         selection: event.selection,
       }),
@@ -180,24 +189,54 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
     }),
     requestedEditableSelection: keepState,
     requestedLockedPrefixBackspace: keepState,
-    selectedSuggestion: (prev, event) => ({
-      state: {
-        kind: "blurred",
-        path: event.routeAddress,
-        prefix: prev.prefix,
-      },
-      actions: [],
-    }),
+    selectedSuggestion: keepState,
   },
 
   focused: {
-    changedCommittedRoute: keepState,
-    changedInput: (prev, event) =>
-      keepState({
-        ...prev,
-        latestPath: readRouteAddressFromInputValue(event.nextInputValue),
-        selection: event.nextSelection,
-      }),
+    changedCommittedRoute: (prev, event) => {
+      if (event.path === prev.expectedRouteAddress) {
+        return keepState(prev);
+      }
+
+      // If something external somehow changed our route
+      // just bail, for now.
+      return {
+        actions: [{ brand: "blurInput" }],
+        state: {
+          kind: "blurred",
+          path: event.path,
+          prefix: prev.prefix,
+        },
+      };
+    },
+    changedInput: (prev, event) => {
+      if (!event.nextInputValue.startsWith(prev.prefix)) {
+        return keepState(prev);
+      }
+
+      const draftPath = `/${event.nextInputValue.slice(prev.prefix.length)}`;
+      const readiness = event.context.readRouteAddressReadiness(draftPath);
+      const actions: RouteEditorAction[] = [];
+      let expectedRouteAddress = prev.expectedRouteAddress;
+      if (readiness.kind !== "local") {
+        expectedRouteAddress = readiness.routeAddress;
+        actions.push({
+          brand: "replaceRoute",
+          routeAddress: readiness.routeAddress,
+          context: event.context,
+        });
+      }
+
+      return {
+        actions,
+        state: {
+          ...prev,
+          draftPath,
+          expectedRouteAddress,
+          selection: event.nextSelection,
+        },
+      };
+    },
     changedSelection: (prev, event) =>
       keepState({
         ...prev,
@@ -208,21 +247,17 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         ...prev,
         selection: event.selection,
       }),
-    clickedOutside: (prev) => {
-      const url = new URL(prev.latestPath, prev.prefix);
-      const search = stringifyTanStackSearch(parseTanStackSearch(url.search));
-
-      return keepState({
+    clickedOutside: (prev) =>
+      keepState({
         kind: "blurred",
-        path: `${url.pathname}${search}`,
+        path: prev.expectedRouteAddress,
         prefix: prev.prefix,
-      });
-    },
+      }),
     pressedEscape: (prev) => ({
       actions: [{ brand: "blurInput" }],
       state: {
         kind: "blurred",
-        path: prev.initialPath,
+        path: prev.expectedRouteAddress,
         prefix: prev.prefix,
       },
     }),
@@ -273,12 +308,24 @@ const routeAddressComboboxTransition: RouteEditorTransitionTable = {
         prev.prefix,
         event.nextSelectionRouteIndex,
       );
+      const readiness = event.context.readRouteAddressReadiness(event.routeAddress);
+      const actions: RouteEditorAction[] = [{ brand: "setInputSelection", selection }];
+      let expectedRouteAddress = prev.expectedRouteAddress;
+      if (readiness.kind !== "local") {
+        expectedRouteAddress = readiness.routeAddress;
+        actions.push({
+          brand: "replaceRoute",
+          routeAddress: readiness.routeAddress,
+          context: event.context,
+        });
+      }
 
       return {
-        actions: [{ brand: "setInputSelection", selection }],
+        actions,
         state: {
           ...prev,
-          latestPath: event.routeAddress,
+          draftPath: event.routeAddress,
+          expectedRouteAddress,
           selection,
         },
       };
@@ -303,10 +350,41 @@ function readRouteAddressFromRouteHref(routeHref: string): string {
   return `${url.pathname}${url.search}`;
 }
 
+/**
+ * TanStack retained root search keeps keys such as `dev` unless navigation sends
+ * an own `undefined` value for the removed key.
+ *
+ * Example: current `/terms?dev`, next `/logo` must send `{ dev: undefined }`
+ * so the visible browser route becomes `/logo`, not `/logo?dev`.
+ */
+function readRouteEditorExactSearch(args: {
+  currentRouteAddress: string;
+  nextRouteAddress: string;
+  origin: string;
+}): Record<string, unknown> {
+  const appOrigin = new URL(args.origin);
+  const currentUrl = new URL(args.currentRouteAddress, appOrigin);
+  const nextUrl = new URL(args.nextRouteAddress, appOrigin);
+  const nextSearch: Record<string, unknown> = {
+    ...(nextUrl.pathname === "/"
+      ? validateRootRouteSearch(parseTanStackSearch(nextUrl.search))
+      : parseTanStackSearch(nextUrl.search)),
+  };
+
+  for (const key of RETAINED_ROOT_SEARCH_KEYS) {
+    if (currentUrl.searchParams.has(key) && !nextUrl.searchParams.has(key)) {
+      nextSearch[key] = undefined;
+    }
+  }
+
+  return nextSearch;
+}
+
 export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   const router = useRouter();
   const location = useLocation();
   const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
+  const viewerCanSeeAdminRoutes = viewerIsAdmin === true;
   const origin = useMemo(readIsomorphicOrigin, []);
   const prefix = useMemo(() => `${origin}/`, [origin]);
   const committedRouteAddress = useMemo(
@@ -317,28 +395,28 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const runRouteEditorTransitionActions = useCallback(
-    (actions: RouteEditorAction[]) => {
-      const actionHandlers: RouteEditorActionHandlerTable = {
-        blurInput: () => {
-          inputRef.current?.blur();
-        },
-        preventNativeEdit: (action) => {
-          action.context.preventDefault();
-        },
-        setInputSelection: (action) => {
-          inputRef.current?.setSelectionRange(
-            action.selection.start,
-            action.selection.end,
-            action.selection.direction,
-          );
-        },
-      };
+  const runRouteEditorTransitionActions = useCallback((actions: RouteEditorAction[]) => {
+    const actionHandlers: RouteEditorActionHandlerTable = {
+      blurInput: () => {
+        inputRef.current?.blur();
+      },
+      preventNativeEdit: (action) => {
+        action.context.preventDefault();
+      },
+      replaceRoute: (action) => {
+        action.context.replaceRoute(action.routeAddress);
+      },
+      setInputSelection: (action) => {
+        inputRef.current?.setSelectionRange(
+          action.selection.start,
+          action.selection.end,
+          action.selection.direction,
+        );
+      },
+    };
 
-      runTransitionActions(actionHandlers, actions);
-    },
-    [inputRef],
-  );
+    runTransitionActions(actionHandlers, actions);
+  }, []);
 
   const { state, sendEvent } = useTypedTransitionMachine<
     RouteEditorState["kind"],
@@ -353,7 +431,7 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       path: committedRouteAddress,
       prefix,
     },
-    transitionTable: routeAddressComboboxTransition,
+    transitionTable: routeEditorTransition,
     runActions: runRouteEditorTransitionActions,
     onDebugStateChange,
   });
@@ -365,6 +443,39 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
     });
   }, [committedRouteAddress, sendEvent]);
 
+  const replaceRoute = useCallback(
+    (routeAddress: string) => {
+      const currentUrl = new URL(committedRouteAddress, origin);
+      const nextUrl = new URL(routeAddress, origin);
+
+      void router.navigate({
+        hash: nextUrl.hash.replace(/^#/, ""),
+        replace: true,
+        search: () =>
+          readRouteEditorExactSearch({
+            currentRouteAddress: committedRouteAddress,
+            nextRouteAddress: routeAddress,
+            origin,
+          }),
+        ...(currentUrl.pathname === nextUrl.pathname ? { resetScroll: false } : {}),
+        to: nextUrl.pathname,
+      });
+    },
+    [committedRouteAddress, origin, router],
+  );
+
+  const readRouteAddressReadinessForDraft = useCallback(
+    (draftRouteAddress: string) =>
+      readRouteAddressReadiness({
+        currentRouteAddress: committedRouteAddress,
+        draftRouteAddress,
+        origin,
+        routesByPath: router.routesByPath,
+        viewerIsAdmin: viewerCanSeeAdminRoutes,
+      }),
+    [committedRouteAddress, origin, router.routesByPath, viewerCanSeeAdminRoutes],
+  );
+
   const handleInputFocus = useCallback(
     (event: FocusEvent<HTMLInputElement>) => {
       sendEvent({
@@ -373,6 +484,20 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       });
     },
     [sendEvent],
+  );
+
+  const handleInputClick = useCallback(
+    (event: MouseEvent<HTMLInputElement>) => {
+      if (state.kind === "focused") {
+        return;
+      }
+
+      sendEvent({
+        type: "clickedInput",
+        selection: readRouteAddressSelection(event.currentTarget),
+      });
+    },
+    [sendEvent, state.kind],
   );
 
   const handleRootBlur = useCallback(
@@ -491,9 +616,13 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
         type: "changedInput",
         nextInputValue: event.currentTarget.value,
         nextSelection,
+        context: {
+          readRouteAddressReadiness: readRouteAddressReadinessForDraft,
+          replaceRoute,
+        },
       });
     },
-    [sendEvent],
+    [readRouteAddressReadinessForDraft, replaceRoute, sendEvent],
   );
 
   const handleSuggestionMouseDown = useCallback(
@@ -501,35 +630,48 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       event.preventDefault();
       sendEvent({
         type: "selectedSuggestion",
+        context: {
+          readRouteAddressReadiness: readRouteAddressReadinessForDraft,
+          replaceRoute,
+        },
         nextSelectionRouteIndex: suggestion.nextSelectionRouteIndex,
         routeAddress: suggestion.routeAddress,
       });
     },
-    [sendEvent],
+    [readRouteAddressReadinessForDraft, replaceRoute, sendEvent],
   );
 
-  const routeAddress = state.kind === "blurred" ? state.path : state.latestPath;
-  const inputValue = `${state.prefix}${routeAddress.slice(1)}`;
-  const suggestions = readSuggestions({
-    prefix: state.prefix,
-    routeAddress,
-    routesByPath: router.routesByPath,
-    selection: state.kind === "focused" ? state.selection : null,
-    viewerIsAdmin: !!viewerIsAdmin,
-  });
-  const suggestionsVisible = state.kind === "focused";
-
-  return {
-    getSuggestionProps: (suggestion: Suggestion) => ({
+  const getSuggestionProps = useCallback(
+    (suggestion: Suggestion) => ({
       onMouseDown: (event: MouseEvent<HTMLElement>) => handleSuggestionMouseDown(event, suggestion),
     }),
-    inputProps: {
+    [handleSuggestionMouseDown],
+  );
+
+  const routeAddress = state.kind === "blurred" ? state.path : state.draftPath;
+  const inputValue = `${state.prefix}${routeAddress.slice(1)}`;
+  const suggestionSelection = state.kind === "focused" ? state.selection : null;
+  const suggestions = useMemo(
+    () =>
+      readSuggestions({
+        prefix: state.prefix,
+        routeAddress,
+        routesByPath: router.routesByPath,
+        selection: suggestionSelection,
+        viewerIsAdmin: viewerCanSeeAdminRoutes,
+      }),
+    [routeAddress, router.routesByPath, state.prefix, suggestionSelection, viewerCanSeeAdminRoutes],
+  );
+  const suggestionsVisible = state.kind === "focused";
+  const inputProps = useMemo(
+    () => ({
       "aria-controls": suggestionsVisible ? listboxId : undefined,
       "aria-expanded": suggestionsVisible,
       "aria-haspopup": "listbox" as const,
       autoComplete: "off",
       id: inputId,
       onChange: handleInputChange,
+      onClick: handleInputClick,
       onCut: handleInputCut,
       onFocus: handleInputFocus,
       onKeyDown: handleInputKeyDown,
@@ -537,16 +679,53 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       onSelect: handleInputSelect,
       ref: inputRef,
       value: inputValue,
-    },
-    listboxProps: {
+    }),
+    [
+      handleInputChange,
+      handleInputClick,
+      handleInputCut,
+      handleInputFocus,
+      handleInputKeyDown,
+      handleInputPaste,
+      handleInputSelect,
+      inputId,
+      inputValue,
+      listboxId,
+      suggestionsVisible,
+    ],
+  );
+  const listboxProps = useMemo(
+    () => ({
       id: listboxId,
-    },
-    rootProps: {
+    }),
+    [listboxId],
+  );
+  const rootProps = useMemo(
+    () => ({
       "data-state": state.kind,
       onBlur: handleRootBlur,
-    },
-    state,
-    suggestions,
-    suggestionsVisible,
-  };
+    }),
+    [handleRootBlur, state.kind],
+  );
+
+  return useMemo(
+    () => ({
+      getSuggestionProps,
+      inputProps,
+      listboxProps,
+      rootProps,
+      state,
+      suggestions,
+      suggestionsVisible,
+    }),
+    [
+      getSuggestionProps,
+      inputProps,
+      listboxProps,
+      rootProps,
+      state,
+      suggestions,
+      suggestionsVisible,
+    ],
+  );
 }

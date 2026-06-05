@@ -65,6 +65,9 @@ to omit incomplete search tokens.
 If the derived route is valid, same-origin, different from the current router href, and ready to
 load, the editor applies it immediately with router `replace`.
 
+While focused, the editor can have a local draft that differs from the last route it applied. Escape
+and blur show the last applied route, not the route from the moment focus started.
+
 Examples:
 
 - `/logo?dar` stays local because `dar` is only a partial known key.

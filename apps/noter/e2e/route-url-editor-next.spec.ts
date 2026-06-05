@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function openRouteUrlEditor(page: Page): Promise<Locator> {
-  await page.goto("/privacy", {
+async function openRouteUrlEditor(page: Page, route = "/privacy"): Promise<Locator> {
+  await page.goto(route, {
     waitUntil: "domcontentloaded",
   });
 
@@ -53,19 +53,41 @@ async function expectNoPageErrorDuring(page: Page, action: () => Promise<void>):
   expect(errors.map((error) => error.message)).toEqual([]);
 }
 
-async function focusRouteAddressInput(page: Page) {
-  const displayInput = await openRouteUrlEditor(page);
-  const prefix = await readRouteAddressPrefix(page);
-  const focusedInputValue = `${prefix}privacy?`;
-
-  await displayInput.evaluate((element) => {
+async function dispatchRouteAddressInputValue(input: Locator, value: string): Promise<void> {
+  await input.evaluate((element, nextValue) => {
     if (!(element instanceof HTMLInputElement)) {
-      throw new Error("Expected route URL editor display input.");
+      throw new Error("Expected route URL editor input.");
     }
 
-    element.blur();
-  });
-  await displayInput.focus();
+    const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    if (!valueDescriptor?.set) {
+      throw new Error("Expected native input value setter.");
+    }
+
+    valueDescriptor.set.call(element, nextValue);
+    element.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  }, value);
+}
+
+async function pushBrowserRoute(page: Page, route: string): Promise<void> {
+  await page.evaluate((nextRoute) => {
+    window.history.pushState(window.history.state, "", nextRoute);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+  }, route);
+}
+
+async function focusRouteAddressInput(page: Page, route = "/privacy") {
+  const displayInput = await openRouteUrlEditor(page, route);
+  const prefix = await readRouteAddressPrefix(page);
+  const initialRouteAddress = route.startsWith("/") ? route.slice(1) : route;
+  const focusedInputValue = `${prefix}${initialRouteAddress}${
+    initialRouteAddress === "" ? "" : initialRouteAddress.includes("?") ? "&" : "?"
+  }`;
+
+  await expect(displayInput).toHaveValue(`${prefix}${initialRouteAddress}`);
+  await page.getByRole("button", { name: "Toggle Left Sidebar" }).focus();
+  await expect(displayInput).not.toBeFocused();
+  await displayInput.click();
   const input = page.getByTestId("route-url-editor-input");
   await expect(input).toHaveValue(focusedInputValue);
 
@@ -119,6 +141,7 @@ test("route URL editor keeps focus and advances the cursor after selecting sugge
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${prefix}logo?`);
   await expectInputSelection(input, `${prefix}logo?`.length);
+  await expect(page).toHaveURL(/\/logo$/);
   await expect(page.getByRole("option", { exact: true, name: "?top=" })).toBeVisible();
 
   await page.getByRole("option", { exact: true, name: "?top=" }).click();
@@ -141,6 +164,87 @@ test("route URL editor keeps focus and advances the cursor after selecting sugge
   await expect(input).toHaveValue(`${prefix}logo?top=blue-200&`);
   await expectInputSelection(input, `${prefix}logo?top=blue-200&`.length);
   await expect(page.getByRole("option", { exact: true, name: "&secondary=" })).toBeVisible();
+});
+
+test("route URL editor applies route-ready typed drafts immediately", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page);
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}lo`));
+
+  await expect(input).toHaveValue(`${prefix}lo`);
+  await expect(page).toHaveURL(/\/privacy$/);
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
+
+  await expect(input).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo?dar`));
+
+  await expect(input).toHaveValue(`${prefix}logo?dar`);
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo?dark`));
+
+  await expect(input).toHaveValue(`${prefix}logo?dark`);
+  await expect(page).toHaveURL(/\/logo\?dark$/);
+});
+
+test("route URL editor keeps Escape aligned with the last auto-applied route", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page);
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await input.press("Escape");
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+});
+
+test("route URL editor clears retained search when replacing the whole route draft", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms?dev");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await input.press("Escape");
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+});
+
+test("route URL editor ignores malformed DOM input instead of throwing", async ({ page }) => {
+  const { focusedInputValue, input } = await focusRouteAddressInput(page);
+
+  await expectNoPageErrorDuring(page, () =>
+    dispatchRouteAddressInputValue(input, "not a valid absolute URL"),
+  );
+
+  await expect(input).toHaveValue(focusedInputValue);
+});
+
+test("route URL editor blurs and adopts an external route change while focused", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page);
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}lo`));
+  await expect(input).toHaveValue(`${prefix}lo`);
+  await expect(page).toHaveURL(/\/privacy$/);
+
+  await expectNoPageErrorDuring(page, () => pushBrowserRoute(page, "/terms"));
+
+  await expect(page).toHaveURL(/\/terms$/);
+  await expect(input).toBeHidden();
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}terms`);
+  await expect(displayInput).not.toBeFocused();
 });
 
 test("route URL editor clamps modifier Backspace to the route boundary", async ({ page }) => {
