@@ -4,7 +4,7 @@
 
 - Status: Implemented
 - Owner: Noter auth/frontend
-- Last updated: 2026-06-03
+- Last updated: 2026-06-06
 
 ## Summary
 
@@ -35,8 +35,10 @@ onto the default landing page.
 3. The signup-closed state must hide Google and password auth controls and keep only the minimal
    notice plus the waitlist form.
 4. Successful authentication must clear the signup-return flag so it does not survive into later
-   signed-out sessions. When that success lands on `/`, the app must do the cleanup while replacing
-   the public route with the canonical signed-in `/home` route.
+   signed-out sessions. When public Google sign-in completes on `/`, the app must use the
+   `auth-return=dashboard` marker to replace the public route with the canonical signed-in `/home`
+   route. Direct authenticated visits to `/` without that marker must continue rendering the public
+   landing route.
 5. The first version must not put the raw email address into the URL.
 
 ## Acceptance Criteria
@@ -46,7 +48,9 @@ onto the default landing page.
 - [x] The signup-closed state keeps the waitlist form available.
 - [x] The signup-closed state does not expose auth controls.
 - [x] Successful Google sign-in clears the signup-return marker.
-- [x] Successful authentication on `/` redirects to `/home` instead of leaving the signed-in user on
-      the public landing route.
+- [x] Successful public Google sign-in completion on `/` redirects to `/home` instead of leaving the
+      signed-in user on the post-auth return URL.
+- [x] Direct authenticated visits to `/` still render the public landing route when
+      `auth-return=dashboard` is absent.
 - [x] Iframe-based Google auth preserves the signup-return marker through the popup bootstrap flow.
 - [x] No raw Google email address is put into a URL query param.

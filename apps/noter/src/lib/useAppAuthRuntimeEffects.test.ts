@@ -175,13 +175,13 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it("moves authenticated root loads to the dashboard route", () => {
+  it("keeps authenticated root loads on the public landing route without the dashboard return marker", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     Object.defineProperty(globalThis, "window", {
       value: {
         location: {
           pathname: "/",
-          search: "?signup=google&sign-in&create-account",
+          search: "",
           hash: "",
         },
         history: {
@@ -191,37 +191,9 @@ describe("useAppAuthRuntimeEffects", () => {
       configurable: true,
     });
 
-    useAppAuthRuntimeEffects("/", {
-      "create-account": true,
-      signup: "google",
-      "sign-in": true,
-    });
+    useAppAuthRuntimeEffects("/", {});
 
-    expect(navigateMock).toHaveBeenCalledWith({
-      replace: true,
-      search: expect.any(Function),
-      state: true,
-      to: "/home",
-    });
-    const navigateOptions = navigateMock.mock.calls[0]?.[0];
-    if (!navigateOptions || typeof navigateOptions.search !== "function") {
-      throw new Error("Expected authenticated root navigation with search updater.");
-    }
-    expect(
-      navigateOptions.search({
-        "create-account": true,
-        "prod-ui": true,
-        signup: "google",
-        "sign-in": true,
-      }),
-    ).toEqual({
-      auth: undefined,
-      "auth-return": undefined,
-      "create-account": undefined,
-      "prod-ui": true,
-      signup: undefined,
-      "sign-in": undefined,
-    });
+    expect(navigateMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 

@@ -25,9 +25,9 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
       return;
     }
 
-    // `/` is the public landing route; authenticated sessions belong on the
-    // canonical dashboard route even if the one-shot return marker is absent.
-    if (isAuthenticated && (pathname === "/" || authReturn === "dashboard")) {
+    // Public-root sign-in writes this one-shot marker before the provider
+    // redirect. Authenticated users can still browse `/` when the marker is absent.
+    if (isAuthenticated && authReturn === "dashboard") {
       void router.navigate({
         replace: true,
         search: (currentSearch) => ({

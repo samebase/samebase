@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-06-03
+- Last updated: 2026-06-06
 - Related specs:
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
   - `specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
@@ -209,8 +209,10 @@ Implemented validation, 2026-03-19:
   - `SignInWithGoogle` now passes the current relative route as `redirectTo`
   - `useAutoSignIn()` now passes the current relative route as `redirectTo`
   - the helper strips `auth` from the return URL so future callback loops are avoided
-  - public-root sign-in marks dashboard return, and the authenticated root runtime guard still moves
-    `/` to `/home` if the one-shot return marker is absent
+  - public-root sign-in marks dashboard return, and the authenticated runtime guard moves the
+    completed return to `/home` when that one-shot marker is present
+  - authenticated users can still browse the public landing route when the one-shot dashboard return
+    marker is absent
   - popup launch and popup-close behavior are unchanged in this patch
 - Validation in this patch:
   - `pnpm exec vp test run apps/noter/src/SignInForm.test.tsx apps/noter/src/authClient.test.ts apps/noter/src/lib/useAppAuthRuntimeEffects.test.ts apps/noter/src/lib/tanstackSearchParams.test.ts`
