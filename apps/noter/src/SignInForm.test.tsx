@@ -6,19 +6,14 @@ import {
   stringifyTanStackSearch,
 } from "./lib/tanstackSearchParams";
 
-const {
-  buildLocationMock,
-  isInIframeMock,
-  openAuthPopupMock,
-  sessionStorageSetItemMock,
-  signInWithGoogleMock,
-} = vi.hoisted(() => ({
-  buildLocationMock: vi.fn(),
-  isInIframeMock: vi.fn(() => false),
-  openAuthPopupMock: vi.fn(),
-  sessionStorageSetItemMock: vi.fn(),
-  signInWithGoogleMock: vi.fn(),
-}));
+const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
+  () => ({
+    buildLocationMock: vi.fn(),
+    isInIframeMock: vi.fn(() => false),
+    openAuthPopupMock: vi.fn(),
+    signInWithGoogleMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/authClient", () => ({
   isInIframe: isInIframeMock,
@@ -43,7 +38,6 @@ describe("SignInWithGoogle", () => {
     buildLocationMock.mockReset();
     signInWithGoogleMock.mockReset();
     openAuthPopupMock.mockReset();
-    sessionStorageSetItemMock.mockReset();
     isInIframeMock.mockReset();
     isInIframeMock.mockReturnValue(false);
     Object.defineProperty(globalThis, "window", {
@@ -64,7 +58,10 @@ describe("SignInWithGoogle", () => {
           typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
           href: buildPathWithTanStackSearch({
-            pathname: options.to === "/" ? "/" : window.location.pathname,
+            pathname:
+              typeof options.to === "string" && options.to !== "."
+                ? options.to
+                : window.location.pathname,
             search: nextSearch,
             hash: options.hash === true ? window.location.hash : undefined,
           }),
@@ -163,9 +160,6 @@ describe("SignInWithGoogle", () => {
           search: "",
           hash: "",
         },
-        sessionStorage: {
-          setItem: sessionStorageSetItemMock,
-        },
       },
       configurable: true,
     });
@@ -176,9 +170,8 @@ describe("SignInWithGoogle", () => {
       markPublicSignupReturn: true,
     });
     const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/",
+      pathname: "/home",
       search: {
-        "auth-return": "dashboard",
         signup: "google",
       },
     });
@@ -186,10 +179,6 @@ describe("SignInWithGoogle", () => {
     element.props.onClick();
 
     expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
-    expect(sessionStorageSetItemMock).toHaveBeenCalledWith(
-      "noter_public_dashboard_auth_return",
-      expect.stringMatching(/^top-level:\d+$/),
-    );
   });
 
   it("propagates the public signup marker through iframe Google auth", () => {
@@ -201,9 +190,6 @@ describe("SignInWithGoogle", () => {
           pathname: "/",
           search: "",
           hash: "",
-        },
-        sessionStorage: {
-          setItem: sessionStorageSetItemMock,
         },
       },
       configurable: true,
@@ -220,10 +206,6 @@ describe("SignInWithGoogle", () => {
     expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
       popupPath: "/?auth=google&auth-return=dashboard&signup=google",
     });
-    expect(sessionStorageSetItemMock).toHaveBeenCalledWith(
-      "noter_public_dashboard_auth_return",
-      expect.stringMatching(/^popup:\d+$/),
-    );
     expect(signInWithGoogleMock).not.toHaveBeenCalled();
   });
 

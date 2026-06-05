@@ -1,7 +1,7 @@
 import { isInIframe, openAuthPopup, useNoterSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID } from "@/lib/publicLanding";
-import { markPublicDashboardAuthReturnStarted } from "@/lib/publicDashboardAuthReturn";
 import { Chrome } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 import { buildGoogleAuthPopupSearch, buildGoogleRedirectSearch } from "./lib/googleAuthRedirect";
@@ -21,9 +21,9 @@ export function SignInWithGoogle({
     router.buildLocation({
       hash: true,
       search: (currentSearch) =>
-        buildGoogleRedirectSearch(currentSearch, { authReturn, markPublicSignupReturn }),
+        buildGoogleRedirectSearch(currentSearch, { markPublicSignupReturn }),
       state: true,
-      to: ".",
+      to: authReturn === "dashboard" ? DASHBOARD_ROUTE : ".",
     }).href;
   const buildGooglePopupPath = () =>
     router.buildLocation({
@@ -54,14 +54,8 @@ export function SignInWithGoogle({
       type="button"
       onClick={() => {
         if (isInIframe()) {
-          if (authReturn === "dashboard") {
-            markPublicDashboardAuthReturnStarted("popup");
-          }
           openAuthPopup("google", { popupPath: buildGooglePopupPath() });
         } else {
-          if (authReturn === "dashboard") {
-            markPublicDashboardAuthReturnStarted("top-level");
-          }
           void signInWithGoogle(buildCurrentGoogleRedirectTo());
         }
       }}

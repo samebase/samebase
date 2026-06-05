@@ -46,6 +46,8 @@ function usePublicLandingPasswordAuthControls(): {
   passwordAuthSurface: PasswordAuthSurface;
 } {
   const navigate = useNavigate();
+  const { isAuthenticated } = useConvexAuth();
+  const [passwordSignInReadyForDashboard, setPasswordSignInReadyForDashboard] = useState(false);
   const searchStr = useLocation({
     select: (location) => location.searchStr,
   });
@@ -80,6 +82,17 @@ function usePublicLandingPasswordAuthControls(): {
   }, [deploymentAuthPolicy?.passwordAuthMode]);
 
   useEffect(() => {
+    if (!passwordSignInReadyForDashboard || !isAuthenticated) {
+      return;
+    }
+
+    void navigate({
+      search: (currentSearch) => currentSearch,
+      to: DASHBOARD_ROUTE,
+    });
+  }, [isAuthenticated, navigate, passwordSignInReadyForDashboard]);
+
+  useEffect(() => {
     // Router search state intentionally drives this effect even though the URL
     // helpers read window.location.search while deciding whether to strip it.
     if (
@@ -102,10 +115,7 @@ function usePublicLandingPasswordAuthControls(): {
 
   return {
     onPasswordSignIn: () => {
-      return navigate({
-        search: (currentSearch) => currentSearch,
-        to: DASHBOARD_ROUTE,
-      });
+      setPasswordSignInReadyForDashboard(true);
     },
     passwordAuthSurface,
   };

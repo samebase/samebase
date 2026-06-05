@@ -1,4 +1,5 @@
 import { setAuthFlag } from "@/authClient";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 
@@ -36,9 +37,20 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
         parentLocalStorage.setItem(key, value);
       }
 
-      window.opener.location.reload();
+      if (pathname === DASHBOARD_ROUTE) {
+        window.opener.location.href = DASHBOARD_ROUTE;
+      } else {
+        window.opener.location.reload();
+      }
     } catch {
-      window.opener.postMessage({ type: "convex-auth-tokens", tokens: authTokens }, "*");
+      window.opener.postMessage(
+        {
+          redirectTo: pathname === DASHBOARD_ROUTE ? DASHBOARD_ROUTE : undefined,
+          type: "convex-auth-tokens",
+          tokens: authTokens,
+        },
+        "*",
+      );
     }
 
     window.close();

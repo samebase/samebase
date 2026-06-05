@@ -1,8 +1,8 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
-import { markPublicDashboardAuthReturnStarted } from "@/lib/publicDashboardAuthReturn";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
@@ -24,6 +24,7 @@ type PasswordSignInArgs = {
 };
 
 type AuthPopupMessage = {
+  redirectTo?: unknown;
   type?: unknown;
   tokens?: unknown;
 };
@@ -38,6 +39,10 @@ function isStringRecord(value: unknown): value is Record<string, string> {
     }
   }
   return true;
+}
+
+function isAuthPopupRedirectTo(value: unknown): value is typeof DASHBOARD_ROUTE {
+  return value === DASHBOARD_ROUTE;
 }
 
 export function clearAuthFlag() {
@@ -185,6 +190,10 @@ export function openAuthPopup(
     for (const [key, value] of Object.entries(messageData.tokens)) {
       localStorage.setItem(key, value);
     }
+    if (isAuthPopupRedirectTo(messageData.redirectTo)) {
+      window.location.href = messageData.redirectTo;
+      return;
+    }
     window.location.reload();
   };
   window.addEventListener("message", handler);
@@ -223,18 +232,14 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
   const signupReturn = rootRouteSearch.signup;
   useEffect(() => {
     if (authProvider === "google") {
-      if (authReturn === "dashboard" && !window.opener) {
-        markPublicDashboardAuthReturnStarted("top-level");
-      }
       const redirectTo = router.buildLocation({
         hash: true,
         search: (currentSearch) =>
           buildGoogleRedirectSearch(currentSearch, {
-            authReturn,
             markPublicSignupReturn: signupReturn === "google",
           }),
         state: true,
-        to: ".",
+        to: authReturn === "dashboard" ? DASHBOARD_ROUTE : ".",
       }).href;
       // Preserve TanStack Router history metadata while stripping auth params
       // from the popup/bootstrap URL before the provider redirect begins.

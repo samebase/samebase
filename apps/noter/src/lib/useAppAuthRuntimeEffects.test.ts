@@ -47,7 +47,6 @@ vi.mock("convex/react", () => ({
 }));
 
 import { useAppAuthRuntimeEffects } from "./useAppAuthRuntimeEffects";
-import { markPublicDashboardAuthReturnStarted } from "./publicDashboardAuthReturn";
 
 describe("useAppAuthRuntimeEffects", () => {
   const originalWindow = globalThis.window;
@@ -83,19 +82,6 @@ describe("useAppAuthRuntimeEffects", () => {
         };
       },
     );
-  }
-
-  function createMemorySessionStorage(initial: Record<string, string> = {}) {
-    const entries = new Map(Object.entries(initial));
-    return {
-      getItem: vi.fn((key: string) => entries.get(key) ?? null),
-      removeItem: vi.fn((key: string) => {
-        entries.delete(key);
-      }),
-      setItem: vi.fn((key: string, value: string) => {
-        entries.set(key, value);
-      }),
-    };
   }
 
   it("clears the Google signup marker after successful authentication away from root", () => {
@@ -189,6 +175,53 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
+  it("preserves failed public Google signup returns when redirecting signed-out dashboard loads", () => {
+    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/home",
+          search: "?signup=google",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+      },
+      configurable: true,
+    });
+
+    useAppAuthRuntimeEffects("/home", {
+      signup: "google",
+    });
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      replace: true,
+      search: expect.any(Function),
+      state: true,
+      to: "/",
+    });
+    const navigateOptions = navigateMock.mock.calls[0]?.[0];
+    if (!navigateOptions || typeof navigateOptions.search !== "function") {
+      throw new Error("Expected failed signup redirect with search updater.");
+    }
+    expect(
+      navigateOptions.search({
+        "auth-return": "dashboard",
+        "prod-ui": true,
+        signup: "google",
+      }),
+    ).toEqual({
+      auth: undefined,
+      "auth-return": undefined,
+      "create-account": undefined,
+      "prod-ui": true,
+      signup: "google",
+      "sign-in": undefined,
+    });
+    expect(replaceStateMock).not.toHaveBeenCalled();
+  });
+
   it("keeps authenticated root loads on the public landing route without the dashboard return marker", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     Object.defineProperty(globalThis, "window", {
@@ -211,7 +244,7 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it("does not redirect authenticated root loads from the dashboard return URL without a started signin marker", () => {
+  it("does not redirect authenticated root loads from the old dashboard return URL", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     Object.defineProperty(globalThis, "window", {
       value: {
@@ -226,32 +259,6 @@ describe("useAppAuthRuntimeEffects", () => {
       },
       configurable: true,
     });
-
-    useAppAuthRuntimeEffects("/", {
-      "auth-return": "dashboard",
-    });
-
-    expect(navigateMock).not.toHaveBeenCalled();
-    expect(replaceStateMock).not.toHaveBeenCalled();
-  });
-
-  it("does not redirect authenticated root loads from an expired started signin marker", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: "?auth-return=dashboard",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
-        sessionStorage: createMemorySessionStorage(),
-      },
-      configurable: true,
-    });
-    markPublicDashboardAuthReturnStarted("top-level", 0);
 
     useAppAuthRuntimeEffects("/", {
       "auth-return": "dashboard",
@@ -283,84 +290,33 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it("moves successful public auth handoff to the dashboard route", () => {
+  it("clears the Google signup marker after successful authentication on the dashboard route", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     Object.defineProperty(globalThis, "window", {
       value: {
         location: {
-          pathname: "/",
-          search: "?auth-return=dashboard&signup=google",
+          pathname: "/home",
+          search: "?signup=google",
           hash: "",
         },
         history: {
+          state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
           replaceState: replaceStateMock,
         },
-        sessionStorage: createMemorySessionStorage(),
       },
       configurable: true,
     });
-    markPublicDashboardAuthReturnStarted("top-level");
+    mockCurrentRouteLocationBuilder();
 
-    useAppAuthRuntimeEffects("/", {
-      "auth-return": "dashboard",
+    useAppAuthRuntimeEffects("/home", {
       signup: "google",
     });
 
-    expect(navigateMock).toHaveBeenCalledWith({
-      replace: true,
-      search: expect.any(Function),
-      state: true,
-      to: "/home",
-    });
-    const navigateOptions = navigateMock.mock.calls[0]?.[0];
-    if (!navigateOptions || typeof navigateOptions.search !== "function") {
-      throw new Error("Expected dashboard navigation with search updater.");
-    }
-    expect(
-      navigateOptions.search({
-        "auth-return": "dashboard",
-        "create-account": true,
-        "prod-ui": true,
-        signup: "google",
-        "sign-in": true,
-      }),
-    ).toEqual({
-      auth: undefined,
-      "auth-return": undefined,
-      "create-account": undefined,
-      "prod-ui": true,
-      signup: undefined,
-      "sign-in": undefined,
-    });
-    expect(replaceStateMock).not.toHaveBeenCalled();
-  });
-
-  it("moves successful iframe popup auth completion on root to the dashboard route", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: "",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
-        sessionStorage: createMemorySessionStorage(),
-      },
-      configurable: true,
-    });
-    markPublicDashboardAuthReturnStarted("popup");
-
-    useAppAuthRuntimeEffects("/", {});
-
-    expect(navigateMock).toHaveBeenCalledWith({
-      replace: true,
-      search: expect.any(Function),
-      state: true,
-      to: "/home",
-    });
-    expect(replaceStateMock).not.toHaveBeenCalled();
+    expect(replaceStateMock).toHaveBeenCalledWith(
+      { __TSR_index: 9, __TSR_key: "dashboard-return" },
+      "",
+      "/home",
+    );
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

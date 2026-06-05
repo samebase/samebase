@@ -11,7 +11,6 @@ const {
   localStorageSetItemMock,
   replaceStateMock,
   resetMock,
-  sessionStorageSetItemMock,
   signInMock,
   signOutMock,
 } = vi.hoisted(() => ({
@@ -20,7 +19,6 @@ const {
   localStorageSetItemMock: vi.fn(),
   replaceStateMock: vi.fn(),
   resetMock: vi.fn(),
-  sessionStorageSetItemMock: vi.fn(),
   signInMock: vi.fn(),
   signOutMock: vi.fn(),
 }));
@@ -62,7 +60,6 @@ describe("useAutoSignIn", () => {
     replaceStateMock.mockReset();
     localStorageRemoveItemMock.mockReset();
     localStorageSetItemMock.mockReset();
-    sessionStorageSetItemMock.mockReset();
     Object.defineProperty(globalThis, "window", {
       value: originalWindow,
       configurable: true,
@@ -78,13 +75,17 @@ describe("useAutoSignIn", () => {
       (options: {
         hash?: true;
         search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
+        to?: string;
       }) => {
         const currentSearch = parseTanStackSearch(window.location.search);
         const nextSearch =
           typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
           href: buildPathWithTanStackSearch({
-            pathname: window.location.pathname,
+            pathname:
+              typeof options.to === "string" && options.to !== "."
+                ? options.to
+                : window.location.pathname,
             search: nextSearch,
             hash: options.hash === true ? window.location.hash : undefined,
           }),
@@ -199,9 +200,8 @@ describe("useAutoSignIn", () => {
       signup: "google",
     });
     const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/",
+      pathname: "/home",
       search: {
-        "auth-return": "dashboard",
         signup: "google",
       },
     });
@@ -216,9 +216,6 @@ describe("useAutoSignIn", () => {
         history: {
           state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
           replaceState: replaceStateMock,
-        },
-        sessionStorage: {
-          setItem: sessionStorageSetItemMock,
         },
       },
       configurable: true,
@@ -247,10 +244,6 @@ describe("useAutoSignIn", () => {
     expect(signInMock).toHaveBeenCalledWith("google", {
       redirectTo: expectedRedirectTo,
     });
-    expect(sessionStorageSetItemMock).toHaveBeenCalledWith(
-      "noter_public_dashboard_auth_return",
-      expect.stringMatching(/^top-level:\d+$/),
-    );
   });
 
   it("does nothing when the routed auth search is absent", () => {
