@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-06-03
+- Last updated: 2026-06-06
 - Related specs:
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
   - `specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
@@ -50,9 +50,9 @@ consent screen uses the standard Google sign-in flow, and that flow currently de
 1. `GET /oauth/mcp/authorize` runs on the request origin and creates an `mcpAuthRequests` row.
 2. If the user must log in or approve access, `buildMcpConsentRedirectUrl()` redirects to
    `SITE_URL + /oauth/mcp/consent?...`.
-3. `apps/noter/src/App.tsx` renders the consent page when `pathname === "/oauth/mcp/consent"` and
-   reads `mcp_consent_request` from the query string.
-4. If the user is unauthenticated, `App.tsx` renders `SignInForm`.
+3. `apps/noter/src/routes/mcp-consent.tsx` renders the consent page and reads `mcp_consent_request`
+   from the query string.
+4. If the user is unauthenticated, the authenticated route wrapper renders `SignInForm`.
 
 ### Pre-fix sign-in behavior that dropped consent state
 
@@ -209,8 +209,13 @@ Implemented validation, 2026-03-19:
   - `SignInWithGoogle` now passes the current relative route as `redirectTo`
   - `useAutoSignIn()` now passes the current relative route as `redirectTo`
   - the helper strips `auth` from the return URL so future callback loops are avoided
-  - public-root sign-in marks dashboard return, and the authenticated root runtime guard still moves
-    `/` to `/home` if the one-shot return marker is absent
-  - popup launch and popup-close behavior are unchanged in this patch
+  - public-root sign-in now uses `/home` as the provider return route instead of returning to `/`
+    and relying on an authenticated-root redirect effect
+  - failed unauthenticated public signup returns preserve `signup=google` by bouncing
+    `/home?signup=google` back to `/?signup=google`
+  - authenticated users can still browse the public landing route because authenticated `/` renders
+    are not redirected
+  - popup launch still starts from `/`, and successful popup completion moves the opener to `/home`
+    when the popup authenticated on the dashboard route
 - Validation in this patch:
   - `pnpm exec vp test run apps/noter/src/SignInForm.test.tsx apps/noter/src/authClient.test.ts apps/noter/src/lib/useAppAuthRuntimeEffects.test.ts apps/noter/src/lib/tanstackSearchParams.test.ts`

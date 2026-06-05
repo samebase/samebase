@@ -204,4 +204,76 @@ describe("PasswordAuthForm", () => {
     });
     expect(onSignIn).toHaveBeenCalledTimes(1);
   });
+
+  it("navigates to the dashboard after password sign-in once auth state is authenticated", async () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "preview" },
+      passwordAuthMode: "local_worktree_seed",
+    };
+    signInWithPasswordMock.mockResolvedValue(undefined);
+    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@noter.md");
+    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_VALUE", "pass1234");
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingPasswordAuthControls />);
+    });
+
+    const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent === "Autofill & sign in",
+    );
+    if (!(autofillButton instanceof HTMLButtonElement)) {
+      throw new Error("Password auth autofill button not found.");
+    }
+
+    await act(async () => {
+      autofillButton.click();
+    });
+
+    expect(signInWithPasswordMock).toHaveBeenCalledWith({
+      email: "nicu@noter.md",
+      flow: "signIn",
+      password: "pass1234",
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    componentState.isAuthenticated = true;
+    await act(async () => {
+      localRoot.render(<PublicLandingPasswordAuthControls />);
+    });
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      search: expect.any(Function),
+      to: "/home",
+    });
+    const navigateOptions = navigateMock.mock.calls[0]?.[0];
+    if (
+      typeof navigateOptions !== "object" ||
+      navigateOptions === null ||
+      !("search" in navigateOptions) ||
+      typeof navigateOptions.search !== "function"
+    ) {
+      throw new Error("Expected dashboard navigation to include a search updater.");
+    }
+    expect(
+      navigateOptions.search({
+        auth: "google",
+        "auth-return": "dashboard",
+        "create-account": true,
+        "prod-ui": true,
+        signup: "google",
+        "sign-in": true,
+      }),
+    ).toEqual({
+      auth: undefined,
+      "auth-return": undefined,
+      "create-account": undefined,
+      "prod-ui": true,
+      signup: undefined,
+      "sign-in": undefined,
+    });
+  });
 });

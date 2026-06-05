@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-06-03
+- Last updated: 2026-06-06
 - Supersedes:
   - framework-readiness direction in
     `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
@@ -64,12 +64,14 @@ problems, attempted fixes, and outcomes.
   (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex research paths) plus the non-root
   authenticated app routes (MCP consent, pricing, add-repository, machines, machine connect,
   codespace chat, and the vault/file surfaces), plus the explicit root routes for `/` and `/test`.
-- `apps/noter/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and
-  `apps/noter/src/lib/useAppAuthRuntimeEffects.ts` moves authenticated `/` sessions to `/home` after
-  Convex auth state resolves. Unresolved paths now go through a deliberate root-level not-found
-  route instead of a leftover `App.tsx` bridge.
-- The fast public landing shell still exists, but it now lives inside routed React runtime code
-  (`FastPublicLandingShell`) instead of a separate `bootstrap.ts` HTML path.
+- `apps/noter/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
+  Google sign-in entrypoints now pass `/home` as the provider return route when the user starts
+  sign-in from `/`. Authenticated users can still browse the public landing route because
+  `apps/noter/src/lib/useAppAuthRuntimeEffects.ts` no longer redirects authenticated `/` renders.
+  Unresolved paths now go through a deliberate root-level not-found route instead of a leftover
+  `App.tsx` bridge.
+- The fast public landing behavior now lives inside routed public landing components instead of a
+  separate `bootstrap.ts` HTML path.
 - The repo-owned router seam in `apps/noter/src/lib/router.ts` is still a temporary compatibility
   layer for `Link`, `useLocation`, `useSearchParams`, `useNavigate`, and `MemoryRouter`, so route
   ownership is only partially moved out of the React Router-era API shape.

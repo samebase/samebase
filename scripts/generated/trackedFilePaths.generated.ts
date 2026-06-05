@@ -1047,6 +1047,7 @@ export const trackedFilePaths = [
   "apps/noter/src/lib/useAnimationFrameLoop.ts",
   "apps/noter/src/lib/useAppAuthRuntimeEffects.test.ts",
   "apps/noter/src/lib/useAppAuthRuntimeEffects.ts",
+  "apps/noter/src/lib/useCloseOAuthPopup.test.ts",
   "apps/noter/src/lib/useCloseOAuthPopup.ts",
   "apps/noter/src/lib/usePacedCommittedState.test.tsx",
   "apps/noter/src/lib/usePacedCommittedState.ts",

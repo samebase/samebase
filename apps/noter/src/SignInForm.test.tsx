@@ -58,7 +58,10 @@ describe("SignInWithGoogle", () => {
           typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
           href: buildPathWithTanStackSearch({
-            pathname: options.to === "/" ? "/" : window.location.pathname,
+            pathname:
+              typeof options.to === "string" && options.to !== "."
+                ? options.to
+                : window.location.pathname,
             search: nextSearch,
             hash: options.hash === true ? window.location.hash : undefined,
           }),
@@ -167,9 +170,8 @@ describe("SignInWithGoogle", () => {
       markPublicSignupReturn: true,
     });
     const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/",
+      pathname: "/home",
       search: {
-        "auth-return": "dashboard",
         signup: "google",
       },
     });

@@ -46,7 +46,12 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-import { signInWithPasswordAction, signOutWithAnalytics, useAutoSignIn } from "./authClient";
+import {
+  openAuthPopup,
+  signInWithPasswordAction,
+  signOutWithAnalytics,
+  useAutoSignIn,
+} from "./authClient";
 
 describe("useAutoSignIn", () => {
   const originalWindow = globalThis.window;
@@ -75,13 +80,17 @@ describe("useAutoSignIn", () => {
       (options: {
         hash?: true;
         search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
+        to?: string;
       }) => {
         const currentSearch = parseTanStackSearch(window.location.search);
         const nextSearch =
           typeof options.search === "function" ? options.search(currentSearch) : currentSearch;
         return {
           href: buildPathWithTanStackSearch({
-            pathname: window.location.pathname,
+            pathname:
+              typeof options.to === "string" && options.to !== "."
+                ? options.to
+                : window.location.pathname,
             search: nextSearch,
             hash: options.hash === true ? window.location.hash : undefined,
           }),
@@ -121,6 +130,7 @@ describe("useAutoSignIn", () => {
 
     Object.defineProperty(globalThis, "localStorage", {
       value: {
+        getItem: vi.fn(() => null),
         removeItem: localStorageRemoveItemMock,
         setItem: localStorageSetItemMock,
       },
@@ -170,6 +180,7 @@ describe("useAutoSignIn", () => {
 
     Object.defineProperty(globalThis, "localStorage", {
       value: {
+        getItem: vi.fn(() => null),
         removeItem: localStorageRemoveItemMock,
         setItem: localStorageSetItemMock,
       },
@@ -196,9 +207,8 @@ describe("useAutoSignIn", () => {
       signup: "google",
     });
     const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/",
+      pathname: "/home",
       search: {
-        "auth-return": "dashboard",
         signup: "google",
       },
     });
@@ -220,6 +230,7 @@ describe("useAutoSignIn", () => {
 
     Object.defineProperty(globalThis, "localStorage", {
       value: {
+        getItem: vi.fn(() => null),
         removeItem: localStorageRemoveItemMock,
         setItem: localStorageSetItemMock,
       },
@@ -260,6 +271,7 @@ describe("useAutoSignIn", () => {
 
     Object.defineProperty(globalThis, "localStorage", {
       value: {
+        getItem: vi.fn(() => null),
         removeItem: localStorageRemoveItemMock,
         setItem: localStorageSetItemMock,
       },
@@ -325,5 +337,222 @@ describe("useAutoSignIn", () => {
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
     expect(resetMock).toHaveBeenCalledTimes(1);
     expect(signOutMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("redirects the opener when popup token fallback carries a dashboard redirect", () => {
+    let messageHandler: ((event: MessageEvent) => void) | undefined;
+    const locationReloadMock = vi.fn();
+    const locationState = {
+      href: "https://noter.md/",
+      origin: "https://noter.md",
+      reload: locationReloadMock,
+    };
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
+          if (eventName === "message") {
+            messageHandler = handler;
+          }
+        }),
+        clearInterval: vi.fn(),
+        clearTimeout: vi.fn(),
+        location: locationState,
+        open: vi.fn(() => originalWindow),
+        removeEventListener: vi.fn(),
+        setInterval: vi.fn(() => 1),
+        setTimeout: vi.fn(() => 2),
+      },
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        getItem: vi.fn(() => null),
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    openAuthPopup("google", { popupPath: "/?auth=google" });
+    if (!messageHandler) {
+      throw new Error("Expected popup message handler to be registered.");
+    }
+    messageHandler(
+      new MessageEvent("message", {
+        data: {
+          redirectTo: "/home?prod-ui",
+          tokens: {
+            __convexAuthAccessToken: "token",
+          },
+          type: "convex-auth-tokens",
+        },
+        origin: "https://noter.md",
+        source: originalWindow,
+      }),
+    );
+
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
+    expect(locationState.href).toBe("/home?prod-ui");
+    expect(locationReloadMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects untrusted popup redirect values after storing fallback auth tokens", () => {
+    let messageHandler: ((event: MessageEvent) => void) | undefined;
+    const locationReloadMock = vi.fn();
+    const locationState = {
+      href: "https://noter.md/",
+      origin: "https://noter.md",
+      reload: locationReloadMock,
+    };
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
+          if (eventName === "message") {
+            messageHandler = handler;
+          }
+        }),
+        clearInterval: vi.fn(),
+        clearTimeout: vi.fn(),
+        location: locationState,
+        open: vi.fn(() => originalWindow),
+        removeEventListener: vi.fn(),
+        setInterval: vi.fn(() => 1),
+        setTimeout: vi.fn(() => 2),
+      },
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        getItem: vi.fn(() => null),
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    openAuthPopup("google", { popupPath: "/?auth=google" });
+    if (!messageHandler) {
+      throw new Error("Expected popup message handler to be registered.");
+    }
+    messageHandler(
+      new MessageEvent("message", {
+        data: {
+          redirectTo: "https://evil.test/home",
+          tokens: {
+            __convexAuthAccessToken: "token",
+          },
+          type: "convex-auth-tokens",
+        },
+        origin: "https://noter.md",
+        source: originalWindow,
+      }),
+    );
+
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
+    expect(locationState.href).toBe("https://noter.md/");
+    expect(locationReloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reload or redirect when popup fallback token storage fails", () => {
+    let messageHandler: ((event: MessageEvent) => void) | undefined;
+    const locationReloadMock = vi.fn();
+    const locationState = {
+      href: "https://noter.md/",
+      origin: "https://noter.md",
+      reload: locationReloadMock,
+    };
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
+          if (eventName === "message") {
+            messageHandler = handler;
+          }
+        }),
+        clearInterval: vi.fn(),
+        clearTimeout: vi.fn(),
+        location: locationState,
+        open: vi.fn(() => originalWindow),
+        removeEventListener: vi.fn(),
+        setInterval: vi.fn(() => 1),
+        setTimeout: vi.fn(() => 2),
+      },
+      configurable: true,
+    });
+    localStorageSetItemMock.mockImplementation((key: string) => {
+      if (key === "__convexAuthAccessToken") {
+        throw new Error("storage denied");
+      }
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        getItem: vi.fn(() => null),
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    openAuthPopup("google", { popupPath: "/?auth=google" });
+    if (!messageHandler) {
+      throw new Error("Expected popup message handler to be registered.");
+    }
+    messageHandler(
+      new MessageEvent("message", {
+        data: {
+          redirectTo: "/home?prod-ui",
+          tokens: {
+            __convexAuthRefreshToken: "refresh",
+            __convexAuthAccessToken: "token",
+          },
+          type: "convex-auth-tokens",
+        },
+        origin: "https://noter.md",
+        source: originalWindow,
+      }),
+    );
+
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthRefreshToken", "refresh");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthRefreshToken");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthAccessToken");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
+    expect(locationState.href).toBe("https://noter.md/");
+    expect(locationReloadMock).not.toHaveBeenCalled();
+  });
+
+  it("clears the pending provider marker when the popup is blocked", () => {
+    const locationReloadMock = vi.fn();
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        addEventListener: vi.fn(),
+        clearInterval: vi.fn(),
+        clearTimeout: vi.fn(),
+        location: {
+          href: "https://noter.md/",
+          origin: "https://noter.md",
+          reload: locationReloadMock,
+        },
+        open: vi.fn(() => null),
+        removeEventListener: vi.fn(),
+        setInterval: vi.fn(() => 1),
+        setTimeout: vi.fn(() => 2),
+      },
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      value: {
+        removeItem: localStorageRemoveItemMock,
+        setItem: localStorageSetItemMock,
+      },
+      configurable: true,
+    });
+
+    openAuthPopup("google", { popupPath: "/?auth=google" });
+
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
+    expect(locationReloadMock).not.toHaveBeenCalled();
   });
 });
