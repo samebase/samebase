@@ -165,7 +165,7 @@ export type RouteAddressReadiness =
 Classifies a route-address draft relative to the route the state machine is editing from.
 
 `currentRouteAddress` should be `expectedRouteAddress` from `RouteEditorState`, not blindly
-`window.location`. During `hoveredSuggestion`, `committedRouteAddress` can already be
+`window.location`. During `previewedSuggestion`, `committedRouteAddress` can already be
 `hoverPath.expectedRouteAddress` while the next suggestion still belongs to `draftPath`.
 
 Example: `/logo?dar` is local on `/logo` because `dar` is a partial known key.
@@ -290,6 +290,18 @@ function applyPathSuggestion(routeAddress: string, suggestionPath: string): stri
   }
 
   return `${suggestionPath}${routeAddress.slice(parsedRouteAddress.search.start)}`;
+}
+
+/**
+Current implementation: path dropdown rows only show concrete URL paths.
+
+Router template paths like `/vault/$` are registry syntax, not something the
+user should select into the URL editor. Keep this filter at the dropdown-row
+boundary: `readRouteAddressReadiness` still needs template paths to decide
+whether a user-typed concrete path has enough segments to load.
+*/
+function canShowPathSuggestionRow(routePath: string): boolean {
+  return !routePath.includes("$");
 }
 
 type TailwindColorValueCursor =
@@ -578,16 +590,18 @@ function readPathRows(args: {
       draftHref: args.routeAddress,
       origin,
     }),
-  ).map((suggestionRouteAddress) => {
-    const routeAddress = applyPathSuggestion(args.routeAddress, suggestionRouteAddress);
+  )
+    .filter(canShowPathSuggestionRow)
+    .map((suggestionRouteAddress) => {
+      const routeAddress = applyPathSuggestion(args.routeAddress, suggestionRouteAddress);
 
-    return {
-      kind: "path",
-      nextSelectionRouteIndex: routeAddress.length,
-      routeAddress,
-      value: suggestionRouteAddress,
-    };
-  });
+      return {
+        kind: "path",
+        nextSelectionRouteIndex: routeAddress.length,
+        routeAddress,
+        value: suggestionRouteAddress,
+      };
+    });
 }
 
 /**

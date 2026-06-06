@@ -321,6 +321,17 @@ describe("readSuggestions", () => {
     });
   });
 
+  it("hides router template paths from clickable path rows", () => {
+    const values = readValues({
+      routeAddress: "/vault?",
+      routeTextBeforeCursor: "/v",
+    });
+
+    expect(Object.keys(routesByPath)).toContain("/vault/$");
+    expect(values).not.toContain("/vault/$");
+    expect(values.some((value) => value.includes("$"))).toBe(false);
+  });
+
   it("shows query key suggestions when the cursor is after the query marker", () => {
     const values = readValues({
       routeAddress: "/logo?",

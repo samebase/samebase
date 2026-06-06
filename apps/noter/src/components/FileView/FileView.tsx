@@ -140,10 +140,15 @@ function FileViewWrapper() {
   // Get vault for this repository
   // TODO: Keep vault existence checks on live query until useCacheQuery exposes
   // freshness metadata (cached null can trigger a false redirect to dashboard).
-  const vault = useLiveQuery(api.vault.records.getVaultByRepository, {
-    repositoryFullName: repositoryFullName ?? "skip",
-    branch: routeBranch,
-  });
+  const vault = useLiveQuery(
+    api.vault.records.getVaultByRepository,
+    repositoryFullName
+      ? {
+          repositoryFullName,
+          branch: routeBranch,
+        }
+      : "skip",
+  );
   const githubConnection = useLiveQuery(api.users.getGithubConnectionStatus);
   const isGithubConnectionResolved = githubConnection !== undefined;
   const branch = routeBranch ?? vault?.resolvedBranch;

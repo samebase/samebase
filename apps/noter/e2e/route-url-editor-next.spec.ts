@@ -106,6 +106,36 @@ async function expectTermsPage(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "Terms of Service" })).toBeVisible();
 }
 
+async function pressArrowDownToSuggestion(
+  page: Page,
+  input: Locator,
+  suggestionValue: string,
+): Promise<Locator> {
+  const suggestions = page.getByTestId("route-url-editor-suggestion");
+  await expect(page.getByRole("option", { exact: true, name: suggestionValue })).toBeVisible();
+
+  const suggestionValues = (await suggestions.allTextContents()).map((value) => value.trim());
+  const suggestionIndex = suggestionValues.indexOf(suggestionValue);
+
+  expect(suggestionIndex).toBeGreaterThanOrEqual(0);
+
+  for (let step = 0; step <= suggestionIndex; step += 1) {
+    await input.press("ArrowDown");
+  }
+
+  const suggestion = suggestions.nth(suggestionIndex);
+  await expect(suggestion).toHaveAttribute("aria-selected", "true");
+
+  const suggestionId = await suggestion.getAttribute("id");
+  if (!suggestionId) {
+    throw new Error("Expected active route URL editor suggestion id.");
+  }
+
+  await expect(input).toHaveAttribute("aria-activedescendant", suggestionId);
+
+  return suggestion;
+}
+
 test("route URL editor keeps the prefix visible when Backspace deletes a selection that crosses it", async ({
   page,
 }) => {
@@ -205,6 +235,46 @@ test("route URL editor applies hover path suggestions and restores on mouseleave
 
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expectPrivacyPage(page);
+});
+
+test("route URL editor previews path suggestions from keyboard and restores on Escape", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}terms?top=red-`));
+  await expect(page).toHaveURL(/\/terms$/);
+
+  await input.press("ControlOrMeta+ArrowLeft");
+  await pressArrowDownToSuggestion(page, input, "/privacy");
+
+  await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expectPrivacyPage(page);
+
+  await input.press("Escape");
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expectTermsPage(page);
+});
+
+test("route URL editor commits active keyboard suggestions with Enter", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}terms?top=red-`));
+  await expect(page).toHaveURL(/\/terms$/);
+
+  await input.press("ControlOrMeta+ArrowLeft");
+  await pressArrowDownToSuggestion(page, input, "/privacy");
+  await input.press("Enter");
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expectInputSelection(input, `${prefix}privacy?top=red-`.length);
   await expect(page).toHaveURL(/\/privacy$/);
   await expectPrivacyPage(page);
 });
