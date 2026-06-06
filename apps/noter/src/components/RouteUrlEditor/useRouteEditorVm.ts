@@ -169,8 +169,6 @@ const routeEditorTransition: RouteEditorTransitionTable = {
         ...prev,
         path: event.path,
       }),
-    changedInput: keepState,
-    changedSelection: keepState,
     clickedInput: (prev, event) =>
       keepState({
         kind: "focused",
@@ -179,14 +177,10 @@ const routeEditorTransition: RouteEditorTransitionTable = {
         prefix: prev.prefix,
         selection: event.selection,
       }),
-    clickedOutside: keepState,
     pressedEscape: (prev) => ({
       actions: [{ brand: "blurInput" }],
       state: prev,
     }),
-    requestedEditableSelection: keepState,
-    requestedLockedPrefixBackspace: keepState,
-    selectedSuggestion: keepState,
   },
 
   focused: {
