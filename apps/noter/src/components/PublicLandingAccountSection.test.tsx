@@ -156,6 +156,24 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("not logged in");
   });
 
+  it("keeps the account fallback after an empty signed-in viewer loads", () => {
+    authState.isAuthenticated = true;
+    queryState.results = [
+      {
+        _id: "user_123",
+        hasCloudflareConnection: false,
+        hasConvexConnection: false,
+        hasGithubConnection: false,
+      },
+    ];
+
+    const markup = renderLandingAccountSection("/");
+
+    expect(markup).toContain("Account");
+    expect(markup).not.toContain("checking login");
+    expect(markup).not.toContain("not logged in");
+  });
+
   it("shows the logged-out account summary collapsed by default", () => {
     const markup = renderLandingAccountSection("/");
 
