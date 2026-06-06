@@ -204,17 +204,21 @@ Key domain entities:
   `if durable state says "left" but this layout has no left pane, render "main"; same for "right".`
 - For JSDoc above local types, props, and small config unions, write the app contract in the
   simplest direct vocabulary. Prefer concrete value meanings over polished prose, and preserve
-  user-authored wording instead of rewriting it. Example:
+  user-authored wording instead of rewriting it. For multiline `/** ... */` comments, prefer plain
+  interior lines without leading `*` prefixes because the text is easier to copy. Single-line `//`
+  comments are still fine when they fit. Example:
+
   ```ts
   /**
-   * all = shows sidebar toggle on mobile an desktop
-   *
-   * desktop = shows sidebar toggle on desktop only
-   *
-   * hidden = hides sidebar toggle on both desktop and mobile
-   */
+  all = shows sidebar toggle on mobile an desktop
+  
+  desktop = shows sidebar toggle on desktop only
+  
+  hidden = hides sidebar toggle on both desktop and mobile
+  */
   type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
   ```
+
 - Specific app hooks and utilities with non-obvious ownership, timing, or synchronization behavior
   should have function-level JSDoc explaining what they do and why the indirection exists.
 - Avoid `"use node"` unless the module truly requires it.
