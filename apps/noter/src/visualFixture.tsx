@@ -1,5 +1,3 @@
-import { type ReactNode } from "react";
-import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { DialogProvider } from "@/contexts/DialogContext";
 import {
   CommitReviewVisualFixture,
@@ -528,14 +526,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   return null;
 }
 
-function VisualFixtureChrome({ children }: { children: ReactNode }) {
-  return (
-    <AppWorkspaceRouteChrome left={null} right={null}>
-      {children}
-    </AppWorkspaceRouteChrome>
-  );
-}
-
 function buildFixtureModeHref(mode: VisualFixtureMode) {
   return buildPathWithTanStackSearch({
     pathname: window.location.pathname,
@@ -596,17 +586,13 @@ export function VisualFixturePage(props: { mode?: string }) {
 
   return (
     <DialogProvider>
-      {selection.status === "missing" ? (
-        <VisualFixtureChrome>{renderVisualFixtureModeDirectory({})}</VisualFixtureChrome>
-      ) : selection.status === "invalid" ? (
-        <VisualFixtureChrome>
-          {renderVisualFixtureModeDirectory({
-            invalidMode: selection.value,
-          })}
-        </VisualFixtureChrome>
-      ) : (
-        <VisualFixtureChrome>{renderVisualFixture(selection.mode)}</VisualFixtureChrome>
-      )}
+      {selection.status === "missing"
+        ? renderVisualFixtureModeDirectory({})
+        : selection.status === "invalid"
+          ? renderVisualFixtureModeDirectory({
+              invalidMode: selection.value,
+            })
+          : renderVisualFixture(selection.mode)}
     </DialogProvider>
   );
 }
