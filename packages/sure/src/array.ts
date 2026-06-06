@@ -1,5 +1,5 @@
-import { sure, bad, good } from './core.ts'
-import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from './core.ts'
+import { sure, bad, good } from "./core.ts";
+import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from "./core.ts";
 
 export function array<
   //
@@ -7,57 +7,57 @@ export function array<
   TPropGood,
   TSchema extends Sure<TPropFail, TPropGood, unknown, MetaObj | MetaNever>,
 >(
-  schema: TSchema
+  schema: TSchema,
 ): Sure<
   //
   Array<InferBad<TSchema> | undefined>,
   Array<InferGood<TSchema>>,
   unknown,
   MetaObj<{
-    type: 'array'
+    type: "array";
 
-    schema: TSchema
+    schema: TSchema;
   }>
 > {
   const struct = sure(
-    value => {
+    (value) => {
       if (!Array.isArray(value)) {
-        return bad([])
+        return bad([]);
       }
 
-      let atLeastOneBad = false
-      let bads = []
-      let goods = []
+      let atLeastOneBad = false;
+      let bads = [];
+      let goods = [];
 
       for (const elem of value) {
-        const [good, unsure] = schema(elem)
+        const [good, unsure] = schema(elem);
 
         if (good) {
-          goods.push(unsure)
+          goods.push(unsure);
           // This is necessary in order to maintain the same length
-          bads.push(undefined)
+          bads.push(undefined);
         } else {
-          bads.push(unsure)
+          bads.push(unsure);
 
           // Since the `bads` array can containe `undefined` values, it's more clear to
           // have an imperative boolean to make the check
-          atLeastOneBad = true
+          atLeastOneBad = true;
         }
       }
 
       if (atLeastOneBad) {
-        return bad(bads)
+        return bad(bads);
       }
 
-      return good(goods)
+      return good(goods);
     },
     {
-      type: 'array',
+      type: "array",
 
       schema,
-    }
-  )
+    },
+  );
 
   // @ts-expect-error Expected error
-  return struct
+  return struct;
 }

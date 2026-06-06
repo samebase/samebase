@@ -1,11 +1,11 @@
-import type { Sure } from './core.ts'
-import { object } from './object.ts'
-import { objMapEntries } from './utils.ts'
-import type { PrettifyRec } from './utils.ts'
+import type { Sure } from "./core.ts";
+import { object } from "./object.ts";
+import { objMapEntries } from "./utils.ts";
+import type { PrettifyRec } from "./utils.ts";
 
 export type ExtractPrimitives<TSchema> = {
-  [t in keyof TSchema]: InferJustMeta<TSchema[t]>
-}
+  [t in keyof TSchema]: InferJustMeta<TSchema[t]>;
+};
 // prettier-ignore
 export type InferJustMetaOld<T
 // extends Sure<unknown, unknown, any, {}>
@@ -88,93 +88,93 @@ export type InferJustMeta<
     undefined
 
 export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
-  insure: TSchema
+  insure: TSchema,
 ): PrettifyRec<InferJustMeta<TSchema>> {
   // object.getMeta(insure) -> if not object -> null
 
-  object
+  object;
 
   // @ts-expect-error more explicit?
-  if (insure.meta?.type === 'object') {
-    const { schema, ...rest } = insure.meta as any
+  if (insure.meta?.type === "object") {
+    const { schema, ...rest } = insure.meta as any;
 
     // @ts-expect-error more explicit?
     const ret = objMapEntries(schema, ([key, value]) => {
-      return [key, justMeta(value)]
-    })
+      return [key, justMeta(value)];
+    });
 
-    return { schema: ret, ...rest }
+    return { schema: ret, ...rest };
   }
 
   // @ts-expect-error more explicit?
-  if (insure.meta?.type === 'optional') {
-    const { schema, ...rest } = insure.meta as any
+  if (insure.meta?.type === "optional") {
+    const { schema, ...rest } = insure.meta as any;
 
     return {
       schema: justMeta(schema),
       ...rest,
-    }
+    };
   }
 
   // @ts-expect-error more explicit?
-  if (insure.meta?.type === 'array') {
-    const { schema, ...rest } = insure.meta as any
+  if (insure.meta?.type === "array") {
+    const { schema, ...rest } = insure.meta as any;
 
     return {
       schema: justMeta(schema),
       ...rest,
-    }
+    };
   }
 
   if (insure.meta) {
-    return insure.meta as any
+    return insure.meta as any;
   }
 
-  return undefined as any
+  return undefined as any;
 }
 
 export function metaToJsonSchema<TMeta>(meta: TMeta): any {
   if (!meta) {
     return {
-      type: 'unknown',
-    }
+      type: "unknown",
+    };
   }
 
   // @ts-expect-error figure out
-  if (meta.type === 'object') {
+  if (meta.type === "object") {
     // go through each and check if it's optional
-    const optionalKeys: string[] = []
+    const optionalKeys: string[] = [];
     // @ts-expect-error asdfsd
     const withoutOptional = objMapEntries(meta.schema as any, ([key, value]) => {
-      if (value.type === 'optional') {
+      if (value.type === "optional") {
         // @ts-expect-error asdfsd
-        optionalKeys.push(key)
-        return [key, value.schema]
+        optionalKeys.push(key);
+        return [key, value.schema];
       }
 
-      return [key, value]
-    })
+      return [key, value];
+    });
 
-    const required = Object.keys(withoutOptional).filter(key => !optionalKeys.includes(key))
+    const required = Object.keys(withoutOptional).filter((key) => !optionalKeys.includes(key));
 
     return {
-      type: 'object',
+      type: "object",
       properties: objMapEntries(withoutOptional, ([key, value]) => {
-        return [key, metaToJsonSchema(value)]
+        return [key, metaToJsonSchema(value)];
       }),
       required,
-    }
+    };
   }
 
   // @ts-expect-error figure out
-  if (meta.type === 'array') {
+  if (meta.type === "array") {
     return {
-      type: 'array',
+      type: "array",
       // @ts-expect-error rename schema to items here
       items: metaToJsonSchema(meta.schema),
-    }
+    };
   }
 
   //
-  return meta
+  return meta;
 }

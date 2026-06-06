@@ -7,15 +7,15 @@ export type Primitive =
   | bigint
   | boolean
   | null
-  | undefined
+  | undefined;
 
 export type Dictionary = {
-  [key: string]: unknown
-}
+  [key: string]: unknown;
+};
 
-export type MetaNever = { meta?: never }
+export type MetaNever = { meta?: never };
 // TODO: change to undefined ? or remove?
-export type MetaObj<TMeta = unknown> = { meta: TMeta }
+export type MetaObj<TMeta = unknown> = { meta: TMeta };
 
 /**
 @typeparam TBad  - Each struct can returns some kinds of issues (not throwing)
@@ -33,7 +33,7 @@ export type Sure<
   TInput = unknown,
   //
   TMeta extends MetaNever | MetaObj = MetaNever | MetaObj,
-> = ((value: TInput) => Good<TGood> | Bad<TBad>) & TMeta
+> = ((value: TInput) => Good<TGood> | Bad<TBad>) & TMeta;
 
 /**
 Returns the exact function back.
@@ -52,35 +52,35 @@ Check the `sure.ts` version to check the types
 
 export function sure<TGood, TBad, TInput, TMeta>(
   insure: Sure<TBad, TGood, TInput>,
-  meta: TMeta
+  meta: TMeta,
 ): Sure<TBad, TGood, TInput, MetaObj<TMeta>> {
-  return Object.assign(insure, { meta })
+  return Object.assign(insure, { meta });
 }
 
 export function pure<TGood, TBad, TInput>(
-  insure: Sure<TBad, TGood, TInput, MetaNever>
+  insure: Sure<TBad, TGood, TInput, MetaNever>,
 ): Sure<TBad, TGood, TInput, MetaNever> {
-  return insure
+  return insure;
 }
 
 // So that `as const` is not needed for literals
-export function bad<TBad extends Primitive>(val: TBad): Bad<TBad>
-export function bad<TBad>(val: TBad): Bad<TBad>
+export function bad<TBad extends Primitive>(val: TBad): Bad<TBad>;
+export function bad<TBad>(val: TBad): Bad<TBad>;
 export function bad<TBad>(val: TBad): Bad<TBad> {
-  return [false, val]
+  return [false, val];
 }
 //
-export function good<TGood extends Primitive>(val: TGood): Good<TGood>
-export function good<TGood>(val: TGood): Good<TGood>
+export function good<TGood extends Primitive>(val: TGood): Good<TGood>;
+export function good<TGood>(val: TGood): Good<TGood>;
 export function good<TGood>(val: TGood): Good<TGood> {
-  return [true, val]
+  return [true, val];
 }
 
 export type Unsure<TBad, TGood> = //
-  Good<TGood> | Bad<TBad>
+  Good<TGood> | Bad<TBad>;
 
-export type Good<T> = readonly [true, T]
-export type Bad<T> = readonly [false, T]
+export type Good<T> = readonly [true, T];
+export type Bad<T> = readonly [false, T];
 
 export type InferBad<
   // Add the Sure constraint
@@ -96,7 +96,7 @@ export type InferBad<
     ? COutput extends readonly [false, infer CGood] //
       ? CGood
       : never
-    : never
+    : never;
 
 export type InferGood<
   // Add the Sure constraint
@@ -112,7 +112,7 @@ export type InferGood<
     ? COutput extends readonly [true, infer CGood] //
       ? CGood
       : never
-    : never
+    : never;
 
 export type InferInput<
   T extends Sure<
@@ -133,9 +133,9 @@ export type InferInput<
     ? //
       //
       CFrom
-    : never
+    : never;
 
 export type InferMeta<T extends Sure<unknown, unknown, any, {}>> = //
   T extends Sure<unknown, unknown, any, infer CMeta> //
     ? CMeta
-    : {}
+    : {};

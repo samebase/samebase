@@ -1,4 +1,12 @@
-import { MetaObj, Sure, array, number, spread_NOT_IMPLEMENTED, string, tuple } from '../../index.ts'
+import {
+  MetaObj,
+  Sure,
+  array,
+  number,
+  spread_NOT_IMPLEMENTED,
+  string,
+  tuple,
+} from "../../index.ts";
 
 // Doesn't work
 export type TupleInferGoods01<T> = //
@@ -12,19 +20,19 @@ export type TupleInferGoods01<T> = //
             [Good, ...TupleInferGoods01<InferRest>]
         : [Good, ...TupleInferGoods01<InferRest>]
       : []
-    : []
+    : [];
 
 const sample = [
   //
   string,
   spread_NOT_IMPLEMENTED(array(number)),
   string,
-] as const
+] as const;
 
-type Sample = typeof sample
+type Sample = typeof sample;
 
 // [unknown[]]
-type Check01 = TupleInferGoods01<Sample>
+type Check01 = TupleInferGoods01<Sample>;
 
 // ## Try fixing
 export type TupleInferGoods_02<T> = //
@@ -38,10 +46,10 @@ export type TupleInferGoods_02<T> = //
             [Good, ...TupleInferGoods_02<InferRest>]
         : [Good, ...TupleInferGoods_02<InferRest>]
       : []
-    : []
+    : [];
 
 // works
-type Check02 = TupleInferGoods_02<Sample>
+type Check02 = TupleInferGoods_02<Sample>;
 
 // Check for full tuple
 const schema = [
@@ -49,4 +57,4 @@ const schema = [
   string,
   spread_NOT_IMPLEMENTED(array(number)),
   string,
-] as const
+] as const;

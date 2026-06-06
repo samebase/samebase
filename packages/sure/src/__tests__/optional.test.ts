@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it } from "vite-plus/test";
 import {
   InferBad,
   InferGood,
@@ -13,9 +13,9 @@ import {
   or,
   string,
   undef,
-} from '../index.ts'
+} from "../index.ts";
 
-import { assertEqual } from './typeTestUtils.ts'
+import { assertEqual } from "./typeTestUtils.ts";
 
 const optionalObj = object({
   name: string,
@@ -23,93 +23,93 @@ const optionalObj = object({
   age: optional(number),
 
   lastName: optional(or(string, undef)),
-})
+});
 
 // TypeChecks
-type InferredGood = InferGood<typeof optionalObj>
-type InferredBad = InferBad<typeof optionalObj>
-type InferredInput = InferInput<typeof optionalObj>
-type InferredMeta = InferMeta<typeof optionalObj>
+type InferredGood = InferGood<typeof optionalObj>;
+type InferredBad = InferBad<typeof optionalObj>;
+type InferredInput = InferInput<typeof optionalObj>;
+type InferredMeta = InferMeta<typeof optionalObj>;
 
 assertEqual<
   InferredGood,
   {
-    name: string
-    age?: number
-    lastName?: string | undefined
+    name: string;
+    age?: number;
+    lastName?: string | undefined;
   }
->(true)
+>(true);
 
 assertEqual<
   InferredBad,
   {
-    name?: 'not string'
-    age?: 'not number'
-    lastName?: 'not string' | 'not undefined'
+    name?: "not string";
+    age?: "not number";
+    lastName?: "not string" | "not undefined";
   }
->(true)
+>(true);
 
-assertEqual<InferredInput, unknown>(true)
+assertEqual<InferredInput, unknown>(true);
 
 assertEqual<
   InferredMeta,
   {
     meta: {
-      type: 'object'
+      type: "object";
       schema: {
         name: Sure<
-          'not string',
+          "not string",
           string,
           unknown,
           MetaObj<{
-            type: 'string'
+            type: "string";
           }>
-        >
+        >;
         age: Sure<
-          'not number',
+          "not number",
           number,
           unknown,
           MetaObj<{
-            type: 'optional'
+            type: "optional";
             schema: Sure<
-              'not number',
+              "not number",
               number,
               unknown,
               MetaObj<{
-                type: 'number'
+                type: "number";
               }>
-            >
+            >;
           }>
-        >
+        >;
         lastName: Sure<
-          'not string' | 'not undefined',
+          "not string" | "not undefined",
           string | undefined,
           unknown,
           MetaObj<{
-            type: 'optional'
+            type: "optional";
             schema: Sure<
-              'not string' | 'not undefined',
+              "not string" | "not undefined",
               string | undefined,
               unknown,
               MetaObj<{
-                type: 'union'
+                type: "union";
                 first: Sure<
-                  'not string',
+                  "not string",
                   string,
                   unknown,
                   MetaObj<{
-                    type: 'string'
+                    type: "string";
                   }>
-                >
-                second: Sure<'not undefined', undefined, unknown, MetaNever | MetaObj>
+                >;
+                second: Sure<"not undefined", undefined, unknown, MetaNever | MetaObj>;
               }>
-            >
+            >;
           }>
-        >
-      }
-    }
+        >;
+      };
+    };
   }
->(true)
+>(true);
 
 assertEqual<
   typeof optionalObj,
@@ -120,86 +120,86 @@ assertEqual<
     InferredInput,
     InferredMeta
   >
->(true)
+>(true);
 
-describe('optional', () => {
-  it('good: age is number', () => {
+describe("optional", () => {
+  it("good: age is number", () => {
     // Ok when age is number
     expect(
       optionalObj({
-        name: 'John',
+        name: "John",
         age: 12,
-        lastName: 'Doe',
-      })
+        lastName: "Doe",
+      }),
     ) //
-      .toStrictEqual([true, { name: 'John', age: 12, lastName: 'Doe' }])
-  })
+      .toStrictEqual([true, { name: "John", age: 12, lastName: "Doe" }]);
+  });
 
-  it('good: age is not present', () => {
+  it("good: age is not present", () => {
     // Ok when age is not present
     expect(
       optionalObj({
-        name: 'John',
-        lastName: 'Doe',
-      })
+        name: "John",
+        lastName: "Doe",
+      }),
     ) //
-      .toStrictEqual([true, { name: 'John', lastName: 'Doe' }])
-  })
+      .toStrictEqual([true, { name: "John", lastName: "Doe" }]);
+  });
 
-  it('bad: age is undefined', () => {
+  it("bad: age is undefined", () => {
     // Not ok when age is undefined
     expect(
       optionalObj({
-        name: 'John',
+        name: "John",
         age: undefined,
-        lastName: 'Doe',
-      })
+        lastName: "Doe",
+      }),
     ) //
-      .toStrictEqual([false, { age: 'not number' }])
-  })
+      .toStrictEqual([false, { age: "not number" }]);
+  });
 
-  it('bad: age is string', () => {
+  it("bad: age is string", () => {
     expect(
       optionalObj({
-        name: 'John',
-        age: '12',
-        lastName: 'Doe',
-      })
+        name: "John",
+        age: "12",
+        lastName: "Doe",
+      }),
     ) //
-      .toStrictEqual([false, { age: 'not number' }])
-  })
+      .toStrictEqual([false, { age: "not number" }]);
+  });
 
-  it('ok: lastName is not present', () => {
+  it("ok: lastName is not present", () => {
     expect(
       optionalObj({
-        name: 'John',
+        name: "John",
         age: 12,
-      })
+      }),
     ) //
       .toStrictEqual([
         true,
         {
-          name: 'John',
+          name: "John",
           age: 12,
         },
-      ])
-  })
+      ]);
+  });
 
-  it('ok: lastName is undefined', () => {
+  it("ok: lastName is undefined", () => {
     expect(
       optionalObj({
-        name: 'John',
+        name: "John",
         age: 12,
         lastName: undefined,
-      })
+      }),
     ) //
       .toStrictEqual([
         true,
         {
-          name: 'John',
+          name: "John",
           age: 12,
           lastName: undefined,
         },
-      ])
-  })
-})
+      ]);
+  });
+});

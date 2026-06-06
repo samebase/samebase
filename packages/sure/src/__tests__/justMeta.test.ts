@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vite-plus/test'
-import { MetaNever, MetaObj } from '../core.ts'
-import { InferJustMeta, ExtractPrimitives, justMeta, metaToJsonSchema } from '../meta_wip.ts'
-import { object, optional } from '../object.ts'
-import { string, number } from '../primitives.ts'
-import { PrettifyRec } from '../utils.ts'
-import { assertEqual } from './typeTestUtils.ts'
-import { array } from '../array.ts'
+import { describe, expect, it } from "vite-plus/test";
+import { MetaNever, MetaObj } from "../core.ts";
+import { InferJustMeta, ExtractPrimitives, justMeta, metaToJsonSchema } from "../meta_wip.ts";
+import { object, optional } from "../object.ts";
+import { string, number } from "../primitives.ts";
+import { PrettifyRec } from "../utils.ts";
+import { assertEqual } from "./typeTestUtils.ts";
+import { array } from "../array.ts";
 
-import { Ajv } from 'ajv'
+import { Ajv } from "ajv";
 
 const simpleObj = object({
   name: optional(string),
@@ -15,147 +15,147 @@ const simpleObj = object({
   info: object({
     country: array(string),
   }),
-})
+});
 
-type SimplifyMeta<TMeta extends MetaNever | MetaObj> = TMeta extends MetaObj<infer S> ? S : {}
+type SimplifyMeta<TMeta extends MetaNever | MetaObj> = TMeta extends MetaObj<infer S> ? S : {};
 
-type InferredJustMeta = InferJustMeta<typeof simpleObj>
-type Prett = PrettifyRec<InferredJustMeta>
+type InferredJustMeta = InferJustMeta<typeof simpleObj>;
+type Prett = PrettifyRec<InferredJustMeta>;
 
-const temp = optional(number)
-type tempType = InferJustMeta<typeof temp>
+const temp = optional(number);
+type tempType = InferJustMeta<typeof temp>;
 
 assertEqual<
   Prett,
   {
-    type: 'object'
+    type: "object";
     schema: {
       name: {
-        type: 'optional'
+        type: "optional";
         schema: {
-          type: 'string'
-        }
-      }
+          type: "string";
+        };
+      };
       age: {
-        type: 'number'
-      }
+        type: "number";
+      };
       info: {
-        type: 'object'
+        type: "object";
         schema: {
           country: {
-            type: 'array'
+            type: "array";
             schema: {
-              type: 'string'
-            }
-          }
-        }
-      }
-    }
+              type: "string";
+            };
+          };
+        };
+      };
+    };
   }
->(true)
+>(true);
 
-type InferredString = InferJustMeta<typeof string>
+type InferredString = InferJustMeta<typeof string>;
 
 type test3 = ExtractPrimitives<{
-  name: typeof string
-}>
+  name: typeof string;
+}>;
 
 //
 
-describe('justMeta', () => {
-  it('works', () => {
-    const result = justMeta(simpleObj)
+describe("justMeta", () => {
+  it("works", () => {
+    const result = justMeta(simpleObj);
 
     assertEqual<
       typeof result,
       {
-        type: 'object'
+        type: "object";
         schema: {
           name: {
-            type: 'optional'
+            type: "optional";
             schema: {
-              type: 'string'
-            }
-          }
+              type: "string";
+            };
+          };
           age: {
-            type: 'number'
-          }
+            type: "number";
+          };
           info: {
-            type: 'object'
+            type: "object";
             schema: {
               country: {
-                type: 'array'
+                type: "array";
                 schema: {
-                  type: 'string'
-                }
-              }
-            }
-          }
-        }
+                  type: "string";
+                };
+              };
+            };
+          };
+        };
       }
-    >(true)
+    >(true);
 
     expect(result).toStrictEqual({
-      type: 'object',
+      type: "object",
       schema: {
         name: {
-          type: 'optional',
+          type: "optional",
           schema: {
-            type: 'string',
+            type: "string",
           },
         },
         age: {
-          type: 'number',
+          type: "number",
         },
         info: {
-          type: 'object',
+          type: "object",
           schema: {
             country: {
-              type: 'array',
+              type: "array",
               schema: {
-                type: 'string',
+                type: "string",
               },
             },
           },
         },
       },
-    })
-  })
-})
+    });
+  });
+});
 
-describe('toJsonSchema', () => {
-  it('works', () => {
-    const result = justMeta(simpleObj)
-    const jsonSchema = metaToJsonSchema(result)
+describe("toJsonSchema", () => {
+  it("works", () => {
+    const result = justMeta(simpleObj);
+    const jsonSchema = metaToJsonSchema(result);
 
     expect(jsonSchema).toStrictEqual({
-      type: 'object',
+      type: "object",
       properties: {
         name: {
-          type: 'string',
+          type: "string",
         },
         age: {
-          type: 'number',
+          type: "number",
         },
         info: {
-          type: 'object',
+          type: "object",
           properties: {
             country: {
-              type: 'array',
+              type: "array",
               items: {
-                type: 'string',
+                type: "string",
               },
             },
           },
-          required: ['country'],
+          required: ["country"],
         },
       },
-      required: ['age', 'info'],
-    })
+      required: ["age", "info"],
+    });
 
-    const ajv = new Ajv()
-    const validate = ajv.compile(jsonSchema)
+    const ajv = new Ajv();
+    const validate = ajv.compile(jsonSchema);
 
     // expect that it doesn't throw
-  })
-})
+  });
+});

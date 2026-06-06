@@ -1,5 +1,5 @@
-import { InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../../core.ts'
-import { assertEqual } from '../typeTestUtils.ts'
+import { InferInput, InferMeta, MetaNever, MetaObj, Sure } from "../../core.ts";
+import { assertEqual } from "../typeTestUtils.ts";
 
 type InferBad_initial<
   T extends Sure<
@@ -19,7 +19,7 @@ type InferBad_initial<
   >
     ? //
       CFailure
-    : never
+    : never;
 
 type InferGood_initial<
   T extends Sure<
@@ -39,47 +39,47 @@ type InferGood_initial<
   >
     ? //
       CDefine
-    : never
+    : never;
 
 const rawNumber = (value: unknown) => {
-  return typeof value === 'number' //
+  return typeof value === "number" //
     ? ([true, value] as const)
-    : ([false, 'not a number'] as const)
-}
+    : ([false, "not a number"] as const);
+};
 
 // Satisfies shoudl work
-const satisfied = rawNumber satisfies Sure
+const satisfied = rawNumber satisfies Sure;
 
-type InferredGood = InferGood_initial<typeof satisfied>
-type InferredBad = InferBad_initial<typeof satisfied>
-type InferredInput = InferInput<typeof satisfied>
-type InferredMeta = InferMeta<typeof satisfied>
+type InferredGood = InferGood_initial<typeof satisfied>;
+type InferredBad = InferBad_initial<typeof satisfied>;
+type InferredInput = InferInput<typeof satisfied>;
+type InferredMeta = InferMeta<typeof satisfied>;
 
 // IMPORTANT: This is the test
 // @ts-expect-error  - This is the problem
-assertEqual<InferredGood, number>(true)
+assertEqual<InferredGood, number>(true);
 // @ts-expect-error  - This is the problem
-assertEqual<InferredBad, 'not a number'>(true)
+assertEqual<InferredBad, "not a number">(true);
 
-assertEqual<InferredInput, unknown>(true)
+assertEqual<InferredInput, unknown>(true);
 // @ts-expect-error  - This is the problem
-assertEqual<InferredMeta, MetaNever>(true)
+assertEqual<InferredMeta, MetaNever>(true);
 
-type InferredGoodRaw = InferGoodRaw<typeof rawNumber>
+type InferredGoodRaw = InferGoodRaw<typeof rawNumber>;
 
-assertEqual<InferredGoodRaw, number>(true)
+assertEqual<InferredGoodRaw, number>(true);
 
-type OutputType = ReturnType<typeof rawNumber>
+type OutputType = ReturnType<typeof rawNumber>;
 {
   assertEqual<
     //
     OutputType,
-    readonly [true, number] | readonly [false, 'not a number']
-  >(true)
+    readonly [true, number] | readonly [false, "not a number"]
+  >(true);
 }
 
 // In order to check the type of the output
-type SimpleOutputType = [true, number] | [false, 'not a number']
+type SimpleOutputType = [true, number] | [false, "not a number"];
 
 // From documentation
 // When conditional types act on a generic type, they become distributive when given a union type.
@@ -88,31 +88,31 @@ type SimpleOutputType = [true, number] | [false, 'not a number']
   type ExtractSimple<T> = //
     T extends [true, infer CGood] //
       ? CGood
-      : never
+      : never;
 
-  type ExtractedGood = ExtractSimple<SimpleOutputType>
-  assertEqual<ExtractedGood, number>(true)
+  type ExtractedGood = ExtractSimple<SimpleOutputType>;
+  assertEqual<ExtractedGood, number>(true);
 
-  type ExtractedGoodReadonly = ExtractSimple<OutputType>
+  type ExtractedGoodReadonly = ExtractSimple<OutputType>;
   // @ts-expect-error - This is the problem
-  assertEqual<ExtractedGoodReadonly, number>(true)
+  assertEqual<ExtractedGoodReadonly, number>(true);
   //
 }
 
 type ExtractComplex<T> = //
   T extends readonly [true, infer CGood] //
     ? CGood
-    : never
+    : never;
 
 {
-  type ExtractedGood = ExtractComplex<SimpleOutputType>
-  assertEqual<ExtractedGood, number>(true)
+  type ExtractedGood = ExtractComplex<SimpleOutputType>;
+  assertEqual<ExtractedGood, number>(true);
 
-  type ExtractedGoodReadonly = ExtractComplex<OutputType>
-  assertEqual<ExtractedGoodReadonly, number>(true)
+  type ExtractedGoodReadonly = ExtractComplex<OutputType>;
+  assertEqual<ExtractedGoodReadonly, number>(true);
 }
 
-type afdf = ReturnType<typeof rawNumber>
+type afdf = ReturnType<typeof rawNumber>;
 
 // # Important: This is the solution
 type ExtractDirectly<T> = //
@@ -120,30 +120,30 @@ type ExtractDirectly<T> = //
     ? COutput extends readonly [true, infer CGood] //
       ? CGood
       : never
-    : never
+    : never;
 
 {
-  type ExtractedGood = ExtractDirectly<() => SimpleOutputType>
-  assertEqual<ExtractedGood, number>(true)
+  type ExtractedGood = ExtractDirectly<() => SimpleOutputType>;
+  assertEqual<ExtractedGood, number>(true);
 
-  type ExtractedGoodReadonly = ExtractDirectly<typeof rawNumber>
-  assertEqual<ExtractedGoodReadonly, number>(true)
+  type ExtractedGoodReadonly = ExtractDirectly<typeof rawNumber>;
+  assertEqual<ExtractedGoodReadonly, number>(true);
 }
 
 // Try to simplify but doesn't work
 type ExtractDirectly01<T extends (...args: any) => any> = //
   ReturnType<T> extends readonly [true, infer CGood] //
     ? CGood
-    : never
+    : never;
 
 {
-  type ExtractedGood = ExtractDirectly01<() => SimpleOutputType>
+  type ExtractedGood = ExtractDirectly01<() => SimpleOutputType>;
   // @ts-expect-error Doesn't work
-  assertEqual<ExtractedGood, number>(true)
+  assertEqual<ExtractedGood, number>(true);
 
-  type ExtractedGoodReadonly = ExtractDirectly01<typeof rawNumber>
+  type ExtractedGoodReadonly = ExtractDirectly01<typeof rawNumber>;
   // @ts-expect-error Doesn't work
-  assertEqual<ExtractedGoodReadonly, number>(true)
+  assertEqual<ExtractedGoodReadonly, number>(true);
 }
 
 type ExtractDirectly02<
@@ -158,16 +158,16 @@ type ExtractDirectly02<
   infer CGood,
 ] //
   ? CGood
-  : never
+  : never;
 
 {
-  type ExtractedGood = ExtractDirectly02<() => SimpleOutputType>
+  type ExtractedGood = ExtractDirectly02<() => SimpleOutputType>;
   // @ts-expect-error Also doesn't work
-  assertEqual<ExtractedGood, number>(true)
+  assertEqual<ExtractedGood, number>(true);
 
-  type ExtractedGoodReadonly = ExtractDirectly02<typeof rawNumber>
+  type ExtractedGoodReadonly = ExtractDirectly02<typeof rawNumber>;
   // @ts-expect-error Also doesn't work
-  assertEqual<ExtractedGoodReadonly, number>(true)
+  assertEqual<ExtractedGoodReadonly, number>(true);
 }
 
 type InferGoodRaw<
@@ -184,12 +184,12 @@ type InferGoodRaw<
     ? COutput extends readonly [true, infer CGood] //
       ? CGood
       : never
-    : never
+    : never;
 
 {
-  type ExtractedGood = InferGoodRaw<typeof rawNumber>
-  assertEqual<ExtractedGood, number>(true)
+  type ExtractedGood = InferGoodRaw<typeof rawNumber>;
+  assertEqual<ExtractedGood, number>(true);
 
-  type ExtractedGoodReadonly = InferGoodRaw<typeof satisfied>
-  assertEqual<ExtractedGoodReadonly, number>(true)
+  type ExtractedGoodReadonly = InferGoodRaw<typeof satisfied>;
+  assertEqual<ExtractedGoodReadonly, number>(true);
 }
