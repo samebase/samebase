@@ -4,6 +4,7 @@ export * from "./after.ts";
 
 export * from "./primitives.ts";
 export * from "./object.ts";
+export * from "./getterObject.ts";
 export * from "./array.ts";
 export * from "./literal.ts";
 
