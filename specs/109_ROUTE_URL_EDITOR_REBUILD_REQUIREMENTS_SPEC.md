@@ -92,6 +92,27 @@ chrome, but must keep the shared workspace shell mounted.
 Keyboard movement, pointer hover, and touch picker movement may preview a suggestion by applying the
 suggestion's route-ready draft with router `replace`.
 
+Before adding a new preview-like interaction, answer these questions with the exact state field
+names the implementation uses:
+
+- What happens on Escape?
+- What happens on Enter/click?
+- What happens on blur/click outside?
+- What route should be restored?
+- What text should remain in the input?
+
+These questions decide whether the interaction updates `draftPath`, creates `hoverPath`, or needs a
+new state shape. Similar input affordances can share transition code only when these answers match.
+
+Current answers:
+
+- Pointer hover creates `hoverPath`. Pointer leave clears pointer-created `hoverPath` and restores
+  `expectedRouteAddress`. Click commits `hoverPath.draftPath` into `draftPath`.
+- Keyboard ArrowUp/ArrowDown also create `hoverPath`. Enter commits `hoverPath.draftPath` into
+  `draftPath`. Escape cancels the focused edit and restores `expectedRouteAddress`.
+- Mobile touch picker is not decided here. If scrolling a row and then tapping outside commits that
+  row, it should probably update `draftPath` instead of using pointer-style restore.
+
 Selecting a suggestion commits according to `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`:
 
 - path suggestions can open the first search-param slot after the path is selected.

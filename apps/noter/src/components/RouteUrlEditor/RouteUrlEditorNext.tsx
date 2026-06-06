@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { useRouteEditorVm } from "./useRouteEditorVm";
@@ -17,11 +18,20 @@ const routeUrlEditorNextSuggestionsPopoverClassName =
 const routeUrlEditorNextSuggestionsScrollportClassName = "relative max-h-72 overflow-y-auto py-1";
 
 const routeUrlEditorNextSuggestionButtonClassName =
-  "flex h-7 w-full min-w-0 items-center px-2 font-mono text-sm text-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground";
+  "flex h-7 w-full min-w-0 items-center px-2 font-mono text-sm text-foreground outline-none focus-visible:bg-accent focus-visible:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground";
 
 export function RouteUrlEditorNext() {
   const router = useRouter();
   const vm = useRouteEditorVm({});
+
+  useEffect(() => {
+    if (!vm.activeSuggestionId) {
+      return;
+    }
+
+    // aria-activedescendant keeps focus on the input, so the active option must scroll itself.
+    document.getElementById(vm.activeSuggestionId)?.scrollIntoView({ block: "nearest" });
+  }, [vm.activeSuggestionId]);
 
   return (
     <form
@@ -87,12 +97,12 @@ export function RouteUrlEditorNext() {
             data-testid="route-url-editor-suggestions"
             role="listbox"
           >
-            {vm.suggestions.map((suggestion) => (
+            {vm.suggestions.map((suggestion, suggestionIndex) => (
               <button
                 className={routeUrlEditorNextSuggestionButtonClassName}
                 data-testid="route-url-editor-suggestion"
                 key={`${suggestion.kind}:${suggestion.value}`}
-                {...vm.getSuggestionProps(suggestion)}
+                {...vm.getSuggestionProps(suggestion, suggestionIndex)}
                 role="option"
                 type="button"
               >
