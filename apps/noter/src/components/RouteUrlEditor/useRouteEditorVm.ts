@@ -24,7 +24,6 @@ import { keepState, runTransitionActions } from "./typedTransitionTable";
 import { useTypedTransitionMachine } from "./useTypedTransitionMachine";
 import type {
   TypedTransitionActionHandlerTable,
-  TypedTransitionResult,
   TypedTransitionTable,
 } from "./typedTransitionTable";
 
@@ -133,14 +132,12 @@ type RouteEditorActionHandlerTable = TypedTransitionActionHandlerTable<
   RouteEditorAction
 >;
 
-type RouteEditorTransitionResult = TypedTransitionResult<RouteEditorState, RouteEditorAction>;
-
 type RouteEditorTransitionTable = TypedTransitionTable<
   RouteEditorState["kind"],
   RouteEditorEvent["type"],
   RouteEditorState,
   RouteEditorEvent,
-  RouteEditorTransitionResult
+  RouteEditorAction
 >;
 
 function readRouteAddressFocusedDraft(routeAddress: string): string {

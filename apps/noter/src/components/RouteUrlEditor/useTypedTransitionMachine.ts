@@ -4,7 +4,6 @@ import { runTransition } from "./typedTransitionTable";
 import type {
   TypedTransitionAction,
   TypedTransitionEvent,
-  TypedTransitionResult,
   TypedTransitionState,
   TypedTransitionTable,
 } from "./typedTransitionTable";
@@ -24,13 +23,7 @@ export function useTypedTransitionMachine<
   onDebugStateChange,
 }: {
   initialState: State;
-  transitionTable: TypedTransitionTable<
-    StateKind,
-    EventType,
-    State,
-    Event,
-    TypedTransitionResult<State, Action>
-  >;
+  transitionTable: TypedTransitionTable<StateKind, EventType, State, Event, Action>;
   runActions: (actions: Action[]) => void;
   onDebugEvent?: (event: Event) => void;
   onDebugStateChange?: (state: State) => void;
