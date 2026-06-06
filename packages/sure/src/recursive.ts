@@ -1,5 +1,5 @@
 import { bad, good, pure, sure } from "./core.ts";
-import type { MetaObj, Sure } from "./core.ts";
+import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
 
 export const RecurseSymbol = Symbol("recurse");
 
@@ -17,6 +17,12 @@ export type ReplaceSymbolWithObj<Obj extends Record<string, unknown>, With> = {
   //
 };
 
+type ChildBad<TChild> =
+  TChild extends Sure<unknown, unknown, never, MetaNever | MetaObj> ? InferBad<TChild> : never;
+
+type ChildGood<TChild> =
+  TChild extends Sure<unknown, unknown, never, MetaNever | MetaObj> ? InferGood<TChild> : never;
+
 export function recurse<
   //
   // TKey extends keyof TGood,
@@ -24,17 +30,16 @@ export function recurse<
   // TODO: TBad is very specific
   TBad extends Record<string, unknown>,
   TGood extends Record<string, unknown>,
-  TChildBad,
-  TChildGood,
+  TChild,
 >(
   //
   baseObj: Sure<TBad, TGood, unknown>, //
   // key: TKey,
-  childParser: (surer: typeof baseObj) => Sure<TChildBad, TChildGood, unknown>,
+  childParser: (surer: typeof baseObj) => TChild,
 ): Sure<
   //
-  ReplaceSymbolWithObj<TBad, TChildBad>,
-  ReplaceSymbolWithObj<TGood, TChildGood>,
+  ReplaceSymbolWithObj<TBad, ChildBad<TChild>>,
+  ReplaceSymbolWithObj<TGood, ChildGood<TChild>>,
   unknown,
   MetaObj<{
     baseObj: typeof baseObj;

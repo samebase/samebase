@@ -1,27 +1,27 @@
 import { sure, bad, good } from "./core.ts";
-import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from "./core.ts";
+import type { Bad, Good, Unsure } from "./core.ts";
 
-export function array<
-  //
-  TPropFail,
-  TPropGood,
-  TSchema extends Sure<TPropFail, TPropGood, unknown, MetaObj | MetaNever>,
->(
-  schema: TSchema,
-): Sure<
-  //
-  Array<InferBad<TSchema> | undefined>,
-  Array<InferGood<TSchema>>,
-  unknown,
-  MetaObj<{
+export interface ArraySure<TSchema> {
+  (value: unknown): Good<unknown[]> | Bad<unknown[]>;
+  meta: {
     type: "array";
 
     schema: TSchema;
-  }>
-> {
+  };
+}
+
+function isArraySchema(value: unknown): value is (elem: unknown) => Unsure<unknown, unknown> {
+  return typeof value === "function";
+}
+
+export function array<TSchema>(schema: TSchema): ArraySure<TSchema> {
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
+        return bad([]);
+      }
+
+      if (!isArraySchema(schema)) {
         return bad([]);
       }
 

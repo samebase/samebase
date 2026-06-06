@@ -1,10 +1,9 @@
 import { bad, good, sure } from "./core.ts";
 import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
-import { isObject } from "./object.ts";
 
 // TODO: add tests, also implement tuple spread
 export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer InferRest]
-  ? First extends Sure<unknown, infer Good, any, MetaObj | MetaNever>
+  ? First extends Sure<unknown, infer Good, never, MetaObj | MetaNever>
     ? [Good, ...TupleInferGoods<InferRest>]
     : []
   : [];
@@ -12,32 +11,42 @@ export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer I
 // Add test
 export type TupleInferGoods<T> = //
   T extends readonly [infer First, ...infer InferRest]
-    ? First extends Sure<unknown, infer Good, any, infer Meta>
-      ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
+    ? First extends Sure<unknown, unknown, never, MetaNever | MetaObj>
+      ? First extends Sure<
+          unknown,
+          unknown,
+          never,
+          MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
+        >
         ? // try spreading the rest if it's an array
-          Good extends readonly unknown[]
-          ? [...Good, ...TupleInferGoods<InferRest>]
+          InferGood<First> extends readonly unknown[]
+          ? [...InferGood<First>, ...TupleInferGoods<InferRest>]
           : // otherwise just return the good
-            [Good, ...TupleInferGoods<InferRest>]
-        : [Good, ...TupleInferGoods<InferRest>]
+            [InferGood<First>, ...TupleInferGoods<InferRest>]
+        : [InferGood<First>, ...TupleInferGoods<InferRest>]
       : []
     : [];
 
 export type TupleInferBads_old<T> = T extends readonly [infer First, ...infer InferRest]
-  ? First extends Sure<infer Bad, unknown, any, MetaObj | MetaNever>
+  ? First extends Sure<infer Bad, unknown, never, MetaObj | MetaNever>
     ? [Bad | undefined, ...TupleInferBads<InferRest>]
     : []
   : [];
 
 export type TupleInferBads<T> = T extends readonly [infer First, ...infer InferRest]
-  ? First extends Sure<infer Bad, unknown, any, infer Meta>
-    ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
+  ? First extends Sure<unknown, unknown, never, MetaNever | MetaObj>
+    ? First extends Sure<
+        unknown,
+        unknown,
+        never,
+        MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
+      >
       ? // try spreading the rest if it's an array
-        Bad extends readonly unknown[]
-        ? [...Bad, ...TupleInferBads<InferRest>]
+        InferBad<First> extends readonly unknown[]
+        ? [...InferBad<First>, ...TupleInferBads<InferRest>]
         : // otherwise just return the bad
-          [Bad | undefined, ...TupleInferBads<InferRest>]
-      : [Bad | undefined, ...TupleInferBads<InferRest>]
+          [InferBad<First> | undefined, ...TupleInferBads<InferRest>]
+      : [InferBad<First> | undefined, ...TupleInferBads<InferRest>]
     : []
   : [];
 
@@ -74,7 +83,7 @@ export function spread_NOT_IMPLEMENTED<Arr extends Sure<unknown, unknown[], unkn
 }
 
 export function tuple<
-  Arr extends [Sure<unknown, unknown, any>, ...Sure<unknown, unknown, any>[]] | [],
+  Arr extends [Sure<unknown, unknown, unknown>, ...Sure<unknown, unknown, unknown>[]] | [],
 >(
   arr: Arr,
 ): Sure<
@@ -126,8 +135,6 @@ export function tuple<
       initial: arr,
     },
   );
-
-  struct.meta;
 
   // @ts-expect-error
   return struct;

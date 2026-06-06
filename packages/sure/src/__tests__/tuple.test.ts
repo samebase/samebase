@@ -1,4 +1,4 @@
-import { describe, it, expect, assert } from "vite-plus/test";
+import { describe, it, expect } from "vite-plus/test";
 import {
   tuple,
   number,
@@ -18,11 +18,9 @@ import type {
   InferMeta,
   Sure,
   MetaObj,
-  MetaNever,
   Good,
   Bad,
   TupleInferGoods,
-  TupleInferBads,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
 
@@ -70,10 +68,13 @@ const someTuple = tuple([number, string, boolean]);
   >(true);
 }
 
+const numberArray = array(number);
+const spreadNumberArray = spread_NOT_IMPLEMENTED(numberArray);
+
 const myTuple = tuple([
   //
   string,
-  spread_NOT_IMPLEMENTED(array(number)),
+  spreadNumberArray,
   string,
 ]);
 
@@ -101,46 +102,19 @@ const myTuple = tuple([
     {
       meta: {
         type: "tuple";
-        schema: [
-          typeof string,
-          Sure<
-            ("not number" | undefined)[],
-            number[],
-            unknown,
-            MetaObj<{
-              parent: <Arr extends Sure<unknown, unknown[], unknown>>(
-                schema: Arr,
-              ) => Sure<
-                InferBad<Arr>,
-                InferGood<Arr>,
-                unknown,
-                MetaObj<{
-                  parent: typeof spread_NOT_IMPLEMENTED;
-                  schema: Arr;
-                }>
-              >;
-              schema: Sure<
-                ("not number" | undefined)[],
-                number[],
-                unknown,
-                MetaObj<{
-                  type: "array";
-                  schema: typeof number;
-                }>
-              >;
-            }>
-          >,
-          typeof string,
-        ];
+        schema: [typeof string, typeof spreadNumberArray, typeof string];
       };
     }
   >(true);
 }
 
+const stringArray = array(string);
+const spreadStringArray = spread_NOT_IMPLEMENTED(stringArray);
+
 const smallSchema = tuple([
   //
   undef,
-  spread_NOT_IMPLEMENTED(array(string)),
+  spreadStringArray,
   number,
 ]);
 
@@ -170,40 +144,7 @@ const smallSchema = tuple([
         type: "tuple";
         schema: [
           (value: unknown) => Good<undefined> | Bad<"not undefined">,
-          Sure<
-            ("not string" | undefined)[],
-            string[],
-            unknown,
-            MetaObj<{
-              parent: <Arr extends Sure<unknown, unknown[], unknown>>(
-                schema: Arr,
-              ) => Sure<
-                InferBad<Arr>,
-                InferGood<Arr>,
-                unknown,
-                MetaObj<{
-                  parent: typeof spread_NOT_IMPLEMENTED;
-                  schema: Arr;
-                }>
-              >;
-              schema: Sure<
-                ("not string" | undefined)[],
-                string[],
-                unknown,
-                MetaObj<{
-                  type: "array";
-                  schema: Sure<
-                    "not string",
-                    string,
-                    unknown,
-                    MetaObj<{
-                      type: "string";
-                    }>
-                  >;
-                }>
-              >;
-            }>
-          >,
+          typeof spreadStringArray,
           Sure<
             "not number",
             number,
@@ -248,15 +189,6 @@ describe("tuple", () => {
   });
 
   it("DX: should allow spread tuples", () => {
-    const arrSchema = [
-      //
-      string,
-      spread_NOT_IMPLEMENTED(array(number)),
-      string,
-    ] as const;
-
-    type InferSchema = typeof arrSchema;
-
     const schema = tuple([
       //
       string,

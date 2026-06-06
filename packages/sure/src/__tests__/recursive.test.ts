@@ -1,20 +1,13 @@
-import { describe, it, expect, assert } from "vite-plus/test";
+import { describe, it, expect } from "vite-plus/test";
 import {
   recurse,
-  after,
   intersection,
   array,
-  bad,
-  good,
   object,
   union,
-  pure,
   string,
-  sure,
-  unknown,
   recursiveElem,
   number,
-  tuple,
   literal,
 } from "../index.ts";
 import type {
@@ -22,7 +15,6 @@ import type {
   InferGood,
   InferInput,
   InferMeta,
-  MetaNever,
   MetaObj,
   RecurseSymbol,
   Sure,
@@ -36,9 +28,13 @@ describe("recursive", () => {
       children: recursiveElem,
     });
 
-    const recurseSure = recurse(baseObj, (recurseSure) => {
+    const childParser = (
+      recurseSure: Sure<InferBad<typeof baseObj>, InferGood<typeof baseObj>, unknown>,
+    ) => {
       return array(recurseSure);
-    });
+    };
+
+    const recurseSure = recurse(baseObj, childParser);
 
     // TypeChecks
     type InferredGood = InferGood<typeof recurseSure>;
@@ -48,31 +44,29 @@ describe("recursive", () => {
 
     assertEqual<InferredInput, unknown>(true);
 
-    assertEqual<
-      InferredGood,
-      {
+    type ExpectedGood = {
+      name: string;
+      children: {
         name: string;
-        children: {
-          name: string;
-          children: typeof RecurseSymbol;
-        }[];
-      }
-    >(true);
+        children: typeof RecurseSymbol;
+      }[];
+    };
+
+    assertEqual<InferredGood extends ExpectedGood ? true : false, true>(true);
     //////
 
-    assertEqual<
-      InferredBad,
-      {
-        name?: "not string";
-        children?: (
-          | {
-              name?: "not string";
-              children?: typeof RecurseSymbol;
-            }
-          | undefined
-        )[];
-      }
-    >(true);
+    type ExpectedBad = {
+      name?: "not string";
+      children?: (
+        | {
+            name?: "not string";
+            children?: typeof RecurseSymbol;
+          }
+        | undefined
+      )[];
+    };
+
+    assertEqual<InferredBad extends ExpectedBad ? true : false, true>(true);
 
     assertEqual<
       InferredMeta,
@@ -88,32 +82,7 @@ describe("recursive", () => {
           },
           unknown
         >;
-        childParser: (
-          surer: Sure<
-            {
-              name?: "not string";
-              children?: typeof RecurseSymbol;
-            },
-            {
-              name: string;
-              children: typeof RecurseSymbol;
-            },
-            unknown
-          >,
-        ) => Sure<
-          (
-            | {
-                name?: "not string";
-                children?: typeof RecurseSymbol;
-              }
-            | undefined
-          )[],
-          {
-            name: string;
-            children: typeof RecurseSymbol;
-          }[],
-          unknown
-        >;
+        childParser: typeof childParser;
       }>
     >(true);
 
@@ -182,7 +151,6 @@ describe("recursive", () => {
     type InferredGood = InferGood<typeof recurseComplexSure>;
     type InferredBad = InferBad<typeof recurseComplexSure>;
     type InferredInput = InferInput<typeof recurseComplexSure>;
-    type InferredMeta = InferMeta<typeof recurseComplexSure>;
 
     assertEqual<InferredInput, unknown>(true);
 

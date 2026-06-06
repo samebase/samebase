@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { array, getterObject, number, optional, string } from "../index.ts";
-import type { InferBad, InferGood, InferInput, MetaNever, MetaObj, Sure } from "../index.ts";
+import type { InferBad, InferGood, InferInput } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
 
 interface ExpectedCategory {
@@ -15,12 +15,7 @@ interface ExpectedCategoryBad {
 
 const Category = getterObject({
   name: string,
-  get children(): Sure<
-    (ExpectedCategoryBad | undefined)[],
-    ExpectedCategory[],
-    unknown,
-    MetaNever | MetaObj
-  > {
+  get children() {
     return array(Category);
   },
 });
@@ -55,14 +50,14 @@ interface ExpectedPostBad {
 
 const User = getterObject({
   email: string,
-  get posts(): Sure<(ExpectedPostBad | undefined)[], ExpectedPost[], unknown, MetaNever | MetaObj> {
+  get posts() {
     return array(Post);
   },
 });
 
 const Post = getterObject({
   title: string,
-  get author(): Sure<ExpectedUserBad, ExpectedUser, unknown, MetaNever | MetaObj> {
+  get author() {
     return User;
   },
 });
@@ -84,16 +79,7 @@ interface ExpectedOptionalNodeBad {
 
 const OptionalNode = getterObject({
   value: number,
-  get next(): Sure<
-    ExpectedOptionalNodeBad,
-    ExpectedOptionalNode,
-    unknown,
-    MetaObj<{
-      type: "optional";
-
-      schema: Sure<ExpectedOptionalNodeBad, ExpectedOptionalNode, unknown, MetaNever | MetaObj>;
-    }>
-  > {
+  get next() {
     return optional(OptionalNode);
   },
 });
@@ -203,30 +189,11 @@ describe("getterObject", () => {
   });
 
   it("resolves getter schemas lazily once", () => {
-    interface CachedNodeGood {
-      value: number;
-      next?: CachedNodeGood;
-    }
-
-    interface CachedNodeBad {
-      value?: "not number";
-      next?: CachedNodeBad;
-    }
-
     let getterCalls = 0;
 
     const CachedNode = getterObject({
       value: number,
-      get next(): Sure<
-        CachedNodeBad,
-        CachedNodeGood,
-        unknown,
-        MetaObj<{
-          type: "optional";
-
-          schema: Sure<CachedNodeBad, CachedNodeGood, unknown, MetaNever | MetaObj>;
-        }>
-      > {
+      get next() {
         getterCalls += 1;
         return optional(CachedNode);
       },

@@ -1,14 +1,25 @@
 import { bad, good, sure } from "./core.ts";
-import type { InferBad, MetaNever, MetaObj, Sure } from "./core.ts";
+import type { Bad, Good, MetaNever, MetaObj, Sure } from "./core.ts";
 import { isObject } from "./object.ts";
-import type { InferSchemaGood } from "./object.ts";
 
-export type GetterObjectSchema = Record<
-  string,
-  Sure<unknown, unknown, unknown, MetaNever | MetaObj>
->;
+export type GetterObjectSchema = object;
 
-function isOptionalSchema(schema: Sure<unknown, unknown, unknown, MetaNever | MetaObj>) {
+type GetterObjectField = Sure<unknown, unknown, unknown, MetaNever | MetaObj>;
+
+export interface GetterObjectSure<TSchema extends GetterObjectSchema> {
+  (value: unknown): Good<Record<string, unknown>> | Bad<Record<string, unknown>>;
+  meta: {
+    type: "getterObject";
+
+    schema: TSchema;
+  };
+}
+
+function isSureSchema(value: unknown): value is GetterObjectField {
+  return typeof value === "function";
+}
+
+function isOptionalSchema(schema: GetterObjectField) {
   return isObject(schema.meta) && schema.meta["type"] === "optional";
 }
 
@@ -20,16 +31,7 @@ function isOptionalSchema(schema: Sure<unknown, unknown, unknown, MetaNever | Me
  */
 export function getterObject<TSchema extends GetterObjectSchema>(
   schema: TSchema,
-): Sure<
-  { [K in keyof TSchema & string]?: InferBad<TSchema[K]> },
-  InferSchemaGood<TSchema>,
-  unknown,
-  MetaObj<{
-    type: "getterObject";
-
-    schema: TSchema;
-  }>
-> {
+): GetterObjectSure<TSchema> {
   let resolvedSchema: TSchema | undefined;
 
   const getSchema = () => {
@@ -40,8 +42,6 @@ export function getterObject<TSchema extends GetterObjectSchema>(
     return resolvedSchema;
   };
 
-  // @ts-expect-error The implementation builds the object dynamically while the signature carries
-  // the exact schema-derived object type.
   return sure(
     (value) => {
       if (!isObject(value)) {
@@ -52,6 +52,11 @@ export function getterObject<TSchema extends GetterObjectSchema>(
       const groupGood: Record<string, unknown> = {};
 
       for (const [key, sureFunction] of Object.entries(getSchema())) {
+        if (!isSureSchema(sureFunction)) {
+          groupFail[key] = "not sure schema";
+          continue;
+        }
+
         if (isOptionalSchema(sureFunction) && !(key in value)) {
           continue;
         }

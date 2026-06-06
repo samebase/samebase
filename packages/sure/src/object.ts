@@ -1,12 +1,12 @@
 import { sure, good, bad } from "./core.ts";
-import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from "./core.ts";
+import type { Bad, Good, Sure, InferGood, InferBad, MetaObj, Unsure } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
   v: Sure<
     unknown,
     unknown,
-    any,
+    never,
     MetaObj<{
       type: "optional";
     }>
@@ -19,7 +19,7 @@ type PickNonOptionals<T extends KVPair<Sure>> = T extends {
   v: Sure<
     unknown,
     unknown,
-    any,
+    never,
     MetaObj<{
       type: "optional";
     }>
@@ -39,6 +39,21 @@ export function isObject(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }
 
+export interface OptionalSure<TSchema> {
+  (value: unknown): Good<unknown> | Bad<unknown>;
+  meta: {
+    type: "optional";
+
+    schema: TSchema;
+  };
+}
+
+function isOptionalInnerSchema(
+  value: unknown,
+): value is (value: unknown) => Unsure<unknown, unknown> {
+  return typeof value === "function";
+}
+
 /**
  * Makes a object property `optional`
  * It doesn't make it nullable or undefinedable
@@ -46,26 +61,23 @@ export function isObject(x: unknown): x is Record<string, unknown> {
  * The `optional` function will be checked `only` by the `object` function.
  * In all other cases it will the value will not be perceived as optional.
  */
-export function optional<TSchema extends Sure<unknown, unknown, any>>(
-  schema: TSchema,
-): Sure<
-  InferBad<TSchema>,
-  InferGood<TSchema>,
-  unknown,
-  MetaObj<{
-    type: "optional";
-
-    schema: TSchema;
-  }>
-> {
+export function optional<TSchema>(schema: TSchema): OptionalSure<TSchema> {
   // IMPORTANT: It's important to pass a new function here
   //            since `sure` will update the function with the meta
-  // @ts-expect-error
-  return sure((value) => schema(value), {
-    type: "optional",
+  return sure(
+    (value) => {
+      if (!isOptionalInnerSchema(schema)) {
+        return bad({});
+      }
 
-    schema,
-  });
+      return schema(value);
+    },
+    {
+      type: "optional",
+
+      schema,
+    },
+  );
 }
 
 export function object<

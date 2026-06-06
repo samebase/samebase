@@ -4,7 +4,6 @@ import {
   InferGood,
   InferInput,
   InferMeta,
-  MetaNever,
   MetaObj,
   Sure,
   number,
@@ -17,12 +16,15 @@ import {
 
 import { assertEqual } from "./typeTestUtils.ts";
 
+const optionalAge = optional(number);
+const optionalLastName = optional(or(string, undef));
+
 const optionalObj = object({
   name: string,
   // There's a difference, see `exactOptionalPropertyTypes`
-  age: optional(number),
+  age: optionalAge,
 
-  lastName: optional(or(string, undef)),
+  lastName: optionalLastName,
 });
 
 // TypeChecks
@@ -65,47 +67,8 @@ assertEqual<
             type: "string";
           }>
         >;
-        age: Sure<
-          "not number",
-          number,
-          unknown,
-          MetaObj<{
-            type: "optional";
-            schema: Sure<
-              "not number",
-              number,
-              unknown,
-              MetaObj<{
-                type: "number";
-              }>
-            >;
-          }>
-        >;
-        lastName: Sure<
-          "not string" | "not undefined",
-          string | undefined,
-          unknown,
-          MetaObj<{
-            type: "optional";
-            schema: Sure<
-              "not string" | "not undefined",
-              string | undefined,
-              unknown,
-              MetaObj<{
-                type: "union";
-                first: Sure<
-                  "not string",
-                  string,
-                  unknown,
-                  MetaObj<{
-                    type: "string";
-                  }>
-                >;
-                second: Sure<"not undefined", undefined, unknown, MetaNever | MetaObj>;
-              }>
-            >;
-          }>
-        >;
+        age: typeof optionalAge;
+        lastName: typeof optionalLastName;
       };
     };
   }
