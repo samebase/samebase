@@ -307,6 +307,20 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?top=");
   });
 
+  it("preserves query text when building path suggestion rows", () => {
+    const rows = readRows({
+      routeAddress: "/terms?top=red-",
+      routeTextBeforeCursor: "/te",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "path",
+      nextSelectionRouteIndex: "/privacy?top=red-".length,
+      routeAddress: "/privacy?top=red-",
+      value: "/privacy",
+    });
+  });
+
   it("shows query key suggestions when the cursor is after the query marker", () => {
     const values = readValues({
       routeAddress: "/logo?",

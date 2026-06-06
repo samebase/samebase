@@ -25,19 +25,19 @@ export type Suggestion = {
 };
 
 /**
- * Query token ranges use the same half-open indexes as `String.prototype.slice`.
- *
- * Example: `/logo?`
- *
- * ```txt
- * index:  0 1 2 3 4 5
- * char:   / l o g o ?
- * ```
- *
- * The empty key token has `tokenStart: 5` and `tokenEnd: 6`.
- * `tokenStart` points at the token delimiter, `?` or `&`, and is inclusive.
- * `tokenEnd` points one character after the token and is exclusive.
- */
+Query token ranges use the same half-open indexes as `String.prototype.slice`.
+
+Example: `/logo?`
+
+```txt
+index:  0 1 2 3 4 5
+char:   / l o g o ?
+```
+
+The empty key token has `tokenStart: 5` and `tokenEnd: 6`.
+`tokenStart` points at the token delimiter, `?` or `&`, and is inclusive.
+`tokenEnd` points one character after the token and is exclusive.
+*/
 export type SearchToken =
   | {
       kind: "key";
@@ -70,20 +70,6 @@ type RouteReadyInput = {
   viewerIsAdmin: boolean;
 };
 
-export type RouteAddressReadiness =
-  | {
-      kind: "local";
-      reason: "draftNotReady" | "invalidRouteAddress" | "pathNotReady" | "sameRoute";
-    }
-  | {
-      kind: "readyExact";
-      routeAddress: string;
-    }
-  | {
-      kind: "readyNormalized";
-      routeAddress: string;
-    };
-
 type CursorContext =
   | {
       kind: "path";
@@ -99,11 +85,11 @@ type CursorContext =
     };
 
 /**
- * Parses the route address into path plus query tokens.
- *
- * Example: `/logo?top=blue-500&secondary=rose-500` becomes path `/logo`
- * plus two value tokens, one for `top` and one for `secondary`.
- */
+Parses the route address into path plus query tokens.
+
+Example: `/logo?top=blue-500&secondary=rose-500` becomes path `/logo`
+plus two value tokens, one for `top` and one for `secondary`.
+*/
 export function parseRouteAddress(routeAddress: string): ParsedRouteAddress {
   const searchStart = routeAddress.indexOf("?");
   if (searchStart === -1) {
@@ -154,15 +140,41 @@ export function parseRouteAddress(routeAddress: string): ParsedRouteAddress {
 }
 
 /**
- * Decides whether the visible route draft should update the router.
- *
- * Example: `/logo?dar` is local on `/logo` because `dar` is a partial known key.
- *
- * Example: `/logo?dark` is readyExact because the whole draft can load.
- *
- * Example: from `/privacy`, `/logo?dar` is readyNormalized for `/logo`
- * because the incomplete query token is dropped before navigation.
- */
+local = keep the draft inside the editor. Do not replace the router route.
+
+readyExact = replace the router route with `routeAddress`; the draft is already loadable as-is.
+
+readyNormalized = replace the router route with `routeAddress`, but keep the editor draft as typed.
+The ready route is a safe normalized subset of the draft.
+*/
+export type RouteAddressReadiness =
+  | {
+      kind: "local";
+      reason: "draftNotReady" | "invalidRouteAddress" | "pathNotReady" | "sameRoute";
+    }
+  | {
+      kind: "readyExact";
+      routeAddress: string;
+    }
+  | {
+      kind: "readyNormalized";
+      routeAddress: string;
+    };
+
+/**
+Classifies a route-address draft relative to the route the state machine is editing from.
+
+`currentRouteAddress` should be `expectedRouteAddress` from `RouteEditorState`, not blindly
+`window.location`. During `hoveredSuggestion`, `committedRouteAddress` can already be
+`hoverPath.expectedRouteAddress` while the next suggestion still belongs to `draftPath`.
+
+Example: `/logo?dar` is local on `/logo` because `dar` is a partial known key.
+
+Example: `/logo?dark` is readyExact because the whole draft can load.
+
+Example: from `/privacy`, `/logo?dar` is readyNormalized for `/logo`
+because the incomplete query token is dropped before navigation.
+*/
 export function readRouteAddressReadiness(args: RouteReadyInput): RouteAddressReadiness {
   const routeUpdateDraftAddress = readRouteUrlEditorRouteUpdateDraft({
     currentHref: args.currentRouteAddress,
@@ -227,33 +239,33 @@ export function readRouteAddressReadiness(args: RouteReadyInput): RouteAddressRe
 }
 
 /**
- * Converts the input cursor index into a route-address index.
- *
- * `selection.start` is a cursor boundary between characters, not a character
- * index.
- *
- * Example:
- *
- * `prefix = "https://noter.md/"`
- *
- * `inputValue = "https://noter.md/logo?"`
- *
- * `routeAddress = "/logo?"`
- *
- * `selection.start = 16` means `inputValue.slice(0, 16) === "https://noter.md"`.
- * That maps to route boundary `0`, before the shared `/`.
- *
- * `selection.start = 17` means `inputValue.slice(0, 17) === prefix`.
- * That maps to route boundary `1`, before `l`.
- *
- * `selection.start = 22` means `inputValue.slice(0, 22) === inputValue`.
- * That maps to route boundary `6`, after `?`.
- *
- * The input shows the shared `/` from `prefix`, while `routeAddress` also
- * stores that same `/`. That is why the formula is:
- *
- * `routeIndex = selection.start - prefix.length + 1`.
- */
+Converts the input cursor index into a route-address index.
+
+`selection.start` is a cursor boundary between characters, not a character
+index.
+
+Example:
+
+`prefix = "https://noter.md/"`
+
+`inputValue = "https://noter.md/logo?"`
+
+`routeAddress = "/logo?"`
+
+`selection.start = 16` means `inputValue.slice(0, 16) === "https://noter.md"`.
+That maps to route boundary `0`, before the shared `/`.
+
+`selection.start = 17` means `inputValue.slice(0, 17) === prefix`.
+That maps to route boundary `1`, before `l`.
+
+`selection.start = 22` means `inputValue.slice(0, 22) === inputValue`.
+That maps to route boundary `6`, after `?`.
+
+The input shows the shared `/` from `prefix`, while `routeAddress` also
+stores that same `/`. That is why the formula is:
+
+`routeIndex = selection.start - prefix.length + 1`.
+*/
 function readSelectionIndex(args: {
   prefix: string;
   routeAddress: string;
@@ -269,6 +281,15 @@ function appendSearchParamDelimiter(routeAddress: string): string {
   }
 
   return `${routeAddress}${routeAddress.includes("?") ? "&" : "?"}`;
+}
+
+function applyPathSuggestion(routeAddress: string, suggestionPath: string): string {
+  const parsedRouteAddress = parseRouteAddress(routeAddress);
+  if (parsedRouteAddress.search === null) {
+    return appendSearchParamDelimiter(suggestionPath);
+  }
+
+  return `${suggestionPath}${routeAddress.slice(parsedRouteAddress.search.start)}`;
 }
 
 type TailwindColorValueCursor =
@@ -314,16 +335,16 @@ function readTailwindColorFamilyValues(valueSuggestions: readonly string[]): str
 }
 
 /**
- * Classifies the cursor from the parsed route address.
- *
- * Example: `/logo?to` with cursor after `to` returns `searchKey` for key `to`.
- *
- * Example: `/logo?top=blue-500&se` with cursor after `se` returns `searchKey`
- * for key `se`; the token starts at the `&` delimiter.
- *
- * Example: `/logo?top=blue-500` with cursor inside `blue-500` returns
- * `searchValue`, so value suggestions can be added without reparsing strings.
- */
+Classifies the cursor from the parsed route address.
+
+Example: `/logo?to` with cursor after `to` returns `searchKey` for key `to`.
+
+Example: `/logo?top=blue-500&se` with cursor after `se` returns `searchKey`
+for key `se`; the token starts at the `&` delimiter.
+
+Example: `/logo?top=blue-500` with cursor inside `blue-500` returns
+`searchValue`, so value suggestions can be added without reparsing strings.
+*/
 function readCursorContext(
   parsedRouteAddress: ParsedRouteAddress,
   selectionRouteIndex: number,
@@ -374,12 +395,12 @@ function readCursorContext(
 }
 
 /**
- * Combines accessible route-specific and global query metadata.
- *
- * Example: `/logo` owns `top`, while global metadata owns `dev`; both can be
- * suggested in `/logo?`, and a route-specific duplicate wins after access
- * filtering.
- */
+Combines accessible route-specific and global query metadata.
+
+Example: `/logo` owns `top`, while global metadata owns `dev`; both can be
+suggested in `/logo?`, and a route-specific duplicate wins after access
+filtering.
+*/
 function readSearchParams(
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[],
   viewerIsAdmin: boolean,
@@ -412,11 +433,11 @@ function readSearchParams(
 }
 
 /**
- * Turns route metadata into query-key dropdown rows.
- *
- * Example: if the active token is `?to`, the `top` metadata becomes a row with
- * value `?top=` and selecting it replaces the active token in the draft route.
- */
+Turns route metadata into query-key dropdown rows.
+
+Example: if the active token is `?to`, the `top` metadata becomes a row with
+value `?top=` and selecting it replaces the active token in `args.routeAddress`.
+*/
 function readSearchRows(args: {
   routeAddress: string;
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
@@ -462,13 +483,13 @@ function readSearchRows(args: {
 }
 
 /**
- * Turns a value token into concrete value rows.
- *
- * Example: `/logo?top=bl` with cursor after `bl` returns `blue-`, because
- * Tailwind colors are selected as family first, then shade.
- *
- * Example: `/logo?top=blue-2` with cursor after `2` returns `blue-200`.
- */
+Turns a value token into concrete value rows.
+
+Example: `/logo?top=bl` with cursor after `bl` returns `blue-`, because
+Tailwind colors are selected as family first, then shade.
+
+Example: `/logo?top=blue-2` with cursor after `2` returns `blue-200`.
+*/
 function readValueRows(args: {
   routeAddress: string;
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
@@ -536,10 +557,11 @@ function readValueRows(args: {
 }
 
 /**
- * Reads path dropdown rows from the router registry.
- *
- * Example row: `{ kind: "path", value: "/logo", routeAddress: "/logo" }`.
- */
+Reads path dropdown rows from the router registry.
+
+Example: `/terms?top=red-` plus path suggestion `/privacy` becomes
+`/privacy?top=red-`, because path suggestions replace only the path part.
+*/
 function readPathRows(args: {
   prefix: string;
   routeAddress: string;
@@ -557,7 +579,7 @@ function readPathRows(args: {
       origin,
     }),
   ).map((suggestionRouteAddress) => {
-    const routeAddress = appendSearchParamDelimiter(suggestionRouteAddress);
+    const routeAddress = applyPathSuggestion(args.routeAddress, suggestionRouteAddress);
 
     return {
       kind: "path",
@@ -569,15 +591,15 @@ function readPathRows(args: {
 }
 
 /**
- * Chooses which suggestions to show for the current cursor position.
- *
- * Example: `/logo?` with cursor after `?` shows query-key rows like `?top=`.
- *
- * Example: `/logo?top=blue-500` with cursor in `/logo` shows path rows.
- *
- * Example: `/logo?top=blue-2` with cursor after `2` shows value rows like
- * `blue-200`.
- */
+Chooses which suggestions to show for the current cursor position.
+
+Example: `/logo?` with cursor after `?` shows query-key rows like `?top=`.
+
+Example: `/logo?top=blue-500` with cursor in `/logo` shows path rows.
+
+Example: `/logo?top=blue-2` with cursor after `2` shows value rows like
+`blue-200`.
+*/
 export function readSuggestions(args: {
   prefix: string;
   routeAddress: string;

@@ -33,16 +33,73 @@ type RouteAddressSelection = {
   direction: "forward" | "backward" | "none";
 };
 
+type RouteEditorSuggestionHoverPath = {
+  draftPath: string;
+  expectedRouteAddress: string;
+};
+
+/**
+RouteEditorState stores route addresses, not full visible input values.
+
+routeAddress while focused = hoverPath?.draftPath ?? draftPath
+
+draftPath = the editable route address while `kind` is `"focused"`. Starts with `/`, never includes
+`prefix`.
+
+hoverPath = desktop suggestion hover. It changes the visible route address without changing
+`draftPath`.
+
+expectedRouteAddress = check only: what TanStack should already show. Do not use it as a second
+source of truth for blurred display.
+
+Blurred state does not store `committedRouteAddress`. It renders `committedRouteAddress` from
+TanStack.
+
+Example focused state:
+
+{
+  kind: "focused",
+  prefix: "https://noter.md/",
+  draftPath: "/logo?top=red-",
+  expectedRouteAddress: "/logo",
+  hoverPath: null,
+  selection: { start: 22, end: 22, direction: "none" },
+}
+
+A partial query value can keep `draftPath` at `/logo?top=red-` while `expectedRouteAddress` stays
+`/logo`.
+
+Example desktop hover:
+
+{
+  kind: "focused",
+  prefix: "https://noter.md/",
+  draftPath: "/terms?top=red-",
+  expectedRouteAddress: "/terms",
+  hoverPath: {
+    draftPath: "/privacy?top=red-",
+    expectedRouteAddress: "/privacy",
+  },
+  selection: { start: 19, end: 19, direction: "none" },
+}
+
+Example blurred state:
+
+{
+  kind: "blurred",
+  prefix: "https://noter.md/",
+}
+*/
 export type RouteEditorState =
   | {
       kind: "blurred";
-      path: string;
       prefix: string;
     }
   | {
       kind: "focused";
       draftPath: string;
       expectedRouteAddress: string;
+      hoverPath: RouteEditorSuggestionHoverPath | null;
       prefix: string;
       selection: RouteAddressSelection;
     };
@@ -55,59 +112,105 @@ type RouteEditorPreventNativeEditContext = {
   preventDefault: () => void;
 };
 
-type RouteEditorReplaceRouteContext = {
-  readRouteAddressReadiness: (draftRouteAddress: string) => RouteAddressReadiness;
+type RouteEditorRouteActionContext = {
   replaceRoute: (routeAddress: string) => void;
 };
 
+type RouteEditorReplaceRouteContext = RouteEditorRouteActionContext & {
+  readRouteAddressReadiness: (args: {
+    currentRouteAddress: string;
+    draftRouteAddress: string;
+  }) => RouteAddressReadiness;
+};
+
 type RouteEditorEvent =
-  // Input value and selection tracking.
+  // React input `onChange` sends the visible input value after native editing
+  // already ran. `nextInputValue` includes `prefix`; `nextSelection` is the
+  // browser selection after that edit.
   | {
       type: "changedInput";
       nextInputValue: string;
       nextSelection: RouteAddressSelection;
       context: RouteEditorReplaceRouteContext;
     }
+  // React input `onSelect` sends `selection` for the current `inputValue`.
+  //
+  // Example: `draftPath` is `/terms?top=red-`, then `hoverPath.draftPath`
+  // becomes `/privacy?top=red-`. The input visibly shows `hoverPath.draftPath`,
+  // but `draftPath` is still `/terms?top=red-` until `selectedSuggestion`.
+  // Cursor indexes from `hoverPath.draftPath` cannot be stored into `selection`
+  // for `draftPath`.
   | {
       type: "changedSelection";
       selection: RouteAddressSelection;
     }
-  // Focus and dropdown lifecycle.
+  // Root `onBlur` when focus leaves the editor subtree. Historical name:
+  // `clickedOutside` is also sent by keyboard focus movement, not only clicks.
   | {
       type: "clickedOutside";
+      context: RouteEditorRouteActionContext;
     }
+  // Input focus/click that starts or resumes editing. `committedRouteAddress`
+  // is the TanStack route when the input becomes editable.
   | {
       type: "clickedInput";
+      committedRouteAddress: string;
       selection: RouteAddressSelection;
     }
+  // Escape key while the input has focus. This asks the editor to close from the keyboard.
   | {
       type: "pressedEscape";
+      context: RouteEditorRouteActionContext;
     }
   // Locked-prefix editing.
+  // Plain Backspace would touch the locked prefix and may need synchronous preventDefault before
+  // native editing runs.
   | {
       type: "requestedLockedPrefixBackspace";
       selection: RouteAddressSelection;
       context: RouteEditorPreventNativeEditContext;
     }
+  // A native edit would change part of `prefix`. The FSM can change `selection`
+  // first, then let the browser perform Delete, Cut, Paste, printable
+  // replacement, or Mod+Backspace.
   | {
       type: "requestedEditableSelection";
       selection: RouteAddressSelection;
     }
-  // Suggestion commit.
+  // User clicks a suggestion row while the editor stays focused.
+  //
+  // Example: `draftPath` is `/terms?top=red-` and the user clicks the
+  // `/privacy` path row. `draftPath` becomes `/privacy?top=red-`, `hoverPath`
+  // becomes `null`, and `selection` moves to `nextSelectionRouteIndex`.
   | {
       type: "selectedSuggestion";
       context: RouteEditorReplaceRouteContext;
       nextSelectionRouteIndex: number;
       routeAddress: string;
     }
-  // External committed route sync.
+  // Pointer moved over a suggestion row. This sets `hoverPath` without changing
+  // `draftPath`.
+  | {
+      type: "hoveredSuggestion";
+      context: RouteEditorReplaceRouteContext;
+      routeAddress: string;
+    }
+  // Pointer left the suggestion list. This sets `hoverPath` back to `null`
+  // while `kind` stays `"focused"`.
+  | {
+      type: "clearedHoverPath";
+      context: RouteEditorRouteActionContext;
+    }
+  // TanStack `useLocation()` changed `committedRouteAddress`. `path` can match
+  // `expectedRouteAddress`, match `hoverPath.expectedRouteAddress`, or be a
+  // route change from outside this editor state.
   | {
       type: "changedCommittedRoute";
       path: string;
     };
 
 type RouteEditorAction =
-  // DOM focus/edit prevention.
+  // `blurInput` and `preventNativeEdit` run DOM methods synchronously.
   | {
       brand: "blurInput";
     }
@@ -115,16 +218,16 @@ type RouteEditorAction =
       brand: "preventNativeEdit";
       context: RouteEditorPreventNativeEditContext;
     }
-  // DOM selection repair.
+  // `setInputSelection` writes `selection` back into the input.
   | {
       brand: "setInputSelection";
       selection: RouteAddressSelection;
     }
-  // Router preview.
+  // `replaceRoute` replaces the TanStack route with `routeAddress`.
   | {
       brand: "replaceRoute";
       routeAddress: string;
-      context: RouteEditorReplaceRouteContext;
+      context: RouteEditorRouteActionContext;
     };
 
 type RouteEditorActionHandlerTable = TypedTransitionActionHandlerTable<
@@ -164,51 +267,68 @@ function readInputSelectionFromRouteIndex(
 
 const routeEditorTransition: RouteEditorTransitionTable = {
   blurred: {
-    changedCommittedRoute: (prev, event) =>
-      keepState({
-        ...prev,
-        path: event.path,
-      }),
     clickedInput: (prev, event) =>
       keepState({
         kind: "focused",
-        draftPath: readRouteAddressFocusedDraft(prev.path),
-        expectedRouteAddress: prev.path,
+        draftPath: readRouteAddressFocusedDraft(event.committedRouteAddress),
+        expectedRouteAddress: event.committedRouteAddress,
+        hoverPath: null,
         prefix: prev.prefix,
         selection: event.selection,
       }),
-    pressedEscape: (prev) => ({
-      actions: [{ brand: "blurInput" }],
-      state: prev,
-    }),
   },
 
   focused: {
     changedCommittedRoute: (prev, event) => {
-      if (event.path === prev.expectedRouteAddress) {
+      // Example 1: user types `/logo`, this FSM calls replaceRoute(`/logo`),
+      // then TanStack reports `/logo`. That matches expectedRouteAddress, so
+      // the editor stays focused.
+      //
+      // Example 2: draftPath is `/terms?top=red-`; hovering `/privacy` visibly
+      // shows `/privacy?top=red-` and calls replaceRoute(`/privacy`). TanStack
+      // reports `/privacy`, which matches hoverPath.expectedRouteAddress, so
+      // `hoverPath` stays set.
+      if (
+        event.path === prev.expectedRouteAddress ||
+        event.path === prev.hoverPath?.expectedRouteAddress
+      ) {
         return keepState(prev);
       }
 
-      // If something external somehow changed our route
-      // just bail, for now.
+      // Example: while editing, Back/Forward or another app link changes the
+      // route to `/home`. That matches neither `expectedRouteAddress` nor
+      // `hoverPath.expectedRouteAddress`, so close the editor and show
+      // `committedRouteAddress`.
       return {
         actions: [{ brand: "blurInput" }],
         state: {
           kind: "blurred",
-          path: event.path,
           prefix: prev.prefix,
         },
       };
     },
+
     changedInput: (prev, event) => {
+      // If `nextInputValue` no longer starts with `prefix`, keep `prev` so the
+      // controlled input restores `draftPath` or `hoverPath.draftPath`.
       if (!event.nextInputValue.startsWith(prev.prefix)) {
         return keepState(prev);
       }
 
       const draftPath = `/${event.nextInputValue.slice(prev.prefix.length)}`;
-      const readiness = event.context.readRouteAddressReadiness(draftPath);
+      // Example: draftPath is `/terms?top=red-`, hoverPath visibly shows
+      // `/privacy?top=red-`, and the browser route is already `/privacy`.
+      // Once the user types, this edit belongs to draftPath again, so classify
+      // from prev.expectedRouteAddress (`/terms`), not the browser route.
+      const readiness = event.context.readRouteAddressReadiness({
+        currentRouteAddress: prev.expectedRouteAddress,
+        draftRouteAddress: draftPath,
+      });
       const actions: RouteEditorAction[] = [];
       let expectedRouteAddress = prev.expectedRouteAddress;
+      // `local` updates only `draftPath`, such as `/logo?dar` while
+      // `expectedRouteAddress` remains `/logo`. `readyNormalized` can keep the
+      // typed `draftPath` while replacing the route with `readiness.routeAddress`.
       if (readiness.kind !== "local") {
         expectedRouteAddress = readiness.routeAddress;
         actions.push({
@@ -224,36 +344,146 @@ const routeEditorTransition: RouteEditorTransitionTable = {
           ...prev,
           draftPath,
           expectedRouteAddress,
+          hoverPath: null,
           selection: event.nextSelection,
         },
       };
     },
-    changedSelection: (prev, event) =>
-      keepState({
+
+    changedSelection: (prev, event) => {
+      // Example: draftPath is `/terms?top=red-`, hoverPath visibly shows
+      // `/privacy?top=red-`, and onSelect reports a cursor inside `/privacy`.
+      // Suggestions still use `draftPath`, so `selection` from `hoverPath` is
+      // ignored.
+      if (prev.hoverPath) {
+        return keepState(prev);
+      }
+
+      return keepState({
         ...prev,
         selection: event.selection,
-      }),
+      });
+    },
+
+    // Input focus/click sets `hoverPath` to `null` before storing `selection`,
+    // so the input value changes from `hoverPath.draftPath` back to `draftPath`.
     clickedInput: (prev, event) =>
       keepState({
         ...prev,
+        hoverPath: null,
         selection: event.selection,
       }),
-    clickedOutside: (prev) =>
-      keepState({
-        kind: "blurred",
-        path: prev.expectedRouteAddress,
-        prefix: prev.prefix,
-      }),
-    pressedEscape: (prev) => ({
-      actions: [{ brand: "blurInput" }],
-      state: {
-        kind: "blurred",
-        path: prev.expectedRouteAddress,
-        prefix: prev.prefix,
-      },
-    }),
-    // Interesting implementation: for Delete, Cut, Paste, and printable replacement, we only clamp
-    // the selection. The browser still performs the edit natively, so undo/redo stays browser-owned.
+
+    clickedOutside: (prev, event) => {
+      // Root blur leaves `"focused"`. If `hoverPath.expectedRouteAddress`
+      // replaced the route, restore `prev.expectedRouteAddress` before the
+      // blurred editor reads `committedRouteAddress`.
+      const actions: RouteEditorAction[] = [];
+      if (prev.hoverPath && prev.hoverPath.expectedRouteAddress !== prev.expectedRouteAddress) {
+        actions.push({
+          brand: "replaceRoute",
+          routeAddress: prev.expectedRouteAddress,
+          context: event.context,
+        });
+      }
+
+      return {
+        actions,
+        state: {
+          kind: "blurred",
+          prefix: prev.prefix,
+        },
+      };
+    },
+
+    clearedHoverPath: (prev, event) => {
+      // Listbox mouseleave can fire while `hoverPath` is already `null`;
+      // `draftPath` is already visible and the route already matches
+      // `expectedRouteAddress`.
+      if (!prev.hoverPath) {
+        return keepState(prev);
+      }
+
+      const actions: RouteEditorAction[] = [];
+      // If `hoverPath.expectedRouteAddress` replaced the route, restore
+      // `expectedRouteAddress` before setting `hoverPath` to `null`.
+      if (prev.hoverPath.expectedRouteAddress !== prev.expectedRouteAddress) {
+        actions.push({
+          brand: "replaceRoute",
+          routeAddress: prev.expectedRouteAddress,
+          context: event.context,
+        });
+      }
+
+      return {
+        actions,
+        state: {
+          ...prev,
+          hoverPath: null,
+        },
+      };
+    },
+
+    // Escape changes `kind` from `"focused"` to `"blurred"`. If `hoverPath`
+    // replaced the route, restore `expectedRouteAddress`; otherwise the route
+    // is already what the focused state expected.
+    pressedEscape: (prev, event) => {
+      const actions: RouteEditorAction[] = [{ brand: "blurInput" }];
+      if (prev.hoverPath && prev.hoverPath.expectedRouteAddress !== prev.expectedRouteAddress) {
+        actions.push({
+          brand: "replaceRoute",
+          routeAddress: prev.expectedRouteAddress,
+          context: event.context,
+        });
+      }
+
+      return {
+        actions,
+        state: {
+          kind: "blurred",
+          prefix: prev.prefix,
+        },
+      };
+    },
+
+    hoveredSuggestion: (prev, event) => {
+      // A previous `hoveredSuggestion` may have changed `committedRouteAddress`.
+      // Classify this suggestion from `expectedRouteAddress`, which is the
+      // route for `draftPath`.
+      const readiness = event.context.readRouteAddressReadiness({
+        currentRouteAddress: prev.expectedRouteAddress,
+        draftRouteAddress: event.routeAddress,
+      });
+      const expectedRouteAddress =
+        readiness.kind === "local" ? prev.expectedRouteAddress : readiness.routeAddress;
+      // Avoid replaceRoute when the route already equals `expectedRouteAddress`
+      // or `hoverPath.expectedRouteAddress`.
+      const activeExpectedRouteAddress =
+        prev.hoverPath?.expectedRouteAddress ?? prev.expectedRouteAddress;
+      const actions: RouteEditorAction[] = [];
+      if (expectedRouteAddress !== activeExpectedRouteAddress) {
+        actions.push({
+          brand: "replaceRoute",
+          routeAddress: expectedRouteAddress,
+          context: event.context,
+        });
+      }
+
+      return {
+        actions,
+        state: {
+          ...prev,
+          hoverPath: {
+            draftPath: event.routeAddress,
+            expectedRouteAddress,
+          },
+        },
+      };
+    },
+
+    // Runs before native Delete, printable replacement, Cut, Paste, and Ctrl/Meta+Backspace.
+    // Move the affected range onto editable route text only; the browser still mutates the input,
+    // fires onChange, handles clipboard contents, and owns the undo/redo entry.
     requestedEditableSelection: (prev, event) => {
       const lockedPrefixEnd = prev.prefix.length;
       const selection = {
@@ -270,7 +500,11 @@ const routeEditorTransition: RouteEditorTransitionTable = {
         },
       };
     },
-    // Backspace at the prefix boundary has no editable text selected, so it needs preventDefault.
+
+    // Plain Backspace needs a separate path: a collapsed caret at prefix.length has no editable
+    // selection, so native Backspace would remove the locked prefix character to the left.
+    // If clamping leaves selected route text, keep default Backspace native; prevent only the empty
+    // boundary no-op.
     requestedLockedPrefixBackspace: (prev, event) => {
       const lockedPrefixEnd = prev.prefix.length;
       const selection = {
@@ -294,21 +528,36 @@ const routeEditorTransition: RouteEditorTransitionTable = {
         },
       };
     },
+
     selectedSuggestion: (prev, event) => {
+      // Suggestion mousedown prevents native click handling to keep focus, so
+      // `nextSelectionRouteIndex` is the reliable source for `selection`.
       const selection = readInputSelectionFromRouteIndex(
         prev.prefix,
         event.nextSelectionRouteIndex,
       );
-      const readiness = event.context.readRouteAddressReadiness(event.routeAddress);
       const actions: RouteEditorAction[] = [{ brand: "setInputSelection", selection }];
       let expectedRouteAddress = prev.expectedRouteAddress;
-      if (readiness.kind !== "local") {
-        expectedRouteAddress = readiness.routeAddress;
-        actions.push({
-          brand: "replaceRoute",
-          routeAddress: readiness.routeAddress,
-          context: event.context,
+      // If `hoverPath.draftPath` is the clicked `routeAddress`, reuse
+      // `hoverPath.expectedRouteAddress`; `hoveredSuggestion` already ran the
+      // readiness check.
+      if (prev.hoverPath?.draftPath === event.routeAddress) {
+        expectedRouteAddress = prev.hoverPath.expectedRouteAddress;
+      } else {
+        // Without a matching `hoverPath`, classify `event.routeAddress` now and
+        // replace the route only when it is not `local`.
+        const readiness = event.context.readRouteAddressReadiness({
+          currentRouteAddress: prev.expectedRouteAddress,
+          draftRouteAddress: event.routeAddress,
         });
+        if (readiness.kind !== "local") {
+          expectedRouteAddress = readiness.routeAddress;
+          actions.push({
+            brand: "replaceRoute",
+            routeAddress: readiness.routeAddress,
+            context: event.context,
+          });
+        }
       }
 
       return {
@@ -317,6 +566,7 @@ const routeEditorTransition: RouteEditorTransitionTable = {
           ...prev,
           draftPath: event.routeAddress,
           expectedRouteAddress,
+          hoverPath: null,
           selection,
         },
       };
@@ -342,12 +592,12 @@ function readRouteAddressFromRouteHref(routeHref: string): string {
 }
 
 /**
- * TanStack retained root search keeps keys such as `dev` unless navigation sends
- * an own `undefined` value for the removed key.
- *
- * Example: current `/terms?dev`, next `/logo` must send `{ dev: undefined }`
- * so the visible browser route becomes `/logo`, not `/logo?dev`.
- */
+TanStack retained root search keeps keys such as `dev` unless navigation sends
+an own `undefined` value for the removed key.
+
+Example: current `/terms?dev`, next `/logo` must send `{ dev: undefined }`
+so the visible browser route becomes `/logo`, not `/logo?dev`.
+*/
 function readRouteEditorExactSearch(args: {
   currentRouteAddress: string;
   nextRouteAddress: string;
@@ -419,7 +669,6 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   >({
     initialState: {
       kind: "blurred",
-      path: committedRouteAddress,
       prefix,
     },
     transitionTable: routeEditorTransition,
@@ -455,26 +704,27 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
     [committedRouteAddress, origin, router],
   );
 
-  const readRouteAddressReadinessForDraft = useCallback(
-    (draftRouteAddress: string) =>
+  const readRouteAddressReadinessForRoute = useCallback(
+    (args: { currentRouteAddress: string; draftRouteAddress: string }) =>
       readRouteAddressReadiness({
-        currentRouteAddress: committedRouteAddress,
-        draftRouteAddress,
+        currentRouteAddress: args.currentRouteAddress,
+        draftRouteAddress: args.draftRouteAddress,
         origin,
         routesByPath: router.routesByPath,
         viewerIsAdmin: viewerCanSeeAdminRoutes,
       }),
-    [committedRouteAddress, origin, router.routesByPath, viewerCanSeeAdminRoutes],
+    [origin, router.routesByPath, viewerCanSeeAdminRoutes],
   );
 
   const handleInputFocus = useCallback(
     (event: FocusEvent<HTMLInputElement>) => {
       sendEvent({
         type: "clickedInput",
+        committedRouteAddress,
         selection: readRouteAddressSelection(event.currentTarget),
       });
     },
-    [sendEvent],
+    [committedRouteAddress, sendEvent],
   );
 
   const handleInputClick = useCallback(
@@ -485,10 +735,11 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
 
       sendEvent({
         type: "clickedInput",
+        committedRouteAddress,
         selection: readRouteAddressSelection(event.currentTarget),
       });
     },
-    [sendEvent, state.kind],
+    [committedRouteAddress, sendEvent, state.kind],
   );
 
   const handleRootBlur = useCallback(
@@ -498,11 +749,16 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
         return;
       }
 
+      // clickedOutside is root blur, not a pointer event; suggestion clicks keep focus inside the
+      // editor by preventing native mousedown blur.
       sendEvent({
         type: "clickedOutside",
+        context: {
+          replaceRoute,
+        },
       });
     },
-    [sendEvent],
+    [replaceRoute, sendEvent],
   );
 
   const clampSelectionToRouteText = useCallback(
@@ -566,13 +822,18 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
         return;
       }
 
+      // `hoverPath` does not move focus to the suggestion row, so Escape still
+      // arrives from the input.
       if (event.key === "Escape") {
         sendEvent({
           type: "pressedEscape",
+          context: {
+            replaceRoute,
+          },
         });
       }
     },
-    [clampSelectionToRouteText, prefix, sendEvent],
+    [clampSelectionToRouteText, prefix, replaceRoute, sendEvent],
   );
 
   const handleInputCut = useCallback(
@@ -608,12 +869,12 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
         nextInputValue: event.currentTarget.value,
         nextSelection,
         context: {
-          readRouteAddressReadiness: readRouteAddressReadinessForDraft,
+          readRouteAddressReadiness: readRouteAddressReadinessForRoute,
           replaceRoute,
         },
       });
     },
-    [readRouteAddressReadinessForDraft, replaceRoute, sendEvent],
+    [readRouteAddressReadinessForRoute, replaceRoute, sendEvent],
   );
 
   const handleSuggestionMouseDown = useCallback(
@@ -622,36 +883,71 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       sendEvent({
         type: "selectedSuggestion",
         context: {
-          readRouteAddressReadiness: readRouteAddressReadinessForDraft,
+          readRouteAddressReadiness: readRouteAddressReadinessForRoute,
           replaceRoute,
         },
         nextSelectionRouteIndex: suggestion.nextSelectionRouteIndex,
         routeAddress: suggestion.routeAddress,
       });
     },
-    [readRouteAddressReadinessForDraft, replaceRoute, sendEvent],
+    [readRouteAddressReadinessForRoute, replaceRoute, sendEvent],
   );
+
+  const handleSuggestionMouseMove = useCallback(
+    (suggestion: Suggestion) => {
+      sendEvent({
+        type: "hoveredSuggestion",
+        context: {
+          readRouteAddressReadiness: readRouteAddressReadinessForRoute,
+          replaceRoute,
+        },
+        routeAddress: suggestion.routeAddress,
+      });
+    },
+    [readRouteAddressReadinessForRoute, replaceRoute, sendEvent],
+  );
+
+  const handleSuggestionsMouseLeave = useCallback(() => {
+    sendEvent({
+      type: "clearedHoverPath",
+      context: {
+        replaceRoute,
+      },
+    });
+  }, [replaceRoute, sendEvent]);
 
   const getSuggestionProps = useCallback(
     (suggestion: Suggestion) => ({
       onMouseDown: (event: MouseEvent<HTMLElement>) => handleSuggestionMouseDown(event, suggestion),
+      onMouseMove: () => handleSuggestionMouseMove(suggestion),
     }),
-    [handleSuggestionMouseDown],
+    [handleSuggestionMouseDown, handleSuggestionMouseMove],
   );
 
-  const routeAddress = state.kind === "blurred" ? state.path : state.draftPath;
+  const routeAddress =
+    state.kind === "blurred"
+      ? committedRouteAddress
+      : (state.hoverPath?.draftPath ?? state.draftPath);
+  const suggestionsRouteAddress =
+    state.kind === "blurred" ? committedRouteAddress : state.draftPath;
   const inputValue = `${state.prefix}${routeAddress.slice(1)}`;
   const suggestionSelection = state.kind === "focused" ? state.selection : null;
   const suggestions = useMemo(
     () =>
       readSuggestions({
         prefix: state.prefix,
-        routeAddress,
+        routeAddress: suggestionsRouteAddress,
         routesByPath: router.routesByPath,
         selection: suggestionSelection,
         viewerIsAdmin: viewerCanSeeAdminRoutes,
       }),
-    [routeAddress, router.routesByPath, state.prefix, suggestionSelection, viewerCanSeeAdminRoutes],
+    [
+      router.routesByPath,
+      state.prefix,
+      suggestionSelection,
+      suggestionsRouteAddress,
+      viewerCanSeeAdminRoutes,
+    ],
   );
   const suggestionsVisible = state.kind === "focused";
   const inputProps = useMemo(
@@ -688,8 +984,9 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   const listboxProps = useMemo(
     () => ({
       id: listboxId,
+      onMouseLeave: handleSuggestionsMouseLeave,
     }),
-    [listboxId],
+    [handleSuggestionsMouseLeave, listboxId],
   );
   const rootProps = useMemo(
     () => ({

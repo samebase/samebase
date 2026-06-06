@@ -98,6 +98,14 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
   };
 }
 
+async function expectPrivacyPage(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+}
+
+async function expectTermsPage(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Terms of Service" })).toBeVisible();
+}
+
 test("route URL editor keeps the prefix visible when Backspace deletes a selection that crosses it", async ({
   page,
 }) => {
@@ -164,6 +172,41 @@ test("route URL editor keeps focus and advances the cursor after selecting sugge
   await expect(input).toHaveValue(`${prefix}logo?top=blue-200&`);
   await expectInputSelection(input, `${prefix}logo?top=blue-200&`.length);
   await expect(page.getByRole("option", { exact: true, name: "&secondary=" })).toBeVisible();
+});
+
+test("route URL editor applies hover path suggestions and restores on mouseleave", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}terms?top=red-`));
+  await expect(input).toHaveValue(`${prefix}terms?top=red-`);
+  await expect(page).toHaveURL(/\/terms$/);
+
+  await input.press("ControlOrMeta+ArrowLeft");
+
+  const privacyOption = page.getByRole("option", { exact: true, name: "/privacy" });
+  await expect(privacyOption).toBeVisible();
+
+  await privacyOption.hover();
+
+  await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expectPrivacyPage(page);
+
+  await page.mouse.move(0, 0);
+
+  await expect(input).toHaveValue(`${prefix}terms?top=red-`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expectTermsPage(page);
+
+  await privacyOption.hover();
+  await privacyOption.click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expectPrivacyPage(page);
 });
 
 test("route URL editor applies route-ready typed drafts immediately", async ({ page }) => {
