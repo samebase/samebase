@@ -173,7 +173,7 @@ function PublicLandingResolvedSignedInAccountSection({
     return formatAuthProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
   const accountEmail = viewer.email ?? viewer.githubUsername ?? viewer.name ?? "Signed in";
-  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername ?? "Signed in";
+  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername ?? "Account";
 
   return (
     <VaultDashboardAccountSection
