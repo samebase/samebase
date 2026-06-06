@@ -200,6 +200,10 @@ Key domain entities:
 - New or materially changed code should include concise comments that explain the constraint or
   invariant being preserved. Prefer JSDoc above functions when a function-level explanation is
   needed.
+- Comments must use the same terminology as the code. Prefer exact type, function, event, and
+  property names such as `draftPath`, `hoverPath`, or `expectedRouteAddress` over invented labels
+  like "base route" or "focused route"; invented comment-only vocabulary is worse than no comment.
+  Use `@see` in JSDoc when a comment should point readers to a nearby type or helper.
 - Prefer comments that name the concrete runtime case over abstract ownership language. For example:
   `if durable state says "left" but this layout has no left pane, render "main"; same for "right".`
 - For JSDoc above local types, props, and small config unions, write the app contract in the
