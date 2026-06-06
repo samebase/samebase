@@ -18,7 +18,7 @@ export default defineConfig({
     __NOTER_BUILD_CONFIG__: JSON.stringify(testNoterBuildConfig),
   },
   fmt: {
-    ignorePatterns: ["**/convex/_generated/**"],
+    ignorePatterns: ["**/.agents/**", "**/convex/_generated/**"],
     printWidth: 100,
     proseWrap: "always",
   },

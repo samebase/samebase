@@ -1,4 +1,4 @@
-import { good, sure, bad, pure } from './core.ts'
+import { good, sure, bad, pure } from "./core.ts";
 
 /**
  * Defined using the `sure` function
@@ -6,15 +6,15 @@ import { good, sure, bad, pure } from './core.ts'
  * This adds a `{ meta: undefined }` to the passed function
  */
 export const string = sure(
-  x => {
-    return typeof x === 'string' //
+  (x) => {
+    return typeof x === "string" //
       ? good(x)
-      : bad('not string' as const)
+      : bad("not string" as const);
   },
   {
-    type: 'string' as const,
-  }
-)
+    type: "string" as const,
+  },
+);
 
 /**
  * Defined using the `pure` function
@@ -22,15 +22,15 @@ export const string = sure(
  * The pure function returnes exactly the passed function
  */
 export const number = sure(
-  x => {
-    return typeof x === 'number' //
+  (x) => {
+    return typeof x === "number" //
       ? good(x)
-      : bad('not number' as const)
+      : bad("not number" as const);
   },
   {
-    type: 'number' as const,
-  }
-)
+    type: "number" as const,
+  },
+);
 
 /**
  * Defined without using the `sure` or `pure` functions
@@ -38,21 +38,21 @@ export const number = sure(
  * This is the same as the `pure` function
  */
 export const boolean = (x: unknown) => {
-  return typeof x === 'boolean' //
+  return typeof x === "boolean" //
     ? good(x)
-    : bad('not boolean' as const)
-}
+    : bad("not boolean" as const);
+};
 
 export const undef = (value: unknown) => {
   return value === undefined //
     ? good(value)
-    : bad('not undefined' as const)
-}
+    : bad("not undefined" as const);
+};
 
 export const nil = (value: unknown) => {
   return value === null //
     ? good(value)
-    : bad('not null' as const)
-}
+    : bad("not null" as const);
+};
 
-export const unknown = pure(x => good(x))
+export const unknown = pure((x) => good(x));

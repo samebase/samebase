@@ -1,83 +1,91 @@
-import { describe, it, expect } from 'vite-plus/test'
-import { number, union, string } from '../index.ts'
-import type { InferBad, InferGood, InferInput, InferMeta, MetaNever, MetaObj, Sure } from '../index.ts'
-import { assertEqual } from './typeTestUtils.ts'
+import { describe, it, expect } from "vite-plus/test";
+import { number, union, string } from "../index.ts";
+import type {
+  InferBad,
+  InferGood,
+  InferInput,
+  InferMeta,
+  MetaNever,
+  MetaObj,
+  Sure,
+} from "../index.ts";
+import { assertEqual } from "./typeTestUtils.ts";
 
-const simple = union(number, string)
+const simple = union(number, string);
 
 // TypeChecks
-type InferredGood = InferGood<typeof simple>
-type InferredBad = InferBad<typeof simple>
-type InferredInput = InferInput<typeof simple>
-type InferredMeta = InferMeta<typeof simple>
+type InferredGood = InferGood<typeof simple>;
+type InferredBad = InferBad<typeof simple>;
+type InferredInput = InferInput<typeof simple>;
+type InferredMeta = InferMeta<typeof simple>;
 
-assertEqual<InferredGood, number | string>(true)
-assertEqual<InferredBad, 'not number' | 'not string'>(true)
-assertEqual<InferredInput, unknown>(true)
+assertEqual<InferredGood, number | string>(true);
+assertEqual<InferredBad, "not number" | "not string">(true);
+assertEqual<InferredInput, unknown>(true);
 assertEqual<
   InferredMeta,
   {
     meta: {
-      type: 'union'
+      type: "union";
       first: Sure<
-        'not number',
+        "not number",
         number,
         unknown,
         MetaObj<{
-          type: 'number'
+          type: "number";
         }>
-      >
+      >;
       second: Sure<
-        'not string',
+        "not string",
         string,
         unknown,
         MetaObj<{
-          type: 'string'
+          type: "string";
         }>
-      >
-    }
+      >;
+    };
   }
->(true)
+>(true);
 //
 //
 
-describe('or', () => {
-  it('should return good value', () => {
-    const value = simple(1)
+describe("or", () => {
+  it("should return good value", () => {
+    const value = simple(1);
 
-    expect(value).toStrictEqual([true, 1])
-
-    // TypeChecks
-    if (value[0] === true) {
-      assertEqual<(typeof value)[1], number | string>(true)
-    }
-  })
-
-  it('should return good value', () => {
-    const value = simple('1')
-
-    expect(value).toStrictEqual([true, '1'])
+    expect(value).toStrictEqual([true, 1]);
 
     // TypeChecks
     if (value[0] === true) {
-      assertEqual<(typeof value)[1], number | string>(true)
+      assertEqual<(typeof value)[1], number | string>(true);
     }
-  })
+  });
 
-  it('should return bad value', () => {
-    const value = simple(true)
+  it("should return good value", () => {
+    const value = simple("1");
 
-    expect(value).toStrictEqual([false, 'not string'])
+    expect(value).toStrictEqual([true, "1"]);
+
+    // TypeChecks
+    if (value[0] === true) {
+      assertEqual<(typeof value)[1], number | string>(true);
+    }
+  });
+
+  it("should return bad value", () => {
+    const value = simple(true);
+
+    expect(value).toStrictEqual([false, "not string"]);
 
     // TypeChecks
     if (value[0] === false) {
-      assertEqual<(typeof value)[1], 'not number' | 'not string'>(true)
+      assertEqual<(typeof value)[1], "not number" | "not string">(true);
     }
-  })
+  });
 
-  it('if first value bad, return second', () => {
-    const value = simple({})
+  it("if first value bad, return second", () => {
+    const value = simple({});
 
-    expect(value).toStrictEqual([false, 'not string'])
-  })
-})
+    expect(value).toStrictEqual([false, "not string"]);
+  });
+});

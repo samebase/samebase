@@ -1,6 +1,6 @@
-import { sure, good, bad } from './core.ts'
-import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from './core.ts'
-import type { KVPair, Objectify, Prettify, Unionize } from './utils.ts'
+import { sure, good, bad } from "./core.ts";
+import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from "./core.ts";
+import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
   v: Sure<
@@ -8,12 +8,12 @@ type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
     unknown,
     any,
     MetaObj<{
-      type: 'optional'
+      type: "optional";
     }>
-  >
+  >;
 }
-  ? { k: T['k']; v: InferGood<T['v']> }
-  : never
+  ? { k: T["k"]; v: InferGood<T["v"]> }
+  : never;
 
 type PickNonOptionals<T extends KVPair<Sure>> = T extends {
   v: Sure<
@@ -21,22 +21,22 @@ type PickNonOptionals<T extends KVPair<Sure>> = T extends {
     unknown,
     any,
     MetaObj<{
-      type: 'optional'
+      type: "optional";
     }>
-  >
+  >;
 }
   ? never
-  : { k: T['k']; v: InferGood<T['v']> }
+  : { k: T["k"]; v: InferGood<T["v"]> };
 
 export type InferSchemaGood<T extends Record<string, Sure>> = Prettify<
   Partial<Objectify<PickOptionalsGood<Unionize<T>>>> & Objectify<PickNonOptionals<Unionize<T>>>
->
+>;
 
 /**
 Necessary because `typeof x` is not a type guard.
  */
 export function isObject(x: unknown): x is Record<string, unknown> {
-  return typeof x === 'object' && x !== null
+  return typeof x === "object" && x !== null;
 }
 
 /**
@@ -47,25 +47,25 @@ export function isObject(x: unknown): x is Record<string, unknown> {
  * In all other cases it will the value will not be perceived as optional.
  */
 export function optional<TSchema extends Sure<unknown, unknown, any>>(
-  schema: TSchema
+  schema: TSchema,
 ): Sure<
   InferBad<TSchema>,
   InferGood<TSchema>,
   unknown,
   MetaObj<{
-    type: 'optional'
+    type: "optional";
 
-    schema: TSchema
+    schema: TSchema;
   }>
 > {
   // IMPORTANT: It's important to pass a new function here
   //            since `sure` will update the function with the meta
   // @ts-expect-error
-  return sure(value => schema(value), {
-    type: 'optional',
+  return sure((value) => schema(value), {
+    type: "optional",
 
     schema,
-  })
+  });
 }
 
 export function object<
@@ -74,55 +74,55 @@ export function object<
   TPropGood,
   TSchema extends Record<string, Sure<TPropFail, TPropGood, unknown>>,
 >(
-  schema: TSchema
+  schema: TSchema,
 ): Sure<
   { [K in keyof TSchema & string]?: InferBad<TSchema[K]> },
   InferSchemaGood<TSchema>,
   unknown,
   MetaObj<{
-    type: 'object'
+    type: "object";
 
-    schema: TSchema
+    schema: TSchema;
   }>
 > {
   // @ts-expect-error - TODO: expected
   return sure(
-    value => {
+    (value) => {
       if (!isObject(value)) {
-        return bad({})
+        return bad({});
       }
 
-      const groupFail = {}
-      const groupGood = {}
+      const groupFail = {};
+      const groupGood = {};
 
       for (const [key, sureFunction] of Object.entries(schema)) {
-        const isOptional = isObject(sureFunction.meta) && sureFunction.meta['type'] === 'optional'
+        const isOptional = isObject(sureFunction.meta) && sureFunction.meta["type"] === "optional";
 
         if (isOptional && !(key in value)) {
-          continue
+          continue;
         }
 
-        const [good, unsure] = sureFunction(value[key])
+        const [good, unsure] = sureFunction(value[key]);
 
         if (good) {
           // @ts-expect-error
-          groupGood[key] = unsure
+          groupGood[key] = unsure;
         } else {
           // @ts-expect-error
-          groupFail[key] = unsure
+          groupFail[key] = unsure;
         }
       }
 
       if (Object.keys(groupFail).length) {
-        return bad(groupFail)
+        return bad(groupFail);
       }
 
-      return good(groupGood)
+      return good(groupGood);
     },
     {
-      type: 'object',
+      type: "object",
 
       schema,
-    }
-  )
+    },
+  );
 }

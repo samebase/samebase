@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vite-plus/test'
+import { describe, it, expect } from "vite-plus/test";
 import {
   InferBad,
   InferGood,
@@ -11,24 +11,24 @@ import {
   MetaObj,
   pure,
   MetaNever,
-} from '../index.ts'
-import { assertEqual } from './typeTestUtils.ts'
+} from "../index.ts";
+import { assertEqual } from "./typeTestUtils.ts";
 
-export const nonEmptyString = pure(x => {
-  return typeof x === 'string' //
+export const nonEmptyString = pure((x) => {
+  return typeof x === "string" //
     ? good(x)
-    : bad('not string' as const)
-})
+    : bad("not string" as const);
+});
 
-describe('primitives', () => {
-  it('should return good value', () => {
-    nonEmptyString('1')
+describe("primitives", () => {
+  it("should return good value", () => {
+    nonEmptyString("1");
 
-    assertEqual<typeof nonEmptyString, Sure<'not string', string, unknown, MetaNever>>(true)
+    assertEqual<typeof nonEmptyString, Sure<"not string", string, unknown, MetaNever>>(true);
 
-    assertEqual<InferGood<typeof nonEmptyString>, string>(true)
-    assertEqual<InferBad<typeof nonEmptyString>, 'not string'>(true)
-    assertEqual<InferInput<typeof nonEmptyString>, unknown>(true)
-    assertEqual<InferMeta<typeof nonEmptyString>, MetaNever>(true)
-  })
-})
+    assertEqual<InferGood<typeof nonEmptyString>, string>(true);
+    assertEqual<InferBad<typeof nonEmptyString>, "not string">(true);
+    assertEqual<InferInput<typeof nonEmptyString>, unknown>(true);
+    assertEqual<InferMeta<typeof nonEmptyString>, MetaNever>(true);
+  });
+});

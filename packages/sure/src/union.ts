@@ -1,5 +1,5 @@
-import { bad, good, sure } from './core.ts'
-import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from './core.ts'
+import { bad, good, sure } from "./core.ts";
+import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
 
 export function union<
   //
@@ -14,37 +14,37 @@ export function union<
   TSecondMeta extends MetaNever | MetaObj,
 >(
   first: Sure<TFirstBad, TFirstGood, TFirstInput, TFirstMeta>,
-  second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>
+  second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>,
 ): Sure<
   TFirstBad | TSecondBad,
   TFirstGood | TSecondGood,
   // Variance
   TFirstInput & TSecondInput,
   MetaObj<{
-    type: 'union'
+    type: "union";
 
-    first: typeof first
-    second: typeof second
+    first: typeof first;
+    second: typeof second;
   }>
 > {
   return sure(
     // @ts-expect-error Should be fixed at the definition of sure, I think.
     (value: TFirstInput & TSecondInput) => {
-      const [isGoodFirst, unsureFirst] = first(value)
+      const [isGoodFirst, unsureFirst] = first(value);
 
       if (isGoodFirst) {
-        return good(unsureFirst)
+        return good(unsureFirst);
       }
 
-      return second(value)
+      return second(value);
     },
     {
-      type: 'union',
+      type: "union",
 
       first,
       second,
-    }
-  )
+    },
+  );
 }
 
-export const or = union
+export const or = union;

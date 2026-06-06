@@ -1,5 +1,5 @@
-import { sure, bad } from './core.ts'
-import type { Sure, MetaObj, InferBad, InferGood, InferInput } from './core.ts'
+import { sure, bad } from "./core.ts";
+import type { Sure, MetaObj, InferBad, InferGood, InferInput } from "./core.ts";
 
 /**
 A common use-case is to first validate that a value is a string.
@@ -16,35 +16,35 @@ export function after<
   TSecond extends Sure<unknown, unknown, InferGood<TFirst>>,
 >(
   first: TFirst,
-  second: TSecond
+  second: TSecond,
 ): Sure<
   InferBad<TFirst> | InferBad<TSecond>,
   InferGood<TSecond>,
   InferInput<TFirst>,
   MetaObj<{
-    type: 'after'
-    first: typeof first
-    second: typeof second
+    type: "after";
+    first: typeof first;
+    second: typeof second;
   }>
 > {
   // @ts-expect-error TODO: check
   return sure(
-    value => {
-      const [good, out] = first(value)
+    (value) => {
+      const [good, out] = first(value);
 
       if (good) {
         return second(
           // @ts-expect-error TODO: check
-          out
-        )
+          out,
+        );
       }
 
-      return bad(out)
+      return bad(out);
     },
     {
-      type: 'after',
+      type: "after",
       first,
       second,
-    }
-  )
+    },
+  );
 }

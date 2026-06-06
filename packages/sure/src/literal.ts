@@ -1,28 +1,28 @@
-import { bad, good, pure, sure } from './core.ts'
-import type { Primitive } from './core.ts'
+import { bad, good, pure, sure } from "./core.ts";
+import type { Primitive } from "./core.ts";
 
 export const literal = <
   // so that `as const` is not needed
   T extends Primitive,
 >(
-  value: T
+  value: T,
 ) => {
   return sure(
-    val => {
+    (val) => {
       if (val === value) {
         return good<T>(
           // @ts-expect-error We do an explicit check above
-          val
-        )
+          val,
+        );
       }
 
-      return bad(`not literal ${typeof value} (${String(value)})` as const)
+      return bad(`not literal ${typeof value} (${String(value)})` as const);
     },
     {
-      type: 'literal',
+      type: "literal",
       value,
-    }
-  )
-}
+    },
+  );
+};
 
-export const is = literal
+export const is = literal;

@@ -1,5 +1,5 @@
-import { sure, bad, good } from './core.ts'
-import type { MetaNever, MetaObj, Sure } from './core.ts'
+import { sure, bad, good } from "./core.ts";
+import type { MetaNever, MetaObj, Sure } from "./core.ts";
 
 export function intersection<
   //
@@ -14,42 +14,42 @@ export function intersection<
   TSecondMeta extends MetaNever | MetaObj,
 >(
   first: Sure<TFirstBad, TFirstGood, TFirstInput, TFirstMeta>,
-  second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>
+  second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>,
 ): Sure<
   TFirstBad | TSecondBad,
   TFirstGood & TSecondGood,
   // Variance
   TFirstInput & TSecondInput,
   MetaObj<{
-    type: 'intersection'
-    first: typeof first
-    second: typeof second
+    type: "intersection";
+    first: typeof first;
+    second: typeof second;
   }>
 > {
   return sure(
     // @ts-expect-error Should be fixed at the definition of sure, I think.
     (value: TFirstInput & TSecondInput) => {
-      const [isGoodFirst, unsureFirst] = first(value)
+      const [isGoodFirst, unsureFirst] = first(value);
 
       if (!isGoodFirst) {
-        return bad(unsureFirst)
+        return bad(unsureFirst);
       }
 
-      const [isGoodSecond, unsureSecond] = second(value)
+      const [isGoodSecond, unsureSecond] = second(value);
 
       if (!isGoodSecond) {
-        return bad(unsureSecond)
+        return bad(unsureSecond);
       }
 
       // TODO: Should we enforce that the outputs are objects?
-      return good({ ...unsureFirst, ...unsureSecond })
+      return good({ ...unsureFirst, ...unsureSecond });
     },
     {
-      type: 'intersection',
+      type: "intersection",
       first,
       second,
-    }
-  )
+    },
+  );
 }
 
-export const and = intersection
+export const and = intersection;

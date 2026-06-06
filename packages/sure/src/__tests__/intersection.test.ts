@@ -1,126 +1,135 @@
-import { describe, it, expect } from 'vite-plus/test'
-import { number, intersection, string, object } from '../index.ts'
-import type { InferBad, InferGood, InferInput, InferMeta, InferSchemaGood, MetaNever, MetaObj, Sure } from '../index.ts'
-import { assertEqual } from './typeTestUtils.ts'
+import { describe, it, expect } from "vite-plus/test";
+import { number, intersection, string, object } from "../index.ts";
+import type {
+  InferBad,
+  InferGood,
+  InferInput,
+  InferMeta,
+  InferSchemaGood,
+  MetaNever,
+  MetaObj,
+  Sure,
+} from "../index.ts";
+import { assertEqual } from "./typeTestUtils.ts";
 
 const option1 = object({
   name: string,
-})
+});
 
 const simple = intersection(
   option1,
   object({
     age: number,
-  })
-)
+  }),
+);
 
 // TypeChecks
-type InferredGood = InferGood<typeof simple>
-type InferredBad = InferBad<typeof simple>
-type InferredInput = InferInput<typeof simple>
-type InferredMeta = InferMeta<typeof simple>
+type InferredGood = InferGood<typeof simple>;
+type InferredBad = InferBad<typeof simple>;
+type InferredInput = InferInput<typeof simple>;
+type InferredMeta = InferMeta<typeof simple>;
 
-assertEqual<InferredGood, { name: string } & { age: number }>(true)
-assertEqual<InferredBad, { name?: 'not string' } | { age?: 'not number' }>(true)
-assertEqual<InferredInput, unknown>(true) // The input needs more tests
+assertEqual<InferredGood, { name: string } & { age: number }>(true);
+assertEqual<InferredBad, { name?: "not string" } | { age?: "not number" }>(true);
+assertEqual<InferredInput, unknown>(true); // The input needs more tests
 assertEqual<
   InferredMeta,
   {
     meta: {
-      type: 'intersection'
+      type: "intersection";
       first: Sure<
         {
-          name?: 'not string'
+          name?: "not string";
         },
         {
-          name: string
+          name: string;
         },
         unknown,
         MetaObj<{
-          type: 'object'
+          type: "object";
           schema: {
             name: Sure<
-              'not string',
+              "not string",
               string,
               unknown,
               MetaObj<{
-                type: 'string'
+                type: "string";
               }>
-            >
-          }
+            >;
+          };
         }>
-      >
+      >;
       second: Sure<
         {
-          age?: 'not number'
+          age?: "not number";
         },
         {
-          age: number
+          age: number;
         },
         unknown,
         MetaObj<{
-          type: 'object'
+          type: "object";
           schema: {
             age: Sure<
-              'not number',
+              "not number",
               number,
               unknown,
               MetaObj<{
-                type: 'number'
+                type: "number";
               }>
-            >
-          }
+            >;
+          };
         }>
-      >
-    }
+      >;
+    };
   }
->(true)
+>(true);
 
 //
 //
-describe('and', () => {
-  it('should return good value', () => {
+describe("and", () => {
+  it("should return good value", () => {
     const value = simple({
-      name: '1',
+      name: "1",
       age: 1,
-    })
+    });
 
-    expect(value).toStrictEqual([true, { name: '1', age: 1 }])
+    expect(value).toStrictEqual([true, { name: "1", age: 1 }]);
 
     // TypeChecks
     if (value[0] === true) {
-      assertEqual<(typeof value)[1], { name: string } & { age: number }>(true)
+      assertEqual<(typeof value)[1], { name: string } & { age: number }>(true);
     }
-  })
+  });
 
-  it('should return bad value', () => {
+  it("should return bad value", () => {
     const value = simple({
       name: 1,
       age: 1,
-    })
+    });
 
-    expect(value).toStrictEqual([false, { name: 'not string' }])
+    expect(value).toStrictEqual([false, { name: "not string" }]);
 
     // TypeChecks
     if (value[0] === false) {
       assertEqual<
         (typeof value)[1],
         | {
-            name?: 'not string'
+            name?: "not string";
           }
         | {
-            age?: 'not number'
+            age?: "not number";
           }
-      >(true)
+      >(true);
     }
-  })
+  });
 
-  it('should return bad value', () => {
+  it("should return bad value", () => {
     const value = simple({
-      name: '1',
-      age: '1',
-    })
+      name: "1",
+      age: "1",
+    });
 
-    expect(value).toStrictEqual([false, { age: 'not number' }])
-  })
-})
+    expect(value).toStrictEqual([false, { age: "not number" }]);
+  });
+});
