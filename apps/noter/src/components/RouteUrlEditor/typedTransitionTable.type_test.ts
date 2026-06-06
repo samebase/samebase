@@ -2,7 +2,6 @@ import { expectType } from "@noter-md/dependent";
 import type {
   TypedTransitionActionHandlerTable,
   TypedTransitionAction,
-  TypedTransitionResult,
   TypedTransitionTable,
 } from "./typedTransitionTable";
 
@@ -47,8 +46,6 @@ type TestAction =
     };
 
 expectType<TypedTransitionAction<"blurInput">>()({ brand: "blurInput" } as const, true);
-
-type TestResult = TypedTransitionResult<TestState, TestAction>;
 
 const transitionTable = {
   blurred: {
@@ -133,7 +130,7 @@ const transitionTable = {
   TestEvent["type"],
   TestState,
   TestEvent,
-  TestResult
+  TestAction
 >;
 
 const assignedTransitionTable: TypedTransitionTable<
@@ -141,23 +138,26 @@ const assignedTransitionTable: TypedTransitionTable<
   TestEvent["type"],
   TestState,
   TestEvent,
-  TestResult
+  TestAction
 > = transitionTable;
 
-const missingEventTransitionTable = {
-  // @ts-expect-error every state must define every event cell.
+const partialTransitionTable = {
   blurred: {
-    changedInput: (prev, event) => ({
-      actions: [],
-      state: {
-        ...prev,
-        path: event.path,
-      },
-    }),
-    changedSelection: (prev) => ({
-      actions: [],
-      state: prev,
-    }),
+    changedInput: (prev, event) => {
+      expectType<Extract<TestState, { kind: "blurred" }>>()(prev, true);
+      expectType<Extract<TestEvent, { type: "changedInput" }>>()(event, true);
+
+      // @ts-expect-error changedInput events do not carry pressedEscape-only state.
+      event.reason;
+
+      return {
+        actions: [],
+        state: {
+          ...prev,
+          path: event.path,
+        },
+      };
+    },
   },
   focused: transitionTable.focused,
 } satisfies TypedTransitionTable<
@@ -165,11 +165,11 @@ const missingEventTransitionTable = {
   TestEvent["type"],
   TestState,
   TestEvent,
-  TestResult
+  TestAction
 >;
 
 void assignedTransitionTable;
-void missingEventTransitionTable;
+void partialTransitionTable;
 
 const actionHandlers = {
   announce: (action) => {

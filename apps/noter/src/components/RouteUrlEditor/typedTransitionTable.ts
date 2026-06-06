@@ -20,13 +20,13 @@ export type TypedTransitionTable<
   EventType extends string,
   State extends TypedTransitionState<StateKind>,
   Event extends TypedTransitionEvent<EventType>,
-  Result,
+  Action extends TypedTransitionAction<string>,
 > = {
   [Kind in StateKind]: {
-    [Type in EventType]: (
+    [Type in EventType]?: (
       prev: Extract<State, { kind: Kind }>,
       event: Extract<Event, { type: Type }>,
-    ) => Result;
+    ) => TypedTransitionResult<State, Action>;
   };
 };
 
@@ -51,13 +51,17 @@ export function runTransition<
   EventType extends string,
   State extends TypedTransitionState<StateKind>,
   Event extends TypedTransitionEvent<EventType>,
-  Result,
+  Action extends TypedTransitionAction<string>,
 >(
-  table: TypedTransitionTable<StateKind, EventType, State, Event, Result>,
+  table: TypedTransitionTable<StateKind, EventType, State, Event, Action>,
   prev: State,
   event: Event,
-): Result {
+): TypedTransitionResult<State, Action> {
   const handler = table[prev.kind][event.type];
+
+  if (!handler) {
+    return keepState(prev);
+  }
 
   // @ts-expect-error TypeScript cannot preserve the runtime correlation between
   // state.kind, event.type, and the selected table cell. The table type checks

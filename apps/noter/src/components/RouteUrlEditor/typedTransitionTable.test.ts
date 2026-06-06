@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { keepState, runTransition, runTransitionActions } from "./typedTransitionTable";
 import type {
   TypedTransitionActionHandlerTable,
-  TypedTransitionResult,
   TypedTransitionTable,
 } from "./typedTransitionTable";
 
@@ -37,14 +36,12 @@ type TestAction =
       };
     };
 
-type TestResult = TypedTransitionResult<TestState, TestAction>;
-
 const testTransitionTable: TypedTransitionTable<
   TestState["kind"],
   TestEvent["type"],
   TestState,
   TestEvent,
-  TestResult
+  TestAction
 > = {
   blurred: {
     changedInput: (prev, event) =>
@@ -114,6 +111,42 @@ describe("typedTransitionTable", () => {
         kind: "blurred",
         path: "/before-focus",
       },
+    });
+  });
+
+  it("keeps state when the current state does not define the event", () => {
+    const partialTransitionTable: TypedTransitionTable<
+      TestState["kind"],
+      TestEvent["type"],
+      TestState,
+      TestEvent,
+      TestAction
+    > = {
+      blurred: {},
+      focused: {
+        pressedEscape: () => ({
+          actions: [{ brand: "blurInput" }],
+          state: {
+            kind: "blurred",
+            path: "/before-focus",
+          },
+        }),
+      },
+    };
+
+    const state = {
+      kind: "focused",
+      latestPath: "/machines",
+    } as const;
+
+    expect(
+      runTransition(partialTransitionTable, state, {
+        path: "/logo",
+        type: "changedInput",
+      }),
+    ).toEqual({
+      actions: [],
+      state,
     });
   });
 
