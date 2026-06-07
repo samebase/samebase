@@ -14,15 +14,15 @@ import {
   canAccessNoterRouteMatchesAvailability,
   readNoterRouteSurfaceForRouteGuard,
 } from "@/lib/routeAvailability";
-import { applySearchPatch } from "@/lib/routeSearchFlags";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
+  clearConflictingRootThemeModeSearch,
+  readRootRouteRedirectRouteAddress,
   type RootRouteSearch,
   validateRootRouteSearch,
 } from "@/lib/rootRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
-import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { type AppQueryClients } from "@/lib/appQueryClient";
 import { type ReactNode } from "react";
 
@@ -39,12 +39,7 @@ function retainRootSearchParams({ next, search }: RootSearchMiddlewareArgs): Roo
     ...next(search),
   };
 
-  if (nextSearch.light && nextSearch.dark) {
-    nextSearch = applySearchPatch(nextSearch, {
-      dark: null,
-      light: null,
-    });
-  }
+  nextSearch = clearConflictingRootThemeModeSearch(nextSearch);
 
   return nextSearch;
 }
@@ -76,27 +71,14 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 export const Route = createRootRouteWithContext<AppQueryClients>()({
   staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   beforeLoad: ({ location, matches, search }) => {
-    if (search.reset) {
+    const rootRedirectRouteAddress = readRootRouteRedirectRouteAddress({
+      pathname: location.pathname,
+      search,
+      hash: location.hash,
+    });
+    if (rootRedirectRouteAddress !== null) {
       throw redirect({
-        href: buildPathWithTanStackSearch({
-          pathname: location.pathname,
-          hash: location.hash,
-        }),
-        replace: true,
-      });
-    }
-
-    if (search.light && search.dark) {
-      throw redirect({
-        href: buildPathWithTanStackSearch({
-          pathname: location.pathname,
-          search: {
-            ...search,
-            dark: null,
-            light: null,
-          },
-          hash: location.hash,
-        }),
+        href: rootRedirectRouteAddress,
         replace: true,
       });
     }

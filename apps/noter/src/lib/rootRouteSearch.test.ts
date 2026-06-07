@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
 import { DEFAULT_VOXEL_STATE, LOGO_GRID_SIZE_2 } from "@/components/logo/logoVoxelState";
 import {
+  readRootRouteRedirectRouteAddress,
   readRootRouteSearch,
   replaceRootLogoRouteSearch,
   validateRootRouteSearch,
@@ -262,5 +263,32 @@ describe("rootRouteSearch", () => {
       dev: true,
       light: true,
     });
+  });
+
+  it("predicts the root redirect for reset search", () => {
+    expect(
+      readRootRouteRedirectRouteAddress({
+        pathname: "/logo",
+        search: validateRootRouteSearch({
+          dark: true,
+          reset: true,
+        }),
+        hash: "",
+      }),
+    ).toBe("/logo");
+  });
+
+  it("predicts the root redirect for conflicting theme flags", () => {
+    expect(
+      readRootRouteRedirectRouteAddress({
+        pathname: "/logo",
+        search: validateRootRouteSearch({
+          dark: true,
+          dev: true,
+          light: true,
+        }),
+        hash: "section",
+      }),
+    ).toBe("/logo?dev#section");
   });
 });

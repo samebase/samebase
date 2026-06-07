@@ -3,10 +3,7 @@ import {
   canAccessNoterRoutePermission,
   type NoterRouteSearchParamSuggestion,
 } from "@/lib/routePermissions";
-import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
-import { readRouteUrlEditorRouteUpdateDraft } from "@/lib/routeUrlEditorSuggestions";
 import {
-  isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestionSurface,
   readRouteUrlPathSuggestions,
 } from "@/lib/routeUrlPathSuggestions";
@@ -60,14 +57,6 @@ export type ParsedRouteAddress = {
     start: number;
     tokens: SearchToken[];
   } | null;
-};
-
-type RouteReadyInput = {
-  currentRouteAddress: string;
-  draftRouteAddress: string;
-  origin: string;
-  routesByPath: AppRouter["routesByPath"];
-  viewerIsAdmin: boolean;
 };
 
 type CursorContext =
@@ -136,105 +125,6 @@ export function parseRouteAddress(routeAddress: string): ParsedRouteAddress {
       start: searchStart,
       tokens,
     },
-  };
-}
-
-/**
-local = keep the draft inside the editor. Do not replace the router route.
-
-readyExact = replace the router route with `routeAddress`; the draft is already loadable as-is.
-
-readyNormalized = replace the router route with `routeAddress`, but keep the editor draft as typed.
-The ready route is a safe normalized subset of the draft.
-*/
-export type RouteAddressReadiness =
-  | {
-      kind: "local";
-      reason: "draftNotReady" | "invalidRouteAddress" | "pathNotReady" | "sameRoute";
-    }
-  | {
-      kind: "readyExact";
-      routeAddress: string;
-    }
-  | {
-      kind: "readyNormalized";
-      routeAddress: string;
-    };
-
-/**
-Classifies a route-address draft relative to the route the state machine is editing from.
-
-`currentRouteAddress` should be `expectedRouteAddress` from `RouteEditorState`, not blindly
-`window.location`. During `previewedSuggestion`, `committedRouteAddress` can already be
-`hoverPath.expectedRouteAddress` while the next suggestion still belongs to `draftPath`.
-
-Example: `/logo?dar` is local on `/logo` because `dar` is a partial known key.
-
-Example: `/logo?dark` is readyExact because the whole draft can load.
-
-Example: from `/privacy`, `/logo?dar` is readyNormalized for `/logo`
-because the incomplete query token is dropped before navigation.
-*/
-export function readRouteAddressReadiness(args: RouteReadyInput): RouteAddressReadiness {
-  const routeUpdateDraftAddress = readRouteUrlEditorRouteUpdateDraft({
-    currentHref: args.currentRouteAddress,
-    draftRouteAddress: args.draftRouteAddress,
-    origin: args.origin,
-    routesByPath: args.routesByPath,
-    viewer: { isAdmin: args.viewerIsAdmin },
-  });
-  const readyRouteAddress = normalizeRouteUrlEditorHref({
-    currentHref: args.currentRouteAddress,
-    origin: args.origin,
-    rawHref: routeUpdateDraftAddress,
-  });
-
-  if (readyRouteAddress === null) {
-    return {
-      kind: "local",
-      reason: "invalidRouteAddress",
-    };
-  }
-
-  if (
-    !isRouteUrlPathReadyForNavigation({
-      currentHref: args.currentRouteAddress,
-      draftHref: readyRouteAddress,
-      origin: args.origin,
-      routesByPath: args.routesByPath,
-      viewer: { isAdmin: args.viewerIsAdmin },
-    })
-  ) {
-    return {
-      kind: "local",
-      reason: "pathNotReady",
-    };
-  }
-
-  if (routeUpdateDraftAddress !== args.draftRouteAddress) {
-    if (readyRouteAddress === args.currentRouteAddress) {
-      return {
-        kind: "local",
-        reason: "draftNotReady",
-      };
-    }
-
-    return {
-      kind: "readyNormalized",
-      routeAddress: readyRouteAddress,
-    };
-  }
-
-  if (readyRouteAddress === args.currentRouteAddress) {
-    return {
-      kind: "local",
-      reason: "sameRoute",
-    };
-  }
-
-  return {
-    kind: "readyExact",
-    routeAddress: readyRouteAddress,
   };
 }
 
