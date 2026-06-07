@@ -250,6 +250,16 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?bottom=");
   });
 
+  it("hides query params marked hidden in metadata", () => {
+    const values = readValues({
+      routeAddress: "/logo?dev",
+      routeTextBeforeCursor: "/logo?dev",
+    });
+
+    expect(values).toContain("?dev");
+    expect(values).not.toContain("?devtools");
+  });
+
   it("uses the next-param prefix for later query tokens", () => {
     const values = readValues({
       routeAddress: "/logo?top=blue-500&se",

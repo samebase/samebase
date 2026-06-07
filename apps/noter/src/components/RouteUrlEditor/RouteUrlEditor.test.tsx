@@ -671,7 +671,6 @@ describe("RouteUrlEditor", () => {
       "Use ?dark",
       "Use ?depth=2 1 +1",
       "Use ?dev",
-      "Use ?devtools",
       "Use ?dist=2 1 +1",
     ]);
     if (!nextDepthOption) {
@@ -696,18 +695,18 @@ describe("RouteUrlEditor", () => {
     const input = startEditing(["/logo"]);
     const origin = window.location.origin;
 
-    await fillRouteUrlEditorInput(input, `${origin}/logo?devt`);
-    const devtoolsOption = rootElement?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Use ?devtools"]',
+    await fillRouteUrlEditorInput(input, `${origin}/logo?dev`);
+    const devOption = rootElement?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Use ?dev"]',
     );
-    if (!devtoolsOption) {
-      throw new Error("Expected devtools search param suggestion.");
+    if (!devOption) {
+      throw new Error("Expected dev search param suggestion.");
     }
 
     await pressRouteUrlEditorKey(input, "ArrowDown");
 
-    expect(devtoolsOption.getAttribute("aria-selected")).toBe("true");
-    expect(input.value).toBe(`${origin}/logo?devtools`);
+    expect(devOption.getAttribute("aria-selected")).toBe("true");
+    expect(input.value).toBe(`${origin}/logo?dev`);
 
     await act(async () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
@@ -716,8 +715,8 @@ describe("RouteUrlEditor", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
 
-    expect(input.value).toBe(`${origin}/logo?devtools&`);
-    expect(readRouteHref()).toBe("/logo?devtools");
+    expect(input.value).toBe(`${origin}/logo?dev&`);
+    expect(readRouteHref()).toBe("/logo?dev");
     expect(readSuggestions()?.getAttribute("data-suggestion-kind")).toBe("search");
     const searchSuggestionLabels = [
       ...(rootElement?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? []),
