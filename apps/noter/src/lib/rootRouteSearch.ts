@@ -70,7 +70,9 @@ const rootRouteSearchSchema = defineRouteSearchParams({
   }),
   devtools: routeSearchPresenceParam({
     permission: "public",
-    suggestion: "global",
+    // React Query Devtools mounts dev-only UI; keep it typeable but out of
+    // hover/keyboard suggestions so previewing a row cannot remount the app.
+    suggestion: "hidden",
   }),
   "new-app": routeSearchPresenceParam({
     permission: "admin",

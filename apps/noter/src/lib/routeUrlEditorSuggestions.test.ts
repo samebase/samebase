@@ -69,7 +69,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: publicViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?dev", "?devtools"]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?dev"]);
   });
 
   it("formats matching search params after an existing token", () => {
@@ -588,13 +588,13 @@ describe("applyRouteUrlEditorSuggestion", () => {
         routeAddress: "/logo?de#top",
         selectionRouteIndex: "/logo?de".length,
         suggestion: {
-          key: "devtools",
+          key: "dev",
           kind: "search",
-          value: "?devtools",
+          value: "?dev",
           searchParamKind: "presence",
         },
       }),
-    ).toBe("/logo?devtools#top");
+    ).toBe("/logo?dev#top");
 
     expect(
       applyRouteUrlEditorSuggestion({
@@ -660,13 +660,13 @@ describe("applyRouteUrlEditorSuggestion", () => {
         routeAddress: "/logo?dark&de",
         selectionRouteIndex: "/logo?dark&de".length,
         suggestion: {
-          key: "devtools",
+          key: "dev",
           kind: "search",
-          value: "?devtools",
+          value: "?dev",
           searchParamKind: "presence",
         },
       }),
-    ).toBe("/logo?dark&devtools");
+    ).toBe("/logo?dark&dev");
 
     expect(
       applyRouteUrlEditorSuggestion({

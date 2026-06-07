@@ -648,7 +648,7 @@ test("route URL editor switches suggestions by URL section", async ({ page }) =>
   await input.press("ArrowRight");
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(page.getByRole("option", { exact: true, name: "Use ?dev" })).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use ?devtools" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "Use ?devtools" })).toHaveCount(0);
   await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toHaveCount(0);
 
   await input.evaluate((element) => {
@@ -955,22 +955,22 @@ test("route URL editor previews search suggestions on hover", async ({ page }) =
     throw new Error("Expected route URL editor input element.");
   }
   const suggestions = page.getByTestId("route-url-editor-suggestions");
-  const devtoolsOption = page.getByRole("option", {
+  const devOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?devtools",
+    name: "Use ?dev",
   });
 
   await input.fill(`${origin}/logo?d`);
 
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(devtoolsOption).toBeVisible();
+  await expect(devOption).toBeVisible();
 
-  await devtoolsOption.hover();
+  await devOption.hover();
 
-  await expect(devtoolsOption).toHaveAttribute("aria-selected", "true");
+  await expect(devOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${origin}/logo?devtools`);
-  await expect(page).toHaveURL(`${origin}/logo?devtools`);
+  await expect(input).toHaveValue(`${origin}/logo?dev`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
   await expect(suggestions).toBeVisible();
   expect(
     await inputElement.evaluate(
@@ -1046,7 +1046,7 @@ test("route URL editor previews numeric search examples from the dropdown on hov
   await input.fill(`${origin}/logo?d`);
 
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(page.getByRole("option")).toHaveCount(5);
+  await expect(page.getByRole("option")).toHaveCount(4);
   await expect(nextDepthOption).toBeVisible();
   await expect(nextDepthOption).toContainText("1 +1");
   await expect(suggestions).toHaveScreenshot("route-url-editor-numeric-delta-suggestions.png", {
@@ -1203,26 +1203,26 @@ test("route URL editor continues with a new search param after Enter commits a k
   const input = await editRouteUrl(page);
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const backButton = editor.getByRole("button", { name: "Back" });
-  const devtoolsOption = page.getByRole("option", {
+  const devOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?devtools",
+    name: "Use ?dev",
   });
   const nextSearchSuggestion = page.getByTestId("route-url-editor-suggestion").first();
 
-  await input.fill(`${origin}/logo?devt`);
-  await expect(devtoolsOption).toBeVisible();
+  await input.fill(`${origin}/logo?dev`);
+  await expect(devOption).toBeVisible();
 
   await input.press("ArrowDown");
 
-  await expect(devtoolsOption).toHaveAttribute("aria-selected", "true");
-  await expect(input).toHaveValue(`${origin}/logo?devtools`);
-  await expect(page).toHaveURL(`${origin}/logo?devtools`);
+  await expect(devOption).toHaveAttribute("aria-selected", "true");
+  await expect(input).toHaveValue(`${origin}/logo?dev`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
   await expect(backButton).toBeDisabled();
 
   await input.press("Enter");
 
-  await expect(page).toHaveURL(`${origin}/logo?devtools`);
-  await expect(input).toHaveValue(`${origin}/logo?devtools&`);
+  await expect(page).toHaveURL(`${origin}/logo?dev`);
+  await expect(input).toHaveValue(`${origin}/logo?dev&`);
   await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(nextSearchSuggestion).toHaveAttribute("aria-label", /^Use &/);
   await expect(backButton).toBeEnabled();
