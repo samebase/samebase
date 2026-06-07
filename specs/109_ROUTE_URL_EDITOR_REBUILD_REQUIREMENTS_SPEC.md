@@ -227,6 +227,11 @@ These stories should stay covered with real route-level interactions, not mocked
   and opens query-key suggestions.
 - `/logo?top=blue-200`: color values are chosen in steps: `?top=`, `blue-`, `blue-200`, then the
   next query slot opens.
+- Suggestions are chosen by cursor segment, not by filtering against typed text. A cursor in the
+  path shows path rows. A cursor in a query key shows query-key rows and selecting one replaces the
+  whole active query token. A cursor in a color value before `-` shows color-family rows and
+  selecting one replaces the whole value. A cursor after `-` shows shade rows for that family and
+  selecting one replaces the whole value.
 - `/logo?dark&light`: conflicting theme flags may canonicalize the browser route to `/logo`, but the
   focused editor still owns the visible draft until blur/Escape.
 - `/logo?dark&reset`: `reset` may canonicalize the browser route to `/logo`, but the focused editor
@@ -255,8 +260,6 @@ Combined interaction stories:
 
 These are not accepted behavior yet. Keep them visible so review findings do not get lost.
 
-- Decide whether path suggestions should filter by typed path text. Example: typing `lo` could show
-  only `/logo`, or it could keep all accessible paths visible because the app has few paths.
 - Decide how dynamic routes participate in suggestions. Current work ignores variable paths such as
   `/vault/$`; if we support them, query-param suggestions need template-aware route matching.
 - Decide whether the rebuilt editor supports hashes. If yes, committed route comparisons, readiness,
