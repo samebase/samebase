@@ -240,14 +240,28 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("/logo");
   });
 
-  it("filters query key suggestions by the key under the cursor", () => {
+  it("shows all query key suggestions for the key under the cursor", () => {
     const values = readValues({
       routeAddress: "/logo?to",
       routeTextBeforeCursor: "/logo?to",
     });
 
     expect(values).toContain("?top=");
-    expect(values).not.toContain("?bottom=");
+    expect(values).toContain("?border=");
+  });
+
+  it("replaces the active key-value token when selecting a query key", () => {
+    const rows = readRows({
+      routeAddress: "/logo?dark&depth=2&top=blue-200",
+      routeTextBeforeCursor: "/logo?dark&de",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "search",
+      nextSelectionRouteIndex: "/logo?dark&border=".length,
+      routeAddress: "/logo?dark&border=&top=blue-200",
+      value: "&border=",
+    });
   });
 
   it("hides query params marked hidden in metadata", () => {
@@ -270,7 +284,7 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?secondary=");
   });
 
-  it("shows Tailwind color suggestions while the cursor is inside a query value", () => {
+  it("shows Tailwind color shade suggestions while the cursor is after the family dash", () => {
     const rows = readRows({
       routeAddress: "/logo?top=blue-2",
       routeTextBeforeCursor: "/logo?top=blue-2",
@@ -287,9 +301,9 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?top=");
   });
 
-  it("shows Tailwind color families before Tailwind shades", () => {
+  it("shows all Tailwind color families while the cursor is before the family dash", () => {
     const rows = readRows({
-      routeAddress: "/logo?top=bl",
+      routeAddress: "/logo?top=blue-200",
       routeTextBeforeCursor: "/logo?top=bl",
     });
     const values = rows.map((suggestion) => suggestion.value);
@@ -300,19 +314,39 @@ describe("readSuggestions", () => {
       routeAddress: "/logo?top=blue-",
       value: "blue-",
     });
+    expect(rows).toContainEqual({
+      kind: "searchValuePrefix",
+      nextSelectionRouteIndex: "/logo?top=red-".length,
+      routeAddress: "/logo?top=red-",
+      value: "red-",
+    });
     expect(values).not.toContain("blue-200");
   });
 
-  it("replaces only the active query value when showing value suggestions", () => {
+  it("replaces the whole active query value when showing family suggestions", () => {
     const rows = readRows({
-      routeAddress: "/logo?top=blue-500",
-      routeTextBeforeCursor: "/logo?top=blue-",
+      routeAddress: "/logo?dark&top=blue-200&secondary=rose-500",
+      routeTextBeforeCursor: "/logo?dark&top=bl",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "searchValuePrefix",
+      nextSelectionRouteIndex: "/logo?dark&top=red-".length,
+      routeAddress: "/logo?dark&top=red-&secondary=rose-500",
+      value: "red-",
+    });
+  });
+
+  it("replaces the whole active query value when showing shade suggestions", () => {
+    const rows = readRows({
+      routeAddress: "/logo?dark&top=blue-500&secondary=rose-500",
+      routeTextBeforeCursor: "/logo?dark&top=blue-",
     });
 
     expect(rows).toContainEqual({
       kind: "searchValue",
-      nextSelectionRouteIndex: "/logo?top=blue-200&".length,
-      routeAddress: "/logo?top=blue-200&",
+      nextSelectionRouteIndex: "/logo?dark&top=blue-200".length,
+      routeAddress: "/logo?dark&top=blue-200&secondary=rose-500",
       value: "blue-200",
     });
   });

@@ -197,12 +197,10 @@ function canShowPathSuggestionRow(routePath: string): boolean {
 type TailwindColorValueCursor =
   | {
       kind: "family";
-      familyPrefix: string;
     }
   | {
       kind: "shade";
       family: string;
-      shadePrefix: string;
     };
 
 function readTailwindColorValueCursor(valuePrefix: string): TailwindColorValueCursor {
@@ -210,14 +208,12 @@ function readTailwindColorValueCursor(valuePrefix: string): TailwindColorValueCu
   if (familyEnd === -1) {
     return {
       kind: "family",
-      familyPrefix: valuePrefix,
     };
   }
 
   return {
     kind: "shade",
     family: valuePrefix.slice(0, familyEnd),
-    shadePrefix: valuePrefix.slice(familyEnd + 1),
   };
 }
 
@@ -337,8 +333,9 @@ function readSearchParams(
 /**
 Turns route metadata into query-key dropdown rows.
 
-Example: if the active token is `?to`, the `top` metadata becomes a row with
-value `?top=` and selecting it replaces the active token in `args.routeAddress`.
+Example: in `/logo?dark&depth=2&top=blue-200`, a cursor inside `depth` shows
+all query-key rows. Selecting `&border=` replaces the whole `depth=2` token,
+so the route address becomes `/logo?dark&border=&top=blue-200`.
 */
 function readSearchRows(args: {
   routeAddress: string;
@@ -352,10 +349,6 @@ function readSearchRows(args: {
     args.routeSearchParamSuggestions,
     args.viewerIsAdmin,
   )) {
-    if (!searchParamSuggestion.key.startsWith(args.searchKeyToken.key)) {
-      continue;
-    }
-
     const tokenDelimiter = args.routeAddress.slice(
       args.searchKeyToken.tokenStart,
       args.searchKeyToken.tokenStart + 1,
@@ -387,10 +380,12 @@ function readSearchRows(args: {
 /**
 Turns a value token into concrete value rows.
 
-Example: `/logo?top=bl` with cursor after `bl` returns `blue-`, because
-Tailwind colors are selected as family first, then shade.
+Example: `/logo?top=blue-200` with the cursor before `-` shows all color
+family rows. Selecting `red-` replaces the whole value, so the route address
+becomes `/logo?top=red-`.
 
-Example: `/logo?top=blue-2` with cursor after `2` returns `blue-200`.
+Example: `/logo?top=blue-200` with the cursor after `-` shows shade rows for
+the `blue` family. Selecting `blue-500` replaces the whole value.
 */
 function readValueRows(args: {
   routeAddress: string;
@@ -418,9 +413,8 @@ function readValueRows(args: {
   const routeAddressAfterValue = args.routeAddress.slice(args.token.tokenEnd);
   const colorValueCursor = readTailwindColorValueCursor(args.valuePrefix);
   if (colorValueCursor.kind === "family") {
-    return readTailwindColorFamilyValues(searchParamSuggestion.valueSuggestions)
-      .filter((value) => value.startsWith(colorValueCursor.familyPrefix))
-      .map((value): Suggestion => {
+    return readTailwindColorFamilyValues(searchParamSuggestion.valueSuggestions).map(
+      (value): Suggestion => {
         const routeAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`;
 
         return {
@@ -429,17 +423,14 @@ function readValueRows(args: {
           routeAddress,
           value,
         };
-      });
+      },
+    );
   }
 
   const shadePrefix = `${colorValueCursor.family}-`;
 
   return searchParamSuggestion.valueSuggestions
-    .filter(
-      (value) =>
-        value.startsWith(shadePrefix) &&
-        value.slice(shadePrefix.length).startsWith(colorValueCursor.shadePrefix),
-    )
+    .filter((value) => value.startsWith(shadePrefix))
     .map((value): Suggestion => {
       const selectedRouteAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`;
       const shouldPromptForNextKey = routeAddressAfterValue.length === 0;
