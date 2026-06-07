@@ -650,6 +650,17 @@ test.describe("route URL editor public route query stories", () => {
     await expect(input).toBeFocused();
   });
 
+  test("devtools is hidden from query suggestions", async ({ page }) => {
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
+
+    await input.press("End");
+    await input.type("dev");
+
+    await expect(input).toHaveValue(`${prefix}logo?dev`);
+    await expect(page.getByRole("option", { exact: true, name: "?dev" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "?devtools" })).toHaveCount(0);
+  });
+
   test("reset canonicalizes the browser route without closing the editor", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?dark");
 
