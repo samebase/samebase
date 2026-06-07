@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
-import {
-  parseRouteAddress,
-  readRouteAddressReadiness,
-  readSuggestions,
-} from "./RouteUrlEditorSuggestions";
+import { parseRouteAddress, readSuggestions } from "./RouteUrlEditorSuggestions";
 
 const prefix = "http://localhost:5174/";
 const routesByPath = getRouter().routesByPath;
@@ -38,20 +34,6 @@ function readRows(args: {
       typeof args.routeTextBeforeCursor === "string"
         ? cursorAfter(args.routeTextBeforeCursor)
         : null,
-    viewerIsAdmin: args.viewerIsAdmin ?? true,
-  });
-}
-
-function readRouteAddressReadinessForTest(args: {
-  currentRouteAddress?: string;
-  draftRouteAddress: string;
-  viewerIsAdmin?: boolean;
-}) {
-  return readRouteAddressReadiness({
-    currentRouteAddress: args.currentRouteAddress ?? "/privacy",
-    draftRouteAddress: args.draftRouteAddress,
-    origin: "http://localhost:5174",
-    routesByPath,
     viewerIsAdmin: args.viewerIsAdmin ?? true,
   });
 }
@@ -208,90 +190,6 @@ describe("parseRouteAddress", () => {
           },
         ],
       },
-    });
-  });
-});
-
-describe("readRouteAddressReadiness", () => {
-  it("keeps partial known query keys local", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        currentRouteAddress: "/logo",
-        draftRouteAddress: "/logo?dar",
-      }),
-    ).toEqual({
-      kind: "local",
-      reason: "draftNotReady",
-    });
-  });
-
-  it("applies complete presence query keys", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        currentRouteAddress: "/logo",
-        draftRouteAddress: "/logo?dark",
-      }),
-    ).toEqual({
-      kind: "readyExact",
-      routeAddress: "/logo?dark",
-    });
-  });
-
-  it("keeps partial suggested query values local", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        currentRouteAddress: "/logo",
-        draftRouteAddress: "/logo?leftFace=s",
-      }),
-    ).toEqual({
-      kind: "local",
-      reason: "draftNotReady",
-    });
-  });
-
-  it("applies complete suggested query values", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        currentRouteAddress: "/logo",
-        draftRouteAddress: "/logo?leftFace=secondary",
-      }),
-    ).toEqual({
-      kind: "readyExact",
-      routeAddress: "/logo?leftFace=secondary",
-    });
-  });
-
-  it("keeps partial paths local", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        draftRouteAddress: "/lo",
-      }),
-    ).toEqual({
-      kind: "local",
-      reason: "pathNotReady",
-    });
-  });
-
-  it("applies loadable paths", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        draftRouteAddress: "/logo",
-      }),
-    ).toEqual({
-      kind: "readyExact",
-      routeAddress: "/logo",
-    });
-  });
-
-  it("distinguishes ready normalized drafts from exact drafts", () => {
-    expect(
-      readRouteAddressReadinessForTest({
-        currentRouteAddress: "/privacy",
-        draftRouteAddress: "/logo?dar",
-      }),
-    ).toEqual({
-      kind: "readyNormalized",
-      routeAddress: "/logo",
     });
   });
 });

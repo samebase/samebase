@@ -65,6 +65,10 @@ to omit incomplete search tokens.
 If the derived route is valid, same-origin, different from the current router href, and ready to
 load, the editor applies it immediately with router `replace`.
 
+`expectedRouteAddress` is the canonical route TanStack should report after root search validation,
+route redirects, and search serialization. Example: `/logo?dark&light` canonicalizes to `/logo`, so
+the FSM must expect `/logo`, not the raw conflicting draft.
+
 While focused, the editor can have a local draft that differs from the last route it applied. Escape
 and blur show the last applied route, not the route from the moment focus started.
 
@@ -101,17 +105,39 @@ names the implementation uses:
 - What route should be restored?
 - What text should remain in the input?
 
-These questions decide whether the interaction updates `draftPath`, creates `hoverPath`, or needs a
-new state shape. Similar input affordances can share transition code only when these answers match.
+These questions decide whether the interaction keeps `focusMode: "editing"`, moves to
+`focusMode: "suggestion"`, or needs a new state shape. Similar input affordances can share
+transition code only when these answers match.
+
+While `focusMode` is `"editing"`, there is no active suggestion row. While `focusMode` is
+`"suggestion"`, `hoverPath.suggestionIndex` drives `aria-activedescendant` and row highlight.
+
+On touch layouts, the fixed scroll-picker slate is a visual guide and can be visible while
+`focusMode` is `"editing"`. It does not mean a suggestion is active. Only a real touch/wheel scroll
+over the suggestion list can move to `focusMode: "suggestion"` and create `hoverPath`.
 
 Current answers:
 
-- Pointer hover creates `hoverPath`. Pointer leave clears pointer-created `hoverPath` and restores
-  `expectedRouteAddress`. Click commits `hoverPath.draftPath` into `draftPath`.
-- Keyboard ArrowUp/ArrowDown also create `hoverPath`. Enter commits `hoverPath.draftPath` into
-  `draftPath`. Escape cancels the focused edit and restores `expectedRouteAddress`.
-- Mobile touch picker is not decided here. If scrolling a row and then tapping outside commits that
-  row, it should probably update `draftPath` instead of using pointer-style restore.
+- Mouse pointer movement over a row moves to `focusMode: "suggestion"` and creates `hoverPath`. A
+  row appearing under a stationary mouse must not create `hoverPath`.
+- Pointer leave clears pointer-created `hoverPath`, returns to `focusMode: "editing"`, and restores
+  `expectedRouteAddress`.
+- Click commits `hoverPath.draftPath` into `draftPath` and returns to `focusMode: "editing"`.
+- Keyboard ArrowUp/ArrowDown also move to `focusMode: "suggestion"` and create `hoverPath`. Enter
+  commits `hoverPath.draftPath` into `draftPath` and returns to `focusMode: "editing"`.
+- For pointer/keyboard previews, blur/click outside does not commit `hoverPath.draftPath`. It
+  restores `expectedRouteAddress` and leaves the editor blurred.
+- Escape also does not commit `hoverPath.draftPath`. It restores `expectedRouteAddress` and blurs.
+- Clicking back into the input while pointer/keyboard `hoverPath` is active cancels `hoverPath`,
+  restores `expectedRouteAddress`, and resumes editing `draftPath`.
+- Mobile touch scroll moves to `focusMode: "suggestion"` and creates `hoverPath` with source
+  `"touch"`. This keeps suggestions anchored to `draftPath` while the fixed slate scrolls over rows.
+  Example: while editing `/logo?`, scrolling to `?top=` shows `/logo?top=` in the input, but the
+  list still shows query-key rows until tap.
+- Mobile row tap runs `selectedSuggestion`. It commits `hoverPath.draftPath` into `draftPath` and
+  moves `selection` into the next editing slot, such as after `?`, `&`, or `=`.
+- If the input itself resumes editing from touch-created `hoverPath`, `hoverPath.draftPath` becomes
+  the next `draftPath`.
 
 Selecting a suggestion commits according to `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`:
 
@@ -125,11 +151,20 @@ sidebar/link route preview.
 
 ### R6: Blur and Escape
 
-Escape cancels the focused draft, restores the latest router route address, and blurs without
-committing the draft.
+Escape cancels the focused edit, restores `expectedRouteAddress`, and blurs.
 
-Blur commits the current valid route-ready draft. If the visible draft is incomplete or invalid, the
-visible input normalizes back to the latest applied router route.
+If `focusMode` is `"suggestion"`, Escape restores `expectedRouteAddress`; it does not commit
+`hoverPath.draftPath`.
+
+For pointer/keyboard `hoverPath`, blur/click outside restores `expectedRouteAddress`.
+
+If `focusMode` is `"editing"`, blur keeps the latest route-ready draft already applied through
+router `replace`. If the focused draft is incomplete or invalid, the visible input normalizes back
+to `expectedRouteAddress`.
+
+Mobile touch scroll creates `hoverPath` with source `"touch"`, but blur/click outside does not
+restore the previous route. It keeps `hoverPath.expectedRouteAddress`, because the fixed slate is
+the mobile picker affordance.
 
 ### R7: Keep the FSM state small
 
@@ -139,26 +174,42 @@ Do not start from a state shape with separate `readyRouteAddress`, `appliedRoute
 Store only facts that are not cheaply derived from the current focused draft, current router route,
 and current event.
 
-Good default shape:
+Current shape:
 
 ```ts
 type RouteEditorState =
   | {
       kind: "blurred";
-      path: string;
       prefix: string;
     }
   | {
       kind: "focused";
-      initialPath: string;
-      latestPath: string;
+      focusMode: "editing";
+      draftPath: string;
+      expectedRouteAddress: string;
+      prefix: string;
+      selection: RouteAddressSelection;
+    }
+  | {
+      kind: "focused";
+      focusMode: "suggestion";
+      draftPath: string;
+      expectedRouteAddress: string;
+      hoverPath: {
+        source: "keyboard" | "pointer" | "touch";
+        suggestionIndex: number;
+        draftPath: string;
+        expectedRouteAddress: string;
+      };
       prefix: string;
       selection: RouteAddressSelection;
     };
 ```
 
-Add another field only when a test proves it represents a non-derived fact, such as the route that
-must be restored before turning an editor preview into a pushed history entry.
+`expectedRouteAddress` is not a second display source. It is the route the editor expects TanStack
+to show, and the restore target for `hoverPath`.
+
+Add another field only when a test proves it represents a non-derived fact.
 
 ### R8: Select All and Copy
 
@@ -167,3 +218,46 @@ Select All + Copy must copy the complete address represented by the editor.
 If the editor hides the origin and displays only an app route starting with `/`, the copy contract
 must be chosen explicitly before implementation: copy the visible app route, or copy the absolute
 URL with the hidden origin.
+
+### R9: Public route query stories
+
+These stories should stay covered with real route-level interactions, not mocked DOM input changes.
+
+- `/ -> /logo`: selecting the `/logo` path row focuses the editor, applies `/logo`, shows `/logo?`,
+  and opens query-key suggestions.
+- `/logo?top=blue-200`: color values are chosen in steps: `?top=`, `blue-`, `blue-200`, then the
+  next query slot opens.
+- `/logo?dark&light`: conflicting theme flags may canonicalize the browser route to `/logo`, but the
+  focused editor still owns the visible draft until blur/Escape.
+- `/logo?dark&reset`: `reset` may canonicalize the browser route to `/logo`, but the focused editor
+  stays open and blur/Escape shows `/logo`.
+- `/?auth=`: auth-flow params are manual. The key can be suggested, but values such as `google` must
+  not be previewed from the dropdown.
+- `/logo?rot=`: empty numeric values stay local. Completing the value, such as `rot=10`, applies the
+  route.
+- `/logo?zoom=0.01` then Backspace: the browser may canonicalize `zoom=0.0` to `zoom=0`, but text
+  editing should stay focused and show the typed draft.
+
+Combined interaction stories:
+
+- Pointer-preview `/privacy` from draft `/terms?top=red-`, then click outside. The browser route and
+  blurred display restore to `/terms`.
+- Keyboard-preview `/privacy` from draft `/terms?top=red-`, then click outside. The browser route
+  and blurred display restore to `/terms`.
+- Touch-scroll preview `/logo` from `/terms`, then tap outside. Touch scroll is the mobile picker
+  affordance, so the browser route and blurred display stay on `/logo`.
+- `/logo?rot=` then click outside. The unfinished numeric token is not committed; blurred display
+  and browser route show `/logo`.
+
+### R10: Review follow-ups to decide next
+
+These are not accepted behavior yet. Keep them visible so review findings do not get lost.
+
+- Decide whether path suggestions should filter by typed path text. Example: typing `lo` could show
+  only `/logo`, or it could keep all accessible paths visible because the app has few paths.
+- Decide how dynamic routes participate in suggestions. Current work ignores variable paths such as
+  `/vault/$`; if we support them, query-param suggestions need template-aware route matching.
+- Decide whether the rebuilt editor supports hashes. If yes, committed route comparisons, readiness,
+  navigation, parsing, and suggestions must all include hash consistently.
+- Replace synthetic touch-scroll tests with more real mobile gestures if touch picker regressions
+  keep hiding behind implementation-shaped tests.
