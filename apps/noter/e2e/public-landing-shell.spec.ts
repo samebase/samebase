@@ -1709,8 +1709,10 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 });
 
 test.describe("production public host landing", () => {
-  test("renders the root route directly in the URL editor", async ({ page }) => {
-    const response = await page.goto(buildProductionPublicLandingUrl(""), {
+  test("keeps the production root URL editor editable after first paint", async ({ page }) => {
+    const rootUrl = buildProductionPublicLandingUrl("");
+    const rootPrefix = `${new URL(rootUrl).origin}/`;
+    const response = await page.goto(rootUrl, {
       waitUntil: "domcontentloaded",
     });
     if (response === null) {
@@ -1725,12 +1727,22 @@ test.describe("production public host landing", () => {
       throw new Error("Expected route URL editor display in production host HTML.");
     }
 
-    expect(routeEditorDisplayTag).toContain('value="/"');
-    expect(routeEditorDisplayTag).not.toContain("text-indent");
+    expect(routeEditorDisplayTag).toContain(`value="${rootPrefix}"`);
+    expect(routeEditorDisplayTag).toContain("text-indent");
+    expect(routeEditorDisplayTag).toContain("padding-left:0.625rem");
 
     const displayInput = page.getByTestId("route-url-editor-display");
-    await expect(displayInput).toHaveValue("/");
-    await expect(displayInput).toHaveCSS("text-indent", "0px");
+    await expect(displayInput).toHaveValue(rootPrefix);
+    await expect(displayInput).toHaveCSS("padding-left", "10px");
+
+    await displayInput.click();
+
+    const focusedInput = page.getByTestId("route-url-editor-input");
+    await expect(focusedInput).toHaveValue(rootPrefix);
+    await focusedInput.pressSequentially("logo");
+
+    await expect(focusedInput).toHaveValue(`${rootPrefix}logo`);
+    await expect(page).toHaveURL(/\/logo$/);
   });
 
   test("keeps the logo draggable after the SVG fallback is removed", async ({ page }) => {

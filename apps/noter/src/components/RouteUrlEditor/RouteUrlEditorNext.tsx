@@ -77,15 +77,10 @@ export function RouteUrlEditorNext() {
       : null;
   const hiddenPrefixTextIndent = `-${vm.state.prefix.length - 1}ch`;
   const prefixUrl = new URL(vm.state.prefix);
-  const displayInputShowsRouteOnly =
-    prefixUrl.pathname === "/" &&
-    isProductionPublicHostname(prefixUrl.hostname) &&
-    vm.displayInputProps.value.startsWith(vm.state.prefix);
-  const displayInputValue = displayInputShowsRouteOnly
-    ? `/${vm.displayInputProps.value.slice(vm.state.prefix.length)}`
-    : vm.displayInputProps.value;
-  const displayInputStyle = displayInputShowsRouteOnly
-    ? undefined
+  const productionPublicPrefix =
+    prefixUrl.pathname === "/" && isProductionPublicHostname(prefixUrl.hostname);
+  const inputStyle = productionPublicPrefix
+    ? { paddingLeft: "0.625rem", textIndent: hiddenPrefixTextIndent }
     : { textIndent: hiddenPrefixTextIndent };
 
   useEffect(() => {
@@ -158,7 +153,7 @@ export function RouteUrlEditorNext() {
           data-testid="route-url-editor-input"
           inputMode="url"
           spellCheck={false}
-          style={{ textIndent: hiddenPrefixTextIndent }}
+          style={inputStyle}
         />
       ) : (
         <input
@@ -167,8 +162,7 @@ export function RouteUrlEditorNext() {
           data-testid="route-url-editor-display"
           inputMode="url"
           spellCheck={false}
-          style={displayInputStyle}
-          value={displayInputValue}
+          style={inputStyle}
         />
       )}
       {vm.suggestionsVisible ? (
