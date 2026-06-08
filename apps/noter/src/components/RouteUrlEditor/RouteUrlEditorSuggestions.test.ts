@@ -269,42 +269,32 @@ describe("readSuggestions", () => {
     });
   });
 
-  it("removes duplicate query keys when replacing the active token", () => {
-    const rows = readRows({
+  it("hides query keys that are already present outside the active token", () => {
+    const values = readValues({
       routeAddress: "/terms?border=stone-300&dev&depth=2&gridSize=2&light&",
       routeTextBeforeCursor: "/terms?bo",
     });
 
-    expect(rows).toContainEqual({
-      kind: "search",
-      nextSelectionRouteIndex: "/terms?dev".length,
-      previewRouteAddress: "/terms?dev&depth=2&gridSize=2&light&",
-      previewSelectionRouteIndex: "/terms?".length,
-      selectedRouteAddress: "/terms?dev&depth=2&gridSize=2&light&",
-      value: "?dev",
-    });
+    expect(values).toContain("?border=stone-300");
+    expect(values).not.toContain("?dev");
+    expect(values).not.toContain("?depth=2");
   });
 
-  it("opens the next query slot after duplicate removal leaves the replacement token last", () => {
-    const rows = readRows({
-      routeAddress: "/terms?border=stone-300&dev",
-      routeTextBeforeCursor: "/terms?bo",
+  it("hides already present query keys from the next empty query slot", () => {
+    const values = readValues({
+      routeAddress: "/logo?dev&top=blue-500&",
+      routeTextBeforeCursor: "/logo?dev&top=blue-500&",
     });
 
-    expect(rows).toContainEqual({
-      kind: "search",
-      nextSelectionRouteIndex: "/terms?dev&".length,
-      previewRouteAddress: "/terms?dev&",
-      previewSelectionRouteIndex: "/terms?".length,
-      selectedRouteAddress: "/terms?dev&",
-      value: "?dev",
-    });
+    expect(values).not.toContain("&dev");
+    expect(values).not.toContain("&top=sky-500");
+    expect(values).toContain("&secondary=rose-500");
   });
 
   it("hides query params marked hidden in metadata", () => {
     const values = readValues({
-      routeAddress: "/logo?dev",
-      routeTextBeforeCursor: "/logo?dev",
+      routeAddress: "/logo?",
+      routeTextBeforeCursor: "/logo?",
     });
 
     expect(values).toContain("?dev");

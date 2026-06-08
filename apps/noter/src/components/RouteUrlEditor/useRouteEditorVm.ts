@@ -59,10 +59,9 @@ focusMode = what currently owns the visible focused input.
 `draftPath` directly, and there is no active suggestion row.
 
 `"suggestion"` means one suggestion row owns it: `hoverPath` changes the visible route address.
-Input click or pointer mouseleave returns visible text to `draftPath`. Escape restores
-`expectedRouteAddress` and blurs. Pointer/keyboard blur restores `expectedRouteAddress`.
-Enter or row click commits the row's `selectedRouteAddress` into `draftPath`. This can differ from
-`hoverPath.draftPath`, which is the row's `previewRouteAddress`.
+Input click, pointer mouseleave, Escape, and blur restore `draftPath` / `expectedRouteAddress`.
+Enter or row click/tap commits the row's `selectedRouteAddress` into `draftPath`. This can differ
+from `hoverPath.draftPath`, which is the row's `previewRouteAddress`.
 
 draftPath = the editable route address while `kind` is `"focused"`. Starts with `/`, never includes
 `prefix`.
@@ -75,13 +74,14 @@ pointer hover, keyboard navigation, or mobile touch scroll created it.
 sets it after the shared `/`; hovering `?top=sky-500` sets it after `?`; hovering `blue-500` sets it
 after `=`.
 
-Mobile touch scroll uses `hoverPath`, not `draftPath`. Example: `draftPath` is `/logo?`, the user
-scrolls the fixed slate over `?top=sky-500`, and `hoverPath.draftPath` becomes
+Mobile touch scroll also uses `hoverPath`, not `draftPath`. Example: `draftPath` is `/logo?`, the
+user scrolls the fixed slate over `?top=sky-500`, and `hoverPath.draftPath` becomes
 `/logo?top=sky-500`. The visible input shows `/logo?top=sky-500`, but suggestions still come from
-`/logo?` until the row is tapped. Tapping that row commits `/logo?top=`.
+`/logo?` until the row is tapped. Tapping that row commits `/logo?top=`. Tapping outside cancels the
+scroll preview and restores `/logo`.
 
 expectedRouteAddress = the route address this focused state expects TanStack to report, and the
-restore target when pointer/keyboard `hoverPath` is canceled. Blurred display reads
+restore target when `hoverPath` is canceled. Blurred display reads
 `committedRouteAddress` from TanStack, not this field.
 
 Blurred state does not store `committedRouteAddress`. It renders `committedRouteAddress` from
@@ -544,17 +544,6 @@ const routeEditorTransition: RouteEditorTransitionTable = {
         });
       }
 
-      if (prev.hoverPath.source === "touch") {
-        return keepState({
-          kind: "focused",
-          focusMode: "editing",
-          draftPath: prev.hoverPath.draftPath,
-          expectedRouteAddress: prev.hoverPath.expectedRouteAddress,
-          prefix: prev.prefix,
-          selection: event.selection,
-        });
-      }
-
       const actions: RouteEditorAction[] = [
         {
           brand: "setInputSelection",
@@ -585,18 +574,12 @@ const routeEditorTransition: RouteEditorTransitionTable = {
 
     clickedOutside: (prev, event) => {
       // Root blur leaves `"focused"`. If `hoverPath.expectedRouteAddress`
-      // replaced the route through pointer/keyboard preview, restore
-      // `prev.expectedRouteAddress` before the blurred editor reads
-      // `committedRouteAddress`.
-      //
-      // If mobile touch scroll created `hoverPath`, keep
-      // `hoverPath.expectedRouteAddress`. Touch scroll is the mobile picker
-      // affordance, so tapping outside accepts the route that was left under
-      // the fixed slate.
+      // replaced the route through pointer, keyboard, or touch-scroll preview,
+      // restore `prev.expectedRouteAddress` before the blurred editor reads
+      // `committedRouteAddress`. Only selectedSuggestion commits `hoverPath`.
       const actions: RouteEditorAction[] = [];
       if (
         prev.focusMode === "suggestion" &&
-        prev.hoverPath.source !== "touch" &&
         prev.hoverPath.expectedRouteAddress !== prev.expectedRouteAddress
       ) {
         actions.push({
@@ -779,9 +762,8 @@ const routeEditorTransition: RouteEditorTransitionTable = {
     selectedSuggestion: (prev, event) => {
       // Suggestion mousedown prevents native click handling to keep focus, so
       // `nextSelectionRouteIndex` is the reliable source for `selection`.
-      // Mobile touch scroll can already have copied `event.routeAddress` into
-      // `hoverPath.draftPath`; selection still needs to move into the next
-      // editing slot after the row is tapped.
+      // Row click/tap/Enter is the only place suggestion preview becomes the
+      // next `draftPath`.
       const selection = readInputSelectionFromRouteIndex(
         prev.prefix,
         event.nextSelectionRouteIndex,
@@ -1152,9 +1134,8 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
     [readRouteAddressReadinessForRoute, replaceRoute, sendEvent],
   );
 
-  const handleSuggestionMouseDown = useCallback(
-    (event: MouseEvent<HTMLElement>, suggestion: Suggestion) => {
-      event.preventDefault();
+  const selectSuggestion = useCallback(
+    (suggestion: Suggestion) => {
       sendEvent({
         type: "selectedSuggestion",
         context: {
@@ -1166,6 +1147,14 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       });
     },
     [readRouteAddressReadinessForRoute, replaceRoute, sendEvent],
+  );
+
+  const handleSuggestionMouseDown = useCallback(
+    (event: MouseEvent<HTMLElement>, suggestion: Suggestion) => {
+      event.preventDefault();
+      selectSuggestion(suggestion);
+    },
+    [selectSuggestion],
   );
 
   const handleSuggestionPointerMove = useCallback(
@@ -1510,6 +1499,7 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       listboxProps,
       previewTouchSuggestion,
       rootProps,
+      selectSuggestion,
       state,
       suggestions,
       suggestionsVisible,
@@ -1521,6 +1511,7 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
       listboxProps,
       previewTouchSuggestion,
       rootProps,
+      selectSuggestion,
       state,
       suggestions,
       suggestionsVisible,
