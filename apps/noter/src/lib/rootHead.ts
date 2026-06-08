@@ -151,7 +151,7 @@ export function buildRootHead() {
       },
       {
         name: "theme-color",
-        content: "#000000",
+        content: "#ff69b4",
       },
       {
         property: "og:site_name",

@@ -317,6 +317,10 @@ describe("page metadata", () => {
       rel: "manifest",
       href: "/manifest.webmanifest",
     });
+    expect(rootHead.meta).toContainEqual({
+      name: "theme-color",
+      content: "#ff69b4",
+    });
     expect(
       rootHead.scripts.some((script) =>
         script.children.includes('window.addEventListener("beforeinstallprompt", (event) => {'),

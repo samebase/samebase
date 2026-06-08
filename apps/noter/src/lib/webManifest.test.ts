@@ -16,8 +16,8 @@ describe("web manifest", () => {
       start_url: "/home",
       scope: "/",
       display: "standalone",
-      theme_color: "#ffffff",
-      background_color: "#ffffff",
+      theme_color: "#ff69b4",
+      background_color: "#ff69b4",
     });
     expect(manifest.icons).toEqual([
       {
