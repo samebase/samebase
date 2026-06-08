@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { isProductionPublicHostname } from "@/lib/prodUiMode";
 import { useRouteEditorVm } from "./useRouteEditorVm";
@@ -42,6 +42,11 @@ const routeUrlEditorNextTouchScrollSlateClassName =
 const routeUrlEditorNextTouchScrollApplyButtonClassName =
   "pointer-events-auto absolute right-1 top-1/2 h-6 -translate-y-1/2 bg-background px-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-foreground/20";
 
+const productionPublicRouteUrlEditorPrefix = "https://noter.md/";
+const productionPublicHiddenPrefixTextIndent = `-${
+  productionPublicRouteUrlEditorPrefix.length - 1
+}ch`;
+
 function renderRouteUrlEditorNextSuggestionValue(suggestion: {
   sampleValueStart?: number;
   value: string;
@@ -75,11 +80,22 @@ export function RouteUrlEditorNext() {
     touchScrollPicker.active && vm.state.kind === "focused" && vm.state.focusMode === "suggestion"
       ? (vm.suggestions[vm.state.hoverPath.suggestionIndex] ?? null)
       : null;
-  const hiddenPrefixTextIndent = `-${vm.state.prefix.length - 1}ch`;
+  const [browserOriginStyleReady, setBrowserOriginStyleReady] = useState(false);
   const productionPublicOrigin = isProductionPublicHostname(new URL(vm.state.prefix).hostname);
-  const inputStyle = productionPublicOrigin
-    ? { paddingLeft: "0.625rem", textIndent: hiddenPrefixTextIndent }
-    : { textIndent: hiddenPrefixTextIndent };
+  // SSG HTML can be generated from a localhost origin. Android standalone PWA first paint needs
+  // the noter.md prefix length before React patches any browser-origin-specific style.
+  const hiddenPrefixTextIndent =
+    browserOriginStyleReady && !productionPublicOrigin
+      ? `-${vm.state.prefix.length - 1}ch`
+      : productionPublicHiddenPrefixTextIndent;
+  const inputStyle =
+    browserOriginStyleReady && !productionPublicOrigin
+      ? { textIndent: hiddenPrefixTextIndent }
+      : { paddingLeft: "0.625rem", textIndent: hiddenPrefixTextIndent };
+
+  useEffect(() => {
+    setBrowserOriginStyleReady(true);
+  }, []);
 
   useEffect(() => {
     if (editingDraftPath === null) {

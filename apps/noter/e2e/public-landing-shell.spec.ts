@@ -34,6 +34,10 @@ const NAVIGATION_BUDGET_MS = {
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const PRODUCTION_PUBLIC_HOSTNAME = "noter.md";
+const PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_PREFIX = "https://noter.md/";
+const PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_TEXT_INDENT = `-${
+  PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_PREFIX.length - 1
+}ch`;
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/home", "/terms", "/privacy"] as const;
 const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
   LANDING_DEV_MODE_QUERY_PARAM,
@@ -1728,7 +1732,9 @@ test.describe("production public host landing", () => {
     }
 
     expect(routeEditorDisplayTag).toContain(`value="${rootPrefix}"`);
-    expect(routeEditorDisplayTag).toContain("text-indent");
+    expect(routeEditorDisplayTag).toContain(
+      `text-indent:${PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_TEXT_INDENT}`,
+    );
     expect(routeEditorDisplayTag).toContain("padding-left:0.625rem");
 
     const displayInput = page.getByTestId("route-url-editor-display");
