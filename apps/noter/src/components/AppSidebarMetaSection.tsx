@@ -238,7 +238,7 @@ export function AppSidebarMetaSection({
               return;
             }
 
-            event.clipboardData.setData("text/plain", `[${commitLabel}](${commitUrl})`);
+            event.clipboardData.setData("text/plain", `[${buildVersionLabel}](${commitUrl})`);
             event.preventDefault();
           }}
         >

@@ -10,7 +10,7 @@ import {
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
-import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
+import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -21,8 +21,9 @@ import {
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
-import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/lib/routeSearchFlags";
+import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
+import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
 // Keep them loose enough to absorb runner variance while still catching
@@ -33,7 +34,6 @@ const NAVIGATION_BUDGET_MS = {
   load: 500,
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
-const PRODUCTION_PUBLIC_HOSTNAME = "noter.md";
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/home", "/terms", "/privacy"] as const;
 const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
   LANDING_DEV_MODE_QUERY_PARAM,
@@ -1197,13 +1197,13 @@ test("build version copies as a Markdown link on the public landing", async ({ p
   const version = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
   const commit = page.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
   await expectAppBuildVersionDisplay(statusBar, version, commit);
-  const commitText = await commit.textContent();
+  const versionText = await version.textContent();
   const versionHref = await expectAppBuildCommitLink(commit);
-  expect(commitText).not.toBeNull();
+  expect(versionText).not.toBeNull();
   await selectText(commit);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const clipboardText = await readClipboardText(page);
-  expect(clipboardText).toBe(`[${commitText}](${versionHref})`);
+  expect(clipboardText).toBe(`[${versionText}](${versionHref})`);
 });
 
 test("landing footer links keep browser link styling", async ({ page }, testInfo) => {
@@ -1709,6 +1709,50 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 });
 
 test.describe("production public host landing", () => {
+  test("keeps the production URL editor inset and editable across routes", async ({ page }) => {
+    const rootUrl = buildProductionPublicLandingUrl("");
+    const rootPrefix = `${new URL(rootUrl).origin}/`;
+    const response = await page.goto(rootUrl, {
+      waitUntil: "domcontentloaded",
+    });
+    if (response === null) {
+      throw new Error("Expected production host landing response.");
+    }
+
+    const html = await response.text();
+    const routeEditorDisplayTag = html.match(
+      /<input[^>]*data-testid="route-url-editor-display"[^>]*>/,
+    )?.[0];
+    if (!routeEditorDisplayTag) {
+      throw new Error("Expected route URL editor display in production host HTML.");
+    }
+
+    expect(routeEditorDisplayTag).toContain(`value="${rootPrefix}"`);
+    expect(routeEditorDisplayTag).toContain(`text-indent:-${rootPrefix.length - 1}ch`);
+
+    const displayInput = page.getByTestId("route-url-editor-display");
+    await expect(displayInput).toHaveValue(rootPrefix);
+
+    await displayInput.click();
+
+    const focusedInput = page.getByTestId("route-url-editor-input");
+    await expect(focusedInput).toHaveValue(rootPrefix);
+    await focusedInput.pressSequentially("logo");
+
+    await expect(focusedInput).toHaveValue(`${rootPrefix}logo`);
+    await expect(page).toHaveURL(/\/logo$/);
+
+    await page.goto(buildProductionPublicLandingUrl("privacy"), {
+      waitUntil: "domcontentloaded",
+    });
+
+    const privacyDisplayInput = page.getByTestId("route-url-editor-display");
+    await expect(privacyDisplayInput).toHaveValue(`${rootPrefix}privacy`);
+
+    await privacyDisplayInput.click();
+    await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);
+  });
+
   test("keeps the logo draggable after the SVG fallback is removed", async ({ page }) => {
     await page.goto(buildProductionPublicLandingUrl(""), {
       waitUntil: "domcontentloaded",
