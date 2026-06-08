@@ -13,7 +13,8 @@ function readUnknownField(record: unknown, key: string): unknown {
   if (typeof record !== "object" || record === null) {
     return undefined;
   }
-  return Reflect.get(record, key);
+
+  return Object.getOwnPropertyDescriptor(record, key)?.value;
 }
 
 export const cleanupCloudflareData = internalMutation({

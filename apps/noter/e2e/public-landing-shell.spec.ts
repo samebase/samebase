@@ -9,12 +9,8 @@ import {
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
-import {
-  LANDING_DEV_MODE_DISABLE_LINK_LABEL,
-  LANDING_DEV_MODE_LINK_LABEL,
-} from "../src/lib/landingDevMode";
-import { ROOT_THEME_LIGHT_MODE_LINK_LABEL } from "../src/lib/rootThemeModeSearch";
-import { SEARCH_RESET_LINK_LABEL } from "../src/lib/searchReset";
+import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
+import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -26,6 +22,7 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
+import { formatRouteSearchPresenceFlagLinkLabel } from "../src/lib/routeSearchFlags";
 
 // These budgets target the local production preview used in CI.
 // Keep them loose enough to absorb runner variance while still catching
@@ -38,6 +35,16 @@ const NAVIGATION_BUDGET_MS = {
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const PRODUCTION_PUBLIC_HOSTNAME = "noter.md";
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/home", "/terms", "/privacy"] as const;
+const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
+  LANDING_DEV_MODE_QUERY_PARAM,
+  true,
+);
+const landingDevModeDisableLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
+  LANDING_DEV_MODE_QUERY_PARAM,
+  false,
+);
+const rootThemeLightModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel("light", true);
+const searchResetLinkLabel = formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true);
 const strictScreenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -997,7 +1004,7 @@ test("landing dev toggle keeps the account and waitlist rows aligned", async ({ 
 
   const beforeToggleLayout = await readLandingToggleLayout(page);
 
-  await page.getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true }).click();
+  await page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }).click();
   await expect(page).toHaveURL(/\/\?dev$/);
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
@@ -1019,7 +1026,7 @@ test("landing dev toggle keeps the account and waitlist rows aligned", async ({ 
 
   await page
     .getByRole("link", {
-      name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+      name: landingDevModeDisableLinkLabel,
       exact: true,
     })
     .click();
@@ -1044,16 +1051,16 @@ test("public landing omits section divider lines", async ({ page }) => {
   await expect(landingContent.locator(".border-t")).toHaveCount(0);
 });
 
-test("landing reset shortcut previews reset state without disappearing", async ({ page }) => {
+test("landing reset shortcut stays visible before clearing root search", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
-  await page.getByRole("link", { name: ROOT_THEME_LIGHT_MODE_LINK_LABEL, exact: true }).click();
+  await page.getByRole("link", { name: rootThemeLightModeLinkLabel, exact: true }).click();
   await expect(page).toHaveURL(/\/\?light$/);
 
-  const resetLink = page.getByRole("link", { name: SEARCH_RESET_LINK_LABEL, exact: true });
+  const resetLink = page.getByRole("link", { name: searchResetLinkLabel, exact: true });
   await resetLink.hover();
 
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/\?light$/);
   await expect(resetLink).toBeVisible();
 
   await resetLink.click();
@@ -1327,12 +1334,12 @@ test.describe("mobile landing dev toggle", () => {
   test("landing dev toggle keeps the landing card stable frame by frame", async ({ page }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
-    const forwardFrames = await captureLandingToggleFrames(page, LANDING_DEV_MODE_LINK_LABEL);
+    const forwardFrames = await captureLandingToggleFrames(page, landingDevModeLinkLabel);
     expectStableLandingToggleFrames(forwardFrames, "/?dev");
     await expectLandingToggleFocusTarget(page);
     await expectLandingLogoAutoRotates(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
 
-    const backFrames = await captureLandingToggleFrames(page, LANDING_DEV_MODE_DISABLE_LINK_LABEL);
+    const backFrames = await captureLandingToggleFrames(page, landingDevModeDisableLinkLabel);
     expectStableLandingToggleFrames(backFrames, "/");
     await expectLandingToggleFocusTarget(page);
   });
@@ -1453,7 +1460,7 @@ test("landing dev toggle cancels duplicate synthetic clicks", async ({ page }) =
 
   await expect(page).toHaveURL(/\/$/);
   await expect(
-    page.getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true }),
+    page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }),
   ).toBeVisible();
 });
 
@@ -1466,7 +1473,7 @@ test("waitlist link stays visible through the dev toggle", async ({ page }) => {
   });
   await expect(waitlistLink).toBeVisible();
   await expect(waitlistLink).toHaveAttribute("href", "https://x.com/notermd");
-  await page.getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true }).click();
+  await page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }).click();
   await expect(page).toHaveURL(/\/\?dev$/);
   await expect(
     page.getByRole("link", { name: "https://x.com/notermd", exact: true }),
@@ -1487,7 +1494,7 @@ test("public landing keeps the card height stable while toggling dev mode", asyn
     Math.round(element.getBoundingClientRect().height),
   );
 
-  await page.getByRole("link", { name: LANDING_DEV_MODE_LINK_LABEL, exact: true }).click();
+  await page.getByRole("link", { name: landingDevModeLinkLabel, exact: true }).click();
   await expect(page).toHaveURL(/\/\?dev$/);
 
   const devLandingHeight = await landingContent.evaluate((element) =>
@@ -1730,7 +1737,7 @@ test("landing dev toggle preserves unrelated query params", async ({ page }) => 
   await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
 
   const shellToggleLink = page.getByRole("link", {
-    name: LANDING_DEV_MODE_LINK_LABEL,
+    name: landingDevModeLinkLabel,
   });
   await expect(shellToggleLink).toHaveAttribute("href", "/?prod-ui&dev");
 
@@ -1739,7 +1746,7 @@ test("landing dev toggle preserves unrelated query params", async ({ page }) => 
   await expect(page).toHaveURL(/\/\?(?:prod-ui&dev|dev&prod-ui)$/);
 
   const appToggleLink = page.getByRole("link", {
-    name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    name: landingDevModeDisableLinkLabel,
     exact: true,
   });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
@@ -1751,7 +1758,7 @@ test("prod-ui mode omits the prod-ui shortcut", async ({ page }) => {
   await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
   await expect(
     page.getByRole("link", {
-      name: LANDING_DEV_MODE_LINK_LABEL,
+      name: landingDevModeLinkLabel,
       exact: true,
     }),
   ).toBeVisible();
@@ -1763,7 +1770,7 @@ test("prod-ui shortcut is not rendered before entry", async ({ page }) => {
   await expect(page.locator("#public-landing-prod-ui-toggle")).toHaveCount(0);
   await expect(
     page.getByRole("link", {
-      name: LANDING_DEV_MODE_LINK_LABEL,
+      name: landingDevModeLinkLabel,
       exact: true,
     }),
   ).toBeVisible();
@@ -1784,7 +1791,7 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
   await insertLandingHeadingMarker(page, headingMarker);
 
   const appToggleLink = page.getByRole("link", {
-    name: LANDING_DEV_MODE_DISABLE_LINK_LABEL,
+    name: landingDevModeDisableLinkLabel,
     exact: true,
   });
   await expect(appToggleLink).toBeVisible();

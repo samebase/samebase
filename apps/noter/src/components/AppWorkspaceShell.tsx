@@ -10,9 +10,9 @@ import {
 } from "react";
 import { useConvexAuth } from "convex/react";
 import { useLocation } from "@tanstack/react-router";
-import { AppSidebarMetaRoutePreviewProvider } from "@/components/AppSidebarMetaSection";
 import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
-import { RouteUrlEditor } from "@/components/RouteUrlEditor";
+import { RouteUrlEditor } from "@/components/RouteUrlEditor/RouteUrlEditor";
+import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
   WorkspacePaneRuntimeProvider,
@@ -72,6 +72,7 @@ const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
 const APP_WORKSPACE_DEFAULT_MOBILE_PEEK_WIDTH_PX = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX;
+const USE_ROUTE_URL_EDITOR_NEXT_IN_WORKSPACE_HEADER: boolean = true;
 
 const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: true,
@@ -181,7 +182,11 @@ function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
   return (
     <div className="flex h-full min-w-0 items-center gap-2">
       <div className="min-w-0 flex-1">
-        <RouteUrlEditor />
+        {USE_ROUTE_URL_EDITOR_NEXT_IN_WORKSPACE_HEADER ? (
+          <RouteUrlEditorNext />
+        ) : (
+          <RouteUrlEditor />
+        )}
       </div>
       {accessory ? <div className="min-w-0 shrink-0">{accessory}</div> : null}
     </div>
@@ -257,13 +262,11 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   const chrome = useAppWorkspaceRouteChrome(chromeStore);
 
   return (
-    <AppSidebarMetaRoutePreviewProvider>
-      <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
-        <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-          <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
-        </div>
-      </AppWorkspaceRouteChromeContext.Provider>
-    </AppSidebarMetaRoutePreviewProvider>
+    <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
+      <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+        <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
+      </div>
+    </AppWorkspaceRouteChromeContext.Provider>
   );
 }
 

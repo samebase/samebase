@@ -233,7 +233,7 @@ export function promiseTimeout(millis: number): Promise<void> {
  * Wrapper around Array.includes() that is also a type guard and accepts values
  * that are not already known to belong to the array.
  */
-export function includes<ArrayValue extends readonly unknown[]>(
+export function includes<const ArrayValue extends readonly unknown[]>(
   arr: ArrayValue,
   value: unknown,
 ): value is ArrayValue[number] {

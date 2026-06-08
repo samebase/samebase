@@ -23,7 +23,7 @@ import {
   type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
-import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 
 export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
 export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
@@ -169,6 +169,10 @@ export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM
   (suggestion) => suggestion.permission === "public",
 );
 
+export function isRootRouteOwnedSearchKey(key: string): boolean {
+  return key === "base" || key in rootRouteSearchParamMetadata;
+}
+
 function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootRouteSearchBase {
   const providerAppRoot = parsedSearch[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM];
   const validModalKeys = DASHBOARD_MODAL_SEARCH_KEYS.filter((key) => {
@@ -202,9 +206,9 @@ function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootR
 }
 
 /**
- * Root-level preview/debug/theme controls follow public-route navigation unless
- * a caller clears the key with a route-search tombstone.
- */
+Root-level preview/debug/theme controls stay on public-route navigation unless
+a caller clears the key with `undefined` or `null` in a route search patch.
+*/
 export const RETAINED_ROOT_SEARCH_KEYS = [
   "devtools",
   ...LOGO_ROUTE_SEARCH_KEYS,
@@ -241,6 +245,48 @@ export function validateRootRouteSearch(search: Record<string, unknown>): RootRo
   return parseRootRouteSearch(search);
 }
 
+export function clearConflictingRootThemeModeSearch(search: RootRouteSearch): RootRouteSearch {
+  if (!search.light || !search.dark) {
+    return search;
+  }
+
+  return applySearchPatch(search, {
+    dark: null,
+    light: null,
+  });
+}
+
+/**
+Returns the route address that root `beforeLoad` redirects to, or `null` when the route can load.
+
+Example: pathname `/logo` plus search `{ reset: true }` redirects to `/logo`.
+
+Example: pathname `/logo` plus search `{ dark: true, light: true }` redirects to `/logo`.
+*/
+export function readRootRouteRedirectRouteAddress(args: {
+  hash: string;
+  pathname: string;
+  search: RootRouteSearch;
+}): string | null {
+  if (args.search.reset) {
+    return buildPathWithTanStackSearch({
+      pathname: args.pathname,
+      hash: args.hash,
+    });
+  }
+
+  const nextSearch = clearConflictingRootThemeModeSearch(args.search);
+  if (nextSearch !== args.search) {
+    return buildPathWithTanStackSearch({
+      pathname: args.pathname,
+      search: nextSearch,
+      hash: args.hash,
+    });
+  }
+
+  return null;
+}
+
 function setRootLogoRouteSearchPatchValue<Key extends keyof LogoRouteSearch>({
   key,
   logoSearchPatch,
@@ -271,10 +317,9 @@ export function replaceRootLogoRouteSearch(
 }
 
 /**
- * `readRootRouteSearch` accepts browser-style string/URLSearchParams input and
- * normalizes it through the app's TanStack search parser before schema
- * validation.
- */
+`readRootRouteSearch` accepts browser-style string/URLSearchParams input and
+normalizes it through the app's TanStack search parser before schema validation.
+*/
 export function readRootRouteSearch(search: string | URLSearchParams | undefined): RootRouteSearch {
   return parseRootRouteSearch(
     parseTanStackSearch(typeof search === "string" ? search : (search?.toString() ?? "")),

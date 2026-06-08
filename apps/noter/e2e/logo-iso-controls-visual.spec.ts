@@ -191,7 +191,7 @@ test("logo routes share the public account right sidebar", async ({ page }) => {
   }
 });
 
-test("logo right sidebar shows public link click state", async ({ page }) => {
+test("logo right sidebar public path links navigate on click", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/logo", {
     waitUntil: "domcontentloaded",
@@ -203,35 +203,10 @@ test("logo right sidebar shows public link click state", async ({ page }) => {
 
   await expect(publicLinks).toBeVisible();
   await termsLink.hover();
-  await expect
-    .poll(() =>
-      termsLink.evaluate((element) => {
-        const style = window.getComputedStyle(element);
+  await expect(page).toHaveURL(/\/logo$/);
 
-        return {
-          animationName: style.animationName,
-          textDecorationColorMatchesText: style.textDecorationColor === style.color,
-          textDecorationLine: style.textDecorationLine,
-        };
-      }),
-    )
-    .toEqual({
-      animationName: "underline-color-cycle",
-      textDecorationColorMatchesText: false,
-      textDecorationLine: "underline",
-    });
-  await page.mouse.down();
-
-  try {
-    await expect(publicLinks).toHaveScreenshot("logo-right-sidebar-meta-section-click-state.png", {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.03,
-      scale: "css",
-    });
-  } finally {
-    await page.mouse.up();
-  }
+  await termsLink.click();
+  await expect(page).toHaveURL(/\/terms$/);
 });
 
 test("logo public query links toggle root theme mode", async ({ page }) => {

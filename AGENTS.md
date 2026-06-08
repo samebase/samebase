@@ -145,6 +145,10 @@ Key domain entities:
 - Never use `any` or type assertions to bypass the type system. `as const` is always acceptable when
   preserving literal inference; every other assertion needs explicit user approval for that exact
   callsite.
+- Do not use `Reflect.get` as a workaround for TypeScript property access or browser API typing.
+  Prefer direct typed property access with a real narrow. If TypeScript cannot express a justified
+  browser/API callsite, use the narrowest `@ts-expect-error` with a concrete explanation instead of
+  hiding the access behind reflection.
 - Do not recommend assertion-based examples in chat, docs, or review comments. When narrowing
   `unknown` or provider-owned data, write real runtime guards, validators, or model changes that let
   TypeScript prove the access.
@@ -200,21 +204,29 @@ Key domain entities:
 - New or materially changed code should include concise comments that explain the constraint or
   invariant being preserved. Prefer JSDoc above functions when a function-level explanation is
   needed.
+- Comments must use the same terminology as the code. Prefer exact type, function, event, and
+  property names such as `draftPath`, `hoverPath`, or `expectedRouteAddress` over invented labels
+  like "base route" or "focused route"; invented comment-only vocabulary is worse than no comment.
+  Use `@see` in JSDoc when a comment should point readers to a nearby type or helper.
 - Prefer comments that name the concrete runtime case over abstract ownership language. For example:
   `if durable state says "left" but this layout has no left pane, render "main"; same for "right".`
 - For JSDoc above local types, props, and small config unions, write the app contract in the
   simplest direct vocabulary. Prefer concrete value meanings over polished prose, and preserve
-  user-authored wording instead of rewriting it. Example:
+  user-authored wording instead of rewriting it. For multiline `/** ... */` comments, prefer plain
+  interior lines without leading `*` prefixes because the text is easier to copy. Single-line `//`
+  comments are still fine when they fit. Example:
+
   ```ts
   /**
-   * all = shows sidebar toggle on mobile an desktop
-   *
-   * desktop = shows sidebar toggle on desktop only
-   *
-   * hidden = hides sidebar toggle on both desktop and mobile
-   */
+  all = shows sidebar toggle on mobile an desktop
+  
+  desktop = shows sidebar toggle on desktop only
+  
+  hidden = hides sidebar toggle on both desktop and mobile
+  */
   type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
   ```
+
 - Specific app hooks and utilities with non-obvious ownership, timing, or synchronization behavior
   should have function-level JSDoc explaining what they do and why the indirection exists.
 - Avoid `"use node"` unless the module truly requires it.

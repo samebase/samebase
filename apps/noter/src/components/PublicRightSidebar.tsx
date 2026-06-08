@@ -15,7 +15,7 @@ export function usePublicRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
         <PublicLandingAccountSection />
         <PublicLandingPasswordAuthControls />
         <div className="mt-auto">
-          <AppSidebarMetaSection side="right" />
+          <AppSidebarMetaSection linkAlignment="left" />
         </div>
       </VaultDashboardSidebarContent>
     ),

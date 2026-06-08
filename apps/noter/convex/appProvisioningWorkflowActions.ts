@@ -38,7 +38,12 @@ function readRepositoryDefaultBranch(repoData: unknown): string | null {
   if (typeof repoData !== "object" || repoData === null) {
     return null;
   }
-  const value = Reflect.get(repoData, "default_branch");
+
+  if (!("default_branch" in repoData)) {
+    return null;
+  }
+
+  const value = repoData.default_branch;
   if (typeof value === "string" && value.length > 0) {
     return value;
   }

@@ -1024,7 +1024,7 @@ function VaultDashboardStickyHeaderFixture() {
       rightContent={
         <VaultDashboardSidebarContent>
           <div className="mt-auto">
-            <AppSidebarMetaSection side="right" />
+            <AppSidebarMetaSection linkAlignment="left" />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -1132,7 +1132,7 @@ function FixtureDashboardSidebarAccountClamp() {
             ]}
           />
           <div className="mt-auto">
-            <AppSidebarMetaSection side="right" />
+            <AppSidebarMetaSection linkAlignment="left" />
           </div>
         </VaultDashboardSidebarContent>
       }
@@ -1175,7 +1175,7 @@ function FixtureDashboardCreateControl() {
             </Button>
           </div>
           <div className="mt-auto">
-            <AppSidebarMetaSection side="right" />
+            <AppSidebarMetaSection linkAlignment="left" />
           </div>
         </VaultDashboardSidebarContent>
       }

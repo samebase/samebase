@@ -234,10 +234,7 @@ describe("appRouter", () => {
       isLoading: false,
     });
     document.documentElement.className = "";
-    const removeStoredTheme = Reflect.get(window.localStorage, "removeItem");
-    if (typeof removeStoredTheme === "function") {
-      removeStoredTheme.call(window.localStorage, "theme");
-    }
+    window.localStorage.removeItem("theme");
   });
 
   afterEach(() => {
@@ -641,6 +638,43 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
     expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("keeps browser storage hover inert and navigates on click", async () => {
+    const router = await renderRoute("/localStorage");
+    const indexedDbLink = rootElement?.querySelector<HTMLAnchorElement>(
+      '[data-testid="indexed-db-sidebar-file"]',
+    );
+    if (!indexedDbLink) {
+      throw new Error("Expected indexedDB sidebar link.");
+    }
+
+    await act(async () => {
+      indexedDbLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      await settleRouterRender();
+    });
+
+    expect(router.latestLocation.href).toBe("/localStorage");
+
+    await act(async () => {
+      indexedDbLink.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+      await settleRouterRender();
+    });
+
+    expect(router.latestLocation.href).toBe("/indexDB");
+
+    await act(async () => {
+      router.history.back();
+      await settleRouterRender();
+    });
+
+    expect(router.latestLocation.href).toBe("/localStorage");
   });
 
   it("keeps the app left pane mounted for logo lab routes without route chrome", async () => {
