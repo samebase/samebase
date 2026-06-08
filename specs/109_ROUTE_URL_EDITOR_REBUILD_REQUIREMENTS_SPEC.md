@@ -126,19 +126,17 @@ Current answers:
   `focusMode: "editing"`.
 - Keyboard ArrowUp/ArrowDown also move to `focusMode: "suggestion"` and create `hoverPath`. Enter
   commits the row's selected route address into `draftPath` and returns to `focusMode: "editing"`.
-- For pointer/keyboard previews, blur/click outside does not commit `hoverPath.draftPath`. It
-  restores `expectedRouteAddress` and leaves the editor blurred.
+- For pointer/keyboard/touch-scroll previews, blur/click outside does not commit
+  `hoverPath.draftPath`. It restores `expectedRouteAddress` and leaves the editor blurred.
 - Escape also does not commit `hoverPath.draftPath`. It restores `expectedRouteAddress` and blurs.
-- Clicking back into the input while pointer/keyboard `hoverPath` is active cancels `hoverPath`,
-  restores `expectedRouteAddress`, and resumes editing `draftPath`.
+- Clicking back into the input while `hoverPath` is active cancels `hoverPath`, restores
+  `expectedRouteAddress`, and resumes editing `draftPath`.
 - Mobile touch scroll moves to `focusMode: "suggestion"` and creates `hoverPath` with source
   `"touch"`. This keeps suggestions anchored to `draftPath` while the fixed slate scrolls over rows.
   Example: while editing `/logo?`, scrolling to `?top=sky-500` shows `/logo?top=sky-500` in the
   input, but the list still shows query-key rows until tap.
 - Mobile row tap runs `selectedSuggestion`. It commits the row's selected route address into
   `draftPath` and moves `selection` into the next editing slot, such as after `?`, `&`, or `=`.
-- If the input itself resumes editing from touch-created `hoverPath`, `hoverPath.draftPath` becomes
-  the next `draftPath`.
 
 Selecting a suggestion commits according to `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`:
 
@@ -160,15 +158,14 @@ Escape cancels the focused edit, restores `expectedRouteAddress`, and blurs.
 If `focusMode` is `"suggestion"`, Escape restores `expectedRouteAddress`; it does not commit
 `hoverPath.draftPath`.
 
-For pointer/keyboard `hoverPath`, blur/click outside restores `expectedRouteAddress`.
+For pointer/keyboard/touch-scroll `hoverPath`, blur/click outside restores `expectedRouteAddress`.
 
 If `focusMode` is `"editing"`, blur keeps the latest route-ready draft already applied through
 router `replace`. If the focused draft is incomplete or invalid, the visible input normalizes back
 to `expectedRouteAddress`.
 
-Mobile touch scroll creates `hoverPath` with source `"touch"`, but blur/click outside does not
-restore the previous route. It keeps `hoverPath.expectedRouteAddress`, because the fixed slate is
-the mobile picker affordance.
+Mobile touch scroll creates `hoverPath` with source `"touch"`, but blur/click outside restores
+`expectedRouteAddress`. Scroll movement previews a row; row tap is the commit.
 
 ### R7: Keep the FSM state small
 
@@ -259,8 +256,10 @@ Combined interaction stories:
   blurred display restore to `/terms`.
 - Keyboard-preview `/privacy` from draft `/terms?top=red-`, then click outside. The browser route
   and blurred display restore to `/terms`.
-- Touch-scroll preview `/logo` from `/terms`, then tap outside. Touch scroll is the mobile picker
-  affordance, so the browser route and blurred display stay on `/logo`.
+- Touch-scroll preview `/logo` from `/terms`, then tap outside. The browser route and blurred
+  display restore to `/terms`.
+- Touch-scroll preview `/logo` from `/terms`, then tap the `/logo` row. The row tap commits, so the
+  browser route and focused draft stay on `/logo?`.
 - `/logo?rot=` then click outside. The unfinished numeric token is not committed; blurred display
   and browser route show `/logo`.
 

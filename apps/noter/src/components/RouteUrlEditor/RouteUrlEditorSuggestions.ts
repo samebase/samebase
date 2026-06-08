@@ -217,6 +217,25 @@ function readSearchTokenText(routeAddress: string, token: SearchToken): string {
   return routeAddress.slice(token.tokenStart + 1, token.tokenEnd);
 }
 
+function readSearchKeysOutsideToken(routeAddress: string, activeToken: SearchToken): Set<string> {
+  const parsedRouteAddress = parseRouteAddress(routeAddress);
+  const keys = new Set<string>();
+
+  if (parsedRouteAddress.search === null) {
+    return keys;
+  }
+
+  for (const token of parsedRouteAddress.search.tokens) {
+    if (areSearchTokensEqual(token, activeToken) || token.key.length === 0) {
+      continue;
+    }
+
+    keys.add(token.key);
+  }
+
+  return keys;
+}
+
 /**
 Replaces one query token and removes duplicate tokens for the replacement key.
 
@@ -489,11 +508,16 @@ function readSearchRows(args: {
   viewerIsAdmin: boolean;
 }): Suggestion[] {
   const suggestions: Suggestion[] = [];
+  const existingKeys = readSearchKeysOutsideToken(args.routeAddress, args.searchKeyToken);
 
   for (const searchParamSuggestion of readSearchParams(
     args.routeSearchParamSuggestions,
     args.viewerIsAdmin,
   )) {
+    if (existingKeys.has(searchParamSuggestion.key)) {
+      continue;
+    }
+
     const tokenDelimiter = args.routeAddress.slice(
       args.searchKeyToken.tokenStart,
       args.searchKeyToken.tokenStart + 1,

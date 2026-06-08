@@ -30,11 +30,16 @@ const routeUrlEditorNextTouchSuggestionsScrollportClassName =
 const routeUrlEditorNextSuggestionButtonClassName =
   "group flex h-7 w-full min-w-0 snap-start snap-always items-center px-2 font-mono text-sm text-foreground outline-none focus-visible:bg-accent focus-visible:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground";
 
+const routeUrlEditorNextTouchSuggestionButtonClassName = `${routeUrlEditorNextSuggestionButtonClassName} pr-24`;
+
 const routeUrlEditorNextSuggestionSampleClassName =
   "text-muted-foreground group-data-[active=true]:text-accent-foreground/60";
 
 const routeUrlEditorNextTouchScrollSlateClassName =
-  "pointer-events-none absolute inset-x-0 z-10 bg-accent/80 ring-1 ring-ring/30";
+  "pointer-events-none absolute inset-x-0 z-10 border-y border-ring/70";
+
+const routeUrlEditorNextTouchScrollApplyButtonClassName =
+  "pointer-events-auto absolute right-1 top-1/2 h-6 -translate-y-1/2 bg-background px-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-foreground/20";
 
 function renderRouteUrlEditorNextSuggestionValue(suggestion: {
   sampleValueStart?: number;
@@ -65,6 +70,10 @@ export function RouteUrlEditorNext() {
   const resetTouchScrollPosition = touchScrollPicker.resetScrollPosition;
   const editingDraftPath =
     vm.state.kind === "focused" && vm.state.focusMode === "editing" ? vm.state.draftPath : null;
+  const activeTouchSuggestion =
+    touchScrollPicker.active && vm.state.kind === "focused" && vm.state.focusMode === "suggestion"
+      ? (vm.suggestions[vm.state.hoverPath.suggestionIndex] ?? null)
+      : null;
 
   useEffect(() => {
     if (editingDraftPath === null) {
@@ -148,14 +157,30 @@ export function RouteUrlEditorNext() {
         >
           {touchScrollPicker.active ? (
             <div
-              aria-hidden="true"
+              aria-hidden={activeTouchSuggestion ? undefined : true}
               className={routeUrlEditorNextTouchScrollSlateClassName}
               data-testid="route-url-editor-scroll-slate"
               style={{
                 height: routeUrlEditorTouchSuggestionRowHeightPx,
                 top: touchScrollPicker.metrics.slateTopPx,
               }}
-            />
+            >
+              {activeTouchSuggestion ? (
+                <button
+                  aria-label={`Apply ${activeTouchSuggestion.value}`}
+                  className={routeUrlEditorNextTouchScrollApplyButtonClassName}
+                  data-testid="route-url-editor-touch-apply"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    touchScrollPicker.resetScrollPosition();
+                    vm.selectSuggestion(activeTouchSuggestion);
+                  }}
+                  type="button"
+                >
+                  tap to apply
+                </button>
+              ) : null}
+            </div>
           ) : null}
           <div
             {...vm.listboxProps}
@@ -187,7 +212,11 @@ export function RouteUrlEditorNext() {
 
               return (
                 <button
-                  className={routeUrlEditorNextSuggestionButtonClassName}
+                  className={
+                    touchScrollPicker.active
+                      ? routeUrlEditorNextTouchSuggestionButtonClassName
+                      : routeUrlEditorNextSuggestionButtonClassName
+                  }
                   data-testid="route-url-editor-suggestion"
                   key={`${suggestion.kind}:${suggestion.value}`}
                   {...suggestionProps}
