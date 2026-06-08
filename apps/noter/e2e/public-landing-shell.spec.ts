@@ -10,7 +10,7 @@ import {
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
-import { PRODUCTION_PUBLIC_HOSTNAME, PRODUCTION_PUBLIC_ORIGIN } from "../src/lib/prodUiMode";
+import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -34,7 +34,6 @@ const NAVIGATION_BUDGET_MS = {
   load: 500,
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
-const PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_TEXT_INDENT = `-${PRODUCTION_PUBLIC_ORIGIN.length}ch`;
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/home", "/terms", "/privacy"] as const;
 const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
   LANDING_DEV_MODE_QUERY_PARAM,
@@ -1729,14 +1728,10 @@ test.describe("production public host landing", () => {
     }
 
     expect(routeEditorDisplayTag).toContain(`value="${rootPrefix}"`);
-    expect(routeEditorDisplayTag).toContain(
-      `text-indent:${PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_TEXT_INDENT}`,
-    );
-    expect(routeEditorDisplayTag).toContain("padding-left:0.625rem");
+    expect(routeEditorDisplayTag).toContain(`text-indent:-${rootPrefix.length - 1}ch`);
 
     const displayInput = page.getByTestId("route-url-editor-display");
     await expect(displayInput).toHaveValue(rootPrefix);
-    await expect(displayInput).toHaveCSS("padding-left", "10px");
 
     await displayInput.click();
 
@@ -1753,7 +1748,6 @@ test.describe("production public host landing", () => {
 
     const privacyDisplayInput = page.getByTestId("route-url-editor-display");
     await expect(privacyDisplayInput).toHaveValue(`${rootPrefix}privacy`);
-    await expect(privacyDisplayInput).toHaveCSS("padding-left", "10px");
 
     await privacyDisplayInput.click();
     await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);

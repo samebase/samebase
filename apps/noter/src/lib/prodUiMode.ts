@@ -4,7 +4,6 @@ import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
 export const FORCE_PROD_UI_QUERY_PARAM = "prod-ui";
 export const PRODUCTION_PUBLIC_HOSTNAME = "noter.md";
-export const PRODUCTION_PUBLIC_ORIGIN = `https://${PRODUCTION_PUBLIC_HOSTNAME}`;
 const PRODUCTION_PUBLIC_HOSTNAMES = [PRODUCTION_PUBLIC_HOSTNAME, "www.noter.md"] as const;
 
 export function isProdUiModeEnabled(search: Readonly<Record<string, unknown>>): boolean {
