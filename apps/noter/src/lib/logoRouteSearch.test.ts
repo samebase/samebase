@@ -86,7 +86,7 @@ describe("logoRouteSearch", () => {
     });
   });
 
-  it("drops default logo state when building route search", () => {
+  it("clears default logo state when building route search", () => {
     const search = buildLogoRouteSearch({
       distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
       zoom: LOGO_PREVIEW_ZOOM.defaultValue,
@@ -104,14 +104,30 @@ describe("logoRouteSearch", () => {
     });
 
     expect(search).toEqual({});
+    expect("axis" in search).toBe(true);
+    expect(search.axis).toBeUndefined();
+    expect("elev" in search).toBe(true);
+    expect(search.elev).toBeUndefined();
     expect("depth" in search).toBe(true);
     expect(search.depth).toBeUndefined();
     expect("dist" in search).toBe(true);
     expect(search.dist).toBeUndefined();
+    expect("freeView" in search).toBe(true);
+    expect(search.freeView).toBeUndefined();
+    expect("gridSize" in search).toBe(true);
+    expect(search.gridSize).toBeUndefined();
+    expect("isoSide" in search).toBe(true);
+    expect(search.isoSide).toBeUndefined();
+    expect("isoStyle" in search).toBe(true);
+    expect(search.isoStyle).toBeUndefined();
     expect("zoom" in search).toBe(true);
     expect(search.zoom).toBeUndefined();
     expect("leftFace" in search).toBe(true);
     expect(search.leftFace).toBeUndefined();
+    expect("rot" in search).toBe(true);
+    expect(search.rot).toBeUndefined();
+    expect("vox" in search).toBe(true);
+    expect(search.vox).toBeUndefined();
   });
 
   it("preserves canonical theme mode flags when building route search", () => {
