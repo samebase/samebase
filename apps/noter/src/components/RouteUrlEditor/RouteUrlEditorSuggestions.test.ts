@@ -214,7 +214,9 @@ describe("readSuggestions", () => {
     expect(rows).toContainEqual({
       kind: "path",
       nextSelectionRouteIndex: "/privacy?top=red-".length,
-      routeAddress: "/privacy?top=red-",
+      previewRouteAddress: "/privacy?top=red-",
+      previewSelectionRouteIndex: 1,
+      selectedRouteAddress: "/privacy?top=red-",
       value: "/privacy",
     });
   });
@@ -236,7 +238,7 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/logo?",
     });
 
-    expect(values).toContain("?top=");
+    expect(values).toContain("?top=sky-500");
     expect(values).not.toContain("/logo");
   });
 
@@ -246,8 +248,8 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/logo?to",
     });
 
-    expect(values).toContain("?top=");
-    expect(values).toContain("?border=");
+    expect(values).toContain("?top=sky-500");
+    expect(values).toContain("?border=stone-300");
   });
 
   it("replaces the active key-value token when selecting a query key", () => {
@@ -259,8 +261,43 @@ describe("readSuggestions", () => {
     expect(rows).toContainEqual({
       kind: "search",
       nextSelectionRouteIndex: "/logo?dark&border=".length,
-      routeAddress: "/logo?dark&border=&top=blue-200",
-      value: "&border=",
+      previewRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
+      previewSelectionRouteIndex: "/logo?dark&".length,
+      sampleValueStart: "&border=".length,
+      selectedRouteAddress: "/logo?dark&border=&top=blue-200",
+      value: "&border=stone-300",
+    });
+  });
+
+  it("removes duplicate query keys when replacing the active token", () => {
+    const rows = readRows({
+      routeAddress: "/terms?border=stone-300&dev&depth=2&gridSize=2&light&",
+      routeTextBeforeCursor: "/terms?bo",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "search",
+      nextSelectionRouteIndex: "/terms?dev".length,
+      previewRouteAddress: "/terms?dev&depth=2&gridSize=2&light&",
+      previewSelectionRouteIndex: "/terms?".length,
+      selectedRouteAddress: "/terms?dev&depth=2&gridSize=2&light&",
+      value: "?dev",
+    });
+  });
+
+  it("opens the next query slot after duplicate removal leaves the replacement token last", () => {
+    const rows = readRows({
+      routeAddress: "/terms?border=stone-300&dev",
+      routeTextBeforeCursor: "/terms?bo",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "search",
+      nextSelectionRouteIndex: "/terms?dev&".length,
+      previewRouteAddress: "/terms?dev&",
+      previewSelectionRouteIndex: "/terms?".length,
+      selectedRouteAddress: "/terms?dev&",
+      value: "?dev",
     });
   });
 
@@ -280,7 +317,7 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/logo?top=blue-500&se",
     });
 
-    expect(values).toContain("&secondary=");
+    expect(values).toContain("&secondary=rose-500");
     expect(values).not.toContain("?secondary=");
   });
 
@@ -294,11 +331,13 @@ describe("readSuggestions", () => {
     expect(rows).toContainEqual({
       kind: "searchValue",
       nextSelectionRouteIndex: "/logo?top=blue-200&".length,
-      routeAddress: "/logo?top=blue-200&",
-      value: "blue-200",
+      previewRouteAddress: "/logo?top=blue-200",
+      previewSelectionRouteIndex: "/logo?top=blue-".length,
+      selectedRouteAddress: "/logo?top=blue-200&",
+      value: "200",
     });
     expect(values).not.toContain("/logo");
-    expect(values).not.toContain("?top=");
+    expect(values).not.toContain("?top=sky-500");
   });
 
   it("shows all Tailwind color families while the cursor is before the family dash", () => {
@@ -311,16 +350,22 @@ describe("readSuggestions", () => {
     expect(rows).toContainEqual({
       kind: "searchValuePrefix",
       nextSelectionRouteIndex: "/logo?top=blue-".length,
-      routeAddress: "/logo?top=blue-",
-      value: "blue-",
+      previewRouteAddress: "/logo?top=blue-500",
+      previewSelectionRouteIndex: "/logo?top=".length,
+      sampleValueStart: "blue-".length,
+      selectedRouteAddress: "/logo?top=blue-",
+      value: "blue-500",
     });
     expect(rows).toContainEqual({
       kind: "searchValuePrefix",
       nextSelectionRouteIndex: "/logo?top=red-".length,
-      routeAddress: "/logo?top=red-",
-      value: "red-",
+      previewRouteAddress: "/logo?top=red-500",
+      previewSelectionRouteIndex: "/logo?top=".length,
+      sampleValueStart: "red-".length,
+      selectedRouteAddress: "/logo?top=red-",
+      value: "red-500",
     });
-    expect(values).not.toContain("blue-200");
+    expect(values).not.toContain("blue-");
   });
 
   it("replaces the whole active query value when showing family suggestions", () => {
@@ -332,8 +377,11 @@ describe("readSuggestions", () => {
     expect(rows).toContainEqual({
       kind: "searchValuePrefix",
       nextSelectionRouteIndex: "/logo?dark&top=red-".length,
-      routeAddress: "/logo?dark&top=red-&secondary=rose-500",
-      value: "red-",
+      previewRouteAddress: "/logo?dark&top=red-500&secondary=rose-500",
+      previewSelectionRouteIndex: "/logo?dark&top=".length,
+      sampleValueStart: "red-".length,
+      selectedRouteAddress: "/logo?dark&top=red-&secondary=rose-500",
+      value: "red-500",
     });
   });
 
@@ -346,8 +394,10 @@ describe("readSuggestions", () => {
     expect(rows).toContainEqual({
       kind: "searchValue",
       nextSelectionRouteIndex: "/logo?dark&top=blue-200".length,
-      routeAddress: "/logo?dark&top=blue-200&secondary=rose-500",
-      value: "blue-200",
+      previewRouteAddress: "/logo?dark&top=blue-200&secondary=rose-500",
+      previewSelectionRouteIndex: "/logo?dark&top=blue-".length,
+      selectedRouteAddress: "/logo?dark&top=blue-200&secondary=rose-500",
+      value: "200",
     });
   });
 
@@ -360,7 +410,9 @@ describe("readSuggestions", () => {
     expect(pathRows).toContainEqual({
       kind: "path",
       nextSelectionRouteIndex: "/logo?".length,
-      routeAddress: "/logo?",
+      previewRouteAddress: "/logo?",
+      previewSelectionRouteIndex: 1,
+      selectedRouteAddress: "/logo?",
       value: "/logo",
     });
 
@@ -372,14 +424,52 @@ describe("readSuggestions", () => {
     expect(keyRows).toContainEqual({
       kind: "search",
       nextSelectionRouteIndex: "/logo?top=".length,
-      routeAddress: "/logo?top=",
-      value: "?top=",
+      previewRouteAddress: "/logo?top=sky-500",
+      previewSelectionRouteIndex: "/logo?".length,
+      sampleValueStart: "?top=".length,
+      selectedRouteAddress: "/logo?top=",
+      value: "?top=sky-500",
     });
     expect(keyRows).toContainEqual({
       kind: "search",
       nextSelectionRouteIndex: "/logo?dev&".length,
-      routeAddress: "/logo?dev&",
+      previewRouteAddress: "/logo?dev&",
+      previewSelectionRouteIndex: "/logo?".length,
+      selectedRouteAddress: "/logo?dev&",
       value: "?dev",
+    });
+  });
+
+  it("selects concrete samples for value params without a value suggestion stage", () => {
+    const rows = readRows({
+      routeAddress: "/logo?",
+      routeTextBeforeCursor: "/logo?",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "search",
+      nextSelectionRouteIndex: "/logo?zoom=0.5&".length,
+      previewRouteAddress: "/logo?zoom=0.5&",
+      previewSelectionRouteIndex: "/logo?".length,
+      sampleValueStart: "?zoom=".length,
+      selectedRouteAddress: "/logo?zoom=0.5&",
+      value: "?zoom=0.5",
+    });
+  });
+
+  it("shows value rows for metadata options after selecting the key", () => {
+    const rows = readRows({
+      routeAddress: "/logo?axis=",
+      routeTextBeforeCursor: "/logo?axis=",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "searchValue",
+      nextSelectionRouteIndex: "/logo?axis=screen-vertical&".length,
+      previewRouteAddress: "/logo?axis=screen-vertical",
+      previewSelectionRouteIndex: "/logo?axis=".length,
+      selectedRouteAddress: "/logo?axis=screen-vertical&",
+      value: "screen-vertical",
     });
   });
 });

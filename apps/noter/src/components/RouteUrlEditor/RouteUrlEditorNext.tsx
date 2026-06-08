@@ -28,10 +28,31 @@ const routeUrlEditorNextTouchSuggestionsScrollportClassName =
   "relative h-[min(18rem,calc(100dvh-4rem))] snap-y snap-mandatory overflow-y-auto overscroll-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 const routeUrlEditorNextSuggestionButtonClassName =
-  "flex h-7 w-full min-w-0 snap-start snap-always items-center px-2 font-mono text-sm text-foreground outline-none focus-visible:bg-accent focus-visible:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground";
+  "group flex h-7 w-full min-w-0 snap-start snap-always items-center px-2 font-mono text-sm text-foreground outline-none focus-visible:bg-accent focus-visible:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground";
+
+const routeUrlEditorNextSuggestionSampleClassName =
+  "text-muted-foreground group-data-[active=true]:text-accent-foreground/60";
 
 const routeUrlEditorNextTouchScrollSlateClassName =
   "pointer-events-none absolute inset-x-0 z-10 bg-accent/80 ring-1 ring-ring/30";
+
+function renderRouteUrlEditorNextSuggestionValue(suggestion: {
+  sampleValueStart?: number;
+  value: string;
+}) {
+  if (typeof suggestion.sampleValueStart !== "number") {
+    return suggestion.value;
+  }
+
+  return (
+    <>
+      {suggestion.value.slice(0, suggestion.sampleValueStart)}
+      <span className={routeUrlEditorNextSuggestionSampleClassName}>
+        {suggestion.value.slice(suggestion.sampleValueStart)}
+      </span>
+    </>
+  );
+}
 
 export function RouteUrlEditorNext() {
   const router = useRouter();
@@ -177,7 +198,9 @@ export function RouteUrlEditorNext() {
                   role="option"
                   type="button"
                 >
-                  <span className="min-w-0 flex-1 truncate text-left">{suggestion.value}</span>
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {renderRouteUrlEditorNextSuggestionValue(suggestion)}
+                  </span>
                 </button>
               );
             })}

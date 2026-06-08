@@ -26,8 +26,13 @@ async function setInputSelection(
     if (!(element instanceof HTMLInputElement)) {
       throw new Error("Expected route URL editor input.");
     }
+    element.focus();
     element.setSelectionRange(nextSelection.start, nextSelection.end);
+    element.dispatchEvent(new Event("select", { bubbles: true }));
   }, selection);
+
+  await expect(input).toHaveJSProperty("selectionStart", selection.start);
+  await expect(input).toHaveJSProperty("selectionEnd", selection.end);
 }
 
 async function expectInputSelection(input: Locator, position: number): Promise<void> {
@@ -214,6 +219,33 @@ async function scrollTouchPickerToSuggestion(
   return suggestions.nth(suggestionIndex);
 }
 
+async function wheelTouchPickerToSuggestion(page: Page, suggestionValue: string): Promise<Locator> {
+  const suggestions = page.getByTestId("route-url-editor-suggestion");
+  await expect(page.getByRole("option", { exact: true, name: suggestionValue })).toBeVisible();
+
+  const suggestionValues = (await suggestions.allTextContents()).map((value) => value.trim());
+  const suggestionIndex = suggestionValues.indexOf(suggestionValue);
+
+  expect(suggestionIndex).toBeGreaterThanOrEqual(0);
+
+  const rowHeight = await suggestions.first().evaluate((element) => {
+    return element.getBoundingClientRect().height;
+  });
+  const suggestionsBox = await page.getByTestId("route-url-editor-suggestions").boundingBox();
+  if (!suggestionsBox) {
+    throw new Error("Expected visible route URL editor suggestions.");
+  }
+
+  await page.mouse.move(
+    suggestionsBox.x + suggestionsBox.width / 2,
+    suggestionsBox.y + suggestionsBox.height / 2,
+  );
+  await page.mouse.wheel(0, suggestionIndex * rowHeight);
+  await page.waitForTimeout(120);
+
+  return suggestions.nth(suggestionIndex);
+}
+
 async function scrollTouchPickerTo(page: Page, scrollTop: number): Promise<void> {
   await page
     .getByTestId("route-url-editor-suggestions")
@@ -255,6 +287,7 @@ test.describe("route URL editor touch scroll picker", () => {
     const logoSuggestion = await scrollTouchPickerToSuggestion(page, "/logo");
 
     await expect(input).toHaveValue(`${prefix}logo?`);
+    await expectInputSelection(input, prefix.length);
     await expect(page).toHaveURL(/\/logo$/);
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
 
@@ -271,28 +304,29 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(input).toHaveValue(`${prefix}logo?`);
     await expect(page).toHaveURL(/\/logo$/);
     await expectInputSelection(input, `${prefix}logo?`.length);
-    await expect(page.getByRole("option", { exact: true, name: "?top=" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
   });
 
   test("touch scroll keeps query-key suggestions anchored until tap", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
 
     await input.press("End");
-    await expect(page.getByRole("option", { exact: true, name: "?top=" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
 
-    const topSuggestion = await scrollTouchPickerToSuggestion(page, "?top=");
+    const topSuggestion = await scrollTouchPickerToSuggestion(page, "?top=sky-500");
 
-    await expect(input).toHaveValue(`${prefix}logo?top=`);
-    await expect(page).toHaveURL(/\/logo$/);
+    await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
+    await expectInputSelection(input, `${prefix}logo?`.length);
+    await expect(page).toHaveURL(/\/logo\?top=sky-500$/);
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
-    await expect(page.getByRole("option", { exact: true, name: "?top=" })).toBeVisible();
-    await expect(page.getByRole("option", { exact: true, name: "blue-" })).toHaveCount(0);
+    await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toHaveCount(0);
 
     const topSuggestionBox = await topSuggestion.boundingBox();
     if (!topSuggestionBox) {
-      throw new Error("Expected visible ?top= suggestion.");
+      throw new Error("Expected visible ?top=sky-500 suggestion.");
     }
 
     await page.touchscreen.tap(
@@ -302,7 +336,35 @@ test.describe("route URL editor touch scroll picker", () => {
 
     await expect(input).toHaveValue(`${prefix}logo?top=`);
     await expectInputSelection(input, `${prefix}logo?top=`.length);
-    await expect(page.getByRole("option", { exact: true, name: "blue-" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
+  });
+
+  test("touch tap on numeric samples keeps the next query slot open", async ({ page }) => {
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
+
+    await input.press("End");
+
+    const zoomSuggestion = await scrollTouchPickerToSuggestion(page, "?zoom=0.5");
+
+    await expect(input).toHaveValue(`${prefix}logo?zoom=0.5&`);
+    await expectInputSelection(input, `${prefix}logo?`.length);
+    await expect(page).toHaveURL(/\/logo\?zoom=0\.5$/);
+    await expect(page.getByRole("option", { exact: true, name: "?zoom=0.5" })).toBeVisible();
+
+    const zoomSuggestionBox = await zoomSuggestion.boundingBox();
+    if (!zoomSuggestionBox) {
+      throw new Error("Expected visible ?zoom=0.5 suggestion.");
+    }
+
+    await page.touchscreen.tap(
+      zoomSuggestionBox.x + zoomSuggestionBox.width / 2,
+      zoomSuggestionBox.y + zoomSuggestionBox.height / 2,
+    );
+
+    await expect(input).toHaveValue(`${prefix}logo?zoom=0.5&`);
+    await expectInputSelection(input, `${prefix}logo?zoom=0.5&`.length);
+    await expect(page).toHaveURL(/\/logo\?zoom=0\.5$/);
+    await expect(page.getByRole("option", { exact: true, name: "&dark" })).toBeVisible();
   });
 
   test("touch scroll keeps suggestions open when preview canonicalizes the route", async ({
@@ -332,6 +394,109 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(input).toHaveValue(`${prefix}logo?dark&light&`);
     await expect(page).toHaveURL(/\/logo$/);
     await expect(page.getByRole("option", { exact: true, name: "&light" })).toBeVisible();
+    await expect(input).toBeFocused();
+  });
+
+  test("touch scroll keeps suggestions open when previewing later logo params", async ({
+    page,
+  }) => {
+    const displayInput = await openRouteUrlEditor(page, "/logo/raster-seams?depth=2");
+    const prefix = await readRouteAddressPrefix(page);
+
+    await displayInput.click();
+
+    const input = page.getByTestId("route-url-editor-input");
+
+    await expect(input).toHaveValue(`${prefix}logo/raster-seams?depth=2&`);
+    await expect(
+      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+    ).toBeVisible();
+
+    await scrollTouchPickerToSuggestion(page, "&background=stone-50");
+
+    await expect(input).toHaveValue(`${prefix}logo/raster-seams?depth=2&background=stone-50`);
+    await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
+    await expect(
+      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+    ).toBeVisible();
+    await expect(input).toBeFocused();
+  });
+
+  test("touch editor can move selection from an appended query slot back into the path", async ({
+    page,
+  }) => {
+    const displayInput = await openRouteUrlEditor(
+      page,
+      "/terms?border=stone-300&dev&depth=2&gridSize=2&light",
+    );
+    const prefix = await readRouteAddressPrefix(page);
+
+    const displayInputBox = await displayInput.boundingBox();
+    if (!displayInputBox) {
+      throw new Error("Expected visible route URL editor display input.");
+    }
+
+    await displayInput.click({
+      position: {
+        x: displayInputBox.width - 10,
+        y: displayInputBox.height / 2,
+      },
+    });
+
+    const input = page.getByTestId("route-url-editor-input");
+    await expect(input).toHaveValue(
+      `${prefix}terms?border=stone-300&dev&depth=2&gridSize=2&light&`,
+    );
+    await expect(page.getByRole("option", { exact: true, name: "&dev" })).toBeVisible();
+
+    const inputBox = await input.boundingBox();
+    if (!inputBox) {
+      throw new Error("Expected visible route URL editor input.");
+    }
+
+    await input.click({
+      position: {
+        x: 10,
+        y: inputBox.height / 2,
+      },
+    });
+
+    await expect(page.getByRole("option", { exact: true, name: "/logo" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "&dev" })).toHaveCount(0);
+  });
+
+  test("touch scroll keeps suggestions open when replacing a query key that already exists", async ({
+    page,
+  }) => {
+    const displayInput = await openRouteUrlEditor(
+      page,
+      "/terms?border=stone-300&dev&depth=2&gridSize=2&light",
+    );
+    const prefix = await readRouteAddressPrefix(page);
+
+    await displayInput.click();
+
+    const input = page.getByTestId("route-url-editor-input");
+    const inputBox = await input.boundingBox();
+    if (!inputBox) {
+      throw new Error("Expected visible route URL editor input.");
+    }
+
+    await input.click({
+      position: {
+        x: 90,
+        y: inputBox.height / 2,
+      },
+    });
+
+    await expect(page.getByRole("option", { exact: true, name: "?dev" })).toBeVisible();
+
+    await wheelTouchPickerToSuggestion(page, "?dev");
+
+    await expect(input).toHaveValue(`${prefix}terms?dev&depth=2&gridSize=2&light&`);
+    await expect(page).toHaveURL(/\/terms\?dev&depth=2&gridSize=2&light$/);
+    await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "?dev" })).toBeVisible();
     await expect(input).toBeFocused();
   });
 
@@ -415,28 +580,83 @@ test("route URL editor keeps focus and advances the cursor after selecting sugge
   await expect(input).toHaveValue(`${prefix}logo?`);
   await expectInputSelection(input, `${prefix}logo?`.length);
   await expect(page).toHaveURL(/\/logo$/);
-  await expect(page.getByRole("option", { exact: true, name: "?top=" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
 
-  await page.getByRole("option", { exact: true, name: "?top=" }).click();
+  await page.getByRole("option", { exact: true, name: "?top=sky-500" }).click();
 
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${prefix}logo?top=`);
   await expectInputSelection(input, `${prefix}logo?top=`.length);
-  await expect(page.getByRole("option", { exact: true, name: "blue-" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
 
-  await page.getByRole("option", { exact: true, name: "blue-" }).click();
+  await page.getByRole("option", { exact: true, name: "blue-500" }).click();
 
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${prefix}logo?top=blue-`);
   await expectInputSelection(input, `${prefix}logo?top=blue-`.length);
-  await expect(page.getByRole("option", { exact: true, name: "blue-200" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "200" })).toBeVisible();
 
-  await page.getByRole("option", { exact: true, name: "blue-200" }).click();
+  await page.getByRole("option", { exact: true, name: "200" }).click();
 
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${prefix}logo?top=blue-200&`);
   await expectInputSelection(input, `${prefix}logo?top=blue-200&`.length);
-  await expect(page.getByRole("option", { exact: true, name: "&secondary=" })).toBeVisible();
+  await expect(
+    page.getByRole("option", { exact: true, name: "&secondary=rose-500" }),
+  ).toBeVisible();
+});
+
+test("route URL editor puts the cursor in the selected value slot for middle query tokens", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(
+    page,
+    "/logo?dark&depth=2&secondary=rose-500",
+  );
+  const depthCursor = `${prefix}logo?dark&de`.length;
+
+  await setInputSelection(input, {
+    end: depthCursor,
+    start: depthCursor,
+  });
+
+  await input.press("ArrowRight");
+  await input.press("ArrowLeft");
+
+  const topOption = page.getByRole("option", { exact: true, name: "&top=sky-500" });
+  await expect(topOption).toBeVisible();
+
+  await topOption.click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?dark&top=&secondary=rose-500&`);
+  await expectInputSelection(input, `${prefix}logo?dark&top=`.length);
+  await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
+});
+
+test("route URL editor opens the next query slot after replacing a token with an existing key", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms?border=stone-300&dev");
+  const borderCursor = `${prefix}terms?bo`.length;
+
+  await setInputSelection(input, {
+    end: borderCursor,
+    start: borderCursor,
+  });
+
+  await input.press("ArrowRight");
+  await input.press("ArrowLeft");
+
+  const devOption = page.getByRole("option", { exact: true, name: "?dev" });
+  await expect(devOption).toBeVisible();
+
+  await devOption.click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}terms?dev&`);
+  await expectInputSelection(input, `${prefix}terms?dev&`.length);
+  await expect(page).toHaveURL(/\/terms\?dev$/);
 });
 
 test("route URL editor applies hover path suggestions and restores on mouseleave", async ({
@@ -456,6 +676,7 @@ test("route URL editor applies hover path suggestions and restores on mouseleave
   await privacyOption.hover();
 
   await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expectInputSelection(input, prefix.length);
   await expect(page).toHaveURL(/\/privacy$/);
   await expectPrivacyPage(page);
 
@@ -537,9 +758,11 @@ test("route URL editor keeps deletion in control after a query suggestion was pr
 
   await page.getByRole("option", { exact: true, name: "?dev" }).hover();
   await expect(input).toHaveValue(`${prefix}terms?dev&`);
+  await expectInputSelection(input, `${prefix}terms?`.length);
 
-  await input.press("Backspace");
+  await input.press("End");
   await expect(input).toHaveValue(`${prefix}terms?dev`);
+  await expectInputSelection(input, `${prefix}terms?dev`.length);
 
   await input.press("Backspace");
   await expect(input).toHaveValue(`${prefix}terms?de`);
@@ -557,6 +780,7 @@ test("route URL editor previews path suggestions from keyboard and restores on E
   await pressArrowDownToSuggestion(page, input, "/privacy");
 
   await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expectInputSelection(input, prefix.length);
   await expect(page).toHaveURL(/\/privacy$/);
   await expectPrivacyPage(page);
 
@@ -603,6 +827,40 @@ test("route URL editor commits active keyboard suggestions with Enter", async ({
   await expectPrivacyPage(page);
 });
 
+test("route URL editor keyboard suggestions separate preview text from selected text", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/logo");
+
+  await input.press("End");
+  await pressArrowDownToSuggestion(page, input, "?top=sky-500");
+
+  await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
+  await expectInputSelection(input, `${prefix}logo?`.length);
+  await expect(page).toHaveURL(/\/logo\?top=sky-500$/);
+
+  await input.press("Enter");
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?top=`);
+  await expectInputSelection(input, `${prefix}logo?top=`.length);
+  await expect(page).toHaveURL(/\/logo$/);
+  await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
+
+  await pressArrowDownToSuggestion(page, input, "blue-500");
+
+  await expect(input).toHaveValue(`${prefix}logo?top=blue-500`);
+  await expectInputSelection(input, `${prefix}logo?top=`.length);
+  await expect(page).toHaveURL(/\/logo\?top=blue-500$/);
+
+  await input.press("Enter");
+
+  await expect(input).toHaveValue(`${prefix}logo?top=blue-`);
+  await expectInputSelection(input, `${prefix}logo?top=blue-`.length);
+  await expect(page).toHaveURL(/\/logo$/);
+  await expect(page.getByRole("option", { exact: true, name: "200" })).toBeVisible();
+});
+
 test("route URL editor applies route-ready typed drafts immediately", async ({ page }) => {
   const { input, prefix } = await focusRouteAddressInput(page);
 
@@ -631,6 +889,7 @@ test.describe("route URL editor public route query stories", () => {
   test("manual root auth params stay local and do not suggest OAuth values", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
 
+    await input.press("End");
     await input.type("?a");
 
     const authOption = page.getByRole("option", { exact: true, name: "?auth=" });
@@ -697,7 +956,7 @@ test.describe("route URL editor public route query stories", () => {
 
     await expect(input).toHaveValue(`${prefix}logo?rot`);
     await expect(page).toHaveURL(/\/logo$/);
-    await expect(page.getByRole("option", { exact: true, name: "?rot=" })).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "?rot=46" })).toBeVisible();
     await expect(input).toBeFocused();
 
     await input.type("=10");

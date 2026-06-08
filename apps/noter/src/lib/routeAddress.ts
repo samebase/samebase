@@ -13,6 +13,7 @@ type RouteAddressReadinessInput = {
   currentRouteAddress: string;
   draftRouteAddress: string;
   origin: string;
+  readCanonicalRouteAddress?: (routeAddress: string) => string;
   routesByPath: AppRouter["routesByPath"];
   viewerIsAdmin: boolean;
 };
@@ -133,7 +134,9 @@ export function readRouteAddressReadiness(args: RouteAddressReadinessInput): Rou
     };
   }
 
-  const canonicalRouteAddress = readCanonicalRouteAddress(readyRouteAddress, args.origin);
+  const canonicalRouteAddress =
+    args.readCanonicalRouteAddress?.(readyRouteAddress) ??
+    readCanonicalRouteAddress(readyRouteAddress, args.origin);
 
   if (
     routeUpdateDraftAddress !== args.draftRouteAddress ||

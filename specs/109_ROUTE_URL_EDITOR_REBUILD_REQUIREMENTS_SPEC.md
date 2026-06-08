@@ -122,9 +122,10 @@ Current answers:
   row appearing under a stationary mouse must not create `hoverPath`.
 - Pointer leave clears pointer-created `hoverPath`, returns to `focusMode: "editing"`, and restores
   `expectedRouteAddress`.
-- Click commits `hoverPath.draftPath` into `draftPath` and returns to `focusMode: "editing"`.
+- Click commits the row's selected route address into `draftPath` and returns to
+  `focusMode: "editing"`.
 - Keyboard ArrowUp/ArrowDown also move to `focusMode: "suggestion"` and create `hoverPath`. Enter
-  commits `hoverPath.draftPath` into `draftPath` and returns to `focusMode: "editing"`.
+  commits the row's selected route address into `draftPath` and returns to `focusMode: "editing"`.
 - For pointer/keyboard previews, blur/click outside does not commit `hoverPath.draftPath`. It
   restores `expectedRouteAddress` and leaves the editor blurred.
 - Escape also does not commit `hoverPath.draftPath`. It restores `expectedRouteAddress` and blurs.
@@ -132,10 +133,10 @@ Current answers:
   restores `expectedRouteAddress`, and resumes editing `draftPath`.
 - Mobile touch scroll moves to `focusMode: "suggestion"` and creates `hoverPath` with source
   `"touch"`. This keeps suggestions anchored to `draftPath` while the fixed slate scrolls over rows.
-  Example: while editing `/logo?`, scrolling to `?top=` shows `/logo?top=` in the input, but the
-  list still shows query-key rows until tap.
-- Mobile row tap runs `selectedSuggestion`. It commits `hoverPath.draftPath` into `draftPath` and
-  moves `selection` into the next editing slot, such as after `?`, `&`, or `=`.
+  Example: while editing `/logo?`, scrolling to `?top=sky-500` shows `/logo?top=sky-500` in the
+  input, but the list still shows query-key rows until tap.
+- Mobile row tap runs `selectedSuggestion`. It commits the row's selected route address into
+  `draftPath` and moves `selection` into the next editing slot, such as after `?`, `&`, or `=`.
 - If the input itself resumes editing from touch-created `hoverPath`, `hoverPath.draftPath` becomes
   the next `draftPath`.
 
@@ -143,7 +144,10 @@ Selecting a suggestion commits according to `specs/107_ROUTE_URL_EDITOR_SUGGESTI
 
 - path suggestions can open the first search-param slot after the path is selected.
 - presence params commit and can open the next search-param slot.
-- value-param key rows open `key=` instead of silently committing a sample.
+- value-param key rows can preview a sample such as `top=sky-500`, but selection opens `top=` when
+  value rows exist.
+- value-param key rows without value rows select the displayed sample and can open the next
+  search-param slot.
 - partial color families such as `blue-` stay in value-picking mode until a final shade is chosen.
 
 Pointer-leave restore is only for editor suggestion preview. It must not reintroduce ambient
@@ -200,6 +204,7 @@ type RouteEditorState =
         suggestionIndex: number;
         draftPath: string;
         expectedRouteAddress: string;
+        selection: RouteAddressSelection;
       };
       prefix: string;
       selection: RouteAddressSelection;
@@ -225,13 +230,16 @@ These stories should stay covered with real route-level interactions, not mocked
 
 - `/ -> /logo`: selecting the `/logo` path row focuses the editor, applies `/logo`, shows `/logo?`,
   and opens query-key suggestions.
-- `/logo?top=blue-200`: color values are chosen in steps: `?top=`, `blue-`, `blue-200`, then the
-  next query slot opens.
+- `/logo?top=blue-200`: value rows can show samples. Selecting the `?top=sky-500` key row uses
+  `?top=`, selecting the `blue-500` family row uses `blue-`, and selecting the `200` shade row uses
+  `blue-200` and opens the next query slot.
+- `/logo?zoom=0.5`: query-key rows without a value-choice stage select the shown sample and open the
+  next query slot, so mobile scroll/tap does not land in an empty value-suggestion list.
 - Suggestions are chosen by cursor segment, not by filtering against typed text. A cursor in the
   path shows path rows. A cursor in a query key shows query-key rows and selecting one replaces the
   whole active query token. A cursor in a color value before `-` shows color-family rows and
-  selecting one replaces the whole value. A cursor after `-` shows shade rows for that family and
-  selecting one replaces the whole value.
+  selecting one replaces the whole value with the unfinished family prefix. A cursor after `-` shows
+  shade rows for that family and selecting one replaces the whole value.
 - `/logo?dark&light`: conflicting theme flags may canonicalize the browser route to `/logo`, but the
   focused editor still owns the visible draft until blur/Escape.
 - `/logo?dark&reset`: `reset` may canonicalize the browser route to `/logo`, but the focused editor
