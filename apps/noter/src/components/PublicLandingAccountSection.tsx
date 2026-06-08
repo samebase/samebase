@@ -139,6 +139,11 @@ function PublicLandingLoggedOutAccountSection() {
   );
 }
 
+/**
+The loading row keeps the same 24px header height as
+VaultDashboardAccountSectionFrame so auth resolution does not move the public
+sidebar account section.
+*/
 export function PublicLandingAccountLoadingSection() {
   return (
     <div
@@ -148,7 +153,7 @@ export function PublicLandingAccountLoadingSection() {
       <div
         aria-label="checking login"
         role="status"
-        className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground"
+        className="flex h-6 min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground"
       >
         <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin" />
         <span className="min-w-0 line-clamp-2 text-left [overflow-wrap:anywhere]">
