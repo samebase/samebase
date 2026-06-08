@@ -185,8 +185,12 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      /* Pane contents often paint their own background, so separators must sit above them. */
-      z-index: 1;
+      /*
+      Route content can include full-width sticky backgrounds, such as
+      vault-dashboard-repository-header at z-10. Keep pane separators above
+      route content but below WorkspaceLayoutV2ResizeHandle at z-30.
+      */
+      z-index: 29;
       width: 1px;
       background: var(--color-border);
       pointer-events: none;
