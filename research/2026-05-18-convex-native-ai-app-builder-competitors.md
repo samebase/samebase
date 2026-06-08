@@ -37,9 +37,9 @@ strong public stack evidence, but generated-output evidence is still needed befo
 as proven default.
 
 June 8 update: the highest-priority movement is cto.new's June 5 changelog, Chef's public transition
-page, and stronger VibeFlow control-plane evidence. No new post-June-1 Convex-default web builder
-was found. CLONK remains a likely direct watch target, but still lacks generated-output evidence
-that Convex is always the default backend.
+page, stronger VibeFlow control-plane evidence, and Cloudflare's VoidZero acquisition. No new
+post-June-1 Convex-default web builder was found. CLONK remains a likely direct watch target, but
+still lacks generated-output evidence that Convex is always the default backend.
 
 ## High-Priority Watch Items
 
@@ -76,9 +76,17 @@ that Convex is always the default backend.
    Convex project and deployment, writes local/EAS environment variables, and sends a dashboard
    claim invitation. These are adjacent substrate moves, not direct competitors, but they reduce the
    operational work a Convex-native app builder needs to own.
-5. The adjacent control-plane lane is heating up. Cloudflare acquired VoidZero on June 4, bringing
-   Vite, Vitest, Rolldown, Oxc, and Vite+ into Cloudflare while explicitly framing the move around
-   AI agents and local-to-production predictability. Vercel's June 5 Sandbox Drives add persistent
+5. Cloudflare's VoidZero acquisition is a high-signal validation and replacement-risk item for
+   Noter. The June 4 announcement brings Vite, Vitest, Rolldown, Oxc, and Vite+ into Cloudflare and
+   explicitly frames the move around AI agents and local-to-production predictability. This strongly
+   validates Noter's Vite+ plus Cloudflare direction because the chosen frontend/build substrate is
+   becoming platform-owned infrastructure. It also increases platform-displacement risk: Cloudflare
+   now has stronger incentives and upstream access to absorb more of the generated-app build,
+   hosting, preview, and deployment control plane. Competitive read: Noter should lean into the
+   higher-level Cloudflare plus Convex app-operating model, durable source ownership, backend state,
+   auditability, cleanup, and generated-app lifecycle visibility that Cloudflare's generic substrate
+   will not necessarily own for Convex-native business apps.
+6. The adjacent control-plane lane is heating up. Vercel's June 5 Sandbox Drives add persistent
    attachable agent workspaces; Vercel Platform docs also position the Platform Template as an AI
    app-builder reference with sandboxes, live previews, deployments, claim/ownership transfer, and
    Vercel Apps OAuth. Netlify Agent Runners remain adjacent but relevant because they give agents
@@ -461,8 +469,11 @@ Convex-native app builders.
   Cloudflare's
   [press release](https://www.cloudflare.net/news/news-details/2026/Cloudflare-Acquires-VoidZero-to-Build-the-Future-of-the-AI-Native-Web/default.aspx)
   frame the June 4 acquisition around Vite, Vitest, Rolldown, Oxc, Vite+, AI coding agents, and a
-  faster local-to-production path. This is adjacent but important because Vite is a dominant
-  generated-app substrate and Cloudflare is making the Vite-to-Workers path more native.
+  faster local-to-production path. This is adjacent but strategically important: it confirms that
+  Vite+ plus Cloudflare is a well-aligned generated-app direction, but it also means Cloudflare may
+  move upward into more of the app-builder control plane. Noter's differentiation should therefore
+  be the opinionated Cloudflare plus Convex business-app operating layer, not generic Vite-to-edge
+  deployment alone.
 - Vercel app-builder substrate: [Vercel for Platforms](https://vercel.com/platforms/docs)
   distinguishes multi-project AI coding platforms from multi-tenant sites, and the
   [Platform Template](https://vercel.com/platforms/docs/examples/platform-template) is a reference
