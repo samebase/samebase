@@ -22,38 +22,41 @@ export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[
  * Each value type carries only the metadata the editor can safely use for that
  * type. Manual params such as auth still accept typed values, but must not
  * advertise a concrete value that could trigger runtime effects on preview.
+ * Numeric `valueSuggestions` are curated dropdown rows, not the accepted route
+ * range; keep them `null` when the value should use only `sampleValue`.
  */
 export type NoterRouteSearchParamValueSemantics =
   | {
       valueType: "manual";
     }
   | {
-      sampleValue: string;
       valueType: "freeform";
+      sampleValue: string;
     }
   | {
+      valueType: "numeric";
       numericDefaultValue: number;
       numericRange: NoterRouteSearchParamNumericRange;
       numericStepValue: number;
       sampleValue: string;
-      valueType: "numeric";
+      valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
     }
   | {
+      valueType: "numeric-options";
       numericDefaultValue: number;
       sampleValue: string;
       valueSuggestions: NoterRouteSearchParamValueSuggestions;
-      valueType: "numeric-options";
     }
   | {
+      valueType: "options";
       sampleValue: string;
       valueSuggestions: NoterRouteSearchParamValueSuggestions;
-      valueType: "options";
     }
   | {
+      valueType: "completion";
       sampleValue: string;
       valueCompletion: "tailwind-color-token";
       valueSuggestions: NoterRouteSearchParamValueSuggestions;
-      valueType: "completion";
     };
 
 export type NoterRouteSearchParamSemantics =
