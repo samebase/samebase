@@ -76,10 +76,8 @@ export function RouteUrlEditorNext() {
       ? (vm.suggestions[vm.state.hoverPath.suggestionIndex] ?? null)
       : null;
   const hiddenPrefixTextIndent = `-${vm.state.prefix.length - 1}ch`;
-  const prefixUrl = new URL(vm.state.prefix);
-  const productionPublicPrefix =
-    prefixUrl.pathname === "/" && isProductionPublicHostname(prefixUrl.hostname);
-  const inputStyle = productionPublicPrefix
+  const productionPublicOrigin = isProductionPublicHostname(new URL(vm.state.prefix).hostname);
+  const inputStyle = productionPublicOrigin
     ? { paddingLeft: "0.625rem", textIndent: hiddenPrefixTextIndent }
     : { textIndent: hiddenPrefixTextIndent };
 

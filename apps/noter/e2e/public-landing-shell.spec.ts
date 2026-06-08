@@ -1709,7 +1709,7 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 });
 
 test.describe("production public host landing", () => {
-  test("keeps the production root URL editor editable after first paint", async ({ page }) => {
+  test("keeps the production URL editor inset and editable across routes", async ({ page }) => {
     const rootUrl = buildProductionPublicLandingUrl("");
     const rootPrefix = `${new URL(rootUrl).origin}/`;
     const response = await page.goto(rootUrl, {
@@ -1743,6 +1743,17 @@ test.describe("production public host landing", () => {
 
     await expect(focusedInput).toHaveValue(`${rootPrefix}logo`);
     await expect(page).toHaveURL(/\/logo$/);
+
+    await page.goto(buildProductionPublicLandingUrl("privacy"), {
+      waitUntil: "domcontentloaded",
+    });
+
+    const privacyDisplayInput = page.getByTestId("route-url-editor-display");
+    await expect(privacyDisplayInput).toHaveValue(`${rootPrefix}privacy`);
+    await expect(privacyDisplayInput).toHaveCSS("padding-left", "10px");
+
+    await privacyDisplayInput.click();
+    await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);
   });
 
   test("keeps the logo draggable after the SVG fallback is removed", async ({ page }) => {
