@@ -70,6 +70,12 @@ export function RouteUrlEditorNext() {
     suggestions: vm.suggestions,
     suggestionsVisible: vm.suggestionsVisible,
   });
+  const [browserOriginStyleReady, setBrowserOriginStyleReady] = useState(false);
+
+  useEffect(() => {
+    setBrowserOriginStyleReady(true);
+  }, []);
+
   const resetTouchScrollPosition = touchScrollPicker.resetScrollPosition;
   const editingDraftPath =
     vm.state.kind === "focused" && vm.state.focusMode === "editing" ? vm.state.draftPath : null;
@@ -77,7 +83,7 @@ export function RouteUrlEditorNext() {
     touchScrollPicker.active && vm.state.kind === "focused" && vm.state.focusMode === "suggestion"
       ? (vm.suggestions[vm.state.hoverPath.suggestionIndex] ?? null)
       : null;
-  const [browserOriginStyleReady, setBrowserOriginStyleReady] = useState(false);
+
   const productionPublicOrigin = isProductionPublicHostname(new URL(vm.state.prefix).hostname);
   // SSG HTML can be generated from a localhost origin. Android standalone PWA first paint needs
   // the noter.md prefix length before React patches any browser-origin-specific style.
@@ -89,10 +95,6 @@ export function RouteUrlEditorNext() {
     browserOriginStyleReady && !productionPublicOrigin
       ? { textIndent: hiddenPrefixTextIndent }
       : { paddingLeft: "0.625rem", textIndent: hiddenPrefixTextIndent };
-
-  useEffect(() => {
-    setBrowserOriginStyleReady(true);
-  }, []);
 
   useEffect(() => {
     if (editingDraftPath === null) {

@@ -10,7 +10,7 @@ import {
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
-import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
+import { PRODUCTION_PUBLIC_HOSTNAME, PRODUCTION_PUBLIC_ORIGIN } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -21,9 +21,9 @@ import {
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
-import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
-import { PRODUCTION_PUBLIC_HOSTNAME, PRODUCTION_PUBLIC_ORIGIN } from "../src/lib/prodUiMode";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/lib/routeSearchFlags";
+import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
+import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
 // Keep them loose enough to absorb runner variance while still catching
