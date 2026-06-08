@@ -5,7 +5,7 @@
 - Status: Draft research
 - Owner: Noter market positioning and recommended app stack
 - Created: 2026-05-18
-- Last checked: 2026-06-01
+- Last checked: 2026-06-08
 
 ## Prompt
 
@@ -36,7 +36,63 @@ apps, one-click deploy, existing Claude Code/Codex usage, and "Backend Pre-Cooke
 strong public stack evidence, but generated-output evidence is still needed before treating Convex
 as proven default.
 
+June 8 update: the highest-priority movement is cto.new's June 5 changelog, Chef's public transition
+page, stronger VibeFlow control-plane evidence, and Cloudflare's VoidZero acquisition. No new
+post-June-1 Convex-default web builder was found. CLONK remains a likely direct watch target, but
+still lacks generated-output evidence that Convex is always the default backend.
+
 ## High-Priority Watch Items
+
+### 2026-06-08
+
+1. `cto.new` made the CLI launch official in its June 5 changelog and added more app/business
+   control-plane work: improved repo access and connect-repo prompts, MCP/integration setup moved
+   into business views, sandbox backup/recovery/upgrade/migration flows, and better sandbox health,
+   process, websocket, and observability handling. Convex remains default for cto.new web apps.
+   Generated-app hosting is still not publicly specified; the marketing site is hosted on Vercel,
+   but that is only weak platform-hosting evidence. Competitive read: cto.new is now attacking the
+   local operator plus managed control-plane workflow, not just prompt-to-app generation.
+2. `Chef by Convex` is in transition. The public Chef app now says Convex Chef is being replaced by
+   a new incarnation better suited to long-term application development on Convex. Existing Chef
+   projects continue running, but the Chef development flow is impacted; users are pointed to
+   export/migrate projects for local development or run the open-source Chef codebase locally. This
+   is upstream ecosystem gravity, not an independent competitor move, but it means the official
+   Convex app-builder surface may reset expectations soon.
+3. `VibeFlow` now has clearer app-management and hosting evidence. Its docs say custom domains are
+   configured per project, DNS records include TXT plus A records, and VibeFlow uses Freestyle as
+   its DNS provider; the same page explicitly tells Cloudflare users to disable the orange-cloud
+   proxy for VibeFlow records. Its GitHub integration docs say importing a compatible React, Vite,
+   TypeScript repo provisions a Convex backend, and paid sync can create private repos, set a
+   branch, push, pull, and auto-push after each agent run. Stored API key docs add encrypted
+   server-side secret resolution for provider nodes. Competitive read: VibeFlow is a direct
+   control-plane competitor around project inventory, source sync, secrets, domains, Convex backend,
+   and generated workflow state. Generated-app hosting appears VibeFlow/Freestyle-managed;
+   Cloudflare is explicitly discouraged as a proxy for these domains.
+4. Convex added more app-builder substrate on Ship by Convex: June 2 `convex` v1.40.0 added clearer
+   deployment targeting, local deployment creation under a specific cloud project, and early access
+   to application-generated audit logs for Business customers; June 6 fine-grained query
+   invalidation reduces query churn after code pushes. Expo's current Convex guide also documents
+   `eas integrations:convex:connect`, which creates or reuses a Convex team connection, creates a
+   Convex project and deployment, writes local/EAS environment variables, and sends a dashboard
+   claim invitation. These are adjacent substrate moves, not direct competitors, but they reduce the
+   operational work a Convex-native app builder needs to own.
+5. Cloudflare's VoidZero acquisition is a high-signal validation and replacement-risk item for
+   Noter. The June 4 announcement brings Vite, Vitest, Rolldown, Oxc, and Vite+ into Cloudflare and
+   explicitly frames the move around AI agents and local-to-production predictability. This strongly
+   validates Noter's Vite+ plus Cloudflare direction because the chosen frontend/build substrate is
+   becoming platform-owned infrastructure. It also increases platform-displacement risk: Cloudflare
+   now has stronger incentives and upstream access to absorb more of the generated-app build,
+   hosting, preview, and deployment control plane. Competitive read: Noter should lean into the
+   higher-level Cloudflare plus Convex app-operating model, durable source ownership, backend state,
+   auditability, cleanup, and generated-app lifecycle visibility that Cloudflare's generic substrate
+   will not necessarily own for Convex-native business apps.
+6. The adjacent control-plane lane is heating up. Vercel's June 5 Sandbox Drives add persistent
+   attachable agent workspaces; Vercel Platform docs also position the Platform Template as an AI
+   app-builder reference with sandboxes, live previews, deployments, claim/ownership transfer, and
+   Vercel Apps OAuth. Netlify Agent Runners remain adjacent but relevant because they give agents
+   project context, deploy previews, rollback, logs, branches, and environment settings from the
+   Netlify dashboard. None of these make Convex a default backend, but they pressure Noter's
+   Cloudflare plus Convex control-plane thesis from the hosting/operator side.
 
 ### 2026-06-01
 
@@ -91,6 +147,24 @@ Convex built in for auth and database, one-click deployment, cloud sandboxes, mu
 MCP or skills support. The GitHub org shows public `homebrew-cto` and `cto-cli` repositories updated
 May 18, 2026. Competitive read: treat cto.new as a local-workflow competitor now, not only a hosted
 AI web-app-builder competitor.
+
+June 8 update:
+
+- Changelog evidence: [cto.new changelog](https://docs.cto.new/changelog)
+- Repository docs: [cto.new repositories](https://docs.cto.new/essentials/repos)
+- Task runner docs: [cto.new Task Runner](https://docs.cto.new/settings-config/vm)
+- Environment variable docs:
+  [cto.new environment variables](https://docs.cto.new/settings-config/env-vars)
+
+The June 5 changelog makes the CLI launch official and adds product movement around repo access,
+connect-repo prompts, MCP/integration setup, sandbox backup/recovery/upgrade/migration, sandbox
+health checks, workload containment, process handling, observability, websocket backpressure, and
+message-history storage. The docs also show GitHub/GitLab repo connection or cto-managed repos,
+per-repo task-runner environments, code checks, encrypted environment variables, and ownership
+language around private codebases. Convex still appears default for web apps. Generated-app hosting
+is not publicly specified; the public marketing/docs domains returned Vercel headers in a weak
+header check, which should not be treated as proof of generated-app hosting. Cloudflare appears
+absent for generated-app hosting.
 
 ### Converge
 
@@ -149,6 +223,25 @@ applications use Convex infrastructure with usage monitoring and user responsibi
 charges. Competitive read: this makes VibeFlow more directly comparable to a Noter control plane
 because it exposes app creation through MCP and talks about per-app Convex cost management.
 
+June 8 update:
+
+- Custom domain evidence:
+  [VibeFlow custom domains](https://docs.vibeflow.ai/features/custom-domains)
+- GitHub evidence:
+  [VibeFlow GitHub integration](https://docs.vibeflow.ai/features/github-integration)
+- Secret evidence: [VibeFlow stored API keys](https://docs.vibeflow.ai/features/stored-api-keys)
+
+VibeFlow now has stronger public evidence for the generated-app control plane. Custom domains are
+project-level, paid-plan functionality; DNS setup uses TXT verification and A records, and the docs
+say VibeFlow uses Freestyle as its DNS provider. The docs explicitly tell Cloudflare users to
+disable the Cloudflare proxy for VibeFlow DNS records, so Cloudflare is not the apparent origin host
+for generated apps and is discouraged as a proxy in this path. The GitHub integration docs say
+VibeFlow can import compatible React, Vite, TypeScript repositories, provision a Convex backend,
+create private repositories, set branches, push/pull changes, and auto-push after agent runs. Stored
+API keys are encrypted, resolved server-side, and omitted from exported flow data. Competitive read:
+this directly pressures Noter's single-stack control-plane thesis around source ownership, domain
+state, secrets, generated backend visibility, and app lifecycle operations.
+
 ### Chef by Convex
 
 - URL: [Meet Chef](https://news.convex.dev/meet-chef/)
@@ -174,6 +267,25 @@ that create one Convex deployment per generated app. Competitive read: Chef and 
 ecosystem are making metering, generated deployment management, and agent-risk reduction more
 first-class, which can narrow Noter's infrastructure differentiation unless Noter stays ahead on
 operator workflow and auditability.
+
+June 8 update:
+
+- Chef app evidence: [Chef by Convex](https://chef.convex.dev/)
+- Migration evidence: [Chef migration guide](https://docs.convex.dev/chef/migration-guide)
+- Open-source evidence: [get-convex/chef](https://github.com/get-convex/chef)
+- Platform release evidence: [Ship by Convex](https://ship.convex.dev/)
+
+The public Chef app now says Convex Chef is being replaced by a new incarnation better suited to
+long-term application development on Convex. Existing Chef projects continue running, but the Chef
+development flow is impacted; existing users are pointed to export/migrate their app for local
+development, and advanced users are pointed to the open-source Chef codebase. This is not a direct
+startup-competitor move, but it is material because the official Convex app-builder reference is
+between surfaces. The June 2 `convex` v1.40.0 Ship entry also improves deployment targeting and
+local deployment selection under specific cloud projects and mentions early access to
+application-generated audit logs for Business customers. The June 6 fine-grained query invalidation
+entry reduces avoidable query recalculation after code pushes. Competitive read: Convex is making
+generated deployment management and auditability more first-class while its own app-builder surface
+is in transition.
 
 ### Vly
 
@@ -209,6 +321,13 @@ AI iteration creates a git checkpoint and collaborators stay synced when reverti
 read: Vly is explicitly competing on backend visibility and safe rollback now, not only generation
 and deployment. The Trustpilot warning remained visible in the June 1 pass.
 
+June 8 update: no newer public changelog or docs movement was found. Vly's public docs still show
+React, Vite, and Convex code generation plus automatic deployment and custom domains, but generated
+app hosting substrate remains unspecified in public docs. The marketing/docs domains returned Vercel
+headers in a weak header check; this is not proof that generated apps are hosted on Vercel.
+Cloudflare appears absent for generated-app hosting evidence. The Trustpilot warning that the
+company's rating is unavailable due to a guideline breach remained visible.
+
 ### CLONK
 
 - URL: [CLONK](https://www.clonk.ai/)
@@ -225,6 +344,14 @@ Convex read: public evidence makes Convex look like a core backend choice, but i
 that every generated app uses Convex by default. Competitive read: monitor immediately because its
 positioning attacks the same failure loop as Convex-native builders: "real deployed apps, not
 mockups", cheaper than credit-based builders, and backend pre-wired.
+
+June 8 update: CLONK's current homepage claims "used by 2450 vibe coders", lists Vercel, Expo,
+GitHub, and Convex in its "build with" stack, shows a build event that says "deployed to vercel",
+and continues to advertise "Backend Pre-Cooked convex". Convex should still be classified as likely
+core/default but not proven by generated-output evidence. Generated-app hosting appears to be Vercel
+based on the public page. Cloudflare is absent from generated-app hosting evidence. This remains a
+likely direct watch target, especially because it combines Mac/local agent orchestration, one-shot
+apps, mobile Expo apps, and cheap bring-your-own-agent economics.
 
 ## Mobile And Native Convex Builders
 
@@ -325,6 +452,47 @@ Convex as a default generated backend path. v0's May 2026 changelog and full-sta
 worth watching because v0 is adding stronger full-stack project, Git, sandbox, terminal, and Python
 services support, but its full-stack docs say v0 defaults to Next.js and connects to databases such
 as Supabase, Neon, and Upstash rather than Convex by default.
+
+### App Management And Control Plane Lane
+
+This lane tracks products that pressure Noter's operational thesis even when they are not
+Convex-native app builders.
+
+- Cloudflare VibeSDK: [cloudflare/vibesdk](https://github.com/cloudflare/vibesdk) is an open-source
+  AI app-builder reference on the Cloudflare stack. It generates React, TypeScript, and Tailwind
+  apps, uses Workers, Durable Objects, D1, R2, KV, Containers, AI Gateway, and Workers for
+  Platforms, and deploys generated apps to Workers for Platforms. Convex is absent. Generated-app
+  hosting is Cloudflare origin hosting. This supports Noter's Cloudflare hosting thesis but competes
+  with the idea that Noter must own all app-builder infrastructure primitives itself.
+- Cloudflare platform movement:
+  [VoidZero is joining Cloudflare](https://blog.cloudflare.com/voidzero-joins-cloudflare/) and
+  Cloudflare's
+  [press release](https://www.cloudflare.net/news/news-details/2026/Cloudflare-Acquires-VoidZero-to-Build-the-Future-of-the-AI-Native-Web/default.aspx)
+  frame the June 4 acquisition around Vite, Vitest, Rolldown, Oxc, Vite+, AI coding agents, and a
+  faster local-to-production path. This is adjacent but strategically important: it confirms that
+  Vite+ plus Cloudflare is a well-aligned generated-app direction, but it also means Cloudflare may
+  move upward into more of the app-builder control plane. Noter's differentiation should therefore
+  be the opinionated Cloudflare plus Convex business-app operating layer, not generic Vite-to-edge
+  deployment alone.
+- Vercel app-builder substrate: [Vercel for Platforms](https://vercel.com/platforms/docs)
+  distinguishes multi-project AI coding platforms from multi-tenant sites, and the
+  [Platform Template](https://vercel.com/platforms/docs/examples/platform-template) is a reference
+  for AI app builders with Sandbox, AI Gateway, live previews, deployments, Vercel Apps OAuth, and
+  ownership transfer. [Vercel's June 5 changelog](https://vercel.com/changelog) adds Sandbox Drives,
+  persistent attachable storage for agent workspaces. Convex is absent by default. Generated-app
+  hosting is Vercel. This pressures Noter's app inventory, preview, rollback, and ownership story.
+- Netlify Agent Runners:
+  [Netlify Agent Runners docs](https://docs.netlify.com/build/build-with-ai/agent-runners/overview)
+  describe dashboard-run agents with project context, environment variables, build settings, staging
+  environments, deploy previews, rollback, logs, branches, and GitHub-only limitations. Convex is
+  absent by default. Generated-app hosting is Netlify. This is adjacent but relevant to Noter's
+  operator dashboard expectations.
+- Expo EAS plus Convex: [Expo's Convex guide](https://docs.expo.dev/guides/using-convex/) documents
+  `eas integrations:convex:connect`, which installs Convex, creates or reuses an EAS-to-Convex team
+  connection, creates a Convex project and deployment, writes `CONVEX_DEPLOY_KEY` and
+  `EXPO_PUBLIC_CONVEX_URL` locally and into EAS environments, and sends a Convex dashboard claim
+  invitation. This is adjacent mobile substrate, not a generated-app competitor, but it reduces the
+  setup burden for Expo plus Convex builders.
 
 ## Market Interpretation
 
