@@ -6,7 +6,7 @@ export type ActiveRouteEditorSuggestion = {
   suggestion: Suggestion;
 };
 
-type RouteEditorSuggestionArrowKey = "ArrowDown" | "ArrowUp";
+export type RouteEditorSuggestionArrowKey = "ArrowDown" | "ArrowUp";
 
 export function readRouteEditorSuggestionId(listboxId: string, suggestionIndex: number): string {
   return `${listboxId}-option-${suggestionIndex}`;
@@ -38,24 +38,40 @@ export function readActiveRouteEditorSuggestion(args: {
   };
 }
 
+export function readNextRouteEditorSuggestionIndex(args: {
+  activeSuggestionIndex: number | null;
+  arrowKey: RouteEditorSuggestionArrowKey;
+  suggestionCount: number;
+}): number | null {
+  if (args.suggestionCount === 0) {
+    return null;
+  }
+
+  if (args.arrowKey === "ArrowDown") {
+    return args.activeSuggestionIndex === null
+      ? 0
+      : (args.activeSuggestionIndex + 1) % args.suggestionCount;
+  }
+
+  return args.activeSuggestionIndex === null
+    ? args.suggestionCount - 1
+    : (args.activeSuggestionIndex - 1 + args.suggestionCount) % args.suggestionCount;
+}
+
 export function readNextActiveRouteEditorSuggestion(args: {
   activeSuggestionIndex: number | null;
   arrowKey: RouteEditorSuggestionArrowKey;
   listboxId: string;
   suggestions: readonly Suggestion[];
 }): ActiveRouteEditorSuggestion | null {
-  if (args.suggestions.length === 0) {
+  const nextIndex = readNextRouteEditorSuggestionIndex({
+    activeSuggestionIndex: args.activeSuggestionIndex,
+    arrowKey: args.arrowKey,
+    suggestionCount: args.suggestions.length,
+  });
+  if (nextIndex === null) {
     return null;
   }
-
-  const nextIndex =
-    args.arrowKey === "ArrowDown"
-      ? args.activeSuggestionIndex === null
-        ? 0
-        : (args.activeSuggestionIndex + 1) % args.suggestions.length
-      : args.activeSuggestionIndex === null
-        ? args.suggestions.length - 1
-        : (args.activeSuggestionIndex - 1 + args.suggestions.length) % args.suggestions.length;
 
   return readActiveRouteEditorSuggestion({
     activeSuggestionIndex: nextIndex,

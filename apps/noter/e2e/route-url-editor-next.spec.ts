@@ -991,6 +991,47 @@ test("route URL editor navigation buttons track typed history entries", async ({
   await expect(forwardButton).toBeEnabled();
 });
 
+test("route URL editor navigation buttons stay correct after hard refresh", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
+
+  const backButton = page.getByRole("button", { exact: true, name: "Back" });
+  const forwardButton = page.getByRole("button", { exact: true, name: "Forward" });
+
+  await expect(page).toHaveURL(/\/logo$/);
+  await expect(backButton).toBeEnabled();
+  await expect(forwardButton).toBeDisabled();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+  await expect(backButton).toBeEnabled();
+  await expect(forwardButton).toBeDisabled();
+
+  await backButton.click();
+
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expect(backButton).toBeDisabled();
+  await expect(forwardButton).toBeEnabled();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expect(backButton).toBeDisabled();
+  await expect(forwardButton).toBeEnabled();
+
+  await forwardButton.click();
+
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+  await expect(backButton).toBeEnabled();
+  await expect(forwardButton).toBeDisabled();
+});
+
 test("route URL editor adds history when typing reaches a new canonical query", async ({
   page,
 }) => {
@@ -1058,6 +1099,24 @@ test("route URL editor adds history when typing adopts a suggestion preview", as
 
   const displayInput = page.getByTestId("route-url-editor-display");
   await expect(displayInput).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expectTermsPage(page);
+});
+
+test("route URL editor restores suggestion previews before Refresh reloads", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}terms?top=red-`));
+  await input.press("Home");
+  await pressArrowDownToSuggestion(page, input, "/privacy");
+
+  await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
+  await expect(page).toHaveURL(/\/privacy$/);
+
+  await page.getByRole("button", { exact: true, name: "Refresh" }).click();
+  await page.waitForLoadState("domcontentloaded");
+
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${prefix}terms`);
   await expect(page).toHaveURL(/\/terms$/);
   await expectTermsPage(page);
 });

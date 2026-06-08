@@ -86,8 +86,8 @@ function readRecord(value: unknown, label: string): Record<string, unknown> {
   }
 
   const record: Record<string, unknown> = {};
-  for (const key of Object.keys(value)) {
-    record[key] = Reflect.get(value, key);
+  for (const [key, propertyValue] of Object.entries(value)) {
+    record[key] = propertyValue;
   }
   return record;
 }

@@ -234,10 +234,7 @@ describe("appRouter", () => {
       isLoading: false,
     });
     document.documentElement.className = "";
-    const removeStoredTheme = Reflect.get(window.localStorage, "removeItem");
-    if (typeof removeStoredTheme === "function") {
-      removeStoredTheme.call(window.localStorage, "theme");
-    }
+    window.localStorage.removeItem("theme");
   });
 
   afterEach(() => {

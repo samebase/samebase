@@ -66,7 +66,7 @@ const transitionTable = {
       expectType<Extract<TestEvent, { type: "changedSelection" }>>()(event, true);
 
       // @ts-expect-error changedSelection events do not carry path.
-      event.path;
+      void event.path;
 
       return {
         actions: [],
@@ -78,7 +78,7 @@ const transitionTable = {
       expectType<Extract<TestEvent, { type: "pressedEscape" }>>()(event, true);
 
       // @ts-expect-error blurred state does not carry focused selection.
-      prev.selection;
+      void prev.selection;
 
       return {
         actions: [{ brand: "blurInput" }],
@@ -148,7 +148,7 @@ const partialTransitionTable = {
       expectType<Extract<TestEvent, { type: "changedInput" }>>()(event, true);
 
       // @ts-expect-error changedInput events do not carry pressedEscape-only state.
-      event.reason;
+      void event.reason;
 
       return {
         actions: [],
@@ -181,7 +181,7 @@ const actionHandlers = {
     expectType<Extract<TestAction, { brand: "blurInput" }>>()(action, true);
 
     // @ts-expect-error blurInput actions do not carry message.
-    action.message;
+    void action.message;
   },
 } satisfies TypedTransitionActionHandlerTable<TestAction["brand"], TestAction>;
 

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { useRouteEditorVm } from "./useRouteEditorVm";
-import { useNavigationControls } from "./useNavigationControls";
+import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
 import {
   routeUrlEditorTouchSuggestionRowHeightPx,
   useRouteUrlEditorTouchScrollPicker,
@@ -112,7 +112,7 @@ export function RouteUrlEditorNext() {
         aria-label="Back"
         className={routeUrlEditorNextIconButtonClassName}
         disabled={!canGoBack}
-        onClick={() => window.navigation.back()}
+        onClick={() => readRouteEditorNavigationApi()?.back()}
         title="Back"
         type="button"
       >
@@ -122,7 +122,7 @@ export function RouteUrlEditorNext() {
         aria-label="Forward"
         className={routeUrlEditorNextIconButtonClassName}
         disabled={!canGoForward}
-        onClick={() => window.navigation.forward()}
+        onClick={() => readRouteEditorNavigationApi()?.forward()}
         title="Forward"
         type="button"
       >
@@ -131,7 +131,7 @@ export function RouteUrlEditorNext() {
       <button
         aria-label="Refresh"
         className={routeUrlEditorNextIconButtonClassName}
-        onClick={() => window.location.reload()}
+        onClick={vm.refreshPage}
         title="Refresh"
         type="button"
       >
