@@ -264,7 +264,7 @@ describe("readSuggestions", () => {
       previewRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
       previewSelectionRouteIndex: "/logo?dark&".length,
       sampleValueStart: "&border=".length,
-      selectedRouteAddress: "/logo?dark&border=&top=blue-200",
+      selectedRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
       value: "&border=stone-300",
     });
   });
@@ -343,7 +343,7 @@ describe("readSuggestions", () => {
       previewRouteAddress: "/logo?top=blue-500",
       previewSelectionRouteIndex: "/logo?top=".length,
       sampleValueStart: "blue-".length,
-      selectedRouteAddress: "/logo?top=blue-",
+      selectedRouteAddress: "/logo?top=blue-500",
       value: "blue-500",
     });
     expect(rows).toContainEqual({
@@ -352,7 +352,7 @@ describe("readSuggestions", () => {
       previewRouteAddress: "/logo?top=red-500",
       previewSelectionRouteIndex: "/logo?top=".length,
       sampleValueStart: "red-".length,
-      selectedRouteAddress: "/logo?top=red-",
+      selectedRouteAddress: "/logo?top=red-500",
       value: "red-500",
     });
     expect(values).not.toContain("blue-");
@@ -370,7 +370,7 @@ describe("readSuggestions", () => {
       previewRouteAddress: "/logo?dark&top=red-500&secondary=rose-500",
       previewSelectionRouteIndex: "/logo?dark&top=".length,
       sampleValueStart: "red-".length,
-      selectedRouteAddress: "/logo?dark&top=red-&secondary=rose-500",
+      selectedRouteAddress: "/logo?dark&top=red-500&secondary=rose-500",
       value: "red-500",
     });
   });
@@ -417,7 +417,7 @@ describe("readSuggestions", () => {
       previewRouteAddress: "/logo?top=sky-500",
       previewSelectionRouteIndex: "/logo?".length,
       sampleValueStart: "?top=".length,
-      selectedRouteAddress: "/logo?top=",
+      selectedRouteAddress: "/logo?top=sky-500",
       value: "?top=sky-500",
     });
     expect(keyRows).toContainEqual({
@@ -430,7 +430,7 @@ describe("readSuggestions", () => {
     });
   });
 
-  it("keeps value-param samples preview-only even without a value suggestion stage", () => {
+  it("selects value-param samples while keeping the cursor in the value slot", () => {
     const rows = readRows({
       routeAddress: "/logo?",
       routeTextBeforeCursor: "/logo?",
@@ -442,8 +442,36 @@ describe("readSuggestions", () => {
       previewRouteAddress: "/logo?zoom=0.5",
       previewSelectionRouteIndex: "/logo?".length,
       sampleValueStart: "?zoom=".length,
-      selectedRouteAddress: "/logo?zoom=",
+      selectedRouteAddress: "/logo?zoom=0.5",
       value: "?zoom=0.5",
+    });
+  });
+
+  it("shows zoom value rows from metadata", () => {
+    const rows = readRows({
+      routeAddress: "/logo?zoom=0.5",
+      routeTextBeforeCursor: "/logo?zoom=",
+    });
+
+    expect(rows.map((row) => row.value)).toEqual([
+      "0.1",
+      "0.2",
+      "0.3",
+      "0.4",
+      "0.5",
+      "0.6",
+      "0.7",
+      "0.8",
+      "0.9",
+      "1",
+    ]);
+    expect(rows).toContainEqual({
+      kind: "searchValue",
+      nextSelectionRouteIndex: "/logo?zoom=0.7&".length,
+      previewRouteAddress: "/logo?zoom=0.7",
+      previewSelectionRouteIndex: "/logo?zoom=".length,
+      selectedRouteAddress: "/logo?zoom=0.7&",
+      value: "0.7",
     });
   });
 

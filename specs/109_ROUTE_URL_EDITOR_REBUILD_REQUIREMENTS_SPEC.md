@@ -145,11 +145,10 @@ Selecting a suggestion commits according to `specs/107_ROUTE_URL_EDITOR_SUGGESTI
 
 - path suggestions can open the first search-param slot after the path is selected.
 - presence params commit and can open the next search-param slot.
-- value-param key rows can preview a sample such as `top=sky-500`, but selection opens `top=` when
-  value rows exist.
-- value-param key rows keep samples preview-only. Selecting the row opens `key=`, even when the key
-  does not have a value-row stage.
-- partial color families such as `blue-` stay in value-picking mode until a final shade is chosen.
+- value-param key rows can preview a sample such as `top=sky-500`. Selection keeps `top=sky-500`,
+  but places the cursor after `top=` so value rows stay visible.
+- partial color families such as `blue-500` keep the sample value but place the cursor after `blue-`
+  until a final shade is chosen.
 
 Pointer-leave restore is only for editor suggestion preview. It must not reintroduce ambient
 sidebar/link route preview.
@@ -237,10 +236,12 @@ These stories should stay covered with real route-level interactions, not mocked
 
 - `/ -> /logo`: selecting the `/logo` path row focuses the editor, applies `/logo`, shows `/logo?`,
   and opens query-key suggestions.
-- `/logo?top=blue-200`: value rows can show samples. Selecting the `?top=sky-500` key row uses
-  `?top=`, selecting the `blue-500` family row uses `blue-`, and selecting the `200` shade row uses
-  `blue-200` and opens the next query slot.
-- `/logo?zoom=0.5`: query-key rows can preview `?zoom=0.5`, but selecting the row uses `?zoom=`.
+- `/logo?top=blue-200`: value rows can show samples. Selecting the `?top=sky-500` key row keeps
+  `?top=sky-500` and places the cursor after `top=`, selecting the `blue-500` family row keeps
+  `blue-500` and places the cursor after `blue-`, and selecting the `200` shade row uses `blue-200`
+  and opens the next query slot.
+- `/logo?zoom=0.5`: query-key rows can preview `?zoom=0.5`; selecting the row keeps `?zoom=0.5` and
+  places the cursor after `zoom=` so numeric value rows stay visible.
 - Suggestions are chosen by cursor segment, not by filtering against typed text. A cursor in the
   path shows path rows. A cursor in a query key shows query-key rows and selecting one replaces the
   whole active query token. A cursor in a color value before `-` shows color-family rows and

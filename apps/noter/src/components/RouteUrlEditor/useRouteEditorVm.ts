@@ -63,7 +63,7 @@ focusMode = what currently owns the visible focused input.
 `"suggestion"` means one suggestion row owns it: `hoverPath` changes the visible route address.
 Input click, pointer mouseleave, Escape, and blur restore `draftPath` / `expectedRouteAddress`.
 Enter or row click/tap commits the row's `selectedRouteAddress` into `draftPath`. This can differ
-from `hoverPath.draftPath`, which is the row's `previewRouteAddress`.
+from `hoverPath.draftPath`, such as when final value selection appends a trailing `&`.
 
 draftPath = the editable route address while `kind` is `"focused"`. Starts with `/`, never includes
 `prefix`.
@@ -76,8 +76,8 @@ pointer hover, keyboard navigation, or mobile touch scroll created it.
 Mobile touch scroll also uses `hoverPath`, not `draftPath`. Example: `draftPath` is `/logo?`, the
 user scrolls the fixed slate over `?top=sky-500`, and `hoverPath.draftPath` becomes
 `/logo?top=sky-500`. The visible input shows `/logo?top=sky-500`, but suggestions still come from
-`/logo?` until the row is tapped. Tapping that row commits `/logo?top=`. Tapping outside cancels the
-scroll preview and restores `/logo`.
+`/logo?` until the row is tapped. Tapping that row keeps `/logo?top=sky-500` and places the cursor
+after `top=`. Tapping outside cancels the scroll preview and restores `/logo`.
 
 expectedRouteAddress = the route address this focused state expects TanStack to report, and the
 restore target when `hoverPath` is canceled. Blurred display reads
@@ -825,10 +825,9 @@ const routeEditorTransition: RouteEditorTransitionTable = {
           prev.focusMode === "suggestion" &&
           prev.hoverPath.expectedRouteAddress !== prev.expectedRouteAddress
         ) {
-          // Example: hovering `?top=sky-500` previews `/logo?top=sky-500`, but clicking the row
-          // intentionally commits the incomplete draft `/logo?top=` so value rows can appear. Since
-          // that selected draft is local, restore `expectedRouteAddress` instead of leaving the
-          // browser on the sample preview.
+          // Example: a future row may preview a route-ready value while selecting a local draft.
+          // In that case, restore `expectedRouteAddress` instead of leaving the browser on a route
+          // that the selected draft no longer represents.
           actions.push({
             brand: "replaceRoute",
             routeAddress: prev.expectedRouteAddress,
