@@ -64,7 +64,11 @@ function getErrorStatus(error: unknown): number | undefined {
     return undefined;
   }
 
-  const status = Reflect.get(error, "status");
+  if (!("status" in error)) {
+    return undefined;
+  }
+
+  const status = error.status;
   if (typeof status !== "number") {
     return undefined;
   }

@@ -17,7 +17,11 @@ function readErrorMessage(error: unknown): string {
     return error;
   }
   if (typeof error === "object" && error !== null) {
-    const message = Reflect.get(error, "message");
+    if (!("message" in error)) {
+      return "";
+    }
+
+    const message = error.message;
     if (typeof message === "string") {
       return message;
     }
@@ -87,12 +91,10 @@ function deleteIndexedDbDatabase(name: string): Promise<void> {
 }
 
 async function clearAllIndexedDbDatabases() {
-  const listDatabases =
-    typeof indexedDB === "undefined" ? null : Reflect.get(indexedDB, "databases");
   const databases =
-    typeof listDatabases === "function"
-      ? await listDatabases.call(indexedDB).catch(() => null)
-      : null;
+    typeof indexedDB === "undefined" || !("databases" in indexedDB)
+      ? null
+      : await indexedDB.databases().catch(() => null);
 
   if (databases === null) {
     await deleteIndexedDbDatabase(CONVEX_QUERY_CACHE_DB_NAME);

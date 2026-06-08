@@ -23,13 +23,16 @@ import { api } from "../../../convex/_generated/api";
 import { readSuggestions, type Suggestion } from "./RouteUrlEditorSuggestions";
 import {
   readActiveRouteEditorSuggestion,
-  readNextActiveRouteEditorSuggestion,
+  readNextRouteEditorSuggestionIndex,
   readRouteEditorSuggestionId,
+  type RouteEditorSuggestionArrowKey,
 } from "./RouteUrlEditorSuggestionNavigation";
+import { readRouteEditorNavigationApi } from "./useNavigationControls";
 import { keepState, runTransitionActions } from "./typedTransitionTable";
 import { useTypedTransitionMachine } from "./useTypedTransitionMachine";
 import type {
   TypedTransitionActionHandlerTable,
+  TypedTransitionResult,
   TypedTransitionTable,
 } from "./typedTransitionTable";
 
@@ -44,7 +47,6 @@ type RouteEditorSuggestionHoverPath = {
   suggestionIndex: number;
   draftPath: string;
   expectedRouteAddress: string;
-  selection: RouteAddressSelection;
 };
 
 /**
@@ -70,9 +72,6 @@ hoverPath = currently previewed suggestion row. It changes the visible route add
 changing `draftPath`, so suggestions stay anchored to the text the user was editing.
 `hoverPath.suggestionIndex` is the single current suggestion row. `hoverPath.source` says whether
 pointer hover, keyboard navigation, or mobile touch scroll created it.
-`hoverPath.selection` is the cursor boundary for the preview text. Example: hovering `/privacy`
-sets it after the shared `/`; hovering `?top=sky-500` sets it after `?`; hovering `blue-500` sets it
-after `=`.
 
 Mobile touch scroll also uses `hoverPath`, not `draftPath`. Example: `draftPath` is `/logo?`, the
 user scrolls the fixed slate over `?top=sky-500`, and `hoverPath.draftPath` becomes
@@ -114,7 +113,6 @@ Example keyboard preview:
     suggestionIndex: 2,
     draftPath: "/privacy?top=red-",
     expectedRouteAddress: "/privacy",
-    selection: { start: 17, end: 17, direction: "none" },
   },
   selection: { start: 19, end: 19, direction: "none" },
 }
@@ -207,10 +205,9 @@ type RouteEditorEvent =
       type: "clickedFocusedInput";
       selection: RouteAddressSelection;
     }
-  // Root `onBlur` when focus leaves the editor subtree. Historical name:
-  // `clickedOutside` is also sent by keyboard focus movement, not only clicks.
+  // Root `onBlur` when focus leaves the editor subtree.
   | {
-      type: "clickedOutside";
+      type: "lostEditorFocus";
       context: RouteEditorRouteActionContext;
     }
   // Input focus/click that starts editing from `"blurred"`. `committedRouteAddress`
@@ -262,6 +259,15 @@ type RouteEditorEvent =
       context: RouteEditorSelectSuggestionContext;
       nextSelectionRouteIndex: number;
       routeAddress: string;
+    }
+  // ArrowUp/ArrowDown moved the current suggestion row. The transition reads
+  // the current `hoverPath.suggestionIndex` from FSM state, so fast key repeats
+  // cannot lose a step by reading a stale React callback closure.
+  | {
+      type: "pressedSuggestionArrow";
+      arrowKey: RouteEditorSuggestionArrowKey;
+      context: RouteEditorReplaceRouteContext;
+      suggestions: readonly Suggestion[];
     }
   // Pointer, keyboard, or touch scroll moved to a suggestion row. This sets
   // `hoverPath` without changing `draftPath`. `previewSelectionRouteIndex`
@@ -371,6 +377,70 @@ function readRouteAddressFocusedSelection(args: {
   }
 
   return readInputSelectionFromRouteIndex(args.prefix, args.draftPath.length);
+}
+
+function previewRouteEditorSuggestion(
+  prev: Extract<RouteEditorState, { kind: "focused" }>,
+  event: {
+    context: RouteEditorReplaceRouteContext;
+    previewSelectionRouteIndex: number;
+    routeAddress: string;
+    source: RouteEditorSuggestionHoverPath["source"];
+    suggestionIndex: number;
+  },
+): TypedTransitionResult<RouteEditorState, RouteEditorAction> {
+  // Example: `draftPath` is `/terms?top=red-`, then ArrowDown previews
+  // `/privacy?top=red-`. The browser route may already be `/privacy`, but
+  // the next preview still compares against `expectedRouteAddress`
+  // (`/terms`) because `draftPath` is still the base text.
+  const readiness = event.context.readRouteAddressReadiness({
+    currentRouteAddress: prev.expectedRouteAddress,
+    draftRouteAddress: event.routeAddress,
+  });
+
+  const expectedRouteAddress =
+    readiness.kind === "local" ? prev.expectedRouteAddress : readiness.routeAddress;
+
+  // Example: moving from the `/privacy` row to another row should compare
+  // against `hoverPath.expectedRouteAddress` (`/privacy`), so we only call
+  // replaceRoute when the preview route actually changes.
+  const activeExpectedRouteAddress =
+    prev.focusMode === "suggestion"
+      ? prev.hoverPath.expectedRouteAddress
+      : prev.expectedRouteAddress;
+
+  // Example: previewing `/privacy` uses route index 1, so the cursor stays
+  // after the shared `/`. Accepting the row can still move it to the end
+  // through `nextSelectionRouteIndex`.
+  const selection = readInputSelectionFromRouteIndex(prev.prefix, event.previewSelectionRouteIndex);
+  const actions: RouteEditorAction[] = [
+    { brand: "setInputSelection", selection, timing: "afterRender" },
+  ];
+  if (expectedRouteAddress !== activeExpectedRouteAddress) {
+    actions.push({
+      brand: "replaceRoute",
+      routeAddress: expectedRouteAddress,
+      context: event.context,
+    });
+  }
+
+  return {
+    actions,
+    state: {
+      kind: "focused",
+      focusMode: "suggestion",
+      draftPath: prev.draftPath,
+      expectedRouteAddress: prev.expectedRouteAddress,
+      hoverPath: {
+        source: event.source,
+        suggestionIndex: event.suggestionIndex,
+        draftPath: event.routeAddress,
+        expectedRouteAddress,
+      },
+      prefix: prev.prefix,
+      selection: prev.selection,
+    },
+  };
 }
 
 const routeEditorTransition: RouteEditorTransitionTable = {
@@ -562,7 +632,7 @@ const routeEditorTransition: RouteEditorTransitionTable = {
       };
     },
 
-    clickedOutside: (prev, event) => {
+    lostEditorFocus: (prev, event) => {
       // Root blur leaves `"focused"`. If `hoverPath.expectedRouteAddress`
       // replaced the route through pointer, keyboard, or touch-scroll preview,
       // restore `prev.expectedRouteAddress` before the blurred editor reads
@@ -645,63 +715,34 @@ const routeEditorTransition: RouteEditorTransitionTable = {
       };
     },
 
-    previewedSuggestion: (prev, event) => {
-      // Example: `draftPath` is `/terms?top=red-`, then ArrowDown previews
-      // `/privacy?top=red-`. The browser route may already be `/privacy`, but
-      // the next preview still compares against `expectedRouteAddress`
-      // (`/terms`) because `draftPath` is still the base text.
-      const readiness = event.context.readRouteAddressReadiness({
-        currentRouteAddress: prev.expectedRouteAddress,
-        draftRouteAddress: event.routeAddress,
+    pressedSuggestionArrow: (prev, event) => {
+      const activeSuggestionIndex =
+        prev.focusMode === "suggestion" ? prev.hoverPath.suggestionIndex : null;
+      const nextSuggestionIndex = readNextRouteEditorSuggestionIndex({
+        activeSuggestionIndex,
+        arrowKey: event.arrowKey,
+        suggestionCount: event.suggestions.length,
       });
-
-      const expectedRouteAddress =
-        readiness.kind === "local" ? prev.expectedRouteAddress : readiness.routeAddress;
-
-      // Example: moving from the `/privacy` row to another row should compare
-      // against `hoverPath.expectedRouteAddress` (`/privacy`), so we only call
-      // replaceRoute when the preview route actually changes.
-      const activeExpectedRouteAddress =
-        prev.focusMode === "suggestion"
-          ? prev.hoverPath.expectedRouteAddress
-          : prev.expectedRouteAddress;
-
-      // Example: previewing `/privacy` uses route index 1, so the cursor stays
-      // after the shared `/`. Accepting the row can still move it to the end
-      // through `nextSelectionRouteIndex`.
-      const selection = readInputSelectionFromRouteIndex(
-        prev.prefix,
-        event.previewSelectionRouteIndex,
-      );
-      const actions: RouteEditorAction[] = [
-        { brand: "setInputSelection", selection, timing: "afterRender" },
-      ];
-      if (expectedRouteAddress !== activeExpectedRouteAddress) {
-        actions.push({
-          brand: "replaceRoute",
-          routeAddress: expectedRouteAddress,
-          context: event.context,
-        });
+      if (nextSuggestionIndex === null) {
+        return keepState(prev);
       }
 
-      return {
-        actions,
-        state: {
-          kind: "focused",
-          focusMode: "suggestion",
-          draftPath: prev.draftPath,
-          expectedRouteAddress: prev.expectedRouteAddress,
-          hoverPath: {
-            source: event.source,
-            suggestionIndex: event.suggestionIndex,
-            draftPath: event.routeAddress,
-            expectedRouteAddress,
-            selection,
-          },
-          prefix: prev.prefix,
-          selection: prev.selection,
-        },
-      };
+      const suggestion = event.suggestions.at(nextSuggestionIndex);
+      if (!suggestion) {
+        return keepState(prev);
+      }
+
+      return previewRouteEditorSuggestion(prev, {
+        context: event.context,
+        previewSelectionRouteIndex: suggestion.previewSelectionRouteIndex,
+        routeAddress: suggestion.previewRouteAddress,
+        source: "keyboard",
+        suggestionIndex: nextSuggestionIndex,
+      });
+    },
+
+    previewedSuggestion: (prev, event) => {
+      return previewRouteEditorSuggestion(prev, event);
     },
 
     // Runs before native Delete, printable replacement, Cut, Paste, and Ctrl/Meta+Backspace.
@@ -846,6 +887,24 @@ function readNavigationEventType(event: Event): string | null {
   }
 
   return typeof event.navigationType === "string" ? event.navigationType : null;
+}
+
+function restoreBrowserEntryIfShowingUnappliedSuggestionPreview(state: RouteEditorState) {
+  if (
+    state.kind !== "focused" ||
+    state.focusMode !== "suggestion" ||
+    state.hoverPath.expectedRouteAddress === state.expectedRouteAddress
+  ) {
+    return;
+  }
+
+  if (
+    readRouteAddressFromRouteHref(window.location.href) !== state.hoverPath.expectedRouteAddress
+  ) {
+    return;
+  }
+
+  window.history.replaceState(window.history.state, "", state.expectedRouteAddress);
 }
 
 /**
@@ -995,10 +1054,10 @@ Example: typing `/logo` pushes `/logo`; TanStack reports `/logo`; the event matc
   /**
 Turns outside page scroll into the same state transition as clicking outside.
 
-FSM part: `clickedOutside` already defines what blur means for editing and suggestion previews.
+FSM part: `lostEditorFocus` already defines what blur means for editing and suggestion previews.
 
 Effect part: wheel/touch scroll outside the editor does not reliably move DOM focus, especially on
-mobile. Calling `blur()` lets the normal root `onBlur` handler send `clickedOutside`.
+mobile. Calling `blur()` lets the normal root `onBlur` handler send `lostEditorFocus`.
 
 Example: input shows local draft `/logo?leftFace=s`, browser route is still `/logo`, and the user
 scrolls the page underneath. The input blurs, suggestions close, and the blurred display reads the
@@ -1043,7 +1102,6 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
 `expectedRouteAddress` (`/logo`), so Forward does not return to an unapplied suggestion.
   */
   useEffect(() => {
-    const navigation = window.navigation;
     const currentEntryIsUnappliedSuggestionPreview =
       state.kind === "focused" &&
       state.focusMode === "suggestion" &&
@@ -1053,22 +1111,20 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
       return;
     }
 
-    const restorePreviewEntryBeforeHistoryTraversal = (event: Event) => {
-      if (
-        readNavigationEventType(event) === "traverse" &&
-        readRouteAddressFromRouteHref(window.location.href) === state.hoverPath.expectedRouteAddress
-      ) {
-        // `hoverPath.expectedRouteAddress` is visible only until the row is applied. If the user
-        // traverses history while that preview owns the current entry, put the entry back to
-        // `expectedRouteAddress` first so Forward does not later return to an unapplied row.
-        window.history.replaceState(window.history.state, "", state.expectedRouteAddress);
+    const restorePreviewEntryBeforeBrowserLeavesIt = (event: Event) => {
+      if (readNavigationEventType(event) === "traverse") {
+        // `hoverPath.expectedRouteAddress` is visible only until the row is applied. If Back or
+        // Forward happens while that preview owns the current entry, put the entry back to
+        // `expectedRouteAddress` first.
+        restoreBrowserEntryIfShowingUnappliedSuggestionPreview(state);
       }
     };
 
-    navigation.addEventListener("navigate", restorePreviewEntryBeforeHistoryTraversal);
+    const navigation = readRouteEditorNavigationApi();
+    navigation?.addEventListener("navigate", restorePreviewEntryBeforeBrowserLeavesIt);
 
     return () => {
-      navigation.removeEventListener("navigate", restorePreviewEntryBeforeHistoryTraversal);
+      navigation?.removeEventListener("navigate", restorePreviewEntryBeforeBrowserLeavesIt);
     };
   }, [state]);
 
@@ -1099,6 +1155,19 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
     },
     [router],
   );
+
+  /**
+Refresh reloads the browser page, so React cannot wait for a normal blur event to restore preview
+state first.
+
+Example: `draftPath` is `/terms?top=red-`, ArrowDown previews `/privacy?top=red-`, and the user
+clicks Refresh. Replace the current browser entry back to `expectedRouteAddress` (`/terms`) before
+reload, so an unapplied suggestion preview does not become durable.
+*/
+  const refreshPage = useCallback(() => {
+    restoreBrowserEntryIfShowingUnappliedSuggestionPreview(state);
+    window.location.reload();
+  }, [state]);
 
   const readRouteAddressReadinessForRoute = useCallback(
     (args: { currentRouteAddress: string; draftRouteAddress: string }) =>
@@ -1182,10 +1251,10 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
         return;
       }
 
-      // clickedOutside is root blur, not a pointer event; suggestion clicks keep focus inside the
+      // Root blur is not a pointer event; suggestion clicks keep focus inside the
       // editor by preventing native mousedown blur.
       sendEvent({
-        type: "clickedOutside",
+        type: "lostEditorFocus",
         context: {
           replaceRoute,
         },
@@ -1390,7 +1459,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
     ],
   );
 
-  const suggestionsVisible = state.kind === "focused";
+  const suggestionsVisible = state.kind === "focused" && suggestions.length > 0;
   const activeSuggestionIndex =
     state.kind === "focused" && state.focusMode === "suggestion"
       ? state.hoverPath.suggestionIndex
@@ -1409,29 +1478,20 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
   const handleInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        const nextActiveSuggestion = readNextActiveRouteEditorSuggestion({
-          activeSuggestionIndex: activeSuggestion?.index ?? null,
-          arrowKey: event.key,
-          listboxId,
-          suggestions,
-        });
-
-        if (!nextActiveSuggestion) {
+        if (suggestions.length === 0) {
           return;
         }
 
         event.preventDefault();
 
         sendEvent({
-          type: "previewedSuggestion",
+          type: "pressedSuggestionArrow",
+          arrowKey: event.key,
           context: {
             readRouteAddressReadiness: readRouteAddressReadinessForRoute,
             replaceRoute,
           },
-          previewSelectionRouteIndex: nextActiveSuggestion.suggestion.previewSelectionRouteIndex,
-          routeAddress: nextActiveSuggestion.suggestion.previewRouteAddress,
-          source: "keyboard",
-          suggestionIndex: nextActiveSuggestion.index,
+          suggestions,
         });
         return;
       }
@@ -1515,7 +1575,6 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
     [
       activeSuggestion,
       clampSelectionToRouteText,
-      listboxId,
       prefix.length,
       pushRoute,
       readRouteAddressReadinessForRoute,
@@ -1643,6 +1702,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       inputProps,
       listboxProps,
       previewTouchSuggestion,
+      refreshPage,
       rootProps,
       selectSuggestion,
       state,
@@ -1656,6 +1716,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       inputProps,
       listboxProps,
       previewTouchSuggestion,
+      refreshPage,
       rootProps,
       selectSuggestion,
       state,

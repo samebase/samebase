@@ -162,10 +162,18 @@ If `focusMode` is `"suggestion"`, Escape restores `expectedRouteAddress`; it doe
 `hoverPath.draftPath`.
 
 For pointer/keyboard/touch-scroll `hoverPath`, blur/click outside restores `expectedRouteAddress`.
+The app Refresh button restores before reload because that button is part of the editor chrome.
+Browser hard reload loads the currently visible browser URL; it does not have a separate editor
+recovery path.
 
 If `focusMode` is `"editing"`, blur keeps the latest route-ready draft already applied as
 `expectedRouteAddress`. If the focused draft is incomplete or invalid, the visible input normalizes
 back to `expectedRouteAddress`.
+
+If TanStack reports a committed route that matches neither `expectedRouteAddress` nor
+`hoverPath.expectedRouteAddress`, the route changed outside this editor session. The editor blurs
+and the blurred display reads the TanStack route. We do not merge that external route into the
+focused draft.
 
 Mobile touch scroll creates `hoverPath` with source `"touch"`, but blur/click outside restores
 `expectedRouteAddress`. Scroll movement previews a row; row tap is the commit.
@@ -204,7 +212,6 @@ type RouteEditorState =
         suggestionIndex: number;
         draftPath: string;
         expectedRouteAddress: string;
-        selection: RouteAddressSelection;
       };
       prefix: string;
       selection: RouteAddressSelection;

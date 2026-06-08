@@ -63,10 +63,8 @@ export function ensureWindowStorageAccess(storageKey: "localStorage" | "sessionS
   }
 
   try {
-    const storage: unknown = Reflect.get(window, storageKey);
-    if (storage) {
-      return;
-    }
+    window[storageKey].getItem("__noter-storage-access-check__");
+    return;
   } catch {
     // Some embedded browsers block storage through a throwing getter; install the same fallback.
   }

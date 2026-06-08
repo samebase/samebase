@@ -6,8 +6,17 @@ type NavigationControlsSnapshot = {
   canGoForward: boolean;
 };
 
+export function readRouteEditorNavigationApi(): Navigation | null {
+  if (typeof window === "undefined" || !("navigation" in window)) {
+    return null;
+  }
+
+  return window.navigation;
+}
+
 function readNavigationControlsSnapshot(): NavigationControlsSnapshot {
-  if (typeof window === "undefined") {
+  const navigation = readRouteEditorNavigationApi();
+  if (!navigation) {
     return {
       canGoBack: false,
       canGoForward: false,
@@ -15,8 +24,8 @@ function readNavigationControlsSnapshot(): NavigationControlsSnapshot {
   }
 
   return {
-    canGoBack: window.navigation.canGoBack,
-    canGoForward: window.navigation.canGoForward,
+    canGoBack: navigation.canGoBack,
+    canGoForward: navigation.canGoForward,
   };
 }
 
@@ -28,20 +37,25 @@ export function useNavigationControls() {
   });
 
   useEffect(() => {
+    const navigation = readRouteEditorNavigationApi();
+    if (!navigation) {
+      return;
+    }
+
     const updateSnapshot = () => {
       setSnapshot(readNavigationControlsSnapshot());
     };
 
     updateSnapshot();
 
-    window.navigation.addEventListener("currententrychange", updateSnapshot);
-    window.navigation.addEventListener("entrieschange", updateSnapshot);
-    window.navigation.addEventListener("navigatesuccess", updateSnapshot);
+    navigation.addEventListener("currententrychange", updateSnapshot);
+    navigation.addEventListener("entrieschange", updateSnapshot);
+    navigation.addEventListener("navigatesuccess", updateSnapshot);
 
     return () => {
-      window.navigation.removeEventListener("currententrychange", updateSnapshot);
-      window.navigation.removeEventListener("entrieschange", updateSnapshot);
-      window.navigation.removeEventListener("navigatesuccess", updateSnapshot);
+      navigation.removeEventListener("currententrychange", updateSnapshot);
+      navigation.removeEventListener("entrieschange", updateSnapshot);
+      navigation.removeEventListener("navigatesuccess", updateSnapshot);
     };
   }, [location.href]);
 
