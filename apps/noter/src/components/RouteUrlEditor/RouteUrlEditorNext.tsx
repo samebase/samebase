@@ -41,6 +41,29 @@ const routeUrlEditorNextTouchScrollSlateClassName =
 const routeUrlEditorNextTouchScrollApplyButtonClassName =
   "pointer-events-auto absolute right-1 top-1/2 h-6 -translate-y-1/2 bg-background px-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-foreground/20";
 
+function isRouteUrlEditorNextNoterMdPrefix(prefix: string): boolean {
+  const prefixUrl = new URL(prefix);
+  return prefixUrl.hostname === "noter.md" && prefixUrl.pathname === "/";
+}
+
+function readRouteUrlEditorNextHiddenPrefixTextIndent(prefix: string): string {
+  return `-${prefix.length - 1}ch`;
+}
+
+/**
+noter.md is the SSG public host. For the blurred first paint, render the route
+text directly so `/` does not depend on origin-hiding text-indent matching the
+build or request origin. Focused editing still keeps the full URL value because
+the locked-prefix keyboard behavior reads that value.
+*/
+function readRouteUrlEditorNextDisplayValue(args: { prefix: string; value: string }): string {
+  if (!isRouteUrlEditorNextNoterMdPrefix(args.prefix) || !args.value.startsWith(args.prefix)) {
+    return args.value;
+  }
+
+  return `/${args.value.slice(args.prefix.length)}`;
+}
+
 function renderRouteUrlEditorNextSuggestionValue(suggestion: {
   sampleValueStart?: number;
   value: string;
@@ -74,6 +97,14 @@ export function RouteUrlEditorNext() {
     touchScrollPicker.active && vm.state.kind === "focused" && vm.state.focusMode === "suggestion"
       ? (vm.suggestions[vm.state.hoverPath.suggestionIndex] ?? null)
       : null;
+  const hiddenPrefixTextIndent = readRouteUrlEditorNextHiddenPrefixTextIndent(vm.state.prefix);
+  const displayInputValue = readRouteUrlEditorNextDisplayValue({
+    prefix: vm.state.prefix,
+    value: vm.displayInputProps.value,
+  });
+  const displayInputStyle = isRouteUrlEditorNextNoterMdPrefix(vm.state.prefix)
+    ? undefined
+    : { textIndent: hiddenPrefixTextIndent };
 
   useEffect(() => {
     if (editingDraftPath === null) {
@@ -145,7 +176,7 @@ export function RouteUrlEditorNext() {
           data-testid="route-url-editor-input"
           inputMode="url"
           spellCheck={false}
-          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
+          style={{ textIndent: hiddenPrefixTextIndent }}
         />
       ) : (
         <input
@@ -154,7 +185,8 @@ export function RouteUrlEditorNext() {
           data-testid="route-url-editor-display"
           inputMode="url"
           spellCheck={false}
-          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
+          style={displayInputStyle}
+          value={displayInputValue}
         />
       )}
       {vm.suggestionsVisible ? (

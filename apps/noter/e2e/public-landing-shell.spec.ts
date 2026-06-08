@@ -1709,6 +1709,30 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 });
 
 test.describe("production public host landing", () => {
+  test("renders the root route directly in the URL editor", async ({ page }) => {
+    const response = await page.goto(buildProductionPublicLandingUrl(""), {
+      waitUntil: "domcontentloaded",
+    });
+    if (response === null) {
+      throw new Error("Expected production host landing response.");
+    }
+
+    const html = await response.text();
+    const routeEditorDisplayTag = html.match(
+      /<input[^>]*data-testid="route-url-editor-display"[^>]*>/,
+    )?.[0];
+    if (!routeEditorDisplayTag) {
+      throw new Error("Expected route URL editor display in production host HTML.");
+    }
+
+    expect(routeEditorDisplayTag).toContain('value="/"');
+    expect(routeEditorDisplayTag).not.toContain("text-indent");
+
+    const displayInput = page.getByTestId("route-url-editor-display");
+    await expect(displayInput).toHaveValue("/");
+    await expect(displayInput).toHaveCSS("text-indent", "0px");
+  });
+
   test("keeps the logo draggable after the SVG fallback is removed", async ({ page }) => {
     await page.goto(buildProductionPublicLandingUrl(""), {
       waitUntil: "domcontentloaded",
