@@ -6,7 +6,10 @@
 - Owner: Noter frontend/app shell
 - Last updated: 2026-05-27
 - Depends on:
-  - `apps/noter/src/components/RouteUrlEditor.tsx`
+  - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
+  - `apps/noter/src/components/RouteUrlEditor/useRouteEditorVm.ts`
+  - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorSuggestions.ts`
+  - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.tsx`
   - `apps/noter/src/lib/routeUrlEditorSuggestions.ts`
   - `apps/noter/src/lib/routeSearchParamMetadata.ts`
   - `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`
@@ -25,21 +28,20 @@ grammar: whether selecting a rendered row commits a URL fragment or opens the ne
 
 1. Key-only presence params commit on selection. Selecting `?dark` or `&dark` applies that param and
    then opens the next search-param slot when more suggestions are available.
-2. Value-bearing param rows show a sample value as a hint when route metadata provides one.
-   Selecting `?border=stone-300` from the search-param dropdown applies `?border=` and opens value
-   suggestions instead of committing `stone-300`.
-3. Sample text must be visually distinct from the committed prefix. In `border=stone-300`, `border=`
-   is the committed action and `stone-300` is sample text.
+2. Value-bearing param rows show a sample value when route metadata provides one. Selecting
+   `?border=stone-300` from the search-param dropdown applies `?border=stone-300`, then places the
+   cursor after `border=` so value suggestions stay visible.
+3. Sample text must be visually distinct from the editing boundary. In `border=stone-300`, `border=`
+   is where the cursor lands and `stone-300` is the seeded value.
 4. Params whose concrete values trigger one-shot runtime effects, such as `auth=google`, must use
    the manual value type. The key row may still offer `?auth=`, but the editor must not recommend or
    preview the concrete value.
 5. Value suggestions can also contain a sample suffix. For Tailwind color families, a row such as
-   `red-500` means selecting the `red-` family, with `500` shown only as the representative sample.
-   Selection keeps the editor in value-picking mode so the user can choose the final shade from
-   explicit options such as `50`, `100`, `500`, and `900`.
-6. Only explicit final value choices commit a value-bearing param. Sample values are allowed to
-   preview route behavior while focused or hovered, but click/Enter selection must not silently
-   finalize the sample when the user is still choosing the value.
+   `red-500` seeds `red-500`, then places the cursor after `red-` so the user can choose the final
+   shade from explicit options such as `50`, `100`, `500`, and `900`.
+6. Selecting a suggestion commits the visible suggestion text, then places the cursor at the next
+   meaningful editing boundary. Presence params move after `&`, value-param key rows move after `=`,
+   color families move after `-`, and final concrete values move after the value.
 7. `?` and `&` are URL-editor grammar, not route-param metadata. The editor decides the correct
    delimiter from the active URL token and must keep follow-up params inside the query string.
 
@@ -56,12 +58,12 @@ it from existing param shape:
 - `valueType: "numeric-options"` has a sample value, numeric default, and explicit values.
 - `valueType: "options"` has a sample value and explicit values.
 - `valueType: "completion"` has a sample value, explicit values, and a completion system.
-- color-token value completion can show family samples, but family selection keeps the value
-  unfinished until the user picks a concrete shade.
+- color-token value completion can show family samples, and family selection keeps the cursor in the
+  shade slot until the user picks a concrete shade.
 
-The component should avoid treating rendered suggestion labels as patch instructions. Helpers in
-`routeUrlEditorSuggestions.ts` should normalize displayed examples into explicit editor transitions
-so hover, keyboard, mouse, and touch paths share the same behavior.
+The component should avoid treating rendered suggestion labels as patch instructions. Suggestion
+helpers should normalize displayed examples into explicit editor transitions so hover, keyboard,
+mouse, and touch paths share the same behavior.
 
 Numeric route schemas should normalize accepted values through the same functions used by shipped
 controls. Numeric metadata exists for URL-editor examples only, so bounds and steps must be declared

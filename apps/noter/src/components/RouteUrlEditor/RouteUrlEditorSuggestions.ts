@@ -24,7 +24,9 @@ after `/` for paths, after `?` or `&` for query keys, after `=` for values, and 
 for Tailwind shades.
 
 `selectedRouteAddress` is used after click, tap, or Enter.
-`nextSelectionRouteIndex` moves the cursor to the next editing slot after that commit.
+`nextSelectionRouteIndex` moves the cursor to the next editing slot after that commit. A row such
+as `?depth=2` can select `/logo?depth=2` while placing the cursor after `depth=` so value rows stay
+visible.
 */
 export type Suggestion = {
   kind: "path" | "search" | "searchValuePrefix" | "searchValue";
@@ -477,9 +479,9 @@ function readSearchParamSampleValue(
 Turns route metadata into query-key dropdown rows.
 
 Example: in `/logo?dark&depth=2&top=blue-200`, a cursor inside `depth` shows
-all query-key rows. The `&border=stone-300` row previews
-`/logo?dark&border=stone-300&top=blue-200`, but selecting it uses
-`/logo?dark&border=&top=blue-200` so the user can still choose the value.
+all query-key rows. The `&border=stone-300` row selects
+`/logo?dark&border=stone-300&top=blue-200`, but places the cursor after `border=` so the user can
+still choose a different value.
 */
 function readSearchRows(args: {
   routeAddress: string;
@@ -512,7 +514,8 @@ function readSearchRows(args: {
     const previewTokenText =
       typeof sampleValue === "string" ? `${selectedTokenText}${sampleValue}` : selectedTokenText;
     const previewValue = `${tokenDelimiter}${previewTokenText}`;
-    const selectedSearchTokenText = selectedTokenText;
+    const selectedSearchTokenText =
+      typeof sampleValue === "string" ? previewTokenText : selectedTokenText;
     const selectedRoute = replaceSearchToken({
       replacementKey: searchParamSuggestion.key,
       replacementTokenText: selectedSearchTokenText,
@@ -542,7 +545,7 @@ function readSearchRows(args: {
       kind: "search",
       nextSelectionRouteIndex: shouldPromptForNextKey
         ? finalSelectedRouteAddress.length
-        : selectedRoute.replacementTokenStart + 1 + selectedSearchTokenText.length,
+        : selectedRoute.replacementTokenStart + 1 + selectedTokenText.length,
       previewRouteAddress: finalPreviewRouteAddress,
       previewSelectionRouteIndex: previewRoute.replacementTokenStart + 1,
       sampleValueStart: typeof sampleValue === "string" ? selectedValue.length : undefined,
@@ -558,8 +561,8 @@ function readSearchRows(args: {
 Turns a value token into concrete value rows.
 
 Example: `/logo?top=blue-200` with the cursor before `-` shows color-family
-rows such as `red-500`. Hover previews `/logo?top=red-500`, but selecting it
-uses `/logo?top=red-` so the user can still choose the shade.
+rows such as `red-500`. Selecting it uses `/logo?top=red-500`, but places the
+cursor after `red-` so the user can still choose the shade.
 
 Example: `/logo?top=blue-200` with the cursor after `-` shows shade rows for
 the `blue` family. Selecting `500` uses `/logo?top=blue-500`.
@@ -646,7 +649,7 @@ function readValueRows(args: {
           previewRouteAddress: `${routeAddressBeforeValue}${sampleValue}${routeAddressAfterValue}`,
           previewSelectionRouteIndex: routeAddressBeforeValue.length,
           sampleValueStart: value.length,
-          selectedRouteAddress: `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`,
+          selectedRouteAddress: `${routeAddressBeforeValue}${sampleValue}${routeAddressAfterValue}`,
           value: sampleValue,
         };
       },

@@ -307,7 +307,7 @@ test.describe("route URL editor touch scroll picker", () => {
       topSuggestionBox.y + topSuggestionBox.height / 2,
     );
 
-    await expect(input).toHaveValue(`${prefix}logo?top=`);
+    await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
     await expectInputSelection(input, `${prefix}logo?top=`.length);
     await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
   });
@@ -325,7 +325,7 @@ test.describe("route URL editor touch scroll picker", () => {
 
     await applyButton.click();
 
-    await expect(input).toHaveValue(`${prefix}logo?top=`);
+    await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
     await expectInputSelection(input, `${prefix}logo?top=`.length);
     await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
   });
@@ -352,9 +352,10 @@ test.describe("route URL editor touch scroll picker", () => {
       zoomSuggestionBox.y + zoomSuggestionBox.height / 2,
     );
 
-    await expect(input).toHaveValue(`${prefix}logo?zoom=`);
+    await expect(input).toHaveValue(`${prefix}logo?zoom=0.5`);
     await expectInputSelection(input, `${prefix}logo?zoom=`.length);
-    await expect(page).toHaveURL(/\/logo$/);
+    await expect(page).toHaveURL(/\/logo\?zoom=0\.5$/);
+    await expect(page.getByRole("option", { exact: true, name: "0.1" })).toBeVisible();
   });
 
   test("touch scroll keeps suggestions open when preview canonicalizes the route", async ({
@@ -615,15 +616,17 @@ test("route URL editor keeps focus and advances the cursor after selecting sugge
   await page.getByRole("option", { exact: true, name: "?top=sky-500" }).click();
 
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${prefix}logo?top=`);
+  await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
   await expectInputSelection(input, `${prefix}logo?top=`.length);
+  await expect(page).toHaveURL(/\/logo\?top=sky-500$/);
   await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
 
   await page.getByRole("option", { exact: true, name: "blue-500" }).click();
 
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${prefix}logo?top=blue-`);
+  await expect(input).toHaveValue(`${prefix}logo?top=blue-500`);
   await expectInputSelection(input, `${prefix}logo?top=blue-`.length);
+  await expect(page).toHaveURL(/\/logo\?top=blue-500$/);
   await expect(page.getByRole("option", { exact: true, name: "200" })).toBeVisible();
 
   await page.getByRole("option", { exact: true, name: "200" }).click();
@@ -659,7 +662,7 @@ test("route URL editor puts the cursor in the selected value slot for middle que
   await topOption.click();
 
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${prefix}logo?dark&top=&secondary=rose-500&`);
+  await expect(input).toHaveValue(`${prefix}logo?dark&top=sky-500&secondary=rose-500&`);
   await expectInputSelection(input, `${prefix}logo?dark&top=`.length);
   await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
 });
@@ -683,7 +686,7 @@ test("route URL editor hides already-present query keys while replacing another 
   await expect(page.getByRole("option", { exact: true, name: "?border=stone-300" })).toBeVisible();
 });
 
-test("route URL editor keeps numeric query samples preview-only on selection", async ({ page }) => {
+test("route URL editor keeps numeric query samples editable after selection", async ({ page }) => {
   const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
 
   await input.press("End");
@@ -699,9 +702,10 @@ test("route URL editor keeps numeric query samples preview-only on selection", a
   await depthOption.click();
 
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${prefix}logo?depth=`);
+  await expect(input).toHaveValue(`${prefix}logo?depth=2`);
   await expectInputSelection(input, `${prefix}logo?depth=`.length);
-  await expect(page).toHaveURL(/\/logo$/);
+  await expect(page).toHaveURL(/\/logo\?depth=2$/);
+  await expect(page.getByRole("option", { exact: true, name: "1" })).toBeVisible();
 });
 
 test("route URL editor applies hover path suggestions and restores on mouseleave", async ({
@@ -899,7 +903,7 @@ test("route URL editor commits active keyboard suggestions with Enter", async ({
   await expectPrivacyPage(page);
 });
 
-test("route URL editor keyboard suggestions separate preview text from selected text", async ({
+test("route URL editor keyboard suggestions keep sample text editable after Enter", async ({
   page,
 }) => {
   const { input, prefix } = await focusRouteAddressInput(page, "/logo");
@@ -914,9 +918,9 @@ test("route URL editor keyboard suggestions separate preview text from selected 
   await input.press("Enter");
 
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${prefix}logo?top=`);
+  await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
   await expectInputSelection(input, `${prefix}logo?top=`.length);
-  await expect(page).toHaveURL(/\/logo$/);
+  await expect(page).toHaveURL(/\/logo\?top=sky-500$/);
   await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
 
   await pressArrowDownToSuggestion(page, input, "blue-500");
@@ -927,9 +931,9 @@ test("route URL editor keyboard suggestions separate preview text from selected 
 
   await input.press("Enter");
 
-  await expect(input).toHaveValue(`${prefix}logo?top=blue-`);
+  await expect(input).toHaveValue(`${prefix}logo?top=blue-500`);
   await expectInputSelection(input, `${prefix}logo?top=blue-`.length);
-  await expect(page).toHaveURL(/\/logo$/);
+  await expect(page).toHaveURL(/\/logo\?top=blue-500$/);
   await expect(page.getByRole("option", { exact: true, name: "200" })).toBeVisible();
 });
 
