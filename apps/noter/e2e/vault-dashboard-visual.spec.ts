@@ -1,4 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
+import { PNG } from "pngjs";
 import { APP_BUILD_STATUS_BAR_TEST_ID } from "../src/lib/appBuild";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
@@ -14,6 +15,13 @@ const VAULT_DASHBOARD_VISUAL_SIDEBAR_STATE = {
   rightDesktopWidthPx: 288,
   rightMobileWidthPx: 288,
 } satisfies WorkspaceSidebarState;
+
+type RgbaPixel = {
+  alpha: number;
+  blue: number;
+  green: number;
+  red: number;
+};
 
 async function expectInlinePadding(locator: Locator, expectedPx: string) {
   await expect(locator).toHaveCSS("padding-left", expectedPx);
@@ -35,6 +43,67 @@ async function seedAppWorkspaceSidebarState(page: Page, state: WorkspaceSidebarS
       version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
     },
   );
+}
+
+function readPngPixel(png: PNG, x: number, y: number): RgbaPixel {
+  const clampedX = Math.max(0, Math.min(png.width - 1, x));
+  const clampedY = Math.max(0, Math.min(png.height - 1, y));
+  const index = (clampedY * png.width + clampedX) * 4;
+
+  return {
+    red: png.data[index] ?? 0,
+    green: png.data[index + 1] ?? 0,
+    blue: png.data[index + 2] ?? 0,
+    alpha: png.data[index + 3] ?? 0,
+  };
+}
+
+async function readVaultDashboardRightSidebarSeparatorPaint(page: Page): Promise<{
+  referencePixel: RgbaPixel;
+  samplePixels: RgbaPixel[];
+}> {
+  const geometry = await page.evaluate(() => {
+    const mainPane = document.querySelector("[data-workspace-layout-v2-mobile-main-pane] > div");
+    const stickyHeader = document.querySelector(
+      '[data-testid="vault-dashboard-repository-header"]',
+    );
+
+    if (!(mainPane instanceof HTMLElement)) {
+      throw new Error("Expected mobile dashboard main pane.");
+    }
+    if (!(stickyHeader instanceof HTMLElement)) {
+      throw new Error("Expected mobile dashboard sticky header.");
+    }
+
+    const mainPaneRect = mainPane.getBoundingClientRect();
+    const stickyHeaderRect = stickyHeader.getBoundingClientRect();
+    const referenceY = Math.max(0, Math.round(stickyHeaderRect.top) - 1);
+    const midHeaderY = Math.round(stickyHeaderRect.top + stickyHeaderRect.height / 2);
+
+    return {
+      referenceY,
+      sampleYs: [
+        Math.round(stickyHeaderRect.top),
+        Math.round(stickyHeaderRect.top) + 8,
+        midHeaderY,
+        Math.round(stickyHeaderRect.bottom) - 1,
+      ],
+      separatorX: Math.round(mainPaneRect.right) - 1,
+    };
+  });
+  const screenshot = await page.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+  const png = PNG.sync.read(screenshot);
+
+  return {
+    referencePixel: readPngPixel(png, geometry.separatorX, geometry.referenceY),
+    samplePixels: geometry.sampleYs.map((sampleY) =>
+      readPngPixel(png, geometry.separatorX, sampleY),
+    ),
+  };
 }
 
 async function expectElementsDoNotOverlap(first: Locator, second: Locator) {
@@ -707,6 +776,37 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
       name: "codex/dashboard-main-pane-spacing",
     }),
   ).toBeVisible();
+});
+
+test("vault dashboard mobile right sidebar keeps pane separator above sticky headers", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await seedAppWorkspaceSidebarState(page, {
+    ...VAULT_DASHBOARD_VISUAL_SIDEBAR_STATE,
+    mobilePane: "right",
+  });
+  await page.goto("/visual-fixture?mode=vault-dashboard-list-spacing", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+    "data-mobile-pane",
+    "right",
+  );
+  await expect
+    .poll(() =>
+      page
+        .locator("[data-workspace-layout-v2-mobile-main-pane] > div")
+        .evaluate((mainPane) => getComputedStyle(mainPane, "::after").width),
+    )
+    .toBe("1px");
+
+  const separatorPaint = await readVaultDashboardRightSidebarSeparatorPaint(page);
+  for (const samplePixel of separatorPaint.samplePixels) {
+    expect(samplePixel).toEqual(separatorPaint.referencePixel);
+  }
 });
 
 test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
