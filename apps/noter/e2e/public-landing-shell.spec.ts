@@ -22,6 +22,7 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
+import { PRODUCTION_PUBLIC_HOSTNAME, PRODUCTION_PUBLIC_ORIGIN } from "../src/lib/prodUiMode";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/lib/routeSearchFlags";
 
 // These budgets target the local production preview used in CI.
@@ -33,11 +34,7 @@ const NAVIGATION_BUDGET_MS = {
   load: 500,
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
-const PRODUCTION_PUBLIC_HOSTNAME = "noter.md";
-const PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_PREFIX = "https://noter.md/";
-const PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_TEXT_INDENT = `-${
-  PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_PREFIX.length - 1
-}ch`;
+const PRODUCTION_PUBLIC_ROUTE_URL_EDITOR_TEXT_INDENT = `-${PRODUCTION_PUBLIC_ORIGIN.length}ch`;
 const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/home", "/terms", "/privacy"] as const;
 const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
   LANDING_DEV_MODE_QUERY_PARAM,

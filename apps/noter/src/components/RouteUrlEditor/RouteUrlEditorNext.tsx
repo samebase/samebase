@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
-import { isProductionPublicHostname } from "@/lib/prodUiMode";
+import { PRODUCTION_PUBLIC_ORIGIN, isProductionPublicHostname } from "@/lib/prodUiMode";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
 import {
@@ -42,10 +42,7 @@ const routeUrlEditorNextTouchScrollSlateClassName =
 const routeUrlEditorNextTouchScrollApplyButtonClassName =
   "pointer-events-auto absolute right-1 top-1/2 h-6 -translate-y-1/2 bg-background px-2 text-xs font-medium text-foreground shadow-sm ring-1 ring-foreground/20";
 
-const productionPublicRouteUrlEditorPrefix = "https://noter.md/";
-const productionPublicHiddenPrefixTextIndent = `-${
-  productionPublicRouteUrlEditorPrefix.length - 1
-}ch`;
+const productionPublicHiddenPrefixTextIndent = `-${PRODUCTION_PUBLIC_ORIGIN.length}ch`;
 
 function renderRouteUrlEditorNextSuggestionValue(suggestion: {
   sampleValueStart?: number;
