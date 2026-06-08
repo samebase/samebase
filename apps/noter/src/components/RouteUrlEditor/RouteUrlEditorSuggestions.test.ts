@@ -462,4 +462,54 @@ describe("readSuggestions", () => {
       value: "screen-vertical",
     });
   });
+
+  it("shows numeric value rows from metadata range after selecting the key", () => {
+    const rows = readRows({
+      routeAddress: "/logo?depth=",
+      routeTextBeforeCursor: "/logo?depth=",
+    });
+
+    expect(rows.map((row) => row.value)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(rows).toContainEqual({
+      kind: "searchValue",
+      nextSelectionRouteIndex: "/logo?depth=5&".length,
+      previewRouteAddress: "/logo?depth=5",
+      previewSelectionRouteIndex: "/logo?depth=".length,
+      selectedRouteAddress: "/logo?depth=5&",
+      value: "5",
+    });
+  });
+
+  it("shows distance value rows from metadata range", () => {
+    const rows = readRows({
+      routeAddress: "/logo?dist=",
+      routeTextBeforeCursor: "/logo?dist=",
+    });
+
+    expect(rows.map((row) => row.value)).toEqual(["1", "1.2", "1.4", "1.6", "1.8", "2"]);
+    expect(rows).toContainEqual({
+      kind: "searchValue",
+      nextSelectionRouteIndex: "/logo?dist=1.4&".length,
+      previewRouteAddress: "/logo?dist=1.4",
+      previewSelectionRouteIndex: "/logo?dist=".length,
+      selectedRouteAddress: "/logo?dist=1.4&",
+      value: "1.4",
+    });
+  });
+
+  it("shows sample value rows for metadata freeform params after selecting the key", () => {
+    const rows = readRows({
+      routeAddress: "/visual-fixture?mode=",
+      routeTextBeforeCursor: "/visual-fixture?mode=",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "searchValue",
+      nextSelectionRouteIndex: "/visual-fixture?mode=route-url-editor&".length,
+      previewRouteAddress: "/visual-fixture?mode=route-url-editor",
+      previewSelectionRouteIndex: "/visual-fixture?mode=".length,
+      selectedRouteAddress: "/visual-fixture?mode=route-url-editor&",
+      value: "route-url-editor",
+    });
+  });
 });

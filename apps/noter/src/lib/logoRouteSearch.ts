@@ -189,6 +189,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
       permission: "public",
       sampleValue: `${DEFAULT_LOGO_FRACTAL_DEPTH + 1}`,
       suggestion: "route",
+      valueSuggestions: null,
       valueType: "numeric",
     },
   ),
@@ -202,6 +203,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     permission: "public",
     sampleValue: `${LOGO_DISTANCE_SCALE.defaultValue + 1}`,
     suggestion: "route",
+    valueSuggestions: ["1", "1.2", "1.4", "1.6", "1.8", "2"],
     valueType: "numeric",
   }),
   elev: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeElevationDegrees), {
@@ -215,6 +217,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     permission: "public",
     sampleValue: `${DEFAULT_ELEVATION_DEGREES + 1}`,
     suggestion: "route",
+    valueSuggestions: null,
     valueType: "numeric",
   }),
   freeView: routeSearchPresenceParam({
@@ -244,6 +247,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
         LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue + LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
       )}`,
       suggestion: "route",
+      valueSuggestions: null,
       valueType: "numeric",
     },
   ),
@@ -274,6 +278,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     permission: "public",
     sampleValue: `${DEFAULT_ROTATION_DEGREES + 1}`,
     suggestion: "route",
+    valueSuggestions: null,
     valueType: "numeric",
   }),
   secondary: appThemeColorSearchFieldSchema.shape.secondary,
@@ -292,6 +297,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
         LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue + 1,
       )}`,
       suggestion: "route",
+      valueSuggestions: null,
       valueType: "numeric",
     },
   ),
@@ -315,6 +321,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
       permission: "public",
       sampleValue: `${normalizeLogoLeftFaceStripeGap(LOGO_LEFT_FACE_STRIPE.gap.defaultValue + 1)}`,
       suggestion: "route",
+      valueSuggestions: null,
       valueType: "numeric",
     },
   ),
@@ -335,6 +342,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
       permission: "public",
       sampleValue: `${normalizeLogoLeftFaceStripeOffset(LOGO_LEFT_FACE_STRIPE.offset.defaultValue + 1)}`,
       suggestion: "route",
+      valueSuggestions: null,
       valueType: "numeric",
     },
   ),
@@ -351,6 +359,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
       permission: "public",
       sampleValue: `${normalizeLogoLeftFaceStripeWidth(LOGO_LEFT_FACE_STRIPE.width.defaultValue + 1)}`,
       suggestion: "route",
+      valueSuggestions: null,
       valueType: "numeric",
     },
   ),
@@ -373,6 +382,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     permission: "public",
     sampleValue: "0.5",
     suggestion: "route",
+    valueSuggestions: null,
     valueType: "numeric",
   }),
 });
@@ -448,6 +458,18 @@ const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
 );
 
+function readLogoDepthValueSuggestions(depthMax: number): NoterRouteSearchParamValueSuggestions {
+  if (depthMax <= 3) {
+    return ["1", "2", "3"];
+  }
+
+  if (depthMax <= 5) {
+    return ["1", "2", "3", "4", "5"];
+  }
+
+  return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+}
+
 function readLogoRouteSearchParamSuggestionsWithDepthMax(
   depthMax: number,
 ): readonly NoterRouteSearchParamSuggestion[] {
@@ -471,6 +493,7 @@ function readLogoRouteSearchParamSuggestionsWithDepthMax(
         ...suggestion,
         numericRange: depthNumericRange,
         sampleValue: `${Math.min(DEFAULT_LOGO_FRACTAL_DEPTH + 1, depthMax)}`,
+        valueSuggestions: readLogoDepthValueSuggestions(depthMax),
       };
     },
   );

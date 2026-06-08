@@ -473,26 +473,6 @@ function readSearchParamSampleValue(
   }
 }
 
-type SearchParamSuggestionWithValueRows = Extract<
-  NoterRouteSearchParamValueSuggestion,
-  { valueType: "completion" | "numeric-options" | "options" }
->;
-
-function canShowSearchParamValueRows(
-  searchParamSuggestion: NoterRouteSearchParamValueSuggestion,
-): searchParamSuggestion is SearchParamSuggestionWithValueRows {
-  switch (searchParamSuggestion.valueType) {
-    case "completion":
-    case "numeric-options":
-    case "options":
-      return searchParamSuggestion.valueSuggestions.length > 0;
-    case "freeform":
-    case "manual":
-    case "numeric":
-      return false;
-  }
-}
-
 /**
 Turns route metadata into query-key dropdown rows.
 
@@ -599,20 +579,35 @@ function readValueRows(args: {
     return [];
   }
 
-  if (
-    searchParamSuggestion.searchParamKind !== "value" ||
-    !canShowSearchParamValueRows(searchParamSuggestion)
-  ) {
+  if (searchParamSuggestion.searchParamKind !== "value") {
     return [];
   }
 
   const routeAddressBeforeValue = args.routeAddress.slice(0, args.token.valueStart);
   const routeAddressAfterValue = args.routeAddress.slice(args.token.tokenEnd);
-  if (
-    searchParamSuggestion.valueType === "numeric-options" ||
-    searchParamSuggestion.valueType === "options"
-  ) {
-    return searchParamSuggestion.valueSuggestions.map((value): Suggestion => {
+  let replacementValues: readonly string[] | null = null;
+
+  switch (searchParamSuggestion.valueType) {
+    case "manual":
+      return [];
+    case "numeric":
+      replacementValues = searchParamSuggestion.valueSuggestions ?? [
+        searchParamSuggestion.sampleValue,
+      ];
+      break;
+    case "freeform":
+      replacementValues = [searchParamSuggestion.sampleValue];
+      break;
+    case "numeric-options":
+    case "options":
+      replacementValues = searchParamSuggestion.valueSuggestions;
+      break;
+    case "completion":
+      break;
+  }
+
+  if (replacementValues) {
+    return replacementValues.map((value): Suggestion => {
       const selectedRouteAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`;
       const shouldPromptForNextKey = routeAddressAfterValue.length === 0;
       const finalSelectedRouteAddress = shouldPromptForNextKey
@@ -630,6 +625,10 @@ function readValueRows(args: {
         value,
       };
     });
+  }
+
+  if (searchParamSuggestion.valueType !== "completion") {
+    return [];
   }
 
   const colorValueCursor = readTailwindColorValueCursor(args.valuePrefix);

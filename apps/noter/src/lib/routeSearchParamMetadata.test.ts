@@ -74,6 +74,7 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
+        valueSuggestions: null,
         valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
@@ -118,6 +119,7 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "2",
         suggestion: "route",
+        valueSuggestions: null,
         valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
@@ -149,6 +151,7 @@ describe("routeSearchParamMetadata", () => {
         permission: "public",
         sampleValue: "2",
         searchParamKind: "value",
+        valueSuggestions: null,
         valueType: "numeric",
       },
     ]);
