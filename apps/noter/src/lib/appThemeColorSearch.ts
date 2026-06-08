@@ -51,6 +51,7 @@ export type ResolvedAppThemeColorState = {
 };
 
 const APP_THEME_COLOR_STYLE_ELEMENT_ID = "noter-app-theme-color-search";
+const APP_THEME_COLOR_META_SELECTOR = 'meta[name="theme-color"]';
 // Logo renderers read computed CSS variables, so reset/style syncs must
 // invalidate color state even when route search props are already clean.
 const APP_THEME_COLOR_SEARCH_SYNC_EVENT = "noter:app-theme-color-search-sync";
@@ -334,6 +335,16 @@ function formatThemeColorRuleSet(selector: string, rules: ThemeColorRuleSet): st
     .join("\n")}\n}`;
 }
 
+function syncDocumentThemeColorMeta(search: LogoThemeColorSearchInput) {
+  const themeColorMetaElement = document.head.querySelector(APP_THEME_COLOR_META_SELECTOR);
+  if (!(themeColorMetaElement instanceof HTMLMetaElement)) {
+    return;
+  }
+
+  // Chrome Android reads this meta tag for the running PWA status bar.
+  themeColorMetaElement.content = getTailwindColorHex(readAppThemeColors(search).background);
+}
+
 export function syncDocumentThemeColorSearch(search: LogoThemeColorSearchInput) {
   if (typeof document === "undefined") {
     return;
@@ -344,6 +355,7 @@ export function syncDocumentThemeColorSearch(search: LogoThemeColorSearchInput) 
 
   if (!APP_THEME_COLOR_SEARCH_KEYS.some((key) => typeof appThemeColorSearch[key] === "string")) {
     document.getElementById(APP_THEME_COLOR_STYLE_ELEMENT_ID)?.remove();
+    syncDocumentThemeColorMeta(search);
     dispatchAppThemeColorSearchSyncEvent();
     return;
   }
@@ -357,5 +369,6 @@ export function syncDocumentThemeColorSearch(search: LogoThemeColorSearchInput) 
   )
     .filter((ruleSet) => ruleSet.length > 0)
     .join("\n\n");
+  syncDocumentThemeColorMeta(search);
   dispatchAppThemeColorSearchSyncEvent();
 }
