@@ -861,6 +861,27 @@ test("route URL editor restores keyboard path preview when clicking outside", as
   await expectTermsPage(page);
 });
 
+test("route URL editor blurs local drafts when the page underneath scrolls", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
+
+  await input.press("End");
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo?leftFace=s`));
+
+  await expect(input).toHaveValue(`${prefix}logo?leftFace=s`);
+  await expect(page).toHaveURL(/\/logo$/);
+  await expect(page.getByTestId("route-url-editor-suggestions")).toBeVisible();
+
+  await page.mouse.move(360, 380);
+  await page.mouse.wheel(0, 240);
+
+  await expect(input).toHaveCount(0);
+  await expect(page.getByTestId("route-url-editor-suggestions")).toHaveCount(0);
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+});
+
 test("route URL editor commits active keyboard suggestions with Enter", async ({ page }) => {
   const { input, prefix } = await focusRouteAddressInput(page, "/terms");
 

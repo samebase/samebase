@@ -918,6 +918,7 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   const listboxId = useId();
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLFormElement>(null);
   const pendingRenderedInputSelectionRef = useRef<RouteAddressSelection | null>(null);
 
   const runRouteEditorTransitionActions = useCallback((actions: RouteEditorAction[]) => {
@@ -990,6 +991,42 @@ Example: typing `/logo` pushes `/logo`; TanStack reports `/logo`; the event matc
       path: committedRouteAddress,
     });
   }, [committedRouteAddress, sendEvent]);
+
+  /**
+Turns outside page scroll into the same state transition as clicking outside.
+
+FSM part: `clickedOutside` already defines what blur means for editing and suggestion previews.
+
+Effect part: wheel/touch scroll outside the editor does not reliably move DOM focus, especially on
+mobile. Calling `blur()` lets the normal root `onBlur` handler send `clickedOutside`.
+
+Example: input shows local draft `/logo?leftFace=s`, browser route is still `/logo`, and the user
+scrolls the page underneath. The input blurs, suggestions close, and the blurred display reads the
+committed `/logo` route.
+*/
+  useEffect(() => {
+    if (state.kind !== "focused" || typeof window === "undefined") {
+      return;
+    }
+
+    const blurInputOnOutsideScroll = (event: Event) => {
+      const root = rootRef.current;
+      const target = event.target;
+      if (root && target instanceof Node && root.contains(target)) {
+        return;
+      }
+
+      inputRef.current?.blur();
+    };
+
+    window.addEventListener("touchmove", blurInputOnOutsideScroll, true);
+    window.addEventListener("wheel", blurInputOnOutsideScroll, true);
+
+    return () => {
+      window.removeEventListener("touchmove", blurInputOnOutsideScroll, true);
+      window.removeEventListener("wheel", blurInputOnOutsideScroll, true);
+    };
+  }, [state.kind]);
 
   /**
 Restores an unapplied `hoverPath` route before browser Back/Forward leaves the current entry.
@@ -1593,6 +1630,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
     () => ({
       "data-state": state.kind,
       onBlur: handleRootBlur,
+      ref: rootRef,
     }),
     [handleRootBlur, state.kind],
   );
