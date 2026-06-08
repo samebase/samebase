@@ -56,13 +56,13 @@ function AppRouterRoot() {
   useDeferredPostHogInit();
 
   useLayoutEffect(() => {
+    syncDocumentRootThemeMode(themeMode);
     syncDocumentThemeColorSearch({
       background,
       border,
       primary,
       secondary,
     });
-    syncDocumentRootThemeMode(themeMode);
   }, [background, border, primary, secondary, themeMode]);
 
   return (
