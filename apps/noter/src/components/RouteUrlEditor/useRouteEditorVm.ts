@@ -1638,6 +1638,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       onClick: handleDisplayInputClick,
       onFocus: handleDisplayInputFocus,
       readOnly: true,
+      title: inputValue,
       value: inputValue,
     }),
     [handleDisplayInputClick, handleDisplayInputFocus, inputId, inputValue],
@@ -1659,6 +1660,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       onPaste: handleInputPaste,
       onSelect: handleInputSelect,
       ref: inputRef,
+      title: inputValue,
       value: inputValue,
     }),
     [
