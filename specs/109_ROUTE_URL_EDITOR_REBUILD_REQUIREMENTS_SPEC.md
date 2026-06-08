@@ -62,22 +62,25 @@ Typing updates the focused draft first.
 The editor derives a route-ready draft from that focused draft. The derived ready draft is allowed
 to omit incomplete search tokens.
 
-If the derived route is valid, same-origin, different from the current router href, and ready to
-load, the editor applies it immediately with router `replace`.
+If the derived route is valid, same-origin, different from `expectedRouteAddress`, and ready to
+load, the editor applies it immediately and adds a browser history entry for that canonical route.
 
 `expectedRouteAddress` is the canonical route TanStack should report after root search validation,
 route redirects, and search serialization. Example: `/logo?dark&light` canonicalizes to `/logo`, so
 the FSM must expect `/logo`, not the raw conflicting draft.
 
-While focused, the editor can have a local draft that differs from the last route it applied. Escape
-and blur show the last applied route, not the route from the moment focus started.
+While focused, the editor can have a local draft that differs from `expectedRouteAddress`. Escape
+and blur show `expectedRouteAddress`, not the route from the moment focus started.
 
 Examples:
 
 - `/logo?dar` stays local because `dar` is only a partial known key.
 - `/logo?dark` applies immediately and the page becomes dark.
+- Back after typing `/logo?dark` returns to the previous canonical route, not to `/logo?dar`.
 - `/logo?leftFace=s` stays local because the value is incomplete.
 - `/logo?leftFace=secondary` applies immediately.
+- `/logo?depth=2`, delete `2`, then type `3`: deleting `2` applies `/logo` as a history entry, then
+  typing `3` applies `/logo?depth=3` as another history entry.
 - `/lo` stays local because the path is partial.
 - `/logo` may apply immediately because it is a loadable route.
 
@@ -144,8 +147,8 @@ Selecting a suggestion commits according to `specs/107_ROUTE_URL_EDITOR_SUGGESTI
 - presence params commit and can open the next search-param slot.
 - value-param key rows can preview a sample such as `top=sky-500`, but selection opens `top=` when
   value rows exist.
-- value-param key rows without value rows select the displayed sample and can open the next
-  search-param slot.
+- value-param key rows keep samples preview-only. Selecting the row opens `key=`, even when the key
+  does not have a value-row stage.
 - partial color families such as `blue-` stay in value-picking mode until a final shade is chosen.
 
 Pointer-leave restore is only for editor suggestion preview. It must not reintroduce ambient
@@ -160,9 +163,9 @@ If `focusMode` is `"suggestion"`, Escape restores `expectedRouteAddress`; it doe
 
 For pointer/keyboard/touch-scroll `hoverPath`, blur/click outside restores `expectedRouteAddress`.
 
-If `focusMode` is `"editing"`, blur keeps the latest route-ready draft already applied through
-router `replace`. If the focused draft is incomplete or invalid, the visible input normalizes back
-to `expectedRouteAddress`.
+If `focusMode` is `"editing"`, blur keeps the latest route-ready draft already applied as
+`expectedRouteAddress`. If the focused draft is incomplete or invalid, the visible input normalizes
+back to `expectedRouteAddress`.
 
 Mobile touch scroll creates `hoverPath` with source `"touch"`, but blur/click outside restores
 `expectedRouteAddress`. Scroll movement previews a row; row tap is the commit.
@@ -230,8 +233,7 @@ These stories should stay covered with real route-level interactions, not mocked
 - `/logo?top=blue-200`: value rows can show samples. Selecting the `?top=sky-500` key row uses
   `?top=`, selecting the `blue-500` family row uses `blue-`, and selecting the `200` shade row uses
   `blue-200` and opens the next query slot.
-- `/logo?zoom=0.5`: query-key rows without a value-choice stage select the shown sample and open the
-  next query slot, so mobile scroll/tap does not land in an empty value-suggestion list.
+- `/logo?zoom=0.5`: query-key rows can preview `?zoom=0.5`, but selecting the row uses `?zoom=`.
 - Suggestions are chosen by cursor segment, not by filtering against typed text. A cursor in the
   path shows path rows. A cursor in a query key shows query-key rows and selecting one replaces the
   whole active query token. A cursor in a color value before `-` shows color-family rows and

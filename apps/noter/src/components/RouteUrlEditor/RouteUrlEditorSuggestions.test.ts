@@ -430,7 +430,7 @@ describe("readSuggestions", () => {
     });
   });
 
-  it("selects concrete samples for value params without a value suggestion stage", () => {
+  it("keeps value-param samples preview-only even without a value suggestion stage", () => {
     const rows = readRows({
       routeAddress: "/logo?",
       routeTextBeforeCursor: "/logo?",
@@ -438,11 +438,11 @@ describe("readSuggestions", () => {
 
     expect(rows).toContainEqual({
       kind: "search",
-      nextSelectionRouteIndex: "/logo?zoom=0.5&".length,
-      previewRouteAddress: "/logo?zoom=0.5&",
+      nextSelectionRouteIndex: "/logo?zoom=".length,
+      previewRouteAddress: "/logo?zoom=0.5",
       previewSelectionRouteIndex: "/logo?".length,
       sampleValueStart: "?zoom=".length,
-      selectedRouteAddress: "/logo?zoom=0.5&",
+      selectedRouteAddress: "/logo?zoom=",
       value: "?zoom=0.5",
     });
   });

@@ -532,13 +532,7 @@ function readSearchRows(args: {
     const previewTokenText =
       typeof sampleValue === "string" ? `${selectedTokenText}${sampleValue}` : selectedTokenText;
     const previewValue = `${tokenDelimiter}${previewTokenText}`;
-    const selectedValueRowsAvailable =
-      searchParamSuggestion.searchParamKind === "value" &&
-      canShowSearchParamValueRows(searchParamSuggestion);
-    // If selecting `key=` would not show value rows, select the displayed sample and continue.
-    // Example: `?zoom=0.5` selects `/logo?zoom=0.5&`, not `/logo?zoom=`.
-    const shouldSelectSampleValue = typeof sampleValue === "string" && !selectedValueRowsAvailable;
-    const selectedSearchTokenText = shouldSelectSampleValue ? previewTokenText : selectedTokenText;
+    const selectedSearchTokenText = selectedTokenText;
     const selectedRoute = replaceSearchToken({
       replacementKey: searchParamSuggestion.key,
       replacementTokenText: selectedSearchTokenText,
@@ -552,7 +546,7 @@ function readSearchRows(args: {
       token: args.searchKeyToken,
     });
     const shouldPromptForNextKey =
-      (searchParamSuggestion.searchParamKind === "presence" || shouldSelectSampleValue) &&
+      searchParamSuggestion.searchParamKind === "presence" &&
       !hasNonEmptySearchTokenAfterReplacement({
         replacementTokenStart: selectedRoute.replacementTokenStart,
         routeAddress: selectedRoute.routeAddress,
