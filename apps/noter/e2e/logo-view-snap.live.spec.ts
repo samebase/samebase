@@ -145,6 +145,37 @@ test.describe("logo view snapping parity", () => {
     expect(Number(freeEnd.elevationDegrees)).toBeLessThan(38);
   });
 
+  test("default snapped view clears stale route params", async ({ page }) => {
+    const logoScene = await loadLogoRoute(page, "/logo?elev=53.3&rot=80");
+
+    await dragLogoScene(page, logoScene, { dx: -100, dy: -100 });
+
+    await expect
+      .poll(() => {
+        const url = new URL(page.url());
+        return {
+          pathname: url.pathname,
+          searchEntries: Array.from(url.searchParams.entries()),
+        };
+      })
+      .toEqual({
+        pathname: "/logo",
+        searchEntries: [],
+      });
+
+    expect(await readLogoViewState(logoScene)).toEqual({
+      elevationDegrees: "35.26438968",
+      rotationDegrees: "45",
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(logoScene).toBeVisible();
+    expect(await readLogoViewState(logoScene)).toEqual({
+      elevationDegrees: "35.26438968",
+      rotationDegrees: "45",
+    });
+  });
+
   test("default snapping resolves unsnapped query params", async ({ page }) => {
     const snappedScene = await loadLogoRoute(page, "/logo?elev=359.1");
     expect(await readLogoViewState(snappedScene)).toEqual({
