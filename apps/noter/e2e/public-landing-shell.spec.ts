@@ -1198,13 +1198,13 @@ test("build version copies as a Markdown link on the public landing", async ({ p
   const version = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
   const commit = page.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
   await expectAppBuildVersionDisplay(statusBar, version, commit);
-  const commitText = await commit.textContent();
+  const versionText = await version.textContent();
   const versionHref = await expectAppBuildCommitLink(commit);
-  expect(commitText).not.toBeNull();
+  expect(versionText).not.toBeNull();
   await selectText(commit);
   await page.keyboard.press(COPY_SHORTCUT_KEY);
   const clipboardText = await readClipboardText(page);
-  expect(clipboardText).toBe(`[${commitText}](${versionHref})`);
+  expect(clipboardText).toBe(`[${versionText}](${versionHref})`);
 });
 
 test("landing footer links keep browser link styling", async ({ page }, testInfo) => {
