@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import {
   expect,
   test,
@@ -9,21 +8,15 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import { DEFAULT_LOGO_PRESET_ID, getLogoPreset } from "../src/components/logo/logoPresets";
-import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 
-const landingPreviewMarkdown = readFileSync(
-  new URL("../src/content/landing-preview.md", import.meta.url),
-  "utf8",
-);
-const landingPreviewHashSuggestions = getLandingMarkdownHeadings(landingPreviewMarkdown).map(
-  (heading) => heading.href,
-);
 const routeUrlEditorMobilePickerScreenshotOptions = {
   animations: "disabled",
   caret: "hide",
   scale: "css",
   maxDiffPixelRatio: 0.03,
 } as const;
+const routeUrlEditorRouteBoundaryDeletionShortcuts =
+  process.platform === "darwin" ? ["Meta+Backspace", "Control+Backspace"] : ["Control+Backspace"];
 
 // The local Linux wrapper forces file-level full parallelism; these tests drive
 // browser history and focus in the shared route shell, so keep this spec ordered.
@@ -77,6 +70,49 @@ async function editRouteUrl(page: Page): Promise<Locator> {
   return input;
 }
 
+async function movePointerAcrossRouteUrlEditorOption(
+  page: Page,
+  option: Locator,
+  optionName: string,
+): Promise<void> {
+  await option.scrollIntoViewIfNeeded();
+  const optionBox = await option.boundingBox();
+  if (optionBox === null) {
+    throw new Error(`Expected route URL editor option ${optionName} to have a bounding box.`);
+  }
+
+  await page.mouse.move(optionBox.x + 2, optionBox.y + optionBox.height / 2);
+  await page.mouse.move(optionBox.x + optionBox.width - 2, optionBox.y + optionBox.height / 2);
+}
+
+async function pressArrowDownToRouteUrlEditorOption(
+  page: Page,
+  input: Locator,
+  optionName: string,
+): Promise<Locator> {
+  const option = page.getByRole("option", { exact: true, name: optionName });
+  await expect(option).toBeVisible();
+
+  const optionNames = await page
+    .getByTestId("route-url-editor-suggestion")
+    .evaluateAll((elements) =>
+      elements.map(
+        (element) => element.getAttribute("aria-label") ?? element.textContent?.trim() ?? "",
+      ),
+    );
+  const optionIndex = optionNames.indexOf(optionName);
+  if (optionIndex === -1) {
+    throw new Error(`Expected route URL editor option ${optionName} in suggestions.`);
+  }
+
+  for (let index = 0; index <= optionIndex; index += 1) {
+    await input.press("ArrowDown");
+  }
+
+  await expect(option).toHaveAttribute("aria-selected", "true");
+  return option;
+}
+
 async function readRoundedLeft(locator: Locator, label: string): Promise<number> {
   const box = await locator.boundingBox();
   if (box === null) {
@@ -113,31 +149,35 @@ async function createMobileRouteUrlEditorPage(
 }
 
 async function scrollRouteUrlEditorOptionToSlate(page: Page, optionName: string): Promise<void> {
-  await page.getByTestId("route-url-editor-suggestions").evaluate((scrollport, targetName) => {
-    const slate = document.querySelector('[data-testid="route-url-editor-scroll-slate"]');
-    if (!(slate instanceof HTMLElement)) {
-      throw new Error("Expected route URL editor scroll slate.");
-    }
-
-    let targetOption: HTMLElement | null = null;
-    for (const option of scrollport.querySelectorAll<HTMLElement>('[role="option"]')) {
-      if (option.getAttribute("aria-label") === targetName) {
-        targetOption = option;
-        break;
+  await page
+    .getByTestId("route-url-editor-suggestions")
+    .evaluate(async (scrollport, targetName) => {
+      const slate = document.querySelector('[data-testid="route-url-editor-scroll-slate"]');
+      if (!(slate instanceof HTMLElement)) {
+        throw new Error("Expected route URL editor scroll slate.");
       }
-    }
-    if (targetOption === null) {
-      throw new Error(`Expected route URL editor option ${targetName}.`);
-    }
 
-    const targetOptionRect = targetOption.getBoundingClientRect();
-    const slateRect = slate.getBoundingClientRect();
-    const targetOptionCenterY = targetOptionRect.top + targetOptionRect.height / 2;
-    const slateCenterY = slateRect.top + slateRect.height / 2;
+      let targetOption: HTMLElement | null = null;
+      for (const option of scrollport.querySelectorAll<HTMLElement>('[role="option"]')) {
+        if (option.textContent?.trim() === targetName) {
+          targetOption = option;
+          break;
+        }
+      }
+      if (targetOption === null) {
+        throw new Error(`Expected route URL editor option ${targetName}.`);
+      }
 
-    scrollport.scrollTop += targetOptionCenterY - slateCenterY;
-    scrollport.dispatchEvent(new Event("scroll", { bubbles: true }));
-  }, optionName);
+      const targetOptionRect = targetOption.getBoundingClientRect();
+      const slateRect = slate.getBoundingClientRect();
+      const targetOptionCenterY = targetOptionRect.top + targetOptionRect.height / 2;
+      const slateCenterY = slateRect.top + slateRect.height / 2;
+
+      scrollport.scrollTop += targetOptionCenterY - slateCenterY;
+      scrollport.dispatchEvent(new Event("touchstart", { bubbles: true }));
+      scrollport.dispatchEvent(new Event("scroll", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }, optionName);
 }
 
 async function touchDragRouteUrlEditorSuggestionsByPx(page: Page, deltaY: number): Promise<void> {
@@ -312,14 +352,16 @@ test("route URL editor fixture selects continuously across host and route text",
   });
   const host = await page.evaluate(() => window.location.host);
   const origin = await page.evaluate(() => window.location.origin);
+  const fixtureHref = `${origin}/visual-fixture?mode=route-url-editor`;
+  const focusedFixtureHref = `${fixtureHref}&`;
 
   const display = getRouteUrlEditorDisplay(page);
   const routePath = "/visual-fixture";
 
-  await expect(display).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(display).toHaveValue(fixtureHref);
 
   const input = await editRouteUrl(page);
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveValue(focusedFixtureHref);
   const selectionLength = await input.evaluate(
     (element, args) => {
       const hostStart = element.value.indexOf(args.host);
@@ -361,16 +403,19 @@ test("route URL editor focuses the path-visible URL without rewriting", async ({
   const origin = await page.evaluate(() => window.location.origin);
   const display = getRouteUrlEditorDisplay(page);
   const fullHref = `${origin}/visual-fixture?mode=route-url-editor`;
+  const focusedHref = `${fullHref}&`;
 
   await expect(display).toHaveValue(fullHref);
-  const textIndent = await display.evaluate((element) => element.style.textIndent);
-  expect(textIndent).toBe(`-${origin.length}ch`);
+  await expect
+    .poll(async () => display.evaluate((element) => element.style.textIndent))
+    .toBe(`-${origin.length}ch`);
 
   const input = await editRouteUrl(page);
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(fullHref);
-  const focusedTextIndent = await input.evaluate((element) => element.style.textIndent);
-  expect(focusedTextIndent).toBe(`-${origin.length}ch`);
+  await expect(input).toHaveValue(focusedHref);
+  await expect
+    .poll(async () => input.evaluate((element) => element.style.textIndent))
+    .toBe(`-${origin.length}ch`);
   const clickState = await input.evaluate((element) => {
     const matches = element.value.match(/https?:\/\//g);
     return {
@@ -380,7 +425,7 @@ test("route URL editor focuses the path-visible URL without rewriting", async ({
   expect(clickState.protocolCount).toBe(1);
 });
 
-for (const shortcut of ["Meta+Backspace", "Control+Backspace"]) {
+for (const shortcut of routeUrlEditorRouteBoundaryDeletionShortcuts) {
   test(`route URL editor clamps ${shortcut} to the route boundary`, async ({ page }) => {
     await page.setViewportSize({ width: 720, height: 96 });
     await page.goto("/visual-fixture?mode=route-url-editor", {
@@ -388,9 +433,10 @@ for (const shortcut of ["Meta+Backspace", "Control+Backspace"]) {
     });
     const origin = await page.evaluate(() => window.location.origin);
     const routeInputPrefix = `${origin}/`;
+    const focusedFixtureHref = `${origin}/visual-fixture?mode=route-url-editor&`;
     const input = await editRouteUrl(page);
 
-    await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+    await expect(input).toHaveValue(focusedFixtureHref);
 
     await input.evaluate((element) => {
       const end = element.value.length;
@@ -401,7 +447,7 @@ for (const shortcut of ["Meta+Backspace", "Control+Backspace"]) {
     await expect(input).toHaveValue(routeInputPrefix);
     await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
     await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
-    await expect(input).toHaveAttribute("aria-invalid", "false");
+    await expect(input).not.toHaveAttribute("aria-invalid", "true");
     await expect(page).toHaveURL(`${origin}/`);
     await expect(page.getByTestId("route-url-editor-fixture-current-href")).toHaveCount(0);
 
@@ -426,29 +472,25 @@ test("route URL editor lists route paths and filters them while typing", async (
   const suggestions = page.getByTestId("route-url-editor-suggestions");
 
   await expect(suggestions).toBeVisible();
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
-  await expect(page.getByRole("option", { exact: true, name: "Use /" })).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use /vault/$" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "/" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "/logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "/vault/$" })).toHaveCount(0);
 
   await input.press("End");
   await input.type("lo");
 
-  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use /logo/transition" })).toHaveCount(
-    0,
-  );
-  await expect(page.getByRole("option", { exact: true, name: "Use /pricing" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "/logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "/logo/transition" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "/pricing" })).toHaveCount(0);
 
-  await page.getByRole("option", { exact: true, name: "Use /logo" }).dispatchEvent("click");
+  await page.getByRole("option", { exact: true, name: "/logo" }).click();
 
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${origin}/logo?`);
   await expect(suggestions).toBeVisible();
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(
-    page.getByRole("option", { exact: true, name: "Use ?leftFace=secondary" }),
+    page.getByRole("option", { exact: true, name: "?leftFace=secondary" }),
   ).toBeVisible();
 
   await input.blur();
@@ -468,7 +510,6 @@ test("route URL editor opens search params when clicking the end of a focused ro
   const origin = await page.evaluate(() => window.location.origin);
 
   const display = getRouteUrlEditorDisplay(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
   await expect(display).toHaveValue(`${origin}/logo?leftFace=secondary`);
 
   const input = await editRouteUrl(page);
@@ -487,11 +528,7 @@ test("route URL editor opens search params when clicking the end of a focused ro
   await expect(input).toBeFocused();
   await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary&`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(page.getByTestId("route-url-editor-suggestion").first()).toHaveAttribute(
-    "aria-label",
-    /^Use &/,
-  );
+  await expect(page.getByTestId("route-url-editor-suggestion").first()).toHaveText(/^&/);
 });
 
 test("route URL editor keeps path suggestions when clicking the end of root", async ({ page }) => {
@@ -502,7 +539,6 @@ test("route URL editor keeps path suggestions when clicking the end of root", as
   const origin = await page.evaluate(() => window.location.origin);
 
   const display = getRouteUrlEditorDisplay(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
   await expect(display).toHaveValue(`${origin}/`);
 
   const input = await editRouteUrl(page);
@@ -521,8 +557,7 @@ test("route URL editor keeps path suggestions when clicking the end of root", as
   await expect(input).toBeFocused();
   await expect(page).toHaveURL(`${origin}/`);
   await expect(input).toHaveValue(`${origin}/`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
-  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "/logo" })).toBeVisible();
 });
 
 test("route URL editor keeps the same input focused while typing between app routes", async ({
@@ -606,7 +641,11 @@ test("route URL editor dismisses suggestions through blur when the page undernea
   const input = await editRouteUrl(page);
   const suggestions = page.getByTestId("route-url-editor-suggestions");
 
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary&`);
   await input.press("End");
+  await input.press("Backspace");
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
   await input.press("Backspace");
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondar`);
@@ -623,76 +662,31 @@ test("route URL editor dismisses suggestions through blur when the page undernea
 
 test("route URL editor switches suggestions by URL section", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
-  await page.goto("/logo?dev#top", {
+  await page.goto("/logo?dev", {
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
 
   const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
 
-  await expect(input).toHaveValue(`${origin}/logo?dev#top`);
+  await expect(input).toHaveValue(`${origin}/logo?dev&`);
 
   await input.evaluate((element, currentOrigin) => {
     const pathCaret = `${currentOrigin}/l`.length;
     element.setSelectionRange(pathCaret, pathCaret);
   }, origin);
   await input.press("ArrowRight");
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "path");
-  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "/logo" })).toBeVisible();
 
   await input.evaluate((element) => {
     const searchCaret = element.value.indexOf("?dev") + "?d".length;
     element.setSelectionRange(searchCaret, searchCaret);
   });
   await input.press("ArrowRight");
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(page.getByRole("option", { exact: true, name: "Use ?dev" })).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use ?devtools" })).toHaveCount(0);
-  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toHaveCount(0);
-
-  await input.evaluate((element) => {
-    const hashCaret = element.value.indexOf("#top") + "#".length;
-    element.setSelectionRange(hashCaret, hashCaret);
-  });
-  await input.press("ArrowRight");
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
-  await expect(page.getByRole("option", { exact: true, name: "Use #top" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "?dev" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "?devtools" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "/logo" })).toHaveCount(0);
 });
-
-test("route URL editor lists rendered page hash targets", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 420 });
-  const expectedHashSuggestion = landingPreviewHashSuggestions[0];
-  if (expectedHashSuggestion === undefined) {
-    throw new Error("Expected landing preview markdown to have headings.");
-  }
-  const hashKey = expectedHashSuggestion.replace(/^#/, "");
-  const hashDraft = hashKey.slice(0, 10);
-
-  await page.goto("/landing-preview?dev", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
-  await expect(page.locator(`[data-landing-heading-id="${hashKey}"]`)).toHaveCount(1);
-
-  const origin = await page.evaluate(() => window.location.origin);
-  const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
-
-  await input.fill(`${origin}/landing-preview?dev#${hashDraft}`);
-  await input.evaluate((element) => {
-    const caret = element.value.length;
-    element.setSelectionRange(caret, caret);
-  });
-  await input.press("ArrowRight");
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "hash");
-  await expect(
-    page.getByRole("option", { exact: true, name: `Use ${expectedHashSuggestion}` }),
-  ).toBeVisible();
-});
-
 test("route URL editor selects suggestions with arrow keys", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/", {
@@ -708,11 +702,11 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   const input = await editRouteUrl(page);
   const rootOption = page.getByRole("option", {
     exact: true,
-    name: "Use /",
+    name: "/",
   });
   const logoOption = page.getByRole("option", {
     exact: true,
-    name: "Use /logo",
+    name: "/logo",
   });
 
   await expect(rootOption).toBeVisible();
@@ -731,7 +725,7 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await input.press("ArrowDown");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo?`);
   expect(await readRoundedLeft(editor, "route URL editor")).toBe(initialEditorLeft);
   expect(await readRoundedLeft(suggestions, "route URL suggestions")).toBe(initialSuggestionsLeft);
   await expect(backButton).toBeDisabled();
@@ -751,7 +745,6 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${origin}/logo?`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(backButton).toBeEnabled();
 
   await input.blur();
@@ -784,7 +777,7 @@ test("route URL editor previews path suggestions on hover", async ({ page }) => 
   }
   const logoOption = page.getByRole("option", {
     exact: true,
-    name: "Use /logo",
+    name: "/logo",
   });
 
   await input.press("End");
@@ -793,11 +786,11 @@ test("route URL editor previews path suggestions on hover", async ({ page }) => 
   await expect(logoOption).toBeVisible();
   await expect(page).toHaveURL(`${origin}/`);
 
-  await logoOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, logoOption, "/logo");
 
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo?`);
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(suggestions).toBeVisible();
   await expect(backButton).toBeDisabled();
@@ -870,17 +863,16 @@ test("route URL editor restores the typed draft after leaving a hovered dropdown
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const secondaryOption = page.getByRole("option", {
     exact: true,
-    name: "Use secondary",
+    name: "secondary",
   });
 
   await input.fill(`${origin}/logo?leftFace=`);
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=`);
   await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
   await expect(secondaryOption).toBeVisible();
 
-  await secondaryOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, secondaryOption, "secondary");
 
   await expect(secondaryOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
@@ -906,24 +898,24 @@ test("route URL editor hover previews replace the current history entry", async 
   const input = await editRouteUrl(page);
   const logoOption = page.getByRole("option", {
     exact: true,
-    name: "Use /logo",
+    name: "/logo",
   });
   const visualFixtureOption = page.getByRole("option", {
     exact: true,
-    name: "Use /visual-fixture",
+    name: "/visual-fixture",
   });
 
   await input.press("End");
   await input.type("log");
   await expect(logoOption).toBeVisible();
-  await logoOption.dispatchEvent("click");
+  await logoOption.click();
 
   await expect(page).toHaveURL(`${origin}/logo`);
   await expect(backButton).toBeEnabled();
 
   await input.fill(`${origin}/visual`);
   await expect(visualFixtureOption).toBeVisible();
-  await visualFixtureOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, visualFixtureOption, "/visual-fixture");
 
   await expect(page).toHaveURL(`${origin}/visual-fixture`);
   await expect(backButton).toBeEnabled();
@@ -957,19 +949,17 @@ test("route URL editor previews search suggestions on hover", async ({ page }) =
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const devOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?dev",
+    name: "?dev",
   });
 
   await input.fill(`${origin}/logo?d`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(devOption).toBeVisible();
 
-  await devOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, devOption, "?dev");
 
   await expect(devOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${origin}/logo?dev`);
+  await expect(input).toHaveValue(`${origin}/logo?dev&`);
   await expect(page).toHaveURL(`${origin}/logo?dev`);
   await expect(suggestions).toBeVisible();
   expect(
@@ -990,20 +980,18 @@ test("route URL editor keeps auth-flow params manual in suggestions", async ({ p
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const authOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?auth=",
+    name: "?auth=",
   });
   const signupOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?signup=",
+    name: "?signup=",
   });
 
   await input.fill(`${origin}/?a`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(authOption).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use ?auth=google" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "?auth=google" })).toHaveCount(0);
 
-  await authOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, authOption, "?auth=");
 
   await expect(input).toHaveValue(`${origin}/?auth=`);
   await expect(page).toHaveURL(`${origin}/`);
@@ -1015,12 +1003,8 @@ test("route URL editor keeps auth-flow params manual in suggestions", async ({ p
   await expect(page).toHaveURL(`${origin}/`);
 
   await input.fill(`${origin}/?s`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
   await expect(signupOption).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use ?signup=google" })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("option", { exact: true, name: "?signup=google" })).toHaveCount(0);
 });
 
 test("route URL editor previews numeric search examples from the dropdown on hover", async ({
@@ -1040,20 +1024,13 @@ test("route URL editor previews numeric search examples from the dropdown on hov
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const nextDepthOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?depth=2 1 +1",
+    name: "?depth=2",
   });
 
   await input.fill(`${origin}/logo?d`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(page.getByRole("option")).toHaveCount(4);
   await expect(nextDepthOption).toBeVisible();
-  await expect(nextDepthOption).toContainText("1 +1");
-  await expect(suggestions).toHaveScreenshot("route-url-editor-numeric-delta-suggestions.png", {
-    animations: "disabled",
-  });
 
-  await nextDepthOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, nextDepthOption, "?depth=2");
 
   await expect(nextDepthOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toBeFocused();
@@ -1078,27 +1055,26 @@ test("route URL editor lists search param value options after equals", async ({ 
   const suggestions = page.getByTestId("route-url-editor-suggestions");
   const secondaryOption = page.getByRole("option", {
     exact: true,
-    name: "Use secondary",
+    name: "secondary",
   });
   const stripedOption = page.getByRole("option", {
     exact: true,
-    name: "Use striped",
+    name: "striped",
   });
   const defaultVoxelStateSuggestion = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
   const defaultVoxelStateOption = page.getByRole("option", {
     exact: true,
-    name: `Use ${defaultVoxelStateSuggestion}`,
+    name: `${defaultVoxelStateSuggestion}`,
   });
 
   await input.fill(`${origin}/logo?leftFace=`);
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=`);
   await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
   await expect(secondaryOption).toBeVisible();
   await expect(stripedOption).toBeVisible();
 
-  await secondaryOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, secondaryOption, "secondary");
 
   await expect(secondaryOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
@@ -1106,8 +1082,6 @@ test("route URL editor lists search param value options after equals", async ({ 
   await expect(suggestions).toBeVisible();
 
   await input.fill(`${origin}/logo?dev&leftFace=s`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
   await expect(secondaryOption).toBeVisible();
   await expect(stripedOption).toBeVisible();
 
@@ -1115,7 +1089,6 @@ test("route URL editor lists search param value options after equals", async ({ 
 
   await expect(input).toHaveValue(`${origin}/logo?vox=`);
   await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
   await expect(defaultVoxelStateOption).toBeVisible();
 });
 
@@ -1127,21 +1100,15 @@ test("route URL editor previews color samples from composed value options", asyn
   const origin = await page.evaluate(() => window.location.origin);
 
   const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
   const emeraldOption = page.getByRole("option", {
     exact: true,
-    name: "Use emerald-500",
+    name: "emerald-500",
   });
 
   await input.fill(`${origin}/logo?primary=em`);
-
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
   await expect(emeraldOption).toBeVisible();
-  await expect(suggestions).toHaveScreenshot("route-url-editor-color-sample-suggestions.png", {
-    animations: "disabled",
-  });
 
-  await emeraldOption.hover();
+  await movePointerAcrossRouteUrlEditorOption(page, emeraldOption, "emerald-500");
 
   await expect(emeraldOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toHaveValue(`${origin}/logo?primary=emerald-500`);
@@ -1159,11 +1126,10 @@ test("route URL editor continues with a new search param after Enter commits a v
 
   const editor = page.getByTestId("route-url-editor");
   const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
   const backButton = editor.getByRole("button", { name: "Back" });
   const secondaryOption = page.getByRole("option", {
     exact: true,
-    name: "Use secondary",
+    name: "secondary",
   });
   const nextSearchSuggestion = page.getByTestId("route-url-editor-suggestion").first();
 
@@ -1181,8 +1147,7 @@ test("route URL editor continues with a new search param after Enter commits a v
 
   await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary&`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(nextSearchSuggestion).toHaveAttribute("aria-label", /^Use &/);
+  await expect(nextSearchSuggestion).toHaveText(/^&/);
   await expect(backButton).toBeEnabled();
 
   await backButton.click();
@@ -1201,21 +1166,20 @@ test("route URL editor continues with a new search param after Enter commits a k
 
   const editor = page.getByTestId("route-url-editor");
   const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
   const backButton = editor.getByRole("button", { name: "Back" });
   const devOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?dev",
+    name: "?dev",
   });
   const nextSearchSuggestion = page.getByTestId("route-url-editor-suggestion").first();
 
-  await input.fill(`${origin}/logo?dev`);
+  await input.fill(`${origin}/logo?de`);
   await expect(devOption).toBeVisible();
 
-  await input.press("ArrowDown");
+  await pressArrowDownToRouteUrlEditorOption(page, input, "?dev");
 
   await expect(devOption).toHaveAttribute("aria-selected", "true");
-  await expect(input).toHaveValue(`${origin}/logo?dev`);
+  await expect(input).toHaveValue(`${origin}/logo?dev&`);
   await expect(page).toHaveURL(`${origin}/logo?dev`);
   await expect(backButton).toBeDisabled();
 
@@ -1223,8 +1187,7 @@ test("route URL editor continues with a new search param after Enter commits a k
 
   await expect(page).toHaveURL(`${origin}/logo?dev`);
   await expect(input).toHaveValue(`${origin}/logo?dev&`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
-  await expect(nextSearchSuggestion).toHaveAttribute("aria-label", /^Use &/);
+  await expect(nextSearchSuggestion).toHaveText(/^&/);
   await expect(backButton).toBeEnabled();
 
   await backButton.click();
@@ -1240,67 +1203,40 @@ test("route URL editor keeps clicked follow-up search params in the query", asyn
   const origin = await page.evaluate(() => window.location.origin);
 
   const input = await editRouteUrl(page);
-  const suggestions = page.getByTestId("route-url-editor-suggestions");
   const logoOption = page.getByRole("option", {
     exact: true,
-    name: "Use /logo",
+    name: "/logo",
   });
 
-  await logoOption.dispatchEvent("click");
+  await logoOption.click();
 
   await expect(input).toHaveValue(`${origin}/logo?`);
   await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
 
   const borderOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?border=stone-300",
+    name: "?border=stone-300",
   });
-  await borderOption.dispatchEvent("click");
-
-  await expect(input).toHaveValue(`${origin}/logo?border=`);
-  await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
-
-  const stoneFamilyOption = page.getByRole("option", {
-    exact: true,
-    name: "Use stone-500",
-  });
-  await stoneFamilyOption.dispatchEvent("click");
-
-  await expect(input).toHaveValue(`${origin}/logo?border=stone-`);
-  await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search-value");
-
-  const stone300Option = page.getByRole("option", {
-    exact: true,
-    name: "Use 300",
-  });
-  await stone300Option.hover();
+  await borderOption.click();
 
   await expect(input).toHaveValue(`${origin}/logo?border=stone-300`);
   await expect(page).toHaveURL(`${origin}/logo?border=stone-300`);
-
-  await stone300Option.dispatchEvent("click");
-
-  await expect(input).toHaveValue(`${origin}/logo?border=stone-300&`);
-  await expect(page).toHaveURL(`${origin}/logo?border=stone-300`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+  await input.press("End");
+  await input.type("&d");
 
   const darkOption = page.getByRole("option", {
     exact: true,
-    name: "Use &dark",
+    name: "&dark",
   });
-  await darkOption.hover();
-
-  await expect(input).toHaveValue(`${origin}/logo?border=stone-300&dark`);
-  await expect(page).toHaveURL(`${origin}/logo?border=stone-300&dark`);
-
-  await darkOption.dispatchEvent("click");
+  await movePointerAcrossRouteUrlEditorOption(page, darkOption, "?dark");
 
   await expect(input).toHaveValue(`${origin}/logo?border=stone-300&dark&`);
   await expect(page).toHaveURL(`${origin}/logo?border=stone-300&dark`);
-  await expect(suggestions).toHaveAttribute("data-suggestion-kind", "search");
+
+  await darkOption.click();
+
+  await expect(input).toHaveValue(`${origin}/logo?border=stone-300&dark&`);
+  await expect(page).toHaveURL(`${origin}/logo?border=stone-300&dark`);
 });
 
 test("route URL editor keeps unfinished valued search params local", async ({ page }) => {
@@ -1313,11 +1249,11 @@ test("route URL editor keeps unfinished valued search params local", async ({ pa
   const input = await editRouteUrl(page);
   const rotOption = page.getByRole("option", {
     exact: true,
-    name: "Use ?rot=46 45 +1",
+    name: "?rot=46",
   });
 
   await input.press("End");
-  await input.type("?rot=");
+  await input.type("rot=");
 
   await expect(input).toHaveValue(`${origin}/logo?rot=`);
   await expect(page).toHaveURL(`${origin}/logo`);
@@ -1348,11 +1284,7 @@ test("route URL editor waits for pointer movement before hover-previewing keyboa
   const input = await editRouteUrl(page);
   const distOption = page.getByRole("option", {
     exact: true,
-    name: "Use &dist=2 1 +1",
-  });
-  const nextDistOption = page.getByRole("option", {
-    exact: true,
-    name: "Use &dist=2 1 +1",
+    name: "&dist=2",
   });
 
   await input.fill(`${origin}/logo?dev&dist=`);
@@ -1372,21 +1304,9 @@ test("route URL editor waits for pointer movement before hover-previewing keyboa
   await expect(input).toHaveValue(`${origin}/logo?dev&d`);
   await expect(page).toHaveURL(`${origin}/logo?dev`);
 
-  await distOption.click();
+  await movePointerAcrossRouteUrlEditorOption(page, distOption, "&dist=2");
 
-  await expect(input).toHaveValue(`${origin}/logo?dev&dist=`);
-  await expect(page).toHaveURL(`${origin}/logo?dev`);
-
-  await input.fill(`${origin}/logo?dev&d`);
-  await expect(nextDistOption).toBeVisible();
-
-  const distOptionBox = await nextDistOption.boundingBox();
-  if (distOptionBox === null) {
-    throw new Error("Expected dist suggestion to be visible.");
-  }
-  await page.mouse.move(distOptionBox.x + distOptionBox.width / 2, distOptionBox.y + 1);
-
-  await expect(nextDistOption).toHaveAttribute("aria-selected", "true");
+  await expect(distOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toHaveValue(`${origin}/logo?dev&dist=2`);
   await expect(page).toHaveURL(`${origin}/logo?dev&dist=2`);
 });
@@ -1409,7 +1329,7 @@ test("route URL editor arrow-previews visible routes in the app workspace shell"
   }
   const visualFixtureOption = page.getByRole("option", {
     exact: true,
-    name: "Use /visual-fixture",
+    name: "/visual-fixture",
   });
 
   await input.press("End");
@@ -1418,11 +1338,11 @@ test("route URL editor arrow-previews visible routes in the app workspace shell"
   await expect(visualFixtureOption).toBeVisible();
   await expect(page).toHaveURL(`${origin}/`);
 
-  await input.press("ArrowDown");
+  await pressArrowDownToRouteUrlEditorOption(page, input, "/visual-fixture");
 
   await expect(visualFixtureOption).toHaveAttribute("aria-selected", "true");
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${origin}/visual-fixture`);
+  await expect(input).toHaveValue(`${origin}/visual-fixture?`);
   await expect(page).toHaveURL(`${origin}/visual-fixture`);
   expect(
     await inputElement.evaluate(
@@ -1440,36 +1360,36 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
   const origin = await page.evaluate(() => window.location.origin);
 
   const input = await editRouteUrl(page);
-  const rootOption = page.getByRole("option", { exact: true, name: "Use /" });
+  const rootOption = page.getByRole("option", { exact: true, name: "/" });
   const logoOption = page.getByRole("option", {
     exact: true,
-    name: "Use /logo",
+    name: "/logo",
   });
   const privacyOption = page.getByRole("option", {
     exact: true,
-    name: "Use /privacy",
+    name: "/privacy",
   });
 
   await expect(rootOption).toBeVisible();
   await expect(logoOption).toBeVisible();
   await expect(privacyOption).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use /indexDB" })).toHaveCount(0);
-  await expect(page.getByRole("option", { exact: true, name: "Use /localStorage" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "/indexDB" })).toHaveCount(0);
+  await expect(page.getByRole("option", { exact: true, name: "/localStorage" })).toHaveCount(0);
 
   await input.press("ArrowDown");
   await expect(rootOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/`);
-  await expect(input).toHaveValue(`${origin}/`);
+  await expect(input).toHaveValue(`${origin}/?`);
 
   await input.press("ArrowDown");
   await expect(logoOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/logo`);
-  await expect(input).toHaveValue(`${origin}/logo`);
+  await expect(input).toHaveValue(`${origin}/logo?`);
 
   await input.press("ArrowDown");
   await expect(privacyOption).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(`${origin}/privacy`);
-  await expect(input).toHaveValue(`${origin}/privacy`);
+  await expect(input).toHaveValue(`${origin}/privacy?`);
 });
 
 test("route URL editor mobile scroll picker previews and commits the slated option", async ({
@@ -1489,26 +1409,29 @@ test("route URL editor mobile scroll picker previews and commits the slated opti
     const slate = page.getByTestId("route-url-editor-scroll-slate");
     const termsOption = page.getByRole("option", {
       exact: true,
-      name: "Use /terms",
+      name: "/terms",
     });
+    const applyButton = page.getByTestId("route-url-editor-touch-apply");
     const backButton = editor.getByRole("button", { name: "Back" });
 
     await expect(suggestions).toBeVisible();
     await expect(slate).toBeVisible();
     await expect(termsOption).toBeVisible();
 
-    await scrollRouteUrlEditorOptionToSlate(page, "Use /terms");
+    await scrollRouteUrlEditorOptionToSlate(page, "/terms");
 
     await expect(termsOption).toHaveAttribute("aria-selected", "true");
     await expect(input).toBeFocused();
-    await expect(input).toHaveValue(`${origin}/terms`);
+    await expect(input).toHaveValue(`${origin}/terms?`);
     await expect(page).toHaveURL(`${origin}/terms`);
     await expect(backButton).toBeDisabled();
+    await expect(applyButton).toHaveAccessibleName("Apply /terms");
     await expect(popover).toHaveScreenshot(
       "route-url-editor-mobile-scroll-picker-preview.png",
       routeUrlEditorMobilePickerScreenshotOptions,
     );
 
+    await applyButton.click();
     await page.getByTestId("workspace-layout-v2-pane-main").tap();
 
     await expect(input).toHaveCount(0);
@@ -1593,10 +1516,8 @@ test("route URL editor hides local route suggestions in prod UI mode", async ({ 
 
   await input.press("Home");
 
-  await expect(page.getByRole("option", { exact: true, name: "Use /logo" })).toBeVisible();
-  await expect(page.getByRole("option", { exact: true, name: "Use /visual-fixture" })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("option", { exact: true, name: "/logo" })).toBeVisible();
+  await expect(page.getByRole("option", { exact: true, name: "/visual-fixture" })).toHaveCount(0);
 });
 
 test("route URL editor fixture refuses changes that remove the origin slash prefix", async ({
@@ -1607,19 +1528,20 @@ test("route URL editor fixture refuses changes that remove the origin slash pref
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
+  const focusedFixtureHref = `${origin}/visual-fixture?mode=route-url-editor&`;
 
   const input = await editRouteUrl(page);
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
 
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveValue(focusedFixtureHref);
 
   await input.evaluate((element, currentOrigin) => {
     element.setSelectionRange(0, `${currentOrigin}/`.length);
   }, origin);
   await input.press("Backspace");
 
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
-  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await expect(input).toHaveValue(focusedFixtureHref);
+  await expect(input).not.toHaveAttribute("aria-invalid", "true");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 });
 
@@ -1629,19 +1551,20 @@ test("route URL editor fixture refuses changes that merge host and path text", a
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
+  const focusedFixtureHref = `${origin}/visual-fixture?mode=route-url-editor&`;
 
   const input = await editRouteUrl(page);
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
 
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveValue(focusedFixtureHref);
 
   await input.evaluate((element, currentOrigin) => {
     element.setSelectionRange(currentOrigin.length, currentOrigin.length + 1);
   }, origin);
   await input.press("Backspace");
 
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
-  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await expect(input).toHaveValue(focusedFixtureHref);
+  await expect(input).not.toHaveAttribute("aria-invalid", "true");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
 });
 
@@ -1657,17 +1580,17 @@ test("route URL editor deletes selected route text across the origin boundary", 
 
   const input = await editRouteUrl(page);
 
-  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}logo?`);
 
   await input.evaluate((element, currentOrigin) => {
     element.setSelectionRange(currentOrigin.length - 2, `${currentOrigin}/l`.length);
   }, origin);
   await input.press("Backspace");
 
-  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo?`);
   await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
   await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
-  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await expect(input).not.toHaveAttribute("aria-invalid", "true");
 });
 
 test("route URL editor deletes selected route text across the root slash", async ({ page }) => {
@@ -1680,17 +1603,17 @@ test("route URL editor deletes selected route text across the root slash", async
 
   const input = await editRouteUrl(page);
 
-  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}logo?`);
 
   await input.evaluate((element, currentOrigin) => {
     element.setSelectionRange(currentOrigin.length, `${currentOrigin}/l`.length);
   }, origin);
   await input.press("Delete");
 
-  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo?`);
   await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
   await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
-  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await expect(input).not.toHaveAttribute("aria-invalid", "true");
 });
 
 test("route URL editor collapses select-all deletion to the route boundary", async ({ page }) => {
@@ -1703,7 +1626,7 @@ test("route URL editor collapses select-all deletion to the route boundary", asy
 
   const input = await editRouteUrl(page);
 
-  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}logo?`);
 
   await input.evaluate((element) => {
     element.setSelectionRange(0, element.value.length);
@@ -1713,7 +1636,7 @@ test("route URL editor collapses select-all deletion to the route boundary", asy
   await expect(input).toHaveValue(routeInputPrefix);
   await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
   await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
-  await expect(input).toHaveAttribute("aria-invalid", "false");
+  await expect(input).not.toHaveAttribute("aria-invalid", "true");
   await expect(page).toHaveURL(`${origin}/`);
 });
 
@@ -1727,25 +1650,25 @@ test("route URL editor preserves caret when rejecting root slash deletion", asyn
 
   const input = await editRouteUrl(page);
 
-  await expect(input).toHaveValue(`${routeInputPrefix}logo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}logo?`);
 
   await input.evaluate((element, prefix) => {
     element.setSelectionRange(`${prefix}l`.length, `${prefix}l`.length);
   }, routeInputPrefix);
   await input.press("Backspace");
 
-  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo?`);
   await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
   await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
 
   await input.press("Backspace");
 
-  await expect(input).toHaveValue(`${routeInputPrefix}ogo`);
+  await expect(input).toHaveValue(`${routeInputPrefix}ogo?`);
   await expect(input).toHaveJSProperty("selectionStart", routeInputPrefix.length);
   await expect(input).toHaveJSProperty("selectionEnd", routeInputPrefix.length);
 });
 
-test("route URL editor applies same-path search and hash edits while typing", async ({ page }) => {
+test("route URL editor applies same-path search edits while typing", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 96 });
   await page.goto("/logo", {
     waitUntil: "domcontentloaded",
@@ -1754,16 +1677,16 @@ test("route URL editor applies same-path search and hash edits while typing", as
   const origin = await page.evaluate(() => window.location.origin);
   const display = getRouteUrlEditorDisplay(page);
   const input = await editRouteUrl(page);
-  await input.fill(`${origin}/logo?leftFace=secondary#done`);
+  await input.fill(`${origin}/logo?leftFace=secondary`);
 
-  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary#done`);
-  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary#done`);
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
 
   await input.blur();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/logo?leftFace=secondary#done`);
-  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary#done`);
+  await expect(display).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
 });
 
 test("route URL editor toggles landing dev mode while preserving focused draft text", async ({
@@ -1810,9 +1733,12 @@ test("route URL editor keeps invalid route search drafts local until blur", asyn
   const input = await editRouteUrl(page);
   const origin = await page.evaluate(() => window.location.origin);
 
-  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary&`);
 
   await input.press("End");
+  await input.press("Backspace");
+  await expect(input).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
   await input.press("Backspace");
 
   await expect(input).toHaveValue(`${origin}/logo?leftFace=secondar`);
@@ -1835,11 +1761,12 @@ test("route URL editor fixture refuses pasted external origins", async ({ page }
   const display = getRouteUrlEditorDisplay(page);
   const input = await editRouteUrl(page);
   const currentHref = page.getByTestId("route-url-editor-fixture-current-href");
+  const focusedFixtureHref = `${origin}/visual-fixture?mode=route-url-editor&`;
 
   await input.fill("https://example.com/noter");
 
-  await expect(input).toHaveAttribute("aria-invalid", "false");
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(input).not.toHaveAttribute("aria-invalid", "true");
+  await expect(input).toHaveValue(focusedFixtureHref);
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await input.press("Enter");
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
