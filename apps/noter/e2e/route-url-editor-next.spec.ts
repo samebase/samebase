@@ -330,14 +330,14 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(page.getByRole("option", { exact: true, name: "blue-500" })).toBeVisible();
   });
 
-  test("touch tap on numeric samples keeps the next query slot open", async ({ page }) => {
+  test("touch tap on numeric samples opens the value slot", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
 
     await input.press("End");
 
     const zoomSuggestion = await scrollTouchPickerToSuggestion(page, "?zoom=0.5");
 
-    await expect(input).toHaveValue(`${prefix}logo?zoom=0.5&`);
+    await expect(input).toHaveValue(`${prefix}logo?zoom=0.5`);
     await expectInputSelection(input, `${prefix}logo?`.length);
     await expect(page).toHaveURL(/\/logo\?zoom=0\.5$/);
     await expect(page.getByRole("option", { exact: true, name: "?zoom=0.5" })).toBeVisible();
@@ -352,10 +352,9 @@ test.describe("route URL editor touch scroll picker", () => {
       zoomSuggestionBox.y + zoomSuggestionBox.height / 2,
     );
 
-    await expect(input).toHaveValue(`${prefix}logo?zoom=0.5&`);
-    await expectInputSelection(input, `${prefix}logo?zoom=0.5&`.length);
-    await expect(page).toHaveURL(/\/logo\?zoom=0\.5$/);
-    await expect(page.getByRole("option", { exact: true, name: "&dark" })).toBeVisible();
+    await expect(input).toHaveValue(`${prefix}logo?zoom=`);
+    await expectInputSelection(input, `${prefix}logo?zoom=`.length);
+    await expect(page).toHaveURL(/\/logo$/);
   });
 
   test("touch scroll keeps suggestions open when preview canonicalizes the route", async ({
@@ -539,6 +538,32 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(nextDisplayInput).toHaveValue(`${prefix}logo`);
     await expect(page).toHaveURL(/\/logo$/);
   });
+
+  test("touch scroll query preview does not remain in forward history", async ({ page }) => {
+    await page.goto("/terms", {
+      waitUntil: "domcontentloaded",
+    });
+
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
+
+    await input.press("End");
+    await scrollTouchPickerToSuggestion(page, "?top=sky-500");
+
+    await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
+    await expect(page).toHaveURL(/\/logo\?top=sky-500$/);
+
+    await page.goBack();
+
+    const termsDisplayInput = page.getByTestId("route-url-editor-display");
+    await expect(termsDisplayInput).toHaveValue(`${prefix}terms`);
+    await expect(page).toHaveURL(/\/terms$/);
+
+    await page.goForward();
+
+    const logoDisplayInput = page.getByTestId("route-url-editor-display");
+    await expect(logoDisplayInput).toHaveValue(`${prefix}logo`);
+    await expect(page).toHaveURL(/\/logo$/);
+  });
 });
 
 test("route URL editor keeps the prefix visible when Backspace deletes a selection that crosses it", async ({
@@ -658,6 +683,27 @@ test("route URL editor hides already-present query keys while replacing another 
   await expect(page.getByRole("option", { exact: true, name: "?border=stone-300" })).toBeVisible();
 });
 
+test("route URL editor keeps numeric query samples preview-only on selection", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
+
+  await input.press("End");
+
+  const depthOption = page.getByRole("option", { exact: true, name: "?depth=2" });
+  await expect(depthOption).toBeVisible();
+
+  await depthOption.hover();
+
+  await expect(input).toHaveValue(`${prefix}logo?depth=2`);
+  await expect(page).toHaveURL(/\/logo\?depth=2$/);
+
+  await depthOption.click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?depth=`);
+  await expectInputSelection(input, `${prefix}logo?depth=`.length);
+  await expect(page).toHaveURL(/\/logo$/);
+});
+
 test("route URL editor applies hover path suggestions and restores on mouseleave", async ({
   page,
 }) => {
@@ -692,6 +738,12 @@ test("route URL editor applies hover path suggestions and restores on mouseleave
   await expect(input).toHaveValue(`${prefix}privacy?top=red-`);
   await expect(page).toHaveURL(/\/privacy$/);
   await expectPrivacyPage(page);
+
+  await page.goBack();
+
+  await expect(page.getByTestId("route-url-editor-display")).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expectTermsPage(page);
 });
 
 test("route URL editor restores pointer path preview when clicking outside", async ({ page }) => {
@@ -884,6 +936,111 @@ test("route URL editor applies route-ready typed drafts immediately", async ({ p
   await expect(page).toHaveURL(/\/logo\?dark$/);
 });
 
+test("route URL editor adds history when typing reaches a new path", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
+
+  await expect(input).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await page.goBack();
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expectTermsPage(page);
+});
+
+test("route URL editor navigation buttons track typed history entries", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
+
+  const backButton = page.getByRole("button", { exact: true, name: "Back" });
+  await expect(backButton).toBeEnabled();
+
+  await backButton.click();
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+
+  const forwardButton = page.getByRole("button", { exact: true, name: "Forward" });
+  await expect(forwardButton).toBeEnabled();
+});
+
+test("route URL editor adds history when typing reaches a new canonical query", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/logo?dark");
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo?dark&light`));
+
+  await expect(input).toHaveValue(`${prefix}logo?dark&light`);
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await page.goBack();
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}logo?dark`);
+  await expect(page).toHaveURL(/\/logo\?dark$/);
+});
+
+test("route URL editor adds history when typing changes a query value", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?depth=2");
+  const depthValueEnd = `${prefix}logo?depth=2`.length;
+
+  await setInputSelection(input, {
+    end: depthValueEnd,
+    start: depthValueEnd,
+  });
+
+  await input.press("Backspace");
+
+  await expect(input).toHaveValue(`${prefix}logo?depth=&`);
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await input.type("3");
+
+  await expect(input).toHaveValue(`${prefix}logo?depth=3&`);
+  await expect(page).toHaveURL(/\/logo\?depth=3$/);
+
+  await page.goBack();
+
+  const logoDisplayInput = page.getByTestId("route-url-editor-display");
+  await expect(logoDisplayInput).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await page.goBack();
+
+  const depthDisplayInput = page.getByTestId("route-url-editor-display");
+  await expect(depthDisplayInput).toHaveValue(`${prefix}logo?depth=2`);
+  await expect(page).toHaveURL(/\/logo\?depth=2$/);
+});
+
+test("route URL editor adds history when typing adopts a suggestion preview", async ({ page }) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms");
+
+  await input.press("Home");
+  await pressArrowDownToSuggestion(page, input, "/privacy");
+
+  await expect(input).toHaveValue(`${prefix}privacy?`);
+  await expect(page).toHaveURL(/\/privacy$/);
+
+  await expectNoPageErrorDuring(page, () => input.fill(`${prefix}logo`));
+
+  await expect(input).toHaveValue(`${prefix}logo`);
+  await expect(page).toHaveURL(/\/logo$/);
+
+  await page.goBack();
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toHaveValue(`${prefix}terms`);
+  await expect(page).toHaveURL(/\/terms$/);
+  await expectTermsPage(page);
+});
+
 test.describe("route URL editor public route query stories", () => {
   test("manual root auth params stay local and do not suggest OAuth values", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
@@ -999,6 +1156,12 @@ test.describe("route URL editor public route query stories", () => {
     await expect(input).toHaveValue(`${prefix}logo?zoom=0.0`);
     await expect(page).toHaveURL(/\/logo\?zoom=0$/);
     await expect(input).toBeFocused();
+
+    await page.goBack();
+
+    const displayInput = page.getByTestId("route-url-editor-display");
+    await expect(displayInput).toHaveValue(`${prefix}logo?zoom=0.01`);
+    await expect(page).toHaveURL(/\/logo\?zoom=0\.01$/);
   });
 });
 

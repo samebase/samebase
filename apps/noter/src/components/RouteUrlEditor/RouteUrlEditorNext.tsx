@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { useRouteEditorVm } from "./useRouteEditorVm";
+import { useNavigationControls } from "./useNavigationControls";
 import {
   routeUrlEditorTouchSuggestionRowHeightPx,
   useRouteUrlEditorTouchScrollPicker,
@@ -60,8 +60,8 @@ function renderRouteUrlEditorNextSuggestionValue(suggestion: {
 }
 
 export function RouteUrlEditorNext() {
-  const router = useRouter();
   const vm = useRouteEditorVm({});
+  const { canGoBack, canGoForward } = useNavigationControls();
   const touchScrollPicker = useRouteUrlEditorTouchScrollPicker({
     previewTouchSuggestion: vm.previewTouchSuggestion,
     suggestions: vm.suggestions,
@@ -102,13 +102,17 @@ export function RouteUrlEditorNext() {
         event.preventDefault();
       }}
     >
-      <label className="sr-only" htmlFor={vm.inputProps.id}>
+      <label
+        className="sr-only"
+        htmlFor={vm.state.kind === "focused" ? vm.inputProps.id : vm.displayInputProps.id}
+      >
         Route URL
       </label>
       <button
         aria-label="Back"
         className={routeUrlEditorNextIconButtonClassName}
-        onClick={() => router.history.back()}
+        disabled={!canGoBack}
+        onClick={() => window.navigation.back()}
         title="Back"
         type="button"
       >
@@ -117,7 +121,8 @@ export function RouteUrlEditorNext() {
       <button
         aria-label="Forward"
         className={routeUrlEditorNextIconButtonClassName}
-        onClick={() => router.history.forward()}
+        disabled={!canGoForward}
+        onClick={() => window.navigation.forward()}
         title="Forward"
         type="button"
       >
@@ -132,20 +137,26 @@ export function RouteUrlEditorNext() {
       >
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
-      <input
-        {...vm.inputProps}
-        className={
-          vm.state.kind === "focused"
-            ? routeUrlEditorNextInputClassName
-            : routeUrlEditorNextBlurredInputClassName
-        }
-        data-testid={
-          vm.state.kind === "focused" ? "route-url-editor-input" : "route-url-editor-display"
-        }
-        inputMode="url"
-        spellCheck={false}
-        style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
-      />
+      {vm.state.kind === "focused" ? (
+        <input
+          {...vm.inputProps}
+          autoFocus
+          className={routeUrlEditorNextInputClassName}
+          data-testid="route-url-editor-input"
+          inputMode="url"
+          spellCheck={false}
+          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
+        />
+      ) : (
+        <input
+          {...vm.displayInputProps}
+          className={routeUrlEditorNextBlurredInputClassName}
+          data-testid="route-url-editor-display"
+          inputMode="url"
+          spellCheck={false}
+          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
+        />
+      )}
       {vm.suggestionsVisible ? (
         <div
           className={
