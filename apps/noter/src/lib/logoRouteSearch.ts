@@ -588,35 +588,38 @@ export function buildLogoRouteSearch(
   return {
     ...readRootThemeModeSearch(args.themeModeSearch ?? {}),
     ...buildLogoThemeColorSearch(args.themeColors),
-    ...(args.rotationAxisMode !== "cube-y" ? { axis: args.rotationAxisMode } : {}),
-    ...(args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
-      ? { elev: Number(args.elevationDegrees.toFixed(1)) }
-      : {}),
-    // `depth` is retained by the root route, so default depth needs an own
-    // undefined tombstone to clear a previous recursive preview value.
+    // Default-valued logo controls use own undefined tombstones so retained
+    // root search cannot revive stale logo params after the serializer omits them.
+    axis: args.rotationAxisMode !== "cube-y" ? args.rotationAxisMode : undefined,
+    elev:
+      args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
+        ? Number(args.elevationDegrees.toFixed(1))
+        : undefined,
     depth: fractalDepth !== DEFAULT_LOGO_FRACTAL_DEPTH ? fractalDepth : undefined,
     dist:
       distanceScale !== LOGO_DISTANCE_SCALE.defaultValue
         ? Number(distanceScale.toFixed(3))
         : undefined,
-    ...(args.viewSnapEnabled ? {} : { freeView: true }),
+    freeView: args.viewSnapEnabled ? undefined : true,
     gridSize: gridSize !== DEFAULT_LOGO_GRID_SIZE ? gridSize : undefined,
-    ...(args.isoCubeSidePixels !== LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue
-      ? { isoSide: args.isoCubeSidePixels }
-      : {}),
-    ...(args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? { isoStyle: args.isoStyleId } : {}),
+    isoSide:
+      args.isoCubeSidePixels !== LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue
+        ? args.isoCubeSidePixels
+        : undefined,
+    isoStyle: args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? args.isoStyleId : undefined,
     ...buildLogoLeftFaceStyleSearch(leftFaceStyle),
-    ...(args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
-      ? { rot: Number(args.rotationDegrees.toFixed(1)) }
-      : {}),
-    ...(voxelState !== defaultVoxelState ? { vox: voxelState } : {}),
+    rot:
+      args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
+        ? Number(args.rotationDegrees.toFixed(1))
+        : undefined,
+    vox: voxelState !== defaultVoxelState ? voxelState : undefined,
     zoom: zoom !== LOGO_PREVIEW_ZOOM.defaultValue ? Number(zoom.toFixed(2)) : undefined,
   };
 }
 
 /**
  * Route parsing canonicalizes visible params only; explicit logo updates use
- * buildLogoLeftFaceStyleSearch when they need tombstones for retained keys.
+ * buildLogoLeftFaceStyleSearch for left-face tombstones.
  */
 function readLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLeftFaceStyleSearch {
   if (areLogoLeftFaceStylesEqual(leftFaceStyle, DEFAULT_LOGO_LEFT_FACE_STYLE)) {
