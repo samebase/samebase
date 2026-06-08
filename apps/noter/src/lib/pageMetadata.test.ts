@@ -319,7 +319,7 @@ describe("page metadata", () => {
     });
     expect(rootHead.meta).toContainEqual({
       name: "theme-color",
-      content: "#ff69b4",
+      content: "#ffffff",
     });
     expect(
       rootHead.scripts.some((script) =>

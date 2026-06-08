@@ -149,4 +149,25 @@ describe("appThemeColorSearch", () => {
 
     expect(document.getElementById("noter-app-theme-color-search")).toBeNull();
   });
+
+  it("syncs the browser theme-color meta tag to the app background", () => {
+    const metaElement = document.createElement("meta");
+    metaElement.name = "theme-color";
+    metaElement.content = "#ffffff";
+    document.head.append(metaElement);
+
+    syncDocumentThemeColorSearch({ background: "#112233" });
+
+    expect(metaElement.content).toBe("#112233");
+
+    syncDocumentThemeColorSearch({ background: "mist-700" });
+
+    expect(metaElement.content).toBe("#394447");
+
+    syncDocumentThemeColorSearch({});
+
+    expect(metaElement.content).toBe("#ffffff");
+
+    metaElement.remove();
+  });
 });
