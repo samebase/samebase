@@ -2,6 +2,7 @@ import { entries } from "@noter-md/dependent/object";
 import {
   canAccessNoterRoutePermission,
   type NoterRouteSearchParamSuggestion,
+  type NoterRouteSearchParamValueSuggestion,
 } from "@/lib/routePermissions";
 import {
   readRouteUrlPathSuggestionSurface,
@@ -14,10 +15,24 @@ type Selection = {
   start: number;
 };
 
+/**
+One dropdown row has two route addresses:
+
+`previewRouteAddress` is used while hovering, arrowing, or touch-scrolling the row.
+`previewSelectionRouteIndex` keeps the cursor at the start of the token being changed:
+after `/` for paths, after `?` or `&` for query keys, after `=` for values, and after `-`
+for Tailwind shades.
+
+`selectedRouteAddress` is used after click, tap, or Enter.
+`nextSelectionRouteIndex` moves the cursor to the next editing slot after that commit.
+*/
 export type Suggestion = {
   kind: "path" | "search" | "searchValuePrefix" | "searchValue";
   nextSelectionRouteIndex: number;
-  routeAddress: string;
+  previewRouteAddress: string;
+  previewSelectionRouteIndex: number;
+  sampleValueStart?: number;
+  selectedRouteAddress: string;
   value: string;
 };
 
@@ -194,6 +209,92 @@ function canShowPathSuggestionRow(routePath: string): boolean {
   return !routePath.includes("$");
 }
 
+function areSearchTokensEqual(left: SearchToken, right: SearchToken): boolean {
+  return left.tokenStart === right.tokenStart && left.tokenEnd === right.tokenEnd;
+}
+
+function readSearchTokenText(routeAddress: string, token: SearchToken): string {
+  return routeAddress.slice(token.tokenStart + 1, token.tokenEnd);
+}
+
+/**
+Replaces one query token and removes duplicate tokens for the replacement key.
+
+Example: replacing `border=stone-300` with `dev` in
+`/terms?border=stone-300&dev&depth=2&light&` returns
+`/terms?dev&depth=2&light&`, not `/terms?dev&dev&depth=2&light&`.
+*/
+function replaceSearchToken(args: {
+  replacementKey: string;
+  replacementTokenText: string;
+  routeAddress: string;
+  token: SearchToken;
+}) {
+  const parsedRouteAddress = parseRouteAddress(args.routeAddress);
+  if (parsedRouteAddress.search === null) {
+    return {
+      replacementTokenStart: args.routeAddress.length,
+      routeAddress: args.routeAddress,
+    };
+  }
+
+  let routeAddress = parsedRouteAddress.path;
+  let replacementTokenStart = routeAddress.length;
+  let tokenDelimiter = "?";
+
+  for (const token of parsedRouteAddress.search.tokens) {
+    const activeToken = areSearchTokensEqual(token, args.token);
+    if (!activeToken && token.key === args.replacementKey) {
+      continue;
+    }
+
+    const tokenText = activeToken
+      ? args.replacementTokenText
+      : readSearchTokenText(args.routeAddress, token);
+    const tokenStart = routeAddress.length;
+
+    routeAddress = `${routeAddress}${tokenDelimiter}${tokenText}`;
+    tokenDelimiter = "&";
+
+    if (activeToken) {
+      replacementTokenStart = tokenStart;
+    }
+  }
+
+  return {
+    replacementTokenStart,
+    routeAddress,
+  };
+}
+
+/**
+Checks the rebuilt route, not the original route.
+
+Example: replacing `border=stone-300` with `dev` in `/terms?border=stone-300&dev&`
+rebuilds `/terms?dev&`. The old `dev` was removed, and the remaining empty token is the next
+editable slot, so this returns false.
+*/
+function hasNonEmptySearchTokenAfterReplacement(args: {
+  replacementTokenStart: number;
+  routeAddress: string;
+}): boolean {
+  const parsedRouteAddress = parseRouteAddress(args.routeAddress);
+  if (parsedRouteAddress.search === null) {
+    return false;
+  }
+
+  const replacementTokenIndex = parsedRouteAddress.search.tokens.findIndex(
+    (token) => token.tokenStart === args.replacementTokenStart,
+  );
+  if (replacementTokenIndex === -1) {
+    return false;
+  }
+
+  return parsedRouteAddress.search.tokens
+    .slice(replacementTokenIndex + 1)
+    .some((token) => readSearchTokenText(args.routeAddress, token).length > 0);
+}
+
 type TailwindColorValueCursor =
   | {
       kind: "family";
@@ -230,6 +331,14 @@ function readTailwindColorFamilyValues(valueSuggestions: readonly string[]): str
   }
 
   return [...families];
+}
+
+function readTailwindColorFamilySampleValue(
+  prefix: string,
+  valueSuggestions: readonly string[],
+): string {
+  const sampleValue = `${prefix}500`;
+  return valueSuggestions.includes(sampleValue) ? sampleValue : prefix;
 }
 
 /**
@@ -330,12 +439,48 @@ function readSearchParams(
   return uniqueSuggestions;
 }
 
+function readSearchParamSampleValue(
+  searchParamSuggestion: NoterRouteSearchParamValueSuggestion,
+): string | null {
+  switch (searchParamSuggestion.valueType) {
+    case "manual":
+      return null;
+    case "completion":
+    case "freeform":
+    case "numeric":
+    case "numeric-options":
+    case "options":
+      return searchParamSuggestion.sampleValue;
+  }
+}
+
+type SearchParamSuggestionWithValueRows = Extract<
+  NoterRouteSearchParamValueSuggestion,
+  { valueType: "completion" | "numeric-options" | "options" }
+>;
+
+function canShowSearchParamValueRows(
+  searchParamSuggestion: NoterRouteSearchParamValueSuggestion,
+): searchParamSuggestion is SearchParamSuggestionWithValueRows {
+  switch (searchParamSuggestion.valueType) {
+    case "completion":
+    case "numeric-options":
+    case "options":
+      return searchParamSuggestion.valueSuggestions.length > 0;
+    case "freeform":
+    case "manual":
+    case "numeric":
+      return false;
+  }
+}
+
 /**
 Turns route metadata into query-key dropdown rows.
 
 Example: in `/logo?dark&depth=2&top=blue-200`, a cursor inside `depth` shows
-all query-key rows. Selecting `&border=` replaces the whole `depth=2` token,
-so the route address becomes `/logo?dark&border=&top=blue-200`.
+all query-key rows. The `&border=stone-300` row previews
+`/logo?dark&border=stone-300&top=blue-200`, but selecting it uses
+`/logo?dark&border=&top=blue-200` so the user can still choose the value.
 */
 function readSearchRows(args: {
   routeAddress: string;
@@ -354,23 +499,57 @@ function readSearchRows(args: {
       args.searchKeyToken.tokenStart + 1,
     );
     const tokenSuffix = searchParamSuggestion.searchParamKind === "value" ? "=" : "";
-    const value = `${tokenDelimiter}${searchParamSuggestion.key}${tokenSuffix}`;
-    const routeAddressBeforeToken = args.routeAddress.slice(0, args.searchKeyToken.tokenStart);
-    const routeAddressAfterToken = args.routeAddress.slice(args.searchKeyToken.tokenEnd);
-    const selectedRouteAddress = `${routeAddressBeforeToken}${value}${routeAddressAfterToken}`;
+    const selectedTokenText = `${searchParamSuggestion.key}${tokenSuffix}`;
+    const selectedValue = `${tokenDelimiter}${selectedTokenText}`;
+    const sampleValue =
+      searchParamSuggestion.searchParamKind === "value"
+        ? readSearchParamSampleValue(searchParamSuggestion)
+        : null;
+    const previewTokenText =
+      typeof sampleValue === "string" ? `${selectedTokenText}${sampleValue}` : selectedTokenText;
+    const previewValue = `${tokenDelimiter}${previewTokenText}`;
+    const selectedValueRowsAvailable =
+      searchParamSuggestion.searchParamKind === "value" &&
+      canShowSearchParamValueRows(searchParamSuggestion);
+    // If selecting `key=` would not show value rows, select the displayed sample and continue.
+    // Example: `?zoom=0.5` selects `/logo?zoom=0.5&`, not `/logo?zoom=`.
+    const shouldSelectSampleValue = typeof sampleValue === "string" && !selectedValueRowsAvailable;
+    const selectedSearchTokenText = shouldSelectSampleValue ? previewTokenText : selectedTokenText;
+    const selectedRoute = replaceSearchToken({
+      replacementKey: searchParamSuggestion.key,
+      replacementTokenText: selectedSearchTokenText,
+      routeAddress: args.routeAddress,
+      token: args.searchKeyToken,
+    });
+    const previewRoute = replaceSearchToken({
+      replacementKey: searchParamSuggestion.key,
+      replacementTokenText: previewTokenText,
+      routeAddress: args.routeAddress,
+      token: args.searchKeyToken,
+    });
     const shouldPromptForNextKey =
-      searchParamSuggestion.searchParamKind === "presence" && routeAddressAfterToken.length === 0;
-    const routeAddress = shouldPromptForNextKey
-      ? appendSearchParamDelimiter(selectedRouteAddress)
-      : selectedRouteAddress;
+      (searchParamSuggestion.searchParamKind === "presence" || shouldSelectSampleValue) &&
+      !hasNonEmptySearchTokenAfterReplacement({
+        replacementTokenStart: selectedRoute.replacementTokenStart,
+        routeAddress: selectedRoute.routeAddress,
+      });
+    const finalSelectedRouteAddress = shouldPromptForNextKey
+      ? appendSearchParamDelimiter(selectedRoute.routeAddress)
+      : selectedRoute.routeAddress;
+    const finalPreviewRouteAddress = shouldPromptForNextKey
+      ? appendSearchParamDelimiter(previewRoute.routeAddress)
+      : previewRoute.routeAddress;
 
     suggestions.push({
       kind: "search",
       nextSelectionRouteIndex: shouldPromptForNextKey
-        ? routeAddress.length
-        : routeAddressBeforeToken.length + value.length,
-      routeAddress,
-      value,
+        ? finalSelectedRouteAddress.length
+        : selectedRoute.replacementTokenStart + 1 + selectedSearchTokenText.length,
+      previewRouteAddress: finalPreviewRouteAddress,
+      previewSelectionRouteIndex: previewRoute.replacementTokenStart + 1,
+      sampleValueStart: typeof sampleValue === "string" ? selectedValue.length : undefined,
+      selectedRouteAddress: finalSelectedRouteAddress,
+      value: previewValue,
     });
   }
 
@@ -380,12 +559,12 @@ function readSearchRows(args: {
 /**
 Turns a value token into concrete value rows.
 
-Example: `/logo?top=blue-200` with the cursor before `-` shows all color
-family rows. Selecting `red-` replaces the whole value, so the route address
-becomes `/logo?top=red-`.
+Example: `/logo?top=blue-200` with the cursor before `-` shows color-family
+rows such as `red-500`. Hover previews `/logo?top=red-500`, but selecting it
+uses `/logo?top=red-` so the user can still choose the shade.
 
 Example: `/logo?top=blue-200` with the cursor after `-` shows shade rows for
-the `blue` family. Selecting `blue-500` replaces the whole value.
+the `blue` family. Selecting `500` uses `/logo?top=blue-500`.
 */
 function readValueRows(args: {
   routeAddress: string;
@@ -404,24 +583,54 @@ function readValueRows(args: {
 
   if (
     searchParamSuggestion.searchParamKind !== "value" ||
-    searchParamSuggestion.valueType !== "completion"
+    !canShowSearchParamValueRows(searchParamSuggestion)
   ) {
     return [];
   }
 
   const routeAddressBeforeValue = args.routeAddress.slice(0, args.token.valueStart);
   const routeAddressAfterValue = args.routeAddress.slice(args.token.tokenEnd);
+  if (
+    searchParamSuggestion.valueType === "numeric-options" ||
+    searchParamSuggestion.valueType === "options"
+  ) {
+    return searchParamSuggestion.valueSuggestions.map((value): Suggestion => {
+      const selectedRouteAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`;
+      const shouldPromptForNextKey = routeAddressAfterValue.length === 0;
+      const finalSelectedRouteAddress = shouldPromptForNextKey
+        ? appendSearchParamDelimiter(selectedRouteAddress)
+        : selectedRouteAddress;
+
+      return {
+        kind: "searchValue",
+        nextSelectionRouteIndex: shouldPromptForNextKey
+          ? finalSelectedRouteAddress.length
+          : routeAddressBeforeValue.length + value.length,
+        previewRouteAddress: selectedRouteAddress,
+        previewSelectionRouteIndex: routeAddressBeforeValue.length,
+        selectedRouteAddress: finalSelectedRouteAddress,
+        value,
+      };
+    });
+  }
+
   const colorValueCursor = readTailwindColorValueCursor(args.valuePrefix);
   if (colorValueCursor.kind === "family") {
     return readTailwindColorFamilyValues(searchParamSuggestion.valueSuggestions).map(
       (value): Suggestion => {
-        const routeAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`;
+        const sampleValue = readTailwindColorFamilySampleValue(
+          value,
+          searchParamSuggestion.valueSuggestions,
+        );
 
         return {
           kind: "searchValuePrefix",
           nextSelectionRouteIndex: routeAddressBeforeValue.length + value.length,
-          routeAddress,
-          value,
+          previewRouteAddress: `${routeAddressBeforeValue}${sampleValue}${routeAddressAfterValue}`,
+          previewSelectionRouteIndex: routeAddressBeforeValue.length,
+          sampleValueStart: value.length,
+          selectedRouteAddress: `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`,
+          value: sampleValue,
         };
       },
     );
@@ -434,17 +643,20 @@ function readValueRows(args: {
     .map((value): Suggestion => {
       const selectedRouteAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}`;
       const shouldPromptForNextKey = routeAddressAfterValue.length === 0;
-      const routeAddress = shouldPromptForNextKey
+      const finalSelectedRouteAddress = shouldPromptForNextKey
         ? appendSearchParamDelimiter(selectedRouteAddress)
         : selectedRouteAddress;
+      const shadeValue = value.slice(shadePrefix.length);
 
       return {
         kind: "searchValue",
         nextSelectionRouteIndex: shouldPromptForNextKey
-          ? routeAddress.length
+          ? finalSelectedRouteAddress.length
           : routeAddressBeforeValue.length + value.length,
-        routeAddress,
-        value,
+        previewRouteAddress: selectedRouteAddress,
+        previewSelectionRouteIndex: routeAddressBeforeValue.length + shadePrefix.length,
+        selectedRouteAddress: finalSelectedRouteAddress,
+        value: shadeValue,
       };
     });
 }
@@ -479,7 +691,9 @@ function readPathRows(args: {
       return {
         kind: "path",
         nextSelectionRouteIndex: routeAddress.length,
-        routeAddress,
+        previewRouteAddress: routeAddress,
+        previewSelectionRouteIndex: 1,
+        selectedRouteAddress: routeAddress,
         value: suggestionRouteAddress,
       };
     });
