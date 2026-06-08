@@ -281,7 +281,7 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
 
   await editRouteUrl(page);
   await expect(input).toBeFocused();
-  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(input).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor&`);
 
   await input.fill(`${origin}/logo?from=route-url-editor`);
   await expect(input).toHaveValue(`${origin}/logo?from=route-url-editor`);

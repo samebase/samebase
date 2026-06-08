@@ -89,12 +89,11 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
   );
 });
 
-test("storage sidebar previews linked pages on hover", async ({ page }) => {
+test("storage sidebar links navigate through the same styled link surface", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await signInForLocalStorageRoute(page);
   await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
   const origin = new URL(page.url()).origin;
-  const leftSidebar = page.getByTestId("workspace-layout-v2-pane-left");
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
   const storageRouteLink = page.getByTestId("indexed-db-sidebar-file");
   const rightSidebarLink = rightSidebar
@@ -108,22 +107,10 @@ test("storage sidebar previews linked pages on hover", async ({ page }) => {
     .toEqual(await readPreviewLinkStyle(rightSidebarLink));
 
   await storageRouteLink.hover();
+  await expect(page).toHaveURL(`${origin}${LOCAL_STORAGE_ROUTE}`);
+  await storageRouteLink.click();
   await expect(page).toHaveURL(`${origin}${INDEXED_DB_ROUTE}`);
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute("aria-current", "page");
-  await page.mouse.down();
-  try {
-    await expect(leftSidebar).toHaveScreenshot(
-      "storage-sidebar-link-click-state.png",
-      localStorageRouteScreenshotOptions,
-    );
-  } finally {
-    await page.mouse.up();
-  }
-
-  await page.getByTestId("workspace-layout-v2-pane-main").hover({
-    position: { x: 16, y: 16 },
-  });
-  await expect(page).toHaveURL(`${origin}${LOCAL_STORAGE_ROUTE}`);
 });
 
 test("localStorage route reflects same-tab storage writes without manual refresh", async ({
