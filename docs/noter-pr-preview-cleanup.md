@@ -91,6 +91,9 @@ gh pr checks "$pr_number"
 gh pr view "$pr_number" --json comments,statusCheckRollup
 ```
 
+If those GitHub lookups have no preview link, keep checking Worker versions; absence of a comment or
+check is not evidence that no preview exists.
+
 Cloudflare may create multiple preview Worker versions for the same branch. Treat each matching
 inactive version as its own candidate. In current Workers preview metadata, branch previews can
 appear as `workers/alias` with slashes replaced by dashes, such as `codex-logo-striped-face` for
