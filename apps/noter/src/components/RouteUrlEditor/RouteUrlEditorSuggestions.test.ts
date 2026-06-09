@@ -14,6 +14,8 @@ function cursorAfter(routeTextBeforeCursor: string) {
 }
 
 function readValues(args: {
+  committedRouteAddress?: string;
+  hashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
@@ -22,11 +24,15 @@ function readValues(args: {
 }
 
 function readRows(args: {
+  committedRouteAddress?: string;
+  hashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
 }) {
   return readSuggestions({
+    committedRouteAddress: args.committedRouteAddress ?? args.routeAddress,
+    hashKeys: args.hashKeys ?? [],
     prefix,
     routeAddress: args.routeAddress,
     routesByPath,
@@ -192,6 +198,23 @@ describe("parseRouteAddress", () => {
       },
     });
   });
+
+  it("keeps hash text out of query tokens", () => {
+    expect(parseRouteAddress("/logo?dev#top")).toEqual({
+      path: "/logo",
+      search: {
+        start: 5,
+        tokens: [
+          {
+            kind: "key",
+            key: "dev",
+            tokenEnd: 9,
+            tokenStart: 5,
+          },
+        ],
+      },
+    });
+  });
 });
 
 describe("readSuggestions", () => {
@@ -221,6 +244,22 @@ describe("readSuggestions", () => {
     });
   });
 
+  it("preserves hash text when building path suggestion rows", () => {
+    const rows = readRows({
+      routeAddress: "/terms?top=red-#top",
+      routeTextBeforeCursor: "/te",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "path",
+      nextSelectionRouteIndex: "/privacy?top=red-#top".length,
+      previewRouteAddress: "/privacy?top=red-#top",
+      previewSelectionRouteIndex: 1,
+      selectedRouteAddress: "/privacy?top=red-#top",
+      value: "/privacy",
+    });
+  });
+
   it("hides router template paths from clickable path rows", () => {
     const values = readValues({
       routeAddress: "/vault?",
@@ -240,6 +279,22 @@ describe("readSuggestions", () => {
 
     expect(values).toContain("?top=sky-500");
     expect(values).not.toContain("/logo");
+  });
+
+  it("keeps the next query slot before an existing hash", () => {
+    const rows = readRows({
+      routeAddress: "/logo?de#top",
+      routeTextBeforeCursor: "/logo?de",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "search",
+      nextSelectionRouteIndex: "/logo?dev&".length,
+      previewRouteAddress: "/logo?dev&#top",
+      previewSelectionRouteIndex: "/logo?".length,
+      selectedRouteAddress: "/logo?dev&#top",
+      value: "?dev",
+    });
   });
 
   it("shows all query key suggestions for the key under the cursor", () => {
@@ -539,5 +594,53 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/visual-fixture?mode=route-url-editor&",
       value: "route-url-editor",
     });
+  });
+
+  it("suggests global hashes after the hash marker", () => {
+    const values = readValues({
+      routeAddress: "/logo#to",
+      routeTextBeforeCursor: "/logo#to",
+    });
+
+    expect(values).toEqual(["#top"]);
+  });
+
+  it("suggests route-specific hashes for matching routes", () => {
+    const rows = readRows({
+      routeAddress: "/machines/connect#connected",
+      routeTextBeforeCursor: "/machines/connect#connected",
+      viewerIsAdmin: true,
+    });
+
+    expect(rows).toContainEqual({
+      kind: "hash",
+      nextSelectionRouteIndex: "/machines/connect#connected-machines".length,
+      previewRouteAddress: "/machines/connect#connected-machines",
+      previewSelectionRouteIndex: "/machines/connect#".length,
+      selectedRouteAddress: "/machines/connect#connected-machines",
+      value: "#connected-machines",
+    });
+  });
+
+  it("suggests document hashes for the current route", () => {
+    const values = readValues({
+      committedRouteAddress: "/home",
+      hashKeys: ["tmp-flow", "noter-md/noter"],
+      routeAddress: "/home#not",
+      routeTextBeforeCursor: "/home#not",
+    });
+
+    expect(values).toEqual(["#noter-md/noter"]);
+  });
+
+  it("does not suggest current document hashes for a different draft route", () => {
+    const values = readValues({
+      committedRouteAddress: "/home",
+      hashKeys: ["noter-md/noter"],
+      routeAddress: "/logo#not",
+      routeTextBeforeCursor: "/logo#not",
+    });
+
+    expect(values).toEqual([]);
   });
 });

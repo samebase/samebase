@@ -720,6 +720,7 @@ export const trackedFilePaths = [
   "apps/noter/src/components/RouteAvailabilityOutlet.tsx",
   "apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.test.tsx",
   "apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.tsx",
+  "apps/noter/src/components/RouteUrlEditor/RouteUrlEditorNext.test.tsx",
   "apps/noter/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx",
   "apps/noter/src/components/RouteUrlEditor/RouteUrlEditorSuggestionNavigation.ts",
   "apps/noter/src/components/RouteUrlEditor/RouteUrlEditorSuggestions.test.ts",

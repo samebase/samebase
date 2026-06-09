@@ -7,12 +7,16 @@ import type {
   PointerEvent,
   SyntheticEvent,
 } from "react";
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { readRouteAddressReadiness, type RouteAddressReadiness } from "@/lib/routeAddress";
+import {
+  ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
+  readRouteUrlEditorDocumentHashSuggestionKeys,
+} from "@/lib/routeUrlEditorHashSuggestions";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   readRootRouteRedirectRouteAddress,
@@ -343,8 +347,26 @@ function readRouteAddressFocusedDraft(routeAddress: string): string {
     return routeAddress;
   }
 
-  const continuation = routeAddress.includes("?") ? "&" : "?";
-  return `${routeAddress}${continuation}`;
+  const hashStart = routeAddress.indexOf("#");
+  const searchEnd = hashStart === -1 ? routeAddress.length : hashStart;
+  const searchStart = routeAddress.indexOf("?");
+  if (searchStart === -1 || searchStart > searchEnd) {
+    if (hashStart === -1) {
+      return `${routeAddress}?`;
+    }
+
+    return `${routeAddress.slice(0, hashStart)}?${routeAddress.slice(hashStart)}`;
+  }
+
+  if (routeAddress.slice(searchStart + 1, searchEnd).endsWith("&")) {
+    return routeAddress;
+  }
+
+  if (hashStart === -1) {
+    return `${routeAddress}&`;
+  }
+
+  return `${routeAddress.slice(0, hashStart)}&${routeAddress.slice(hashStart)}`;
 }
 
 function readInputSelectionFromRouteIndex(
@@ -380,7 +402,7 @@ function readFocusedInputSelectionFromDisplaySelection(
 }
 
 /**
-Focus adds `&` for route addresses that already have query params.
+Focus adds a query marker before any hash.
 
 Example: focusing `/logo/raster-seams?depth=2` creates draftPath
 `/logo/raster-seams?depth=2&`. That empty `&` token should own suggestions
@@ -391,11 +413,14 @@ function readRouteAddressFocusedSelection(args: {
   prefix: string;
   selection: RouteAddressSelection;
 }): RouteAddressSelection {
-  if (!args.draftPath.endsWith("&")) {
+  const hashStart = args.draftPath.indexOf("#");
+  const searchEnd = hashStart === -1 ? args.draftPath.length : hashStart;
+  const searchContinuation = args.draftPath[searchEnd - 1];
+  if (searchContinuation !== "?" && searchContinuation !== "&") {
     return args.selection;
   }
 
-  return readInputSelectionFromRouteIndex(args.prefix, args.draftPath.length);
+  return readInputSelectionFromRouteIndex(args.prefix, searchEnd);
 }
 
 function previewRouteEditorSuggestion(
@@ -896,7 +921,24 @@ function readRouteAddressSelection(input: HTMLInputElement): RouteAddressSelecti
 
 function readRouteAddressFromRouteHref(routeHref: string): string {
   const url = new URL(routeHref, new URL(readIsomorphicOrigin()));
-  return `${url.pathname}${url.search}`;
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function areRouteEditorHashSuggestionKeysEqual(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (const [index, value] of left.entries()) {
+    if (value !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function readNavigationEventType(event: Event): string | null {
@@ -997,6 +1039,9 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLFormElement>(null);
   const pendingRenderedInputSelectionRef = useRef<RouteAddressSelection | null>(null);
+  const [documentHashSuggestionKeys, setDocumentHashSuggestionKeys] = useState<readonly string[]>(
+    [],
+  );
 
   const runRouteEditorTransitionActions = useCallback((actions: RouteEditorAction[]) => {
     const actionHandlers: RouteEditorActionHandlerTable = {
@@ -1173,6 +1218,44 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
     },
     [router],
   );
+
+  const refreshDocumentHashSuggestionKeys = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const nextKeys = readRouteUrlEditorDocumentHashSuggestionKeys(document);
+    setDocumentHashSuggestionKeys((previousKeys) =>
+      areRouteEditorHashSuggestionKeysEqual(previousKeys, nextKeys) ? previousKeys : nextKeys,
+    );
+  }, []);
+
+  useEffect(() => {
+    refreshDocumentHashSuggestionKeys();
+  }, [committedRouteAddress, refreshDocumentHashSuggestionKeys]);
+
+  useEffect(() => {
+    if (
+      state.kind !== "focused" ||
+      typeof document === "undefined" ||
+      typeof MutationObserver === "undefined"
+    ) {
+      return;
+    }
+
+    refreshDocumentHashSuggestionKeys();
+    const observer = new MutationObserver(refreshDocumentHashSuggestionKeys);
+    observer.observe(document.body, {
+      attributeFilter: [...ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [refreshDocumentHashSuggestionKeys, state.kind]);
 
   /**
 Refresh reloads the browser page, so React cannot wait for a normal blur event to restore preview
@@ -1482,6 +1565,8 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
   const suggestions = useMemo(
     () =>
       readSuggestions({
+        committedRouteAddress,
+        hashKeys: documentHashSuggestionKeys,
         prefix: state.prefix,
         routeAddress: suggestionsRouteAddress,
         routesByPath: router.routesByPath,
@@ -1490,6 +1575,8 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       }),
     [
       router.routesByPath,
+      committedRouteAddress,
+      documentHashSuggestionKeys,
       state.prefix,
       suggestionSelection,
       suggestionsRouteAddress,
