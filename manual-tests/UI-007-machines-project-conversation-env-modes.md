@@ -23,6 +23,7 @@ and that the first sent message lands in the expected runtime context.
 7. Confirm the main pane switches to a new-conversation draft state for that project.
 8. Send a prompt that asks for an exact short reply, for example:
    `Reply with exactly WORKTREE READY and nothing else.`
+9. Confirm the new thread materializes, stays selected, and returns `WORKTREE READY`.
 
 ## Expected Results
 
