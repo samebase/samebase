@@ -6,6 +6,10 @@ import {
   routeUrlEditorTouchSuggestionRowHeightPx,
   useRouteUrlEditorTouchScrollPicker,
 } from "./useRouteUrlEditorTouchScrollPicker";
+import {
+  routeUrlEditorOriginMeasureClassName,
+  useRouteUrlEditorPathTextIndent,
+} from "./useRouteUrlEditorPathTextIndent";
 
 const routeUrlEditorNextIconButtonClassName =
   "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
@@ -61,6 +65,7 @@ function renderRouteUrlEditorNextSuggestionValue(suggestion: {
 
 export function RouteUrlEditorNext() {
   const vm = useRouteEditorVm({});
+  const routePathTextIndent = useRouteUrlEditorPathTextIndent(vm.state.prefix);
   const { canGoBack, canGoForward } = useNavigationControls();
   const touchScrollPicker = useRouteUrlEditorTouchScrollPicker({
     previewTouchSuggestion: vm.previewTouchSuggestion,
@@ -137,6 +142,13 @@ export function RouteUrlEditorNext() {
       >
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
+      <span
+        aria-hidden="true"
+        className={routeUrlEditorOriginMeasureClassName}
+        ref={routePathTextIndent.originMeasureRef}
+      >
+        {routePathTextIndent.origin}
+      </span>
       {vm.state.kind === "focused" ? (
         <input
           {...vm.inputProps}
@@ -145,7 +157,7 @@ export function RouteUrlEditorNext() {
           data-testid="route-url-editor-input"
           inputMode="url"
           spellCheck={false}
-          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
+          style={routePathTextIndent.inputStyle}
         />
       ) : (
         <input
@@ -154,7 +166,7 @@ export function RouteUrlEditorNext() {
           data-testid="route-url-editor-display"
           inputMode="url"
           spellCheck={false}
-          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
+          style={routePathTextIndent.inputStyle}
         />
       )}
       {vm.suggestionsVisible ? (

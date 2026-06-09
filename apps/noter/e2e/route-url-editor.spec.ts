@@ -70,6 +70,32 @@ async function editRouteUrl(page: Page): Promise<Locator> {
   return input;
 }
 
+async function expectRouteUrlEditorOriginIndent(input: Locator, origin: string): Promise<void> {
+  await expect
+    .poll(async () =>
+      input.evaluate((element, evaluatedOrigin) => {
+        const span = document.createElement("span");
+        const style = getComputedStyle(element);
+        span.textContent = evaluatedOrigin;
+        span.style.position = "absolute";
+        span.style.visibility = "hidden";
+        span.style.whiteSpace = "pre";
+        span.style.font = style.font;
+        document.body.append(span);
+        const originWidthPx = span.getBoundingClientRect().width;
+        span.remove();
+
+        if (!element.style.textIndent.endsWith("px")) {
+          return false;
+        }
+
+        const textIndentPx = Number.parseFloat(element.style.textIndent);
+        return Math.abs(textIndentPx + originWidthPx) < 0.5;
+      }, origin),
+    )
+    .toBe(true);
+}
+
 async function movePointerAcrossRouteUrlEditorOption(
   page: Page,
   option: Locator,
@@ -406,16 +432,12 @@ test("route URL editor focuses the path-visible URL without rewriting", async ({
   const focusedHref = `${fullHref}&`;
 
   await expect(display).toHaveValue(fullHref);
-  await expect
-    .poll(async () => display.evaluate((element) => element.style.textIndent))
-    .toBe(`-${origin.length}ch`);
+  await expectRouteUrlEditorOriginIndent(display, origin);
 
   const input = await editRouteUrl(page);
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(focusedHref);
-  await expect
-    .poll(async () => input.evaluate((element) => element.style.textIndent))
-    .toBe(`-${origin.length}ch`);
+  await expectRouteUrlEditorOriginIndent(input, origin);
   const clickState = await input.evaluate((element) => {
     const matches = element.value.match(/https?:\/\//g);
     return {
