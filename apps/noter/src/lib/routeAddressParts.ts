@@ -41,7 +41,7 @@ export type RouteAddressCursorContext =
     }
   | {
       kind: "searchKey";
-      token: Extract<RouteAddressSearchToken, { kind: "key" }>;
+      token: RouteAddressSearchToken;
     }
   | {
       kind: "searchValue";
@@ -167,13 +167,7 @@ export function readRouteAddressCursorContext(
     if (selectionRouteIndex < token.valueStart) {
       return {
         kind: "searchKey",
-        token: {
-          kind: "key",
-          delimiter: token.delimiter,
-          key: token.key,
-          tokenStart: token.tokenStart,
-          tokenEnd: token.tokenEnd,
-        },
+        token,
       };
     }
 
@@ -217,7 +211,7 @@ export function readRouteAddressWithSearchSlot(routeAddress: string): RouteAddre
   };
 }
 
-function replaceRouteAddressPath(routeAddress: string, path: string): string {
+export function replaceRouteAddressPath(routeAddress: string, path: string): string {
   const parts = parseRouteAddress(routeAddress);
   return `${path}${parts.search?.suffix ?? ""}${parts.hash?.suffix ?? ""}`;
 }
@@ -249,7 +243,17 @@ export function replaceRouteAddressHash(routeAddress: string, value: string): st
   return `${routeAddressBeforeHash}#${value}`;
 }
 
-function readRouteAddressSearchTokenText(
+export function appendRouteAddressSearchToken(routeAddress: string, tokenText: string): string {
+  const parts = parseRouteAddress(routeAddress);
+  const search =
+    parts.search === null || parts.search.suffix === "?"
+      ? `?${tokenText}`
+      : `${parts.search.suffix}&${tokenText}`;
+
+  return `${parts.path}${search}${parts.hash?.suffix ?? ""}`;
+}
+
+export function readRouteAddressSearchTokenText(
   routeAddress: string,
   token: RouteAddressSearchToken,
 ): string {

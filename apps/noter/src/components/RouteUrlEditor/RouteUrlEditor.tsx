@@ -16,6 +16,7 @@ import {
 } from "react";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
+import { parseRouteAddress, readRouteAddressWithSearchSlot } from "@/lib/routeAddressParts";
 import {
   ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
   readRouteUrlEditorDocumentHashSuggestionKeys,
@@ -529,60 +530,41 @@ function readRouteUrlEditorBrowserHref(fallbackHref: string): string {
 }
 
 function readRouteUrlEditorSearchDraftSelectionRouteIndex(routeAddress: string): number {
-  const hashIndex = routeAddress.indexOf("#");
-  return hashIndex === -1 ? routeAddress.length : hashIndex;
+  return parseRouteAddress(routeAddress).hash?.start ?? routeAddress.length;
 }
 
 function readRouteUrlEditorSearchTriggerDraft(routeAddress: string): string {
-  const hashIndex = routeAddress.indexOf("#");
-  const searchIndex = routeAddress.indexOf("?");
-  if (searchIndex !== -1 && (hashIndex === -1 || searchIndex < hashIndex)) {
+  if (parseRouteAddress(routeAddress).search !== null) {
     return routeAddress;
   }
 
-  if (hashIndex === -1) {
-    return `${routeAddress}?`;
-  }
-
-  return `${routeAddress.slice(0, hashIndex)}?${routeAddress.slice(hashIndex)}`;
+  return readRouteAddressWithSearchSlot(routeAddress).routeAddress;
 }
 
 // Keep the committed query exact while opening a local empty token before any hash.
 function readRouteUrlEditorNextSearchDraft(routeAddress: string): string {
-  const hashIndex = routeAddress.indexOf("#");
-  const searchIndex = routeAddress.indexOf("?");
-  if (searchIndex === -1 || (hashIndex !== -1 && searchIndex > hashIndex)) {
+  if (parseRouteAddress(routeAddress).search === null) {
     return routeAddress;
   }
 
-  const searchEnd = hashIndex === -1 ? routeAddress.length : hashIndex;
-  if (routeAddress.slice(searchIndex + 1, searchEnd).endsWith("&")) {
-    return routeAddress;
-  }
-
-  if (hashIndex === -1) {
-    return `${routeAddress}&`;
-  }
-
-  return `${routeAddress.slice(0, hashIndex)}&${routeAddress.slice(hashIndex)}`;
+  return readRouteAddressWithSearchSlot(routeAddress).routeAddress;
 }
 
 function readRouteUrlEditorSearchContinuationDraft(args: {
   routeAddress: string;
   selectionRouteIndex: number;
 }): string | null {
-  const hashIndex = args.routeAddress.indexOf("#");
-  if (hashIndex !== -1 && args.selectionRouteIndex > hashIndex) {
+  const parts = parseRouteAddress(args.routeAddress);
+  if (parts.hash !== null && args.selectionRouteIndex > parts.hash.start) {
     return null;
   }
 
-  const searchEnd = hashIndex === -1 ? args.routeAddress.length : hashIndex;
+  const searchEnd = parts.hash?.start ?? args.routeAddress.length;
   if (args.selectionRouteIndex !== searchEnd) {
     return null;
   }
 
-  const searchIndex = args.routeAddress.indexOf("?");
-  if (searchIndex === -1 || searchIndex > searchEnd) {
+  if (parts.search === null) {
     if (args.routeAddress === "/") {
       return null;
     }

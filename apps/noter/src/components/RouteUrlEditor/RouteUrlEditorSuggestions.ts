@@ -217,7 +217,7 @@ still choose a different value.
 function readSearchRows(args: {
   routeAddress: string;
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
-  searchKeyToken: Extract<RouteAddressSearchToken, { kind: "key" }>;
+  searchKeyToken: RouteAddressSearchToken;
   viewerIsAdmin: boolean;
 }): Suggestion[] {
   const suggestions: Suggestion[] = [];

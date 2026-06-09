@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  appendRouteAddressSearchToken,
   parseRouteAddress,
   readRouteAddressCursorContext,
   readRouteAddressWithSearchSlot,
@@ -256,6 +257,13 @@ describe("route address editing", () => {
     });
   });
 
+  it("appends search tokens into empty and existing searches", () => {
+    expect(appendRouteAddressSearchToken("/logo", "dark")).toBe("/logo?dark");
+    expect(appendRouteAddressSearchToken("/logo?", "dark")).toBe("/logo?dark");
+    expect(appendRouteAddressSearchToken("/logo?dev", "dark")).toBe("/logo?dev&dark");
+    expect(appendRouteAddressSearchToken("/logo?#top", "dark")).toBe("/logo?dark#top");
+  });
+
   it("replaces a search key token and removes duplicate keys", () => {
     const parts = parseRouteAddress("/terms?border=stone-300&dev&depth=2&light&");
     if (parts.search === null) {
@@ -311,11 +319,13 @@ describe("readRouteAddressCursorContext", () => {
     expect(readRouteAddressCursorContext(parts, 8)).toEqual({
       kind: "searchKey",
       token: {
-        kind: "key",
+        kind: "value",
         delimiter: "?",
         key: "top",
         tokenEnd: 14,
         tokenStart: 5,
+        value: "blue",
+        valueStart: 10,
       },
     });
     expect(readRouteAddressCursorContext(parts, 13)).toEqual({

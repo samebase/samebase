@@ -1030,6 +1030,8 @@ export const trackedFilePaths = [
   "apps/noter/src/lib/rotatedLogoViewState.ts",
   "apps/noter/src/lib/routeAddress.test.ts",
   "apps/noter/src/lib/routeAddress.ts",
+  "apps/noter/src/lib/routeAddressParts.test.ts",
+  "apps/noter/src/lib/routeAddressParts.ts",
   "apps/noter/src/lib/routeAvailability.test.ts",
   "apps/noter/src/lib/routeAvailability.ts",
   "apps/noter/src/lib/routePermissions.ts",

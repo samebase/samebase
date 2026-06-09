@@ -14,6 +14,16 @@ import {
   type NoterRoutePermissionViewer,
   type NoterRouteStaticData,
 } from "@/lib/routePermissions";
+import {
+  appendRouteAddressSearchToken,
+  parseRouteAddress,
+  readRouteAddressCursorContext,
+  readRouteAddressSearchTokenText,
+  replaceRouteAddressHash,
+  replaceRouteAddressPath,
+  replaceRouteAddressSearchValue,
+  type RouteAddressSearchToken,
+} from "@/lib/routeAddressParts";
 import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch";
 
 type RouteUrlEditorHashOrPathSuggestion = {
@@ -77,19 +87,12 @@ type RouteUrlEditorSuggestionSelectionInput = {
   suggestion: RouteUrlEditorSuggestion;
 };
 
-type RouteUrlEditorParts = {
-  hash: string;
-  hashStart: number | null;
-  path: string;
-  search: string;
-  searchStart: number | null;
-};
-
 type SearchToken = {
   editing: "key" | "value";
   first: boolean;
   hasValueSeparator: boolean;
   key: string;
+  routeToken: RouteAddressSearchToken;
   tokenEnd: number;
   tokenStart: number;
   value: string;
@@ -116,22 +119,21 @@ export function readRouteUrlEditorSuggestionKind(
   routeAddress: string,
   selectionRouteIndex: number,
 ): RouteUrlEditorSuggestionKind {
-  const hashIndex = routeAddress.indexOf("#");
-  if (hashIndex !== -1 && selectionRouteIndex > hashIndex) {
-    return "hash";
-  }
+  const cursorContext = readRouteAddressCursorContext(
+    parseRouteAddress(routeAddress),
+    selectionRouteIndex,
+  );
 
-  const searchIndex = routeAddress.indexOf("?");
-  if (
-    searchIndex !== -1 &&
-    selectionRouteIndex > searchIndex &&
-    (hashIndex === -1 || selectionRouteIndex <= hashIndex)
-  ) {
-    const token = readRouteUrlEditorSearchToken(routeAddress, selectionRouteIndex);
-    return token?.editing === "value" ? "search-value" : "search";
+  switch (cursorContext.kind) {
+    case "hash":
+      return "hash";
+    case "path":
+      return "path";
+    case "searchKey":
+      return "search";
+    case "searchValue":
+      return "search-value";
   }
-
-  return "path";
 }
 
 export function readRouteUrlEditorSuggestions({
@@ -197,10 +199,7 @@ export function applyRouteUrlEditorSuggestion({
 }: RouteUrlEditorSuggestionSelectionInput): string {
   switch (suggestion.kind) {
     case "path": {
-      const parts = readRouteUrlEditorParts(routeAddress);
-      const search = parts.searchStart === null ? "" : `?${parts.search}`;
-      const hash = parts.hashStart === null ? "" : `#${parts.hash}`;
-      return `${suggestion.value}${search}${hash}`;
+      return replaceRouteAddressPath(routeAddress, suggestion.value);
     }
     case "search": {
       const token = readRouteUrlEditorSearchToken(routeAddress, selectionRouteIndex);
@@ -225,17 +224,18 @@ export function applyRouteUrlEditorSuggestion({
         mode === "preview"
           ? (suggestion.previewReplacementValue ?? suggestion.replacementValue)
           : suggestion.replacementValue;
-      return `${routeAddress.slice(0, token.valueStart)}${replacementValue}${routeAddress.slice(
-        token.tokenEnd,
-      )}`;
-    }
-    case "hash": {
-      const parts = readRouteUrlEditorParts(routeAddress);
-      if (parts.hashStart === null) {
-        return `${routeAddress}#${suggestion.key}`;
+      if (token.routeToken.kind !== "value") {
+        return routeAddress;
       }
 
-      return `${routeAddress.slice(0, parts.hashStart)}#${suggestion.key}`;
+      return replaceRouteAddressSearchValue({
+        routeAddress,
+        token: token.routeToken,
+        value: replacementValue,
+      });
+    }
+    case "hash": {
+      return replaceRouteAddressHash(routeAddress, suggestion.key);
     }
   }
 }
@@ -352,15 +352,15 @@ function previewRouteUrlEditorSearchValueSuggestion(args: {
       continue;
     }
 
-    const tokenText = args.routeAddress.slice(searchToken.tokenStart + 1, searchToken.tokenEnd);
+    const tokenText = readRouteAddressSearchTokenText(args.routeAddress, searchToken.routeToken);
     if (tokenText.length > 0) {
       tokenTexts.push(tokenText);
     }
   }
 
-  const parts = readRouteUrlEditorParts(args.routeAddress);
+  const parts = parseRouteAddress(args.routeAddress);
   const search = tokenTexts.length > 0 ? `?${tokenTexts.join("&")}` : "";
-  const hash = parts.hashStart === null ? "" : `#${parts.hash}`;
+  const hash = parts.hash?.suffix ?? "";
 
   return `${parts.path}${search}${hash}`;
 }
@@ -369,14 +369,7 @@ function appendRouteUrlEditorSearchSuggestion(args: {
   routeAddress: string;
   suggestionToken: SearchSuggestionToken;
 }): string {
-  const parts = readRouteUrlEditorParts(args.routeAddress);
-  const search =
-    parts.search.length > 0
-      ? `?${parts.search}&${args.suggestionToken.text}`
-      : `?${args.suggestionToken.text}`;
-  const hash = parts.hashStart === null ? "" : `#${parts.hash}`;
-
-  return `${parts.path}${search}${hash}`;
+  return appendRouteAddressSearchToken(args.routeAddress, args.suggestionToken.text);
 }
 
 function readRouteUrlEditorSearchSuggestionToken(value: string): SearchSuggestionToken {
@@ -425,18 +418,18 @@ export function readRouteUrlEditorRouteUpdateDraft(args: {
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): string {
-  const parts = readRouteUrlEditorParts(args.draftRouteAddress);
-  if (parts.searchStart === null) {
+  const parts = parseRouteAddress(args.draftRouteAddress);
+  if (parts.search === null) {
     return args.draftRouteAddress;
   }
 
   const searchParamSuggestions = readRouteUrlEditorSearchParamSuggestions(args);
   const routeUpdateSearchTokens = readRouteUrlEditorSearchTokens(args.draftRouteAddress)
     .filter((token) => isRouteUrlEditorSearchTokenReady(token, searchParamSuggestions))
-    .map((token) => args.draftRouteAddress.slice(token.tokenStart + 1, token.tokenEnd))
+    .map((token) => readRouteAddressSearchTokenText(args.draftRouteAddress, token.routeToken))
     .filter((tokenText) => tokenText.length > 0);
   const search = routeUpdateSearchTokens.length > 0 ? `?${routeUpdateSearchTokens.join("&")}` : "";
-  const hash = parts.hashStart === null ? "" : `#${parts.hash}`;
+  const hash = parts.hash?.suffix ?? "";
 
   return `${parts.path}${search}${hash}`;
 }
@@ -964,12 +957,12 @@ function readRouteUrlEditorHashSuggestions(args: {
   selectionRouteIndex: number;
   viewer: NoterRoutePermissionViewer;
 }): readonly RouteUrlEditorSuggestion[] {
-  const parts = readRouteUrlEditorParts(args.draftRouteAddress);
-  if (parts.hashStart === null || args.selectionRouteIndex <= parts.hashStart) {
+  const parts = parseRouteAddress(args.draftRouteAddress);
+  if (parts.hash === null || args.selectionRouteIndex <= parts.hash.start) {
     return [];
   }
 
-  const hashDraft = args.draftRouteAddress.slice(parts.hashStart + 1);
+  const hashDraft = parts.hash.value;
   const routePath = readMatchingRoutePath({
     path: parts.path,
     routeSurface: readRouteUrlPathSuggestionSurface({
@@ -982,7 +975,7 @@ function readRouteUrlEditorHashSuggestions(args: {
   });
   const routeHashKeys =
     typeof routePath === "string" ? (ROUTE_URL_HASH_KEYS_BY_PATH[routePath] ?? []) : [];
-  const currentRouteParts = readRouteUrlEditorParts(args.currentHref);
+  const currentRouteParts = parseRouteAddress(args.currentHref);
   const documentHashKeys = parts.path === currentRouteParts.path ? args.hashKeys : [];
 
   return uniqueStrings([...GLOBAL_ROUTE_URL_HASH_KEYS, ...routeHashKeys, ...documentHashKeys])
@@ -1001,7 +994,7 @@ function readRouteUrlEditorSearchParamSuggestions(args: {
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): readonly NoterRouteSearchParamSuggestion[] {
-  const parts = readRouteUrlEditorParts(args.draftRouteAddress);
+  const parts = parseRouteAddress(args.draftRouteAddress);
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: parts.path,
     routeSurface: readRouteUrlPathSuggestionSurface({
@@ -1167,75 +1160,47 @@ function readRouteUrlEditorSearchToken(
   routeAddress: string,
   selectionRouteIndex: number,
 ): SearchToken | null {
-  const parts = readRouteUrlEditorParts(routeAddress);
-  if (parts.searchStart === null) {
+  const cursorContext = readRouteAddressCursorContext(
+    parseRouteAddress(routeAddress),
+    selectionRouteIndex,
+  );
+  if (cursorContext.kind !== "searchKey" && cursorContext.kind !== "searchValue") {
     return null;
   }
 
-  const searchEnd = parts.hashStart ?? routeAddress.length;
-  if (selectionRouteIndex <= parts.searchStart || selectionRouteIndex > searchEnd) {
-    return null;
-  }
-
-  const boundedSelectionIndex = Math.min(selectionRouteIndex, searchEnd);
-  const previousAmpersandIndex = routeAddress.lastIndexOf("&", boundedSelectionIndex - 1);
-  const tokenStart =
-    previousAmpersandIndex > parts.searchStart ? previousAmpersandIndex : parts.searchStart;
-  const nextAmpersandIndex = routeAddress.indexOf("&", boundedSelectionIndex);
-  const tokenEnd =
-    nextAmpersandIndex === -1 || nextAmpersandIndex > searchEnd ? searchEnd : nextAmpersandIndex;
-  const tokenText = routeAddress.slice(tokenStart + 1, tokenEnd);
-  const equalsIndex = tokenText.indexOf("=");
-  const selectionOffset = boundedSelectionIndex - tokenStart - 1;
-  const key = equalsIndex === -1 ? tokenText : tokenText.slice(0, equalsIndex);
-  const valueStart = equalsIndex === -1 ? tokenEnd : tokenStart + 1 + equalsIndex + 1;
-
-  return {
-    editing: equalsIndex === -1 || selectionOffset <= equalsIndex ? "key" : "value",
-    first: tokenStart === parts.searchStart,
-    hasValueSeparator: equalsIndex !== -1,
-    key,
-    tokenEnd,
-    tokenStart,
-    value: equalsIndex === -1 ? "" : tokenText.slice(equalsIndex + 1),
-    valueStart,
-  };
+  return readRouteUrlEditorSearchTokenView({
+    editing: cursorContext.kind === "searchValue" ? "value" : "key",
+    routeToken: cursorContext.token,
+  });
 }
 
 function readRouteUrlEditorSearchTokens(routeAddress: string): readonly SearchToken[] {
-  const parts = readRouteUrlEditorParts(routeAddress);
-  if (parts.searchStart === null) {
-    return [];
-  }
+  return (
+    parseRouteAddress(routeAddress).search?.tokens.map((routeToken) =>
+      readRouteUrlEditorSearchTokenView({
+        editing: routeToken.kind === "value" ? "value" : "key",
+        routeToken,
+      }),
+    ) ?? []
+  );
+}
 
-  const searchEnd = parts.hashStart ?? routeAddress.length;
-  const tokens: SearchToken[] = [];
-  let tokenStart = parts.searchStart;
-
-  while (tokenStart < searchEnd) {
-    const nextAmpersandIndex = routeAddress.indexOf("&", tokenStart + 1);
-    const tokenEnd =
-      nextAmpersandIndex === -1 || nextAmpersandIndex > searchEnd ? searchEnd : nextAmpersandIndex;
-    const tokenText = routeAddress.slice(tokenStart + 1, tokenEnd);
-    const equalsIndex = tokenText.indexOf("=");
-    const key = equalsIndex === -1 ? tokenText : tokenText.slice(0, equalsIndex);
-    const valueStart = equalsIndex === -1 ? tokenEnd : tokenStart + 1 + equalsIndex + 1;
-
-    tokens.push({
-      editing: equalsIndex === -1 ? "key" : "value",
-      first: tokenStart === parts.searchStart,
-      hasValueSeparator: equalsIndex !== -1,
-      key,
-      tokenEnd,
-      tokenStart,
-      value: equalsIndex === -1 ? "" : tokenText.slice(equalsIndex + 1),
-      valueStart,
-    });
-
-    tokenStart = tokenEnd;
-  }
-
-  return tokens;
+function readRouteUrlEditorSearchTokenView(args: {
+  editing: "key" | "value";
+  routeToken: RouteAddressSearchToken;
+}): SearchToken {
+  return {
+    editing: args.editing,
+    first: args.routeToken.delimiter === "?",
+    hasValueSeparator: args.routeToken.kind === "value",
+    key: args.routeToken.key,
+    routeToken: args.routeToken,
+    tokenEnd: args.routeToken.tokenEnd,
+    tokenStart: args.routeToken.tokenStart,
+    value: args.routeToken.kind === "value" ? args.routeToken.value : "",
+    valueStart:
+      args.routeToken.kind === "value" ? args.routeToken.valueStart : args.routeToken.tokenEnd,
+  };
 }
 
 function formatRouteUrlEditorSearchSuggestionValue(
@@ -1246,28 +1211,6 @@ function formatRouteUrlEditorSearchSuggestionValue(
   const prefix = first ? "?" : "&";
   const suffix = searchParamKind === "presence" ? "" : "=";
   return `${prefix}${key}${suffix}`;
-}
-
-function readRouteUrlEditorParts(routeAddress: string): RouteUrlEditorParts {
-  const hashStart = routeAddress.indexOf("#");
-  const rawSearchStart = routeAddress.indexOf("?");
-  const searchStart =
-    rawSearchStart === -1 || (hashStart !== -1 && rawSearchStart > hashStart)
-      ? null
-      : rawSearchStart;
-  const pathEnd = Math.min(
-    searchStart ?? routeAddress.length,
-    hashStart === -1 ? routeAddress.length : hashStart,
-  );
-  const searchEnd = hashStart === -1 ? routeAddress.length : hashStart;
-
-  return {
-    hash: hashStart === -1 ? "" : routeAddress.slice(hashStart + 1),
-    hashStart: hashStart === -1 ? null : hashStart,
-    path: routeAddress.slice(0, pathEnd) || "/",
-    search: searchStart === null ? "" : routeAddress.slice(searchStart + 1, searchEnd),
-    searchStart,
-  };
 }
 
 function readRoutePathSegments(path: string): readonly string[] {
