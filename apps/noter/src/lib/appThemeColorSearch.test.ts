@@ -105,7 +105,19 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#fee685",
-      border: "#e5cf78",
+      border: "#fee685",
+    });
+
+    expect(
+      resolveAppThemeColorState({
+        search: {
+          background: "yellow-200",
+        },
+        themeMode: "light",
+      }).resolvedThemeColors,
+    ).toMatchObject({
+      background: "#fff085",
+      border: "#fff085",
     });
 
     expect(
@@ -117,7 +129,7 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#f0b100",
-      border: "#d8a000",
+      border: "#f0b100",
     });
 
     expect(

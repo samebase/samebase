@@ -215,22 +215,62 @@ function formatHexChannel(channel: number): string {
   return Math.round(channel).toString(16).padStart(2, "0");
 }
 
+function formatRgbColor(color: RgbColor): HexColorToken {
+  return `#${formatHexChannel(color.red)}${formatHexChannel(color.green)}${formatHexChannel(
+    color.blue,
+  )}`;
+}
+
 function readRelativeLuminanceChannel(channel: number): number {
   const value = channel / 255;
   return value < 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 }
 
-function shouldUseChromeLightForegroundOnBackground(color: RgbColor): boolean {
-  const luminance =
+function readRelativeLuminance(color: RgbColor): number {
+  return (
     0.2126 * readRelativeLuminanceChannel(color.red) +
     0.7152 * readRelativeLuminanceChannel(color.green) +
-    0.0722 * readRelativeLuminanceChannel(color.blue);
+    0.0722 * readRelativeLuminanceChannel(color.blue)
+  );
+}
+
+function shouldUseLightForegroundOnBackground(color: RgbColor): boolean {
+  const luminance = readRelativeLuminance(color);
 
   return 1.05 / (luminance + 0.05) >= 3;
 }
 
-function overlayChromeToolbarHairlineChannel(channel: number, overlayChannel: number): number {
+function readRgbSaturation(color: RgbColor): number {
+  const red = color.red / 255;
+  const green = color.green / 255;
+  const blue = color.blue / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const lightness = (max + min) / 2;
+
+  if (max === min) {
+    return 0;
+  }
+
+  return (max - min) / (1 - Math.abs(2 * lightness - 1));
+}
+
+// Installed Chrome PWA paints a top boundary for white/neutral backgrounds,
+// but not for saturated light backgrounds such as yellow-200 and yellow-500.
+function shouldUseInstalledPwaLightBackgroundBoundary(color: RgbColor): boolean {
+  return readRelativeLuminance(color) > 0.9 && readRgbSaturation(color) < 0.08;
+}
+
+function overlayInstalledPwaBoundaryChannel(channel: number, overlayChannel: number): number {
   return Math.round(channel + (overlayChannel - channel) * (25 / 255));
+}
+
+function getInstalledPwaBoundaryColor(color: RgbColor, overlayChannel: number): HexColorToken {
+  return `#${formatHexChannel(
+    overlayInstalledPwaBoundaryChannel(color.red, overlayChannel),
+  )}${formatHexChannel(overlayInstalledPwaBoundaryChannel(color.green, overlayChannel))}${formatHexChannel(
+    overlayInstalledPwaBoundaryChannel(color.blue, overlayChannel),
+  )}`;
 }
 
 export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToken): HexColorToken {
@@ -239,13 +279,15 @@ export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToke
     return "#000000";
   }
 
-  const overlayChannel = shouldUseChromeLightForegroundOnBackground(rgbColor) ? 255 : 0;
+  if (shouldUseLightForegroundOnBackground(rgbColor)) {
+    return getInstalledPwaBoundaryColor(rgbColor, 255);
+  }
 
-  return `#${formatHexChannel(
-    overlayChromeToolbarHairlineChannel(rgbColor.red, overlayChannel),
-  )}${formatHexChannel(overlayChromeToolbarHairlineChannel(rgbColor.green, overlayChannel))}${formatHexChannel(
-    overlayChromeToolbarHairlineChannel(rgbColor.blue, overlayChannel),
-  )}`;
+  if (shouldUseInstalledPwaLightBackgroundBoundary(rgbColor)) {
+    return getInstalledPwaBoundaryColor(rgbColor, 0);
+  }
+
+  return formatRgbColor(rgbColor);
 }
 
 function formatCssNumber(value: number): string {

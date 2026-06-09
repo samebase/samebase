@@ -18,8 +18,38 @@ There are two different surfaces:
 1. Normal Chrome tab/custom-tab toolbar hairline.
 2. Standalone PWA `WebappActivity` status/content boundary.
 
-The source-backed formula is the normal Chrome toolbar hairline formula. Chromium computes it in
-`ThemeUtils.getToolbarHairlineColor(...)`:
+The product target is now the installed PWA boundary, not the normal Chrome tab toolbar hairline.
+That matters for `yellow-200`: normal Chrome draws a darker toolbar hairline, but the installed PWA
+does not show a darker horizontal boundary away from the app separator.
+
+The app's default background-derived border now follows the installed PWA observations:
+
+```text
+background  derived border
+white       #E6E6E6
+yellow-200  #FFF085
+yellow-500  #F0B100
+mist-700    #4C5659
+```
+
+In code, that means:
+
+```text
+if the background is dark enough to need light foreground:
+  overlay #19FFFFFF
+else if the background is a very light neutral:
+  overlay #19000000
+else:
+  use the background color itself
+```
+
+This is not Chromium's normal-tab toolbar hairline formula. It is the closest implementation to the
+installed PWA boundary pixels we measured.
+
+## Normal Chrome Toolbar Hairline
+
+The source-backed normal Chrome toolbar hairline formula is still useful as a reference. Chromium
+computes it in `ThemeUtils.getToolbarHairlineColor(...)`:
 
 ```text
 if toolbarColor is Chrome's default toolbar color:
@@ -59,8 +89,8 @@ Examples for non-default, custom theme colors:
 #000000 -> #191919
 ```
 
-The old Noter implementation only darkened by 10%. That happened to match yellow samples, but it was
-wrong for dark colors. `mist-700` (`#394447`) should lighten to `#4C5659`, not darken.
+That formula matches normal Chrome's toolbar/content separator. It does not match the installed PWA
+boundary for `yellow-200` and `yellow-500`.
 
 ## Standalone PWA Boundary
 
@@ -164,10 +194,10 @@ white-base
   separator rows:         #E6E6E6
 ```
 
-The important result is that Noter's separator should mirror the Chrome themed-toolbar hairline
-algorithm for custom theme colors. That makes it match the normal Chrome hairline and also fixes the
-dark PWA case. It cannot make a yellow standalone-PWA horizontal line appear, because that line was
-not present away from the app separator in the observed `WebappActivity`.
+The important result is that Noter's separator should mirror the installed PWA boundary behavior,
+not the normal Chrome toolbar hairline. For `yellow-200` and `yellow-500`, that means the separator
+uses the background color because the standalone PWA has no darker horizontal line away from the app
+separator. For `mist-700`, it uses the 10%-white boundary color.
 
 ## Source Mapping
 
