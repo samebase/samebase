@@ -297,6 +297,7 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
     waitUntil: "domcontentloaded",
   });
   const origin = await page.evaluate(() => window.location.origin);
+  const fixtureRouteAddress = "/visual-fixture?mode=route-url-editor";
   const fixtureHref = `${origin}/visual-fixture?mode=route-url-editor`;
 
   const display = getRouteUrlEditorDisplay(page);
@@ -308,7 +309,7 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
 
   await expect(input).toHaveCount(0);
   await expect(display).toBeVisible();
-  await expect(display).toHaveValue(fixtureHref);
+  await expect(display).toHaveValue(fixtureRouteAddress);
   await expect(display).toHaveAttribute("title", fixtureHref);
   await expect(currentHref).toHaveText("/visual-fixture?mode=route-url-editor");
   await expect(backButton).toBeVisible();
@@ -339,7 +340,7 @@ test("route URL editor fixture commits hrefs from the app workspace shell", asyn
   );
   await getRouteUrlEditorInput(page).blur();
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/logo?from=route-url-editor`);
+  await expect(display).toHaveValue("/logo?from=route-url-editor");
   await expect(display).toHaveAttribute("title", `${origin}/logo?from=route-url-editor`);
 });
 
@@ -352,13 +353,14 @@ test("route URL editor fixture selects continuously across host and route text",
   });
   const host = await page.evaluate(() => window.location.host);
   const origin = await page.evaluate(() => window.location.origin);
+  const fixtureRouteAddress = "/visual-fixture?mode=route-url-editor";
   const fixtureHref = `${origin}/visual-fixture?mode=route-url-editor`;
   const focusedFixtureHref = `${fixtureHref}&`;
 
   const display = getRouteUrlEditorDisplay(page);
   const routePath = "/visual-fixture";
 
-  await expect(display).toHaveValue(fixtureHref);
+  await expect(display).toHaveValue(fixtureRouteAddress);
 
   const input = await editRouteUrl(page);
   await expect(input).toHaveValue(focusedFixtureHref);
@@ -402,13 +404,12 @@ test("route URL editor focuses the path-visible URL without rewriting", async ({
   });
   const origin = await page.evaluate(() => window.location.origin);
   const display = getRouteUrlEditorDisplay(page);
-  const fullHref = `${origin}/visual-fixture?mode=route-url-editor`;
+  const fixtureRouteAddress = "/visual-fixture?mode=route-url-editor";
+  const fullHref = `${origin}${fixtureRouteAddress}`;
   const focusedHref = `${fullHref}&`;
 
-  await expect(display).toHaveValue(fullHref);
-  await expect
-    .poll(async () => display.evaluate((element) => element.style.textIndent))
-    .toBe(`-${origin.length}ch`);
+  await expect(display).toHaveValue(fixtureRouteAddress);
+  await expect.poll(async () => display.evaluate((element) => element.style.textIndent)).toBe("");
 
   const input = await editRouteUrl(page);
   await expect(input).toBeFocused();
@@ -496,7 +497,7 @@ test("route URL editor lists route paths and filters them while typing", async (
   await input.blur();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/logo`);
+  await expect(display).toHaveValue("/logo");
   await expect(suggestions).toHaveCount(0);
 });
 
@@ -510,7 +511,7 @@ test("route URL editor opens search params when clicking the end of a focused ro
   const origin = await page.evaluate(() => window.location.origin);
 
   const display = getRouteUrlEditorDisplay(page);
-  await expect(display).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(display).toHaveValue("/logo?leftFace=secondary");
 
   const input = await editRouteUrl(page);
   const focusedInputBox = await input.boundingBox();
@@ -539,7 +540,7 @@ test("route URL editor keeps path suggestions when clicking the end of root", as
   const origin = await page.evaluate(() => window.location.origin);
 
   const display = getRouteUrlEditorDisplay(page);
-  await expect(display).toHaveValue(`${origin}/`);
+  await expect(display).toHaveValue("/");
 
   const input = await editRouteUrl(page);
   const focusedInputBox = await input.boundingBox();
@@ -656,7 +657,7 @@ test("route URL editor dismisses suggestions through blur when the page undernea
 
   await expect(input).toHaveCount(0);
   await expect(suggestions).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/logo`);
+  await expect(display).toHaveValue("/logo");
   await expect(page).toHaveURL(`${origin}/logo`);
 });
 
@@ -748,7 +749,7 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await expect(backButton).toBeEnabled();
 
   await input.blur();
-  await expect(display).toHaveValue(`${origin}/logo`);
+  await expect(display).toHaveValue("/logo");
   await backButton.click();
 
   await expect(page).toHaveURL(`${origin}/`);
@@ -756,7 +757,7 @@ test("route URL editor selects suggestions with arrow keys", async ({ page }) =>
   await expect(forwardButton).toBeEnabled();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/`);
+  await expect(display).toHaveValue("/");
 });
 
 test("route URL editor previews path suggestions on hover", async ({ page }) => {
@@ -926,7 +927,7 @@ test("route URL editor hover previews replace the current history entry", async 
   await expect(backButton).toBeEnabled();
 
   await input.press("Escape");
-  await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/logo`);
+  await expect(getRouteUrlEditorDisplay(page)).toHaveValue("/logo");
 
   await backButton.click();
 
@@ -1436,7 +1437,7 @@ test("route URL editor mobile scroll picker previews and commits the slated opti
 
     await expect(input).toHaveCount(0);
     await expect(suggestions).toHaveCount(0);
-    await expect(getRouteUrlEditorDisplay(page)).toHaveValue(`${origin}/terms`);
+    await expect(getRouteUrlEditorDisplay(page)).toHaveValue("/terms");
     await expect(backButton).toBeEnabled();
 
     await backButton.click();
@@ -1685,7 +1686,7 @@ test("route URL editor applies same-path search edits while typing", async ({ pa
   await input.blur();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/logo?leftFace=secondary`);
+  await expect(display).toHaveValue("/logo?leftFace=secondary");
   await expect(page).toHaveURL(`${origin}/logo?leftFace=secondary`);
 });
 
@@ -1701,7 +1702,7 @@ test("route URL editor toggles landing dev mode while preserving focused draft t
   const origin = await page.evaluate(() => window.location.origin);
 
   await expect(getRouteUrlEditorInput(page)).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/`);
+  await expect(display).toHaveValue("/");
   const input = await editRouteUrl(page);
   await expect(input).toBeFocused();
   await expect(input).toHaveValue(`${origin}/`);
@@ -1719,7 +1720,7 @@ test("route URL editor toggles landing dev mode while preserving focused draft t
   await input.blur();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/`);
+  await expect(display).toHaveValue("/");
   await expect(page).toHaveURL(`${origin}/`);
 });
 
@@ -1747,7 +1748,7 @@ test("route URL editor keeps invalid route search drafts local until blur", asyn
   await input.blur();
 
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/logo`);
+  await expect(display).toHaveValue("/logo");
   await expect(page).toHaveURL(`${origin}/logo`);
 });
 
@@ -1776,5 +1777,5 @@ test("route URL editor fixture refuses pasted external origins", async ({ page }
   });
   await input.press("Escape");
   await expect(input).toHaveCount(0);
-  await expect(display).toHaveValue(`${origin}/visual-fixture?mode=route-url-editor`);
+  await expect(display).toHaveValue("/visual-fixture?mode=route-url-editor");
 });
