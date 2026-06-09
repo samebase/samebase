@@ -1436,7 +1436,7 @@ test("route URL editor mobile scroll picker previews and commits the slated opti
       routeUrlEditorMobilePickerScreenshotOptions,
     );
 
-    await applyButton.click();
+    await applyButton.tap();
     await page.getByTestId("workspace-layout-v2-pane-main").tap();
 
     await expect(input).toHaveCount(0);

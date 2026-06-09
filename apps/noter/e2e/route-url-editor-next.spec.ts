@@ -257,7 +257,7 @@ test.describe("route URL editor touch scroll picker", () => {
       element.setAttribute("data-route-editor-node-marker", "before-touch-focus");
     });
 
-    await displayInput.click();
+    await displayInput.tap();
 
     const input = page.getByTestId("route-url-editor-input");
     await expect(input).toBeFocused();
@@ -344,7 +344,7 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(applyButton).toBeVisible();
     await expect(applyButton).toHaveAccessibleName("Apply ?top=sky-500");
 
-    await applyButton.click();
+    await applyButton.tap();
 
     await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
     await expectInputSelection(input, `${prefix}logo?top=`.length);
@@ -463,7 +463,7 @@ test.describe("route URL editor touch scroll picker", () => {
       throw new Error("Expected visible route URL editor input.");
     }
 
-    await input.click({
+    await input.tap({
       position: {
         x: 90,
         y: inputBox.height / 2,
