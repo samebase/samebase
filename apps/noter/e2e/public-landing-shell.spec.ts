@@ -1732,29 +1732,6 @@ test.describe("production public host landing", () => {
 
     const displayInput = page.getByTestId("route-url-editor-display");
     await expect(displayInput).toHaveValue(rootPrefix);
-    await expect
-      .poll(async () =>
-        displayInput.evaluate((element, rootOrigin) => {
-          const span = document.createElement("span");
-          const style = getComputedStyle(element);
-          span.textContent = rootOrigin;
-          span.style.position = "absolute";
-          span.style.visibility = "hidden";
-          span.style.whiteSpace = "pre";
-          span.style.font = style.font;
-          document.body.append(span);
-          const originWidthPx = span.getBoundingClientRect().width;
-          span.remove();
-
-          if (!element.style.textIndent.endsWith("px")) {
-            return false;
-          }
-
-          const textIndentPx = Number.parseFloat(element.style.textIndent);
-          return Math.abs(textIndentPx + originWidthPx) < 0.5;
-        }, new URL(rootUrl).origin),
-      )
-      .toBe(true);
 
     await displayInput.click();
 

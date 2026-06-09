@@ -33,10 +33,6 @@ import { RETAINED_ROOT_SEARCH_KEYS, validateRootRouteSearch } from "@/lib/rootRo
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { isRouteUrlPathReadyForNavigation } from "@/lib/routeUrlPathSuggestions";
 import { api } from "../../../convex/_generated/api";
-import {
-  routeUrlEditorOriginMeasureClassName,
-  useRouteUrlEditorPathTextIndent,
-} from "./useRouteUrlEditorPathTextIndent";
 
 const routeUrlEditorIconButtonClassName =
   "flex size-7 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
@@ -822,7 +818,6 @@ export function RouteUrlEditor() {
   const suggestionPreviewActiveRef = useRef(false);
   const restoredRouteHistoryIndexesRef = useRef(false);
   const origin = readIsomorphicOrigin();
-  const routePathTextIndent = useRouteUrlEditorPathTextIndent(origin);
   draftRouteAddressRef.current = draftRouteAddress;
   const setDraftRouteAddress = useCallback(
     (nextDraftRouteAddress: string) => {
@@ -2113,13 +2108,6 @@ export function RouteUrlEditor() {
       >
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
-      <span
-        aria-hidden="true"
-        className={routeUrlEditorOriginMeasureClassName}
-        ref={routePathTextIndent.originMeasureRef}
-      >
-        {routePathTextIndent.origin}
-      </span>
       <input
         ref={inputRef}
         aria-activedescendant={activeSuggestionId}
@@ -2149,7 +2137,7 @@ export function RouteUrlEditor() {
         onMouseUp={syncSuggestionSelectionFromInputAndOpenSearch}
         onSelect={syncSuggestionSelectionFromInput}
         spellCheck={false}
-        style={routePathTextIndent.inputStyle}
+        style={{ textIndent: `-${origin.length}ch` }}
         title={routeInputTitle}
         type="text"
         value={inputValue}
