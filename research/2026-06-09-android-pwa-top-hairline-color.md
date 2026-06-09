@@ -13,22 +13,35 @@ from the same algorithm Chromium uses for that line.
 
 ## Current Answer
 
-There are two different surfaces:
+There are two relevant surfaces:
 
 1. Normal Chrome tab/custom-tab toolbar hairline.
 2. Standalone PWA `WebappActivity` status/content boundary.
 
-The product target is now the installed PWA boundary, not the normal Chrome tab toolbar hairline.
-That matters for `yellow-200`: normal Chrome draws a darker toolbar hairline, but the installed PWA
-does not show a darker horizontal boundary away from the app separator.
+The product target is the installed PWA boundary on Android, not the normal Chrome tab toolbar
+hairline. Pixel 9a emulator samples show that the installed PWA boundary uses a different light-side
+color than the normal Chrome toolbar hairline.
+
+For light backgrounds, Android framework contrast enforcement explains the constant `#E6E6E6` line:
+`DecorView.calculateBarColor(...)` returns `SCRIM_LIGHT = 0xe6ffffff` when the status bar is
+transparent, contrast is enforced, and dark status-bar icons are requested. In an emulator
+screenshot, that alpha white scrim is flattened as `#E6E6E6`.
+
+For dark backgrounds, Chrome's installed PWA path paints a concrete status-boundary color and Pixel
+9a samples match Chromium's `25 / 255` white overlay math. The switch uses Chromium's
+`ColorUtils.shouldUseLightForegroundOnBackground(...)` threshold, which is WCAG contrast against
+white >= 3.
 
 The app's default background-derived border now follows the installed PWA observations:
 
 ```text
 background  derived border
 white       #E6E6E6
-yellow-200  #FFF085
-yellow-500  #F0B100
+amber-200   #E6E6E6
+yellow-200  #E6E6E6
+yellow-500  #E6E6E6
+gray-400    #E6E6E6
+gray-500    #79808E
 mist-700    #4C5659
 ```
 
@@ -37,19 +50,20 @@ In code, that means:
 ```text
 if the background is dark enough to need light foreground:
   overlay #19FFFFFF
-else if the background is a very light neutral:
-  overlay #19000000
 else:
-  use the background color itself
+  use #E6E6E6
 ```
 
-This is not Chromium's normal-tab toolbar hairline formula. It is the closest implementation to the
-installed PWA boundary pixels we measured.
+The overlay is flattened with Chromium's `ColorUtils.overlayColor(...)` channel math:
+
+```text
+overlayAlpha = 25 / 255
+channel = round(base + (overlay - base) * overlayAlpha)
+```
 
 ## Normal Chrome Toolbar Hairline
 
-The source-backed normal Chrome toolbar hairline formula is still useful as a reference. Chromium
-computes it in `ThemeUtils.getToolbarHairlineColor(...)`:
+Chromium computes the normal toolbar/content boundary in `ThemeUtils.getToolbarHairlineColor(...)`:
 
 ```text
 if toolbarColor is Chrome's default toolbar color:
@@ -90,31 +104,31 @@ Examples for non-default, custom theme colors:
 ```
 
 That formula matches normal Chrome's toolbar/content separator. It does not match the installed PWA
-boundary for `yellow-200` and `yellow-500`.
+boundary samples for `yellow-200` and `yellow-500`, where the installed PWA uses the neutral
+`#E6E6E6` line.
 
 ## Standalone PWA Boundary
 
-The standalone PWA status/content boundary does not behave like a single visible hairline across all
-colors. In the installed Chrome `WebappActivity` on the phone emulator, away from app pane
-separators:
+In the installed Chrome `WebappActivity` on the Pixel 9a emulator, the status/content boundary was
+at physical rows `142..144`. Surrounding rows were the page background.
 
 ```text
-background  theme-color  top content row(s)
-white       #FFFFFF      #E6E6E6
-yellow-200  #FFF085      #FFF085
-yellow-500  #F0B100      #F0B100
-mist-700    #394447      #4C5659
+background  content   boundary rows
+white       #FFFFFF   #E6E6E6
+yellow-200  #FFF085   #E6E6E6
+amber-200   #FEE685   #E6E6E6
+yellow-500  #F0B100   #E6E6E6
+gray-400    #99A1AF   #E6E6E6
+gray-500    #6A7282   #79808E
+red-500     #FB2C36   #FB414A
+blue-500    #2B7FFF   #408CFF
+mist-700    #394447   #4C5659
+black       #000000   #191919
 ```
 
-So for `yellow-200` and `yellow-500`, there was no separate standalone-PWA horizontal top line to
-match; the safe top rows were the background itself. For `white`, the top row was the 10%-black
-overlay result. For `mist-700`, the top row was the 10%-white overlay result.
-
-The PWA source path I found passes the status bar color through rather than applying the toolbar
-hairline formula. In edge-to-edge mode, Chromium delegates bar coloring to an edge-to-edge layout,
-and that layout paints the supplied color. Android framework status-bar contrast enforcement applies
-only in transparent status-bar cases and is disabled by Chromium when the edge-to-edge helper owns
-the color.
+`gray-400` and `gray-500` are the useful threshold check: `gray-400` stays on the light-background
+side and gets Android's neutral `#E6E6E6`; `gray-500` flips to the dark-background side and gets the
+white overlay result.
 
 ## Noter Separator
 
@@ -139,7 +153,7 @@ painted pseudo-element.
 
 Environment:
 
-- Device: `Medium_Phone` emulator, `1080x2400`, `420dpi`, portrait.
+- Device: `Pixel_9a_2` emulator, Android release `17`, `1080x2424`, `420dpi`, portrait.
 - Chrome DevTools target: `http://127.0.0.1:5174/logo?...`.
 - Standalone target: `com.android.chrome/org.chromium.chrome.browser.webapps.WebappActivity`.
 - Normal Chrome target: `com.android.chrome/org.chromium.chrome.browser.ChromeTabbedActivity`.
@@ -170,34 +184,20 @@ white-base
   content row:         #FFFFFF
 ```
 
-Standalone PWA right-pane separator samples after scrolling the workspace carousel so the right pane
-is visible. DOM geometry placed the visible separator at physical x=324 and a safe right-pane
-background sample at x=639.
+Installed PWA boundary samples in `WebappActivity`:
 
 ```text
-yellow-200
-  safe top rows:  #FFF085
-  separator rows: #E6D878
-
-yellow-500
-  safe top rows:  #F0B100
-  separator rows: #D8A000
-
-mist-700
-  safe top rows y=63..65: #4C5659
-  safe content below:     #394447
-  separator rows:         #4C5659
-
-white-base
-  safe top rows y=63..65: #E6E6E6
-  safe content below:     #FFFFFF
-  separator rows:         #E6E6E6
+white-base  line #E6E6E6  content #FFFFFF
+yellow-200  line #E6E6E6  content #FFF085
+amber-200   line #E6E6E6  content #FEE685
+yellow-500  line #E6E6E6  content #F0B100
+gray-400    line #E6E6E6  content #99A1AF
+gray-500    line #79808E  content #6A7282
+mist-700    line #4C5659  content #394447
 ```
 
-The important result is that Noter's separator should mirror the installed PWA boundary behavior,
-not the normal Chrome toolbar hairline. For `yellow-200` and `yellow-500`, that means the separator
-uses the background color because the standalone PWA has no darker horizontal line away from the app
-separator. For `mist-700`, it uses the 10%-white boundary color.
+The important result is that the installed PWA boundary is not the normal Chrome toolbar hairline.
+For `yellow-200`, normal Chrome shows `#E6D878`; the installed PWA shows `#E6E6E6`.
 
 ## Source Mapping
 
@@ -237,8 +237,8 @@ SCRIM_LIGHT = 0xe6ffffff
 SCRIM_ALPHA = 0xcc000000
 ```
 
-That path is not the toolbar hairline formula. It applies in transparent status-bar contrast cases,
-not when Chromium paints a concrete PWA status-bar color through its edge-to-edge helper.
+That path is not the toolbar hairline formula. It explains the installed PWA's constant light-side
+boundary on Android.
 
 ## Source Evidence
 
