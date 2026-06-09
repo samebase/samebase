@@ -2,289 +2,197 @@
 
 Date: 2026-06-09
 
-Status: source mapping and runtime observation, not an implementation plan.
+Status: source mapping plus emulator observations. This is not a product spec.
 
 ## Question
 
-On Android PWA routes, the app can set the browser status bar color through the document
-`theme-color` meta tag. After doing that, a narrow line is visible at the top edge of the web
-content. The working question was whether this line is Android status bar behavior, Chromium PWA
-behavior, or app-rendered UI, and where its color is computed.
+On Android, Noter sets the browser/PWA system color from the route background through `theme-color`.
+A thin line can appear at the top edge of the web content, and Noter also renders pane divider
+lines. The working question was whether Noter can derive its divider color from the same algorithm
+Chromium uses for the top line.
 
 ## Current Answer
 
-The line observed in the emulator is not an Android framework "status bar divider". Android has a
-navigation bar divider API/path, but not an equivalent status bar divider path.
+There are two different surfaces:
 
-Chromium does have a top-controls hairline in the custom-tab/PWA stack:
+1. Chrome tab/custom-tab toolbar hairline.
+2. Standalone PWA `WebappActivity` status/content boundary.
 
-1. `WebappActivity` uses the custom-tab activity stack.
-2. The custom-tab control container includes `ToolbarHairlineView`.
-3. `ToolbarHairlineView` draws `R.drawable.toolbar_hairline`.
-4. `toolbar_hairline.xml` is a `1dp` rectangle using `@color/divider_color`.
-5. In light mode, Chromium's `divider_color` points to `?attr/colorSurfaceContainerHighest`.
-6. In dark mode, Chromium's `divider_color` points to `?attr/colorOutlineVariant`.
+The Chrome tab/custom-tab toolbar hairline has a source-backed formula for theme-colored toolbars:
+Chromium overlays a transparent black color on the toolbar/theme color:
 
-The important caveat is that `?attr/colorSurfaceContainerHighest` is not a Chromium algorithm. It is
-an Android theme attribute supplied by the Material Components theme layer.
-
-## What `?attr/colorSurfaceContainerHighest` Means
-
-In Android XML, `?attr/colorSurfaceContainerHighest` means "look up the current theme's value for
-the `colorSurfaceContainerHighest` attribute." It is closer to a themed design-system variable than
-to a function call.
-
-Material Components declares the attr as a tonal surface color role:
-
-```xml
-<attr name="colorSurfaceContainerHighest" format="color"/>
+```text
+overlay = #19000000
+alpha   = 25 / 255
+result  = round(interpolate(baseChannel, 0, 25 / 255))
+        = round(baseChannel * 230 / 255)
 ```
 
-Material's comment says this is "the container color of surface the most elevated, which replaces
-the previous surface variant." In Material vocabulary, a token is a named design role such as
-`surface_container_highest`; the theme resolves that role to an actual color.
+Examples:
 
-## Material Resolution Chain
-
-For regular Material 3 themes, Material Components assigns:
-
-```xml
-<item name="colorSurfaceContainerHighest">@color/m3_sys_color_light_surface_container_highest</item>
-<item name="colorSurfaceContainerHighest">@color/m3_sys_color_dark_surface_container_highest</item>
+```text
+#FFF085 -> #E6D878
+#FEE685 -> #E5CF78
+#F0B100 -> #D8A000
+#00BC7D -> #00AA71
+#FFFFFF -> #E6E6E6
 ```
 
-Those system color resources resolve to reference palette tones:
+That matches the app's current background-derived divider color for the tested light/mid colors.
 
-```xml
-<color name="m3_sys_color_light_surface_container_highest">@color/m3_ref_palette_neutral90</color>
-<color name="m3_sys_color_dark_surface_container_highest">@color/m3_ref_palette_neutral22</color>
+The standalone PWA top boundary on the phone emulator does not behave like a single toolbar hairline
+for all colors. In the installed `WebappActivity` at normal phone geometry, away from app pane
+dividers:
+
+```text
+background  theme-color  top content row(s)
+white       #FFFFFF      #E6E6E6
+yellow-200  #FFF085      #FFF085
+yellow-500  #F0B100      #F0B100
+mist-700    #394447      #4C5659
 ```
 
-In the current Material Components source checked locally:
+So for `yellow-200` and `yellow-500`, there was no separate visible native horizontal top line to
+match; the top rows were the background itself. For `white`, the top row matched the 10%-black
+toolbar-hairline color. For dark `mist-700`, the top row was lighter than the background, while
+Noter's current divider color is darker than the background.
 
-```xml
-<color name="m3_ref_palette_neutral90">#ffe6e0e9</color>
-<color name="m3_ref_palette_neutral22">#ff36343b</color>
-```
+## Noter Divider Correction
 
-For dynamic color themes on Android 12+ (`values-v31`), Material maps the same role to dynamic
-neutral-variant palette tones:
+On the mobile workspace view, the visible pane edge is not `border-left`. The right pane still has
+the Tailwind class `md:border-l md:border-border`, but at phone width its computed
+`border-left-width` is `0px`.
 
-```xml
-<color name="m3_sys_color_dynamic_light_surface_container_highest">
-  @color/m3_ref_palette_dynamic_neutral_variant90
-</color>
-<color name="m3_sys_color_dynamic_dark_surface_container_highest">
-  @color/m3_ref_palette_dynamic_neutral_variant22
-</color>
-```
+The visible mobile pane divider is the pseudo-element in `apps/noter/src/index.css`:
 
-For Android 14+ (`values-v34`), Material delegates these to Android framework colors:
-
-```xml
-<color name="m3_sys_color_dynamic_light_surface_container_highest">
-  @android:color/system_surface_container_highest_light
-</color>
-<color name="m3_sys_color_dynamic_dark_surface_container_highest">
-  @android:color/system_surface_container_highest_dark
-</color>
-```
-
-Material's Java dynamic-color utility describes the role as:
-
-```java
-public DynamicColor surfaceContainerHighest() {
-  return new DynamicColor(
-      /* name= */ "surface_container_highest",
-      /* palette= */ (s) -> s.neutralPalette,
-      /* tone= */ (s) ->
-          s.isDark
-              ? new ContrastCurve(22.0, 22.0, 26.0, 30.0).get(s.contrastLevel)
-              : new ContrastCurve(90.0, 90.0, 84.0, 80.0).get(s.contrastLevel),
-      ...
+```css
+.workspace-mobile-pane-separators::before,
+.workspace-mobile-pane-separators::after {
+  width: 1px;
+  background: var(--color-border);
 }
 ```
 
-So the source-backed meaning is: use the neutral palette, tone 90 in normal light contrast, tone 22
-in normal dark contrast, with adjusted tones under higher contrast settings.
+That pseudo-element uses the same `--border` token as desktop borders. It is not a CSS `box-shadow`;
+computed `box-shadow` on the inspected pane and pseudo-element was `none`.
 
-## Android Framework Defaults
+In one emulator run, programmatic scroll made the right pane visible while the runtime still
+reported `data-mobile-pane="main"`. In that state the right pane remained "inactive" and therefore
+showed `workspace-mobile-pane-separators`. That is useful for measuring the rendered separator
+color, but it should not be described as a settled active-right-pane state.
 
-The Android 16 framework source checked locally exposes public fallback colors:
+## Emulator Evidence
+
+Environment:
+
+- Device: `Medium_Phone` emulator, `1080x2400`, `420dpi`, portrait.
+- Foreground activity: `com.android.chrome/org.chromium.chrome.browser.webapps.WebappActivity`.
+- URL target: `http://127.0.0.1:5174/logo?...`.
+- Right-pane target: public right sidebar supplied by `AppWorkspaceShell`.
+
+Pixel samples were taken from adb screenshots after forcing the right pane into view through the
+Chrome DevTools Protocol and recording DOM geometry from the same target.
+
+For the visible mobile pane separator at physical `x=324`, with safe background samples inside the
+right pane at `x=702`:
+
+```text
+yellow-200
+  safe top rows: #FFF085
+  separator rows: #E6D878
+
+yellow-500
+  safe top rows: #F0B100
+  separator rows: #D8A000
+
+mist-700
+  safe top rows y=63..65: #4C5659
+  safe content below:     #394447
+  separator below:        #343E40
+
+white
+  safe top rows y=63..65: #E6E6E6
+  safe content below:     #FFFFFF
+  separator below:        #E6E6E6
+```
+
+The important result is that the app separator color and the standalone PWA top boundary are not a
+single matching algorithm across colors. They match for `white`; for yellow there is no separate
+native top line away from the separator; for dark mist they diverge.
+
+## Source Mapping
+
+### Toolbar Hairline Resource
+
+Chromium's toolbar control container includes `ToolbarHairlineView`. The view draws
+`R.drawable.toolbar_hairline`; that drawable is a 1dp rectangle using `@color/divider_color`.
+
+The `@color/divider_color` resource resolves to Material theme attrs by default:
 
 ```xml
-<color name="system_surface_container_highest_light">#E2E2E9</color>
-<color name="system_surface_container_highest_dark">#33343A</color>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:color="?attr/colorSurfaceContainerHighest"/>
+</selector>
 ```
 
-These are framework resource defaults. On dynamic-color-capable devices, Android can replace system
-color resources with colors derived from the system color scheme.
+That XML is not the color-mixing formula for theme-colored browser-service toolbar pixels. It is the
+default themed divider resource. `?attr/colorSurfaceContainerHighest` is a Material theme attribute:
+the current Android theme resolves it to a concrete color role, often a neutral tonal surface.
 
-## About The 10% Observation
+### Effective Theme-Colored Toolbar Formula
 
-The `10%` value was an empirical observation from a screenshot, not a source-backed algorithm:
-
-```text
-background: #00BC7D
-observed top line: #00AA71
-```
-
-That observed line is consistent with multiplying each RGB channel by roughly `0.9`, or mixing the
-background with about 10% black. I have not found a Chromium source constant that says "darken this
-PWA top hairline by 10%."
-
-The closest Chromium source constant found in the targeted source set is different:
+Chromium's `ColorUtils.overlayColor(baseColor, overlayColor)` computes:
 
 ```java
-private static final float DARKEN_COLOR_FRACTION = 0.6f;
+float alphaAdjustedFraction = Color.alpha(overlayColor) / 255f * fraction;
+return getColorWithOverlay(baseColor, opaqueOverlayColor, alphaAdjustedFraction);
 ```
 
-That constant is used by `ColorUtils.getDarkenedColorForStatusBar(...)`, whose comment says it
-darkens a color for the Android status bar. That is a status-bar path, not the Material
-`divider_color` path, and `0.6` does not explain the measured `#00AA71` line.
+`getColorWithOverlay` rounds each interpolated channel. With `#19000000`, that is
+`round(channel * 230 / 255)`.
 
-Therefore, do not treat `10%` as the discovered Chromium algorithm. Treat it as a runtime
-measurement that may come from another composition path, a tinted/captured toolbar layer, or an
-app/content-edge effect.
-
-## Amber 200 Emulator Check
-
-Follow-up runtime check for `/logo?background=amber-200` on the `Medium_Phone` emulator:
-
-- The local app resolved `amber-200` to `#FEE685` in the emulator screenshot.
-- Chrome's UI dump exposed `toolbar_hairline` at physical rows `210..212`.
-- The sampled hairline rows were `#E5CF78`.
-
-That exactly matches the per-channel 90% ceiling measurement:
+Normal Chrome tab emulator checks for `toolbar_hairline` matched this formula:
 
 ```text
-background = #FEE685
-hairline   = #E5CF78
-
-ceil(254 * 0.9) = 229 = E5
-ceil(230 * 0.9) = 207 = CF
-ceil(133 * 0.9) = 120 = 78
+yellow-200: #FFF085 -> #E6D878
+amber-200:  #FEE685 -> #E5CF78
+yellow-500: #F0B100 -> #D8A000
 ```
 
-This also corrects an earlier hand calculation that used `#FDE68A` for `amber-200`. In this app's
-current color table, the runtime value is `#FEE685`, so the measured 90% value is `#E5CF78`.
+## Product Implication
 
-This check was against Chrome's visible `toolbar_hairline` in `ChromeTabbedActivity`. Chrome offered
-an `Install` flow, but the emulator did not expose a launchable Noter WebAPK/shortcut afterward, and
-a direct `WebappLauncherActivity` intent fell back to `ChromeTabbedActivity`. So this confirms the
-hairline formula on the Chrome toolbar path, not a fresh standalone PWA launch.
+If the desired product behavior is "match Chrome's theme-colored toolbar hairline", the current
+background-derived divider formula is the right family for the tested light/mid colors.
 
-## Yellow 500 Emulator Check
-
-Follow-up runtime check for `/logo?background=yellow-500` on the same `Medium_Phone` emulator:
-
-- The local app resolved `yellow-500` to `#F0B100` in the emulator screenshot.
-- Chrome's UI dump exposed `toolbar_hairline` at physical rows `210..212`.
-- The sampled hairline rows were `#D8A000`.
-
-This distinguishes rounding from ceiling:
-
-```text
-background = #F0B100
-hairline   = #D8A000
-
-ceil(240 * 0.9) = 216 = D8
-ceil(177 * 0.9) = 160 = A0
-ceil(0 * 0.9)   = 0   = 00
-```
-
-Using ordinary rounding would produce `#D89F00`, which did not match the emulator screenshot.
-
-## Noter-Specific Context
-
-Noter currently maps route search params to CSS variables and the PWA `theme-color` meta tag:
-
-```ts
-themeColorMetaElement.content = getTailwindColorHex(readAppThemeColors(search).background);
-```
-
-For `/logo?background=emerald-500`, the meta tag becomes `#00BC7D`.
-
-The app also has a separate `border` query param. If absent, `border` stays on the app default
-instead of being derived from `background`.
-
-This means there are two different questions:
-
-1. What color does Chrome/Android draw at the PWA top edge?
-2. What should Noter use for `--border` when the page background changes by query param?
-
-The Material source chain answers the first question only for Chromium's default
-`@color/divider_color` resource. It does not prove that Noter's borders should use that same value,
-because the measured green line tracked the app background rather than Material's neutral gray
-token.
+If the desired product behavior is "match the standalone PWA top content boundary", there is no
+single divider formula to copy from the emulator evidence. Standalone PWA top rows are background
+for yellow, 10%-black-like for white, and lightened for dark mist. That would require a separate
+context-specific rule, not the current global `--border` derivation.
 
 ## Source Evidence
 
 Chromium:
 
-- `custom_tabs_control_container.xml` includes `ToolbarHairlineView`:
-  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/chrome/android/java/res/layout/custom_tabs_control_container.xml#24
 - `ToolbarHairlineView` draws `R.drawable.toolbar_hairline`:
   https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/chrome/browser/ui/android/toolbar/ToolbarHairlineView.java#38
-- `toolbar_hairline.xml` uses `@color/divider_color`:
-  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/components/browser_ui/styles/android/java/res/drawable/toolbar_hairline.xml#11
-- `toolbar_hairline_height` is `1dp`:
-  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/components/browser_ui/styles/android/java/res/values/dimens.xml#26
+- `control_container.xml` includes `@id/toolbar_hairline`:
+  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/chrome/browser/ui/android/toolbar/java/res/layout/control_container.xml
+- `toolbar_hairline.xml` uses `@color/divider_color` and `toolbar_hairline_height`:
+  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/components/browser_ui/styles/android/java/res/drawable/toolbar_hairline.xml
 - Light `divider_color` uses `?attr/colorSurfaceContainerHighest`:
   https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/components/browser_ui/styles/android/java/res/color/divider_color.xml#8
-- Dark `divider_color` uses `?attr/colorOutlineVariant`:
-  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/components/browser_ui/styles/android/java/res/color-night/divider_color.xml#8
-- Chromium status-bar darkening constant:
-  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/ui/android/java/src/org/chromium/ui/util/ColorUtils.java#32
+- `ColorUtils.overlayColor` and `getColorWithOverlay`:
+  https://chromium.googlesource.com/chromium/src/+/refs/tags/149.0.7827.110/ui/android/java/src/org/chromium/ui/util/ColorUtils.java
 
-Material Components Android, commit `5974002691ea7a4b3209610a98d863eecb5bdfae`:
+Material Components Android:
 
-- Attr declaration:
+- `colorSurfaceContainerHighest` attr and Material dynamic color role:
   https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/res/values/attrs.xml#L107
-- Regular theme assignments:
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/theme/res/values/themes_base.xml#L233
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/theme/res/values/themes_base.xml#L563
-- Regular token values:
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/res/values/tokens.xml#L96
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/res/values/tokens.xml#L48
-- Android 12+ dynamic token values:
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/res/values-v31/tokens.xml#L96
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/res/values-v31/tokens.xml#L45
-- Android 14+ framework color delegation:
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/res/values-v34/tokens.xml#L92
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/res/values-v34/tokens.xml#L48
-- Dynamic color role formula:
   https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/utilities/MaterialDynamicColors.java#L228
-- Dynamic color role resource mapping:
-  https://github.com/material-components/material-components-android/blob/5974002691ea7a4b3209610a98d863eecb5bdfae/lib/java/com/google/android/material/color/MaterialColorUtilitiesHelper.java#L93
-
-Android framework, `android-vts-16.0_r1` / commit `99b01a65cc4c104933788b3143285ab6bae65827`:
-
-- Framework `system_surface_container_highest_*` fallback values:
-  https://android.googlesource.com/platform/frameworks/base/+/99b01a65cc4c104933788b3143285ab6bae65827/core/res/res/values/colors.xml#435
-  https://android.googlesource.com/platform/frameworks/base/+/99b01a65cc4c104933788b3143285ab6bae65827/core/res/res/values/colors.xml#485
 
 Noter:
 
-- `background` search param drives the app background variables:
-  `apps/noter/src/lib/appThemeColorSearch.ts`
-- `border` search param drives the app border variables separately:
-  `apps/noter/src/lib/appThemeColorSearch.ts`
-- `theme-color` meta tag follows the resolved app background:
-  `apps/noter/src/lib/appThemeColorSearch.ts`
-
-## Follow-Up If We Need Exact Runtime Attribution
-
-The remaining unresolved point is why the observed emulator line for `emerald-500` was green-tinted
-instead of the Material neutral token. To prove that exact runtime source, the next step should be
-instrumentation rather than another broad source sweep:
-
-1. Capture screenshots for several route backgrounds and dark/light modes.
-2. Compare the top-line pixel against:
-   - `theme-color`
-   - Chromium `ColorUtils.getDarkenedColorForStatusBar(theme-color)` (`0.6` HSV value)
-   - `theme-color` mixed with black/white at common alpha stops
-   - Material `surface_container_highest` values for the emulator theme
-3. If the line tracks the app background, inspect Chromium top-controls capture/tint code around
-   `ToolbarControlContainer` and browser-services theme updates with a narrower source checkout or a
-   local Chromium build/log point.
+- `background` and `border` search params resolve to app CSS color tokens:
+  `apps/noter/src/components/logo/logoTailwindColors.ts`
+- `theme-color` follows the resolved app background: `apps/noter/src/lib/appThemeColorSearch.ts`
+- Mobile pane separators use `var(--color-border)`: `apps/noter/src/index.css`
