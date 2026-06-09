@@ -79,7 +79,6 @@ export type ParsedRouteAddress = {
 
 type CursorContext =
   | {
-      hashDraft: string;
       hashStart: number;
       kind: "hash";
     }
@@ -428,7 +427,6 @@ function readCursorContext(
   const hashStart = readHashStart(routeAddress);
   if (hashStart !== null && selectionRouteIndex > hashStart) {
     return {
-      hashDraft: routeAddress.slice(hashStart + 1),
       hashStart,
       kind: "hash",
     };
@@ -769,7 +767,6 @@ function readRouteHashKeys(args: {
 
 function readHashRows(args: {
   committedRouteAddress: string;
-  hashDraft: string;
   hashKeys: readonly string[];
   hashStart: number;
   prefix: string;
@@ -793,20 +790,18 @@ function readHashRows(args: {
       viewerIsAdmin: args.viewerIsAdmin,
     }),
     ...documentHashKeys,
-  ])
-    .filter((key) => key.startsWith(args.hashDraft))
-    .map((key): Suggestion => {
-      const routeAddress = `${routeAddressBeforeHash}#${key}`;
+  ]).map((key): Suggestion => {
+    const routeAddress = `${routeAddressBeforeHash}#${key}`;
 
-      return {
-        kind: "hash",
-        nextSelectionRouteIndex: routeAddress.length,
-        previewRouteAddress: routeAddress,
-        previewSelectionRouteIndex: args.hashStart + 1,
-        selectedRouteAddress: routeAddress,
-        value: `#${key}`,
-      };
-    });
+    return {
+      kind: "hash",
+      nextSelectionRouteIndex: routeAddress.length,
+      previewRouteAddress: routeAddress,
+      previewSelectionRouteIndex: args.hashStart + 1,
+      selectedRouteAddress: routeAddress,
+      value: `#${key}`,
+    };
+  });
 }
 
 /**
@@ -890,7 +885,6 @@ export function readSuggestions(args: {
   if (cursorContext.kind === "hash") {
     return readHashRows({
       committedRouteAddress: args.committedRouteAddress,
-      hashDraft: cursorContext.hashDraft,
       hashKeys: args.hashKeys,
       hashStart: cursorContext.hashStart,
       prefix: args.prefix,

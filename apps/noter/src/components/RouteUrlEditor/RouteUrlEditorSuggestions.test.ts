@@ -596,13 +596,14 @@ describe("readSuggestions", () => {
     });
   });
 
-  it("suggests global hashes after the hash marker", () => {
+  it("suggests global hashes after the hash marker without filtering by the draft", () => {
     const values = readValues({
-      routeAddress: "/logo#to",
-      routeTextBeforeCursor: "/logo#to",
+      hashKeys: ["noter-md/noter"],
+      routeAddress: "/logo#top",
+      routeTextBeforeCursor: "/logo#t",
     });
 
-    expect(values).toEqual(["#top"]);
+    expect(values).toEqual(["#top", "#noter-md/noter"]);
   });
 
   it("suggests route-specific hashes for matching routes", () => {
@@ -630,7 +631,7 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/home#not",
     });
 
-    expect(values).toEqual(["#noter-md/noter"]);
+    expect(values).toEqual(["#top", "#tmp-flow", "#noter-md/noter"]);
   });
 
   it("does not suggest current document hashes for a different draft route", () => {
@@ -641,6 +642,6 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/logo#not",
     });
 
-    expect(values).toEqual([]);
+    expect(values).toEqual(["#top"]);
   });
 });
