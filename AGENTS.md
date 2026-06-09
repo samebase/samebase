@@ -419,8 +419,8 @@ When the user says one of these commands, execute it directly:
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `commit`       | Stage changes and create a concise commit                                                                                                                      |
 | `push`         | Commit if needed, then push                                                                                                                                    |
-| `create pr`    | Push if needed, then create or update a ready PR                                                                                                               |
-| `create draft` | Push if needed, then create or update a draft PR                                                                                                               |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                             |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                             |
 | `ready`        | Mark the current PR ready                                                                                                                                      |
 | `wait`         | Watch CI and report status                                                                                                                                     |
 | `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                                 |
@@ -469,9 +469,10 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - `clean` must fail closed and only remove the current checkout's isolated machine state directory
   under `~/.noter/checkouts/<checkout-id>`. Never delete the default `~/.noter` install as part of
   local cleanup.
-- When the user says `create pr`, create or update a ready non-draft PR.
+- When the user says `create pr`, create or update a ready non-draft PR with the current `v<N>:`
+  title label.
 - Use a draft PR only when the user explicitly says `create draft` or otherwise asks to keep the PR
-  draft.
+  draft, and still apply the current `v<N>:` title label.
 - `ship` must leave the current branch with an updated ready PR before waiting on CI.
 - PR descriptions must explain why the change exists, not just what changed.
 - When a PR originates from research or automation work, include `First Message` and
@@ -480,6 +481,9 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - Prefix every PR title with the projected landing-page build label, such as `v1146:`, and refresh
   it after creating, updating, rebasing, marking ready, or whenever `origin/main` advances. Treat
   the label as provisional until merge.
+- Do not consider `create pr`, `create draft`, proactive PR creation, PR readiness updates, `ship`,
+  or `squash` complete until the current GitHub PR title starts with the freshly computed `v<N>:`
+  label for the latest `origin/main`.
 - When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
   include the phase label in the PR title after the build label, such as
   `v1146: Phase 2: Move app provisioning to Workflow`, so the eventual squash commit preserves the
