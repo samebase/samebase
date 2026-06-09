@@ -467,6 +467,7 @@ export const trackedFilePaths = [
   "apps/noter/e2e/vault-sync-status-visual.spec.ts-snapshots/vault-sync-status-states.png",
   "apps/noter/e2e/visual-fixture-local-only.spec.ts",
   "apps/noter/e2e/visualDiff.ts",
+  "apps/noter/e2e/visualFixtureTest.ts",
   "apps/noter/e2e/workspace-frame-geometry.spec.ts",
   "apps/noter/e2e/workspace-layout-v2-status-bar.spec.ts",
   "apps/noter/e2e/workspace-layout-v2-status-bar.spec.ts-snapshots/workspace-layout-v2-status-bar-mobile.png",

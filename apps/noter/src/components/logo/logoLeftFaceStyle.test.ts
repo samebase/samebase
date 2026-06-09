@@ -10,14 +10,14 @@ describe("logoLeftFaceStyle", () => {
   it("defines the canonical single-color stripe treatment as the striped default", () => {
     expect(LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE).toEqual({
       kind: "striped",
-      stripeAngleDegrees: 45,
+      stripeAngleDegrees: -45,
       stripeBasis: "vertical",
       stripeGap: 0.25,
       stripeGapLinked: false,
       stripeOffset: 0,
       stripeWidth: 0.25,
     });
-    expect(LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue).toBe(45);
+    expect(LOGO_LEFT_FACE_STRIPE.angleDegrees.defaultValue).toBe(-45);
     expect(LOGO_LEFT_FACE_STRIPE.basis.defaultValue).toBe("vertical");
     expect(LOGO_LEFT_FACE_STRIPE.gap.defaultValue).toBe(0.25);
     expect(LOGO_LEFT_FACE_STRIPE.offset.defaultValue).toBe(0);

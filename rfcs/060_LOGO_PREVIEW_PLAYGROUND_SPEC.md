@@ -222,7 +222,7 @@ The playground should expose at least these presets:
   striped primary/background pattern.
 - `striped` is the default and has controls for stripe width, gap, angle, and offset. Its default
   state is the canonical single-color treatment from
-  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: `45deg`, vertical basis, `1/4` width, `1/4`
+  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: `-45deg`, vertical basis, `1/4` width, `1/4`
   gap, and `0` offset.
 - `secondary` remains a shareable duotone comparison state at `/logo?leftFace=secondary`.
 - Stripe width and gap may be `0`, and the playground should expose a shareable linked-width/gap
@@ -238,7 +238,7 @@ The playground should expose at least these presets:
   basis means the same for a vertical cross-section. The auto basis uses the larger axis projection
   so cardinal stripe angles do not collapse to zero while the internal math still uses JavaScript
   double precision rather than UI-rounded approximations.
-- The Three renderer passes the stripe angle directly to the shader so the canonical `stripeA=45`
+- The Three renderer passes the stripe angle directly to the shader so the canonical `stripeA=-45`
   treatment draws the accepted visible diagonal on projected left faces.
 - Stripes must be rendered in the left face's local 3D surface space, not as a screen-space overlay,
   so dragging the logo keeps the pattern attached to the face geometry.
