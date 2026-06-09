@@ -234,15 +234,15 @@ function shouldUseLightForegroundOnBackground(color: RgbColor): boolean {
   return 1.05 / (luminance + 0.05) >= 3;
 }
 
-function overlayChromiumToolbarHairlineChannel(channel: number, overlayChannel: number): number {
+function overlayPwaStatusBoundaryChannel(channel: number, overlayChannel: number): number {
   return Math.round(channel + (overlayChannel - channel) * (25 / 255));
 }
 
-function getChromiumToolbarHairlineColor(color: RgbColor, overlayChannel: number): HexColorToken {
+function getPwaStatusBoundaryOverlayColor(color: RgbColor, overlayChannel: number): HexColorToken {
   return `#${formatHexChannel(
-    overlayChromiumToolbarHairlineChannel(color.red, overlayChannel),
-  )}${formatHexChannel(overlayChromiumToolbarHairlineChannel(color.green, overlayChannel))}${formatHexChannel(
-    overlayChromiumToolbarHairlineChannel(color.blue, overlayChannel),
+    overlayPwaStatusBoundaryChannel(color.red, overlayChannel),
+  )}${formatHexChannel(overlayPwaStatusBoundaryChannel(color.green, overlayChannel))}${formatHexChannel(
+    overlayPwaStatusBoundaryChannel(color.blue, overlayChannel),
   )}`;
 }
 
@@ -252,12 +252,11 @@ export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToke
     return "#000000";
   }
 
-  // Matches Chromium Android's non-default toolbar hairline branch.
   if (shouldUseLightForegroundOnBackground(rgbColor)) {
-    return getChromiumToolbarHairlineColor(rgbColor, 255);
+    return getPwaStatusBoundaryOverlayColor(rgbColor, 255);
   }
 
-  return getChromiumToolbarHairlineColor(rgbColor, 0);
+  return "#e6e6e6";
 }
 
 function formatCssNumber(value: number): string {

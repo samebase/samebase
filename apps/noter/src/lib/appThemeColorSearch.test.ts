@@ -105,7 +105,7 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#fee685",
-      border: "#e5cf78",
+      border: "#e6e6e6",
     });
 
     expect(
@@ -117,7 +117,7 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#fff085",
-      border: "#e6d878",
+      border: "#e6e6e6",
     });
 
     expect(
@@ -129,7 +129,7 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#f0b100",
-      border: "#d8a000",
+      border: "#e6e6e6",
     });
 
     expect(
