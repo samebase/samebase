@@ -52,8 +52,6 @@ export type Suggestion = {
   value: string;
 };
 
-const GLOBAL_ROUTE_URL_HASH_KEYS = ["top"] as const;
-
 const ROUTE_URL_HASH_KEYS_BY_PATH: Readonly<Record<string, readonly string[]>> = {
   "/machines/connect": ["connected-machines"],
 } as const;
@@ -474,7 +472,6 @@ function readHashRows(args: {
     routeAddressParts.path === currentRouteAddressParts.path ? args.pageHashKeys : [];
 
   return uniqueStrings([
-    ...GLOBAL_ROUTE_URL_HASH_KEYS,
     ...readRouteHashKeys({
       origin,
       routeAddress: args.routeAddress,

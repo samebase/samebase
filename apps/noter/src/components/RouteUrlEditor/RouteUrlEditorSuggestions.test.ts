@@ -458,7 +458,7 @@ describe("readSuggestions", () => {
       viewerIsAdmin: true,
     });
 
-    expect(rows.map((row) => row.value)).toEqual(["#top", "#connected-machines"]);
+    expect(rows.map((row) => row.value)).toEqual(["#connected-machines"]);
     expect(rows).toContainEqual({
       kind: "hash",
       nextSelectionRouteIndex: "/machines/connect#connected-machines".length,
@@ -483,7 +483,7 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/logo#i",
     });
 
-    expect(currentRouteRows.map((row) => row.value)).toEqual(["#top", "#intro", "#pricing"]);
-    expect(differentRouteRows.map((row) => row.value)).toEqual(["#top"]);
+    expect(currentRouteRows.map((row) => row.value)).toEqual(["#intro", "#pricing"]);
+    expect(differentRouteRows.map((row) => row.value)).toEqual([]);
   });
 });

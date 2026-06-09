@@ -109,8 +109,6 @@ type SearchSuggestionToken = {
   text: string;
 };
 
-const GLOBAL_ROUTE_URL_HASH_KEYS = ["top"] as const;
-
 const ROUTE_URL_HASH_KEYS_BY_PATH: Readonly<Record<string, readonly string[]>> = {
   "/machines/connect": ["connected-machines"],
 } as const;
@@ -978,7 +976,7 @@ function readRouteUrlEditorHashSuggestions(args: {
   const currentRouteParts = parseRouteAddress(args.currentHref);
   const documentHashKeys = parts.path === currentRouteParts.path ? args.hashKeys : [];
 
-  return uniqueStrings([...GLOBAL_ROUTE_URL_HASH_KEYS, ...routeHashKeys, ...documentHashKeys])
+  return uniqueStrings([...routeHashKeys, ...documentHashKeys])
     .filter((key) => key.startsWith(hashDraft))
     .map((key) => ({
       key,

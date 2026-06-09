@@ -731,6 +731,7 @@ export const trackedFilePaths = [
   "apps/noter/src/components/RouteUrlEditor/typedTransitionTable.type_test.ts",
   "apps/noter/src/components/RouteUrlEditor/useNavigationControls.ts",
   "apps/noter/src/components/RouteUrlEditor/useRouteEditorVm.ts",
+  "apps/noter/src/components/RouteUrlEditor/useRouteUrlEditorPageHashSuggestions.ts",
   "apps/noter/src/components/RouteUrlEditor/useRouteUrlEditorTouchScrollPicker.ts",
   "apps/noter/src/components/RouteUrlEditor/useTypedTransitionMachine.ts",
   "apps/noter/src/components/RouterGestureDebugOverlay.tsx",
