@@ -154,7 +154,6 @@ export function RouteUrlEditorNext() {
           data-testid="route-url-editor-display"
           inputMode="url"
           spellCheck={false}
-          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
         />
       )}
       {vm.suggestionsVisible ? (

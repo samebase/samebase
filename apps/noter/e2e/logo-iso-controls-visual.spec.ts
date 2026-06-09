@@ -141,7 +141,7 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
 
   await expect(controlsSidebar).toBeVisible();
   await expect(controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)).toHaveCount(0);
-  await expect(routeUrlDisplay).toHaveValue(`${origin}/logo`);
+  await expect(routeUrlDisplay).toHaveValue("/logo");
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/logo`);
   await expect(linksSidebar).toBeVisible();
   const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);

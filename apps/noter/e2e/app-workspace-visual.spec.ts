@@ -41,7 +41,7 @@ test("app workspace header exposes the route URL editor", async ({ page }) => {
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
   const routeUrlDisplay = page.getByTestId("route-url-editor-display");
-  await expect(routeUrlDisplay).toHaveValue(`${origin}/?dev`);
+  await expect(routeUrlDisplay).toHaveValue("/?dev");
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/?dev`);
   await expect(page).toHaveScreenshot("app-workspace-landing-dev.png", {
     animations: "disabled",
@@ -56,7 +56,7 @@ test("app workspace header exposes the route URL editor", async ({ page }) => {
   await page.getByRole("link", { name: "/terms", exact: true }).dispatchEvent("click");
   await expect(page).toHaveURL(/\/terms\?dev$/);
   await expect(routeUrlInput).toHaveCount(0);
-  await expect(routeUrlDisplay).toHaveValue(`${origin}/terms?dev`);
+  await expect(routeUrlDisplay).toHaveValue("/terms?dev");
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/terms?dev`);
 });
 
@@ -75,7 +75,7 @@ test("app workspace route URL editor stays compact for long URLs", async ({ page
   const routeAddress = `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`;
   const routeUrlEditor = page.getByTestId("route-url-editor");
   const routeUrlDisplay = page.getByTestId("route-url-editor-display");
-  await expect(routeUrlDisplay).toHaveValue(`${origin}${routeAddress}`);
+  await expect(routeUrlDisplay).toHaveValue(routeAddress);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}${routeAddress}`);
 
   const metrics = await routeUrlEditor.evaluate((element) => {
