@@ -413,7 +413,8 @@ function syncDocumentThemeColorMeta(search: LogoThemeColorSearchInput) {
     return;
   }
 
-  // Chrome Android reads this meta tag for the running PWA status bar.
+  // Chrome Android observes this meta tag for system-bar theme updates, but
+  // the installed PWA may not paint a separate visible boundary line.
   themeColorMetaElement.content = getTailwindColorHex(readAppThemeColors(search).background);
 }
 

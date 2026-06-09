@@ -228,22 +228,25 @@ function readRelativeLuminance(color: RgbColor): number {
   );
 }
 
-function shouldUseLightForegroundOnBackground(color: RgbColor): boolean {
+function shouldUseChromeLightForegroundOnBackground(color: RgbColor): boolean {
   const luminance = readRelativeLuminance(color);
 
   return 1.05 / (luminance + 0.05) >= 3;
 }
 
-function overlayPwaStatusBoundaryChannel(channel: number, overlayChannel: number): number {
+function overlayChromeToolbarHairlineChannel(channel: number, overlayChannel: number): number {
   return Math.round(channel + (overlayChannel - channel) * (25 / 255));
 }
 
-function getPwaStatusBoundaryOverlayColor(color: RgbColor, overlayChannel: number): HexColorToken {
+function getChromeToolbarHairlineOverlayColor(
+  color: RgbColor,
+  overlayChannel: number,
+): HexColorToken {
   return `#${formatHexChannel(
-    overlayPwaStatusBoundaryChannel(color.red, overlayChannel),
-  )}${formatHexChannel(overlayPwaStatusBoundaryChannel(color.green, overlayChannel))}${formatHexChannel(
-    overlayPwaStatusBoundaryChannel(color.blue, overlayChannel),
-  )}`;
+    overlayChromeToolbarHairlineChannel(color.red, overlayChannel),
+  )}${formatHexChannel(
+    overlayChromeToolbarHairlineChannel(color.green, overlayChannel),
+  )}${formatHexChannel(overlayChromeToolbarHairlineChannel(color.blue, overlayChannel))}`;
 }
 
 export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToken): HexColorToken {
@@ -252,11 +255,9 @@ export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToke
     return "#000000";
   }
 
-  if (shouldUseLightForegroundOnBackground(rgbColor)) {
-    return getPwaStatusBoundaryOverlayColor(rgbColor, 255);
-  }
+  const overlayChannel = shouldUseChromeLightForegroundOnBackground(rgbColor) ? 255 : 0;
 
-  return "#e6e6e6";
+  return getChromeToolbarHairlineOverlayColor(rgbColor, overlayChannel);
 }
 
 function formatCssNumber(value: number): string {

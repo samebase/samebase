@@ -105,7 +105,7 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#fee685",
-      border: "#e6e6e6",
+      border: "#e5cf78",
     });
 
     expect(
@@ -117,7 +117,7 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#fff085",
-      border: "#e6e6e6",
+      border: "#e6d878",
     });
 
     expect(
@@ -129,7 +129,19 @@ describe("appThemeColorSearch", () => {
       }).resolvedThemeColors,
     ).toMatchObject({
       background: "#f0b100",
-      border: "#e6e6e6",
+      border: "#d8a000",
+    });
+
+    expect(
+      resolveAppThemeColorState({
+        search: {
+          background: "lime-400",
+        },
+        themeMode: "light",
+      }).resolvedThemeColors,
+    ).toMatchObject({
+      background: "#9ae600",
+      border: "#8bcf00",
     });
 
     expect(
