@@ -155,15 +155,15 @@ Follow-up runtime check for `/logo?background=amber-200` on the `Medium_Phone` e
 - Chrome's UI dump exposed `toolbar_hairline` at physical rows `210..212`.
 - The sampled hairline rows were `#E5CF78`.
 
-That exactly matches the per-channel 90% measurement:
+That exactly matches the per-channel 90% ceiling measurement:
 
 ```text
 background = #FEE685
 hairline   = #E5CF78
 
-round(254 * 0.9) = 229 = E5
-round(230 * 0.9) = 207 = CF
-round(133 * 0.9) = 120 = 78
+ceil(254 * 0.9) = 229 = E5
+ceil(230 * 0.9) = 207 = CF
+ceil(133 * 0.9) = 120 = 78
 ```
 
 This also corrects an earlier hand calculation that used `#FDE68A` for `amber-200`. In this app's
@@ -173,6 +173,27 @@ This check was against Chrome's visible `toolbar_hairline` in `ChromeTabbedActiv
 an `Install` flow, but the emulator did not expose a launchable Noter WebAPK/shortcut afterward, and
 a direct `WebappLauncherActivity` intent fell back to `ChromeTabbedActivity`. So this confirms the
 hairline formula on the Chrome toolbar path, not a fresh standalone PWA launch.
+
+## Yellow 500 Emulator Check
+
+Follow-up runtime check for `/logo?background=yellow-500` on the same `Medium_Phone` emulator:
+
+- The local app resolved `yellow-500` to `#F0B100` in the emulator screenshot.
+- Chrome's UI dump exposed `toolbar_hairline` at physical rows `210..212`.
+- The sampled hairline rows were `#D8A000`.
+
+This distinguishes rounding from ceiling:
+
+```text
+background = #F0B100
+hairline   = #D8A000
+
+ceil(240 * 0.9) = 216 = D8
+ceil(177 * 0.9) = 160 = A0
+ceil(0 * 0.9)   = 0   = 00
+```
+
+Using ordinary rounding would produce `#D89F00`, which did not match the emulator screenshot.
 
 ## Noter-Specific Context
 

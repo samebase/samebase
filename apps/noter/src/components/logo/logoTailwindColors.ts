@@ -212,7 +212,7 @@ function readHexColor(color: string): RgbColor | null {
 }
 
 function formatHexChannel(channel: number): string {
-  return Math.round(channel).toString(16).padStart(2, "0");
+  return Math.ceil(channel).toString(16).padStart(2, "0");
 }
 
 export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToken): HexColorToken {

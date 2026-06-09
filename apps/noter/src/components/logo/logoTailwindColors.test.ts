@@ -27,7 +27,8 @@ describe("logoTailwindColors", () => {
   it("derives border colors from the resolved background color", () => {
     expect(getBackgroundDerivedBorderColorHex("#ffffff")).toBe("#e6e6e6");
     expect(getBackgroundDerivedBorderColorHex("#FEE685")).toBe("#e5cf78");
-    expect(getBackgroundDerivedBorderColorHex("#abc")).toBe("#99a8b8");
+    expect(getBackgroundDerivedBorderColorHex("#f0b100")).toBe("#d8a000");
+    expect(getBackgroundDerivedBorderColorHex("#abc")).toBe("#99a9b8");
   });
 
   it("detects palette tokens separately from custom colors", () => {

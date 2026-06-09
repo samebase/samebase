@@ -107,6 +107,18 @@ describe("appThemeColorSearch", () => {
       background: "#fee685",
       border: "#e5cf78",
     });
+
+    expect(
+      resolveAppThemeColorState({
+        search: {
+          background: "yellow-500",
+        },
+        themeMode: "light",
+      }).resolvedThemeColors,
+    ).toMatchObject({
+      background: "#f0b100",
+      border: "#d8a000",
+    });
   });
 
   it("resolves final app theme colors from route search in one place", () => {
