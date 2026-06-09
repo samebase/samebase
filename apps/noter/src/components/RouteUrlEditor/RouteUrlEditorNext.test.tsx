@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditorNext } from "./RouteUrlEditorNext";
 
@@ -25,6 +25,10 @@ vi.mock("convex/react", async (importOriginal) => {
 describe("RouteUrlEditorNext", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
+
+  beforeEach(() => {
+    useQueryMock.mockReturnValue(false);
+  });
 
   afterEach(() => {
     if (root) {
@@ -133,6 +137,38 @@ describe("RouteUrlEditorNext", () => {
     act(() => {
       input.setSelectionRange(hashCursorPosition, hashCursorPosition);
       input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(readSuggestionValues()).toContain("#pricing");
+  });
+
+  it("updates page-owned hashes when matching document nodes are inserted", async () => {
+    const display = renderEditor(["/#intro"]);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      display.focus();
+    });
+
+    const input = readRequiredInput();
+    const hashCursorPosition = input.value.indexOf("#") + "#i".length;
+
+    act(() => {
+      input.setSelectionRange(hashCursorPosition, hashCursorPosition);
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(readSuggestionValues()).not.toContain("#pricing");
+
+    const pageHashElement = document.createElement("section");
+    pageHashElement.dataset.landingHeadingId = "pricing";
+
+    await act(async () => {
+      document.body.append(pageHashElement);
+      await Promise.resolve();
     });
 
     expect(readSuggestionValues()).toContain("#pricing");

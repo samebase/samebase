@@ -4,6 +4,11 @@ import {
   readRouteUrlEditorDocumentHashSuggestionKeys,
 } from "@/lib/routeUrlEditorHashSuggestions";
 
+const routeUrlEditorPageHashSuggestionSelector =
+  ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES.map((attribute) => `[${attribute}]`).join(
+    ",",
+  );
+
 function areHashKeysEqual(left: readonly string[], right: readonly string[]): boolean {
   if (left.length !== right.length) {
     return false;
@@ -16,6 +21,36 @@ function areHashKeysEqual(left: readonly string[], right: readonly string[]): bo
   }
 
   return true;
+}
+
+function nodeContainsPageHashSuggestion(node: Node): boolean {
+  return (
+    node instanceof Element &&
+    (node.matches(routeUrlEditorPageHashSuggestionSelector) ||
+      node.querySelector(routeUrlEditorPageHashSuggestionSelector) !== null)
+  );
+}
+
+function shouldRefreshPageHashKeys(mutations: readonly MutationRecord[]): boolean {
+  for (const mutation of mutations) {
+    if (mutation.type === "attributes") {
+      return true;
+    }
+
+    for (const node of mutation.addedNodes) {
+      if (nodeContainsPageHashSuggestion(node)) {
+        return true;
+      }
+    }
+
+    for (const node of mutation.removedNodes) {
+      if (nodeContainsPageHashSuggestion(node)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -48,7 +83,11 @@ export function useRouteUrlEditorPageHashSuggestions(): readonly string[] {
       return;
     }
 
-    const observer = new MutationObserver(refreshPageHashKeys);
+    const observer = new MutationObserver((mutations) => {
+      if (shouldRefreshPageHashKeys(mutations)) {
+        refreshPageHashKeys();
+      }
+    });
     observer.observe(document.body, {
       attributeFilter: [...ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES],
       attributes: true,
