@@ -147,6 +147,33 @@ Therefore, do not treat `10%` as the discovered Chromium algorithm. Treat it as 
 measurement that may come from another composition path, a tinted/captured toolbar layer, or an
 app/content-edge effect.
 
+## Amber 200 Emulator Check
+
+Follow-up runtime check for `/logo?background=amber-200` on the `Medium_Phone` emulator:
+
+- The local app resolved `amber-200` to `#FEE685` in the emulator screenshot.
+- Chrome's UI dump exposed `toolbar_hairline` at physical rows `210..212`.
+- The sampled hairline rows were `#E5CF78`.
+
+That exactly matches the per-channel 90% measurement:
+
+```text
+background = #FEE685
+hairline   = #E5CF78
+
+round(254 * 0.9) = 229 = E5
+round(230 * 0.9) = 207 = CF
+round(133 * 0.9) = 120 = 78
+```
+
+This also corrects an earlier hand calculation that used `#FDE68A` for `amber-200`. In this app's
+current color table, the runtime value is `#FEE685`, so the measured 90% value is `#E5CF78`.
+
+This check was against Chrome's visible `toolbar_hairline` in `ChromeTabbedActivity`. Chrome offered
+an `Install` flow, but the emulator did not expose a launchable Noter WebAPK/shortcut afterward, and
+a direct `WebappLauncherActivity` intent fell back to `ChromeTabbedActivity`. So this confirms the
+hairline formula on the Chrome toolbar path, not a fresh standalone PWA launch.
+
 ## Noter-Specific Context
 
 Noter currently maps route search params to CSS variables and the PWA `theme-color` meta tag:
@@ -240,4 +267,3 @@ instrumentation rather than another broad source sweep:
 3. If the line tracks the app background, inspect Chromium top-controls capture/tint code around
    `ToolbarControlContainer` and browser-services theme updates with a narrower source checkout or a
    local Chromium build/log point.
-

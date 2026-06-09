@@ -1321,6 +1321,7 @@ export const trackedFilePaths = [
   "research/2026-05-28-dvh-android-pwa-draft.md",
   "research/2026-06-04-route-url-editor-preview-model.md",
   "research/2026-06-05-route-url-editor-fsm-review.md",
+  "research/2026-06-09-android-pwa-top-hairline-color.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",
