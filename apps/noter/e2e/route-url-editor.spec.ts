@@ -397,7 +397,9 @@ test("route URL editor fixture selects continuously across host and route text",
   expect(selectedText).toBe(`${host}${routePath}`);
 });
 
-test("route URL editor focuses the path-visible URL without rewriting", async ({ page }) => {
+test("route URL editor keeps display mode route-only and indents origin only while focused", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 720, height: 420 });
   await page.goto("/visual-fixture?mode=route-url-editor", {
     waitUntil: "domcontentloaded",
@@ -408,6 +410,8 @@ test("route URL editor focuses the path-visible URL without rewriting", async ({
   const fullHref = `${origin}${fixtureRouteAddress}`;
   const focusedHref = `${fullHref}&`;
 
+  // Regression for prerendered hosts: display mode cannot hide the route with an origin-derived
+  // offset because the build origin may not match the deployed origin.
   await expect(display).toHaveValue(fixtureRouteAddress);
   await expect.poll(async () => display.evaluate((element) => element.style.textIndent)).toBe("");
 

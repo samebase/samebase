@@ -138,6 +138,9 @@ export function RouteUrlEditorNext() {
       >
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
+      {/* Blurred display stays route-only so prerender origins cannot over-indent the route; focused
+      mode reuses this input with the runtime-origin URL so iOS opens the keyboard for the tapped
+      field. */}
       <input
         {...(inputFocused ? vm.inputProps : vm.displayInputProps)}
         className={

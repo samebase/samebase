@@ -36,10 +36,18 @@ and stringifier.
 
 The origin/domain is stored separately from the app route address.
 
-The locked display prefix is derived from the origin. The app route address stays app-relative and
-keeps the leading `/`.
+The app route address stays app-relative and keeps the leading `/`.
 
-Until the prefix is split into separate UI, the input value is derived as the full URL.
+When the editor is blurred, the input value is the app route address. The blurred display must not
+use an origin-derived negative indent or margin because prerender and SSG can run under an origin
+that differs from the deployed page.
+
+When the editor is focused, the same physical input switches to the full URL value derived from the
+runtime client origin. Focused mode may visually hide that runtime origin with text indentation, but
+display mode cannot depend on the origin width.
+
+The same DOM input stays mounted across the blurred-to-focused transition so iOS Safari treats the
+tapped field as the editable text field that should open the software keyboard.
 
 ### R2: Locked prefix edits
 
@@ -224,11 +232,10 @@ Add another field only when a test proves it represents a non-derived fact.
 
 ### R8: Select All and Copy
 
-Select All + Copy must copy the complete address represented by the editor.
+Blurred Select All + Copy copies the visible app route address.
 
-If the editor hides the origin and displays only an app route starting with `/`, the copy contract
-must be chosen explicitly before implementation: copy the visible app route, or copy the absolute
-URL with the hidden origin.
+Focused Select All + Copy copies the absolute URL because the focused input value includes the
+runtime origin.
 
 ### R9: Public route query stories
 
