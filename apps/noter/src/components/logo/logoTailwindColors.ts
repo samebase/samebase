@@ -5,6 +5,8 @@ export type TailwindColorFamily = string;
 export type TailwindColorShade = string;
 export type HexColorToken = `#${string}`;
 export type LogoColorThemeMode = "dark" | "light";
+export const BACKGROUND_DERIVED_BORDER_COLOR_TOKEN = "background-derived";
+export type BackgroundDerivedBorderColorToken = typeof BACKGROUND_DERIVED_BORDER_COLOR_TOKEN;
 type ThemeColorSource = {
   cssVariable: `--${string}`;
   fallbackHex: HexColorToken;
@@ -207,6 +209,21 @@ function readHexColor(color: string): RgbColor | null {
     green: (parsedValue >> 8) & 255,
     red: (parsedValue >> 16) & 255,
   };
+}
+
+function formatHexChannel(channel: number): string {
+  return Math.round(channel).toString(16).padStart(2, "0");
+}
+
+export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToken): HexColorToken {
+  const rgbColor = readHexColor(backgroundColor);
+  if (rgbColor === null) {
+    return "#000000";
+  }
+
+  return `#${formatHexChannel(rgbColor.red * 0.9)}${formatHexChannel(
+    rgbColor.green * 0.9,
+  )}${formatHexChannel(rgbColor.blue * 0.9)}`;
 }
 
 function formatCssNumber(value: number): string {
@@ -448,9 +465,16 @@ export type TailwindColorToken = `${TailwindColorFamilyKey}-${string}`;
 export type LogoColorToken = TailwindColorToken | HexColorToken;
 export type FaceColors = Record<FaceColorKey, LogoColorToken>;
 export type AppThemeColorKey = "background" | "border" | "primary" | "secondary";
-export type AppThemeColors = Record<AppThemeColorKey, LogoColorToken>;
+export type AppThemeColors = {
+  background: LogoColorToken;
+  border: LogoColorToken | BackgroundDerivedBorderColorToken;
+  primary: LogoColorToken;
+  secondary: LogoColorToken;
+};
 export type LogoThemeColorKey = AppThemeColorKey | "top";
-export type LogoThemeColors = Record<LogoThemeColorKey, LogoColorToken>;
+export type LogoThemeColors = AppThemeColors & {
+  top: LogoColorToken;
+};
 
 type TailwindColorOption = {
   family: TailwindColorFamily;
@@ -518,7 +542,7 @@ export const DEFAULT_FACE_COLORS: FaceColors = {
 
 export const DEFAULT_APP_THEME_COLORS: AppThemeColors = {
   background: "background-base",
-  border: "border-base",
+  border: BACKGROUND_DERIVED_BORDER_COLOR_TOKEN,
   primary: "primary-base",
   secondary: "secondary-base",
 };
@@ -548,6 +572,12 @@ export function isLogoColorToken(token: string): token is LogoColorToken {
   return isHexColorToken(token) || isTailwindColorToken(token);
 }
 
+export function isBackgroundDerivedBorderColorToken(
+  token: string,
+): token is BackgroundDerivedBorderColorToken {
+  return token === BACKGROUND_DERIVED_BORDER_COLOR_TOKEN;
+}
+
 function getStaticTailwindColorHex(
   token: LogoColorToken,
   themeMode: LogoColorThemeMode,
@@ -565,6 +595,13 @@ export function getTailwindColorHex(token: LogoColorToken): HexColorToken {
   }
 
   return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
+}
+
+export function getTailwindColorThemeModeHex(
+  token: LogoColorToken,
+  themeMode: LogoColorThemeMode,
+): HexColorToken {
+  return getStaticTailwindColorHex(token, themeMode);
 }
 
 export function getLogoColorCssHsl(

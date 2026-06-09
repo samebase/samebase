@@ -9,6 +9,7 @@ import {
   syncDocumentThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import {
+  BACKGROUND_DERIVED_BORDER_COLOR_TOKEN,
   DEFAULT_APP_THEME_COLORS,
   DEFAULT_LOGO_THEME_COLORS,
   RGB_LOGO_THEME_COLORS,
@@ -24,12 +25,13 @@ describe("appThemeColorSearch", () => {
       buildLogoThemeColorSearch({
         ...DEFAULT_LOGO_THEME_COLORS,
         background: "sky-950",
+        border: "border-base",
         primary: "red-600",
         top: "white-base",
       }),
     ).toEqual({
       background: "sky-950",
-      border: undefined,
+      border: "border-base",
       primary: "red-600",
       secondary: undefined,
       top: "white-base",
@@ -86,6 +88,24 @@ describe("appThemeColorSearch", () => {
       ...DEFAULT_LOGO_THEME_COLORS,
       background: "#112233",
       top: "#ddeeff",
+    });
+  });
+
+  it("uses a background-derived border as the default app border color", () => {
+    expect(readAppThemeColors({ background: "amber-200" }).border).toBe(
+      BACKGROUND_DERIVED_BORDER_COLOR_TOKEN,
+    );
+
+    expect(
+      resolveAppThemeColorState({
+        search: {
+          background: "amber-200",
+        },
+        themeMode: "light",
+      }).resolvedThemeColors,
+    ).toMatchObject({
+      background: "#fee685",
+      border: "#e5cf78",
     });
   });
 
@@ -148,6 +168,17 @@ describe("appThemeColorSearch", () => {
     syncDocumentThemeColorSearch({});
 
     expect(document.getElementById("noter-app-theme-color-search")).toBeNull();
+  });
+
+  it("syncs derived border variables when only the background search changes", () => {
+    syncDocumentThemeColorSearch({
+      background: "#ffffff",
+    });
+
+    const styleElement = document.getElementById("noter-app-theme-color-search");
+    expect(styleElement?.textContent).toContain("--background: 0 0% 100%;");
+    expect(styleElement?.textContent).toContain("--border: 0 0% 90.2%;");
+    expect(styleElement?.textContent).toContain("--input: 0 0% 90.2%;");
   });
 
   it("syncs the browser theme-color meta tag to the app background", () => {

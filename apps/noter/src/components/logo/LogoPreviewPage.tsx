@@ -59,18 +59,22 @@ import {
   getLogoRendererFractalDepthSliderMax,
 } from "@/components/logo/logoDepthLimits";
 import {
+  BACKGROUND_DERIVED_BORDER_COLOR_TOKEN,
   DEFAULT_LOGO_THEME_COLORS,
   LOGO_THEME_COLOR_KEYS,
   RGB_LOGO_THEME_COLORS,
   TAILWIND_COLOR_FAMILIES,
+  getBackgroundDerivedBorderColorHex,
   getTailwindColorHex,
   getTailwindColorFamily,
   getTailwindColorFamilyHex,
   getTailwindColorShade,
   getTailwindColorShades,
   getTailwindColorTokenForSelection,
+  isBackgroundDerivedBorderColorToken,
   isLogoColorToken,
   isTailwindColorToken,
+  type HexColorToken,
   type LogoColorToken,
   type LogoThemeColorKey,
   type LogoThemeColors,
@@ -243,8 +247,18 @@ function expandHexColorToken(token: string): string {
   return `#${red}${red}${green}${green}${blue}${blue}`.toLowerCase();
 }
 
-function readColorInputValue(token: LogoColorToken): string {
-  return expandHexColorToken(getTailwindColorHex(token));
+function readThemeColorInputValue(colorHex: HexColorToken): string {
+  return expandHexColorToken(colorHex);
+}
+
+function readThemeColorSelectionShade(token: LogoThemeColors[LogoThemeColorKey]): string {
+  return isBackgroundDerivedBorderColorToken(token) ? "base" : getTailwindColorShade(token);
+}
+
+function readThemeColorSelectionFallbackToken(
+  token: LogoThemeColors[LogoThemeColorKey],
+): LogoColorToken {
+  return isBackgroundDerivedBorderColorToken(token) ? "border-base" : token;
 }
 
 function ColorSwatch({ color, size = "default" }: { color: string; size?: ColorSwatchSize }) {
@@ -258,24 +272,34 @@ function ColorSwatch({ color, size = "default" }: { color: string; size?: ColorS
 }
 
 function ThemeColorPicker({
+  backgroundDerivedBorderColor,
+  currentColorHex,
   currentToken,
   themeColorKey,
   onCustomColorChange,
+  onDerivedBorderColorChange,
   onFamilyChange,
   onShadeChange,
 }: {
-  currentToken: LogoColorToken;
+  backgroundDerivedBorderColor: HexColorToken;
+  currentColorHex: HexColorToken;
+  currentToken: LogoThemeColors[LogoThemeColorKey];
   themeColorKey: LogoThemeColorKey;
   onCustomColorChange: (themeColorKey: LogoThemeColorKey, nextColor: string) => void;
+  onDerivedBorderColorChange: () => void;
   onFamilyChange: (themeColorKey: LogoThemeColorKey, nextFamily: string) => void;
   onShadeChange: (themeColorKey: LogoThemeColorKey, nextShade: string) => void;
 }) {
-  const currentColorHex = getTailwindColorHex(currentToken);
-  const colorInputValue = readColorInputValue(currentToken);
-  const isTailwindToken = isTailwindColorToken(currentToken);
+  const colorInputValue = readThemeColorInputValue(currentColorHex);
+  const isDerivedBorderColor = isBackgroundDerivedBorderColorToken(currentToken);
+  const isTailwindToken = !isDerivedBorderColor && isTailwindColorToken(currentToken);
   const currentFamily = isTailwindToken ? getTailwindColorFamily(currentToken) : null;
   const currentShade = isTailwindToken ? getTailwindColorShade(currentToken) : null;
-  const currentLabel = isTailwindToken ? currentToken : colorInputValue;
+  const currentLabel = isDerivedBorderColor
+    ? BACKGROUND_DERIVED_BORDER_COLOR_TOKEN
+    : isTailwindToken
+      ? currentToken
+      : colorInputValue;
   const availableShades = currentFamily === null ? [] : getTailwindColorShades(currentFamily);
   const themeColorLabel = THEME_COLOR_LABELS[themeColorKey];
 
@@ -330,6 +354,25 @@ function ThemeColorPicker({
             <div className="truncate font-mono text-xs text-foreground">{colorInputValue}</div>
           </div>
         </div>
+
+        {themeColorKey === "border" ? (
+          <button
+            aria-pressed={isDerivedBorderColor}
+            className={cn(
+              "flex min-h-10 w-full min-w-0 items-center gap-2 border bg-background px-2 py-2 text-left text-xs text-foreground",
+              isDerivedBorderColor
+                ? "border-foreground"
+                : "border-border hover:border-foreground/60",
+            )}
+            type="button"
+            onClick={onDerivedBorderColorChange}
+          >
+            <ColorSwatch color={backgroundDerivedBorderColor} size="compact" />
+            <span className="min-w-0 flex-1 truncate font-mono">
+              {BACKGROUND_DERIVED_BORDER_COLOR_TOKEN}
+            </span>
+          </button>
+        ) : null}
 
         {currentFamily !== null ? (
           <div className="flex flex-col gap-2">
@@ -992,29 +1035,45 @@ function useLogoPreviewController({
             ...currentState.themeColors,
             [themeColorKey]: getTailwindColorTokenForSelection(
               nextFamily,
-              getTailwindColorShade(currentState.themeColors[themeColorKey]),
-              currentState.themeColors[themeColorKey],
+              readThemeColorSelectionShade(currentState.themeColors[themeColorKey]),
+              readThemeColorSelectionFallbackToken(currentState.themeColors[themeColorKey]),
             ),
           },
         }));
       },
       setThemeColorShade: (themeColorKey: LogoThemeColorKey, nextShade: string) => {
-        commitRouteState((currentState) => ({
-          ...currentState,
-          themeColors: {
-            ...currentState.themeColors,
-            [themeColorKey]: getTailwindColorTokenForSelection(
-              getTailwindColorFamily(currentState.themeColors[themeColorKey]),
-              nextShade,
-              currentState.themeColors[themeColorKey],
-            ),
-          },
-        }));
+        commitRouteState((currentState) => {
+          const currentToken = currentState.themeColors[themeColorKey];
+          if (isBackgroundDerivedBorderColorToken(currentToken)) {
+            return currentState;
+          }
+
+          return {
+            ...currentState,
+            themeColors: {
+              ...currentState.themeColors,
+              [themeColorKey]: getTailwindColorTokenForSelection(
+                getTailwindColorFamily(currentToken),
+                nextShade,
+                currentToken,
+              ),
+            },
+          };
+        });
       },
       setThemeColors: (themeColors: LogoThemeColors) => {
         commitRouteState((currentState) => ({
           ...currentState,
           themeColors,
+        }));
+      },
+      setThemeDerivedBorderColor: () => {
+        commitRouteState((currentState) => ({
+          ...currentState,
+          themeColors: {
+            ...currentState.themeColors,
+            border: BACKGROUND_DERIVED_BORDER_COLOR_TOKEN,
+          },
         }));
       },
       setThemeCustomColor: (themeColorKey: LogoThemeColorKey, nextColor: string) => {
@@ -1350,7 +1409,12 @@ export function LogoPreviewPage({
     renderMode,
     routeSearch,
   });
-  const { backgroundColor, faceColors } = useResolvedAppThemeColorState(state.themeColors);
+  const { backgroundColor, faceColors, resolvedThemeColors } = useResolvedAppThemeColorState(
+    state.themeColors,
+  );
+  const backgroundDerivedBorderColor = getBackgroundDerivedBorderColorHex(
+    resolvedThemeColors.background,
+  );
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
   const stripeGapLinkedCheckboxId = useId();
@@ -2147,7 +2211,7 @@ export function LogoPreviewPage({
           {LOGO_THEME_COLOR_KEYS.map((themeColorKey) => (
             <ColorSwatch
               key={themeColorKey}
-              color={getTailwindColorHex(state.themeColors[themeColorKey])}
+              color={resolvedThemeColors[themeColorKey]}
               size="compact"
             />
           ))}
@@ -2159,9 +2223,12 @@ export function LogoPreviewPage({
           return (
             <ThemeColorPicker
               key={themeColorKey}
+              backgroundDerivedBorderColor={backgroundDerivedBorderColor}
+              currentColorHex={resolvedThemeColors[themeColorKey]}
               currentToken={currentToken}
               themeColorKey={themeColorKey}
               onCustomColorChange={controls.setThemeCustomColor}
+              onDerivedBorderColorChange={controls.setThemeDerivedBorderColor}
               onFamilyChange={controls.setThemeColorFamily}
               onShadeChange={controls.setThemeColorShade}
             />

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   DEFAULT_LOGO_THEME_COLORS,
   RGB_LOGO_THEME_COLORS,
+  getBackgroundDerivedBorderColorHex,
   getLogoColorCssHsl,
   getLogoColorForegroundCssHsl,
   getTailwindColorHex,
@@ -21,6 +22,12 @@ describe("logoTailwindColors", () => {
   it("keeps explicit hex colors unchanged", () => {
     expect(getTailwindColorHex("#abc")).toBe("#abc");
     expect(getTailwindColorHex("#aabbcc")).toBe("#aabbcc");
+  });
+
+  it("derives border colors from the resolved background color", () => {
+    expect(getBackgroundDerivedBorderColorHex("#ffffff")).toBe("#e6e6e6");
+    expect(getBackgroundDerivedBorderColorHex("#FEE685")).toBe("#e5cf78");
+    expect(getBackgroundDerivedBorderColorHex("#abc")).toBe("#99a8b8");
   });
 
   it("detects palette tokens separately from custom colors", () => {

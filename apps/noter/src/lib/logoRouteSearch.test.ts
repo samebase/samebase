@@ -7,7 +7,10 @@ import {
   getLogoRendererFractalDepthHardMax,
   MAX_LOGO_FRACTAL_DEPTH,
 } from "@/components/logo/logoDepthLimits";
-import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logo/logoTailwindColors";
+import {
+  BACKGROUND_DERIVED_BORDER_COLOR_TOKEN,
+  DEFAULT_LOGO_THEME_COLORS,
+} from "@/components/logo/logoTailwindColors";
 import { LOGO_DISTANCE_SCALE } from "@/components/logo/logoDistanceScale";
 import { LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
 import {
@@ -217,6 +220,12 @@ describe("logoRouteSearch", () => {
 
     expect(validateLogoRouteSearch({ background: "#445566", base: "#112233" })).toEqual({
       background: "#445566",
+    });
+  });
+
+  it("accepts the derived background border token", () => {
+    expect(validateLogoRouteSearch({ border: BACKGROUND_DERIVED_BORDER_COLOR_TOKEN })).toEqual({
+      border: BACKGROUND_DERIVED_BORDER_COLOR_TOKEN,
     });
   });
 
