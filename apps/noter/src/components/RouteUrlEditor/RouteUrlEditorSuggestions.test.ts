@@ -14,6 +14,8 @@ function cursorAfter(routeTextBeforeCursor: string) {
 }
 
 function readValues(args: {
+  currentRouteAddress?: string;
+  pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
@@ -22,11 +24,15 @@ function readValues(args: {
 }
 
 function readRows(args: {
+  currentRouteAddress?: string;
+  pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
 }) {
   return readSuggestions({
+    currentRouteAddress: args.currentRouteAddress ?? args.routeAddress,
+    pageHashKeys: args.pageHashKeys ?? [],
     prefix,
     routeAddress: args.routeAddress,
     routesByPath,
@@ -461,5 +467,23 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/machines/connect#connected-machines",
       value: "#connected-machines",
     });
+  });
+
+  it("adds page hash suggestions only for the current route path", () => {
+    const currentRouteRows = readRows({
+      currentRouteAddress: "/",
+      pageHashKeys: ["intro", "pricing"],
+      routeAddress: "/#intro",
+      routeTextBeforeCursor: "/#i",
+    });
+    const differentRouteRows = readRows({
+      currentRouteAddress: "/",
+      pageHashKeys: ["intro", "pricing"],
+      routeAddress: "/logo#intro",
+      routeTextBeforeCursor: "/logo#i",
+    });
+
+    expect(currentRouteRows.map((row) => row.value)).toEqual(["#top", "#intro", "#pricing"]);
+    expect(differentRouteRows.map((row) => row.value)).toEqual(["#top"]);
   });
 });

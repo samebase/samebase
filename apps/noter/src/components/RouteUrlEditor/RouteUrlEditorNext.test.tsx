@@ -37,6 +37,9 @@ describe("RouteUrlEditorNext", () => {
 
     rootElement?.remove();
     rootElement = null;
+    for (const element of document.body.querySelectorAll("[data-landing-heading-id]")) {
+      element.remove();
+    }
     useQueryMock.mockReset();
     window.history.replaceState(null, "", "/");
   });
@@ -80,6 +83,16 @@ describe("RouteUrlEditorNext", () => {
     return input;
   }
 
+  function readSuggestionValues(): string[] {
+    if (rootElement === null) {
+      throw new Error("Expected route URL editor root.");
+    }
+
+    return [
+      ...rootElement.querySelectorAll<HTMLElement>('[data-testid="route-url-editor-suggestion"]'),
+    ].map((element) => element.textContent.trim());
+  }
+
   it("displays the current route hash", () => {
     const display = renderEditor(["/?prod-ui#top"]);
 
@@ -97,5 +110,31 @@ describe("RouteUrlEditorNext", () => {
     const display = renderEditor(["/logo"]);
 
     expect(display.value).toBe("/logo");
+  });
+
+  it("suggests page-owned hashes from the current document", async () => {
+    const pageHashElement = document.createElement("section");
+    pageHashElement.dataset.landingHeadingId = "pricing";
+    document.body.append(pageHashElement);
+
+    const display = renderEditor(["/#top"]);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      display.focus();
+    });
+
+    const input = readRequiredInput();
+    const hashCursorPosition = input.value.indexOf("#") + "#t".length;
+
+    act(() => {
+      input.setSelectionRange(hashCursorPosition, hashCursorPosition);
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(readSuggestionValues()).toContain("#pricing");
   });
 });

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
+import { useRouteUrlEditorPageHashSuggestions } from "./useRouteUrlEditorPageHashSuggestions";
 import {
   routeUrlEditorTouchSuggestionRowHeightPx,
   useRouteUrlEditorTouchScrollPicker,
@@ -60,7 +61,8 @@ function renderRouteUrlEditorNextSuggestionValue(suggestion: {
 }
 
 export function RouteUrlEditorNext() {
-  const vm = useRouteEditorVm({});
+  const pageHashKeys = useRouteUrlEditorPageHashSuggestions();
+  const vm = useRouteEditorVm({ pageHashKeys });
   const { canGoBack, canGoForward } = useNavigationControls();
   const touchScrollPicker = useRouteUrlEditorTouchScrollPicker({
     previewTouchSuggestion: vm.previewTouchSuggestion,

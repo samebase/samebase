@@ -150,6 +150,7 @@ export type RouteEditorState =
 
 export type RouteEditorVmProps = {
   onDebugStateChange?: (state: RouteEditorState) => void;
+  pageHashKeys: readonly string[];
 };
 
 type RouteEditorPreventNativeEditContext = {
@@ -973,7 +974,7 @@ function readRouteEditorNavigationOptions(args: {
   };
 }
 
-export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
+export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEditorVmProps) {
   const router = useRouter();
   const location = useLocation();
 
@@ -1479,6 +1480,8 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
   const suggestions = useMemo(
     () =>
       readSuggestions({
+        currentRouteAddress: committedRouteAddress,
+        pageHashKeys,
         prefix: state.prefix,
         routeAddress: suggestionsRouteAddress,
         routesByPath: router.routesByPath,
@@ -1487,6 +1490,8 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       }),
     [
       router.routesByPath,
+      committedRouteAddress,
+      pageHashKeys,
       state.prefix,
       suggestionSelection,
       suggestionsRouteAddress,

@@ -459,13 +459,19 @@ function readRouteHashKeys(args: {
 }
 
 function readHashRows(args: {
+  currentRouteAddress: string;
   hashStart: number;
+  pageHashKeys: readonly string[];
   prefix: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
   viewerIsAdmin: boolean;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
+  const routeAddressParts = parseRouteAddress(args.routeAddress);
+  const currentRouteAddressParts = parseRouteAddress(args.currentRouteAddress);
+  const pageHashKeys =
+    routeAddressParts.path === currentRouteAddressParts.path ? args.pageHashKeys : [];
 
   return uniqueStrings([
     ...GLOBAL_ROUTE_URL_HASH_KEYS,
@@ -475,6 +481,7 @@ function readHashRows(args: {
       routesByPath: args.routesByPath,
       viewerIsAdmin: args.viewerIsAdmin,
     }),
+    ...pageHashKeys,
   ]).map((key): Suggestion => {
     const routeAddress = replaceRouteAddressHash(args.routeAddress, key);
 
@@ -542,6 +549,8 @@ Example: `/logo?top=blue-2` with cursor after `2` shows value rows like
 `blue-200`.
 */
 export function readSuggestions(args: {
+  currentRouteAddress: string;
+  pageHashKeys: readonly string[];
   prefix: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
@@ -567,7 +576,9 @@ export function readSuggestions(args: {
 
   if (cursorContext.kind === "hash") {
     return readHashRows({
+      currentRouteAddress: args.currentRouteAddress,
       hashStart: cursorContext.hash.start,
+      pageHashKeys: args.pageHashKeys,
       prefix: args.prefix,
       routeAddress: args.routeAddress,
       routesByPath: args.routesByPath,
