@@ -23,8 +23,10 @@ color, Chromium overlays `#19000000` on light backgrounds and `#19FFFFFF` on dar
 The installed PWA path is different. Source mapping shows `WebappActivity` uses the page/tab theme
 color for the status/top area while app-mode UI is active. It does not expose a separate stable
 "hairline color" formula to mirror. In the Pixel 9a emulator, clean installed-PWA `/logo` captures
-showed the top/status area as the route background itself. Seam-like rows visible lower down were
-web-route/right-pane UI or Noter's own separator, not a full-width Android/PWA top boundary.
+showed the sampled top/status area as the route background itself. Those captures did not isolate a
+reliable installed-PWA top hairline color. Do not classify the user's horizontal top seam as a Noter
+separator; the vertical pane separator is app-owned, but the horizontal seam under Android/Chrome
+top chrome is browser-owned unless a later full-device capture proves otherwise.
 
 Noter's `background-derived` border therefore uses the source-mapped Chrome toolbar hairline
 formula, not the earlier unsupported installed-PWA neutral-gray rule.
@@ -114,10 +116,13 @@ Clean installed-PWA `/logo?background=lime-400` with the right pane open:
 
 ```text
 rows 0..267    #9AE600  route background / status-top area
-rows 268..269  #C0E673  right-pane route UI, not full-width PWA chrome
+rows 268..269  #C0E673  row intersects right-pane route UI in this capture
 rows 270..301  #9AE600  route background
-rows 302..303  #E6E6E6  Noter separator/border row from current app CSS
+rows 302..303  #E6E6E6  row intersects route/app UI in this capture
 ```
+
+These row samples are evidence that the capture was not a clean measurement of a full-width browser
+hairline. They are not evidence that the horizontal top seam is Noter-owned.
 
 On `/logo`, the right mobile separator is Noter's own pseudo-element:
 
