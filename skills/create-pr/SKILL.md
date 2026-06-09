@@ -37,10 +37,20 @@ with the current branch.
 7. Explain why the change exists, not just what changed.
 8. Keep validation concise. Summaries are good; raw CI logs are not.
 9. Add screenshots only when the change is user-facing UI.
-10. In this repo, `create pr` means create or update a ready PR. Use a draft PR only when the user
-    explicitly says `create draft` or otherwise asks to keep it draft.
-11. Update the PR title and body when scope changes materially.
-12. Use `gh` with `--body-file` or heredoc input so real newlines are preserved.
+10. In this repo, `create pr` means create or update a ready PR with the current `v<N>:` title
+    label. Use a draft PR only when the user explicitly says `create draft` or otherwise asks to
+    keep it draft.
+11. Before creating, editing, marking ready, or reporting a PR complete, fetch latest `origin/main`
+    and compute the projected app build label:
+    ```bash
+    main_count="$(git rev-list --count origin/main)"
+    next_version="v$((main_count + 1))"
+    ```
+12. Prefix the PR title with `${next_version}:`, replacing any existing leading `v<number>:` label.
+    A Noter PR is not complete until the current GitHub PR title starts with that freshly computed
+    label.
+13. Update the PR title and body when scope changes materially.
+14. Use `gh` with `--body-file` or heredoc input so real newlines are preserved.
 
 ## Default Body Shape
 
@@ -65,3 +75,5 @@ with the current branch.
 - Mention the PR number as a clickable link when reporting back to the user.
 - Do not mirror full chat transcripts or raw tool-by-tool logs into the PR.
 - Treat the PR description as the canonical current summary when the branch is actively in flight.
+- Keep `docs/agent-workflows.md` as the detailed source for Noter build-label, draft/ready, and
+  merge-title rules.

@@ -26,7 +26,9 @@ portable TypeScript or generated-app skill pack.
 - Default proactive PRs to ready/non-draft unless work is still in progress or the user asks for a
   draft.
 - Prefix PR titles with the current projected landing build label and refresh it when the base
-  advances.
+  advances. Compute it after fetching latest `origin/main` with
+  `v$(( $(git rev-list --count origin/main) + 1 ))`, and replace any existing leading `v<number>:`
+  label before creating, updating, marking ready, or reporting a PR complete.
 - Include `First Message` and `Requested Codex Runtime` when a PR originates from research or
   automation work.
 - Treat actionable review-bot comments as required fixes while shipping.
@@ -43,8 +45,8 @@ When the user says one of these commands, execute it directly:
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `commit`       | Stage changes and create a concise commit                                                                                                                      |
 | `push`         | Commit if needed, then push                                                                                                                                    |
-| `create pr`    | Push if needed, then create or update a ready PR                                                                                                               |
-| `create draft` | Push if needed, then create or update a draft PR                                                                                                               |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                             |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                             |
 | `ready`        | Mark the current PR ready                                                                                                                                      |
 | `wait`         | Watch CI and report status                                                                                                                                     |
 | `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                                 |

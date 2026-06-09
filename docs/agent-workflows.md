@@ -60,8 +60,8 @@ instructions or checklists.
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `commit`       | Stage and create a concise commit on the current branch                                                                                                            |
 | `push`         | Commit if needed, then push                                                                                                                                        |
-| `create pr`    | Push if needed, then create or update a ready PR                                                                                                                   |
-| `create draft` | Push if needed, then create or update a draft PR                                                                                                                   |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                                 |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                                 |
 | `ready`        | Mark the current PR ready                                                                                                                                          |
 | `wait`         | Watch CI and report status                                                                                                                                         |
 | `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                                                                          |
@@ -101,8 +101,10 @@ Rules:
   only when the work is still in progress or the user explicitly asks to keep it draft.
 - If GitHub requires a diff before that first proactive PR, create a minimal checkpoint commit after
   bootstrap.
-- When the user says `create pr`, create or update a ready non-draft PR.
-- When the user says `create draft`, create or update a draft PR.
+- When the user says `create pr`, create or update a ready non-draft PR with the current `v<N>:`
+  title label.
+- When the user says `create draft`, create or update a draft PR with the current `v<N>:` title
+  label.
 - If the user explicitly asks to keep the PR draft, respect that.
 - `ship` must end with an updated ready PR before waiting on CI.
 
@@ -148,6 +150,9 @@ main_count="$(git rev-list --count origin/main)"
 next_version="v$((main_count + 1))"
 ```
 
+- Do not consider `create pr`, `create draft`, proactive PR creation, PR readiness updates, `ship`,
+  or `squash` complete until the current GitHub PR title starts with the freshly computed
+  `next_version` value followed by a colon.
 - Strip any existing leading `v<number>:` from the PR title and replace it with the freshly computed
   label:
 
