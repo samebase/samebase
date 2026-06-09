@@ -246,14 +246,29 @@ test.describe("route URL editor touch scroll picker", () => {
     },
   });
 
-  test("touch path suggestion lists use the same scroll picker", async ({ page }) => {
+  test("mobile focus keeps the tapped editable input mounted while opening edit mode", async ({
+    page,
+  }) => {
     const displayInput = await openRouteUrlEditor(page, "/");
     const prefix = await readRouteAddressPrefix(page);
 
-    await expect(displayInput).toHaveValue("/");
-    await displayInput.click();
+    await expect(displayInput).toHaveJSProperty("readOnly", false);
+    await displayInput.evaluate((element) => {
+      element.setAttribute("data-route-editor-node-marker", "before-touch-focus");
+    });
+
+    await displayInput.tap();
 
     const input = page.getByTestId("route-url-editor-input");
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue(prefix);
+    await expect(input).toHaveJSProperty("readOnly", false);
+    await expect(input).toHaveAttribute("data-route-editor-node-marker", "before-touch-focus");
+  });
+
+  test("touch path suggestion lists use the same scroll picker", async ({ page }) => {
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
+
     await expect(input).toHaveValue(prefix);
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
@@ -329,7 +344,7 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(applyButton).toBeVisible();
     await expect(applyButton).toHaveAccessibleName("Apply ?top=sky-500");
 
-    await applyButton.click();
+    await applyButton.tap();
 
     await expect(input).toHaveValue(`${prefix}logo?top=sky-500`);
     await expectInputSelection(input, `${prefix}logo?top=`.length);
@@ -397,12 +412,7 @@ test.describe("route URL editor touch scroll picker", () => {
   test("touch scroll keeps suggestions open when previewing later logo params", async ({
     page,
   }) => {
-    const displayInput = await openRouteUrlEditor(page, "/logo?depth=2");
-    const prefix = await readRouteAddressPrefix(page);
-
-    await displayInput.click();
-
-    const input = page.getByTestId("route-url-editor-input");
+    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?depth=2");
 
     await expect(input).toHaveValue(`${prefix}logo?depth=2&`);
     await expect(
@@ -419,45 +429,22 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(input).toBeFocused();
   });
 
-  test("touch editor can move selection from an appended query slot back into the path", async ({
+  test("mobile editor can move selection from an appended query slot back into the path", async ({
     page,
   }) => {
-    const displayInput = await openRouteUrlEditor(
+    const { input, prefix } = await focusRouteAddressInputDirectly(
       page,
       "/terms?border=stone-300&dev&depth=2&gridSize=2&light",
     );
-    const prefix = await readRouteAddressPrefix(page);
 
-    const displayInputBox = await displayInput.boundingBox();
-    if (!displayInputBox) {
-      throw new Error("Expected visible route URL editor display input.");
-    }
-
-    await displayInput.click({
-      position: {
-        x: displayInputBox.width - 10,
-        y: displayInputBox.height / 2,
-      },
-    });
-
-    const input = page.getByTestId("route-url-editor-input");
-    await expect(input).toHaveValue(
-      `${prefix}terms?border=stone-300&dev&depth=2&gridSize=2&light&`,
-    );
+    const appendedQuerySlotValue = `${prefix}terms?border=stone-300&dev&depth=2&gridSize=2&light&`;
+    await expect(input).toHaveValue(appendedQuerySlotValue);
+    await input.press("End");
+    await expectInputSelection(input, appendedQuerySlotValue.length);
     await expect(page.getByRole("option", { exact: true, name: "&dev" })).toHaveCount(0);
     await expect(page.getByRole("option", { exact: true, name: "&top=sky-500" })).toBeVisible();
 
-    const inputBox = await input.boundingBox();
-    if (!inputBox) {
-      throw new Error("Expected visible route URL editor input.");
-    }
-
-    await input.click({
-      position: {
-        x: 10,
-        y: inputBox.height / 2,
-      },
-    });
+    await input.press("Home");
 
     await expect(page.getByRole("option", { exact: true, name: "/logo" })).toBeVisible();
     await expect(page.getByRole("option", { exact: true, name: "&dev" })).toHaveCount(0);
@@ -466,20 +453,17 @@ test.describe("route URL editor touch scroll picker", () => {
   test("touch scroll hides already-present query keys while replacing another token", async ({
     page,
   }) => {
-    const displayInput = await openRouteUrlEditor(
+    const { input } = await focusRouteAddressInputDirectly(
       page,
       "/terms?border=stone-300&dev&depth=2&gridSize=2&light",
     );
 
-    await displayInput.click();
-
-    const input = page.getByTestId("route-url-editor-input");
     const inputBox = await input.boundingBox();
     if (!inputBox) {
       throw new Error("Expected visible route URL editor input.");
     }
 
-    await input.click({
+    await input.tap({
       position: {
         x: 90,
         y: inputBox.height / 2,
@@ -805,13 +789,8 @@ test("route URL editor cancels pointer path preview when clicking back into the 
 test("route URL editor keeps deletion in control after a query suggestion was previewed", async ({
   page,
 }) => {
-  const displayInput = await openRouteUrlEditor(page, "/terms?dev");
-  const prefix = await readRouteAddressPrefix(page);
+  const { input, prefix } = await focusRouteAddressInputDirectly(page, "/terms?dev");
 
-  await expect(displayInput).toHaveValue("/terms?dev");
-  await displayInput.click();
-
-  const input = page.getByTestId("route-url-editor-input");
   await expect(input).toHaveValue(`${prefix}terms?dev&`);
   await input.press("End");
   await input.press("Backspace");

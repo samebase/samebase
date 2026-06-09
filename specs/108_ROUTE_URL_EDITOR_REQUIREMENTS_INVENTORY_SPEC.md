@@ -47,16 +47,24 @@ behavior.
 
 ### URL Surface
 
-1. The visible URL value is absolute: `origin + routeAddress`.
-2. The editable route value is app-local: the route address starts at `/`, `?`, or `#` and must
+1. When the editor is not focused, the visible value is the app route address, such as `/logo`, not
+   `origin + routeAddress`.
+2. The blurred display must not use an origin-derived negative indent or margin. Prerender and SSG
+   can run under a different origin than the deployed page, so display mode cannot depend on a
+   build-time origin width.
+3. Focusing the URL surface keeps the same physical input mounted and switches it into the editable
+   full URL value, `origin + routeAddress`, using the runtime client origin.
+4. While focused, the UI may visually hide the runtime origin offset while keeping it in the input
+   value, so focused copy/select behavior sees an absolute URL.
+5. The editable route value is app-local: the route address starts at `/`, `?`, or `#` and must
    resolve to the same origin.
-3. The UI visually hides the origin offset while keeping it in the input value, so copy/select
-   behavior still sees an absolute URL.
-4. The origin and root slash boundary are protected. Native edits that delete across that boundary
+6. The origin and root slash boundary are protected. Native edits that delete across that boundary
    are either clamped to the route-owned text or rejected and restored.
-5. Invalid drafts set the input invalid state and expose the hidden error text
+7. Blurred copy/select copies the visible app route address. Focused copy/select copies the absolute
+   URL because the focused input value includes the runtime origin.
+8. Invalid drafts set the input invalid state and expose the hidden error text
    `Enter a same-origin app URL.`
-6. Text entry must stay at least 16 CSS px to avoid iOS WebKit focus zoom.
+9. Text entry must stay at least 16 CSS px to avoid iOS WebKit focus zoom.
 
 ### Draft And Route Reality
 

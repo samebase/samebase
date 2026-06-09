@@ -1452,6 +1452,8 @@ export const trackedFilePaths = [
   "skills/create-pr/SKILL.md",
   "skills/delegation-orchestrator/SKILL.md",
   "skills/delegation-orchestrator/agents/openai.yaml",
+  "skills/ios-safari-simulator/SKILL.md",
+  "skills/ios-safari-simulator/agents/openai.yaml",
   "skills/mac-app-control/SKILL.md",
   "skills/mac-app-control/agents/openai.yaml",
   "skills/noter-playwright-live/SKILL.md",
