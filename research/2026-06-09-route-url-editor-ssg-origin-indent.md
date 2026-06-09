@@ -21,24 +21,57 @@ Live `https://noter.md` HTML checked on June 9, 2026 still serialized `https://n
 artifact. It is still a real local production-build failure mode and matches the blank-route symptom
 when hydration does not replace the server origin/indent.
 
-## Required behavior
+## Revised direction
 
-After hydration, the route URL editor must:
+The measured-indent patch was removed from PR #972. The better direction is to use the new two-input
+architecture instead of continuing to hide the origin in the blurred input.
 
-- read the browser origin from `window.location.origin`, not a request URL captured during SSR or
-  prerender
-- keep the input value as the full current URL
-- keep the visible text path-focused
-- compute the hidden-origin indent from the rendered origin width, not from `origin.length * 1ch`
+`RouteUrlEditorNext` already renders separate inputs for blurred and focused state:
 
-## Verification used in PR #972
+- blurred: `displayInputProps`
+- focused: `inputProps`
 
-- Checked local `dist/client/index.html`, `dist/client/terms/index.html`, and
-  `dist/client/privacy/index.html`; they serialized the build-time `http://127.0.0.1:58960` origin.
-- Checked live `https://noter.md/`, `/terms`, and `/privacy`; they serialized `https://noter.md`
-  with the old `-16ch` indent before this PR.
-- Verified Pixel 9 emulator normal Chrome against the rebuilt local production preview:
-  - `/` and `/terms` are path-focused
-  - the hydrated root input value is `http://127.0.0.1:4173/`
-  - the hydrated root input uses `text-indent:-201.637px`, matching the measured rendered origin
-    width `201.6369px`
+`useRouteEditorVm` also already stores route addresses separately from full input strings:
+
+- `draftPath` starts with `/` and never includes `prefix`
+- `committedRouteAddress` is read from TanStack Router
+- `inputValue` is currently reconstructed as `${prefix}${routeAddress.slice(1)}`
+
+That means blurred display can show the route address directly, such as `/`, `/terms`, or
+`/privacy`, without using an origin prefix or negative text indent at all. Focused editing can still
+switch to the full URL value because focus happens in the browser, where `window.location.origin` is
+available and prefix-protection needs the full prefix.
+
+Expected behavior after the next implementation:
+
+- blurred input value is the route address only, e.g. `/terms`
+- blurred input has no `text-indent`
+- focused input value is the full browser URL, e.g. `https://noter.md/terms?`
+- focused input keeps the prefix-protection behavior that prevents deleting or editing the origin
+- focus from the blurred route-only input translates route-only selection indexes into full-URL
+  selection indexes
+
+## Source map
+
+- `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx` renders separate focused and
+  blurred inputs. Today both receive `textIndent: -${prefix.length - 1}ch`.
+- `apps/noter/src/components/RouteUrlEditor/useRouteEditorVm.ts` constructs the current full
+  `inputValue` once and passes it to both `displayInputProps.value` and `inputProps.value`.
+- `handleDisplayInputFocus` and `handleDisplayInputClick` currently read selection directly from the
+  blurred input and send it to the `clickedInput` transition. If blurred value becomes `/terms`,
+  those selection indexes must be translated before the focused full-URL input renders.
+- `readInputSelectionFromRouteIndex(prefix, routeIndex)` already maps route indexes into full-URL
+  input indexes for suggestion previews.
+- Prefix protection in the focused input depends on the full value and should stay intact:
+  `changedInput` requires `nextInputValue.startsWith(prefix)`, and the key handlers clamp selection
+  to `prefix.length`.
+
+## Tests to update
+
+- `apps/noter/e2e/route-url-editor-next.spec.ts` helpers currently expect blurred display values to
+  be `${prefix}${route}`. They should expect route-only values before focus and full URL values
+  after focus.
+- `apps/noter/e2e/public-landing-shell.spec.ts` currently expects production SSR HTML to include a
+  full URL value and `text-indent`. It should expect route-only blurred HTML and no `text-indent`.
+- Legacy `apps/noter/e2e/route-url-editor.spec.ts` covers the old single-input editor. It can stay
+  as legacy coverage unless the old component is removed or updated.
