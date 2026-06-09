@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { buildRootHead } from "@/lib/rootHead";
 
 import {
@@ -67,32 +67,14 @@ class FakeDocument {
 
 function withFakeDocument(run: (document: FakeDocument) => void) {
   const document = new FakeDocument();
-  const existingDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
-  const existingWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 
-  Object.defineProperty(globalThis, "document", {
-    configurable: true,
-    value: document,
-  });
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: { location: { origin: "https://preview.noter.example" } },
-  });
+  vi.stubGlobal("document", document);
+  vi.stubGlobal("window", { location: { origin: "https://preview.noter.example" } });
 
   try {
     run(document);
   } finally {
-    if (existingDocument) {
-      Object.defineProperty(globalThis, "document", existingDocument);
-    } else {
-      Reflect.deleteProperty(globalThis, "document");
-    }
-
-    if (existingWindow) {
-      Object.defineProperty(globalThis, "window", existingWindow);
-    } else {
-      Reflect.deleteProperty(globalThis, "window");
-    }
+    vi.unstubAllGlobals();
   }
 }
 

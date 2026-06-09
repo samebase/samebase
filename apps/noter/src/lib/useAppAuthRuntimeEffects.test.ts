@@ -49,8 +49,6 @@ vi.mock("convex/react", () => ({
 import { useAppAuthRuntimeEffects } from "./useAppAuthRuntimeEffects";
 
 describe("useAppAuthRuntimeEffects", () => {
-  const originalWindow = globalThis.window;
-
   afterEach(() => {
     buildLocationMock.mockReset();
     navigateMock.mockReset();
@@ -58,10 +56,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useAutoSignInMock.mockReset();
     useCloseOAuthPopupMock.mockReset();
     useConvexAuthMock.mockReset();
-    Object.defineProperty(globalThis, "window", {
-      value: originalWindow,
-      configurable: true,
-    });
+    vi.unstubAllGlobals();
   });
 
   function mockCurrentRouteLocationBuilder() {
@@ -86,19 +81,16 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("clears the Google signup marker after successful authentication away from root", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/pricing",
-          search: "?prod-ui&signup=google",
-          hash: "#top",
-        },
-        history: {
-          state: { __TSR_index: 4, __TSR_key: "landing" },
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/pricing",
+        search: "?prod-ui&signup=google",
+        hash: "#top",
       },
-      configurable: true,
+      history: {
+        state: { __TSR_index: 4, __TSR_key: "landing" },
+        replaceState: replaceStateMock,
+      },
     });
     mockCurrentRouteLocationBuilder();
 
@@ -122,18 +114,15 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("leaves the URL alone while still unauthenticated", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: "?signup=google",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/",
+        search: "?signup=google",
+        hash: "",
       },
-      configurable: true,
+      history: {
+        replaceState: replaceStateMock,
+      },
     });
 
     useAppAuthRuntimeEffects("/", {
@@ -149,18 +138,15 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("redirects signed-out dashboard loads to the public root route", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/home",
-          search: "?new-app",
-          hash: "#vaults",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/home",
+        search: "?new-app",
+        hash: "#vaults",
       },
-      configurable: true,
+      history: {
+        replaceState: replaceStateMock,
+      },
     });
 
     useAppAuthRuntimeEffects("/home", {
@@ -177,18 +163,15 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("preserves failed public Google signup returns when redirecting signed-out dashboard loads", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/home",
-          search: "?signup=google",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/home",
+        search: "?signup=google",
+        hash: "",
       },
-      configurable: true,
+      history: {
+        replaceState: replaceStateMock,
+      },
     });
 
     useAppAuthRuntimeEffects("/home", {
@@ -224,18 +207,15 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("keeps authenticated root loads on the public landing route without the dashboard return marker", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: "",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/",
+        search: "",
+        hash: "",
       },
-      configurable: true,
+      history: {
+        replaceState: replaceStateMock,
+      },
     });
 
     useAppAuthRuntimeEffects("/", {});
@@ -246,18 +226,15 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("does not redirect authenticated root loads from the old dashboard return URL", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: "?auth-return=dashboard",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/",
+        search: "?auth-return=dashboard",
+        hash: "",
       },
-      configurable: true,
+      history: {
+        replaceState: replaceStateMock,
+      },
     });
 
     useAppAuthRuntimeEffects("/", {
@@ -270,18 +247,15 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("waits for auth loading before redirecting dashboard loads", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: true });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/home",
-          search: "",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/home",
+        search: "",
+        hash: "",
       },
-      configurable: true,
+      history: {
+        replaceState: replaceStateMock,
+      },
     });
 
     useAppAuthRuntimeEffects("/home", {});
@@ -292,19 +266,16 @@ describe("useAppAuthRuntimeEffects", () => {
 
   it("clears the Google signup marker after successful authentication on the dashboard route", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/home",
-          search: "?signup=google",
-          hash: "",
-        },
-        history: {
-          state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/home",
+        search: "?signup=google",
+        hash: "",
       },
-      configurable: true,
+      history: {
+        state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
+        replaceState: replaceStateMock,
+      },
     });
     mockCurrentRouteLocationBuilder();
 

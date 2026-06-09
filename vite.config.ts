@@ -174,6 +174,7 @@ export default defineConfig({
             "packages/**/*.test.ts",
             "packages/**/*.test.tsx",
           ],
+          setupFiles: ["./apps/noter/src/test/reactActEnvironment.ts"],
           exclude: [
             "**/node_modules/**",
             "dist",

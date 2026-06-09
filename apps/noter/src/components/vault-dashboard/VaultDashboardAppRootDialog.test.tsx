@@ -9,8 +9,6 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { VaultDashboardAppRootDialog } from "./VaultDashboard";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 vi.mock("convex/react", () => ({
   useAction: vi.fn(),
   useMutation: vi.fn(),

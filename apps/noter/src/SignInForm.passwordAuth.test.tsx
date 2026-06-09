@@ -27,8 +27,6 @@ const componentState = vi.hoisted<{
   pathname: "/",
   search: {},
 }));
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 vi.mock("@/authClient", () => ({
   useNoterSignInActions: () => ({
     signInWithPassword: signInWithPasswordMock,

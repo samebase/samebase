@@ -31,23 +31,13 @@ vi.mock("convex/react", () => ({
 import { useCloseOAuthPopup } from "./useCloseOAuthPopup";
 
 describe("useCloseOAuthPopup", () => {
-  const originalWindow = globalThis.window;
-  const originalLocalStorage = globalThis.localStorage;
-
   afterEach(() => {
     closeMock.mockReset();
     openerLocalStorageSetItemMock.mockReset();
     openerPostMessageMock.mockReset();
     openerReloadMock.mockReset();
     useConvexAuthMock.mockReset();
-    Object.defineProperty(globalThis, "window", {
-      value: originalWindow,
-      configurable: true,
-    });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: originalLocalStorage,
-      configurable: true,
-    });
+    vi.unstubAllGlobals();
   });
 
   it("redirects the opener to the dashboard after popup auth completes on the dashboard route", () => {
@@ -57,30 +47,24 @@ describe("useCloseOAuthPopup", () => {
       origin: "https://noter.md",
       reload: openerReloadMock,
     };
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        close: closeMock,
-        location: {
-          hash: "#ready",
-          origin: "https://noter.md",
-          pathname: "/home",
-          search: "?prod-ui",
-        },
-        opener: {
-          localStorage: {
-            setItem: openerLocalStorageSetItemMock,
-          },
-          location: openerLocation,
-        },
+    vi.stubGlobal("window", {
+      close: closeMock,
+      location: {
+        hash: "#ready",
+        origin: "https://noter.md",
+        pathname: "/home",
+        search: "?prod-ui",
       },
-      configurable: true,
+      opener: {
+        localStorage: {
+          setItem: openerLocalStorageSetItemMock,
+        },
+        location: openerLocation,
+      },
     });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        __convexAuthAccessToken: "token",
-        getItem: vi.fn(() => "token"),
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      __convexAuthAccessToken: "token",
+      getItem: vi.fn(() => "token"),
     });
 
     useCloseOAuthPopup("/home", true);
@@ -107,25 +91,19 @@ describe("useCloseOAuthPopup", () => {
       },
       configurable: true,
     });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        close: closeMock,
-        location: {
-          hash: "",
-          origin: "https://noter.md",
-          pathname: "/home",
-          search: "?prod-ui",
-        },
-        opener,
+    vi.stubGlobal("window", {
+      close: closeMock,
+      location: {
+        hash: "",
+        origin: "https://noter.md",
+        pathname: "/home",
+        search: "?prod-ui",
       },
-      configurable: true,
+      opener,
     });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        __convexAuthAccessToken: "token",
-        getItem: vi.fn(() => "token"),
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      __convexAuthAccessToken: "token",
+      getItem: vi.fn(() => "token"),
     });
 
     useCloseOAuthPopup("/home", true);
@@ -146,35 +124,29 @@ describe("useCloseOAuthPopup", () => {
 
   it("does not relay tokens to a cross-origin opener", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        close: closeMock,
+    vi.stubGlobal("window", {
+      close: closeMock,
+      location: {
+        hash: "",
+        origin: "https://noter.md",
+        pathname: "/home",
+        search: "",
+      },
+      opener: {
+        localStorage: {
+          setItem: openerLocalStorageSetItemMock,
+        },
         location: {
-          hash: "",
-          origin: "https://noter.md",
-          pathname: "/home",
-          search: "",
+          href: "https://evil.test/",
+          origin: "https://evil.test",
+          reload: openerReloadMock,
         },
-        opener: {
-          localStorage: {
-            setItem: openerLocalStorageSetItemMock,
-          },
-          location: {
-            href: "https://evil.test/",
-            origin: "https://evil.test",
-            reload: openerReloadMock,
-          },
-          postMessage: openerPostMessageMock,
-        },
+        postMessage: openerPostMessageMock,
       },
-      configurable: true,
     });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        __convexAuthAccessToken: "token",
-        getItem: vi.fn(() => "token"),
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      __convexAuthAccessToken: "token",
+      getItem: vi.fn(() => "token"),
     });
 
     useCloseOAuthPopup("/home", true);

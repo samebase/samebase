@@ -6,8 +6,6 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { registerPageLeaveGuard, usePageLeaveGuard } from "./pageLeaveGuard";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 function dispatchBeforeUnload() {
   const event = new Event("beforeunload", { cancelable: true });
   window.dispatchEvent(event);

@@ -180,7 +180,7 @@ describe("requestCodexAppServerJson", () => {
   });
 
   it("supports custom base URLs and headers for tunneled machine requests", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         headers: {
           "Content-Type": "application/json",
@@ -211,7 +211,7 @@ describe("requestCodexAppServerJson", () => {
   });
 
   it("throws a typed error with status when the request fails", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ error: "Machine control token expired." }), {
         headers: {
           "Content-Type": "application/json",
@@ -235,7 +235,7 @@ describe("requestCodexAppServerJson", () => {
   });
 
   it("falls back to a typed error when the tunnel returns non-JSON", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    vi.spyOn(global, "fetch").mockResolvedValue(
       new Response("<html>bad gateway</html>", {
         headers: {
           "Content-Type": "text/html",

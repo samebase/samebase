@@ -11,8 +11,6 @@ import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2Memor
 
 const { act } = React;
 
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 const VIEWPORT_HEIGHT_PX = 844;
 const WORKSPACE_LAYOUT_V2_HYDRATION_STATE = {
   leftDesktopOpen: true,

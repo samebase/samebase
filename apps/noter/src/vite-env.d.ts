@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 declare const __NOTER_BUILD_CONFIG__: import("./lib/noterBuildConfig").NoterBuildConfig;
+declare var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 
 interface Navigation extends EventTarget {
   readonly canGoBack: boolean;

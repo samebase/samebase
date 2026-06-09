@@ -1,6 +1,6 @@
 import { keys } from "@noter-md/dependent/object";
 
-const NativeURLSearchParams = globalThis.URLSearchParams;
+const NativeURLSearchParams = URLSearchParams;
 
 export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "add-app-root",

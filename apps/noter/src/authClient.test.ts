@@ -54,9 +54,6 @@ import {
 } from "./authClient";
 
 describe("useAutoSignIn", () => {
-  const originalWindow = globalThis.window;
-  const originalLocalStorage = globalThis.localStorage;
-
   afterEach(() => {
     buildLocationMock.mockReset();
     signInMock.mockReset();
@@ -65,14 +62,7 @@ describe("useAutoSignIn", () => {
     replaceStateMock.mockReset();
     localStorageRemoveItemMock.mockReset();
     localStorageSetItemMock.mockReset();
-    Object.defineProperty(globalThis, "window", {
-      value: originalWindow,
-      configurable: true,
-    });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: originalLocalStorage,
-      configurable: true,
-    });
+    vi.unstubAllGlobals();
   });
 
   function mockCurrentRouteLocationBuilder() {
@@ -113,28 +103,22 @@ describe("useAutoSignIn", () => {
       },
     });
 
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: popupSearch,
-          hash: "",
-        },
-        history: {
-          state: { __TSR_index: 7, __TSR_key: "popup-route" },
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/",
+        search: popupSearch,
+        hash: "",
       },
-      configurable: true,
+      history: {
+        state: { __TSR_index: 7, __TSR_key: "popup-route" },
+        replaceState: replaceStateMock,
+      },
     });
 
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        getItem: vi.fn(() => null),
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
     mockCurrentRouteLocationBuilder();
 
@@ -163,28 +147,22 @@ describe("useAutoSignIn", () => {
       },
     });
 
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: popupSearch,
-          hash: "",
-        },
-        history: {
-          state: { __TSR_index: 8, __TSR_key: "signup-route" },
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/",
+        search: popupSearch,
+        hash: "",
       },
-      configurable: true,
+      history: {
+        state: { __TSR_index: 8, __TSR_key: "signup-route" },
+        replaceState: replaceStateMock,
+      },
     });
 
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        getItem: vi.fn(() => null),
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
     mockCurrentRouteLocationBuilder();
 
@@ -213,28 +191,22 @@ describe("useAutoSignIn", () => {
       },
     });
 
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/",
-          search: popupSearch,
-          hash: "",
-        },
-        history: {
-          state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/",
+        search: popupSearch,
+        hash: "",
       },
-      configurable: true,
+      history: {
+        state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
+        replaceState: replaceStateMock,
+      },
     });
 
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        getItem: vi.fn(() => null),
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
     mockCurrentRouteLocationBuilder();
 
@@ -255,27 +227,21 @@ describe("useAutoSignIn", () => {
   });
 
   it("does nothing when the routed auth search is absent", () => {
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          pathname: "/pricing",
-          search: "",
-          hash: "",
-        },
-        history: {
-          replaceState: replaceStateMock,
-        },
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/pricing",
+        search: "",
+        hash: "",
       },
-      configurable: true,
+      history: {
+        replaceState: replaceStateMock,
+      },
     });
 
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        getItem: vi.fn(() => null),
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
 
     useAutoSignIn({});
@@ -288,12 +254,9 @@ describe("useAutoSignIn", () => {
   it("records the password provider after a successful password sign-in", async () => {
     signInMock.mockResolvedValue(undefined);
 
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
 
     await signInWithPasswordAction({
@@ -318,12 +281,9 @@ describe("useAutoSignIn", () => {
     });
     signOutMock.mockResolvedValue(undefined);
 
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
 
     await expect(
@@ -347,30 +307,25 @@ describe("useAutoSignIn", () => {
       origin: "https://noter.md",
       reload: locationReloadMock,
     };
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
-          if (eventName === "message") {
-            messageHandler = handler;
-          }
-        }),
-        clearInterval: vi.fn(),
-        clearTimeout: vi.fn(),
-        location: locationState,
-        open: vi.fn(() => originalWindow),
-        removeEventListener: vi.fn(),
-        setInterval: vi.fn(() => 1),
-        setTimeout: vi.fn(() => 2),
-      },
-      configurable: true,
+    const popupSource = new MessageChannel().port1;
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
+        if (eventName === "message") {
+          messageHandler = handler;
+        }
+      }),
+      clearInterval: vi.fn(),
+      clearTimeout: vi.fn(),
+      location: locationState,
+      open: vi.fn(() => popupSource),
+      removeEventListener: vi.fn(),
+      setInterval: vi.fn(() => 1),
+      setTimeout: vi.fn(() => 2),
     });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        getItem: vi.fn(() => null),
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
 
     openAuthPopup("google", { popupPath: "/?auth=google" });
@@ -387,7 +342,7 @@ describe("useAutoSignIn", () => {
           type: "convex-auth-tokens",
         },
         origin: "https://noter.md",
-        source: originalWindow,
+        source: popupSource,
       }),
     );
 
@@ -405,30 +360,25 @@ describe("useAutoSignIn", () => {
       origin: "https://noter.md",
       reload: locationReloadMock,
     };
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
-          if (eventName === "message") {
-            messageHandler = handler;
-          }
-        }),
-        clearInterval: vi.fn(),
-        clearTimeout: vi.fn(),
-        location: locationState,
-        open: vi.fn(() => originalWindow),
-        removeEventListener: vi.fn(),
-        setInterval: vi.fn(() => 1),
-        setTimeout: vi.fn(() => 2),
-      },
-      configurable: true,
+    const popupSource = new MessageChannel().port1;
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
+        if (eventName === "message") {
+          messageHandler = handler;
+        }
+      }),
+      clearInterval: vi.fn(),
+      clearTimeout: vi.fn(),
+      location: locationState,
+      open: vi.fn(() => popupSource),
+      removeEventListener: vi.fn(),
+      setInterval: vi.fn(() => 1),
+      setTimeout: vi.fn(() => 2),
     });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        getItem: vi.fn(() => null),
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
 
     openAuthPopup("google", { popupPath: "/?auth=google" });
@@ -445,7 +395,7 @@ describe("useAutoSignIn", () => {
           type: "convex-auth-tokens",
         },
         origin: "https://noter.md",
-        source: originalWindow,
+        source: popupSource,
       }),
     );
 
@@ -462,35 +412,30 @@ describe("useAutoSignIn", () => {
       origin: "https://noter.md",
       reload: locationReloadMock,
     };
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
-          if (eventName === "message") {
-            messageHandler = handler;
-          }
-        }),
-        clearInterval: vi.fn(),
-        clearTimeout: vi.fn(),
-        location: locationState,
-        open: vi.fn(() => originalWindow),
-        removeEventListener: vi.fn(),
-        setInterval: vi.fn(() => 1),
-        setTimeout: vi.fn(() => 2),
-      },
-      configurable: true,
+    const popupSource = new MessageChannel().port1;
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn((eventName: string, handler: (event: MessageEvent) => void) => {
+        if (eventName === "message") {
+          messageHandler = handler;
+        }
+      }),
+      clearInterval: vi.fn(),
+      clearTimeout: vi.fn(),
+      location: locationState,
+      open: vi.fn(() => popupSource),
+      removeEventListener: vi.fn(),
+      setInterval: vi.fn(() => 1),
+      setTimeout: vi.fn(() => 2),
     });
     localStorageSetItemMock.mockImplementation((key: string) => {
       if (key === "__convexAuthAccessToken") {
         throw new Error("storage denied");
       }
     });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        getItem: vi.fn(() => null),
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
 
     openAuthPopup("google", { popupPath: "/?auth=google" });
@@ -508,7 +453,7 @@ describe("useAutoSignIn", () => {
           type: "convex-auth-tokens",
         },
         origin: "https://noter.md",
-        source: originalWindow,
+        source: popupSource,
       }),
     );
 
@@ -524,29 +469,23 @@ describe("useAutoSignIn", () => {
 
   it("clears the pending provider marker when the popup is blocked", () => {
     const locationReloadMock = vi.fn();
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        addEventListener: vi.fn(),
-        clearInterval: vi.fn(),
-        clearTimeout: vi.fn(),
-        location: {
-          href: "https://noter.md/",
-          origin: "https://noter.md",
-          reload: locationReloadMock,
-        },
-        open: vi.fn(() => null),
-        removeEventListener: vi.fn(),
-        setInterval: vi.fn(() => 1),
-        setTimeout: vi.fn(() => 2),
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn(),
+      clearInterval: vi.fn(),
+      clearTimeout: vi.fn(),
+      location: {
+        href: "https://noter.md/",
+        origin: "https://noter.md",
+        reload: locationReloadMock,
       },
-      configurable: true,
+      open: vi.fn(() => null),
+      removeEventListener: vi.fn(),
+      setInterval: vi.fn(() => 1),
+      setTimeout: vi.fn(() => 2),
     });
-    Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        removeItem: localStorageRemoveItemMock,
-        setItem: localStorageSetItemMock,
-      },
-      configurable: true,
+    vi.stubGlobal("localStorage", {
+      removeItem: localStorageRemoveItemMock,
+      setItem: localStorageSetItemMock,
     });
 
     openAuthPopup("google", { popupPath: "/?auth=google" });

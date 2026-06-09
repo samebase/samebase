@@ -1,10 +1,12 @@
 import { onCleanup, onMount } from "solid-js";
 
-const monacoEnvironmentHost = globalThis as typeof globalThis & {
-  MonacoEnvironment?: {
-    getWorker: () => Worker;
-  };
-};
+declare global {
+  interface Window {
+    MonacoEnvironment?: {
+      getWorker: () => Worker;
+    };
+  }
+}
 
 async function loadMonaco() {
   const [monaco, , workerModule] = await Promise.all([
@@ -13,7 +15,7 @@ async function loadMonaco() {
     import("monaco-editor/esm/vs/editor/editor.worker?worker"),
   ]);
 
-  monacoEnvironmentHost.MonacoEnvironment ??= {
+  window.MonacoEnvironment ??= {
     getWorker: () => new workerModule.default(),
   };
 

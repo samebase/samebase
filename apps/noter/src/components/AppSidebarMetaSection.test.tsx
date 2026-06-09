@@ -12,8 +12,6 @@ import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
 const { act } = React;
 
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 describe("AppSidebarMetaSection", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;

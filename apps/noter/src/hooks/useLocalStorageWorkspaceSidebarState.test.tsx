@@ -8,8 +8,6 @@ import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStat
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 const STORAGE_KEY = "noter_test_app_workspace_sidebar_state";
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 const DEFAULT_SIDEBAR_STATE = {
