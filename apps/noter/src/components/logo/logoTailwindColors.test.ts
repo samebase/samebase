@@ -28,6 +28,8 @@ describe("logoTailwindColors", () => {
     expect(getBackgroundDerivedBorderColorHex("#ffffff")).toBe("#e6e6e6");
     expect(getBackgroundDerivedBorderColorHex("#FEE685")).toBe("#e5cf78");
     expect(getBackgroundDerivedBorderColorHex("#f0b100")).toBe("#d8a000");
+    expect(getBackgroundDerivedBorderColorHex("#394447")).toBe("#4c5659");
+    expect(getBackgroundDerivedBorderColorHex("#000000")).toBe("#191919");
     expect(getBackgroundDerivedBorderColorHex("#abc")).toBe("#99a9b8");
   });
 

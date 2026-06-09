@@ -212,7 +212,25 @@ function readHexColor(color: string): RgbColor | null {
 }
 
 function formatHexChannel(channel: number): string {
-  return Math.ceil(channel).toString(16).padStart(2, "0");
+  return Math.round(channel).toString(16).padStart(2, "0");
+}
+
+function readRelativeLuminanceChannel(channel: number): number {
+  const value = channel / 255;
+  return value < 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+function shouldUseChromeLightForegroundOnBackground(color: RgbColor): boolean {
+  const luminance =
+    0.2126 * readRelativeLuminanceChannel(color.red) +
+    0.7152 * readRelativeLuminanceChannel(color.green) +
+    0.0722 * readRelativeLuminanceChannel(color.blue);
+
+  return 1.05 / (luminance + 0.05) >= 3;
+}
+
+function overlayChromeToolbarHairlineChannel(channel: number, overlayChannel: number): number {
+  return Math.round(channel + (overlayChannel - channel) * (25 / 255));
 }
 
 export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToken): HexColorToken {
@@ -221,9 +239,13 @@ export function getBackgroundDerivedBorderColorHex(backgroundColor: HexColorToke
     return "#000000";
   }
 
-  return `#${formatHexChannel(rgbColor.red * 0.9)}${formatHexChannel(
-    rgbColor.green * 0.9,
-  )}${formatHexChannel(rgbColor.blue * 0.9)}`;
+  const overlayChannel = shouldUseChromeLightForegroundOnBackground(rgbColor) ? 255 : 0;
+
+  return `#${formatHexChannel(
+    overlayChromeToolbarHairlineChannel(rgbColor.red, overlayChannel),
+  )}${formatHexChannel(overlayChromeToolbarHairlineChannel(rgbColor.green, overlayChannel))}${formatHexChannel(
+    overlayChromeToolbarHairlineChannel(rgbColor.blue, overlayChannel),
+  )}`;
 }
 
 function formatCssNumber(value: number): string {

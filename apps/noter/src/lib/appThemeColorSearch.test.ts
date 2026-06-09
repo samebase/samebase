@@ -119,6 +119,18 @@ describe("appThemeColorSearch", () => {
       background: "#f0b100",
       border: "#d8a000",
     });
+
+    expect(
+      resolveAppThemeColorState({
+        search: {
+          background: "mist-700",
+        },
+        themeMode: "light",
+      }).resolvedThemeColors,
+    ).toMatchObject({
+      background: "#394447",
+      border: "#4c5659",
+    });
   });
 
   it("resolves final app theme colors from route search in one place", () => {
