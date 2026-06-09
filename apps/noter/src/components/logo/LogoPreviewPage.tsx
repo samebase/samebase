@@ -113,7 +113,10 @@ import {
   type VoxelEdit,
 } from "@/components/logo/logoVoxelState";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
-import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import {
+  syncDocumentThemeColorSearch,
+  useResolvedAppThemeColorState,
+} from "@/lib/appThemeColorSearch";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
   buildLogoRouteSearch,
@@ -129,6 +132,7 @@ import { PaletteIcon } from "lucide-react";
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1415,6 +1419,11 @@ export function LogoPreviewPage({
   const backgroundDerivedBorderColor = getBackgroundDerivedBorderColorHex(
     resolvedThemeColors.background,
   );
+
+  useLayoutEffect(() => {
+    syncDocumentThemeColorSearch(state.themeColors);
+  }, [state.themeColors]);
+
   const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
   const stripeGapLinkedCheckboxId = useId();
