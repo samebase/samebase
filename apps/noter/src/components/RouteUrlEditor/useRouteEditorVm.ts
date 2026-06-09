@@ -361,6 +361,25 @@ function readInputSelectionFromRouteIndex(
 }
 
 /**
+The blurred input renders `committedRouteAddress` such as `/terms`, but the
+focused input renders `${prefix}terms`. Keep the user's selected route
+position when focus swaps from the display input to the editable input.
+*/
+function readFocusedInputSelectionFromDisplaySelection(
+  prefix: string,
+  selection: RouteAddressSelection,
+): RouteAddressSelection {
+  const readFocusedInputPosition = (displayPosition: number) =>
+    Math.max(prefix.length, prefix.length + displayPosition - 1);
+
+  return {
+    direction: selection.direction,
+    end: readFocusedInputPosition(selection.end),
+    start: readFocusedInputPosition(selection.start),
+  };
+}
+
+/**
 Focus adds `&` for route addresses that already have query params.
 
 Example: focusing `/logo/raster-seams?depth=2` creates draftPath
@@ -1202,10 +1221,13 @@ reload, so an unapplied suggestion preview does not become durable.
       sendEvent({
         type: "clickedInput",
         committedRouteAddress,
-        selection: readRouteAddressSelection(event.currentTarget),
+        selection: readFocusedInputSelectionFromDisplaySelection(
+          prefix,
+          readRouteAddressSelection(event.currentTarget),
+        ),
       });
     },
-    [committedRouteAddress, sendEvent],
+    [committedRouteAddress, prefix, sendEvent],
   );
 
   const handleDisplayInputClick = useCallback(
@@ -1213,10 +1235,13 @@ reload, so an unapplied suggestion preview does not become durable.
       sendEvent({
         type: "clickedInput",
         committedRouteAddress,
-        selection: readRouteAddressSelection(event.currentTarget),
+        selection: readFocusedInputSelectionFromDisplaySelection(
+          prefix,
+          readRouteAddressSelection(event.currentTarget),
+        ),
       });
     },
-    [committedRouteAddress, sendEvent],
+    [committedRouteAddress, prefix, sendEvent],
   );
 
   const inputAlreadyOwnsTextEditing = state.kind === "focused" && state.focusMode === "editing";
@@ -1638,9 +1663,9 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       onFocus: handleDisplayInputFocus,
       readOnly: true,
       title: inputValue,
-      value: inputValue,
+      value: committedRouteAddress,
     }),
-    [handleDisplayInputClick, handleDisplayInputFocus, inputId, inputValue],
+    [committedRouteAddress, handleDisplayInputClick, handleDisplayInputFocus, inputId, inputValue],
   );
 
   const inputProps = useMemo(

@@ -1727,11 +1727,11 @@ test.describe("production public host landing", () => {
       throw new Error("Expected route URL editor display in production host HTML.");
     }
 
-    expect(routeEditorDisplayTag).toContain(`value="${rootPrefix}"`);
-    expect(routeEditorDisplayTag).toContain(`text-indent:-${rootPrefix.length - 1}ch`);
+    expect(routeEditorDisplayTag).toContain(`value="/"`);
+    expect(routeEditorDisplayTag).not.toContain("text-indent");
 
     const displayInput = page.getByTestId("route-url-editor-display");
-    await expect(displayInput).toHaveValue(rootPrefix);
+    await expect(displayInput).toHaveValue("/");
 
     await displayInput.click();
 
@@ -1747,7 +1747,7 @@ test.describe("production public host landing", () => {
     });
 
     const privacyDisplayInput = page.getByTestId("route-url-editor-display");
-    await expect(privacyDisplayInput).toHaveValue(`${rootPrefix}privacy`);
+    await expect(privacyDisplayInput).toHaveValue("/privacy");
 
     await privacyDisplayInput.click();
     await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);
