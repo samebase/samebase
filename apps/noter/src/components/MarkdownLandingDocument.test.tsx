@@ -10,8 +10,6 @@ import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/lib/landin
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 describe("MarkdownLandingDocument", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;

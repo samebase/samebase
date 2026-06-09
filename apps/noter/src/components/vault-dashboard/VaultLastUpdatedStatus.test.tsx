@@ -6,8 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 describe("VaultLastUpdatedStatus", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;

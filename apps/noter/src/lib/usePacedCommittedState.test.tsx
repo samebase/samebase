@@ -6,8 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { usePacedCommittedState } from "./usePacedCommittedState";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 type TestHookApi = {
   cancelCommit: () => void;
   commitCurrent: () => void;

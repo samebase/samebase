@@ -16,8 +16,6 @@ import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayou
 
 const { act } = React;
 
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 const VIEWPORT_WIDTH_PX = 390;
 const VIEWPORT_HEIGHT_PX = 844;
 const MOBILE_PANE_PEEK_PX = 24;

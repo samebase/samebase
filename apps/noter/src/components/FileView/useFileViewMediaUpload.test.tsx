@@ -7,8 +7,6 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useFileViewMediaUpload } from "./useFileViewMediaUpload";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this hook test only
   // needs a stable vault id for generated function arguments.

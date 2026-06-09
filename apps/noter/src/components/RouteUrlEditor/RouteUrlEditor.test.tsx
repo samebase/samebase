@@ -9,8 +9,6 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditor } from "./RouteUrlEditor";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 const { useQueryMock } = vi.hoisted(() => ({
   useQueryMock: vi.fn(),
 }));

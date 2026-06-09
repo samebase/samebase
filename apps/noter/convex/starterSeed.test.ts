@@ -7,9 +7,7 @@ import {
 } from "./starterSeed";
 
 function makeErrorWithStatus(status: number, message: string): Error {
-  const error = new Error(message);
-  Reflect.set(error, "status", status);
-  return error;
+  return Object.assign(new Error(message), { status });
 }
 
 function makeGitClient(options?: {

@@ -8,8 +8,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { VaultResourceRail, type VaultResourceRailState } from "./VaultResourceRail";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 type VaultResourceRailGithubRow = VaultResourceRailState["githubRow"];
 type VaultResourceRailAppRow = VaultResourceRailState["apps"][number]["rows"][number];
 

@@ -6,8 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { useAnimationFrameLoop } from "./useAnimationFrameLoop";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalCancelAnimationFrame = window.cancelAnimationFrame;
 

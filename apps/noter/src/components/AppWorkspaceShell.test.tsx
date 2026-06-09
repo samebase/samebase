@@ -8,8 +8,6 @@ import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell"
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act, useState } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
-
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
 

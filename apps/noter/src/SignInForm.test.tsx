@@ -32,18 +32,13 @@ vi.mock("@tanstack/react-router", () => ({
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
 describe("SignInWithGoogle", () => {
-  const originalWindow = globalThis.window;
-
   afterEach(() => {
     buildLocationMock.mockReset();
     signInWithGoogleMock.mockReset();
     openAuthPopupMock.mockReset();
     isInIframeMock.mockReset();
     isInIframeMock.mockReturnValue(false);
-    Object.defineProperty(globalThis, "window", {
-      value: originalWindow,
-      configurable: true,
-    });
+    vi.unstubAllGlobals();
   });
 
   function mockCurrentRouteLocationBuilder() {
@@ -90,16 +85,13 @@ describe("SignInWithGoogle", () => {
       auth: "google",
     });
 
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          origin: "https://noter.md",
-          pathname: "/oauth/mcp/consent",
-          search: consentSearch,
-          hash: "",
-        },
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://noter.md",
+        pathname: "/oauth/mcp/consent",
+        search: consentSearch,
+        hash: "",
       },
-      configurable: true,
     });
     mockCurrentRouteLocationBuilder();
 
@@ -124,16 +116,13 @@ describe("SignInWithGoogle", () => {
       "prod-ui": true,
     });
 
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          origin: "https://noter.md",
-          pathname: "/",
-          search: publicLandingSearch,
-          hash: "",
-        },
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://noter.md",
+        pathname: "/",
+        search: publicLandingSearch,
+        hash: "",
       },
-      configurable: true,
     });
     mockCurrentRouteLocationBuilder();
 
@@ -152,16 +141,13 @@ describe("SignInWithGoogle", () => {
   });
 
   it("marks public root Google auth for a dashboard return", () => {
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          origin: "https://noter.md",
-          pathname: "/",
-          search: "",
-          hash: "",
-        },
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://noter.md",
+        pathname: "/",
+        search: "",
+        hash: "",
       },
-      configurable: true,
     });
     mockCurrentRouteLocationBuilder();
 
@@ -183,16 +169,13 @@ describe("SignInWithGoogle", () => {
 
   it("propagates the public signup marker through iframe Google auth", () => {
     isInIframeMock.mockReturnValue(true);
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          origin: "https://noter.md",
-          pathname: "/",
-          search: "",
-          hash: "",
-        },
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://noter.md",
+        pathname: "/",
+        search: "",
+        hash: "",
       },
-      configurable: true,
     });
     mockCurrentRouteLocationBuilder();
 
@@ -211,16 +194,13 @@ describe("SignInWithGoogle", () => {
 
   it("keeps iframe Google auth on the requested private route", () => {
     isInIframeMock.mockReturnValue(true);
-    Object.defineProperty(globalThis, "window", {
-      value: {
-        location: {
-          origin: "https://noter.md",
-          pathname: "/vault/noter-md/noter/main/README.md",
-          search: "",
-          hash: "",
-        },
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://noter.md",
+        pathname: "/vault/noter-md/noter/main/README.md",
+        search: "",
+        hash: "",
       },
-      configurable: true,
     });
     mockCurrentRouteLocationBuilder();
 

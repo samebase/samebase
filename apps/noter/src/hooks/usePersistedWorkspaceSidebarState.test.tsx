@@ -18,7 +18,6 @@ vi.mock("convex/react", () => ({
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
   value: vi.fn((query: string) => ({

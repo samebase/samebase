@@ -20,7 +20,7 @@ const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authori
 const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const FormEncodedParams = globalThis.URLSearchParams;
+const FormEncodedParams = URLSearchParams;
 const CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS = [
   "error",
   "error_description",

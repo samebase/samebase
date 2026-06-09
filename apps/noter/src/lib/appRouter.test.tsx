@@ -195,7 +195,6 @@ import { applySearchPatch } from "./routeSearchFlags";
 import { buildPathWithTanStackSearch, stringifyTanStackSearch } from "./tanstackSearchParams";
 
 const { act } = React;
-Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
 const scrollToMock = vi.fn();
 
 Object.defineProperty(window, "scrollTo", {
