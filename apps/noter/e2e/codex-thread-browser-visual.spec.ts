@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./visualFixtureTest";
 
 async function openBrowserFixture(page: Page) {
   await page.goto("/visual-fixture?mode=codex-thread-browser", {

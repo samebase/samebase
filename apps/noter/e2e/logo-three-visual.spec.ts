@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./visualFixtureTest";
 
 test.use({ serviceWorkers: "block" });
 test.setTimeout(120_000);
@@ -13,12 +13,12 @@ test("logo three reference fixture", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
 
-  const fixture = page.getByTestId("logo-three-visual-fixture");
-  const reference = page.getByTestId("logo-three-parity-reference");
+  const fixture = page.locator('[data-testid="logo-three-visual-fixture"]');
+  const reference = page.locator('[data-testid="logo-three-parity-reference"]');
   const referenceCanvas = reference.locator("canvas");
-  const image = page.getByTestId("logo-three-parity-svg");
-  const diffCanvas = page.getByTestId("logo-three-parity-diff");
-  const mismatchCount = page.getByTestId("logo-three-parity-mismatch-count");
+  const image = page.locator('[data-testid="logo-three-parity-svg"]');
+  const diffCanvas = page.locator('[data-testid="logo-three-parity-diff"]');
+  const mismatchCount = page.locator('[data-testid="logo-three-parity-mismatch-count"]');
 
   await expect(fixture).toBeVisible();
   await expect(reference).toBeVisible();

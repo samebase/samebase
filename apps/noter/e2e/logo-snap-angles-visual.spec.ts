@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./visualFixtureTest";
 import {
   PUBLIC_LANDING_LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_DIAGONAL_ROTATION_SNAP_DEGREES,

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./visualFixtureTest";
 import { FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES } from "../src/components/fileViewPushActionsVisualModes";
 
 const SCENARIOS = FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES.map((mode) => ({
