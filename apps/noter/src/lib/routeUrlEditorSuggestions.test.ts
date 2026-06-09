@@ -476,7 +476,7 @@ describe("readRouteUrlEditorSuggestions", () => {
     expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["?add-app-root"]);
   });
 
-  it("suggests route-specific hashes when the route is accessible without filtering by the draft", () => {
+  it("suggests route-specific hashes when the route is accessible", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/machines/connect",
       draftEditedSinceFocus: true,
@@ -489,13 +489,10 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: adminViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
-      "#top",
-      "#connected-machines",
-    ]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["#connected-machines"]);
   });
 
-  it("suggests document hashes for the current route without filtering by the draft", () => {
+  it("suggests document hashes for the current route", () => {
     const suggestions = readRouteUrlEditorSuggestions({
       currentHref: "/",
       draftEditedSinceFocus: true,
@@ -508,11 +505,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: adminViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([
-      "#top",
-      "#tmp-flow",
-      "#noter-md/noter",
-    ]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["#noter-md/noter"]);
   });
 
   it("does not suggest current document hashes for a different draft route", () => {
@@ -528,7 +521,7 @@ describe("readRouteUrlEditorSuggestions", () => {
       viewer: adminViewer,
     });
 
-    expect(suggestions.map((suggestion) => suggestion.value)).toEqual(["#top"]);
+    expect(suggestions.map((suggestion) => suggestion.value)).toEqual([]);
   });
 });
 

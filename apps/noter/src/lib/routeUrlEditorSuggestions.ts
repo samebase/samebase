@@ -962,6 +962,7 @@ function readRouteUrlEditorHashSuggestions(args: {
     return [];
   }
 
+  const hashDraft = parts.hash.value;
   const routePath = readMatchingRoutePath({
     path: parts.path,
     routeSurface: readRouteUrlPathSuggestionSurface({
@@ -977,13 +978,13 @@ function readRouteUrlEditorHashSuggestions(args: {
   const currentRouteParts = parseRouteAddress(args.currentHref);
   const documentHashKeys = parts.path === currentRouteParts.path ? args.hashKeys : [];
 
-  return uniqueStrings([...GLOBAL_ROUTE_URL_HASH_KEYS, ...routeHashKeys, ...documentHashKeys]).map(
-    (key) => ({
+  return uniqueStrings([...GLOBAL_ROUTE_URL_HASH_KEYS, ...routeHashKeys, ...documentHashKeys])
+    .filter((key) => key.startsWith(hashDraft))
+    .map((key) => ({
       key,
       kind: "hash",
       value: `#${key}`,
-    }),
-  );
+    }));
 }
 
 function readRouteUrlEditorSearchParamSuggestions(args: {
