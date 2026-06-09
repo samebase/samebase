@@ -68,6 +68,7 @@ export function RouteUrlEditorNext() {
     suggestionsVisible: vm.suggestionsVisible,
   });
   const resetTouchScrollPosition = touchScrollPicker.resetScrollPosition;
+  const inputFocused = vm.state.kind === "focused";
   const editingDraftPath =
     vm.state.kind === "focused" && vm.state.focusMode === "editing" ? vm.state.draftPath : null;
   const activeTouchSuggestion =
@@ -104,7 +105,7 @@ export function RouteUrlEditorNext() {
     >
       <label
         className="sr-only"
-        htmlFor={vm.state.kind === "focused" ? vm.inputProps.id : vm.displayInputProps.id}
+        htmlFor={inputFocused ? vm.inputProps.id : vm.displayInputProps.id}
       >
         Route URL
       </label>
@@ -137,25 +138,16 @@ export function RouteUrlEditorNext() {
       >
         <RefreshCw aria-hidden="true" className="size-4" />
       </button>
-      {vm.state.kind === "focused" ? (
-        <input
-          {...vm.inputProps}
-          autoFocus
-          className={routeUrlEditorNextInputClassName}
-          data-testid="route-url-editor-input"
-          inputMode="url"
-          spellCheck={false}
-          style={{ textIndent: `-${vm.state.prefix.length - 1}ch` }}
-        />
-      ) : (
-        <input
-          {...vm.displayInputProps}
-          className={routeUrlEditorNextBlurredInputClassName}
-          data-testid="route-url-editor-display"
-          inputMode="url"
-          spellCheck={false}
-        />
-      )}
+      <input
+        {...(inputFocused ? vm.inputProps : vm.displayInputProps)}
+        className={
+          inputFocused ? routeUrlEditorNextInputClassName : routeUrlEditorNextBlurredInputClassName
+        }
+        data-testid={inputFocused ? "route-url-editor-input" : "route-url-editor-display"}
+        inputMode="url"
+        spellCheck={false}
+        style={inputFocused ? { textIndent: `-${vm.state.prefix.length - 1}ch` } : undefined}
+      />
       {vm.suggestionsVisible ? (
         <div
           className={

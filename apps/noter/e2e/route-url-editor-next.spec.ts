@@ -246,6 +246,34 @@ test.describe("route URL editor touch scroll picker", () => {
     },
   });
 
+  test("touch focus keeps the tapped editable input mounted while opening edit mode", async ({
+    page,
+  }) => {
+    const displayInput = await openRouteUrlEditor(page, "/");
+    const prefix = await readRouteAddressPrefix(page);
+
+    await expect(displayInput).toHaveJSProperty("readOnly", false);
+    await displayInput.evaluate((element) => {
+      element.setAttribute("data-route-editor-node-marker", "before-touch-focus");
+    });
+
+    const displayInputBox = await displayInput.boundingBox();
+    if (!displayInputBox) {
+      throw new Error("Expected visible route URL editor display input.");
+    }
+
+    await page.touchscreen.tap(
+      displayInputBox.x + displayInputBox.width / 2,
+      displayInputBox.y + displayInputBox.height / 2,
+    );
+
+    const input = page.getByTestId("route-url-editor-input");
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue(prefix);
+    await expect(input).toHaveJSProperty("readOnly", false);
+    await expect(input).toHaveAttribute("data-route-editor-node-marker", "before-touch-focus");
+  });
+
   test("touch path suggestion lists use the same scroll picker", async ({ page }) => {
     const displayInput = await openRouteUrlEditor(page, "/");
     const prefix = await readRouteAddressPrefix(page);

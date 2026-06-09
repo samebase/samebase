@@ -1244,6 +1244,20 @@ reload, so an unapplied suggestion preview does not become durable.
     [committedRouteAddress, prefix, sendEvent],
   );
 
+  const handleDisplayInputChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      sendEvent({
+        type: "clickedInput",
+        committedRouteAddress,
+        selection: readFocusedInputSelectionFromDisplaySelection(
+          prefix,
+          readRouteAddressSelection(event.currentTarget),
+        ),
+      });
+    },
+    [committedRouteAddress, prefix, sendEvent],
+  );
+
   const inputAlreadyOwnsTextEditing = state.kind === "focused" && state.focusMode === "editing";
   const suggestionOwnsInput = state.kind === "focused" && state.focusMode === "suggestion";
 
@@ -1659,13 +1673,20 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
     () => ({
       autoComplete: "off",
       id: inputId,
+      onChange: handleDisplayInputChange,
       onClick: handleDisplayInputClick,
       onFocus: handleDisplayInputFocus,
-      readOnly: true,
       title: inputValue,
       value: committedRouteAddress,
     }),
-    [committedRouteAddress, handleDisplayInputClick, handleDisplayInputFocus, inputId, inputValue],
+    [
+      committedRouteAddress,
+      handleDisplayInputChange,
+      handleDisplayInputClick,
+      handleDisplayInputFocus,
+      inputId,
+      inputValue,
+    ],
   );
 
   const inputProps = useMemo(
