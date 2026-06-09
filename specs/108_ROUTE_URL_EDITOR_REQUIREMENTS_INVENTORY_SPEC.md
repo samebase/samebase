@@ -4,7 +4,7 @@
 
 - Status: Draft requirements inventory
 - Owner: Noter frontend/app shell
-- Last updated: 2026-06-03
+- Last updated: 2026-06-09
 - Depends on:
   - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.tsx`
   - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.test.tsx`
@@ -115,8 +115,9 @@ behavior.
    clean, prod shows all accessible paths; if edited, prod filters against `/logo`, not `/lo`.
 7. Search key suggestions filter by the current query-token key prefix. Search-value suggestions
    filter by the current token value and the selected param's value metadata.
-8. Hash suggestions filter by the hash text after `#` and combine global keys, route-specific keys,
-   and current-document keys when the draft path matches the current route path.
+8. Hash suggestions are not filtered by the hash text after `#`; they combine global keys,
+   route-specific keys, and current-document keys when the draft path matches the current route
+   path.
 9. Path suggestions come from registered, user-facing, permission-accessible routes.
 10. Internal underscore paths are excluded from path suggestions.
 11. Dynamic paths preview only when the typed path has enough concrete segments to load.
