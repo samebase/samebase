@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./visualFixtureTest";
 
 test("corner notch fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });

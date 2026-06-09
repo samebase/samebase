@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./visualFixtureTest";
 
 test("codex thread history visual fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1480, height: 1600 });

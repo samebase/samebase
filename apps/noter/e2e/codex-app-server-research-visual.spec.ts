@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./visualFixtureTest";
 
 async function openResearchFixture(page: Page) {
   await page.goto("/visual-fixture?mode=codex-app-server-research", {

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./visualFixtureTest";
 
 test("vault sync status fixture", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 720 });
