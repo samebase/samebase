@@ -13,6 +13,7 @@ import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { readRouteAddressReadiness, type RouteAddressReadiness } from "@/lib/routeAddress";
+import { readRouteAddressWithSearchSlot } from "@/lib/routeAddressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   readRootRouteRedirectRouteAddress,
@@ -339,30 +340,7 @@ type RouteEditorTransitionTable = TypedTransitionTable<
 >;
 
 function readRouteAddressFocusedDraft(routeAddress: string): string {
-  if (routeAddress === "/") {
-    return routeAddress;
-  }
-
-  const hashStart = routeAddress.indexOf("#");
-  const searchEnd = hashStart === -1 ? routeAddress.length : hashStart;
-  const searchStart = routeAddress.indexOf("?");
-  if (searchStart === -1 || searchStart > searchEnd) {
-    if (hashStart === -1) {
-      return `${routeAddress}?`;
-    }
-
-    return `${routeAddress.slice(0, hashStart)}?${routeAddress.slice(hashStart)}`;
-  }
-
-  if (routeAddress.slice(searchStart + 1, searchEnd).endsWith("&")) {
-    return routeAddress;
-  }
-
-  if (hashStart === -1) {
-    return `${routeAddress}&`;
-  }
-
-  return `${routeAddress.slice(0, hashStart)}&${routeAddress.slice(hashStart)}`;
+  return readRouteAddressWithSearchSlot(routeAddress).routeAddress;
 }
 
 function readInputSelectionFromRouteIndex(
@@ -409,14 +387,12 @@ function readRouteAddressFocusedSelection(args: {
   prefix: string;
   selection: RouteAddressSelection;
 }): RouteAddressSelection {
-  const hashStart = args.draftPath.indexOf("#");
-  const searchEnd = hashStart === -1 ? args.draftPath.length : hashStart;
-  const searchContinuation = args.draftPath[searchEnd - 1];
-  if (searchContinuation !== "?" && searchContinuation !== "&") {
+  const searchSlot = readRouteAddressWithSearchSlot(args.draftPath);
+  if (searchSlot.selectionRouteIndex === null) {
     return args.selection;
   }
 
-  return readInputSelectionFromRouteIndex(args.prefix, searchEnd);
+  return readInputSelectionFromRouteIndex(args.prefix, searchSlot.selectionRouteIndex);
 }
 
 function previewRouteEditorSuggestion(

@@ -6,6 +6,19 @@ import {
   type NoterRouteSearchParamValueSuggestion,
 } from "@/lib/routePermissions";
 import {
+  hasRouteAddressNonEmptySearchTokenAfter,
+  isRouteAddressFinalSearchToken,
+  parseRouteAddress,
+  readRouteAddressCursorContext,
+  readRouteAddressSearchKeysOutsideToken,
+  readRouteAddressWithSearchSlot,
+  replaceRouteAddressHash,
+  replaceRouteAddressPathWithSearchSlot,
+  replaceRouteAddressSearchToken,
+  replaceRouteAddressSearchValue,
+  type RouteAddressSearchToken,
+} from "@/lib/routeAddressParts";
+import {
   readRouteUrlPathSuggestionSurface,
   readRouteUrlPathSuggestions,
 } from "@/lib/routeUrlPathSuggestions";
@@ -39,134 +52,11 @@ export type Suggestion = {
   value: string;
 };
 
-/**
-Query token ranges use the same half-open indexes as `String.prototype.slice`.
-
-Example: `/logo?`
-
-```txt
-index:  0 1 2 3 4 5
-char:   / l o g o ?
-```
-
-The empty key token has `tokenStart: 5` and `tokenEnd: 6`.
-`tokenStart` points at the token delimiter, `?` or `&`, and is inclusive.
-`tokenEnd` points one character after the token and is exclusive.
-*/
-export type SearchToken =
-  | {
-      kind: "key";
-      key: string;
-      tokenStart: number;
-      tokenEnd: number;
-    }
-  | {
-      kind: "value";
-      key: string;
-      tokenStart: number;
-      tokenEnd: number;
-      value: string;
-      valueStart: number;
-    };
-
-export type ParsedRouteAddress = {
-  path: string;
-  search: {
-    start: number;
-    tokens: SearchToken[];
-  } | null;
-};
-
-type CursorContext =
-  | {
-      hashStart: number;
-      kind: "hash";
-    }
-  | {
-      kind: "path";
-    }
-  | {
-      kind: "searchKey";
-      token: Extract<SearchToken, { kind: "key" }>;
-    }
-  | {
-      kind: "searchValue";
-      token: Extract<SearchToken, { kind: "value" }>;
-      valuePrefix: string;
-    };
-
 const GLOBAL_ROUTE_URL_HASH_KEYS = ["top"] as const;
 
 const ROUTE_URL_HASH_KEYS_BY_PATH: Readonly<Record<string, readonly string[]>> = {
   "/machines/connect": ["connected-machines"],
 } as const;
-
-/**
-Parses the route address into path plus query tokens.
-
-Example: `/logo?top=blue-500&secondary=rose-500` becomes path `/logo`
-plus two value tokens, one for `top` and one for `secondary`.
-*/
-export function parseRouteAddress(routeAddress: string): ParsedRouteAddress {
-  const hashStart = routeAddress.indexOf("#");
-  const rawSearchStart = routeAddress.indexOf("?");
-  const searchStart =
-    rawSearchStart === -1 || (hashStart !== -1 && rawSearchStart > hashStart)
-      ? null
-      : rawSearchStart;
-  const pathEnd = Math.min(
-    searchStart ?? routeAddress.length,
-    hashStart === -1 ? routeAddress.length : hashStart,
-  );
-
-  if (searchStart === null) {
-    return {
-      path: routeAddress.slice(0, pathEnd) || "/",
-      search: null,
-    };
-  }
-
-  const path = routeAddress.slice(0, searchStart) || "/";
-  const searchEnd = hashStart === -1 ? routeAddress.length : hashStart;
-  const tokens: SearchToken[] = [];
-  let tokenStart = searchStart;
-
-  while (tokenStart < searchEnd) {
-    const nextAmpersandIndex = routeAddress.indexOf("&", tokenStart + 1);
-    const tokenEnd =
-      nextAmpersandIndex === -1 || nextAmpersandIndex > searchEnd ? searchEnd : nextAmpersandIndex;
-    const tokenText = routeAddress.slice(tokenStart + 1, tokenEnd);
-    const equalsIndex = tokenText.indexOf("=");
-
-    if (equalsIndex === -1) {
-      tokens.push({
-        kind: "key",
-        key: tokenText,
-        tokenStart,
-        tokenEnd,
-      });
-    } else {
-      tokens.push({
-        kind: "value",
-        key: tokenText.slice(0, equalsIndex),
-        tokenStart,
-        tokenEnd,
-        value: tokenText.slice(equalsIndex + 1),
-        valueStart: tokenStart + 1 + equalsIndex + 1,
-      });
-    }
-
-    tokenStart = tokenEnd;
-  }
-
-  return {
-    path,
-    search: {
-      start: searchStart,
-      tokens,
-    },
-  };
-}
 
 /**
 Converts the input cursor index into a route-address index.
@@ -205,52 +95,6 @@ function readSelectionIndex(args: {
   return Math.min(Math.max(routeIndex, 0), args.routeAddress.length);
 }
 
-function readHashStart(routeAddress: string): number | null {
-  const hashStart = routeAddress.indexOf("#");
-  return hashStart === -1 ? null : hashStart;
-}
-
-function readHashSuffix(routeAddress: string): string {
-  const hashStart = readHashStart(routeAddress);
-  return hashStart === null ? "" : routeAddress.slice(hashStart);
-}
-
-function readSearchEnd(routeAddress: string): number {
-  return readHashStart(routeAddress) ?? routeAddress.length;
-}
-
-function appendSearchParamDelimiter(routeAddress: string): string {
-  const hashStart = readHashStart(routeAddress);
-  const searchEnd = hashStart ?? routeAddress.length;
-  const routeAddressBeforeHash = routeAddress.slice(0, searchEnd);
-  const hash = routeAddress.slice(searchEnd);
-
-  if (
-    routeAddressBeforeHash === "/" ||
-    routeAddressBeforeHash.endsWith("?") ||
-    routeAddressBeforeHash.endsWith("&")
-  ) {
-    return routeAddress;
-  }
-
-  return `${routeAddressBeforeHash}${routeAddressBeforeHash.includes("?") ? "&" : "?"}${hash}`;
-}
-
-function applyPathSuggestion(routeAddress: string, suggestionPath: string): string {
-  const parsedRouteAddress = parseRouteAddress(routeAddress);
-  if (parsedRouteAddress.search === null) {
-    return appendSearchParamDelimiter(`${suggestionPath}${readHashSuffix(routeAddress)}`);
-  }
-
-  return `${suggestionPath}${routeAddress.slice(parsedRouteAddress.search.start)}`;
-}
-
-function readPathSuggestionNextSelectionRouteIndex(routeAddress: string): number {
-  const searchEnd = readSearchEnd(routeAddress);
-  const searchContinuation = routeAddress[searchEnd - 1];
-  return searchContinuation === "?" || searchContinuation === "&" ? searchEnd : routeAddress.length;
-}
-
 /**
 Current implementation: path dropdown rows only show concrete URL paths.
 
@@ -261,111 +105,6 @@ whether a user-typed concrete path has enough segments to load.
 */
 function canShowPathSuggestionRow(routePath: string): boolean {
   return !routePath.includes("$");
-}
-
-function areSearchTokensEqual(left: SearchToken, right: SearchToken): boolean {
-  return left.tokenStart === right.tokenStart && left.tokenEnd === right.tokenEnd;
-}
-
-function readSearchTokenText(routeAddress: string, token: SearchToken): string {
-  return routeAddress.slice(token.tokenStart + 1, token.tokenEnd);
-}
-
-function readSearchKeysOutsideToken(routeAddress: string, activeToken: SearchToken): Set<string> {
-  const parsedRouteAddress = parseRouteAddress(routeAddress);
-  const keys = new Set<string>();
-
-  if (parsedRouteAddress.search === null) {
-    return keys;
-  }
-
-  for (const token of parsedRouteAddress.search.tokens) {
-    if (areSearchTokensEqual(token, activeToken) || token.key.length === 0) {
-      continue;
-    }
-
-    keys.add(token.key);
-  }
-
-  return keys;
-}
-
-/**
-Replaces one query token and removes duplicate tokens for the replacement key.
-
-Example: replacing `border=stone-300` with `dev` in
-`/terms?border=stone-300&dev&depth=2&light&` returns
-`/terms?dev&depth=2&light&`, not `/terms?dev&dev&depth=2&light&`.
-*/
-function replaceSearchToken(args: {
-  replacementKey: string;
-  replacementTokenText: string;
-  routeAddress: string;
-  token: SearchToken;
-}) {
-  const parsedRouteAddress = parseRouteAddress(args.routeAddress);
-  if (parsedRouteAddress.search === null) {
-    return {
-      replacementTokenStart: args.routeAddress.length,
-      routeAddress: args.routeAddress,
-    };
-  }
-
-  let routeAddress = parsedRouteAddress.path;
-  let replacementTokenStart = routeAddress.length;
-  let tokenDelimiter = "?";
-
-  for (const token of parsedRouteAddress.search.tokens) {
-    const activeToken = areSearchTokensEqual(token, args.token);
-    if (!activeToken && token.key === args.replacementKey) {
-      continue;
-    }
-
-    const tokenText = activeToken
-      ? args.replacementTokenText
-      : readSearchTokenText(args.routeAddress, token);
-    const tokenStart = routeAddress.length;
-
-    routeAddress = `${routeAddress}${tokenDelimiter}${tokenText}`;
-    tokenDelimiter = "&";
-
-    if (activeToken) {
-      replacementTokenStart = tokenStart;
-    }
-  }
-
-  return {
-    replacementTokenStart,
-    routeAddress: `${routeAddress}${readHashSuffix(args.routeAddress)}`,
-  };
-}
-
-/**
-Checks the rebuilt route, not the original route.
-
-Example: replacing `border=stone-300` with `dev` in `/terms?border=stone-300&dev&`
-rebuilds `/terms?dev&`. The old `dev` was removed, and the remaining empty token is the next
-editable slot, so this returns false.
-*/
-function hasNonEmptySearchTokenAfterReplacement(args: {
-  replacementTokenStart: number;
-  routeAddress: string;
-}): boolean {
-  const parsedRouteAddress = parseRouteAddress(args.routeAddress);
-  if (parsedRouteAddress.search === null) {
-    return false;
-  }
-
-  const replacementTokenIndex = parsedRouteAddress.search.tokens.findIndex(
-    (token) => token.tokenStart === args.replacementTokenStart,
-  );
-  if (replacementTokenIndex === -1) {
-    return false;
-  }
-
-  return parsedRouteAddress.search.tokens
-    .slice(replacementTokenIndex + 1)
-    .some((token) => readSearchTokenText(args.routeAddress, token).length > 0);
 }
 
 type TailwindColorValueCursor =
@@ -412,75 +151,6 @@ function readTailwindColorFamilySampleValue(
 ): string {
   const sampleValue = `${prefix}500`;
   return valueSuggestions.includes(sampleValue) ? sampleValue : prefix;
-}
-
-/**
-Classifies the cursor from the parsed route address.
-
-Example: `/logo?to` with cursor after `to` returns `searchKey` for key `to`.
-
-Example: `/logo?top=blue-500&se` with cursor after `se` returns `searchKey`
-for key `se`; the token starts at the `&` delimiter.
-
-Example: `/logo?top=blue-500` with cursor inside `blue-500` returns
-`searchValue`, so value suggestions can be added without reparsing strings.
-*/
-function readCursorContext(
-  routeAddress: string,
-  parsedRouteAddress: ParsedRouteAddress,
-  selectionRouteIndex: number,
-): CursorContext {
-  const hashStart = readHashStart(routeAddress);
-  if (hashStart !== null && selectionRouteIndex > hashStart) {
-    return {
-      hashStart,
-      kind: "hash",
-    };
-  }
-
-  if (
-    parsedRouteAddress.search === null ||
-    selectionRouteIndex <= parsedRouteAddress.search.start
-  ) {
-    return {
-      kind: "path",
-    };
-  }
-
-  for (const token of parsedRouteAddress.search.tokens) {
-    if (selectionRouteIndex <= token.tokenStart || selectionRouteIndex > token.tokenEnd) {
-      continue;
-    }
-
-    if (token.kind === "key") {
-      return {
-        kind: "searchKey",
-        token,
-      };
-    }
-
-    if (selectionRouteIndex < token.valueStart) {
-      return {
-        kind: "searchKey",
-        token: {
-          kind: "key",
-          key: token.key,
-          tokenStart: token.tokenStart,
-          tokenEnd: token.tokenEnd,
-        },
-      };
-    }
-
-    return {
-      kind: "searchValue",
-      token,
-      valuePrefix: token.value.slice(0, selectionRouteIndex - token.valueStart),
-    };
-  }
-
-  return {
-    kind: "path",
-  };
 }
 
 /**
@@ -547,11 +217,14 @@ still choose a different value.
 function readSearchRows(args: {
   routeAddress: string;
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
-  searchKeyToken: Extract<SearchToken, { kind: "key" }>;
+  searchKeyToken: Extract<RouteAddressSearchToken, { kind: "key" }>;
   viewerIsAdmin: boolean;
 }): Suggestion[] {
   const suggestions: Suggestion[] = [];
-  const existingKeys = readSearchKeysOutsideToken(args.routeAddress, args.searchKeyToken);
+  const existingKeys = readRouteAddressSearchKeysOutsideToken(
+    args.routeAddress,
+    args.searchKeyToken,
+  );
 
   for (const searchParamSuggestion of readSearchParams(
     args.routeSearchParamSuggestions,
@@ -561,56 +234,52 @@ function readSearchRows(args: {
       continue;
     }
 
-    const tokenDelimiter = args.routeAddress.slice(
-      args.searchKeyToken.tokenStart,
-      args.searchKeyToken.tokenStart + 1,
-    );
     const tokenSuffix = searchParamSuggestion.searchParamKind === "value" ? "=" : "";
     const selectedTokenText = `${searchParamSuggestion.key}${tokenSuffix}`;
-    const selectedValue = `${tokenDelimiter}${selectedTokenText}`;
+    const selectedValue = `${args.searchKeyToken.delimiter}${selectedTokenText}`;
     const sampleValue =
       searchParamSuggestion.searchParamKind === "value"
         ? readSearchParamSampleValue(searchParamSuggestion)
         : null;
     const previewTokenText =
       typeof sampleValue === "string" ? `${selectedTokenText}${sampleValue}` : selectedTokenText;
-    const previewValue = `${tokenDelimiter}${previewTokenText}`;
+    const previewValue = `${args.searchKeyToken.delimiter}${previewTokenText}`;
     const selectedSearchTokenText =
       typeof sampleValue === "string" ? previewTokenText : selectedTokenText;
-    const selectedRoute = replaceSearchToken({
-      replacementKey: searchParamSuggestion.key,
+    const selectedRoute = replaceRouteAddressSearchToken({
+      dedupeKey: searchParamSuggestion.key,
       replacementTokenText: selectedSearchTokenText,
       routeAddress: args.routeAddress,
       token: args.searchKeyToken,
     });
-    const previewRoute = replaceSearchToken({
-      replacementKey: searchParamSuggestion.key,
+    const previewRoute = replaceRouteAddressSearchToken({
+      dedupeKey: searchParamSuggestion.key,
       replacementTokenText: previewTokenText,
       routeAddress: args.routeAddress,
       token: args.searchKeyToken,
     });
     const shouldPromptForNextKey =
       searchParamSuggestion.searchParamKind === "presence" &&
-      !hasNonEmptySearchTokenAfterReplacement({
-        replacementTokenStart: selectedRoute.replacementTokenStart,
+      !hasRouteAddressNonEmptySearchTokenAfter({
         routeAddress: selectedRoute.routeAddress,
+        tokenStart: selectedRoute.replacementTokenStart,
       });
-    const finalSelectedRouteAddress = shouldPromptForNextKey
-      ? appendSearchParamDelimiter(selectedRoute.routeAddress)
-      : selectedRoute.routeAddress;
-    const finalPreviewRouteAddress = shouldPromptForNextKey
-      ? appendSearchParamDelimiter(previewRoute.routeAddress)
-      : previewRoute.routeAddress;
+    const finalSelectedRoute = shouldPromptForNextKey
+      ? readRouteAddressWithSearchSlot(selectedRoute.routeAddress)
+      : { routeAddress: selectedRoute.routeAddress, selectionRouteIndex: null };
+    const finalPreviewRoute = shouldPromptForNextKey
+      ? readRouteAddressWithSearchSlot(previewRoute.routeAddress)
+      : { routeAddress: previewRoute.routeAddress, selectionRouteIndex: null };
 
     suggestions.push({
       kind: "search",
       nextSelectionRouteIndex: shouldPromptForNextKey
-        ? readSearchEnd(finalSelectedRouteAddress)
+        ? (finalSelectedRoute.selectionRouteIndex ?? selectedRoute.replacementTokenStart)
         : selectedRoute.replacementTokenStart + 1 + selectedTokenText.length,
-      previewRouteAddress: finalPreviewRouteAddress,
+      previewRouteAddress: finalPreviewRoute.routeAddress,
       previewSelectionRouteIndex: previewRoute.replacementTokenStart + 1,
       sampleValueStart: typeof sampleValue === "string" ? selectedValue.length : undefined,
-      selectedRouteAddress: finalSelectedRouteAddress,
+      selectedRouteAddress: finalSelectedRoute.routeAddress,
       value: previewValue,
     });
   }
@@ -631,7 +300,7 @@ the `blue` family. Selecting `500` uses `/logo?top=blue-500`.
 function readValueRows(args: {
   routeAddress: string;
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
-  token: Extract<SearchToken, { kind: "value" }>;
+  token: Extract<RouteAddressSearchToken, { kind: "value" }>;
   valuePrefix: string;
   viewerIsAdmin: boolean;
 }): Suggestion[] {
@@ -647,10 +316,6 @@ function readValueRows(args: {
     return [];
   }
 
-  const routeAddressBeforeValue = args.routeAddress.slice(0, args.token.valueStart);
-  const searchEnd = readSearchEnd(args.routeAddress);
-  const routeAddressAfterValue = args.routeAddress.slice(args.token.tokenEnd, searchEnd);
-  const routeAddressHash = args.routeAddress.slice(searchEnd);
   let replacementValues: readonly string[] | null = null;
 
   switch (searchParamSuggestion.valueType) {
@@ -674,20 +339,27 @@ function readValueRows(args: {
 
   if (replacementValues) {
     return replacementValues.map((value): Suggestion => {
-      const selectedRouteAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}${routeAddressHash}`;
-      const shouldPromptForNextKey = routeAddressAfterValue.length === 0;
-      const finalSelectedRouteAddress = shouldPromptForNextKey
-        ? appendSearchParamDelimiter(selectedRouteAddress)
-        : selectedRouteAddress;
+      const selectedRouteAddress = replaceRouteAddressSearchValue({
+        routeAddress: args.routeAddress,
+        token: args.token,
+        value,
+      });
+      const shouldPromptForNextKey = isRouteAddressFinalSearchToken({
+        routeAddress: args.routeAddress,
+        token: args.token,
+      });
+      const finalSelectedRoute = shouldPromptForNextKey
+        ? readRouteAddressWithSearchSlot(selectedRouteAddress)
+        : { routeAddress: selectedRouteAddress, selectionRouteIndex: null };
 
       return {
         kind: "searchValue",
         nextSelectionRouteIndex: shouldPromptForNextKey
-          ? readSearchEnd(finalSelectedRouteAddress)
-          : routeAddressBeforeValue.length + value.length,
+          ? (finalSelectedRoute.selectionRouteIndex ?? args.token.valueStart)
+          : args.token.valueStart + value.length,
         previewRouteAddress: selectedRouteAddress,
-        previewSelectionRouteIndex: routeAddressBeforeValue.length,
-        selectedRouteAddress: finalSelectedRouteAddress,
+        previewSelectionRouteIndex: args.token.valueStart,
+        selectedRouteAddress: finalSelectedRoute.routeAddress,
         value,
       };
     });
@@ -708,11 +380,19 @@ function readValueRows(args: {
 
         return {
           kind: "searchValuePrefix",
-          nextSelectionRouteIndex: routeAddressBeforeValue.length + value.length,
-          previewRouteAddress: `${routeAddressBeforeValue}${sampleValue}${routeAddressAfterValue}${routeAddressHash}`,
-          previewSelectionRouteIndex: routeAddressBeforeValue.length,
+          nextSelectionRouteIndex: args.token.valueStart + value.length,
+          previewRouteAddress: replaceRouteAddressSearchValue({
+            routeAddress: args.routeAddress,
+            token: args.token,
+            value: sampleValue,
+          }),
+          previewSelectionRouteIndex: args.token.valueStart,
           sampleValueStart: value.length,
-          selectedRouteAddress: `${routeAddressBeforeValue}${sampleValue}${routeAddressAfterValue}${routeAddressHash}`,
+          selectedRouteAddress: replaceRouteAddressSearchValue({
+            routeAddress: args.routeAddress,
+            token: args.token,
+            value: sampleValue,
+          }),
           value: sampleValue,
         };
       },
@@ -724,21 +404,28 @@ function readValueRows(args: {
   return searchParamSuggestion.valueSuggestions
     .filter((value) => value.startsWith(shadePrefix))
     .map((value): Suggestion => {
-      const selectedRouteAddress = `${routeAddressBeforeValue}${value}${routeAddressAfterValue}${routeAddressHash}`;
-      const shouldPromptForNextKey = routeAddressAfterValue.length === 0;
-      const finalSelectedRouteAddress = shouldPromptForNextKey
-        ? appendSearchParamDelimiter(selectedRouteAddress)
-        : selectedRouteAddress;
+      const selectedRouteAddress = replaceRouteAddressSearchValue({
+        routeAddress: args.routeAddress,
+        token: args.token,
+        value,
+      });
+      const shouldPromptForNextKey = isRouteAddressFinalSearchToken({
+        routeAddress: args.routeAddress,
+        token: args.token,
+      });
+      const finalSelectedRoute = shouldPromptForNextKey
+        ? readRouteAddressWithSearchSlot(selectedRouteAddress)
+        : { routeAddress: selectedRouteAddress, selectionRouteIndex: null };
       const shadeValue = value.slice(shadePrefix.length);
 
       return {
         kind: "searchValue",
         nextSelectionRouteIndex: shouldPromptForNextKey
-          ? readSearchEnd(finalSelectedRouteAddress)
-          : routeAddressBeforeValue.length + value.length,
+          ? (finalSelectedRoute.selectionRouteIndex ?? args.token.valueStart)
+          : args.token.valueStart + value.length,
         previewRouteAddress: selectedRouteAddress,
-        previewSelectionRouteIndex: routeAddressBeforeValue.length + shadePrefix.length,
-        selectedRouteAddress: finalSelectedRouteAddress,
+        previewSelectionRouteIndex: args.token.valueStart + shadePrefix.length,
+        selectedRouteAddress: finalSelectedRoute.routeAddress,
         value: shadeValue,
       };
     });
@@ -779,7 +466,6 @@ function readHashRows(args: {
   viewerIsAdmin: boolean;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
-  const routeAddressBeforeHash = args.routeAddress.slice(0, args.hashStart);
 
   return uniqueStrings([
     ...GLOBAL_ROUTE_URL_HASH_KEYS,
@@ -790,7 +476,7 @@ function readHashRows(args: {
       viewerIsAdmin: args.viewerIsAdmin,
     }),
   ]).map((key): Suggestion => {
-    const routeAddress = `${routeAddressBeforeHash}#${key}`;
+    const routeAddress = replaceRouteAddressHash(args.routeAddress, key);
 
     return {
       kind: "hash",
@@ -828,14 +514,18 @@ function readPathRows(args: {
   )
     .filter(canShowPathSuggestionRow)
     .map((suggestionRouteAddress) => {
-      const routeAddress = applyPathSuggestion(args.routeAddress, suggestionRouteAddress);
+      const routeWithSearchSlot = replaceRouteAddressPathWithSearchSlot(
+        args.routeAddress,
+        suggestionRouteAddress,
+      );
 
       return {
         kind: "path",
-        nextSelectionRouteIndex: readPathSuggestionNextSelectionRouteIndex(routeAddress),
-        previewRouteAddress: routeAddress,
+        nextSelectionRouteIndex:
+          routeWithSearchSlot.selectionRouteIndex ?? routeWithSearchSlot.routeAddress.length,
+        previewRouteAddress: routeWithSearchSlot.routeAddress,
         previewSelectionRouteIndex: 1,
-        selectedRouteAddress: routeAddress,
+        selectedRouteAddress: routeWithSearchSlot.routeAddress,
         value: suggestionRouteAddress,
       };
     });
@@ -858,7 +548,7 @@ export function readSuggestions(args: {
   selection: Selection | null;
   viewerIsAdmin: boolean;
 }): Suggestion[] {
-  const parsedRouteAddress = parseRouteAddress(args.routeAddress);
+  const routeAddressParts = parseRouteAddress(args.routeAddress);
 
   if (args.selection === null) {
     return readPathRows(args);
@@ -869,11 +559,7 @@ export function readSuggestions(args: {
     routeAddress: args.routeAddress,
     selection: args.selection,
   });
-  const cursorContext = readCursorContext(
-    args.routeAddress,
-    parsedRouteAddress,
-    selectionRouteIndex,
-  );
+  const cursorContext = readRouteAddressCursorContext(routeAddressParts, selectionRouteIndex);
 
   if (cursorContext.kind === "path") {
     return readPathRows(args);
@@ -881,7 +567,7 @@ export function readSuggestions(args: {
 
   if (cursorContext.kind === "hash") {
     return readHashRows({
-      hashStart: cursorContext.hashStart,
+      hashStart: cursorContext.hash.start,
       prefix: args.prefix,
       routeAddress: args.routeAddress,
       routesByPath: args.routesByPath,
@@ -890,7 +576,7 @@ export function readSuggestions(args: {
   }
 
   const routeByPathEntry = entries(args.routesByPath).find(
-    ([path]) => path === parsedRouteAddress.path,
+    ([path]) => path === routeAddressParts.path,
   );
   const routeSearchParamSuggestions =
     routeByPathEntry?.[1].options.staticData.searchParamSuggestions ?? [];
