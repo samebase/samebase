@@ -237,6 +237,12 @@ Key domain entities:
   one, check whether the behavior belongs in a route lifecycle such as `beforeLoad`, a data/cache
   API, an event handler, derived render state, or CSS. Collapse duplicate effects that share the
   same trigger/concern.
+- In carefully curated state machines such as the route URL editor VM, put an even bigger question
+  mark on `useEffect`, `useLayoutEffect`, `MutationObserver`, subscriptions, and DOM polling. Do not
+  add them for opportunistic suggestion data or convenience synchronization. First prove why the
+  state cannot move through an existing event, route value, prop, cache subscription, or explicit
+  caller-owned boundary. If the feature is only a nice-to-have suggestion, drop or narrow the
+  feature instead of adding reactive machinery to the VM.
 - Prefer inference from already-typed initializers and callbacks. Do not restate local variable
   types when the expression is already strongly typed unless the annotation changes the contract,
   clarifies object-spread shape composition, or prevents a real widening problem.

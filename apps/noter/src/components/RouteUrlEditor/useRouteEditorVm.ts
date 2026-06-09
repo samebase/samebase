@@ -7,16 +7,12 @@ import type {
   PointerEvent,
   SyntheticEvent,
 } from "react";
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { readRouteAddressReadiness, type RouteAddressReadiness } from "@/lib/routeAddress";
-import {
-  ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
-  readRouteUrlEditorDocumentHashSuggestionKeys,
-} from "@/lib/routeUrlEditorHashSuggestions";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   readRootRouteRedirectRouteAddress,
@@ -924,23 +920,6 @@ function readRouteAddressFromRouteHref(routeHref: string): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-function areRouteEditorHashSuggestionKeysEqual(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  for (const [index, value] of left.entries()) {
-    if (value !== right[index]) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 function readNavigationEventType(event: Event): string | null {
   if (!("navigationType" in event)) {
     return null;
@@ -1039,9 +1018,6 @@ export function useRouteEditorVm({ onDebugStateChange }: RouteEditorVmProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLFormElement>(null);
   const pendingRenderedInputSelectionRef = useRef<RouteAddressSelection | null>(null);
-  const [documentHashSuggestionKeys, setDocumentHashSuggestionKeys] = useState<readonly string[]>(
-    [],
-  );
 
   const runRouteEditorTransitionActions = useCallback((actions: RouteEditorAction[]) => {
     const actionHandlers: RouteEditorActionHandlerTable = {
@@ -1218,44 +1194,6 @@ Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back 
     },
     [router],
   );
-
-  const refreshDocumentHashSuggestionKeys = useCallback(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const nextKeys = readRouteUrlEditorDocumentHashSuggestionKeys(document);
-    setDocumentHashSuggestionKeys((previousKeys) =>
-      areRouteEditorHashSuggestionKeysEqual(previousKeys, nextKeys) ? previousKeys : nextKeys,
-    );
-  }, []);
-
-  useEffect(() => {
-    refreshDocumentHashSuggestionKeys();
-  }, [committedRouteAddress, refreshDocumentHashSuggestionKeys]);
-
-  useEffect(() => {
-    if (
-      state.kind !== "focused" ||
-      typeof document === "undefined" ||
-      typeof MutationObserver === "undefined"
-    ) {
-      return;
-    }
-
-    refreshDocumentHashSuggestionKeys();
-    const observer = new MutationObserver(refreshDocumentHashSuggestionKeys);
-    observer.observe(document.body, {
-      attributeFilter: [...ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES],
-      attributes: true,
-      childList: true,
-      subtree: true,
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [refreshDocumentHashSuggestionKeys, state.kind]);
 
   /**
 Refresh reloads the browser page, so React cannot wait for a normal blur event to restore preview
@@ -1565,8 +1503,6 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
   const suggestions = useMemo(
     () =>
       readSuggestions({
-        committedRouteAddress,
-        hashKeys: documentHashSuggestionKeys,
         prefix: state.prefix,
         routeAddress: suggestionsRouteAddress,
         routesByPath: router.routesByPath,
@@ -1575,8 +1511,6 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       }),
     [
       router.routesByPath,
-      committedRouteAddress,
-      documentHashSuggestionKeys,
       state.prefix,
       suggestionSelection,
       suggestionsRouteAddress,

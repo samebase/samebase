@@ -14,8 +14,6 @@ function cursorAfter(routeTextBeforeCursor: string) {
 }
 
 function readValues(args: {
-  committedRouteAddress?: string;
-  hashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
@@ -24,15 +22,11 @@ function readValues(args: {
 }
 
 function readRows(args: {
-  committedRouteAddress?: string;
-  hashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
 }) {
   return readSuggestions({
-    committedRouteAddress: args.committedRouteAddress ?? args.routeAddress,
-    hashKeys: args.hashKeys ?? [],
     prefix,
     routeAddress: args.routeAddress,
     routesByPath,
@@ -256,6 +250,22 @@ describe("readSuggestions", () => {
       previewRouteAddress: "/privacy?top=red-#top",
       previewSelectionRouteIndex: 1,
       selectedRouteAddress: "/privacy?top=red-#top",
+      value: "/privacy",
+    });
+  });
+
+  it("places the cursor before the hash when path rows open a query slot", () => {
+    const rows = readRows({
+      routeAddress: "/terms#top",
+      routeTextBeforeCursor: "/te",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "path",
+      nextSelectionRouteIndex: "/privacy?".length,
+      previewRouteAddress: "/privacy?#top",
+      previewSelectionRouteIndex: 1,
+      selectedRouteAddress: "/privacy?#top",
       value: "/privacy",
     });
   });
@@ -596,23 +606,14 @@ describe("readSuggestions", () => {
     });
   });
 
-  it("suggests global hashes after the hash marker without filtering by the draft", () => {
-    const values = readValues({
-      hashKeys: ["noter-md/noter"],
-      routeAddress: "/logo#top",
-      routeTextBeforeCursor: "/logo#t",
-    });
-
-    expect(values).toEqual(["#top", "#noter-md/noter"]);
-  });
-
-  it("suggests route-specific hashes for matching routes", () => {
+  it("suggests hashes after the hash marker without filtering by the draft", () => {
     const rows = readRows({
-      routeAddress: "/machines/connect#connected",
-      routeTextBeforeCursor: "/machines/connect#connected",
+      routeAddress: "/machines/connect#top",
+      routeTextBeforeCursor: "/machines/connect#t",
       viewerIsAdmin: true,
     });
 
+    expect(rows.map((row) => row.value)).toEqual(["#top", "#connected-machines"]);
     expect(rows).toContainEqual({
       kind: "hash",
       nextSelectionRouteIndex: "/machines/connect#connected-machines".length,
@@ -621,27 +622,5 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/machines/connect#connected-machines",
       value: "#connected-machines",
     });
-  });
-
-  it("suggests document hashes for the current route", () => {
-    const values = readValues({
-      committedRouteAddress: "/home",
-      hashKeys: ["tmp-flow", "noter-md/noter"],
-      routeAddress: "/home#not",
-      routeTextBeforeCursor: "/home#not",
-    });
-
-    expect(values).toEqual(["#top", "#tmp-flow", "#noter-md/noter"]);
-  });
-
-  it("does not suggest current document hashes for a different draft route", () => {
-    const values = readValues({
-      committedRouteAddress: "/home",
-      hashKeys: ["noter-md/noter"],
-      routeAddress: "/logo#not",
-      routeTextBeforeCursor: "/logo#not",
-    });
-
-    expect(values).toEqual(["#top"]);
   });
 });

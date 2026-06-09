@@ -19,6 +19,24 @@ function readDisplayRouteAddress(route: string): string {
   return route.startsWith("/") ? route : `/${route}`;
 }
 
+function readFocusedRouteAddress(route: string): string {
+  const routeAddress = route.startsWith("/") ? route.slice(1) : route;
+  if (routeAddress === "") {
+    return routeAddress;
+  }
+
+  const hashStart = routeAddress.indexOf("#");
+  const searchEnd = hashStart === -1 ? routeAddress.length : hashStart;
+  const routeAddressBeforeHash = routeAddress.slice(0, searchEnd);
+  const hash = routeAddress.slice(searchEnd);
+
+  if (routeAddressBeforeHash.endsWith("?") || routeAddressBeforeHash.endsWith("&")) {
+    return routeAddress;
+  }
+
+  return `${routeAddressBeforeHash}${routeAddressBeforeHash.includes("?") ? "&" : "?"}${hash}`;
+}
+
 async function setInputSelection(
   input: Locator,
   selection: {
@@ -87,11 +105,8 @@ async function pushBrowserRoute(page: Page, route: string): Promise<void> {
 async function focusRouteAddressInput(page: Page, route = "/privacy") {
   const displayInput = await openRouteUrlEditor(page, route);
   const prefix = await readRouteAddressPrefix(page);
-  const initialRouteAddress = route.startsWith("/") ? route.slice(1) : route;
   const displayRouteAddress = readDisplayRouteAddress(route);
-  const focusedInputValue = `${prefix}${initialRouteAddress}${
-    initialRouteAddress === "" ? "" : initialRouteAddress.includes("?") ? "&" : "?"
-  }`;
+  const focusedInputValue = `${prefix}${readFocusedRouteAddress(route)}`;
 
   await expect(displayInput).toHaveValue(displayRouteAddress);
   const input = page.getByTestId("route-url-editor-input");
@@ -126,11 +141,8 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
 async function focusRouteAddressInputDirectly(page: Page, route = "/privacy") {
   const displayInput = await openRouteUrlEditor(page, route);
   const prefix = await readRouteAddressPrefix(page);
-  const initialRouteAddress = route.startsWith("/") ? route.slice(1) : route;
   const displayRouteAddress = readDisplayRouteAddress(route);
-  const focusedInputValue = `${prefix}${initialRouteAddress}${
-    initialRouteAddress === "" ? "" : initialRouteAddress.includes("?") ? "&" : "?"
-  }`;
+  const focusedInputValue = `${prefix}${readFocusedRouteAddress(route)}`;
 
   await expect(displayInput).toHaveValue(displayRouteAddress);
 
@@ -627,6 +639,23 @@ test("route URL editor keeps focus and advances the cursor after selecting sugge
   await expect(
     page.getByRole("option", { exact: true, name: "&secondary=rose-500" }),
   ).toBeVisible();
+});
+
+test("route URL editor keeps the cursor before a preserved hash after path selection", async ({
+  page,
+}) => {
+  const { input, prefix } = await focusRouteAddressInput(page, "/terms#top");
+
+  await expect(input).toHaveValue(`${prefix}terms?#top`);
+
+  await input.press("Home");
+  await page.getByRole("option", { exact: true, name: "/logo" }).click();
+
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue(`${prefix}logo?#top`);
+  await expectInputSelection(input, `${prefix}logo?`.length);
+  await expect(page).toHaveURL(/\/logo\??#top$/);
+  await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
 });
 
 test("route URL editor puts the cursor in the selected value slot for middle query tokens", async ({

@@ -245,6 +245,12 @@ function applyPathSuggestion(routeAddress: string, suggestionPath: string): stri
   return `${suggestionPath}${routeAddress.slice(parsedRouteAddress.search.start)}`;
 }
 
+function readPathSuggestionNextSelectionRouteIndex(routeAddress: string): number {
+  const searchEnd = readSearchEnd(routeAddress);
+  const searchContinuation = routeAddress[searchEnd - 1];
+  return searchContinuation === "?" || searchContinuation === "&" ? searchEnd : routeAddress.length;
+}
+
 /**
 Current implementation: path dropdown rows only show concrete URL paths.
 
@@ -766,8 +772,6 @@ function readRouteHashKeys(args: {
 }
 
 function readHashRows(args: {
-  committedRouteAddress: string;
-  hashKeys: readonly string[];
   hashStart: number;
   prefix: string;
   routeAddress: string;
@@ -775,10 +779,6 @@ function readHashRows(args: {
   viewerIsAdmin: boolean;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
-  const parsedRouteAddress = parseRouteAddress(args.routeAddress);
-  const parsedCommittedRouteAddress = parseRouteAddress(args.committedRouteAddress);
-  const documentHashKeys =
-    parsedRouteAddress.path === parsedCommittedRouteAddress.path ? args.hashKeys : [];
   const routeAddressBeforeHash = args.routeAddress.slice(0, args.hashStart);
 
   return uniqueStrings([
@@ -789,7 +789,6 @@ function readHashRows(args: {
       routesByPath: args.routesByPath,
       viewerIsAdmin: args.viewerIsAdmin,
     }),
-    ...documentHashKeys,
   ]).map((key): Suggestion => {
     const routeAddress = `${routeAddressBeforeHash}#${key}`;
 
@@ -833,7 +832,7 @@ function readPathRows(args: {
 
       return {
         kind: "path",
-        nextSelectionRouteIndex: routeAddress.length,
+        nextSelectionRouteIndex: readPathSuggestionNextSelectionRouteIndex(routeAddress),
         previewRouteAddress: routeAddress,
         previewSelectionRouteIndex: 1,
         selectedRouteAddress: routeAddress,
@@ -853,8 +852,6 @@ Example: `/logo?top=blue-2` with cursor after `2` shows value rows like
 `blue-200`.
 */
 export function readSuggestions(args: {
-  committedRouteAddress: string;
-  hashKeys: readonly string[];
   prefix: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
@@ -884,8 +881,6 @@ export function readSuggestions(args: {
 
   if (cursorContext.kind === "hash") {
     return readHashRows({
-      committedRouteAddress: args.committedRouteAddress,
-      hashKeys: args.hashKeys,
       hashStart: cursorContext.hashStart,
       prefix: args.prefix,
       routeAddress: args.routeAddress,
