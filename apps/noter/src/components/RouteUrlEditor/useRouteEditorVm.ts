@@ -503,6 +503,23 @@ const routeEditorTransition: RouteEditorTransitionTable = {
         return keepState(prev);
       }
 
+      if (
+        prev.focusMode === "editing" &&
+        readRouteAddressPathname(event.path, prev.prefix) ===
+          readRouteAddressPathname(prev.expectedRouteAddress, prev.prefix)
+      ) {
+        // Route owners can replace search after an editor-owned route update. Keep the typed draft
+        // and accept the repaired route as the next comparison point.
+        return keepState({
+          kind: "focused",
+          focusMode: "editing",
+          draftPath: prev.draftPath,
+          expectedRouteAddress: event.path,
+          prefix: prev.prefix,
+          selection: prev.selection,
+        });
+      }
+
       // Example: while editing, Back/Forward or another app link changes the
       // route to `/home`. That matches neither `expectedRouteAddress` nor
       // `hoverPath.expectedRouteAddress`, so close the editor and show
@@ -897,6 +914,10 @@ function readRouteAddressSelection(input: HTMLInputElement): RouteAddressSelecti
 function readRouteAddressFromRouteHref(routeHref: string): string {
   const url = new URL(routeHref, new URL(readIsomorphicOrigin()));
   return `${url.pathname}${url.search}`;
+}
+
+function readRouteAddressPathname(routeAddress: string, prefix: string): string {
+  return new URL(routeAddress, prefix).pathname;
 }
 
 function readNavigationEventType(event: Event): string | null {
