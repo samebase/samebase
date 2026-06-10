@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
-import { parseRouteAddress, readSuggestions } from "./RouteUrlEditorSuggestions";
+import { readSuggestions } from "./RouteUrlEditorSuggestions";
 
 const prefix = "http://localhost:5174/";
 const routesByPath = getRouter().routesByPath;
@@ -14,6 +14,8 @@ function cursorAfter(routeTextBeforeCursor: string) {
 }
 
 function readValues(args: {
+  currentRouteAddress?: string;
+  pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
@@ -22,11 +24,15 @@ function readValues(args: {
 }
 
 function readRows(args: {
+  currentRouteAddress?: string;
+  pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
   viewerIsAdmin?: boolean;
 }) {
   return readSuggestions({
+    currentRouteAddress: args.currentRouteAddress ?? args.routeAddress,
+    pageHashKeys: args.pageHashKeys ?? [],
     prefix,
     routeAddress: args.routeAddress,
     routesByPath,
@@ -37,162 +43,6 @@ function readRows(args: {
     viewerIsAdmin: args.viewerIsAdmin ?? true,
   });
 }
-
-describe("parseRouteAddress", () => {
-  it("parses a route address without query params", () => {
-    expect(parseRouteAddress("/logo")).toEqual({
-      path: "/logo",
-      search: null,
-    });
-  });
-
-  it("keeps the empty key token after a bare query marker", () => {
-    expect(parseRouteAddress("/logo?")).toEqual({
-      path: "/logo",
-      search: {
-        start: 5,
-        tokens: [
-          {
-            kind: "key",
-            key: "",
-            tokenEnd: 6,
-            tokenStart: 5,
-          },
-        ],
-      },
-    });
-  });
-
-  it("parses query value tokens with route-address positions", () => {
-    expect(parseRouteAddress("/logo?top=blue-500&secondary=rose-500")).toEqual({
-      path: "/logo",
-      search: {
-        start: 5,
-        tokens: [
-          {
-            kind: "value",
-            key: "top",
-            tokenEnd: 18,
-            tokenStart: 5,
-            value: "blue-500",
-            valueStart: 10,
-          },
-          {
-            kind: "value",
-            key: "secondary",
-            tokenEnd: 37,
-            tokenStart: 18,
-            value: "rose-500",
-            valueStart: 29,
-          },
-        ],
-      },
-    });
-  });
-
-  it("parses query tokens without equals as keys", () => {
-    expect(parseRouteAddress("/logo?dev&top")).toEqual({
-      path: "/logo",
-      search: {
-        start: 5,
-        tokens: [
-          {
-            kind: "key",
-            key: "dev",
-            tokenEnd: 9,
-            tokenStart: 5,
-          },
-          {
-            kind: "key",
-            key: "top",
-            tokenEnd: 13,
-            tokenStart: 9,
-          },
-        ],
-      },
-    });
-  });
-
-  it("keeps the empty key token after a trailing ampersand", () => {
-    expect(parseRouteAddress("/logo?dev&")).toEqual({
-      path: "/logo",
-      search: {
-        start: 5,
-        tokens: [
-          {
-            kind: "key",
-            key: "dev",
-            tokenEnd: 9,
-            tokenStart: 5,
-          },
-          {
-            kind: "key",
-            key: "",
-            tokenEnd: 10,
-            tokenStart: 9,
-          },
-        ],
-      },
-    });
-  });
-
-  it("parses equals without value as an empty value", () => {
-    expect(parseRouteAddress("/logo?top=")).toEqual({
-      path: "/logo",
-      search: {
-        start: 5,
-        tokens: [
-          {
-            kind: "value",
-            key: "top",
-            tokenEnd: 10,
-            tokenStart: 5,
-            value: "",
-            valueStart: 10,
-          },
-        ],
-      },
-    });
-  });
-
-  it("keeps extra equals signs inside the value", () => {
-    expect(parseRouteAddress("/logo?redirect=a=b=c")).toEqual({
-      path: "/logo",
-      search: {
-        start: 5,
-        tokens: [
-          {
-            kind: "value",
-            key: "redirect",
-            tokenEnd: 20,
-            tokenStart: 5,
-            value: "a=b=c",
-            valueStart: 15,
-          },
-        ],
-      },
-    });
-  });
-
-  it("parses an equals token without a key", () => {
-    expect(parseRouteAddress("/logo?=blue-500")).toEqual({
-      path: "/logo",
-      search: {
-        start: 5,
-        tokens: [
-          {
-            kind: "value",
-            key: "",
-            tokenEnd: 15,
-            tokenStart: 5,
-            value: "blue-500",
-            valueStart: 7,
-          },
-        ],
-      },
-    });
-  });
-});
 
 describe("readSuggestions", () => {
   it("shows path suggestions when there is no focused input selection", () => {
@@ -221,6 +71,50 @@ describe("readSuggestions", () => {
     });
   });
 
+  it("preserves hash text when building path suggestion rows", () => {
+    const rows = readRows({
+      routeAddress: "/terms?top=red-#top",
+      routeTextBeforeCursor: "/te",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "path",
+      nextSelectionRouteIndex: "/privacy?top=red-#top".length,
+      previewRouteAddress: "/privacy?top=red-#top",
+      previewSelectionRouteIndex: 1,
+      selectedRouteAddress: "/privacy?top=red-#top",
+      value: "/privacy",
+    });
+  });
+
+  it("places the cursor before the hash when path rows open a query slot", () => {
+    const rows = readRows({
+      routeAddress: "/terms#top",
+      routeTextBeforeCursor: "/te",
+    });
+    const focusedDraftRows = readRows({
+      routeAddress: "/terms?#top",
+      routeTextBeforeCursor: "/te",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "path",
+      nextSelectionRouteIndex: "/privacy?".length,
+      previewRouteAddress: "/privacy?#top",
+      previewSelectionRouteIndex: 1,
+      selectedRouteAddress: "/privacy?#top",
+      value: "/privacy",
+    });
+    expect(focusedDraftRows).toContainEqual({
+      kind: "path",
+      nextSelectionRouteIndex: "/privacy?".length,
+      previewRouteAddress: "/privacy?#top",
+      previewSelectionRouteIndex: 1,
+      selectedRouteAddress: "/privacy?#top",
+      value: "/privacy",
+    });
+  });
+
   it("hides router template paths from clickable path rows", () => {
     const values = readValues({
       routeAddress: "/vault?",
@@ -240,6 +134,22 @@ describe("readSuggestions", () => {
 
     expect(values).toContain("?top=sky-500");
     expect(values).not.toContain("/logo");
+  });
+
+  it("keeps the next query slot before an existing hash", () => {
+    const rows = readRows({
+      routeAddress: "/logo?de#top",
+      routeTextBeforeCursor: "/logo?de",
+    });
+
+    expect(rows).toContainEqual({
+      kind: "search",
+      nextSelectionRouteIndex: "/logo?dev&".length,
+      previewRouteAddress: "/logo?dev&#top",
+      previewSelectionRouteIndex: "/logo?".length,
+      selectedRouteAddress: "/logo?dev&#top",
+      value: "?dev",
+    });
   });
 
   it("shows all query key suggestions for the key under the cursor", () => {
@@ -539,5 +449,41 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/visual-fixture?mode=route-url-editor&",
       value: "route-url-editor",
     });
+  });
+
+  it("suggests hashes after the hash marker without filtering by the draft", () => {
+    const rows = readRows({
+      routeAddress: "/machines/connect#top",
+      routeTextBeforeCursor: "/machines/connect#t",
+      viewerIsAdmin: true,
+    });
+
+    expect(rows.map((row) => row.value)).toEqual(["#connected-machines"]);
+    expect(rows).toContainEqual({
+      kind: "hash",
+      nextSelectionRouteIndex: "/machines/connect#connected-machines".length,
+      previewRouteAddress: "/machines/connect#connected-machines",
+      previewSelectionRouteIndex: "/machines/connect#".length,
+      selectedRouteAddress: "/machines/connect#connected-machines",
+      value: "#connected-machines",
+    });
+  });
+
+  it("adds page hash suggestions only for the current route path", () => {
+    const currentRouteRows = readRows({
+      currentRouteAddress: "/",
+      pageHashKeys: ["intro", "pricing"],
+      routeAddress: "/#intro",
+      routeTextBeforeCursor: "/#i",
+    });
+    const differentRouteRows = readRows({
+      currentRouteAddress: "/",
+      pageHashKeys: ["intro", "pricing"],
+      routeAddress: "/logo#intro",
+      routeTextBeforeCursor: "/logo#i",
+    });
+
+    expect(currentRouteRows.map((row) => row.value)).toEqual(["#intro", "#pricing"]);
+    expect(differentRouteRows.map((row) => row.value)).toEqual([]);
   });
 });

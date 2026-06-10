@@ -77,7 +77,7 @@ Single entrypoint for turning an editor draft into a router-loadable route addre
 
 Callers should pass `RouteEditorState.expectedRouteAddress` as `currentRouteAddress`, not
 `committedRouteAddress` or `window.location`. During `previewedSuggestion`, TanStack may already be
-on `hoverPath.expectedRouteAddress` while the next classification still belongs to `draftPath`.
+on `previewRoute.expectedRouteAddress` while the next classification still belongs to `draftRouteAddress`.
 
 Example: `/logo?dar` while already on `/logo` returns `local`, because `dar` is a partial
 known query key.

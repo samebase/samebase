@@ -121,33 +121,36 @@ These questions decide whether the interaction keeps `focusMode: "editing"`, mov
 transition code only when these answers match.
 
 While `focusMode` is `"editing"`, there is no active suggestion row. While `focusMode` is
-`"suggestion"`, `hoverPath.suggestionIndex` drives `aria-activedescendant` and row highlight.
+`"suggestion"`, `previewRoute.suggestionIndex` drives `aria-activedescendant` and row highlight.
 
 On touch layouts, the fixed scroll-picker slate is a visual guide and can be visible while
 `focusMode` is `"editing"`. It does not mean a suggestion is active. Only a real touch/wheel scroll
-over the suggestion list can move to `focusMode: "suggestion"` and create `hoverPath`.
+over the suggestion list can move to `focusMode: "suggestion"` and create `previewRoute`.
 
 Current answers:
 
-- Mouse pointer movement over a row moves to `focusMode: "suggestion"` and creates `hoverPath`. A
-  row appearing under a stationary mouse must not create `hoverPath`.
-- Pointer leave clears pointer-created `hoverPath`, returns to `focusMode: "editing"`, and restores
-  `expectedRouteAddress`.
-- Click commits the row's selected route address into `draftPath` and returns to
+- Mouse pointer movement over a row moves to `focusMode: "suggestion"` and creates `previewRoute`. A
+  row appearing under a stationary mouse must not create `previewRoute`.
+- Pointer leave clears pointer-created `previewRoute`, returns to `focusMode: "editing"`, and
+  restores `expectedRouteAddress`.
+- Click commits the row's selected route address into `draftRouteAddress` and returns to
   `focusMode: "editing"`.
-- Keyboard ArrowUp/ArrowDown also move to `focusMode: "suggestion"` and create `hoverPath`. Enter
-  commits the row's selected route address into `draftPath` and returns to `focusMode: "editing"`.
+- Keyboard ArrowUp/ArrowDown also move to `focusMode: "suggestion"` and create `previewRoute`. Enter
+  commits the row's selected route address into `draftRouteAddress` and returns to
+  `focusMode: "editing"`.
 - For pointer/keyboard/touch-scroll previews, blur/click outside does not commit
-  `hoverPath.draftPath`. It restores `expectedRouteAddress` and leaves the editor blurred.
-- Escape also does not commit `hoverPath.draftPath`. It restores `expectedRouteAddress` and blurs.
-- Clicking back into the input while `hoverPath` is active cancels `hoverPath`, restores
-  `expectedRouteAddress`, and resumes editing `draftPath`.
-- Mobile touch scroll moves to `focusMode: "suggestion"` and creates `hoverPath` with source
-  `"touch"`. This keeps suggestions anchored to `draftPath` while the fixed slate scrolls over rows.
-  Example: while editing `/logo?`, scrolling to `?top=sky-500` shows `/logo?top=sky-500` in the
-  input, but the list still shows query-key rows until tap.
+  `previewRoute.routeAddress`. It restores `expectedRouteAddress` and leaves the editor blurred.
+- Escape also does not commit `previewRoute.routeAddress`. It restores `expectedRouteAddress` and
+  blurs.
+- Clicking back into the input while `previewRoute` is active cancels `previewRoute`, restores
+  `expectedRouteAddress`, and resumes editing `draftRouteAddress`.
+- Mobile touch scroll moves to `focusMode: "suggestion"` and creates `previewRoute` with source
+  `"touch"`. This keeps suggestions anchored to `draftRouteAddress` while the fixed slate scrolls
+  over rows. Example: while editing `/logo?`, scrolling to `?top=sky-500` shows `/logo?top=sky-500`
+  in the input, but the list still shows query-key rows until tap.
 - Mobile row tap runs `selectedSuggestion`. It commits the row's selected route address into
-  `draftPath` and moves `selection` into the next editing slot, such as after `?`, `&`, or `=`.
+  `draftRouteAddress` and moves `selection` into the next editing slot, such as after `?`, `&`, or
+  `=`.
 
 Selecting a suggestion commits according to `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`:
 
@@ -166,23 +169,23 @@ sidebar/link route preview.
 Escape cancels the focused edit, restores `expectedRouteAddress`, and blurs.
 
 If `focusMode` is `"suggestion"`, Escape restores `expectedRouteAddress`; it does not commit
-`hoverPath.draftPath`.
+`previewRoute.routeAddress`.
 
-For pointer/keyboard/touch-scroll `hoverPath`, blur/click outside restores `expectedRouteAddress`.
-The app Refresh button restores before reload because that button is part of the editor chrome.
-Browser hard reload loads the currently visible browser URL; it does not have a separate editor
-recovery path.
+For pointer/keyboard/touch-scroll `previewRoute`, blur/click outside restores
+`expectedRouteAddress`. The app Refresh button restores before reload because that button is part of
+the editor chrome. Browser hard reload loads the currently visible browser URL; it does not have a
+separate editor recovery path.
 
 If `focusMode` is `"editing"`, blur keeps the latest route-ready draft already applied as
 `expectedRouteAddress`. If the focused draft is incomplete or invalid, the visible input normalizes
 back to `expectedRouteAddress`.
 
 If TanStack reports a committed route that matches neither `expectedRouteAddress` nor
-`hoverPath.expectedRouteAddress`, the route changed outside this editor session. The editor blurs
+`previewRoute.expectedRouteAddress`, the route changed outside this editor session. The editor blurs
 and the blurred display reads the TanStack route. We do not merge that external route into the
 focused draft.
 
-Mobile touch scroll creates `hoverPath` with source `"touch"`, but blur/click outside restores
+Mobile touch scroll creates `previewRoute` with source `"touch"`, but blur/click outside restores
 `expectedRouteAddress`. Scroll movement previews a row; row tap is the commit.
 
 ### R7: Keep the FSM state small
@@ -204,7 +207,7 @@ type RouteEditorState =
   | {
       kind: "focused";
       focusMode: "editing";
-      draftPath: string;
+      draftRouteAddress: string;
       expectedRouteAddress: string;
       prefix: string;
       selection: RouteAddressSelection;
@@ -212,12 +215,12 @@ type RouteEditorState =
   | {
       kind: "focused";
       focusMode: "suggestion";
-      draftPath: string;
+      draftRouteAddress: string;
       expectedRouteAddress: string;
-      hoverPath: {
+      previewRoute: {
         source: "keyboard" | "pointer" | "touch";
         suggestionIndex: number;
-        draftPath: string;
+        routeAddress: string;
         expectedRouteAddress: string;
       };
       prefix: string;
@@ -226,7 +229,7 @@ type RouteEditorState =
 ```
 
 `expectedRouteAddress` is not a second display source. It is the route the editor expects TanStack
-to show, and the restore target for `hoverPath`.
+to show, and the restore target for `previewRoute`.
 
 Add another field only when a test proves it represents a non-derived fact.
 

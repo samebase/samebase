@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import { readRouteEditorNavigationApi, useNavigationControls } from "./useNavigationControls";
+import { useRouteUrlEditorPageHashSuggestions } from "./useRouteUrlEditorPageHashSuggestions";
 import {
   routeUrlEditorTouchSuggestionRowHeightPx,
   useRouteUrlEditorTouchScrollPicker,
@@ -60,7 +61,8 @@ function renderRouteUrlEditorNextSuggestionValue(suggestion: {
 }
 
 export function RouteUrlEditorNext() {
-  const vm = useRouteEditorVm({});
+  const pageHashKeys = useRouteUrlEditorPageHashSuggestions();
+  const vm = useRouteEditorVm({ pageHashKeys });
   const { canGoBack, canGoForward } = useNavigationControls();
   const touchScrollPicker = useRouteUrlEditorTouchScrollPicker({
     previewTouchSuggestion: vm.previewTouchSuggestion,
@@ -69,20 +71,22 @@ export function RouteUrlEditorNext() {
   });
   const resetTouchScrollPosition = touchScrollPicker.resetScrollPosition;
   const inputFocused = vm.state.kind === "focused";
-  const editingDraftPath =
-    vm.state.kind === "focused" && vm.state.focusMode === "editing" ? vm.state.draftPath : null;
+  const editingDraftRouteAddress =
+    vm.state.kind === "focused" && vm.state.focusMode === "editing"
+      ? vm.state.draftRouteAddress
+      : null;
   const activeTouchSuggestion =
     touchScrollPicker.active && vm.state.kind === "focused" && vm.state.focusMode === "suggestion"
-      ? (vm.suggestions[vm.state.hoverPath.suggestionIndex] ?? null)
+      ? (vm.suggestions[vm.state.previewRoute.suggestionIndex] ?? null)
       : null;
 
   useEffect(() => {
-    if (editingDraftPath === null) {
+    if (editingDraftRouteAddress === null) {
       return;
     }
 
     resetTouchScrollPosition();
-  }, [editingDraftPath, resetTouchScrollPosition]);
+  }, [editingDraftRouteAddress, resetTouchScrollPosition]);
 
   useEffect(() => {
     if (!vm.activeSuggestionId || touchScrollPicker.enabled) {
