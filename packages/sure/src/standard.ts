@@ -1,4 +1,5 @@
 import type { MetaNever, MetaObj, Sure } from "./core.ts";
+import { isObject } from "./object.ts";
 
 export interface StandardSchemaV1<Input = unknown, Output = Input> {
   readonly "~standard": StandardSchemaV1.Props<Input, Output>;
@@ -46,28 +47,9 @@ export declare namespace StandardSchemaV1 {
 }
 
 type StandardSchemaPath = NonNullable<StandardSchemaV1.Issue["path"]>;
-type PathBad = readonly [path: readonly PropertyKey[], bad: unknown];
+type StandardReportableSchema = Sure<unknown, unknown, unknown, MetaNever | MetaObj>;
 
-function isPathBad(value: unknown): value is PathBad {
-  return Array.isArray(value) && value.length === 2 && Array.isArray(value[0]);
-}
-
-function isPathBads(value: unknown): value is readonly PathBad[] {
-  return Array.isArray(value) && value.length > 0 && value.every(isPathBad);
-}
-
-function isFailureGroup(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    !(value instanceof Error)
-  );
-}
-
-function issueFromValue(value: unknown, path: StandardSchemaPath): StandardSchemaV1.Issue {
-  const message = value instanceof Error ? value.message : String(value);
-
+function issue(message: string, path: StandardSchemaPath): StandardSchemaV1.Issue {
   if (path.length) {
     return { message, path };
   }
@@ -75,38 +57,181 @@ function issueFromValue(value: unknown, path: StandardSchemaPath): StandardSchem
   return { message };
 }
 
+function issueFromValue(value: unknown, path: StandardSchemaPath): StandardSchemaV1.Issue {
+  return issue(value instanceof Error ? value.message : String(value), path);
+}
+
 function fallbackIssue(path: StandardSchemaPath): StandardSchemaV1.Issue {
-  if (path.length) {
-    return { message: "Validation failed", path };
+  return issue("Validation failed", path);
+}
+
+function isReportableSchema(value: unknown): value is StandardReportableSchema {
+  return typeof value === "function";
+}
+
+function readSchemaMeta(schema: StandardReportableSchema): Record<string, unknown> | null {
+  if (!("meta" in schema) || !isObject(schema.meta)) {
+    return null;
   }
 
-  return { message: "Validation failed" };
+  return schema.meta;
+}
+
+function reportObjectIssues(args: {
+  shape: Record<string, unknown>;
+  value: unknown;
+  input: unknown;
+  path: StandardSchemaPath;
+}): ReadonlyArray<StandardSchemaV1.Issue> {
+  if (!isObject(args.value)) {
+    return toStandardIssues(args.value, args.path);
+  }
+
+  if (Object.keys(args.value).length === 0) {
+    return [issue("not object", args.path)];
+  }
+
+  const inputObject: Record<string, unknown> = isObject(args.input) ? args.input : {};
+  const issues = Object.entries(args.value).flatMap(([key, childValue]) => {
+    const childSchema = args.shape[key];
+    const childPath = [...args.path, key];
+
+    if (isReportableSchema(childSchema)) {
+      return reportWithSchema({
+        schema: childSchema,
+        value: childValue,
+        input: inputObject[key],
+        path: childPath,
+      });
+    }
+
+    return toStandardIssues(childValue, childPath);
+  });
+
+  return issues.length ? issues : [fallbackIssue(args.path)];
+}
+
+function reportArrayIssues(args: {
+  childSchema: unknown;
+  value: unknown;
+  input: unknown;
+  path: StandardSchemaPath;
+}): ReadonlyArray<StandardSchemaV1.Issue> {
+  if (!Array.isArray(args.value)) {
+    return toStandardIssues(args.value, args.path);
+  }
+
+  if (args.value.length === 0) {
+    return [issue("not array", args.path)];
+  }
+
+  const inputArray = Array.isArray(args.input) ? args.input : [];
+  const issues = args.value.flatMap((childValue, index) => {
+    if (childValue === undefined) {
+      return [];
+    }
+
+    const childPath = [...args.path, index];
+
+    if (isReportableSchema(args.childSchema)) {
+      return reportWithSchema({
+        schema: args.childSchema,
+        value: childValue,
+        input: inputArray[index],
+        path: childPath,
+      });
+    }
+
+    return toStandardIssues(childValue, childPath);
+  });
+
+  return issues.length ? issues : [fallbackIssue(args.path)];
+}
+
+function reportTupleIssues(args: {
+  tupleSchema: unknown;
+  value: unknown;
+  input: unknown;
+  path: StandardSchemaPath;
+}): ReadonlyArray<StandardSchemaV1.Issue> {
+  if (!Array.isArray(args.value)) {
+    return toStandardIssues(args.value, args.path);
+  }
+
+  if (args.value.length === 0) {
+    return [issue("not tuple", args.path)];
+  }
+
+  const inputArray = Array.isArray(args.input) ? args.input : [];
+  const tupleItems = Array.isArray(args.tupleSchema) ? args.tupleSchema : [];
+  const issues = args.value.flatMap((childValue, index) => {
+    if (childValue === undefined) {
+      return [];
+    }
+
+    const childSchema = tupleItems[index];
+    const childPath = [...args.path, index];
+
+    if (isReportableSchema(childSchema)) {
+      return reportWithSchema({
+        schema: childSchema,
+        value: childValue,
+        input: inputArray[index],
+        path: childPath,
+      });
+    }
+
+    return toStandardIssues(childValue, childPath);
+  });
+
+  return issues.length ? issues : [fallbackIssue(args.path)];
+}
+
+function reportWithSchema(args: {
+  schema: StandardReportableSchema;
+  value: unknown;
+  input: unknown;
+  path: StandardSchemaPath;
+}): ReadonlyArray<StandardSchemaV1.Issue> {
+  // Only schema metadata knows when a bad object or array is a structural failure group.
+  // Leaf schemas can still return objects, arrays, null, or undefined as ordinary bad values.
+  const meta = readSchemaMeta(args.schema);
+
+  if (meta === null) {
+    return toStandardIssues(args.value, args.path);
+  }
+
+  if (meta["type"] === "optional") {
+    const childSchema = meta["schema"];
+
+    return isReportableSchema(childSchema)
+      ? reportWithSchema({ ...args, schema: childSchema })
+      : toStandardIssues(args.value, args.path);
+  }
+
+  if (meta["type"] === "object") {
+    const shape = meta["schema"];
+
+    return isObject(shape)
+      ? reportObjectIssues({ ...args, shape })
+      : toStandardIssues(args.value, args.path);
+  }
+
+  if (meta["type"] === "array") {
+    return reportArrayIssues({ ...args, childSchema: meta["schema"] });
+  }
+
+  if (meta["type"] === "tuple") {
+    return reportTupleIssues({ ...args, tupleSchema: meta["initial"] });
+  }
+
+  return toStandardIssues(args.value, args.path);
 }
 
 export function toStandardIssues(
   value: unknown,
   path: StandardSchemaPath = [],
 ): ReadonlyArray<StandardSchemaV1.Issue> {
-  if (isPathBads(value)) {
-    return value.flatMap(([itemPath, item]) => toStandardIssues(item, [...path, ...itemPath]));
-  }
-
-  if (Array.isArray(value)) {
-    const issues = value.flatMap((item, index) =>
-      item === undefined ? [] : toStandardIssues(item, [...path, index]),
-    );
-
-    return issues.length ? issues : [fallbackIssue(path)];
-  }
-
-  if (isFailureGroup(value)) {
-    const issues = Object.entries(value).flatMap(([key, item]) =>
-      item === undefined ? [] : toStandardIssues(item, [...path, key]),
-    );
-
-    return issues.length ? issues : [fallbackIssue(path)];
-  }
-
   return [issueFromValue(value, path)];
 }
 
@@ -123,7 +248,14 @@ export function standard<TBad, TGood, TMeta extends MetaNever | MetaObj>(
         return { value: result };
       }
 
-      return { issues: toStandardIssues(result) };
+      return {
+        issues: reportWithSchema({
+          schema,
+          value: result,
+          input: value,
+          path: [],
+        }),
+      };
     },
   };
 

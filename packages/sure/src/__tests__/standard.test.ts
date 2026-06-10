@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { StandardSchemaV1 as OfficialStandardSchemaV1 } from "@standard-schema/spec";
-import { array, bad, good, number, object, pure, standard, string } from "../index.ts";
+import { array, bad, good, number, object, pure, standard, string, tuple } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
 
 const personSchema = standard(
@@ -71,15 +71,33 @@ describe("standard", () => {
     });
   });
 
+  it("returns root object failures without a path", () => {
+    expect(standard(object({ name: string }))["~standard"].validate("not object")).toStrictEqual({
+      issues: [{ message: "not object" }],
+    });
+  });
+
   it("returns array failure paths", () => {
     expect(standard(array(number))["~standard"].validate([1, "two", 3])).toStrictEqual({
       issues: [{ message: "not number", path: [1] }],
     });
   });
 
-  it("returns a fallback issue when a bad payload has no leaf issue", () => {
+  it("returns root array failures without a path", () => {
     expect(standard(array(number))["~standard"].validate("not array")).toStrictEqual({
-      issues: [{ message: "Validation failed" }],
+      issues: [{ message: "not array" }],
+    });
+  });
+
+  it("returns tuple failure paths", () => {
+    expect(standard(tuple([number, string]))["~standard"].validate([1, 2])).toStrictEqual({
+      issues: [{ message: "not string", path: [1] }],
+    });
+  });
+
+  it("returns root tuple failures without a path", () => {
+    expect(standard(tuple([number, string]))["~standard"].validate("not tuple")).toStrictEqual({
+      issues: [{ message: "not tuple" }],
     });
   });
 });
