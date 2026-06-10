@@ -53,14 +53,14 @@ function isSure(value: unknown): value is StandardSure {
   return typeof value === "function";
 }
 
-export function toStandardIssues(
+function leafIssues(
   value: unknown,
   path: StandardSchemaPath = [],
 ): ReadonlyArray<StandardSchemaV1.Issue> {
-  return [{ message: value instanceof Error ? value.message : String(value), path }];
+  return [{ message: String(value), path }];
 }
 
-function toStandardIssuesForSchema(
+function issuesFor(
   schema: StandardSure,
   value: unknown,
   input: unknown,
@@ -69,18 +69,18 @@ function toStandardIssuesForSchema(
   const meta = "meta" in schema && isObject(schema.meta) ? schema.meta : undefined;
 
   if (!meta) {
-    return toStandardIssues(value, path);
+    return leafIssues(value, path);
   }
 
   const schemaMeta = meta["schema"];
 
   if (meta["type"] === "optional" && isSure(schemaMeta)) {
-    return toStandardIssuesForSchema(schemaMeta, value, input, path);
+    return issuesFor(schemaMeta, value, input, path);
   }
 
   if (meta["type"] === "object" && isObject(schemaMeta) && isObject(value)) {
     if (Object.keys(value).length === 0) {
-      return toStandardIssues("not object", path);
+      return leafIssues("not object", path);
     }
 
     const inputObject: Record<string, unknown> = isObject(input) ? input : {};
@@ -91,11 +91,9 @@ function toStandardIssuesForSchema(
       const childSchema = schemaMeta[key];
 
       if (isSure(childSchema)) {
-        issues.push(
-          ...toStandardIssuesForSchema(childSchema, badValue, inputObject[key], childPath),
-        );
+        issues.push(...issuesFor(childSchema, badValue, inputObject[key], childPath));
       } else {
-        issues.push(...toStandardIssues(badValue, childPath));
+        issues.push(...leafIssues(badValue, childPath));
       }
     }
 
@@ -104,7 +102,7 @@ function toStandardIssuesForSchema(
 
   if (meta["type"] === "array" && isSure(schemaMeta) && Array.isArray(value)) {
     if (value.length === 0) {
-      return toStandardIssues("not array", path);
+      return leafIssues("not array", path);
     }
 
     const inputArray = Array.isArray(input) ? input : [];
@@ -114,14 +112,14 @@ function toStandardIssuesForSchema(
       const childPath = [...path, key];
 
       if (badValue !== undefined) {
-        issues.push(...toStandardIssuesForSchema(schemaMeta, badValue, inputArray[key], childPath));
+        issues.push(...issuesFor(schemaMeta, badValue, inputArray[key], childPath));
         continue;
       }
 
       const [good, unsure] = schemaMeta(inputArray[key]);
 
       if (!good) {
-        issues.push(...toStandardIssuesForSchema(schemaMeta, unsure, inputArray[key], childPath));
+        issues.push(...issuesFor(schemaMeta, unsure, inputArray[key], childPath));
       }
     }
 
@@ -132,7 +130,7 @@ function toStandardIssuesForSchema(
 
   if (meta["type"] === "tuple" && Array.isArray(initial) && Array.isArray(value)) {
     if (value.length === 0) {
-      return toStandardIssues("not tuple", path);
+      return leafIssues("not tuple", path);
     }
 
     const inputArray = Array.isArray(input) ? input : [];
@@ -144,30 +142,28 @@ function toStandardIssuesForSchema(
 
       if (!isSure(childSchema)) {
         if (badValue !== undefined) {
-          issues.push(...toStandardIssues(badValue, childPath));
+          issues.push(...leafIssues(badValue, childPath));
         }
 
         continue;
       }
 
       if (badValue !== undefined) {
-        issues.push(
-          ...toStandardIssuesForSchema(childSchema, badValue, inputArray[key], childPath),
-        );
+        issues.push(...issuesFor(childSchema, badValue, inputArray[key], childPath));
         continue;
       }
 
       const [good, unsure] = childSchema(inputArray[key]);
 
       if (!good) {
-        issues.push(...toStandardIssuesForSchema(childSchema, unsure, inputArray[key], childPath));
+        issues.push(...issuesFor(childSchema, unsure, inputArray[key], childPath));
       }
     }
 
     return issues;
   }
 
-  return toStandardIssues(value, path);
+  return leafIssues(value, path);
 }
 
 export function standard<TBad, TGood, TMeta extends MetaNever | MetaObj>(
@@ -184,7 +180,7 @@ export function standard<TBad, TGood, TMeta extends MetaNever | MetaObj>(
       }
 
       return {
-        issues: toStandardIssuesForSchema(schema, result, value),
+        issues: issuesFor(schema, result, value),
       };
     },
   };
