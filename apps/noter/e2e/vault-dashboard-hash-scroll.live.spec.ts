@@ -163,6 +163,50 @@ async function scrollVaultDashboardBy(page: Page, scrollTopDelta: number): Promi
   );
 }
 
+async function setVaultDashboardScrollTop(page: Page, scrollTop: number): Promise<boolean> {
+  return page.evaluate(
+    ({ scrollTop, targetHash }) => {
+      const element = document.querySelector(
+        `[data-vault-dashboard-repository-hash-id="${CSS.escape(targetHash)}"]`,
+      );
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+
+      let currentElement = element.parentElement;
+      while (currentElement) {
+        const overflowY = window.getComputedStyle(currentElement).overflowY;
+        if (overflowY === "auto" || overflowY === "overlay" || overflowY === "scroll") {
+          currentElement.scrollTop = scrollTop;
+          return true;
+        }
+        currentElement = currentElement.parentElement;
+      }
+
+      return false;
+    },
+    { scrollTop, targetHash: TARGET_REPOSITORY_HASH },
+  );
+}
+
+async function selectRouteUrlEditorHashSuggestion(page: Page, hashId: string): Promise<void> {
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toBeVisible();
+  await displayInput.click();
+
+  const input = page.getByTestId("route-url-editor-input");
+  await expect(input).toBeVisible();
+  await input.press("End");
+  await input.press("#");
+
+  const hashSuggestion = page.getByRole("option", {
+    exact: true,
+    name: `#${hashId}`,
+  });
+  await expect(hashSuggestion).toBeVisible();
+  await hashSuggestion.click();
+}
+
 test.describe("vault dashboard hash scrolling", () => {
   test("updates the active vault hash while scrolling without snapping to the anchor", async ({
     page,
@@ -268,6 +312,68 @@ test.describe("vault dashboard hash scrolling", () => {
         name: `Remove Vault ${TARGET_REPOSITORY_FULL_NAME}`,
       }),
     ).toBeVisible();
+  });
+
+  test("route URL editor hash suggestions scroll to the selected vault", async ({
+    page,
+  }, testInfo) => {
+    test.slow();
+    test.skip(
+      testInfo.project.name !== "chromium-desktop",
+      "route URL editor hash click path is covered on the desktop workspace header",
+    );
+
+    await page.goto("/home", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/home");
+
+    const previousVault = vaultHashTarget(page, PREVIOUS_REPOSITORY_HASH);
+    const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
+
+    test.skip(
+      !(await waitForOptionalVisible(previousVault)),
+      `Vault hash ${PREVIOUS_REPOSITORY_HASH} was not visible on dashboard`,
+    );
+    test.skip(
+      !(await waitForOptionalVisible(targetVault)),
+      `Vault hash ${TARGET_REPOSITORY_HASH} was not visible on dashboard`,
+    );
+
+    expect(await setVaultDashboardScrollTop(page, 0)).toBe(true);
+    const beforeSelection = await measureVaultHashScroll(page);
+    test.skip(
+      beforeSelection.scrollportTop === null ||
+        beforeSelection.targetTop === null ||
+        beforeSelection.targetTop <= beforeSelection.scrollportTop + 2,
+      `Vault hash ${TARGET_REPOSITORY_HASH} was already aligned before selection`,
+    );
+
+    await selectRouteUrlEditorHashSuggestion(page, TARGET_REPOSITORY_HASH);
+
+    await expect
+      .poll(async () => {
+        const measurement = await measureVaultHashScroll(page);
+        return (
+          measurement.hash === `#${TARGET_REPOSITORY_HASH}` &&
+          measurement.scrollportTop !== null &&
+          measurement.targetTop !== null &&
+          Math.abs(measurement.targetTop - measurement.scrollportTop) <= 2
+        );
+      })
+      .toBe(true);
+
+    const beforeManualScroll = await measureVaultHashScroll(page);
+    expect(await scrollVaultDashboardBy(page, -40)).toBe(true);
+
+    await expect
+      .poll(async () => {
+        const measurement = await measureVaultHashScroll(page);
+        return (
+          beforeManualScroll.targetTop !== null &&
+          measurement.targetTop !== null &&
+          measurement.targetTop > beforeManualScroll.targetTop
+        );
+      })
+      .toBe(true);
   });
 
   test("clears delete mode when the current hash does not target a vault", async ({ page }) => {

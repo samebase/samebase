@@ -3034,6 +3034,7 @@ type VaultDashboardBodyProps = {
   deleteRepositoryFullName?: string;
   addConvexRepositoryFullName?: string;
   addCloudflareWorkerRepositoryFullName?: string;
+  locationHash: string;
   rootRouteSearch: RootRouteSearch;
   vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
@@ -3318,6 +3319,7 @@ export function VaultDashboardBody({
   deleteRepositoryFullName,
   addConvexRepositoryFullName,
   addCloudflareWorkerRepositoryFullName,
+  locationHash,
   rootRouteSearch,
   vaults,
   onOpenDeveloperToolsChange,
@@ -3327,20 +3329,20 @@ export function VaultDashboardBody({
   onResourceLinksOpenChange,
 }: VaultDashboardBodyProps) {
   const navigate = useNavigate();
-  const [repositoryLocationHash, setRepositoryLocationHash] = useState(() =>
-    typeof window === "undefined" ? "" : window.location.hash,
-  );
+  const [repositoryLocationHash, setRepositoryLocationHash] = useState(() => locationHash);
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
   const lastScrolledAddConvexRepositoryRef = useRef<string | null>(null);
   const lastScrolledAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
   const lastExplicitRepositoryHashScrollRef = useRef<string | null>(null);
+  const lastScrollTrackedRepositoryHashRef = useRef<string | null>(null);
   const replaceRepositoryLocationHash = useCallback((hashId: string) => {
     const nextHash = buildVaultDashboardRepositoryHashHref(hashId);
     if (window.location.hash === nextHash) {
       return;
     }
 
+    lastScrollTrackedRepositoryHashRef.current = hashId;
     window.history.replaceState(
       window.history.state,
       "",
@@ -3387,16 +3389,26 @@ export function VaultDashboardBody({
   );
 
   useEffect(() => {
+    // URL editor commits go through TanStack history, so they do not fire the
+    // browser hashchange event that native anchor clicks use.
+    const locationRepositoryHash = normalizeVaultDashboardRepositoryHash(locationHash);
+    const locationHashCameFromScrollTracking =
+      locationRepositoryHash !== null &&
+      locationRepositoryHash === lastScrollTrackedRepositoryHashRef.current;
+    if (!locationHashCameFromScrollTracking) {
+      setRepositoryLocationHash(locationHash);
+    }
+    lastScrollTrackedRepositoryHashRef.current = null;
+
     const syncRepositoryLocationHash = () => {
       setRepositoryLocationHash(window.location.hash);
     };
-    syncRepositoryLocationHash();
     window.addEventListener("hashchange", syncRepositoryLocationHash);
 
     return () => {
       window.removeEventListener("hashchange", syncRepositoryLocationHash);
     };
-  }, []);
+  }, [locationHash]);
 
   const syncActiveRepositoryHash = useCallback(
     (scrollport: HTMLElement) => {
@@ -6219,6 +6231,7 @@ export function VaultDashboard() {
       deleteRepositoryFullName={deleteRepositoryFullName}
       addConvexRepositoryFullName={addConvexRepositoryFullName}
       addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}
+      locationHash={location.hash}
       rootRouteSearch={rootRouteSearch}
       vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
