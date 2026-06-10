@@ -65,7 +65,7 @@ export type RouteAddressCursorContext =
       valuePrefix: string;
     };
 
-export type RouteAddressSearchSlot = {
+export type RouteAddressQuerySlotDraft = {
   routeAddress: string;
   selectionRouteIndex: number | null;
 };
@@ -199,7 +199,20 @@ export function readRouteAddressCursorContext(
   };
 }
 
-export function readRouteAddressWithSearchSlot(routeAddress: string): RouteAddressSearchSlot {
+/**
+Returns the route-address draft used when the URL editor opens the next query-key position.
+
+Examples:
+
+`/logo` becomes `/logo?`, with `selectionRouteIndex` after the `?`.
+
+`/logo#top` becomes `/logo?#top`, so the query slot is inserted before the hash.
+
+`/logo?dev#top` becomes `/logo?dev&#top`, so the next query key can be typed after `&`.
+
+`/` returns `selectionRouteIndex: null` because the root route does not open query suggestions.
+*/
+export function openRouteAddressQuerySlot(routeAddress: string): RouteAddressQuerySlotDraft {
   if (routeAddress === "/") {
     return {
       routeAddress,
@@ -232,10 +245,10 @@ export function replaceRouteAddressPath(routeAddress: string, path: string): str
   return `${path}${parts.search?.suffix ?? ""}${parts.hash?.suffix ?? ""}`;
 }
 
-export function replaceRouteAddressPathWithSearchSlot(
+export function replaceRouteAddressPathAndOpenQuerySlot(
   routeAddress: string,
   path: string,
-): RouteAddressSearchSlot {
+): RouteAddressQuerySlotDraft {
   const routeAddressWithPath = replaceRouteAddressPath(routeAddress, path);
   const parts = parseRouteAddress(routeAddressWithPath);
   if (parts.search !== null) {
@@ -248,7 +261,7 @@ export function replaceRouteAddressPathWithSearchSlot(
     };
   }
 
-  return readRouteAddressWithSearchSlot(routeAddressWithPath);
+  return openRouteAddressQuerySlot(routeAddressWithPath);
 }
 
 export function replaceRouteAddressHash(routeAddress: string, value: string): string {

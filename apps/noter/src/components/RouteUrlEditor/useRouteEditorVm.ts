@@ -13,7 +13,7 @@ import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { readRouteAddressReadiness, type RouteAddressReadiness } from "@/lib/routeAddress";
-import { readRouteAddressWithSearchSlot } from "@/lib/routeAddressParts";
+import { openRouteAddressQuerySlot } from "@/lib/routeAddressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   readRootRouteRedirectRouteAddress,
@@ -384,12 +384,12 @@ function readRouteAddressFocusedSelection(args: {
   prefix: string;
   selection: RouteAddressSelection;
 }): RouteAddressSelection {
-  const searchSlot = readRouteAddressWithSearchSlot(args.draftRouteAddress);
-  if (searchSlot.selectionRouteIndex === null) {
+  const querySlot = openRouteAddressQuerySlot(args.draftRouteAddress);
+  if (querySlot.selectionRouteIndex === null) {
     return args.selection;
   }
 
-  return readInputSelectionFromRouteIndex(args.prefix, searchSlot.selectionRouteIndex);
+  return readInputSelectionFromRouteIndex(args.prefix, querySlot.selectionRouteIndex);
 }
 
 function previewRouteEditorSuggestion(
@@ -459,9 +459,7 @@ function previewRouteEditorSuggestion(
 const routeEditorTransition: RouteEditorTransitionTable = {
   blurred: {
     clickedInput: (prev, event) => {
-      const draftRouteAddress = readRouteAddressWithSearchSlot(
-        event.committedRouteAddress,
-      ).routeAddress;
+      const draftRouteAddress = openRouteAddressQuerySlot(event.committedRouteAddress).routeAddress;
       const selection = readRouteAddressFocusedSelection({
         draftRouteAddress,
         prefix: prev.prefix,

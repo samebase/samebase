@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   appendRouteAddressSearchToken,
+  openRouteAddressQuerySlot,
   parseRouteAddress,
   readRouteAddressCursorContext,
-  readRouteAddressWithSearchSlot,
-  replaceRouteAddressPathWithSearchSlot,
+  replaceRouteAddressPathAndOpenQuerySlot,
   replaceRouteAddressSearchToken,
   replaceRouteAddressSearchValue,
 } from "./routeAddressParts";
@@ -223,35 +223,35 @@ describe("parseRouteAddress", () => {
 });
 
 describe("route address editing", () => {
-  it("adds a search slot before hashes", () => {
-    expect(readRouteAddressWithSearchSlot("/logo")).toEqual({
+  it("opens a query slot before hashes", () => {
+    expect(openRouteAddressQuerySlot("/logo")).toEqual({
       routeAddress: "/logo?",
       selectionRouteIndex: 6,
     });
-    expect(readRouteAddressWithSearchSlot("/logo#top")).toEqual({
+    expect(openRouteAddressQuerySlot("/logo#top")).toEqual({
       routeAddress: "/logo?#top",
       selectionRouteIndex: 6,
     });
-    expect(readRouteAddressWithSearchSlot("/logo?dev#top")).toEqual({
+    expect(openRouteAddressQuerySlot("/logo?dev#top")).toEqual({
       routeAddress: "/logo?dev&#top",
       selectionRouteIndex: 10,
     });
-    expect(readRouteAddressWithSearchSlot("/")).toEqual({
+    expect(openRouteAddressQuerySlot("/")).toEqual({
       routeAddress: "/",
       selectionRouteIndex: null,
     });
   });
 
   it("replaces paths while preserving search and hash text", () => {
-    expect(replaceRouteAddressPathWithSearchSlot("/terms#top", "/privacy")).toEqual({
+    expect(replaceRouteAddressPathAndOpenQuerySlot("/terms#top", "/privacy")).toEqual({
       routeAddress: "/privacy?#top",
       selectionRouteIndex: 9,
     });
-    expect(replaceRouteAddressPathWithSearchSlot("/terms?#top", "/privacy")).toEqual({
+    expect(replaceRouteAddressPathAndOpenQuerySlot("/terms?#top", "/privacy")).toEqual({
       routeAddress: "/privacy?#top",
       selectionRouteIndex: 9,
     });
-    expect(replaceRouteAddressPathWithSearchSlot("/terms?top=red-500#top", "/privacy")).toEqual({
+    expect(replaceRouteAddressPathAndOpenQuerySlot("/terms?top=red-500#top", "/privacy")).toEqual({
       routeAddress: "/privacy?top=red-500#top",
       selectionRouteIndex: null,
     });

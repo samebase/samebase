@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { readRouteAddressWithSearchSlot } from "../src/lib/routeAddressParts";
+import { openRouteAddressQuerySlot } from "../src/lib/routeAddressParts";
 
 async function openRouteUrlEditor(page: Page, route = "/privacy"): Promise<Locator> {
   await page.goto(route, {
@@ -89,7 +89,7 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
   const displayInput = await openRouteUrlEditor(page, route);
   const prefix = await readRouteAddressPrefix(page);
   const displayRouteAddress = readDisplayRouteAddress(route);
-  const focusedRouteAddress = readRouteAddressWithSearchSlot(displayRouteAddress).routeAddress;
+  const focusedRouteAddress = openRouteAddressQuerySlot(displayRouteAddress).routeAddress;
   const focusedInputValue = `${prefix}${focusedRouteAddress.slice(1)}`;
 
   await expect(displayInput).toHaveValue(displayRouteAddress);
@@ -128,7 +128,7 @@ async function focusRouteAddressInputDirectly(page: Page, route = "/privacy") {
   const displayInput = await openRouteUrlEditor(page, route);
   const prefix = await readRouteAddressPrefix(page);
   const displayRouteAddress = readDisplayRouteAddress(route);
-  const focusedRouteAddress = readRouteAddressWithSearchSlot(displayRouteAddress).routeAddress;
+  const focusedRouteAddress = openRouteAddressQuerySlot(displayRouteAddress).routeAddress;
   const focusedInputValue = `${prefix}${focusedRouteAddress.slice(1)}`;
 
   await expect(displayInput).toHaveValue(displayRouteAddress);
