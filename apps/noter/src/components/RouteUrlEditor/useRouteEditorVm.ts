@@ -303,6 +303,9 @@ type RouteEditorAction =
       brand: "blurInput";
     }
   | {
+      brand: "focusInput";
+    }
+  | {
       brand: "preventNativeEdit";
       context: RouteEditorPreventNativeEditContext;
     }
@@ -429,6 +432,10 @@ function previewRouteEditorSuggestion(
   const actions: RouteEditorAction[] = [
     { brand: "setInputSelection", selection, timing: "afterRender" },
   ];
+  if (event.source === "touch") {
+    actions.unshift({ brand: "focusInput" });
+  }
+
   if (expectedRouteAddress !== activeExpectedRouteAddress) {
     actions.push({
       brand: "replaceRoute",
@@ -1003,6 +1010,16 @@ export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEdit
     const actionHandlers: RouteEditorActionHandlerTable = {
       blurInput: () => {
         inputRef.current?.blur();
+      },
+      focusInput: () => {
+        const input = inputRef.current;
+        if (!input || (typeof document !== "undefined" && document.activeElement === input)) {
+          return;
+        }
+
+        // Touch scrolling can focus a suggestion row while the editor state stays focused.
+        // Keep the input focused so aria-activedescendant and queued selection updates stay valid.
+        input.focus({ preventScroll: true });
       },
       preventNativeEdit: (action) => {
         action.context.preventDefault();

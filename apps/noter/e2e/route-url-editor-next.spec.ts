@@ -416,6 +416,9 @@ test.describe("route URL editor touch scroll picker", () => {
       page.getByRole("option", { exact: true, name: "&background=stone-50" }),
     ).toBeVisible();
 
+    await page.getByRole("option", { exact: true, name: "&axis=screen-vertical" }).focus();
+    await expect(input).not.toBeFocused();
+
     await scrollTouchPickerToSuggestion(page, "&background=stone-50");
 
     await expect(input).toHaveValue(`${prefix}logo?depth=2&background=stone-50`);
