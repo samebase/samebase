@@ -290,21 +290,41 @@ function routePathTemplateMatchesPath(templatePath: string, path: string): boole
 
 function compareRoutePathSpecificity(left: string, right: string): number {
   const scoreDelta = readRoutePathSpecificity(right) - readRoutePathSpecificity(left);
-  return scoreDelta === 0 ? left.localeCompare(right) : scoreDelta;
+  if (scoreDelta !== 0) {
+    return scoreDelta;
+  }
+
+  const leftSegments = readRoutePathSegments(left);
+  const rightSegments = readRoutePathSegments(right);
+  const segmentCount = Math.max(leftSegments.length, rightSegments.length);
+  for (let index = 0; index < segmentCount; index += 1) {
+    const segmentDelta =
+      readRoutePathSegmentSpecificity(rightSegments[index]) -
+      readRoutePathSegmentSpecificity(leftSegments[index]);
+    if (segmentDelta !== 0) {
+      return segmentDelta;
+    }
+  }
+
+  return left.localeCompare(right);
 }
 
 function readRoutePathSpecificity(path: string): number {
   return readRoutePathSegments(path).reduce((score, segment) => {
-    if (segment === "$") {
-      return score - 1;
-    }
-
-    if (segment.startsWith("$")) {
-      return score + 1;
-    }
-
-    return score + 10;
+    return score + readRoutePathSegmentSpecificity(segment);
   }, 0);
+}
+
+function readRoutePathSegmentSpecificity(segment: string | undefined): number {
+  if (!segment) {
+    return -10;
+  }
+
+  if (segment === "$") {
+    return -1;
+  }
+
+  return segment.startsWith("$") ? 1 : 10;
 }
 
 function readRouteAddressSearchTokens(
