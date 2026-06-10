@@ -1,3 +1,19 @@
+/**
+Route address vocabulary:
+
+`routeAddress` = originless browser route text: pathname plus optional search and hash.
+Examples: `/logo`, `/logo?top=red-500`, `/logo?top=red-500#preview`.
+
+`routeAddress` never includes protocol, domain, or the editor's locked visible prefix.
+
+`path` = only the pathname before `?` or `#`. Example: `/logo`.
+
+`origin` = protocol and domain. Example: `https://noter.md`.
+
+`prefix` = the visible locked editor prefix, `${origin}/`.
+
+`inputValue` = `${prefix}${routeAddress.slice(1)}`.
+*/
 export type RouteAddressSearchToken =
   | {
       kind: "key";
