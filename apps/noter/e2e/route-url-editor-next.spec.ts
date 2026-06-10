@@ -114,6 +114,8 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
   }
 
   await expect(input).toHaveValue(focusedInputValue);
+  await input.focus();
+  await expect(input).toBeFocused();
 
   return {
     focusedInputValue,
@@ -152,6 +154,8 @@ async function focusRouteAddressInputDirectly(page: Page, route = "/privacy") {
   }
 
   await expect(input).toHaveValue(focusedInputValue);
+  await input.focus();
+  await expect(input).toBeFocused();
 
   return {
     input,
