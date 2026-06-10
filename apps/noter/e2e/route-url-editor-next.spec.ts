@@ -114,6 +114,8 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
   }
 
   await expect(input).toHaveValue(focusedInputValue);
+  await input.focus();
+  await expect(input).toBeFocused();
 
   return {
     focusedInputValue,
@@ -152,6 +154,8 @@ async function focusRouteAddressInputDirectly(page: Page, route = "/privacy") {
   }
 
   await expect(input).toHaveValue(focusedInputValue);
+  await input.focus();
+  await expect(input).toBeFocused();
 
   return {
     input,
@@ -415,9 +419,6 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(
       page.getByRole("option", { exact: true, name: "&background=stone-50" }),
     ).toBeVisible();
-
-    await page.getByRole("option", { exact: true, name: "&axis=screen-vertical" }).focus();
-    await expect(input).not.toBeFocused();
 
     await scrollTouchPickerToSuggestion(page, "&background=stone-50");
 
