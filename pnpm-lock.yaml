@@ -431,6 +431,9 @@ importers:
 
   packages/sure:
     devDependencies:
+      '@standard-schema/spec':
+        specifier: 1.1.0
+        version: 1.1.0
       ajv:
         specifier: 8.18.0
         version: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
