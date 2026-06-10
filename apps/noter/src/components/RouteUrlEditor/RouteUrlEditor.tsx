@@ -529,7 +529,7 @@ function readRouteUrlEditorBrowserHref(fallbackHref: string): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
-function readRouteUrlEditorSearchDraftSelectionRouteIndex(routeAddress: string): number {
+function readPreHashCursorIndex(routeAddress: string): number {
   return parseRouteAddress(routeAddress).hash?.start ?? routeAddress.length;
 }
 
@@ -550,7 +550,25 @@ function readRouteUrlEditorNextSearchDraft(routeAddress: string): string {
   return readRouteAddressWithSearchSlot(routeAddress).routeAddress;
 }
 
-function readRouteUrlEditorSearchContinuationDraft(args: {
+/**
+Returns the local route draft used to show query-key suggestions when the cursor is at the
+pre-hash end of the editable route.
+
+Examples:
+
+`/logo` with selectionRouteIndex `"/logo".length` returns `/logo?`.
+
+`/logo#pricing` with selectionRouteIndex `"/logo".length` returns `/logo?#pricing`.
+
+`/logo?dev` with selectionRouteIndex `"/logo?dev".length` returns `/logo?dev&`.
+
+`/logo?dev#pricing` with selectionRouteIndex `"/logo?dev".length` returns
+`/logo?dev&#pricing`.
+
+Returns `null` when the selection is inside the hash, in the middle of path/search text, or on `/`,
+because there is no next query-key slot to open.
+*/
+function readNextQuerySlotDraft(args: {
   routeAddress: string;
   selectionRouteIndex: number;
 }): string | null {
@@ -1103,7 +1121,7 @@ export function RouteUrlEditor() {
       selectionRouteIndex: number,
     ): RouteUrlEditorSearchContinuation | null => {
       const latestCurrentHref = currentHrefRef.current;
-      const draftRouteAddress = readRouteUrlEditorSearchContinuationDraft({
+      const draftRouteAddress = readNextQuerySlotDraft({
         routeAddress,
         selectionRouteIndex,
       });
@@ -1135,8 +1153,7 @@ export function RouteUrlEditor() {
         return null;
       }
 
-      const continuationSelectionRouteIndex =
-        readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress);
+      const continuationSelectionRouteIndex = readPreHashCursorIndex(draftRouteAddress);
       const continuationSuggestions = readRouteUrlEditorSuggestions({
         currentHref: latestCurrentHref,
         draftEditedSinceFocus: true,
@@ -1856,8 +1873,7 @@ export function RouteUrlEditor() {
           searchFollowup = {
             draftRouteAddress,
             kind: "search",
-            selectionRouteIndex:
-              readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+            selectionRouteIndex: readPreHashCursorIndex(draftRouteAddress),
           };
         }
       } else if (suggestion.kind === "search") {
@@ -1865,8 +1881,7 @@ export function RouteUrlEditor() {
           searchFollowup = {
             draftRouteAddress: nextDraftRouteAddress,
             kind: "search-value",
-            selectionRouteIndex:
-              readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
+            selectionRouteIndex: readPreHashCursorIndex(nextDraftRouteAddress),
           };
         } else {
           const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
@@ -1874,8 +1889,7 @@ export function RouteUrlEditor() {
             searchFollowup = {
               draftRouteAddress,
               kind: "search",
-              selectionRouteIndex:
-                readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+              selectionRouteIndex: readPreHashCursorIndex(draftRouteAddress),
             };
           }
         }
@@ -1884,8 +1898,7 @@ export function RouteUrlEditor() {
           searchFollowup = {
             draftRouteAddress: nextDraftRouteAddress,
             kind: "search-value",
-            selectionRouteIndex:
-              readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
+            selectionRouteIndex: readPreHashCursorIndex(nextDraftRouteAddress),
           };
         } else {
           const draftRouteAddress = readRouteUrlEditorNextSearchDraft(nextDraftRouteAddress);
@@ -1893,8 +1906,7 @@ export function RouteUrlEditor() {
             searchFollowup = {
               draftRouteAddress,
               kind: "search",
-              selectionRouteIndex:
-                readRouteUrlEditorSearchDraftSelectionRouteIndex(draftRouteAddress),
+              selectionRouteIndex: readPreHashCursorIndex(draftRouteAddress),
             };
           }
         }
@@ -1938,8 +1950,7 @@ export function RouteUrlEditor() {
               restoreRouteUrlEditorInputSelection({
                 input,
                 origin,
-                selectionRouteIndex:
-                  readRouteUrlEditorSearchDraftSelectionRouteIndex(nextDraftRouteAddress),
+                selectionRouteIndex: readPreHashCursorIndex(nextDraftRouteAddress),
               });
             }
           }
