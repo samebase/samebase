@@ -340,10 +340,6 @@ type RouteEditorTransitionTable = TypedTransitionTable<
   RouteEditorAction
 >;
 
-function readRouteAddressFocusedDraft(routeAddress: string): string {
-  return readRouteAddressWithSearchSlot(routeAddress).routeAddress;
-}
-
 function readInputSelectionFromRouteIndex(
   prefix: string,
   routeIndex: number,
@@ -463,7 +459,7 @@ function previewRouteEditorSuggestion(
 const routeEditorTransition: RouteEditorTransitionTable = {
   blurred: {
     clickedInput: (prev, event) => {
-      const draftPath = readRouteAddressFocusedDraft(event.committedRouteAddress);
+      const draftPath = readRouteAddressWithSearchSlot(event.committedRouteAddress).routeAddress;
       const selection = readRouteAddressFocusedSelection({
         draftPath,
         prefix: prev.prefix,
