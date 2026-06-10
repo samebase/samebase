@@ -46,6 +46,15 @@ export declare namespace StandardSchemaV1 {
 }
 
 type StandardSchemaPath = NonNullable<StandardSchemaV1.Issue["path"]>;
+type PathBad = readonly [path: readonly PropertyKey[], bad: unknown];
+
+function isPathBad(value: unknown): value is PathBad {
+  return Array.isArray(value) && value.length === 2 && Array.isArray(value[0]);
+}
+
+function isPathBads(value: unknown): value is readonly PathBad[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isPathBad);
+}
 
 function isFailureGroup(value: unknown): value is Record<string, unknown> {
   return (
@@ -78,6 +87,10 @@ export function toStandardIssues(
   value: unknown,
   path: StandardSchemaPath = [],
 ): ReadonlyArray<StandardSchemaV1.Issue> {
+  if (isPathBads(value)) {
+    return value.flatMap(([itemPath, item]) => toStandardIssues(item, [...path, ...itemPath]));
+  }
+
   if (Array.isArray(value)) {
     const issues = value.flatMap((item, index) =>
       item === undefined ? [] : toStandardIssues(item, [...path, index]),
