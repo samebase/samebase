@@ -77,5 +77,5 @@ Implemented behavior:
 - `apps/noter/e2e/app-workspace-visual.spec.ts` and
   `apps/noter/e2e/logo-iso-controls-visual.spec.ts` keep screenshot coverage aligned with the
   route-only blurred value while preserving full-URL `title` assertions.
-- Legacy `apps/noter/e2e/route-url-editor.spec.ts` covers the old single-input editor. It can stay
-  as legacy coverage unless the old component is removed or updated.
+- The legacy single-input Playwright suite was removed with the old component. Replacement
+  route-editor coverage lives in `apps/noter/e2e/route-url-editor-next.spec.ts`.

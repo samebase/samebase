@@ -67,6 +67,18 @@ describe("readRouteAddressReadiness", () => {
     });
   });
 
+  it("keeps hashes when applying complete suggested query values", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/logo",
+        draftRouteAddress: "/logo?leftFace=secondary#appearance",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/logo?leftFace=secondary#appearance",
+    });
+  });
+
   it("keeps partial paths local", () => {
     expect(
       readRouteAddressReadinessForTest({

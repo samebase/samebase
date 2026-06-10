@@ -22,10 +22,6 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-vi.mock("@/components/RouteUrlEditor/RouteUrlEditor", () => ({
-  RouteUrlEditor: () => <input data-testid="route-url-editor" readOnly value="/machines" />,
-}));
-
 describe("AppWorkspaceShell", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;

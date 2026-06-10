@@ -1,13 +1,12 @@
 # 109 Route URL Editor Rebuild Requirements
 
-This file is only for requirements we choose while rebuilding the URL editor. The long inventory is
-`specs/108_ROUTE_URL_EDITOR_REQUIREMENTS_INVENTORY_SPEC.md`.
+This file captures the requirements chosen while replacing the old URL editor.
 
 ## Current Decision
 
-The current production `RouteUrlEditor` behavior is the source of truth for draft parsing and
-instant route application. The rebuild should make that behavior easier to reason about with the
-typed FSM, not replace it with a slower Enter-only model.
+The current production `RouteUrlEditorNext` and `useRouteEditorVm` behavior is the source of truth
+for draft parsing and instant route application. The typed FSM exists to make that behavior easier
+to reason about, not to replace it with a slower Enter-only model.
 
 Ambient sidebar/link hover preview is not part of this rebuild. URL-editor-owned suggestion preview
 is still allowed because the focused editor owns the draft, suggestions, accept, cancel, and blur
@@ -289,7 +288,5 @@ These are not accepted behavior yet. Keep them visible so review findings do not
 
 - Decide how dynamic routes participate in suggestions. Current work ignores variable paths such as
   `/vault/$`; if we support them, query-param suggestions need template-aware route matching.
-- Decide whether the rebuilt editor supports hashes. If yes, committed route comparisons, readiness,
-  navigation, parsing, and suggestions must all include hash consistently.
 - Replace synthetic touch-scroll tests with more real mobile gestures if touch picker regressions
   keep hiding behind implementation-shaped tests.
