@@ -106,7 +106,7 @@ describe("RouteUrlEditorNext", () => {
     });
 
     const input = readRequiredInput();
-    expect(input.value.endsWith("/?prod-ui&#top")).toBe(true);
+    expect(input.value.endsWith("/?prod-ui#top")).toBe(true);
   });
 
   it("does not invent an empty hash marker", () => {
@@ -141,38 +141,33 @@ describe("RouteUrlEditorNext", () => {
     expect(readSuggestionValues()).toContain("#pricing");
   });
 
-  it("updates hash suggestions during focused input mousedown selection", async () => {
+  it("keeps a display click inside the current hash when focusing", async () => {
     const pageHashElement = document.createElement("section");
     pageHashElement.dataset.landingHeadingId = "pricing";
     document.body.append(pageHashElement);
 
-    const display = renderEditor(["/landing-preview#tldr"]);
+    const display = renderEditor(["/home#pricing"]);
 
     await act(async () => {
       await Promise.resolve();
     });
 
+    const displayHashCursorPosition = display.value.indexOf("#") + "#p".length;
+
     act(() => {
+      display.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
       display.focus();
+      display.setSelectionRange(displayHashCursorPosition, displayHashCursorPosition);
+      display.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const input = readRequiredInput();
-    const hashStart = input.value.indexOf("#");
+    const inputHashCursorPosition = input.value.indexOf("#") + "#p".length;
 
-    act(() => {
-      input.setSelectionRange(hashStart, hashStart);
-      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(readSuggestionValues()).not.toContain("#pricing");
-
-    await act(async () => {
-      input.setSelectionRange(hashStart + "#t".length, hashStart + "#t".length);
-      input.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
-      await new Promise((resolve) => window.setTimeout(resolve, 0));
-    });
-
+    expect(input.value.endsWith("/home#pricing")).toBe(true);
+    expect(input.selectionStart).toBe(inputHashCursorPosition);
     expect(readSuggestionValues()).toContain("#pricing");
+    expect(readSuggestionValues()).not.toContain("?dark");
   });
 
   it("updates page-owned hashes when matching document nodes are inserted", async () => {

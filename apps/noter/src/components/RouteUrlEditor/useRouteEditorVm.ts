@@ -13,7 +13,7 @@ import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import { readRouteAddressReadiness, type RouteAddressReadiness } from "@/lib/routeAddress";
-import { readRouteAddressWithSearchSlot } from "@/lib/routeAddressParts";
+import { parseRouteAddress, readRouteAddressWithSearchSlot } from "@/lib/routeAddressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   readRootRouteRedirectRouteAddress,
@@ -373,17 +373,70 @@ function readFocusedInputSelectionFromDisplaySelection(
 }
 
 /**
-Focus adds a query marker before any hash.
+Mouse clicks on the blurred display need to resolve against `committedRouteAddress`
+before the focused input adds the hidden origin prefix.
+*/
+function readFocusedInputSelectionFromDisplayPointer(args: {
+  committedRouteAddress: string;
+  event: MouseEvent<HTMLInputElement>;
+  prefix: string;
+}): RouteAddressSelection | null {
+  const input = args.event.currentTarget;
+  const style = window.getComputedStyle(input);
+  const measurement = document.createElement("span");
+  measurement.textContent = "M";
+  measurement.style.font = style.font;
+  measurement.style.position = "fixed";
+  measurement.style.visibility = "hidden";
+  measurement.style.whiteSpace = "pre";
+  document.body.append(measurement);
+  const characterWidth = measurement.getBoundingClientRect().width;
+  measurement.remove();
+  if (characterWidth <= 0) {
+    return null;
+  }
+
+  const inputRect = input.getBoundingClientRect();
+  const parsedPaddingLeft = Number.parseFloat(style.paddingLeft);
+  const paddingLeft = Number.isFinite(parsedPaddingLeft) ? parsedPaddingLeft : 0;
+  const displayPosition = Math.min(
+    Math.max(
+      Math.round(
+        (args.event.clientX - inputRect.left - paddingLeft + input.scrollLeft) / characterWidth,
+      ),
+      0,
+    ),
+    args.committedRouteAddress.length,
+  );
+
+  return readFocusedInputSelectionFromDisplaySelection(args.prefix, {
+    direction: "none",
+    end: displayPosition,
+    start: displayPosition,
+  });
+}
+
+/**
+Focus adds a query marker for routes without hashes.
 
 Example: focusing `/logo/raster-seams?depth=2` creates draftRouteAddress
 `/logo/raster-seams?depth=2&`. That empty `&` token should own suggestions
 immediately, so selection moves to the end of draftRouteAddress.
+
+Routes with hashes stay exact on focus. Inserting a query marker before `#` would
+shift the hash text under the pointer, so a click in `/home#tmp-something-2`
+could land on the inserted `?` instead of the hash.
 */
 function readRouteAddressFocusedSelection(args: {
   draftRouteAddress: string;
   prefix: string;
   selection: RouteAddressSelection;
 }): RouteAddressSelection {
+  const draftParts = parseRouteAddress(args.draftRouteAddress);
+  if (draftParts.hash !== null) {
+    return args.selection;
+  }
+
   const searchSlot = readRouteAddressWithSearchSlot(args.draftRouteAddress);
   if (searchSlot.selectionRouteIndex === null) {
     return args.selection;
@@ -459,9 +512,11 @@ function previewRouteEditorSuggestion(
 const routeEditorTransition: RouteEditorTransitionTable = {
   blurred: {
     clickedInput: (prev, event) => {
-      const draftRouteAddress = readRouteAddressWithSearchSlot(
-        event.committedRouteAddress,
-      ).routeAddress;
+      const committedParts = parseRouteAddress(event.committedRouteAddress);
+      const draftRouteAddress =
+        committedParts.hash === null
+          ? readRouteAddressWithSearchSlot(event.committedRouteAddress).routeAddress
+          : event.committedRouteAddress;
       const selection = readRouteAddressFocusedSelection({
         draftRouteAddress,
         prefix: prev.prefix,
@@ -997,6 +1052,7 @@ export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEdit
 
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLFormElement>(null);
+  const displayMouseFocusRef = useRef(false);
   const pendingRenderedInputSelectionRef = useRef<RouteAddressSelection | null>(null);
 
   const runRouteEditorTransitionActions = useCallback((actions: RouteEditorAction[]) => {
@@ -1219,6 +1275,10 @@ reload, so an unapplied suggestion preview does not become durable.
 
   const handleDisplayInputFocus = useCallback(
     (event: FocusEvent<HTMLInputElement>) => {
+      if (displayMouseFocusRef.current) {
+        return;
+      }
+
       sendEvent({
         type: "clickedInput",
         committedRouteAddress,
@@ -1231,15 +1291,30 @@ reload, so an unapplied suggestion preview does not become durable.
     [committedRouteAddress, prefix, sendEvent],
   );
 
+  const handleDisplayInputMouseDown = useCallback((event: MouseEvent<HTMLInputElement>) => {
+    if (event.button === 0) {
+      displayMouseFocusRef.current = true;
+    }
+  }, []);
+
   const handleDisplayInputClick = useCallback(
     (event: MouseEvent<HTMLInputElement>) => {
+      displayMouseFocusRef.current = false;
+      const pointerSelection = readFocusedInputSelectionFromDisplayPointer({
+        committedRouteAddress,
+        event,
+        prefix,
+      });
+
       sendEvent({
         type: "clickedInput",
         committedRouteAddress,
-        selection: readFocusedInputSelectionFromDisplaySelection(
-          prefix,
-          readRouteAddressSelection(event.currentTarget),
-        ),
+        selection:
+          pointerSelection ??
+          readFocusedInputSelectionFromDisplaySelection(
+            prefix,
+            readRouteAddressSelection(event.currentTarget),
+          ),
       });
     },
     [committedRouteAddress, prefix, sendEvent],
@@ -1283,30 +1358,6 @@ reload, so an unapplied suggestion preview does not become durable.
     [inputAlreadyOwnsTextEditing, replaceRoute, sendEvent],
   );
 
-  const handleInputMouseDown = useCallback(
-    (event: MouseEvent<HTMLInputElement>) => {
-      if (event.button !== 0) {
-        return;
-      }
-
-      const input = event.currentTarget;
-      window.setTimeout(() => {
-        if (document.activeElement !== input) {
-          return;
-        }
-
-        // Browser text controls can move the DOM selection during mousedown,
-        // before React sends onSelect. Keep suggestions tied to that live cursor
-        // so holding the mouse inside a hash does not keep pre-hash query rows.
-        sendEvent({
-          type: "changedSelection",
-          selection: readRouteAddressSelection(input),
-        });
-      }, 0);
-    },
-    [sendEvent],
-  );
-
   const handleRootBlur = useCallback(
     (event: FocusEvent<HTMLElement>) => {
       const nextFocusedElement = event.relatedTarget;
@@ -1314,6 +1365,7 @@ reload, so an unapplied suggestion preview does not become durable.
         return;
       }
 
+      displayMouseFocusRef.current = false;
       // Root blur is not a pointer event; suggestion clicks keep focus inside the
       // editor by preventing native mousedown blur.
       sendEvent({
@@ -1705,6 +1757,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       onChange: handleDisplayInputChange,
       onClick: handleDisplayInputClick,
       onFocus: handleDisplayInputFocus,
+      onMouseDown: handleDisplayInputMouseDown,
       title: inputValue,
       value: committedRouteAddress,
     }),
@@ -1713,6 +1766,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       handleDisplayInputChange,
       handleDisplayInputClick,
       handleDisplayInputFocus,
+      handleDisplayInputMouseDown,
       inputId,
       inputValue,
     ],
@@ -1731,7 +1785,6 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       onCut: handleInputCut,
       onKeyDown: handleInputKeyDown,
       onKeyUp: handleInputKeyUp,
-      onMouseDown: handleInputMouseDown,
       onPaste: handleInputPaste,
       onSelect: handleInputSelect,
       ref: inputRef,
@@ -1745,7 +1798,6 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       handleInputCut,
       handleInputKeyDown,
       handleInputKeyUp,
-      handleInputMouseDown,
       handleInputPaste,
       handleInputSelect,
       inputId,
