@@ -8,12 +8,12 @@ import {
 import {
   hasRouteAddressNonEmptySearchTokenAfter,
   isRouteAddressFinalSearchToken,
+  openRouteAddressQuerySlot,
   parseRouteAddress,
   readRouteAddressCursorContext,
   readRouteAddressSearchKeysOutsideToken,
-  readRouteAddressWithSearchSlot,
   replaceRouteAddressHash,
-  replaceRouteAddressPathWithSearchSlot,
+  replaceRouteAddressPathAndOpenQuerySlot,
   replaceRouteAddressSearchToken,
   replaceRouteAddressSearchValue,
   type RouteAddressSearchToken,
@@ -263,10 +263,10 @@ function readSearchRows(args: {
         tokenStart: selectedRoute.replacementTokenStart,
       });
     const finalSelectedRoute = shouldPromptForNextKey
-      ? readRouteAddressWithSearchSlot(selectedRoute.routeAddress)
+      ? openRouteAddressQuerySlot(selectedRoute.routeAddress)
       : { routeAddress: selectedRoute.routeAddress, selectionRouteIndex: null };
     const finalPreviewRoute = shouldPromptForNextKey
-      ? readRouteAddressWithSearchSlot(previewRoute.routeAddress)
+      ? openRouteAddressQuerySlot(previewRoute.routeAddress)
       : { routeAddress: previewRoute.routeAddress, selectionRouteIndex: null };
 
     suggestions.push({
@@ -347,7 +347,7 @@ function readValueRows(args: {
         token: args.token,
       });
       const finalSelectedRoute = shouldPromptForNextKey
-        ? readRouteAddressWithSearchSlot(selectedRouteAddress)
+        ? openRouteAddressQuerySlot(selectedRouteAddress)
         : { routeAddress: selectedRouteAddress, selectionRouteIndex: null };
 
       return {
@@ -412,7 +412,7 @@ function readValueRows(args: {
         token: args.token,
       });
       const finalSelectedRoute = shouldPromptForNextKey
-        ? readRouteAddressWithSearchSlot(selectedRouteAddress)
+        ? openRouteAddressQuerySlot(selectedRouteAddress)
         : { routeAddress: selectedRouteAddress, selectionRouteIndex: null };
       const shadeValue = value.slice(shadePrefix.length);
 
@@ -520,7 +520,7 @@ function readPathRows(args: {
   )
     .filter(canShowPathSuggestionRow)
     .map((suggestionRouteAddress) => {
-      const routeWithSearchSlot = replaceRouteAddressPathWithSearchSlot(
+      const routeWithQuerySlot = replaceRouteAddressPathAndOpenQuerySlot(
         args.routeAddress,
         suggestionRouteAddress,
       );
@@ -528,10 +528,10 @@ function readPathRows(args: {
       return {
         kind: "path",
         nextSelectionRouteIndex:
-          routeWithSearchSlot.selectionRouteIndex ?? routeWithSearchSlot.routeAddress.length,
-        previewRouteAddress: routeWithSearchSlot.routeAddress,
+          routeWithQuerySlot.selectionRouteIndex ?? routeWithQuerySlot.routeAddress.length,
+        previewRouteAddress: routeWithQuerySlot.routeAddress,
         previewSelectionRouteIndex: 1,
-        selectedRouteAddress: routeWithSearchSlot.routeAddress,
+        selectedRouteAddress: routeWithQuerySlot.routeAddress,
         value: suggestionRouteAddress,
       };
     });
