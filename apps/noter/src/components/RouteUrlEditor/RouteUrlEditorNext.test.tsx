@@ -141,6 +141,40 @@ describe("RouteUrlEditorNext", () => {
     expect(readSuggestionValues()).toContain("#pricing");
   });
 
+  it("updates hash suggestions during focused input mousedown selection", async () => {
+    const pageHashElement = document.createElement("section");
+    pageHashElement.dataset.landingHeadingId = "pricing";
+    document.body.append(pageHashElement);
+
+    const display = renderEditor(["/landing-preview#tldr"]);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      display.focus();
+    });
+
+    const input = readRequiredInput();
+    const hashStart = input.value.indexOf("#");
+
+    act(() => {
+      input.setSelectionRange(hashStart, hashStart);
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(readSuggestionValues()).not.toContain("#pricing");
+
+    await act(async () => {
+      input.setSelectionRange(hashStart + "#t".length, hashStart + "#t".length);
+      input.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(readSuggestionValues()).toContain("#pricing");
+  });
+
   it("updates page-owned hashes when matching document nodes are inserted", async () => {
     const display = renderEditor(["/#intro"]);
 

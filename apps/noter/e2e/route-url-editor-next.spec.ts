@@ -643,6 +643,72 @@ test("route URL editor keeps the cursor before a preserved hash after path selec
   await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
 });
 
+test("route URL editor updates hash suggestions while mouse is held inside a hash", async ({
+  page,
+}) => {
+  await page.goto("/landing-preview#tldr", {
+    waitUntil: "domcontentloaded",
+  });
+
+  const displayInput = page.getByTestId("route-url-editor-display");
+  await expect(displayInput).toBeVisible();
+  await expect(displayInput).toHaveValue(/#tldr$/);
+
+  await displayInput.click({ position: { x: 20, y: 10 } });
+
+  const input = page.getByTestId("route-url-editor-input");
+  await expect(input).toBeVisible();
+
+  const hashPoint = await input.evaluate((element) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor input.");
+    }
+
+    const hashIndex = element.value.indexOf("#");
+    if (hashIndex === -1) {
+      throw new Error("Expected focused route URL editor input hash.");
+    }
+
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Expected canvas context.");
+    }
+
+    context.font = style.font;
+
+    return {
+      x:
+        rect.left +
+        Number.parseFloat(style.paddingLeft || "0") +
+        (Number.parseFloat(style.textIndent || "0") || 0) +
+        context.measureText(element.value.slice(0, hashIndex + "#t".length)).width,
+      y: rect.top + rect.height / 2,
+    };
+  });
+
+  await page.mouse.move(hashPoint.x, hashPoint.y);
+  await page.mouse.down();
+
+  await expect(
+    page.getByRole("option", {
+      exact: true,
+      name: "#why-is-noter-md-free",
+    }),
+  ).toBeVisible();
+
+  await page.mouse.up();
+
+  await expect(
+    page.getByRole("option", {
+      exact: true,
+      name: "#why-is-noter-md-free",
+    }),
+  ).toBeVisible();
+});
+
 test("route URL editor puts the cursor in the selected value slot for middle query tokens", async ({
   page,
 }) => {

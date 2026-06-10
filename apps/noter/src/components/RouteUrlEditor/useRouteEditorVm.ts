@@ -1283,6 +1283,30 @@ reload, so an unapplied suggestion preview does not become durable.
     [inputAlreadyOwnsTextEditing, replaceRoute, sendEvent],
   );
 
+  const handleInputMouseDown = useCallback(
+    (event: MouseEvent<HTMLInputElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      const input = event.currentTarget;
+      window.setTimeout(() => {
+        if (document.activeElement !== input) {
+          return;
+        }
+
+        // Browser text controls can move the DOM selection during mousedown,
+        // before React sends onSelect. Keep suggestions tied to that live cursor
+        // so holding the mouse inside a hash does not keep pre-hash query rows.
+        sendEvent({
+          type: "changedSelection",
+          selection: readRouteAddressSelection(input),
+        });
+      }, 0);
+    },
+    [sendEvent],
+  );
+
   const handleRootBlur = useCallback(
     (event: FocusEvent<HTMLElement>) => {
       const nextFocusedElement = event.relatedTarget;
@@ -1707,6 +1731,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       onCut: handleInputCut,
       onKeyDown: handleInputKeyDown,
       onKeyUp: handleInputKeyUp,
+      onMouseDown: handleInputMouseDown,
       onPaste: handleInputPaste,
       onSelect: handleInputSelect,
       ref: inputRef,
@@ -1720,6 +1745,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       handleInputCut,
       handleInputKeyDown,
       handleInputKeyUp,
+      handleInputMouseDown,
       handleInputPaste,
       handleInputSelect,
       inputId,

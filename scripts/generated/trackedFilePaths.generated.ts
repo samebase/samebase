@@ -843,6 +843,7 @@ export const trackedFilePaths = [
   "apps/noter/src/components/vault-dashboard/VaultDashboardBranchSectionState.ts",
   "apps/noter/src/components/vault-dashboard/VaultDashboardBranchVisualFixture.tsx",
   "apps/noter/src/components/vault-dashboard/VaultDashboardChrome.tsx",
+  "apps/noter/src/components/vault-dashboard/VaultDashboardHashScroll.test.tsx",
   "apps/noter/src/components/vault-dashboard/VaultDashboardLogos.tsx",
   "apps/noter/src/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand.ts",
   "apps/noter/src/components/vault-dashboard/VaultDashboardVisualFixture.tsx",
