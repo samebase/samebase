@@ -1113,6 +1113,7 @@ export const trackedFilePaths = [
   "apps/noter/src/routes/vault-file.tsx",
   "apps/noter/src/routes/visual-fixture.tsx",
   "apps/noter/src/test/TestRouterProvider.tsx",
+  "apps/noter/src/test/reactActEnvironment.ts",
   "apps/noter/src/three-examples.d.ts",
   "apps/noter/src/visualFixture.tsx",
   "apps/noter/src/vite-env.d.ts",

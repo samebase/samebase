@@ -7872,7 +7872,7 @@ const schema106 = {
     type: { $ref: "#/components/schemas/DeploymentClass" },
   },
 };
-const schema107 = { type: "string", enum: ["s16", "s256", "d1024"] };
+const schema107 = { type: "string", enum: ["s16", "s256", "d1024", "d2048"] };
 function validate34(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
@@ -7951,7 +7951,7 @@ function validate34(
         }
         errors++;
       }
-      if (!(data1 === "s16" || data1 === "s256" || data1 === "d1024")) {
+      if (!(data1 === "s16" || data1 === "s256" || data1 === "d1024" || data1 === "d2048")) {
         const err4 = {
           instancePath: instancePath + "/type",
           schemaPath: "#/components/schemas/DeploymentClass/enum",

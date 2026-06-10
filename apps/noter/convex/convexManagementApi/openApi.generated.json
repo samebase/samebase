@@ -2298,7 +2298,7 @@
       },
       "DeploymentClass": {
         "type": "string",
-        "enum": ["s16", "s256", "d1024"]
+        "enum": ["s16", "s256", "d1024", "d2048"]
       },
       "DeploymentClassMetadata": {
         "type": "object",
