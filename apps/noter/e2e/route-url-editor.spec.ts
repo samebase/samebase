@@ -1365,6 +1365,7 @@ test("route URL editor keeps focus-only arrow previews anchored to all paths", a
   const origin = await page.evaluate(() => window.location.origin);
 
   const input = await editRouteUrl(page);
+  await input.press("Home");
   const rootOption = page.getByRole("option", { exact: true, name: "/" });
   const logoOption = page.getByRole("option", {
     exact: true,
