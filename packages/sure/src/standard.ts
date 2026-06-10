@@ -13,6 +13,18 @@ function leafIssues(
   return [{ message: String(value), path }];
 }
 
+function issuesFor<TBad>(
+  schema: Sure<TBad, unknown, unknown, MetaNever | MetaObj>,
+  value: TBad,
+  input: unknown,
+  path?: StandardSchemaPath,
+): ReadonlyArray<StandardSchemaV1.Issue>;
+function issuesFor(
+  schema: unknown,
+  value: unknown,
+  input: unknown,
+  path?: StandardSchemaPath,
+): ReadonlyArray<StandardSchemaV1.Issue>;
 function issuesFor(
   schema: unknown,
   value: unknown,
