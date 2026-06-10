@@ -49,14 +49,6 @@ export declare namespace StandardSchemaV1 {
 type StandardSchemaPath = NonNullable<StandardSchemaV1.Issue["path"]>;
 type StandardSure = Sure<unknown, unknown, unknown, MetaNever | MetaObj>;
 
-function standardIssue(message: string, path: StandardSchemaPath): StandardSchemaV1.Issue {
-  if (path.length) {
-    return { message, path };
-  }
-
-  return { message };
-}
-
 function isSure(value: unknown): value is StandardSure {
   return typeof value === "function";
 }
@@ -65,7 +57,7 @@ export function toStandardIssues(
   value: unknown,
   path: StandardSchemaPath = [],
 ): ReadonlyArray<StandardSchemaV1.Issue> {
-  return [standardIssue(value instanceof Error ? value.message : String(value), path)];
+  return [{ message: value instanceof Error ? value.message : String(value), path }];
 }
 
 function toStandardIssuesForSchema(
@@ -88,7 +80,7 @@ function toStandardIssuesForSchema(
 
   if (meta["type"] === "object" && isObject(schemaMeta) && isObject(value)) {
     if (Object.keys(value).length === 0) {
-      return [standardIssue("not object", path)];
+      return toStandardIssues("not object", path);
     }
 
     const inputObject: Record<string, unknown> = isObject(input) ? input : {};
@@ -112,7 +104,7 @@ function toStandardIssuesForSchema(
 
   if (meta["type"] === "array" && isSure(schemaMeta) && Array.isArray(value)) {
     if (value.length === 0) {
-      return [standardIssue("not array", path)];
+      return toStandardIssues("not array", path);
     }
 
     const inputArray = Array.isArray(input) ? input : [];
@@ -140,7 +132,7 @@ function toStandardIssuesForSchema(
 
   if (meta["type"] === "tuple" && Array.isArray(initial) && Array.isArray(value)) {
     if (value.length === 0) {
-      return [standardIssue("not tuple", path)];
+      return toStandardIssues("not tuple", path);
     }
 
     const inputArray = Array.isArray(input) ? input : [];

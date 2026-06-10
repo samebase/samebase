@@ -51,7 +51,7 @@ describe("standard", () => {
 
   it("returns a primitive failure as an issue", () => {
     expect(standard(string)["~standard"].validate(1)).toStrictEqual({
-      issues: [{ message: "not string" }],
+      issues: [{ message: "not string", path: [] }],
     });
   });
 
@@ -84,9 +84,9 @@ describe("standard", () => {
     });
   });
 
-  it("returns root object failures without a path", () => {
+  it("returns root object failures with an empty path", () => {
     expect(standard(object({ name: string }))["~standard"].validate("not object")).toStrictEqual({
-      issues: [{ message: "not object" }],
+      issues: [{ message: "not object", path: [] }],
     });
   });
 
@@ -106,9 +106,9 @@ describe("standard", () => {
     });
   });
 
-  it("returns root array failures without a path", () => {
+  it("returns root array failures with an empty path", () => {
     expect(standard(array(number))["~standard"].validate("not array")).toStrictEqual({
-      issues: [{ message: "not array" }],
+      issues: [{ message: "not array", path: [] }],
     });
   });
 
@@ -118,9 +118,9 @@ describe("standard", () => {
     });
   });
 
-  it("returns root tuple failures without a path", () => {
+  it("returns root tuple failures with an empty path", () => {
     expect(standard(tuple([number, string]))["~standard"].validate("not tuple")).toStrictEqual({
-      issues: [{ message: "not tuple" }],
+      issues: [{ message: "not tuple", path: [] }],
     });
   });
 });
