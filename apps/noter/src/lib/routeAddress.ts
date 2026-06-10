@@ -44,11 +44,8 @@ type RouteAddressRouteUpdateDraftInput = {
   viewer: NoterRoutePermissionViewer;
 };
 
-type RouteAddressSearchTokenView = {
-  hasValueSeparator: boolean;
-  key: string;
-  routeToken: RouteAddressSearchToken;
-  value: string;
+type RouteAddressSearchParamSuggestionsInput = RouteAddressRouteUpdateDraftInput & {
+  path: string;
 };
 
 /**
@@ -109,10 +106,13 @@ function readRouteAddressRouteUpdateDraft(args: RouteAddressRouteUpdateDraftInpu
     return args.draftRouteAddress;
   }
 
-  const searchParamSuggestions = readRouteAddressSearchParamSuggestions(args);
-  const routeUpdateSearchTokens = readRouteAddressSearchTokens(args.draftRouteAddress)
+  const searchParamSuggestions = readRouteAddressSearchParamSuggestions({
+    ...args,
+    path: parts.path,
+  });
+  const routeUpdateSearchTokens = parts.search.tokens
     .filter((token) => isRouteAddressSearchTokenReady(token, searchParamSuggestions))
-    .map((token) => readRouteAddressSearchTokenText(args.draftRouteAddress, token.routeToken))
+    .map((token) => readRouteAddressSearchTokenText(args.draftRouteAddress, token))
     .filter((tokenText) => tokenText.length > 0);
   const search = routeUpdateSearchTokens.length > 0 ? `?${routeUpdateSearchTokens.join("&")}` : "";
   const hash = parts.hash?.suffix ?? "";
@@ -121,11 +121,11 @@ function readRouteAddressRouteUpdateDraft(args: RouteAddressRouteUpdateDraftInpu
 }
 
 function isRouteAddressSearchTokenReady(
-  token: RouteAddressSearchTokenView,
+  token: RouteAddressSearchToken,
   suggestions: readonly NoterRouteSearchParamSuggestion[],
 ): boolean {
   const suggestion = suggestions.find((value) => value.key === token.key);
-  if (!token.hasValueSeparator) {
+  if (token.kind === "key") {
     if (suggestion?.searchParamKind === "presence") {
       return true;
     }
@@ -164,11 +164,10 @@ function readRouteAddressValueSuggestions(
 }
 
 function readRouteAddressSearchParamSuggestions(
-  args: RouteAddressRouteUpdateDraftInput,
+  args: RouteAddressSearchParamSuggestionsInput,
 ): readonly NoterRouteSearchParamSuggestion[] {
-  const parts = parseRouteAddress(args.draftRouteAddress);
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
-    path: parts.path,
+    path: args.path,
     routeSurface: readRouteUrlPathSuggestionSurface({
       currentHref: args.currentRouteAddress,
       draftHref: args.draftRouteAddress,
@@ -177,40 +176,15 @@ function readRouteAddressSearchParamSuggestions(
     routesByPath: args.routesByPath,
     viewer: args.viewer,
   });
-
-  return uniqueRouteSearchParamSuggestions([
-    ...readAccessibleRouteSearchParamSuggestions(routeSearchParamSuggestions, args.viewer),
-    ...readAccessibleRouteSearchParamSuggestions(
-      ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
-      args.viewer,
-    ),
-  ]).sort(compareRouteSearchParamSuggestions);
-}
-
-function readAccessibleRouteSearchParamSuggestions(
-  suggestions: readonly NoterRouteSearchParamSuggestion[],
-  viewer: NoterRoutePermissionViewer,
-): NoterRouteSearchParamSuggestion[] {
-  return suggestions.filter((suggestion) =>
-    canAccessNoterRoutePermission(suggestion.permission, viewer),
-  );
-}
-
-function compareRouteSearchParamSuggestions(
-  left: NoterRouteSearchParamSuggestion,
-  right: NoterRouteSearchParamSuggestion,
-): number {
-  return left.key.localeCompare(right.key);
-}
-
-function uniqueRouteSearchParamSuggestions(
-  values: readonly NoterRouteSearchParamSuggestion[],
-): NoterRouteSearchParamSuggestion[] {
+  const searchParamSuggestions = [
+    ...routeSearchParamSuggestions,
+    ...ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
+  ];
   const keys = new Set<string>();
   const uniqueValues: NoterRouteSearchParamSuggestion[] = [];
 
-  for (const value of values) {
-    if (keys.has(value.key)) {
+  for (const value of searchParamSuggestions) {
+    if (!canAccessNoterRoutePermission(value.permission, args.viewer) || keys.has(value.key)) {
       continue;
     }
 
@@ -325,19 +299,6 @@ function readRoutePathSegmentSpecificity(segment: string | undefined): number {
   }
 
   return segment.startsWith("$") ? 1 : 10;
-}
-
-function readRouteAddressSearchTokens(
-  routeAddress: string,
-): readonly RouteAddressSearchTokenView[] {
-  return (
-    parseRouteAddress(routeAddress).search?.tokens.map((routeToken) => ({
-      hasValueSeparator: routeToken.kind === "value",
-      key: routeToken.key,
-      routeToken,
-      value: routeToken.kind === "value" ? routeToken.value : "",
-    })) ?? []
-  );
 }
 
 function readRoutePathSegments(path: string): readonly string[] {
