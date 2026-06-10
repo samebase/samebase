@@ -1,50 +1,8 @@
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { MetaNever, MetaObj, Sure } from "./core.ts";
 import { isObject } from "./object.ts";
 
-export interface StandardSchemaV1<Input = unknown, Output = Input> {
-  readonly "~standard": StandardSchemaV1.Props<Input, Output>;
-}
-
-export declare namespace StandardSchemaV1 {
-  export interface Props<Input = unknown, Output = Input> {
-    readonly version: 1;
-    readonly vendor: string;
-    readonly types?: Types<Input, Output> | undefined;
-    readonly validate: (
-      value: unknown,
-      options?: Options,
-    ) => Result<Output> | Promise<Result<Output>>;
-  }
-
-  export interface Types<Input = unknown, Output = Input> {
-    readonly input: Input;
-    readonly output: Output;
-  }
-
-  export type Result<Output> = SuccessResult<Output> | FailureResult;
-
-  export interface SuccessResult<Output> {
-    readonly value: Output;
-    readonly issues?: undefined;
-  }
-
-  export interface FailureResult {
-    readonly issues: ReadonlyArray<Issue>;
-  }
-
-  export interface Issue {
-    readonly message: string;
-    readonly path?: ReadonlyArray<PropertyKey | PathSegment> | undefined;
-  }
-
-  export interface PathSegment {
-    readonly key: PropertyKey;
-  }
-
-  export interface Options {
-    readonly libraryOptions?: Record<string, unknown> | undefined;
-  }
-}
+export type { StandardSchemaV1 } from "@standard-schema/spec";
 
 type StandardSchemaPath = NonNullable<StandardSchemaV1.Issue["path"]>;
 
