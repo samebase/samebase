@@ -55,6 +55,19 @@ describe("standard", () => {
     });
   });
 
+  it("does not read leaf object failures as child paths", () => {
+    const leafBad = { toString: () => "leaf object failure" };
+    const schema = standard(
+      object({
+        value: pure((value) => (value === "ok" ? good(value) : bad(leafBad))),
+      }),
+    );
+
+    expect(schema["~standard"].validate({ value: "not ok" })).toStrictEqual({
+      issues: [{ message: "leaf object failure", path: ["value"] }],
+    });
+  });
+
   it("returns object failure paths", () => {
     expect(
       officialSchema["~standard"].validate({
@@ -80,6 +93,16 @@ describe("standard", () => {
   it("returns array failure paths", () => {
     expect(standard(array(number))["~standard"].validate([1, "two", 3])).toStrictEqual({
       issues: [{ message: "not number", path: [1] }],
+    });
+  });
+
+  it("returns array failure paths when a child failure is undefined", () => {
+    const schema = standard(
+      array(pure((value) => (value === "ok" ? good(value) : bad(undefined)))),
+    );
+
+    expect(schema["~standard"].validate(["not ok"])).toStrictEqual({
+      issues: [{ message: "undefined", path: [0] }],
     });
   });
 
