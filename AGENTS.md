@@ -163,6 +163,10 @@ Key domain entities:
 - When passing inline validators to `pure(...)` or `sure(...)`, omit redundant `unknown` parameter
   annotations; let the helper infer the input type unless a narrower input is intentional.
 - When a schema exists, derive the TypeScript type from it instead of duplicating a manual type.
+- Avoid "enterprise TypeScript" scaffolding: args-object plumbing, mirror helper types, visitor
+  frameworks, wrapper names, and fallback branches that make small local logic read like a generic
+  subsystem. Copy the direct style of the surrounding code first. Keep a new abstraction only when
+  it removes real current duplication or protects an invariant that current callsites depend on.
 - Before adding a helper, formatter, wrapper, class, or generated artifact, ask whether the final
   design still needs it. Delete-first is the default. Keep the native library value or error shape
   unless a production caller needs a different shape; do not add branches or adapters whose outputs
