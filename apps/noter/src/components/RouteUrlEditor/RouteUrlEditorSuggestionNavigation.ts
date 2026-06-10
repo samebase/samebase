@@ -57,25 +57,3 @@ export function readNextRouteEditorSuggestionIndex(args: {
     ? args.suggestionCount - 1
     : (args.activeSuggestionIndex - 1 + args.suggestionCount) % args.suggestionCount;
 }
-
-export function readNextActiveRouteEditorSuggestion(args: {
-  activeSuggestionIndex: number | null;
-  arrowKey: RouteEditorSuggestionArrowKey;
-  listboxId: string;
-  suggestions: readonly Suggestion[];
-}): ActiveRouteEditorSuggestion | null {
-  const nextIndex = readNextRouteEditorSuggestionIndex({
-    activeSuggestionIndex: args.activeSuggestionIndex,
-    arrowKey: args.arrowKey,
-    suggestionCount: args.suggestions.length,
-  });
-  if (nextIndex === null) {
-    return null;
-  }
-
-  return readActiveRouteEditorSuggestion({
-    activeSuggestionIndex: nextIndex,
-    listboxId: args.listboxId,
-    suggestions: args.suggestions,
-  });
-}

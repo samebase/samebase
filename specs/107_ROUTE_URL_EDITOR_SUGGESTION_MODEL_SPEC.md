@@ -4,13 +4,14 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-05-27
+- Last updated: 2026-06-10
 - Depends on:
   - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
   - `apps/noter/src/components/RouteUrlEditor/useRouteEditorVm.ts`
   - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorSuggestions.ts`
-  - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditor.tsx`
-  - `apps/noter/src/lib/routeUrlEditorSuggestions.ts`
+  - `apps/noter/src/components/RouteUrlEditor/useRouteUrlEditorPageHashSuggestions.ts`
+  - `apps/noter/src/lib/routeAddress.ts`
+  - `apps/noter/src/lib/routeUrlEditorHashSuggestions.ts`
   - `apps/noter/src/lib/routeSearchParamMetadata.ts`
   - `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`
 

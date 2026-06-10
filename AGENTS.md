@@ -487,9 +487,15 @@ Detailed flow rules live in `docs/agent-workflows.md`.
 - When a PR originates from research or automation work, include `First Message` and
   `Requested Codex Runtime`.
 - Keep the PR title and description updated as scope changes.
+- When the user says `update PR`, update the GitHub PR metadata with `gh pr edit`: title first, then
+  description if scope, verification, rebase, or review status changed. This shorthand does not mean
+  rewriting branch commit subjects.
 - Prefix every PR title with the projected landing-page build label, such as `v1146:`, and refresh
   it after creating, updating, rebasing, marking ready, or whenever `origin/main` advances. Treat
   the label as provisional until merge.
+- For normal PR title updates, compute the provisional `v<N>:` label from the latest `origin/main`
+  mainline label plus one. Do not infer the correct PR label from existing branch commit subjects,
+  stale PR titles, or the branch name.
 - Do not consider `create pr`, `create draft`, proactive PR creation, PR readiness updates, `ship`,
   or `squash` complete until the current GitHub PR title starts with the freshly computed `v<N>:`
   label for the latest `origin/main`.
