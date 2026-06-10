@@ -975,8 +975,9 @@ function readRouteUrlEditorHashSuggestions(args: {
     typeof routePath === "string" ? (ROUTE_URL_HASH_KEYS_BY_PATH[routePath] ?? []) : [];
   const currentRouteParts = parseRouteAddress(args.currentHref);
   const documentHashKeys = parts.path === currentRouteParts.path ? args.hashKeys : [];
+  const hashKeys = new Set([...routeHashKeys, ...documentHashKeys]);
 
-  return uniqueStrings([...routeHashKeys, ...documentHashKeys])
+  return [...hashKeys]
     .filter((key) => key.startsWith(hashDraft))
     .map((key) => ({
       key,
@@ -1213,8 +1214,4 @@ function formatRouteUrlEditorSearchSuggestionValue(
 
 function readRoutePathSegments(path: string): readonly string[] {
   return path.slice(1).split("/");
-}
-
-function uniqueStrings(values: readonly string[]): string[] {
-  return [...new Set(values)];
 }

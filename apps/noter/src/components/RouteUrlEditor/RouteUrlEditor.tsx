@@ -582,15 +582,8 @@ function readNextQuerySlotDraft(args: {
     return null;
   }
 
-  if (parts.search === null) {
-    if (args.routeAddress === "/") {
-      return null;
-    }
-
-    return readRouteUrlEditorSearchTriggerDraft(args.routeAddress);
-  }
-
-  return readRouteUrlEditorNextSearchDraft(args.routeAddress);
+  const searchSlot = readRouteAddressWithSearchSlot(args.routeAddress);
+  return searchSlot.selectionRouteIndex === null ? null : searchSlot.routeAddress;
 }
 
 function readRouteUrlEditorPointerSelectionRouteIndex(args: {

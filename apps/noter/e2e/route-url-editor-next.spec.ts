@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { readRouteAddressWithSearchSlot } from "../src/lib/routeAddressParts";
 
 async function openRouteUrlEditor(page: Page, route = "/privacy"): Promise<Locator> {
   await page.goto(route, {
@@ -17,24 +18,6 @@ async function readRouteAddressPrefix(page: Page): Promise<string> {
 
 function readDisplayRouteAddress(route: string): string {
   return route.startsWith("/") ? route : `/${route}`;
-}
-
-function readFocusedRouteAddress(route: string): string {
-  const routeAddress = route.startsWith("/") ? route.slice(1) : route;
-  if (routeAddress === "") {
-    return routeAddress;
-  }
-
-  const hashStart = routeAddress.indexOf("#");
-  const searchEnd = hashStart === -1 ? routeAddress.length : hashStart;
-  const routeAddressBeforeHash = routeAddress.slice(0, searchEnd);
-  const hash = routeAddress.slice(searchEnd);
-
-  if (routeAddressBeforeHash.endsWith("?") || routeAddressBeforeHash.endsWith("&")) {
-    return routeAddress;
-  }
-
-  return `${routeAddressBeforeHash}${routeAddressBeforeHash.includes("?") ? "&" : "?"}${hash}`;
 }
 
 async function setInputSelection(
@@ -106,7 +89,8 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
   const displayInput = await openRouteUrlEditor(page, route);
   const prefix = await readRouteAddressPrefix(page);
   const displayRouteAddress = readDisplayRouteAddress(route);
-  const focusedInputValue = `${prefix}${readFocusedRouteAddress(route)}`;
+  const focusedRouteAddress = readRouteAddressWithSearchSlot(displayRouteAddress).routeAddress;
+  const focusedInputValue = `${prefix}${focusedRouteAddress.slice(1)}`;
 
   await expect(displayInput).toHaveValue(displayRouteAddress);
   const input = page.getByTestId("route-url-editor-input");
@@ -142,7 +126,8 @@ async function focusRouteAddressInputDirectly(page: Page, route = "/privacy") {
   const displayInput = await openRouteUrlEditor(page, route);
   const prefix = await readRouteAddressPrefix(page);
   const displayRouteAddress = readDisplayRouteAddress(route);
-  const focusedInputValue = `${prefix}${readFocusedRouteAddress(route)}`;
+  const focusedRouteAddress = readRouteAddressWithSearchSlot(displayRouteAddress).routeAddress;
+  const focusedInputValue = `${prefix}${focusedRouteAddress.slice(1)}`;
 
   await expect(displayInput).toHaveValue(displayRouteAddress);
 

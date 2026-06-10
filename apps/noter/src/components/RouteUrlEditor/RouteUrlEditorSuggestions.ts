@@ -471,7 +471,7 @@ function readHashRows(args: {
   const pageHashKeys =
     routeAddressParts.path === currentRouteAddressParts.path ? args.pageHashKeys : [];
 
-  return uniqueStrings([
+  const hashKeys = new Set([
     ...readRouteHashKeys({
       origin,
       routeAddress: args.routeAddress,
@@ -479,7 +479,9 @@ function readHashRows(args: {
       viewerIsAdmin: args.viewerIsAdmin,
     }),
     ...pageHashKeys,
-  ]).map((key): Suggestion => {
+  ]);
+
+  return [...hashKeys].map((key): Suggestion => {
     const routeAddress = replaceRouteAddressHash(args.routeAddress, key);
 
     return {
@@ -605,8 +607,4 @@ export function readSuggestions(args: {
     valuePrefix: cursorContext.valuePrefix,
     viewerIsAdmin: args.viewerIsAdmin,
   });
-}
-
-function uniqueStrings(values: readonly string[]): string[] {
-  return [...new Set(values)];
 }
