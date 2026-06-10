@@ -289,7 +289,8 @@ function routePathTemplateMatchesPath(templatePath: string, path: string): boole
 }
 
 function compareRoutePathSpecificity(left: string, right: string): number {
-  return readRoutePathSpecificity(right) - readRoutePathSpecificity(left);
+  const scoreDelta = readRoutePathSpecificity(right) - readRoutePathSpecificity(left);
+  return scoreDelta === 0 ? left.localeCompare(right) : scoreDelta;
 }
 
 function readRoutePathSpecificity(path: string): number {
