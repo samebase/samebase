@@ -47,11 +47,6 @@ export declare namespace StandardSchemaV1 {
 }
 
 type StandardSchemaPath = NonNullable<StandardSchemaV1.Issue["path"]>;
-type StandardSure = Sure<unknown, unknown, unknown, MetaNever | MetaObj>;
-
-function isSure(value: unknown): value is StandardSure {
-  return typeof value === "function";
-}
 
 function leafIssues(
   value: unknown,
@@ -61,11 +56,15 @@ function leafIssues(
 }
 
 function issuesFor(
-  schema: StandardSure,
+  schema: unknown,
   value: unknown,
   input: unknown,
   path: StandardSchemaPath = [],
 ): ReadonlyArray<StandardSchemaV1.Issue> {
+  if (typeof schema !== "function") {
+    return leafIssues(value, path);
+  }
+
   const meta = "meta" in schema && isObject(schema.meta) ? schema.meta : undefined;
 
   if (!meta) {
@@ -74,7 +73,7 @@ function issuesFor(
 
   const schemaMeta = meta["schema"];
 
-  if (meta["type"] === "optional" && isSure(schemaMeta)) {
+  if (meta["type"] === "optional") {
     return issuesFor(schemaMeta, value, input, path);
   }
 
@@ -90,17 +89,13 @@ function issuesFor(
       const childPath = [...path, key];
       const childSchema = schemaMeta[key];
 
-      if (isSure(childSchema)) {
-        issues.push(...issuesFor(childSchema, badValue, inputObject[key], childPath));
-      } else {
-        issues.push(...leafIssues(badValue, childPath));
-      }
+      issues.push(...issuesFor(childSchema, badValue, inputObject[key], childPath));
     }
 
     return issues;
   }
 
-  if (meta["type"] === "array" && isSure(schemaMeta) && Array.isArray(value)) {
+  if (meta["type"] === "array" && typeof schemaMeta === "function" && Array.isArray(value)) {
     if (value.length === 0) {
       return leafIssues("not array", path);
     }
@@ -140,16 +135,12 @@ function issuesFor(
       const childPath = [...path, key];
       const childSchema = initial[key];
 
-      if (!isSure(childSchema)) {
-        if (badValue !== undefined) {
-          issues.push(...leafIssues(badValue, childPath));
-        }
-
+      if (badValue !== undefined) {
+        issues.push(...issuesFor(childSchema, badValue, inputArray[key], childPath));
         continue;
       }
 
-      if (badValue !== undefined) {
-        issues.push(...issuesFor(childSchema, badValue, inputArray[key], childPath));
+      if (typeof childSchema !== "function") {
         continue;
       }
 
