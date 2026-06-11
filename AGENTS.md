@@ -260,11 +260,12 @@ Types and validation:
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@noter-md/dependent`), never costume types the code cannot earn.
-- Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` that
-  restates what a validator already proves — a disconnected predicate keeps narrowing to a stale
-  shape when the schema evolves, with no error. For plain boolean checks prefer no annotation (TS
-  infers the predicate); let the validator's result narrow, or derive the guard with `guard(schema)`
-  from `@samebase/sure` ("disconnected type safety" in `docs/code-guardrails.md`).
+- Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` claim TS
+  cannot check — a disconnected predicate keeps narrowing to a stale shape when the source evolves,
+  with no error. Derive predicates instead: `guard(schema)` from `@samebase/sure` when a schema
+  proves it, else `guardBy` from `@noter-md/dependent` (the callback returns the narrowed value or
+  null; identity-checked, keeps the target type visible). Plain local boolean checks may rely on
+  TS-inferred predicates ("disconnected type safety" in `docs/code-guardrails.md`).
 - Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
   `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@noter-md/dependent`; `packages/sure`
   is the philosophy at its extreme). Keep that vocabulary small; no long-named one-line helpers

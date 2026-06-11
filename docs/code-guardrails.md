@@ -85,15 +85,23 @@ declaring one.
   }
   ```
 
-  For plain boolean checks, the simplest connected form is NO annotation at all: since TS 5.5 the
-  predicate is inferred from the body (single return statement that refines the parameter — see
-  `isConnectedVault` in `apps/noter/convex/vault/state.ts`), so there is no claim to drift.
-  Hand-annotate only what inference cannot express (multiple returns, booleans produced by another
-  call). If a reusable guard genuinely earns its place, derive it: `guard(schema)` in
-  `@samebase/sure` produces a predicate whose target is inferred from the schema, so it cannot drift
-  (refining schemas only — the claim is about the input as-is, so transforming `after` schemas must
-  not pass through it). Even then, prefer the validator's own narrowing when the call site allows
-  it.
+  A good predicate needs two things at once: complete type safety (the claim is checked, so it
+  cannot drift) and visibility (the guarded type is readable at the definition). Derive reusable
+  predicates instead of hand-annotating them:
+  - `guard(schema)` in `@samebase/sure`, when a schema already proves the shape: the predicate
+    target is inferred from the schema, so it cannot drift. Refining schemas only — the claim is
+    about the input as-is, so transforming `after` schemas must not pass through it. Even then,
+    prefer the validator's own narrowing when the call site allows it.
+  - `guardBy` in `@noter-md/dependent`, when there is no schema, just control flow: the callback
+    returns the received value where narrowing proved it, or null to reject — see `isConnectedVault`
+    in `apps/noter/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and
+    the factory identity-checks the result at runtime, so the `value is` claim is earned, never
+    asserted, while the annotated callback keeps the guarded type visible.
+
+  For one-off local boolean checks, no annotation also stays connected: since TS 5.5 the predicate
+  is inferred from the body (single return statement that refines the parameter), so there is no
+  claim to drift — but the guarded type is invisible at the definition, so prefer the derived forms
+  for anything exported or reused.
 
 - Do not use `Reflect.get` or `Reflect.set` as a workaround for TypeScript property access, browser
   API typing, global property writes, or object mutation. Prefer direct typed property access with a
