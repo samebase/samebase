@@ -13,10 +13,12 @@ meaning of the code is its own failure. Where the type system genuinely cannot e
 the gap must be explicit, searchable, and quarantined — hiding a type gap is strictly worse than
 declaring one.
 
-- Never use `any` or type assertions to bypass the type system. `as const` is always acceptable when
-  preserving literal inference; every other assertion needs explicit user approval for that exact
-  callsite. Assertions hide in plain sight: they keep "working" long after they stop being true, and
-  nothing flags them for review.
+- Never use `any` or type assertions. `as const` is always acceptable when preserving literal
+  inference — it asserts nothing unsafe. There is no approved use for any other assertion: a type
+  assertion is never the right tool for anything except hiding a type issue. Where you would reach
+  for `as`, use the narrowest `@ts-expect-error` with the runtime fact instead. Assertions hide in
+  plain sight: they keep "working" long after they stop being true, and nothing flags them for
+  review.
 - When unsafety is unavoidable, declare it with the narrowest possible `@ts-expect-error` plus a
   comment stating the runtime fact that makes the line safe. Never use `@ts-nocheck`.
   `@ts-expect-error` is preferred precisely because it is trivially greppable and because it errors

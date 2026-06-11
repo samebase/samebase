@@ -251,11 +251,12 @@ Types and validation:
 
 - Type-unsafety must be explicit, searchable, and quarantined — hiding a type gap is worse than
   declaring one; TypeScript serves the mental model, not the other way around.
-- Never use `any` or type assertions; `as const` is fine, anything else needs explicit user approval
-  per callsite. When unsafety is unavoidable: narrowest `@ts-expect-error` plus a comment stating
-  the runtime fact that makes it safe (greppable, errors once stale); assertions hide in plain
-  sight. Rare exception: type-level generics where `unknown`/`never` cannot express a constraint use
-  `any` under a scoped lint-disable (`packages/sure` precedent).
+- Never use `any` or type assertions; `as const` is fine. A type assertion is never the right tool
+  for anything except hiding a type issue — where you would reach for `as`, use the narrowest
+  `@ts-expect-error` plus a comment stating the runtime fact that makes it safe (greppable, errors
+  once stale); assertions hide in plain sight. Rare exception for `any` only: type-level generics
+  where `unknown`/`never` cannot express a constraint use `any` under a scoped lint-disable
+  (`packages/sure` precedent).
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@noter-md/dependent`), never costume types the code cannot earn.
