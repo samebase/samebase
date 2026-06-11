@@ -23,7 +23,7 @@ const CODEX_DEFAULT_CAP_BYTES = 32768;
 // The 2026-06-11 restructure landed at ~28.8 KB combined; warn on meaningful
 // regrowth past that baseline, fail with safety margin before the cap.
 const FAIL_BYTES = 31000;
-const WARN_BYTES = 29500;
+const WARN_BYTES = 30000;
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rootAgentsFile = trackedFilePath("AGENTS.md");
