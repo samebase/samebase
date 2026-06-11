@@ -23,7 +23,8 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 
 - Auto infra provisioning is triggered only for newly created noter-managed vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
-- Starter seed source of truth is maintained in `apps/noter-starter-template` and exported to
+- Starter seed source of truth is the external `notermd/app` GitHub repository, exported via
+  `pnpm template:export` (`scripts/export-notermd-app-manifest.ts`) to
   `apps/noter/convex/starterSeedManifest.generated.ts`.
 
 ## Tech Stack
@@ -44,7 +45,8 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 │   ├── noter/
 │   │   ├── src/
 │   │   └── convex/
-│   └── noter-starter-template/
+│   ├── domain-router/
+│   └── workspace-layout-v2-solid/
 ├── scripts/
 ├── specs/
 ├── package.json

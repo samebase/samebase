@@ -120,7 +120,7 @@ with `CONVEX_DEPLOY_KEY=` from the primary checkout.
 
 ## Architecture
 
-- Frontend: React 18, Vite, React Router 7
+- Frontend: React 19, Vite, TanStack Start, TanStack Router
 - Backend: Convex
 - Auth: Convex Auth app login plus provider OAuth/API-key connection flows
 - Editor: Monaco plus CodeMirror 6 / `@prosemark/core`
