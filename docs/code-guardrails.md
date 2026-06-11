@@ -30,6 +30,16 @@ declaring one.
   }
   ```
 
+- Rare exception, held rare: in deeply generic type-level code, `unknown` and `never` sometimes
+  cannot express a constraint — the canonical cases are matching arbitrary function types
+  (`T extends (...args: any) => infer COutput`) and variance-sensitive inference slots
+  (`Sure<unknown, unknown, any>`), both throughout `packages/sure/src`. There `any` is the honest
+  option and `@ts-expect-error` is the wrong tool (suppressing inside generics breaks inference
+  instead of marking a gap). Mark it with a scoped lint-disable for
+  `typescript-eslint/no-explicit-any` (which is an `error` repo-wide): line-level with a short
+  reason in mixed files; a package-level exemption only for dedicated type-level libraries, as
+  `packages/sure` does in its lint script. Roughly 90% of generic code still needs no `any` — reach
+  for `unknown`/`never` first, every time.
 - Do not launder type gaps through cleverness. Overload signatures the implementation cannot prove,
   `as unknown as` chains, intermediate `unknown` variables, and "flexible" generics that quietly
   erase a type all hide unsafety instead of declaring it — each is worse than a visible

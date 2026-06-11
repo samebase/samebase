@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Always-loaded agent rules for this repo. Keep this file small: Codex truncates combined project docs
-at 32 KiB and silently drops the tail (`pnpm check:agents-budget` enforces the budget; history in
+Always-loaded agent rules. Keep it small: Codex truncates combined project docs at 32 KiB and
+silently drops the tail (`pnpm check:agents-budget` enforces the budget; history in
 `research/2026-06-11-agents-md-truncation-audit.md`).
 
 ## Startup
@@ -13,7 +13,6 @@ at 32 KiB and silently drops the tail (`pnpm check:agents-budget` enforces the b
   replace it with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
   `Local backend isn't running`, run `pnpm dev --once` and retry.
-- If `rg` is unavailable (some agent sandboxes lack it), use `grep` and `find` instead.
 
 ## Workflow Shortcuts
 
@@ -263,7 +262,8 @@ Types and validation:
 - Never use `any` or type assertions; `as const` is fine, anything else needs explicit user approval
   per callsite. When unsafety is unavoidable: narrowest `@ts-expect-error` plus a comment stating
   the runtime fact that makes it safe (greppable, errors once stale); assertions hide in plain
-  sight.
+  sight. Rare exception: type-level generics where `unknown`/`never` cannot express a constraint use
+  `any` under a scoped lint-disable (`packages/sure` precedent).
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@noter-md/dependent`), never costume types the code cannot earn.
