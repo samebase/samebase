@@ -573,7 +573,7 @@ export async function executeListFiles(
     }
   }
 
-  const stagedFiles = await context.ctx.runQuery(api.fileStaging.listStagedFiles, {
+  const stagedFiles = await context.ctx.runQuery(internal.fileStaging.listAllStagedFiles, {
     vaultId: vault._id,
     branch,
     includeUnchanged: true,

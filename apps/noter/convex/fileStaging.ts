@@ -482,6 +482,16 @@ export const listStagedFiles = query({
   args: listStagedFilesArgsValidator,
   returns: stagedFileListValidator,
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: userId,
+      })
+    ) {
+      return [];
+    }
     const files = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch", (q) =>
