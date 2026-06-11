@@ -64,7 +64,8 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   `origin/main`. Run `node ./scripts/pr-build-label.ts` to compute and apply it after creating,
   updating, rebasing, or marking ready, and again immediately before merge. When creating the final
   `main` commit through `squash` or `ship`, prefix the squash commit subject with the freshly
-  recomputed label; prefer an explicit CLI squash subject over the GitHub UI default. Do not
+  recomputed label; prefer an explicit CLI squash subject over the GitHub UI default. Never infer
+  the label from existing branch commit subjects, stale PR titles, or the branch name. Do not
   consider `create pr`, `create draft`, `ship`, or `squash` complete until the PR title carries the
   fresh label.
 - When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
@@ -200,15 +201,22 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 
 ## Sub-Agent Research
 
-- Always consult `skills/delegation-orchestrator/SKILL.md` before deciding how to handle
+- Always load and apply `skills/delegation-orchestrator/SKILL.md` before deciding how to handle
   implementation, research, review, workflow, or shortcut tasks. It may keep a small task local, but
   consulting it is not optional.
 - This is a standing repo-level request and permission to use sub-agents whenever they would improve
   the work; decide by critical path, independence, cost, and expected signal — do not wait for the
   user to say "delegate".
+- Treat sub-agent tooling as a cheap default for sidecar research, log/test sweeps, public-doc
+  comparisons, or technical spikes whose details are not needed in the main thread.
+- Choose model and isolation by task: fast models without a worktree for bounded searches or
+  summaries; xhigh agents with their own worktrees for hard design, verification, or implementation
+  probes that need deep reasoning or editable experiments.
 - Keep the main thread on the critical path as supervisor. Give sub-agents narrow scopes and
   explicit pass/fail criteria, ask for concise findings with file/command evidence, and merge back
-  only the conclusions needed for the next decision. Do not paste raw logs into the main thread.
+  only the conclusions needed for the next decision. Treat sub-agent output as a context filter;
+  close sub-agent threads once findings are integrated, and do not paste raw logs or bulky detail
+  into the main thread or final response unless the user asks for it.
 - When delegating or testing shortcut commands such as `clean`, `wait`, `create pr`, or `ship`,
   start the sub-agent in the intended checkout context and send only the exact command shape the
   operator used — no expanded checklists.

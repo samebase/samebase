@@ -158,6 +158,8 @@ Rules:
 - Treat PR title labels as provisional. Overlapping PRs can share the same projected label until one
   lands and the others are refreshed.
 - Do not put `v<N>` in branch names.
+- Do not infer the correct PR label from existing branch commit subjects, stale PR titles, or the
+  branch name; always recompute from the latest `origin/main`.
 - When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
   include the phase label in the PR title after the build label, such as
   `v1146: Phase 2: Move app provisioning to Workflow`, so the eventual squash commit preserves the

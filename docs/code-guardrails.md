@@ -41,8 +41,8 @@ disagree, this file wins — update both in the same change.
 - In Convex modules, define result validators before handlers, derive types via `Infer<typeof ...>`,
   and prefer destructuring validator builders once instead of repeated `v.<fn>()` call sites.
 - Reserve the leading `v` prefix for reusable Convex value validators from `convex/values`, such as
-  `vProviderAuth`; name the inferred type without the prefix. Runtime validators from other systems
-  use a system-specific prefix, such as `ajvPlatformProjectDetails`.
+  `vProviderAuth`; name the inferred type without the prefix, such as `ProviderAuth`. Runtime
+  validators from other systems use a system-specific prefix, such as `ajvPlatformProjectDetails`.
 - Default to required properties and required function/mutation/action arguments. Treat every
   optional field or argument as another explicit state that must be justified by current behavior,
   data migration, external input, or patch semantics.
@@ -153,9 +153,9 @@ disagree, this file wins — update both in the same change.
   parser/serializer helpers, fixtures, and tests can stay native while warning output keeps those
   callsites visible.
 - For app-owned components, default to closed styling APIs. Do not add pass-through styling props
-  such as `className` or `bodyClassName` unless a current shipped callsite truly needs them. When a
-  shared component's styling standard stops fitting, change the component's standard directly
-  instead of threading more override props through the tree.
+  such as `className`, `bodyClassName`, or `headerClassName` unless a current shipped callsite truly
+  needs them. When a shared component's styling standard stops fitting, change the component's
+  standard directly instead of threading more override props through the tree.
 - For shared layout chrome, standardize structure and behavior rather than inventing semantic
   content sub-APIs like `title`, `meta`, `leading`, or `trailing` unless the product truly needs one
   shared content pattern.
