@@ -2,9 +2,7 @@
 
 Always-loaded agent rules for this repo. Keep this file small: Codex truncates combined project docs
 at 32 KiB and silently drops the tail (`pnpm check:agents-budget` enforces the budget; history in
-`research/2026-06-11-agents-md-truncation-audit.md`). Long or conditional workflows belong in
-`docs/` or `skills/` with a pointer here. Sections are ordered so the most behavior-critical rules
-sit first.
+`research/2026-06-11-agents-md-truncation-audit.md`).
 
 ## Startup
 
@@ -15,8 +13,7 @@ sit first.
   replace it with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
   `Local backend isn't running`, run `pnpm dev --once` and retry.
-- `rg` is not available in some agent environments (it does exist on local dev machines). When it is
-  missing, use `grep` and `find` instead.
+- If `rg` is unavailable (some agent sandboxes lack it), use `grep` and `find` instead.
 
 ## Workflow Shortcuts
 
@@ -37,8 +34,6 @@ When the user says one of these commands, execute it directly:
 | `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                                 |
 | `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
 | `status`       | Report branch, local changes, and PR state                                                                                                                     |
-
-Detailed flow rules live in `docs/agent-workflows.md`.
 
 ## Workflow Rules
 
@@ -83,11 +78,10 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   default `~/.noter` install as part of local dev linking or cleanup.
 - `clean vaults` must fail closed and only remove matching Noter-managed vaults through the
   dashboard delete flow.
-- `clean` must follow `docs/noter-pr-preview-cleanup.md` before deleting the remote branch. The
-  current branch must have a terminal PR: `MERGED` or `CLOSED`. A draft PR still creates preview
-  resources, so any branch that ever had a PR must clean both Cloudflare and Convex previews before
-  branch deletion. Do not add scripts or deploy metadata for this cleanup. Missing local env files
-  or first-pass metadata gaps block `clean`; they are not a reason to skip provider cleanup.
+- `clean` requires a terminal PR (`MERGED`/`CLOSED`) and must follow
+  `docs/noter-pr-preview-cleanup.md` first: any branch that ever had a PR (drafts included) must
+  clean both Cloudflare and Convex previews before deleting the branch. Missing env files or
+  metadata gaps block `clean`; they never justify skipping provider cleanup.
 
 ## Worktree Rules
 
@@ -255,8 +249,7 @@ for production), `npx convex dashboard`, `npx convex env list`.
   that env provides `CONVEX_DEPLOY_KEY`, the CLI silently ignores `--prod` and targets the deploy
   key's deployment. If it prints `Ignoring --prod ... and using deployment from CONVEX_DEPLOY_KEY`,
   stop and rerun with `CONVEX_DEPLOY_KEY=` cleared from the primary checkout.
-- Follow `docs/convex-production-reads.md` for the exact safe production-read recipe (deriving a
-  comment-free `CONVEX_DEPLOYMENT` from the primary checkout's `.env.local`).
+- Follow `docs/convex-production-reads.md` for the exact safe production-read recipe.
 
 ## Code Guardrails
 
@@ -265,8 +258,19 @@ One-line index; the canonical full wording with rationale and examples lives in
 
 Types and validation:
 
-- Never use `any` or type assertions; `as const` is fine. Any other assertion needs explicit user
-  approval for that exact callsite.
+- Type-unsafety must be explicit, searchable, and quarantined — hiding a type gap is worse than
+  declaring one; TypeScript serves the mental model, not the other way around.
+- Never use `any` or type assertions; `as const` is fine, anything else needs explicit user approval
+  per callsite. When unsafety is unavoidable: narrowest `@ts-expect-error` plus a comment stating
+  the runtime fact that makes it safe (greppable, errors once stale); assertions hide in plain
+  sight.
+- Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
+  type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
+  in `@noter-md/dependent`), never costume types the code cannot earn.
+- Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
+  `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@noter-md/dependent`; `packages/sure`
+  is the philosophy at its extreme). Keep that vocabulary small; no long-named one-line helpers
+  sprawling through app code.
 - No `Reflect.get`/`Reflect.set` workarounds; prefer real narrows, else the narrowest
   `@ts-expect-error` with a concrete reason. Never `@ts-nocheck`.
 - No `globalThis` in app or test code; use the typed host (`window`, `global`) and add declarations

@@ -4,9 +4,49 @@ Canonical full wording of the repo code guardrails. `AGENTS.md` carries the alwa
 form of every rule; this file holds the complete versions with rationale and examples. When the two
 disagree, this file wins — update both in the same change.
 
+## Type safety
+
+Type-safety always matters, but the goal is not "zero `any` at any cost" — it is that the types tell
+the truth and the code reads like the mental model of the business logic. TypeScript is a tool for
+reaching the goal, not a barrier to route around; "enterprise TypeScript" ceremony that muddies the
+meaning of the code is its own failure. Where the type system genuinely cannot express something,
+the gap must be explicit, searchable, and quarantined — hiding a type gap is strictly worse than
+declaring one.
+
 - Never use `any` or type assertions to bypass the type system. `as const` is always acceptable when
   preserving literal inference; every other assertion needs explicit user approval for that exact
-  callsite.
+  callsite. Assertions hide in plain sight: they keep "working" long after they stop being true, and
+  nothing flags them for review.
+- When unsafety is unavoidable, declare it with the narrowest possible `@ts-expect-error` plus a
+  comment stating the runtime fact that makes the line safe. Never use `@ts-nocheck`.
+  `@ts-expect-error` is preferred precisely because it is trivially greppable and because it errors
+  loudly the day the suppression stops being necessary. The house style is
+  `packages/dependent/src/object.ts`:
+
+  ```ts
+  export function entries<Obj extends object>(value: Obj): Array<ObjectEntry<Obj>> {
+    // @ts-expect-error Object.entries returns the same entries with weaker types.
+    return Object.entries(value);
+  }
+  ```
+
+- Do not launder type gaps through cleverness. Overload signatures the implementation cannot prove,
+  `as unknown as` chains, intermediate `unknown` variables, and "flexible" generics that quietly
+  erase a type all hide unsafety instead of declaring it — each is worse than a visible
+  `@ts-expect-error`. Overloads are welcome when they refine a truth the implementation actually
+  guarantees (the length-preserving `map`/`atLeast`/`exactly` in `packages/dependent/src/main.ts`,
+  the OpenAPI clients in `apps/noter/convex/*Api/client.ts`); they are forbidden as a costume for
+  types the code cannot earn.
+- When a real TS limitation keeps muddying business code, absorb the technicality in a tiny shared
+  wrapper with an honest outer signature and the `@ts-expect-error` contained inside — `includes()`,
+  `keys()`, `entries()`, `fromEntries()`, `pick()` in `@noter-md/dependent` are the canonical
+  shapes: callers read like the mental model, and the gap lives in one audited line. `packages/sure`
+  is this philosophy taken to its extreme (inference-first APIs, slot types, unsafety concentrated
+  at a few composition points) — read it when in doubt. Counter-rule: this is a small, stable
+  vocabulary of generic primitives with short names in shared modules whose path carries the
+  context; it is not a license to sprawl one-line app-code functions with long names that fragment
+  the logic a reader is trying to follow. If a wrapper's name says less than the expression it
+  wraps, inline it.
 - Do not use `Reflect.get` or `Reflect.set` as a workaround for TypeScript property access, browser
   API typing, global property writes, or object mutation. Prefer direct typed property access with a
   real narrow. If TypeScript cannot express a justified browser/API callsite, use the narrowest
@@ -17,8 +57,9 @@ disagree, this file wins — update both in the same change.
 - Do not recommend assertion-based examples in chat, docs, or review comments. When narrowing
   `unknown` or provider-owned data, write real runtime guards, validators, or model changes that let
   TypeScript prove the access.
-- When suppression is unavoidable, use the narrowest possible `@ts-expect-error`. Never use
-  `@ts-nocheck`.
+
+## All other guardrails
+
 - Prefer inference when it keeps the code clear. Do not restate local variable types when the
   expression is already strongly typed unless the annotation changes the contract, clarifies
   object-spread shape composition, or prevents a real widening problem.
