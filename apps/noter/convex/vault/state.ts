@@ -7,7 +7,7 @@ export type NoterManagedConnectedVault = Extract<
   { githubMode: "create_repository" }
 >;
 
-export function isConnectedVault(vault: Doc<"vaults"> | null | undefined): vault is ConnectedVault {
+export function isConnectedVault(vault: Doc<"vaults"> | null | undefined) {
   return vault?.state === "connected";
 }
 
@@ -37,6 +37,6 @@ export function assertConnectedVault(vault: Doc<"vaults"> | null | undefined): C
   return vault;
 }
 
-export function isNoterManagedVault(vault: ConnectedVault): vault is NoterManagedConnectedVault {
+export function isNoterManagedVault(vault: ConnectedVault) {
   return vault.githubMode === "create_repository";
 }

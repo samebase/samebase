@@ -85,10 +85,15 @@ declaring one.
   }
   ```
 
-  If a reusable guard genuinely earns its place, derive it: `guard(schema)` in `@samebase/sure`
-  produces a predicate whose target is inferred from the schema, so it cannot drift (refining
-  schemas only — the claim is about the input as-is, so transforming `after` schemas must not pass
-  through it). Even then, prefer the validator's own narrowing when the call site allows it.
+  For plain boolean checks, the simplest connected form is NO annotation at all: since TS 5.5 the
+  predicate is inferred from the body (single return statement that refines the parameter — see
+  `isConnectedVault` in `apps/noter/convex/vault/state.ts`), so there is no claim to drift.
+  Hand-annotate only what inference cannot express (multiple returns, booleans produced by another
+  call). If a reusable guard genuinely earns its place, derive it: `guard(schema)` in
+  `@samebase/sure` produces a predicate whose target is inferred from the schema, so it cannot drift
+  (refining schemas only — the claim is about the input as-is, so transforming `after` schemas must
+  not pass through it). Even then, prefer the validator's own narrowing when the call site allows
+  it.
 
 - Do not use `Reflect.get` or `Reflect.set` as a workaround for TypeScript property access, browser
   API typing, global property writes, or object mutation. Prefer direct typed property access with a
