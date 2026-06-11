@@ -9,7 +9,8 @@
   replace it with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
   `Local backend isn't running`, run `pnpm dev --once` and retry.
-- `rg` is not available in this environment. Use `grep` and `find` instead.
+- `rg` is not available in some agent environments (it does exist on local dev machines). When it is
+  missing, use `grep` and `find` instead.
 
 ## Communication
 
@@ -120,7 +121,7 @@ with `CONVEX_DEPLOY_KEY=` from the primary checkout.
 
 ## Architecture
 
-- Frontend: React 18, Vite, React Router 7
+- Frontend: React 19, Vite, TanStack Start, TanStack Router
 - Backend: Convex
 - Auth: Convex Auth app login plus provider OAuth/API-key connection flows
 - Editor: Monaco plus CodeMirror 6 / `@prosemark/core`
@@ -132,7 +133,8 @@ Key domain entities:
 - `users`
 - `providerConnections`
 - `vaults`
-- `vaultInfrastructure`
+- `vaultInfrastructureTargets`
+- `vaultInfrastructureOwnership`
 - `vaultDomains`
 - `fileStaging`
 - `collaborativeUpdates`
