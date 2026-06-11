@@ -101,8 +101,8 @@ same purpose.
 Run:
 
 ```bash
-grep -rn "applyUpdatesToStaging" apps packages scripts runtime --include='*.ts' --include='*.tsx' | grep -v _generated
-grep -rn "cleanupCloudflareData" apps packages scripts runtime docs specs rfcs research --include='*' 2>/dev/null | grep -v _generated
+grep -rn "applyUpdatesToStaging" apps packages scripts runtime docs specs rfcs research --include='*.ts' --include='*.tsx' --include='*.md' 2>/dev/null | grep -v _generated
+grep -rn "cleanupCloudflareData" apps packages scripts runtime docs specs rfcs research --include='*.ts' --include='*.tsx' --include='*.md' 2>/dev/null | grep -v _generated
 ```
 
 **Verify**: the first command outputs ONLY lines inside `apps/noter/convex/collaborative.ts` (the
@@ -149,7 +149,7 @@ typecheck are the regression net; they pass at the planned-at commit and must pa
 
 Machine-checkable. ALL must hold:
 
-- [ ] `grep -rn "applyUpdatesToStaging\|cleanupCloudflareData" apps packages scripts runtime | grep -v _generated`
+- [ ] `grep -rEn "applyUpdatesToStaging|cleanupCloudflareData" apps packages scripts runtime | grep -v _generated`
       returns no matches
 - [ ] `apps/noter/convex/cleanupCloudflare.ts` does not exist
 - [ ] `pnpm check` exits 0 (includes regenerated codegen)
