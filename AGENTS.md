@@ -1,5 +1,9 @@
 # AGENTS.md
 
+Always-loaded agent rules. Keep it small: Codex truncates combined project docs at 32 KiB and
+silently drops the tail (`pnpm check:agents-budget` enforces the budget; history in
+`research/2026-06-11-agents-md-truncation-audit.md`).
+
 ## Startup
 
 - Use `pnpm dev` as the normal startup command. It runs the primary dev flow from the main checkout
@@ -9,8 +13,144 @@
   replace it with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
   `Local backend isn't running`, run `pnpm dev --once` and retry.
-- `rg` is not available in some agent environments (it does exist on local dev machines). When it is
-  missing, use `grep` and `find` instead.
+
+## Workflow Shortcuts
+
+When the user says one of these commands, execute it directly:
+
+| Command        | Action                                                                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage changes and create a concise commit                                                                                                                      |
+| `push`         | Commit if needed, then push                                                                                                                                    |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                             |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                             |
+| `ready`        | Mark the current PR ready                                                                                                                                      |
+| `wait`         | Watch CI and report status                                                                                                                                     |
+| `squash`       | Squash-merge the current PR                                                                                                                                    |
+| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                                    |
+| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                                 |
+| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
+| `status`       | Report branch, local changes, and PR state                                                                                                                     |
+
+## Workflow Rules
+
+The always-on core; the full protocol (PR bodies, timing, review, labels, archive/clean) lives in
+`docs/agent-workflows.md`.
+
+- Always use CLI tools such as `gh` and `git`, and execute requested git/GitHub workflows instead of
+  describing them.
+- Rename auto-generated random `codex/<word>-<word>-<word>` branches early, always before `commit`
+  or `create pr`. Do not put `v<N>` build labels in branch names.
+- Before starting implementation on an existing branch or worktree, fetch `origin` and rebase onto
+  the latest `origin/main`. When the user says `rebase`, treat it as `rebase` plus `push`.
+- Inspect the diff shape with `git diff --stat` (and `git diff --cached --stat` when relevant)
+  before `commit` or `create pr`.
+- Do not leave a meaningful non-`main` work branch, research branch, or Codex thread without a
+  GitHub PR; default to a ready non-draft PR unless the user asks for a draft. PR descriptions
+  explain why the change exists, not just what changed. When a PR originates from research or
+  automation work, include `First Message` and `Requested Codex Runtime`.
+- After a branch commit has been shown, pushed, reviewed, or attached to a PR, preserve follow-up
+  work as new commits. Never amend, rebase, or squash branch history unless the user explicitly asks
+  for that exact rewrite.
+- Every PR title starts with the projected `v<N>:` build label computed from the latest
+  `origin/main`. Run `node ./scripts/pr-build-label.ts` to compute and apply it after creating,
+  updating, rebasing, or marking ready, and again immediately before merge. When creating the final
+  `main` commit through `squash`, prefix the squash commit subject with the freshly recomputed
+  label; prefer an explicit CLI squash subject over the GitHub UI default. Never infer the label
+  from existing branch commit subjects, stale PR titles, or the branch name. Do not consider
+  `create pr`, `create draft`, or `squash` complete until the PR title carries the fresh label.
+- When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
+  include the phase label after the build label, such as
+  `v1146: Phase 2: Move app provisioning to Workflow`.
+- When the user says `update PR`, update the PR metadata with `gh pr edit` (title first, then
+  description); this does not mean rewriting branch commit subjects.
+- Treat actionable Greptile, CodeRabbit, and Codex review comments as required fixes while shipping.
+- Never merge before CI is green. Rebase on the latest `origin/main` immediately before merge.
+  Prefer squash merge by default.
+- Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for Playwright/manual test repos
+  created from a worktree.
+- `link machine` must use the current checkout's `noter.ts` flow and keep every local repo checkout
+  isolated with its own `--state-dir` under `~/.noter/checkouts/<checkout-id>`. Never overwrite the
+  default `~/.noter` install as part of local dev linking or cleanup.
+- `clean vaults` must fail closed and only remove matching Noter-managed vaults through the
+  dashboard delete flow.
+- `clean` requires a terminal PR (`MERGED`/`CLOSED`) and must follow
+  `docs/noter-pr-preview-cleanup.md` first: any branch that ever had a PR (drafts included) must
+  clean both Cloudflare and Convex previews before deleting the branch. Missing env files or
+  metadata gaps block `clean`; they never justify skipping provider cleanup.
+
+## Worktree Rules
+
+- If HEAD is detached, use `./scripts/bootstrap-worktree.ts` to create a `codex/<...>` branch.
+- Treat the current worktree root from `git rev-parse --show-toplevel` as the workspace boundary
+  unless the user explicitly asks otherwise.
+- Before dev/test/commit work, confirm the current worktree and branch with
+  `git worktree list --porcelain` and `git rev-parse --abbrev-ref HEAD`.
+- Do not run `npx convex dev --env-file` pointing at another checkout's `.env.local`; it breaks the
+  current worktree's local setup.
+- Keep one idea per worktree when possible.
+
+## Operator Preferences
+
+- Keep responses concise by default and always include a final `Summary` section.
+- Mention only the actionable lever in user-facing explanations. Do not bring up impossible
+  non-options or irrelevant caveats. When asked for any value or decision (OAuth redirect URLs, env
+  vars, names), give one exact recommendation instead of alternatives.
+- Expect voice-to-text mistakes. Interpret likely transcription errors before asking for
+  clarification.
+- Commit meaningful checkpoints instead of letting large local diffs accumulate, and push after
+  commits so work is not stranded only in the local worktree.
+- When a change touches many files or multiple concerns, consider splitting it into two or three
+  reviewable commits, such as backend model cleanup, UI wiring, and spec/test updates. This is a
+  reviewability preference, not a hard requirement.
+- Default to additive minimalism in copy and visuals. Do not add decorative chrome, filler copy,
+  extra buttons, or ornamental layout unless explicitly requested.
+- For app-owned UI, prefer an empty well-behaved container over a clever or richly pre-structured
+  abstraction. If the standard needs to evolve, change the standard instead of front-loading
+  speculative slots and props.
+- Preserve the established visual language. Do not add shadows, rounded corners, custom easing,
+  decorative borders, or similar visual embellishments unless the user explicitly asks for them or
+  the surrounding component already uses them.
+- For motion and timing, prefer Tailwind defaults unless there is a concrete product reason to
+  override them.
+- Assume Cloudflare is the default front door and observability layer for `noter.md`, and keep
+  application logic in Convex by default unless there is a clear reason not to.
+- In copy, docs, and examples: never use Vercel as an example provider or integration; use Netlify
+  when a non-Cloudflare provider example is needed. Naming other providers is normal — the product
+  is provider-agnostic (it works off GitHub PRs and branches); Cloudflare is what noter itself runs
+  on and recommends via its single template.
+- Prefer shell commands first and Node/ECMAScript second; do not reach for Python first in this
+  repo.
+- Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
+  TypeScript snippets.
+- Format documents with oxfmt.
+- Prefer exhaustive dispatch with `satisfies never` when it fits.
+- Assume responses may be read from a phone: every reference must be a tappable URL reachable off
+  this machine — clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
+  alongside any localhost URL, and noter.md vault file URLs instead of local filesystem paths
+  whenever the branch is pushed.
+- When pointing the operator at code, include a precise location such as a 1-based line number or
+  another unambiguous anchor unless the whole file is genuinely the subject. Do not cite only a
+  large file path when the relevant code lives in one small area.
+- When a relevant preview exists, include at least one clickable localhost URL in the user-facing
+  response; otherwise say that no preview is running.
+- For preview deploy URLs, use the `?prod-ui` query param.
+- When screenshot or visual regression work changes images, show the relevant before/after or diff
+  images in the user-facing response.
+- Prefer key-only boolean query params such as `?diff`.
+- Preserve unrelated query params when changing app URLs. Use the shared query param helpers instead
+  of hand-building URLs.
+- UI affordances (slider drag ranges, preset lists) may suggest values; only a real product
+  invariant may reject typed input, URL params, or API values — never convert a UI convenience into
+  a hard limit.
+- For Playwright and browser automation rules (isolated sessions, never steal OS focus, never kill
+  all Chrome, mobile emulation from launch, touch-gesture anchoring), follow
+  `skills/noter-playwright-live/SKILL.md`.
+- Worktree frontend should avoid port `5173`; prefer the worktree defaults.
+- Treat shadcn-generated files in `apps/noter/src/components/ui/*` as read-only unless the user
+  explicitly asks to update shadcn output.
+- Treat speculative future-proofing as a bug. Do not add backup env vars, imagined code paths, or
+  placeholder config.
 
 ## Communication
 
@@ -46,78 +186,27 @@
 
 ## Sub-Agent Research
 
-- Always load and apply the repo-owned `skills/delegation-orchestrator/SKILL.md` before deciding how
-  to handle implementation, research, review, workflow, or shortcut tasks. The skill may decide that
-  a small task should keep all work local, but consulting it is not optional.
-- This section is a standing repo-level request and permission to use sub-agents whenever they would
-  improve the work. Do not wait for a separate user message that says "delegate" before spawning
-  agents; decide based on critical path, independence, cost, and expected signal.
-- Treat available sub-agent tooling as a cheap default option for sidecar research, log/test sweeps,
-  public-doc comparisons, or technical spikes whose details are not needed in the main thread.
-- Keep the main thread on the critical path. Split independent questions into narrowly scoped
-  agents, ask for concise findings with file/command evidence, and merge only the conclusions needed
-  for the next decision.
-- Delegate routine workflow bureaucracy such as PR creation/update, CI watching, review-thread
-  triage, command-table workflows, or release checklist verification to focused sub-agents with
-  explicit pass/fail criteria and short handoffs.
-- When delegating or testing shortcut/process commands such as `clean`, `wait`, `create pr`, or
-  `ship`, start the sub-agent in the intended checkout/thread context and send only the exact
-  command shape the operator used. Do not expand it into a checklist prompt.
-- Keep the main thread as supervisor for delegated process work. Intervene only when the sub-agent
-  reports a blocker, policy ambiguity, approval boundary, or decision the supervisor must make;
-  otherwise accept the delegated result and continue.
-- Choose the model and isolation level by task. Fast models without a worktree are good for bounded
-  searches or summaries; xhigh agents with their own worktrees are appropriate for hard design,
-  verification, or implementation probes that need deep reasoning or editable experiments.
+- Always load and apply `skills/delegation-orchestrator/SKILL.md` before deciding how to handle
+  implementation, research, review, workflow, or shortcut tasks. It may keep a small task local, but
+  consulting it is not optional.
+- This is a standing repo-level request and permission to use sub-agents whenever they would improve
+  the work; decide by critical path, independence, cost, and expected signal — do not wait for the
+  user to say "delegate".
+- Treat sub-agent tooling as a cheap default for sidecar research, log/test sweeps, public-doc
+  comparisons, or technical spikes whose details are not needed in the main thread.
+- Choose model and isolation by task: fast models without a worktree for bounded searches or
+  summaries; xhigh agents with their own worktrees for hard design, verification, or implementation
+  probes that need deep reasoning or editable experiments.
+- Keep the main thread on the critical path as supervisor. Give sub-agents narrow scopes and
+  explicit pass/fail criteria, ask for concise findings with file/command evidence, and merge back
+  only the conclusions needed for the next decision. Treat sub-agent output as a context filter;
+  close sub-agent threads once findings are integrated, and do not paste raw logs or bulky detail
+  into the main thread or final response unless the user asks for it.
+- When delegating or testing shortcut commands such as `clean`, `wait`, or `create pr`, start the
+  sub-agent in the intended checkout context and send only the exact command shape the operator used
+  — no expanded checklists.
 - For experiments that may edit files, give each sub-agent an isolated worktree and a disjoint write
-  scope. Have it report changed paths, and keep exploratory changes out of the main worktree until
-  they are intentionally integrated.
-- Treat sub-agent output as a context filter: pull back only the important facts, tradeoffs,
-  evidence, and recommended next actions that serve the current goal.
-- Close sub-agent threads once findings are integrated. Do not paste raw logs or bulky technical
-  detail into the main thread or final response unless the user asks for it.
-
-## Convex CLI
-
-Use these from `apps/noter` when debugging runtime issues:
-
-```bash
-npx convex logs --prod --history 50
-npx convex logs
-npx convex dashboard
-npx convex env list
-```
-
-When checking production from a worktree, do not pass `--env-file` pointing at the primary checkout.
-If that file provides `CONVEX_DEPLOY_KEY`, the Convex CLI will ignore `--prod` and use the deploy
-key's deployment instead. Run prod commands from the primary local checkout's `apps/noter`
-directory, derive a comment-free `CONVEX_DEPLOYMENT` value from that checkout's `.env.local`, and
-clear the deploy-key env in the same command:
-
-```bash
-primary_checkout="$(
-  git worktree list --porcelain |
-    awk '$1 == "worktree" { worktree=$2 } $1 == "branch" && $2 == "refs/heads/main" { print worktree; exit }'
-)"
-cd "$primary_checkout/apps/noter"
-CONVEX_DEPLOYMENT="$(
-  node <<'NODE'
-const fs = require("fs");
-const line = fs.readFileSync(".env.local", "utf8").split(/\n/).find((entry) => entry.trimStart().startsWith("CONVEX_DEPLOYMENT="));
-if (!line) process.exit(2);
-const raw = line.split("=").slice(1).join("=");
-console.log(raw.replace(/\s+#.*$/, "").trim().replace(/^['"]|['"]$/g, ""));
-NODE
-)" CONVEX_DEPLOY_KEY= npx convex logs --prod --history 50
-```
-
-Use that same `CONVEX_DEPLOYMENT=... CONVEX_DEPLOY_KEY= npx convex ... --prod` prefix for
-`convex run`, `convex data`, and `convex env` production reads. Do not manually copy the raw
-`.env.local` line when it contains an inline `# team/project` comment; strip the comment first or
-the CLI can target the wrong deployment name before the query even runs.
-
-If the CLI prints `Ignoring --prod ... and using deployment from CONVEX_DEPLOY_KEY`, stop and rerun
-with `CONVEX_DEPLOY_KEY=` from the primary checkout.
+  scope, and keep exploratory changes out of the main worktree until intentionally integrated.
 
 ## Architecture
 
@@ -142,203 +231,121 @@ Key domain entities:
 - `aiProdAccessRequests`
 - `aiProdAccessAudit`
 
+## Convex CLI
+
+Use from `apps/noter` when debugging runtime issues: `npx convex logs` (add `--prod --history 50`
+for production), `npx convex dashboard`, `npx convex env list`.
+
+- When checking production from a worktree, never pass `--env-file` pointing at another checkout. If
+  that env provides `CONVEX_DEPLOY_KEY`, the CLI silently ignores `--prod` and targets the deploy
+  key's deployment. If it prints `Ignoring --prod ... and using deployment from CONVEX_DEPLOY_KEY`,
+  stop and rerun with `CONVEX_DEPLOY_KEY=` cleared from the primary checkout.
+- Follow `docs/convex-production-reads.md` for the exact safe production-read recipe.
+
 ## Code Guardrails
 
-- Never use `any` or type assertions to bypass the type system. `as const` is always acceptable when
-  preserving literal inference; every other assertion needs explicit user approval for that exact
-  callsite.
-- Do not use `Reflect.get` or `Reflect.set` as a workaround for TypeScript property access, browser
-  API typing, global property writes, or object mutation. Prefer direct typed property access with a
-  real narrow. If TypeScript cannot express a justified browser/API callsite, use the narrowest
-  `@ts-expect-error` with a concrete explanation instead of hiding the access behind reflection.
-- Do not use `globalThis` in app or test code. Use the typed runtime host directly, such as
-  `window`, `global`, or a test framework global-stubbing API. If code needs to create or augment a
-  global property, add or update the TypeScript declaration for that property first.
-- Do not recommend assertion-based examples in chat, docs, or review comments. When narrowing
-  `unknown` or provider-owned data, write real runtime guards, validators, or model changes that let
-  TypeScript prove the access.
-- When suppression is unavoidable, use the narrowest possible `@ts-expect-error`. Never use
-  `@ts-nocheck`.
-- Prefer inference when it keeps the code clear.
-- For discriminated union variants, put the discriminant property first in each object shape so the
-  variant is immediately visible when reading the type.
-- When passing inline validators to `pure(...)` or `sure(...)`, omit redundant `unknown` parameter
-  annotations; let the helper infer the input type unless a narrower input is intentional.
-- When a schema exists, derive the TypeScript type from it instead of duplicating a manual type.
-- Before adding a helper, formatter, wrapper, class, or generated artifact, ask whether the final
-  design still needs it. Delete-first is the default. Keep the native library value or error shape
-  unless a production caller needs a different shape; do not add branches or adapters whose outputs
-  are equivalent to the simpler expression.
-- Do not add custom Error subclasses unless production code catches that exact class, branches on
-  structured fields, or the error type is part of an existing module contract. Tests should not be
-  the reason an error class exists.
-- Generated files must only contain output derived from the named source of truth. Do not put
-  hand-authored schemas, local endpoint contracts, or convenience types into generated output.
-- For hard-coded references to tracked repo files in scripts, prefer `trackedFilePath(...)` or a
-  scoped wrapper such as `noterAppFilePath(...)` before using an untyped string path. If the runtime
-  needs a different shape, such as a Vite root-relative module id, build that shape from the tracked
-  path literal.
-- In Convex modules, define result validators before handlers, derive types via `Infer<typeof ...>`,
-  and prefer destructuring validator builders once instead of repeated `v.<fn>()` call sites.
-- Reserve the leading `v` prefix for reusable Convex value validators from `convex/values`, such as
-  `vProviderAuth`; name the inferred type without the prefix, such as `ProviderAuth`. Runtime
-  validators from other systems should use a system-specific prefix, such as
-  `ajvPlatformProjectDetails`.
-- Default to required properties and required function/mutation/action arguments. Treat every
-  optional field or argument as another explicit state that must be justified by current behavior,
-  data migration, external input, or patch semantics. Start from the simplest required shape, then
-  make something optional only after a real caller or persisted-data constraint proves it needs that
-  extra state.
-- Keep product state spaces as orthogonal and small as possible. When two workflows could combine
-  into a large cross-product of states, first ask whether the product can forbid that interaction
-  until there is a real need for it. Prefer making unsupported combinations unrepresentable through
-  the data model and UI gates over adding orchestration for pause/cancel/delete cases that the
-  current product does not need.
-- When modeling durable product state, put as many invariants as possible into the state shape
-  itself. Prefer discriminated unions, required variant-specific fields, closed literal sets, and
-  Convex validators that reject impossible rows. Use runtime transition functions only for rules
-  that genuinely depend on current database contents, time, provider responses, or other facts the
-  static state shape cannot express.
-- For important state models, start tests by enumerating the state axes and allowed combinations.
-  Use that matrix to simplify the model before adding runtime guards, so tests pressure the schema
-  toward making impossible states impossible instead of documenting a pile of forbidden
-  combinations.
-- When returning collections from queries or building user-visible lists, always choose an explicit
-  deterministic sort order with stable tie-breakers. Do not rely on incidental storage order or
-  live-update fields unless the product intentionally wants rows to reshuffle.
-- New or materially changed code should include concise comments that explain the constraint or
-  invariant being preserved. Prefer JSDoc above functions when a function-level explanation is
-  needed.
-- Comments must use the same terminology as the code. Prefer exact type, function, event, and
-  property names such as `draftPath`, `hoverPath`, or `expectedRouteAddress` over invented labels
-  like "base route" or "focused route"; invented comment-only vocabulary is worse than no comment.
-  Use `@see` in JSDoc when a comment should point readers to a nearby type or helper.
-- Prefer comments that name the concrete runtime case over abstract ownership language. For example:
-  `if durable state says "left" but this layout has no left pane, render "main"; same for "right".`
-- For JSDoc above local types, props, and small config unions, write the app contract in the
-  simplest direct vocabulary. Prefer concrete value meanings over polished prose, and preserve
-  user-authored wording instead of rewriting it. For multiline `/** ... */` comments, prefer plain
-  interior lines without leading `*` prefixes because the text is easier to copy. Single-line `//`
-  comments are still fine when they fit. Example:
+One-line index; the canonical full wording with rationale and examples lives in
+`docs/code-guardrails.md` — read it before non-trivial implementation work.
 
-  ```ts
-  /**
-  all = shows sidebar toggle on mobile an desktop
-  
-  desktop = shows sidebar toggle on desktop only
-  
-  hidden = hides sidebar toggle on both desktop and mobile
-  */
-  type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
-  ```
+Types and validation:
 
-- Specific app hooks and utilities with non-obvious ownership, timing, or synchronization behavior
-  should have function-level JSDoc explaining what they do and why the indirection exists.
-- Avoid `"use node"` unless the module truly requires it.
-- Treat every `useEffect` and `useLayoutEffect` as something to justify. Before adding or keeping
-  one, check whether the behavior belongs in a route lifecycle such as `beforeLoad`, a data/cache
-  API, an event handler, derived render state, or CSS. Collapse duplicate effects that share the
-  same trigger/concern.
-- In carefully curated state machines such as the route URL editor VM, put an even bigger question
-  mark on `useEffect`, `useLayoutEffect`, `MutationObserver`, subscriptions, and DOM polling. Do not
-  add them for opportunistic suggestion data or convenience synchronization. First prove why the
-  state cannot move through an existing event, route value, prop, cache subscription, or explicit
-  caller-owned boundary. If the feature is only a nice-to-have suggestion, drop or narrow the
-  feature instead of adding reactive machinery to the VM.
-- Prefer inference from already-typed initializers and callbacks. Do not restate local variable
-  types when the expression is already strongly typed unless the annotation changes the contract,
-  clarifies object-spread shape composition, or prevents a real widening problem.
-- Prefer truthiness checks for typed flags whose domain is already `true | undefined`. Use
-  `=== true` only when the distinction from other truthy values is part of the current logic.
-- When the runtime meaning is that a value exists, write an existence check. Avoid exact
-  `!== undefined`, `!== null`, or `typeof value === "string"` checks unless the exact missing value,
-  runtime type, empty string, or union discriminator is the state being modeled.
-- When filtering nullable arrays, use the shared `notEmpty` type predicate from
-  `@noter-md/dependent` instead of writing inline Boolean type predicates.
-- Treat repeated optional chaining on the same value as a correctness smell, not just style. If
-  logic reads a maybe-null object more than once, narrow it once with an explicit missing-value
-  branch, then use direct access. This prevents missing required rows from silently becoming
-  fallback/default behavior. Keep `?.` only for one-off maybe-reads whose missing case is genuinely
-  equivalent to absence.
-- Prefer direct conditions over intermediate variables when the expression is already easy to read.
-  Do not add `!!` coercions, named booleans, helper wrappers, or provider splits just to look more
-  engineered; add a name only when it makes confusing logic clearer.
-- When business logic is tangled with generic mechanics such as picking object keys, mapping
-  entries, or reshaping values, step back and separate the two. Prefer a small typed utility in the
-  right shared module when it lets the business code read directly, then delete any one-off wrapper
-  that no longer earns its place.
-- Before keeping a helper, validator wrapper, adapter, custom error shape, or mirror type introduced
-  by a patch, run a delete-first reduction pass. If its main job is renaming, copying, unwrapping,
-  reshaping, filtering, or re-reporting something a library already returns in a usable form, remove
-  it and use the library API directly unless the wrapper protects a real current invariant such as
-  secret redaction, unsafe I/O isolation, or multiple shipped callsites.
-- For runtime validation and parsing, prefer one source-of-truth schema and derive the TypeScript
-  type from it. Do not duplicate field lists, hand-write parallel response types, add strict
-  companion schemas, translate validator issues, or walk unknown keys when the validator already
-  strips, rejects, reports, or types that information well enough for the current caller.
-- After replacing one validation approach with another, run the same reduction pass again on the new
-  code. Do not preserve the old approach's helper shape, error normalization, field extraction, or
-  naming pattern just because it was already there before the library switch.
-- Treat generated validation glue as a carrying cost, not a default win, but do not replace broad
-  OpenAPI-derived coverage with hand-written schemas just to reduce generated files. If a schema is
-  tiny, hand-documented, outside the generated source's true contract, or only used by one boundary,
-  compare it against a direct hand-written schema using an existing runtime validation library. Keep
-  the generator path when it protects a broad current API surface or prevents real drift from a
-  source-of-truth spec; narrow it when a non-generated boundary was merely bolted onto the
-  generator.
-- When tests pressure production code into adding a mapper, branch, helper, or named intermediate
-  value solely to make assertions prettier, simplify the test instead. Assert the app behavior
-  directly, and for diagnostics prefer matching the upstream library's own issue payload over
-  inventing a normalized shape.
-- Let focused module paths carry generic utility context. Prefer names like `pick` from an object
-  module over prefixing every export, and avoid broad barrel exports that erase that context.
-- Do not add speculative helpers, flags, env vars, allowlist entries, compatibility paths, or config
-  surface that the current patch does not use end to end.
-- When cleanup or migration work makes a direct native API viable, prefer deleting the temporary
-  adapter instead of keeping a near-equivalent wrapper, renamed mirror, or reshaped object around
-  it. Always check whether an extra abstraction can be removed, not just whether it can be
-  tolerated.
-- For app-internal refactors, prefer delete-first changes over compatibility-preserving patches.
-  When a shared abstraction owns the wrong responsibility, remove or narrow it and update all
-  current callsites instead of adding pass-through props, transitional wrappers, convenience APIs,
-  or shims. Treat backwards compatibility for app-internal components as a non-goal unless the user
-  explicitly asks for it.
-- If a transitional helper, adapter, or mirror object ends up unused outside tests, delete it
-  instead of preserving it "just in case". Do not keep dead migration scaffolding, test-only
-  production helpers, or simplified wrappers that no longer pull their weight.
-- Avoid parameterized local helper factories when a helper has one current callsite and can read the
-  needed local constants directly. Keep the direct function until multiple shipped callsites prove
-  configurability is useful.
-- Remove property-presence checks such as `key in object` when they only exist to appease
-  TypeScript. Keep them only when own-key presence is real runtime state, such as distinguishing an
-  explicit `undefined` clear from a missing key. Prefer the simple `key in object` form unless
-  prototype safety is a proven issue for that object.
-- Fail closed rather than inventing placeholder fallbacks unless the patch is implementing a real
-  migration.
-- Do not keep test-only production abstractions, incomplete extractions, or dead scaffolding.
-- Do not add barrel files for app code.
-- Do not add same-name re-export shim files or one-line pass-through modules that only re-export
-  another module. Update imports directly instead, and delete these wrappers when you find them.
-  They pollute the tree and break editor cmd-click/navigation when tracing real implementations and
-  usages.
-- Keep config surfaces minimal and current.
-- `URLSearchParams` is globally warned by lint so app search defaults to typed route objects and
-  route-specific helpers. Intentional protocol boundaries such as OAuth, external URLs,
-  parser/serializer helpers, fixtures, and tests can stay native while warning output keeps those
-  callsites visible.
-- For app-owned components, default to closed styling APIs. Do not add pass-through styling props
-  such as `className`, `bodyClassName`, or `headerClassName` unless a current shipped callsite truly
-  needs them.
-- When a shared component's styling standard stops fitting, prefer changing the component's standard
-  directly over threading more class-name override props through the tree.
-- For shared layout chrome, standardize structure and behavior rather than inventing semantic
-  content sub-APIs like `title`, `meta`, `leading`, or `trailing` unless the product truly needs one
-  shared content pattern.
-- Do not construct Tailwind or CSS class names dynamically. Map state to full literal class strings.
-- Default app-internal navigation to SPA navigation through TanStack Router `Link` or `navigate`.
-  Plain anchors are for external URLs, downloads, or deliberate document reloads only; if an
-  internal action keeps an `href` for copy/open-in-new-tab behavior, ordinary left-clicks must still
-  route through the SPA path.
+- Type-unsafety must be explicit, searchable, and quarantined — hiding a type gap is worse than
+  declaring one; TypeScript serves the mental model, not the other way around.
+- Never use `any` or type assertions; `as const` is fine. A type assertion is never the right tool
+  for anything except hiding a type issue — where you would reach for `as`, use the narrowest
+  `@ts-expect-error` plus a comment stating the runtime fact that makes it safe (greppable, errors
+  once stale); assertions hide in plain sight. Rare exception for `any` only: type-level generics
+  where `unknown`/`never` cannot express a constraint use `any` under a scoped lint-disable
+  (`packages/sure` precedent).
+- Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
+  type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
+  in `@noter-md/dependent`), never costume types the code cannot earn.
+- Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` that
+  restates what a validator already proves — a disconnected predicate keeps narrowing to a stale
+  shape when the schema evolves, with no error. Let the validator's result narrow, or derive the
+  target via `Infer` ("disconnected type safety" in `docs/code-guardrails.md`).
+- Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
+  `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@noter-md/dependent`; `packages/sure`
+  is the philosophy at its extreme). Keep that vocabulary small; no long-named one-line helpers
+  sprawling through app code.
+- No `Reflect.get`/`Reflect.set` workarounds; prefer real narrows, else the narrowest
+  `@ts-expect-error` with a concrete reason. Never `@ts-nocheck`.
+- No `globalThis` in app or test code; use the typed host (`window`, `global`) and add declarations
+  for new globals first.
+- Write real runtime guards/validators when narrowing `unknown` or provider data; never recommend
+  assertion-based examples.
+- Prefer inference; do not restate types the expression already proves.
+- Put the discriminant property first in union variant shapes.
+- Let `pure(...)`/`sure(...)` infer inline validator inputs; no redundant `unknown` annotations.
+- When a schema exists, derive the type from it; one source-of-truth schema per boundary — no
+  parallel hand-written types, strict companions, or validator-issue translation.
+- Convex: result validators before handlers, `Infer<typeof ...>`, destructure validator builders
+  once; reserve the `v` prefix for reusable Convex validators (`vProviderAuth`), system-specific
+  prefixes elsewhere (`ajv...`).
+- Required properties and args by default; every optional needs a current justification.
+- Put invariants in the state shape (discriminated unions, required variant fields, closed sets,
+  validators that reject impossible rows); runtime transitions only for db/time/provider-dependent
+  rules. Keep state spaces small and orthogonal; forbid cross-product interactions the product does
+  not need.
+- For important state models, start tests by enumerating state axes and allowed combinations.
+- Deterministic sort order with stable tie-breakers for all returned collections and lists.
+
+Simplicity and deletion:
+
+- Delete-first is the default: no helper, wrapper, formatter, class, or generated artifact the final
+  design does not need (including factories parameterized for a single callsite); keep native
+  library value/error shapes.
+- No custom Error subclasses unless production catches or branches on them; tests are not a reason.
+- Run a delete-first reduction pass on every patch-introduced helper/adapter/mirror; rerun it after
+  swapping validation approaches.
+- Generated validation glue is a carrying cost, but do not replace broad OpenAPI coverage with
+  hand-written schemas just to shrink generated files.
+- When tests want production mappers or branches for prettier assertions, simplify the test.
+- No speculative helpers, flags, env vars, allowlists, or config the patch does not use end to end;
+  keep config surfaces minimal. Fail closed over placeholder fallbacks.
+- Delete temporary adapters once a native API is viable, transitional helpers unused outside tests,
+  dead scaffolding, and incomplete extractions.
+- App-internal refactors are delete-first: no pass-through props, wrappers, or shims; internal
+  backwards compatibility is a non-goal.
+- No runtime statements whose only job is appeasing the type checker (presence checks, redundant
+  guards) — declare the gap instead.
+- No barrel files for app code; no same-name re-export shims — update imports directly and delete
+  shims when found.
+- Separate business logic from generic mechanics; small typed utilities in focused shared modules
+  whose path carries the context (`pick` in an object module).
+- Generated files contain only output derived from their named source of truth.
+- Wrap hard-coded tracked-file references in scripts with `trackedFilePath(...)` or
+  `noterAppFilePath(...)`.
+
+Effects and reads:
+
+- Justify every `useEffect`/`useLayoutEffect`; prefer route lifecycle, data/cache APIs, handlers,
+  derived state, or CSS; collapse duplicate effects. In curated VMs such as the route URL editor,
+  effects, observers, and polling need even stronger proof — drop nice-to-have features instead.
+- Avoid `"use node"` unless truly required.
+- Truthiness checks for `true | undefined` flags; existence checks when existence is the meaning —
+  exact `!== undefined`/`typeof` checks only when that exact state is modeled.
+- Use `notEmpty` from `@noter-md/dependent` for filtering nullable arrays.
+- Repeated `?.` on one value is a correctness smell: narrow once with an explicit missing branch.
+- Direct conditions over intermediates; no `!!` or named booleans for engineering theater.
+
+Comments:
+
+- Comment the constraint or invariant, in the code's own terminology (`draftPath`, not invented
+  labels); JSDoc for functions with non-obvious ownership or timing; name concrete runtime cases.
+- Local-type JSDoc uses the simplest direct vocabulary, multiline blocks without leading `*`
+  prefixes; preserve user-authored wording.
+
+UI code:
+
+- Closed styling APIs for app-owned components; no `className` pass-throughs without a shipped need;
+  evolve the component's standard instead of threading overrides.
+- Standardize shared layout chrome structure; no semantic content sub-APIs (`title`, `meta`,
+  `leading`, `trailing`) without a real shared pattern.
+- No dynamically built Tailwind/CSS class names; map state to full literal strings.
+- App-internal navigation goes through TanStack Router `Link`/`navigate`; plain anchors only for
+  external URLs, downloads, or deliberate reloads; href-bearing internal actions still SPA-route
+  ordinary left-clicks.
 
 ## Non-Functional Guardrails
 
@@ -357,26 +364,18 @@ Key domain entities:
   when they already solve the problem.
 - When designing or extracting UI, start from the smallest viable working surface. Standardize shell
   behavior like sizing, spacing, scrolling, and containment before adding labels, helper copy,
-  metadata, or extra chrome.
-- Do not pre-populate new layout components with invented content structure or helper APIs. Leave
-  them mostly empty by default and add the next layer only when a current shipped use case proves it
-  is necessary.
+  metadata, or extra chrome. Do not pre-populate new layout components with invented content
+  structure or helper APIs.
 - For app-owned UI, use as few Tailwind utilities as possible. Every utility class should protect a
-  current invariant; if you cannot name the invariant a class preserves, leave it out. Start from
-  native element behavior for diagnostic/operator surfaces and avoid decorative backgrounds,
-  borders, radius/notch classes, opacity tweaks, and height caps unless the current UI truly needs
-  them.
-- For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the content keeps a
-  small nonzero inset without reading as padded.
+  current invariant; if you cannot name the invariant a class preserves, leave it out.
 - On iOS/iPadOS WebKit, focused text-entry controls below 16 CSS px can trigger viewport zoom.
   Shipped inputs, textareas, selects, and contenteditable editor fields must render at 16px or
   larger unless the product intentionally accepts focus zoom for that control.
 - Browser-owned page scroll is the default for route surfaces. Do not use route-level `h-screen`,
   `h-dvh`, `overflow-hidden`, or full-page `overflow-y-auto` shells under shared app chrome unless
-  the route truly needs contained pane behavior.
-- When a route needs to fill the space below shared chrome, use route-body flex sizing such as
-  `flex min-h-0 flex-1 flex-col`, and place any intentional local scroller lower in the tree so
-  browser pull-to-refresh and edge-swipe gestures keep working.
+  the route truly needs contained pane behavior. When a route needs to fill the space below shared
+  chrome, use route-body flex sizing such as `flex min-h-0 flex-1 flex-col`, and place any
+  intentional local scroller lower in the tree so pull-to-refresh and edge-swipe keep working.
 - When headings, cards, or selected rows can be opened through a link, query param, or programmatic
   scroll, preserve enough scroll-end space for the last target to align at the top of its
   scrollport.
@@ -384,30 +383,15 @@ Key domain entities:
   URL, prefix the label with `link` plus a leading space so the rendered link stays visible until
   that ProseMark bug is fixed.
 - Add or update screenshot coverage whenever a patch changes shipped UI.
-- When creating or refreshing Playwright screenshot baselines locally, always use Docker with
-  `pnpm test:visual:linux`; that wrapper defaults to `linux/arm64`. Do not add
-  `PLAYWRIGHT_LINUX_PLATFORM=linux/arm64` to normal commands unless you are intentionally
-  documenting or overriding the wrapper default. Local Linux runs default to
-  `--fully-parallel --workers=4`; pass explicit Playwright flags or wrapper env overrides only when
-  a focused diagnostic needs a different parallelism level. Never accept native macOS/browser
-  screenshots as baselines.
+- For Playwright baselines, live validation, focused-vs-full acceptance runs, session rules, and
+  fixture policy, follow `skills/noter-playwright-live/SKILL.md` and
+  `docs/playwright-visual-testing.md`. The canonical local acceptance command is
+  `pnpm test:visual:linux`.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth wiring, or route shell
-  behavior, reproduce and test the real app route first.
-- Before calling a Playwright test fix complete, run the unmodified local acceptance command
-  `pnpm test:visual:linux`. Focused spec runs are triage only after a full local failure, and
-  CI-shaped shards or skipped PR Playwright rows are not equivalent to the full local wrapper.
-- For narrow UI/router changes, run focused Playwright coverage for the affected route locally
-  first. Broaden to `pnpm test:visual:linux` when the patch touches shared shell, auth, history,
-  focus, browser storage, screenshots, or failures found by a full local run. If the issue is
-  browser- or CI-sensitive, also run the relevant coverage in a Blacksmith Testbox before marking
-  the PR ready.
-- Do not create fake visual fixtures just to show or approve a product behavior screenshot. If the
-  user needs to review behavior, use the real app route or an editable production-component harness
-  that exercises the actual code path.
-- If a fixture is still needed, it must mount the exact production component tree without invented
-  headers, wrappers, spacing, or fake chrome.
-- For production interaction regressions, add a failing route-level or honest production-component
-  Playwright repro before adding narrower fixture coverage.
+  behavior, reproduce and test the real app route first. Do not create fake visual fixtures just to
+  show or approve a behavior screenshot; a fixture must mount the exact production component tree
+  without invented chrome, and a failing route-level or honest production-component repro comes
+  before narrower fixture coverage (`docs/agent-workflows.md`, Route-First UI Regression Policy).
 - Use rectangular app chrome by default.
 - Disable async destructive triggers while pending and show an in-button pending state.
 - Persist user-visible UI state in Convex by default unless per-device behavior is explicitly
@@ -422,190 +406,6 @@ Key domain entities:
   behavior over a generated primitive.
 - If a generated file is explicitly edited, keep the change minimal and call out the divergence.
 
-## Workflow Shortcuts
-
-When the user says one of these commands, execute it directly:
-
-| Command        | Action                                                                                                                                                         |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `commit`       | Stage changes and create a concise commit                                                                                                                      |
-| `push`         | Commit if needed, then push                                                                                                                                    |
-| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                             |
-| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                             |
-| `ready`        | Mark the current PR ready                                                                                                                                      |
-| `wait`         | Watch CI and report status                                                                                                                                     |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                                 |
-| `squash`       | Squash-merge the current PR                                                                                                                                    |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                          |
-| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                                    |
-| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                                 |
-| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
-| `status`       | Report branch, local changes, and PR state                                                                                                                     |
-
-Detailed flow rules live in `docs/agent-workflows.md`.
-
-## Workflow Rules
-
-- Always use CLI tools such as `gh` and `git`; do not tell the user to click through a UI.
-- Execute requested git/GitHub workflows instead of describing them.
-- Do not leave a meaningful non-`main` work branch, research branch, or Codex thread without a
-  GitHub PR. Before concluding the task, create or update the branch PR unless the user explicitly
-  says not to open one.
-- Default proactive PR state is ready/non-draft so work is preserved in GitHub. Use a draft PR only
-  when the work is still in progress or the user explicitly asks to keep it draft.
-- Before starting implementation on an existing branch or worktree, fetch `origin` and rebase onto
-  the latest `origin/main`.
-- Rename auto-generated random `codex/<word>-<word>-<word>` branches early, and always before
-  `commit`, `create pr`, or `ship`.
-- Before `commit`, `create pr`, or `ship`, inspect the diff shape with `git diff --stat` (and
-  `git diff --cached --stat` when relevant).
-- After a branch commit has been shown, pushed, reviewed, or attached to a PR, preserve follow-up
-  work as new commits by default. Do not use `git commit --amend`, interactive rebase, squash, or
-  other history-rewriting cleanup for follow-up changes unless the user explicitly asks for that
-  exact rewrite.
-- When the user says `rebase`, treat it as `rebase` plus `push` so the local branch and
-  `origin/<branch>` stay aligned after the history rewrite.
-- Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for Playwright/manual test repos
-  created from a worktree.
-- `link machine` must use the current checkout's `noter.ts` flow and keep every local repo checkout
-  isolated with its own `--state-dir` under `~/.noter/checkouts/<checkout-id>`. Never overwrite the
-  default `~/.noter` install as part of local dev linking.
-- `clean vaults` must fail closed and only remove matching Noter-managed vaults through the
-  dashboard delete flow.
-- `clean` must follow `docs/noter-pr-preview-cleanup.md` before deleting the remote branch. The
-  current branch must have a terminal PR: `MERGED` or `CLOSED`. A draft PR still creates preview
-  resources, so any branch that ever had a PR must clean both Cloudflare and Convex previews before
-  branch deletion. Do not add scripts or deploy metadata for this cleanup. Missing local env files
-  or first-pass metadata gaps block `clean`; they are not a reason to skip provider cleanup.
-- `clean` must fail closed and only remove the current checkout's isolated machine state directory
-  under `~/.noter/checkouts/<checkout-id>`. Never delete the default `~/.noter` install as part of
-  local cleanup.
-- When the user says `create pr`, create or update a ready non-draft PR with the current `v<N>:`
-  title label.
-- Use a draft PR only when the user explicitly says `create draft` or otherwise asks to keep the PR
-  draft, and still apply the current `v<N>:` title label.
-- `ship` must leave the current branch with an updated ready PR before waiting on CI.
-- PR descriptions must explain why the change exists, not just what changed.
-- When a PR originates from research or automation work, include `First Message` and
-  `Requested Codex Runtime`.
-- Keep the PR title and description updated as scope changes.
-- When the user says `update PR`, update the GitHub PR metadata with `gh pr edit`: title first, then
-  description if scope, verification, rebase, or review status changed. This shorthand does not mean
-  rewriting branch commit subjects.
-- Prefix every PR title with the projected landing-page build label, such as `v1146:`, and refresh
-  it after creating, updating, rebasing, marking ready, or whenever `origin/main` advances. Treat
-  the label as provisional until merge.
-- For normal PR title updates, compute the provisional `v<N>:` label from the latest `origin/main`
-  mainline label plus one. Do not infer the correct PR label from existing branch commit subjects,
-  stale PR titles, or the branch name.
-- Do not consider `create pr`, `create draft`, proactive PR creation, PR readiness updates, `ship`,
-  or `squash` complete until the current GitHub PR title starts with the freshly computed `v<N>:`
-  label for the latest `origin/main`.
-- When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
-  include the phase label in the PR title after the build label, such as
-  `v1146: Phase 2: Move app provisioning to Workflow`, so the eventual squash commit preserves the
-  phase context.
-- Do not amend or rewrite branch commit subjects only to add or refresh provisional build labels
-  during normal PR updates. GitHub's squash UI uses the lone commit subject as the default squash
-  title for one-commit PRs, and the PR title for PRs with two or more commits; handle that only
-  during final merge prep.
-- Do not put app build version labels in branch names.
-- Treat actionable Greptile, CodeRabbit, and Codex review comments as required fixes while shipping.
-- Never merge before CI is green.
-- Rebase on the latest `origin/main` immediately before merge.
-- When creating the final `main` commit through `squash` or `ship`, compute the landing-page build
-  number from the latest `origin/main` immediately before merge, add 1, refresh the PR title if
-  needed, and prefix the squash commit subject with `v<N>:`. Prefer an explicit CLI squash subject
-  over relying on the GitHub UI default.
-- Prefer squash merge by default.
-
-## Worktree Rules
-
-- If HEAD is detached, use `./scripts/bootstrap-worktree.ts` to create a `codex/<...>` branch.
-- Treat the current worktree root from `git rev-parse --show-toplevel` as the workspace boundary
-  unless the user explicitly asks otherwise.
-- Before dev/test/commit work, confirm the current worktree and branch with
-  `git worktree list --porcelain` and `git rev-parse --abbrev-ref HEAD`.
-- Do not run `npx convex dev --env-file` pointing at another checkout's `.env.local`; it breaks the
-  current worktree's local setup.
-- Keep one idea per worktree when possible.
-
-## Operator Preferences
-
-- Keep responses concise by default and always include a final `Summary` section.
-- Mention only the actionable lever in user-facing explanations. Do not bring up impossible
-  non-options or irrelevant caveats.
-- Expect voice-to-text mistakes. Interpret likely transcription errors before asking for
-  clarification.
-- Commit meaningful checkpoints instead of letting large local diffs accumulate, and push after
-  commits so work is not stranded only in the local worktree.
-- When a change touches many files or multiple concerns, consider splitting it into two or three
-  reviewable commits, such as backend model cleanup, UI wiring, and spec/test updates. This is a
-  reviewability preference, not a hard requirement.
-- Default to additive minimalism in copy and visuals. Do not add decorative chrome, filler copy,
-  extra buttons, or ornamental layout unless explicitly requested.
-- For app-owned UI, prefer an empty well-behaved container over a clever or richly pre-structured
-  abstraction. If the standard needs to evolve, change the standard instead of front-loading
-  speculative slots and props.
-- Preserve the established visual language. Do not add shadows, rounded corners, custom easing,
-  decorative borders, or similar visual embellishments unless the user explicitly asks for them or
-  the surrounding component already uses them.
-- For motion and timing, prefer Tailwind defaults unless there is a concrete product reason to
-  override them.
-- Assume Cloudflare is the default front door and observability layer for `noter.md`, and keep
-  application logic in Convex by default unless there is a clear reason not to.
-- Never use Vercel as an example provider or integration. Use Netlify when a non-Cloudflare
-  deploy/preview provider example is needed.
-- Prefer shell commands first and Node/ECMAScript second; do not reach for Python first in this
-  repo.
-- Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
-  TypeScript snippets.
-- Format documents with oxfmt.
-- Prefer exhaustive dispatch with `satisfies never` when it fits.
-- When sharing URLs, always format them as clickable Markdown links.
-- When pointing the operator at code, include a precise location such as a 1-based line number or
-  another unambiguous anchor unless the whole file is genuinely the subject. Do not cite only a
-  large file path when the relevant code lives in one small area.
-- When sharing a Cloudflare URL in a Markdown link, prefix the label with the word `link` followed
-  by a space so it renders correctly in ProseMark, for example
-  `[link https://example.trycloudflare.com](https://example.trycloudflare.com)`.
-- When a relevant preview exists, include at least one clickable localhost URL in the user-facing
-  response; otherwise say that no preview is running.
-- When sharing a localhost app preview URL in the user-facing response, also include the active
-  Cloudflare tunnel URL for that same app when one exists.
-- For preview deploy URLs, use the `?prod-ui` query param.
-- When screenshot or visual regression work changes images, show the relevant before/after or diff
-  images in the user-facing response.
-- When a response relates to an existing PR, mention the PR number as a clickable Markdown link.
-- Prefer key-only boolean query params such as `?diff`.
-- Preserve unrelated query params when changing app URLs. Use the shared query param helpers instead
-  of hand-building URLs.
-- For advanced numeric controls, a slider can have a sensible drag range, but typed inputs and
-  search params should not clamp above that range unless a real product invariant requires a hard
-  maximum.
-- For Playwright or browser automation, never steal OS focus and never kill all Chrome processes.
-  Use isolated Playwright-owned sessions only.
-- For this repo, prefer `node ./scripts/playwright-branch-browser.ts` or `pnpm playwright:open` over
-  raw `@playwright/cli open`.
-- When the user asks to reproduce or inspect a mobile issue, start Playwright in a mobile-emulated
-  context from launch. Do not begin in a desktop context and resize later.
-- Start Playwright validation with the normal unconstrained browser layout unless the user asks for
-  a specific viewport. Add a mobile pass when relevant before shipping.
-- When scripting touch gestures, anchor on visible rendered content inside the shipped surface
-  instead of arbitrary coordinates inside oversized containers.
-- On mobile-first chat or prompt surfaces, Enter must not send by default. Require an explicit send
-  action and treat accidental Enter-to-send on mobile as a product bug.
-- When sharing a repo file with the operator and the branch is pushed, prefer a `noter.md` vault
-  branch/file URL over a local filesystem link. Local file links are not usable from mobile. Use
-  filesystem links only when no Noter vault URL exists for that file.
-- Worktree frontend should avoid port `5173`; prefer the worktree defaults.
-- Treat shadcn-generated files in `apps/noter/src/components/ui/*` as read-only unless the user
-  explicitly asks to update shadcn output.
-- When asked for OAuth redirect URLs or env vars, give one exact recommendation instead of multiple
-  alternatives.
-- Treat speculative future-proofing as a bug. Do not add backup env vars, imagined code paths, or
-  placeholder config.
-
 ## Task-Specific References
 
 - For the extracted agent context bundle and live modularization map, use
@@ -613,6 +413,7 @@ Detailed flow rules live in `docs/agent-workflows.md`.
   `research/2026-05-23-agent-context-agents-migration-map.md`. The package does not replace live
   routing yet; keep always-loaded rules until a migration proves each replacement is reachable.
 - For git/PR/shipping details, use `docs/agent-workflows.md`.
+- For safe Convex production reads, use `docs/convex-production-reads.md`.
 - For live browser validation and route-first UI repros, use
   `skills/noter-playwright-live/SKILL.md`.
 - For PR authoring details, use `skills/create-pr/SKILL.md`.
