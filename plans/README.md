@@ -10,13 +10,13 @@ deliberately NOT planned, is recorded below so nothing gets re-audited from scra
 
 ## Execution order & status
 
-| Plan | Title                                                    | Priority | Effort | Depends on | Status                |
-| ---- | -------------------------------------------------------- | -------- | ------ | ---------- | --------------------- |
-| 001  | Enforce vault ownership on `fileStaging.listStagedFiles` | P1       | S      | —          | IN PROGRESS (PR #987) |
-| 002  | Add test coverage for the Polar billing money path       | P1       | M      | —          | TODO                  |
-| 003  | Make the upstream-conflict path handoff comma-safe       | P2       | S      | —          | TODO                  |
-| 004  | Delete dead Convex mutations                             | P2       | S      | —          | TODO                  |
-| 005  | Fix stale agent-facing docs                              | P2       | S      | —          | TODO                  |
+| Plan | Title                                                    | Priority | Effort | Depends on | Status                       |
+| ---- | -------------------------------------------------------- | -------- | ------ | ---------- | ---------------------------- |
+| 001  | Enforce vault ownership on `fileStaging.listStagedFiles` | P1       | S      | —          | DONE (merged as v1484, #987) |
+| 002  | Add test coverage for the Polar billing money path       | P1       | M      | —          | TODO                         |
+| 003  | Make the upstream-conflict path handoff comma-safe       | P2       | S      | —          | TODO                         |
+| 004  | Delete dead Convex mutations                             | P2       | S      | —          | TODO                         |
+| 005  | Fix stale agent-facing docs                              | P2       | S      | —          | TODO                         |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line
 rationale — finding fixed independently or approach abandoned)
