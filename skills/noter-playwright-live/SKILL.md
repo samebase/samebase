@@ -164,6 +164,15 @@ await page.goto("/admin-route", { waitUntil: "networkidle" });
 
 ## Playwright Session Rules
 
+- Never steal OS focus and never kill all Chrome processes. Use isolated Playwright-owned sessions
+  only.
+- When the user asks to reproduce or inspect a mobile issue, start Playwright in a mobile-emulated
+  context from launch. Do not begin in a desktop context and resize later.
+- Start validation with the normal unconstrained browser layout unless the user asks for a specific
+  viewport. Add a mobile pass when relevant before shipping.
+- When scripting touch gestures, anchor on visible rendered content inside the shipped surface
+  instead of arbitrary coordinates inside oversized containers.
+- Add or update screenshot coverage whenever a patch changes shipped UI.
 - In this repo, prefer `node ./scripts/playwright-branch-browser.ts` or `pnpm playwright:open` over
   raw `@playwright/cli open`.
 - Use one deterministic session/profile per active branch.

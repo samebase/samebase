@@ -72,6 +72,19 @@ instructions or checklists.
 | `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree and branch |
 | `status`       | Report branch, local changes, and PR state                                                                                                                         |
 
+## Branch And Commit Hygiene
+
+- Always use CLI tools such as `gh` and `git`, and execute requested git/GitHub workflows instead of
+  describing them or pointing the user at a UI.
+- Rename auto-generated random `codex/<word>-<word>-<word>` branches early, and always before
+  `commit`, `create pr`, or `ship`.
+- After a branch commit has been shown, pushed, reviewed, or attached to a PR, preserve follow-up
+  work as new commits by default. Do not use `git commit --amend`, interactive rebase, squash, or
+  other history-rewriting cleanup for follow-up changes unless the user explicitly asks for that
+  exact rewrite.
+- When the user says `rebase`, treat it as `rebase` plus `push` so the local branch and
+  `origin/<branch>` stay aligned after the history rewrite.
+
 ## PR Body Standard
 
 Unless a repo template says otherwise, PR descriptions should use this shape:
@@ -91,6 +104,9 @@ Rules:
 - Use concise validation summaries, not raw CI logs.
 - Use `gh pr create --body-file ...` or `gh pr edit --body-file ...` so real newlines are preserved.
 - Keep the PR description updated when scope changes.
+- When the user says `update PR`, update the GitHub PR metadata with `gh pr edit`: title first, then
+  description if scope, verification, rebase, or review status changed. This shorthand does not mean
+  rewriting branch commit subjects.
 
 ## PR Timing
 
@@ -142,6 +158,14 @@ Rules:
 - Treat PR title labels as provisional. Overlapping PRs can share the same projected label until one
   lands and the others are refreshed.
 - Do not put `v<N>` in branch names.
+- When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
+  include the phase label in the PR title after the build label, such as
+  `v1146: Phase 2: Move app provisioning to Workflow`, so the eventual squash commit preserves the
+  phase context.
+- The standard way to compute and apply the label is `node ./scripts/pr-build-label.ts`: it fetches
+  `origin/main`, computes the projected label from the commit count, and updates the current
+  branch's PR title in place (use `--print-only` to compute without editing). The manual recipe it
+  implements:
 - When creating, updating, rebasing, marking a PR ready, running `ship`, or preparing `squash`,
   fetch latest `origin/main` and compute the projected label from the current main count:
 
