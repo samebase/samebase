@@ -115,8 +115,10 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   override them.
 - Assume Cloudflare is the default front door and observability layer for `noter.md`, and keep
   application logic in Convex by default unless there is a clear reason not to.
-- noter uses and recommends Cloudflare Workers only. Never use Vercel as an example provider or
-  integration; if an example truly needs a non-Cloudflare provider, use Netlify.
+- In copy, docs, and examples: never use Vercel as an example provider or integration; use Netlify
+  when a non-Cloudflare provider example is needed. Naming other providers is normal — the product
+  is provider-agnostic (it works off GitHub PRs and branches); Cloudflare is what noter itself runs
+  on and recommends via its single template.
 - Prefer shell commands first and Node/ECMAScript second; do not reach for Python first in this
   repo.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
