@@ -85,9 +85,10 @@ declaring one.
   }
   ```
 
-  If a reusable guard genuinely earns its place, its target must be derived from the same schema
-  (`value is InferGood<typeof vault>`), never restated by hand — and even then prefer the
-  validator's own narrowing when the call site allows it.
+  If a reusable guard genuinely earns its place, derive it: `guard(schema)` in `@samebase/sure`
+  produces a predicate whose target is inferred from the schema, so it cannot drift (refining
+  schemas only — the claim is about the input as-is, so transforming `after` schemas must not pass
+  through it). Even then, prefer the validator's own narrowing when the call site allows it.
 
 - Do not use `Reflect.get` or `Reflect.set` as a workaround for TypeScript property access, browser
   API typing, global property writes, or object mutation. Prefer direct typed property access with a

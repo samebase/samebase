@@ -263,7 +263,8 @@ Types and validation:
 - Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` that
   restates what a validator already proves — a disconnected predicate keeps narrowing to a stale
   shape when the schema evolves, with no error. Let the validator's result narrow, or derive the
-  target via `Infer` ("disconnected type safety" in `docs/code-guardrails.md`).
+  guard with `guard(schema)` from `@samebase/sure` ("disconnected type safety" in
+  `docs/code-guardrails.md`).
 - Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
   `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@noter-md/dependent`; `packages/sure`
   is the philosophy at its extreme). Keep that vocabulary small; no long-named one-line helpers

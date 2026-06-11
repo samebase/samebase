@@ -140,6 +140,15 @@ export default defineConfig({
         },
       },
       {
+        // Dedicated type-level library: variance-sensitive inference slots
+        // need `any` where `unknown`/`never` cannot express the constraint.
+        // Mirrors the package-scoped -A in packages/sure/package.json lint.
+        files: ["packages/sure/**/*.ts"],
+        rules: {
+          "@typescript-eslint/no-explicit-any": "off",
+        },
+      },
+      {
         files: ["apps/noter/convex/**/*.ts", "apps/noter-starter-template/convex/**/*.ts"],
         rules: {
           "@convex-dev/import-wrong-runtime": "off",

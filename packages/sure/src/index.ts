@@ -6,6 +6,7 @@ export * from "./primitives.ts";
 export * from "./object.ts";
 export * from "./array.ts";
 export * from "./literal.ts";
+export * from "./guard.ts";
 
 export * from "./tuple.ts";
 export * from "./union.ts";
