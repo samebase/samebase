@@ -16,7 +16,7 @@ deliberately NOT planned, is recorded below so nothing gets re-audited from scra
 | 002  | Add test coverage for the Polar billing money path       | P1       | M      | —          | TODO                         |
 | 003  | Make the upstream-conflict path handoff comma-safe       | P2       | S      | —          | TODO                         |
 | 004  | Delete dead Convex mutations                             | P2       | S      | —          | IN PROGRESS (PR #988)        |
-| 005  | Fix stale agent-facing docs                              | P2       | S      | —          | TODO                         |
+| 005  | Fix stale agent-facing docs                              | P2       | S      | —          | IN PROGRESS (PR #989)        |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line
 rationale — finding fixed independently or approach abandoned)
