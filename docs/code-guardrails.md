@@ -59,6 +59,36 @@ declaring one.
   context; it is not a license to sprawl one-line app-code functions with long names that fragment
   the logic a reader is trying to follow. If a wrapper's name says less than the expression it
   wraps, inline it.
+- Beware "disconnected type safety" — the subtlest laundering, because a real runtime check sits
+  right next to it. A hand-written `value is T` predicate (or explicit return-type annotation) that
+  restates what a validator already proves creates an unchecked seam: TypeScript trusts the `is T`
+  claim without verifying it against the body, so when the schema evolves, the predicate keeps
+  narrowing to the stale shape and nothing errors anywhere — the type system reports safety that no
+  longer exists. Type predicates are unsafe by default: assertion-lite, to be kept rare, tiny, and
+  audited (`notEmpty`, `includes`). Prefer the connected path where everything is inferred and drift
+  cannot hide:
+
+  ```ts
+  const vault = object({ id: string(), branch: string() });
+
+  // BAD — disconnected: the hand-written predicate target restates what the
+  // schema already knows. Add `owner: string()` to the schema and this still
+  // narrows to the stale two-field shape, with no error anywhere.
+  function isVault(value: unknown): value is { id: string; branch: string } {
+    return vault(value)[0];
+  }
+
+  // GOOD — connected: the schema's own result narrows; one source of truth.
+  const [ok, parsed] = vault(input);
+  if (ok) {
+    // parsed is inferred from the schema — schema changes propagate here
+  }
+  ```
+
+  If a reusable guard genuinely earns its place, its target must be derived from the same schema
+  (`value is InferGood<typeof vault>`), never restated by hand — and even then prefer the
+  validator's own narrowing when the call site allows it.
+
 - Do not use `Reflect.get` or `Reflect.set` as a workaround for TypeScript property access, browser
   API typing, global property writes, or object mutation. Prefer direct typed property access with a
   real narrow. If TypeScript cannot express a justified browser/API callsite, use the narrowest
