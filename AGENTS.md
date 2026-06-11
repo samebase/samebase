@@ -9,7 +9,8 @@
   replace it with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
   `Local backend isn't running`, run `pnpm dev --once` and retry.
-- `rg` is not available in this environment. Use `grep` and `find` instead.
+- `rg` is not available in some agent environments (it does exist on local dev machines). When it is
+  missing, use `grep` and `find` instead.
 
 ## Communication
 
@@ -132,7 +133,8 @@ Key domain entities:
 - `users`
 - `providerConnections`
 - `vaults`
-- `vaultInfrastructure`
+- `vaultInfrastructureTargets`
+- `vaultInfrastructureOwnership`
 - `vaultDomains`
 - `fileStaging`
 - `collaborativeUpdates`
