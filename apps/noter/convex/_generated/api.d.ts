@@ -27,7 +27,6 @@ import type * as chat_index from "../chat/index.js";
 import type * as chat_metadata from "../chat/metadata.js";
 import type * as chat_prodAccess from "../chat/prodAccess.js";
 import type * as chat_threads from "../chat/threads.js";
-import type * as cleanupCloudflare from "../cleanupCloudflare.js";
 import type * as cloudflareAccountDiscovery from "../cloudflareAccountDiscovery.js";
 import type * as cloudflareApi_client from "../cloudflareApi/client.js";
 import type * as cloudflareMcp from "../cloudflareMcp.js";
@@ -142,7 +141,6 @@ declare const fullApi: ApiFromModules<{
   "chat/metadata": typeof chat_metadata;
   "chat/prodAccess": typeof chat_prodAccess;
   "chat/threads": typeof chat_threads;
-  cleanupCloudflare: typeof cleanupCloudflare;
   cloudflareAccountDiscovery: typeof cloudflareAccountDiscovery;
   "cloudflareApi/client": typeof cloudflareApi_client;
   cloudflareMcp: typeof cloudflareMcp;
