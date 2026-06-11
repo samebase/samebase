@@ -3,6 +3,10 @@
 This document holds deeper workflow rules that are too conditional or verbose for `AGENTS.md`, but
 should still live in-repo as durable guidance.
 
+Runbooks here are for procedures still being understood; once a procedure is mechanically
+understood, prefer a small direct script (`scripts/pr-build-label.ts` is the model) — scripts must
+get straight to the point, never enterprise-y.
+
 ## Worktree Bootstrap
 
 1. Confirm the current root and branch.
@@ -72,6 +76,9 @@ instructions or checklists.
 | `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree and branch |
 | `status`       | Report branch, local changes, and PR state                                                                                                                         |
 
+`ship` and `archive` are retired from active vocabulary (unused since late April 2026); if the
+operator says them, confirm intent before acting.
+
 ## Branch And Commit Hygiene
 
 - Always use CLI tools such as `gh` and `git`, and execute requested git/GitHub workflows instead of
@@ -122,7 +129,6 @@ Rules:
 - When the user says `create draft`, create or update a draft PR with the current `v<N>:` title
   label.
 - If the user explicitly asks to keep the PR draft, respect that.
-- `ship` must end with an updated ready PR before waiting on CI.
 
 ## Review And Ship
 

@@ -67,6 +67,20 @@ declaring one.
 - Do not recommend assertion-based examples in chat, docs, or review comments. When narrowing
   `unknown` or provider-owned data, write real runtime guards, validators, or model changes that let
   TypeScript prove the access.
+- Never add runtime statements whose only job is appeasing the type checker — presence checks like
+  `key in object`, redundant guards, `hasOwnProperty` ceremony. If the types are wrong, declare the
+  gap (`@ts-expect-error` with the runtime fact) instead of laundering it through runtime code. Keep
+  a presence check only when own-key presence is real runtime state (an explicit `undefined` clear
+  vs a missing key).
+
+## UI behavior
+
+- On mobile-first chat or prompt surfaces, Enter must not send by default. Require an explicit send
+  action and treat accidental Enter-to-send on mobile as a product bug. (ChatInput is currently a
+  hidden experiment; this applies to any future shipped chat surface.)
+- For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the content keeps a
+  small nonzero inset without reading as padded — ideally encoded once in the shared workspace
+  layout shell rather than per page.
 
 ## All other guardrails
 
@@ -81,7 +95,8 @@ declaring one.
 - Before adding a helper, formatter, wrapper, class, or generated artifact, ask whether the final
   design still needs it. Delete-first is the default. Keep the native library value or error shape
   unless a production caller needs a different shape; do not add branches or adapters whose outputs
-  are equivalent to the simpler expression.
+  are equivalent to the simpler expression. This includes helper factories parameterized for a
+  single callsite — keep the direct function until multiple shipped callsites prove configurability.
 - Do not add custom Error subclasses unless production code catches that exact class, branches on
   structured fields, or the error type is part of an existing module contract. Tests should not be
   the reason an error class exists.
@@ -109,18 +124,12 @@ declaring one.
   and use that matrix to pressure the schema toward making impossible states impossible.
 - When returning collections from queries or building user-visible lists, always choose an explicit
   deterministic sort order with stable tie-breakers.
-- New or materially changed code should include concise comments that explain the constraint or
-  invariant being preserved. Prefer JSDoc above functions when a function-level explanation is
-  needed. Specific hooks and utilities with non-obvious ownership, timing, or synchronization
-  behavior should have function-level JSDoc explaining why the indirection exists.
-- Comments must use the same terminology as the code. Prefer exact type, function, event, and
-  property names such as `draftPath` or `expectedRouteAddress` over invented labels; use `@see` to
-  point readers at a nearby type or helper. Prefer comments that name the concrete runtime case over
-  abstract ownership language, for example:
-  `if durable state says "left" but this layout has no left pane, render "main"; same for "right".`
-- For JSDoc above local types, props, and small config unions, write the app contract in the
-  simplest direct vocabulary and preserve user-authored wording. For multiline `/** ... */`
-  comments, prefer plain interior lines without leading `*` prefixes. Example:
+- Comments document the current contract or invariant, in the code's own concrete vocabulary
+  (`draftPath`, `expectedRouteAddress` — never invented labels), naming the concrete runtime case
+  over abstract ownership language. Never narrate the patch ('moved from X'), and never delete,
+  reword, or normalize user-authored comments — preserve their wording exactly. JSDoc for functions
+  with non-obvious ownership or timing; multiline JSDoc may use plain interior lines without leading
+  `*` (easier to copy). Example:
 
   ```ts
   /**
@@ -137,11 +146,11 @@ declaring one.
 - Treat every `useEffect` and `useLayoutEffect` as something to justify. Check whether the behavior
   belongs in a route lifecycle such as `beforeLoad`, a data/cache API, an event handler, derived
   render state, or CSS. Collapse duplicate effects that share the same trigger/concern.
-- In carefully curated state machines such as the route URL editor VM, put an even bigger question
-  mark on effects, `MutationObserver`, subscriptions, and DOM polling. First prove why the state
-  cannot move through an existing event, route value, prop, cache subscription, or explicit
-  caller-owned boundary; if a feature is only a nice-to-have suggestion, drop or narrow it instead
-  of adding reactive machinery.
+- In modules whose state movement is explicitly modeled (hand-curated VMs and state machines — e.g.
+  the route URL editor VM), effects, `MutationObserver`, subscriptions, and DOM polling need even
+  stronger proof: first show why the state cannot move through an existing event, route value, prop,
+  cache subscription, or caller-owned boundary; if a feature is only a nice-to-have suggestion, drop
+  or narrow it instead of adding reactive machinery.
 - Prefer truthiness checks for typed flags whose domain is already `true | undefined`; use
   `=== true` only when the distinction from other truthy values is part of the logic.
 - When the runtime meaning is that a value exists, write an existence check. Avoid exact
@@ -189,20 +198,14 @@ declaring one.
 - If a transitional helper, adapter, or mirror object ends up unused outside tests, delete it. Do
   not keep dead migration scaffolding, test-only production helpers, incomplete extractions, or
   wrappers that no longer pull their weight.
-- Avoid parameterized local helper factories when a helper has one current callsite and can read the
-  needed local constants directly.
-- Remove property-presence checks such as `key in object` when they only exist to appease
-  TypeScript. Keep them only when own-key presence is real runtime state. Prefer the simple
-  `key in object` form unless prototype safety is a proven issue for that object.
 - Fail closed rather than inventing placeholder fallbacks unless the patch is implementing a real
   migration.
 - Do not add same-name re-export shim files or one-line pass-through modules that only re-export
   another module. Update imports directly and delete these wrappers when found; they pollute the
   tree and break editor navigation when tracing real implementations.
-- `URLSearchParams` is globally warned by lint so app search defaults to typed route objects and
-  route-specific helpers. Intentional protocol boundaries such as OAuth, external URLs,
-  parser/serializer helpers, fixtures, and tests can stay native while warning output keeps those
-  callsites visible.
+- `URLSearchParams` is lint-warned (deliberately warn, not error) so app search defaults to typed
+  route objects while OAuth/external-URL/fixture/test callsites stay native and visible; the lint
+  message itself states the policy at each callsite.
 - For app-owned components, default to closed styling APIs. Do not add pass-through styling props
   such as `className`, `bodyClassName`, or `headerClassName` unless a current shipped callsite truly
   needs them. When a shared component's styling standard stops fitting, change the component's

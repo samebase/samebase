@@ -26,9 +26,7 @@ When the user says one of these commands, execute it directly:
 | `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                             |
 | `ready`        | Mark the current PR ready                                                                                                                                      |
 | `wait`         | Watch CI and report status                                                                                                                                     |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                                 |
 | `squash`       | Squash-merge the current PR                                                                                                                                    |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                          |
 | `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                                    |
 | `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                                 |
 | `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
@@ -41,12 +39,12 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 
 - Always use CLI tools such as `gh` and `git`, and execute requested git/GitHub workflows instead of
   describing them.
-- Rename auto-generated random `codex/<word>-<word>-<word>` branches early, always before `commit`,
-  `create pr`, or `ship`. Do not put `v<N>` build labels in branch names.
+- Rename auto-generated random `codex/<word>-<word>-<word>` branches early, always before `commit`
+  or `create pr`. Do not put `v<N>` build labels in branch names.
 - Before starting implementation on an existing branch or worktree, fetch `origin` and rebase onto
   the latest `origin/main`. When the user says `rebase`, treat it as `rebase` plus `push`.
 - Inspect the diff shape with `git diff --stat` (and `git diff --cached --stat` when relevant)
-  before `commit`, `create pr`, or `ship`.
+  before `commit` or `create pr`.
 - Do not leave a meaningful non-`main` work branch, research branch, or Codex thread without a
   GitHub PR; default to a ready non-draft PR unless the user asks for a draft. PR descriptions
   explain why the change exists, not just what changed. When a PR originates from research or
@@ -57,11 +55,10 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Every PR title starts with the projected `v<N>:` build label computed from the latest
   `origin/main`. Run `node ./scripts/pr-build-label.ts` to compute and apply it after creating,
   updating, rebasing, or marking ready, and again immediately before merge. When creating the final
-  `main` commit through `squash` or `ship`, prefix the squash commit subject with the freshly
-  recomputed label; prefer an explicit CLI squash subject over the GitHub UI default. Never infer
-  the label from existing branch commit subjects, stale PR titles, or the branch name. Do not
-  consider `create pr`, `create draft`, `ship`, or `squash` complete until the PR title carries the
-  fresh label.
+  `main` commit through `squash`, prefix the squash commit subject with the freshly recomputed
+  label; prefer an explicit CLI squash subject over the GitHub UI default. Never infer the label
+  from existing branch commit subjects, stale PR titles, or the branch name. Do not consider
+  `create pr`, `create draft`, or `squash` complete until the PR title carries the fresh label.
 - When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
   include the phase label after the build label, such as
   `v1146: Phase 2: Move app provisioning to Workflow`.
@@ -97,7 +94,8 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 
 - Keep responses concise by default and always include a final `Summary` section.
 - Mention only the actionable lever in user-facing explanations. Do not bring up impossible
-  non-options or irrelevant caveats.
+  non-options or irrelevant caveats. When asked for any value or decision (OAuth redirect URLs, env
+  vars, names), give one exact recommendation instead of alternatives.
 - Expect voice-to-text mistakes. Interpret likely transcription errors before asking for
   clarification.
 - Commit meaningful checkpoints instead of letting large local diffs accumulate, and push after
@@ -117,46 +115,38 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   override them.
 - Assume Cloudflare is the default front door and observability layer for `noter.md`, and keep
   application logic in Convex by default unless there is a clear reason not to.
-- Never use Vercel as an example provider or integration. Use Netlify when a non-Cloudflare
-  deploy/preview provider example is needed.
+- noter uses and recommends Cloudflare Workers only. Never use Vercel as an example provider or
+  integration; if an example truly needs a non-Cloudflare provider, use Netlify.
 - Prefer shell commands first and Node/ECMAScript second; do not reach for Python first in this
   repo.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
   TypeScript snippets.
 - Format documents with oxfmt.
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
-- When sharing URLs, always format them as clickable Markdown links.
+- Assume responses may be read from a phone: every reference must be a tappable URL reachable off
+  this machine — clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
+  alongside any localhost URL, and noter.md vault file URLs instead of local filesystem paths
+  whenever the branch is pushed.
 - When pointing the operator at code, include a precise location such as a 1-based line number or
   another unambiguous anchor unless the whole file is genuinely the subject. Do not cite only a
   large file path when the relevant code lives in one small area.
-- When sharing a Cloudflare URL in a Markdown link, prefix the label with the word `link` followed
-  by a space so it renders correctly in ProseMark, for example
-  `[link https://example.trycloudflare.com](https://example.trycloudflare.com)`.
 - When a relevant preview exists, include at least one clickable localhost URL in the user-facing
   response; otherwise say that no preview is running.
-- When sharing a localhost app preview URL in the user-facing response, also include the active
-  Cloudflare tunnel URL for that same app when one exists.
 - For preview deploy URLs, use the `?prod-ui` query param.
 - When screenshot or visual regression work changes images, show the relevant before/after or diff
   images in the user-facing response.
-- When a response relates to an existing PR, mention the PR number as a clickable Markdown link.
 - Prefer key-only boolean query params such as `?diff`.
 - Preserve unrelated query params when changing app URLs. Use the shared query param helpers instead
   of hand-building URLs.
-- For advanced numeric controls, a slider can have a sensible drag range, but typed inputs and
-  search params should not clamp above that range unless a real product invariant requires a hard
-  maximum.
+- UI affordances (slider drag ranges, preset lists) may suggest values; only a real product
+  invariant may reject typed input, URL params, or API values — never convert a UI convenience into
+  a hard limit.
 - For Playwright and browser automation rules (isolated sessions, never steal OS focus, never kill
   all Chrome, mobile emulation from launch, touch-gesture anchoring), follow
   `skills/noter-playwright-live/SKILL.md`.
-- When sharing a repo file with the operator and the branch is pushed, prefer a `noter.md` vault
-  branch/file URL over a local filesystem link. Local file links are not usable from mobile. Use
-  filesystem links only when no Noter vault URL exists for that file.
 - Worktree frontend should avoid port `5173`; prefer the worktree defaults.
 - Treat shadcn-generated files in `apps/noter/src/components/ui/*` as read-only unless the user
   explicitly asks to update shadcn output.
-- When asked for OAuth redirect URLs or env vars, give one exact recommendation instead of multiple
-  alternatives.
 - Treat speculative future-proofing as a bug. Do not add backup env vars, imagined code paths, or
   placeholder config.
 
@@ -210,9 +200,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   only the conclusions needed for the next decision. Treat sub-agent output as a context filter;
   close sub-agent threads once findings are integrated, and do not paste raw logs or bulky detail
   into the main thread or final response unless the user asks for it.
-- When delegating or testing shortcut commands such as `clean`, `wait`, `create pr`, or `ship`,
-  start the sub-agent in the intended checkout context and send only the exact command shape the
-  operator used — no expanded checklists.
+- When delegating or testing shortcut commands such as `clean`, `wait`, or `create pr`, start the
+  sub-agent in the intended checkout context and send only the exact command shape the operator used
+  — no expanded checklists.
 - For experiments that may edit files, give each sub-agent an isolated worktree and a disjoint write
   scope, and keep exploratory changes out of the main worktree until intentionally integrated.
 
@@ -296,7 +286,8 @@ Types and validation:
 Simplicity and deletion:
 
 - Delete-first is the default: no helper, wrapper, formatter, class, or generated artifact the final
-  design does not need; keep native library value/error shapes.
+  design does not need (including factories parameterized for a single callsite); keep native
+  library value/error shapes.
 - No custom Error subclasses unless production catches or branches on them; tests are not a reason.
 - Run a delete-first reduction pass on every patch-introduced helper/adapter/mirror; rerun it after
   swapping validation approaches.
@@ -309,8 +300,8 @@ Simplicity and deletion:
   dead scaffolding, and incomplete extractions.
 - App-internal refactors are delete-first: no pass-through props, wrappers, or shims; internal
   backwards compatibility is a non-goal.
-- No parameterized helper factories with one callsite.
-- Remove `key in object` checks that only appease TypeScript.
+- No runtime statements whose only job is appeasing the type checker (presence checks, redundant
+  guards) — declare the gap instead.
 - No barrel files for app code; no same-name re-export shims — update imports directly and delete
   shims when found.
 - Separate business logic from generic mechanics; small typed utilities in focused shared modules
@@ -340,8 +331,6 @@ Comments:
 
 UI code:
 
-- `URLSearchParams` is lint-warned: typed route objects and helpers for app search; protocol
-  boundaries (OAuth, fixtures, tests) may stay native.
 - Closed styling APIs for app-owned components; no `className` pass-throughs without a shipped need;
   evolve the component's standard instead of threading overrides.
 - Standardize shared layout chrome structure; no semantic content sub-APIs (`title`, `meta`,
@@ -372,8 +361,6 @@ UI code:
   structure or helper APIs.
 - For app-owned UI, use as few Tailwind utilities as possible. Every utility class should protect a
   current invariant; if you cannot name the invariant a class preserves, leave it out.
-- For pane rails that should feel nearly flush, prefer `px-1` over `px-0` so the content keeps a
-  small nonzero inset without reading as padded.
 - On iOS/iPadOS WebKit, focused text-entry controls below 16 CSS px can trigger viewport zoom.
   Shipped inputs, textareas, selects, and contenteditable editor fields must render at 16px or
   larger unless the product intentionally accepts focus zoom for that control.
@@ -391,8 +378,8 @@ UI code:
 - Add or update screenshot coverage whenever a patch changes shipped UI.
 - For Playwright baselines, live validation, focused-vs-full acceptance runs, session rules, and
   fixture policy, follow `skills/noter-playwright-live/SKILL.md` and
-  `docs/playwright-visual-testing.md`. Never accept native macOS screenshots as baselines; the
-  canonical local acceptance command is `pnpm test:visual:linux`.
+  `docs/playwright-visual-testing.md`. The canonical local acceptance command is
+  `pnpm test:visual:linux`.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth wiring, or route shell
   behavior, reproduce and test the real app route first. Do not create fake visual fixtures just to
   show or approve a behavior screenshot; a fixture must mount the exact production component tree
@@ -402,8 +389,6 @@ UI code:
 - Disable async destructive triggers while pending and show an in-button pending state.
 - Persist user-visible UI state in Convex by default unless per-device behavior is explicitly
   desired.
-- On mobile-first chat or prompt surfaces, Enter must not send by default. Require an explicit send
-  action and treat accidental Enter-to-send on mobile as a product bug.
 
 ## shadcn/ui Rules
 

@@ -155,6 +155,8 @@ await page.goto("/admin-route", { waitUntil: "networkidle" });
 
 - `pnpm test:visual:linux` with no Playwright flags is the canonical local acceptance command for
   the Playwright visual suite.
+- Never accept native macOS screenshots as baselines — only the Linux Docker wrapper produces
+  canonical ones.
 - Use focused commands such as `pnpm test:visual:linux -- e2e/foo.spec.ts` only as a triage loop. If
   a full local run failed, rerun the full wrapper after the fix.
 - Do not treat PR Playwright rows marked `skipping`, Testbox shards, `--workers=1`, `--shard`, or
