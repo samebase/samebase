@@ -22,6 +22,12 @@ type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
 
 type RouteSearchParamMetadataBase = {
   permission: NoterRoutePermission;
+
+  /**
+  Controls how the route URL editor exposes this param.
+
+  This is not the same as whether the param is available on a route.
+  */
   suggestion: RouteSearchParamSuggestionSurface;
 };
 
