@@ -166,17 +166,24 @@ Slice 2 adds: per-key disposition coverage for the logo split, retention-middlew
 replacing the current `appRouter.test.tsx` retention assertions, and Back/Forward coverage proving
 pruning never rewrites restored entries.
 
+## Resolved Decisions
+
+1. **Acceptance rides the existing draft/canonical split; the editor state machine does not
+   change.** `draftRouteAddress` is never rewritten while typing: during a path transit such as
+   `/logo/iso?isoSide=120` to `/logo` and back, `isoSide` stays visible in the draft text and
+   reapplies as soon as the path again names a route that accepts it. Only the applied route
+   (`expectedRouteAddress` while focused, the TanStack-rendered `committedRouteAddress` after blur)
+   excludes non-accepted keys — the same boundary where canonicalization already reorders query
+   params after blur. Fitting new behavior into this existing mental model, instead of adding editor
+   states or events, is the standing design rule for this plan.
+
 ## Open Questions
 
-1. **isoSide transit:** while editing `/logo/iso?isoSide=120`, intermediate live-applied routes
-   (`/logo` after deleting `/iso`) would drop `isoSide` before the final destination accepts it
-   again. Should renderer params survive transit within the logo family, or is losing them on
-   intermediate routes acceptable?
-2. **Per-key disposition for slice 2:** proposed split — app-wide fun (root-owned): `background`,
+1. **Per-key disposition for slice 2:** proposed split — app-wide fun (root-owned): `background`,
    `border`, `base` alias, `dark`, `light`, `primary`, `secondary`, `top`, `zoom`, `depth`, `dist`,
    `gridSize`, `dev`, `elev`, `rot`, `axis`, `freeView`, `leftFace`, `vox`; route-owned: `isoSide`,
    `isoStyle` (`/logo/iso` family), raster seam controls. Confirm or adjust.
-3. **Group vocabulary:** is `"fun"` the only group, or also `"debug"` (`devtools`, `dev`) and
+2. **Group vocabulary:** is `"fun"` the only group, or also `"debug"` (`devtools`, `dev`) and
    `"auth"` (`auth`, `auth-return`, `sign-in`)?
 
 ## Non-Goals
