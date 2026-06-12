@@ -24,7 +24,7 @@ function readAuthProviderValue(): string | null {
   return withLocalStorage((storage) => storage.getItem(AUTH_PROVIDER_KEY), null);
 }
 
-const isStoredPasswordAuthMode = guard((value: string | null): PublicPasswordAuthMode | null =>
+const isStoredPasswordAuthMode = guard<string | null, PublicPasswordAuthMode>((value) =>
   value === "off" || value === "local_worktree_seed" || value === "preview_seed" ? value : null,
 );
 

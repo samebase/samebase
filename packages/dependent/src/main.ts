@@ -256,8 +256,11 @@ export function includes<const ArrayValue extends readonly unknown[]>(
  * The callback returns the received value where control flow narrowed it, or
  * null to reject. Returning the un-narrowed input is a compile error, and the
  * factory checks identity at runtime, so the claim cannot drift from the
- * narrowing that produced it. Annotating the callback's input and return types
- * keeps the guarded type visible at the definition.
+ * narrowing that produced it. Write it generics-first so both types stay
+ * visible without spelling the null failure channel:
+ * `guard<string | undefined, Mode>((value) => (value === "deploy" ? value : null))`.
+ * An annotated callback (`(value: Input): Target | null => ...`) is equally
+ * checked.
  *
  * Null inputs always reject: null is the failure result, so a failed match on
  * a null input would otherwise compare null to null and falsely succeed. The

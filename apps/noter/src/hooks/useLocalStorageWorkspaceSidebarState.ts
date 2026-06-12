@@ -57,7 +57,7 @@ function parseMobilePane(value: unknown): WorkspaceSidebarState["mobilePane"] | 
   return null;
 }
 
-const isFiniteNumber = guard((value: unknown): number | null =>
+const isFiniteNumber = guard<unknown, number>((value) =>
   typeof value === "number" && Number.isFinite(value) ? value : null,
 );
 

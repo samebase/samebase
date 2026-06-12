@@ -9,7 +9,7 @@ import { getStagedFileStatus as getSharedStagedFileStatus } from "../../../share
  * Keep FileView-specific helpers and derived types together so the main route
  * file can focus on state flow and rendered structure.
  */
-export const isFileTreeNodeType = guard((type: string): "tree" | "blob" | null =>
+export const isFileTreeNodeType = guard<string, "tree" | "blob">((type) =>
   type === "tree" || type === "blob" ? type : null,
 );
 

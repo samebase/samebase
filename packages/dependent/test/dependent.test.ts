@@ -145,7 +145,7 @@ describe("guard", () => {
   const square: Shape = { kind: "square", size: 2 };
 
   it("narrows through an identity-checked callback", () => {
-    const isCircle = guard((shape: Shape | null | undefined): Circle | null =>
+    const isCircle = guard<Shape | null | undefined, Circle>((shape) =>
       shape?.kind === "circle" ? shape : null,
     );
 
@@ -156,15 +156,17 @@ describe("guard", () => {
     }
   });
 
-  it("accepts the generics-first call shape", () => {
-    const isSquare = guard<Shape, Square>((shape) => (shape.kind === "square" ? shape : null));
+  it("accepts the annotated-callback call shape", () => {
+    const isSquare = guard((shape: Shape): Square | null =>
+      shape.kind === "square" ? shape : null,
+    );
 
     expect(isSquare(square)).toBe(true);
     expect(isSquare(circle)).toBe(false);
   });
 
   it("rejects null inputs instead of matching the null failure result", () => {
-    const isCircle = guard((shape: Shape | null | undefined): Circle | null =>
+    const isCircle = guard<Shape | null | undefined, Circle>((shape) =>
       shape?.kind === "circle" ? shape : null,
     );
 
@@ -175,7 +177,7 @@ describe("guard", () => {
   });
 
   it("rejects reconstructed values: the callback must return the value itself", () => {
-    const isCircleCopy = guard((shape: Shape): Circle | null =>
+    const isCircleCopy = guard<Shape, Circle>((shape) =>
       shape.kind === "circle" ? { ...shape } : null,
     );
 
@@ -183,9 +185,7 @@ describe("guard", () => {
   });
 
   it("treats equal primitives as identical, including NaN", () => {
-    const isNumber = guard((value: unknown): number | null =>
-      typeof value === "number" ? value : null,
-    );
+    const isNumber = guard<unknown, number>((value) => (typeof value === "number" ? value : null));
 
     expect(isNumber(5)).toBe(true);
     expect(isNumber(Number.NaN)).toBe(true);
@@ -193,8 +193,10 @@ describe("guard", () => {
   });
 
   it("makes an unearned claim a compile error", () => {
-    void guard((shape: Shape): Circle | null => {
-      // @ts-expect-error the un-narrowed input cannot earn the Circle claim.
+    // With a block body the contextual-type error lands on the argument, so
+    // the directive sits on the call rather than the return statement.
+    // @ts-expect-error the un-narrowed input cannot earn the Circle claim.
+    void guard<Shape, Circle>((shape) => {
       return shape;
     });
   });

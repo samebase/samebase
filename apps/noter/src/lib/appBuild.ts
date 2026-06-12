@@ -8,7 +8,7 @@ export const APP_BUILD_VERSION_PREFIX = "v";
 const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
 const SHORT_APP_BUILD_COMMIT_LENGTH = 8;
 
-const isValidAppBuildCommitNumber = guard((commitNumber: number | null): number | null => {
+const isValidAppBuildCommitNumber = guard<number | null, number>((commitNumber) => {
   if (commitNumber === null || !Number.isSafeInteger(commitNumber) || commitNumber < 1) {
     return null;
   }

@@ -15,7 +15,7 @@ function getUrlPathname(value: string): string {
   }
 }
 
-export const isMarkdownVideoUrl = guard((value: string | undefined): string | null => {
+export const isMarkdownVideoUrl = guard<string | undefined, string>((value) => {
   if (!value) {
     return null;
   }

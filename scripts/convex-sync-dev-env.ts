@@ -17,7 +17,7 @@ import {
 type DeploymentType = "dev" | "prod" | "preview";
 
 // Declared before the top-level `await main()` below so the guard exists when parsing runs.
-const isDeploymentType = guard((value: string): DeploymentType | null =>
+const isDeploymentType = guard<string, DeploymentType>((value) =>
   value === "dev" || value === "prod" || value === "preview" ? value : null,
 );
 

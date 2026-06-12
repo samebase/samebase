@@ -520,7 +520,7 @@ async function pollCodespaceState(
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const isNotFoundError = guard((error: unknown): RequestError | null =>
+const isNotFoundError = guard<unknown, RequestError>((error) =>
   error instanceof RequestError && error.status === 404 ? error : null,
 );
 

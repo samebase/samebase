@@ -76,7 +76,7 @@ function isExternalUrl(value: string | undefined): boolean {
   }
 }
 
-const isInternalRouteHref = guard((value: string | undefined): string | null => {
+const isInternalRouteHref = guard<string | undefined, string>((value) => {
   if (!value) {
     return null;
   }

@@ -23,7 +23,7 @@ type UserPatch = {
   phoneVerificationTime?: number;
 };
 
-const isNonEmptyString = guard((value: unknown): string | null =>
+const isNonEmptyString = guard<unknown, string>((value) =>
   typeof value === "string" && value.trim().length > 0 ? value : null,
 );
 

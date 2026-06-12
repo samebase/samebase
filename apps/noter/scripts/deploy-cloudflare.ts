@@ -9,7 +9,7 @@ const modes = {
 
 type Mode = keyof typeof modes;
 
-const isMode = guard((value: string | undefined): Mode | null =>
+const isMode = guard<string | undefined, Mode>((value) =>
   value === "deploy" || value === "preview" ? value : null,
 );
 

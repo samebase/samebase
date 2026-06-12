@@ -990,7 +990,7 @@ export function readPullRequestLabels(labels: unknown): PullRequestLabelSummary[
   return labelNames;
 }
 
-const isAllowedCloudflarePreviewCommentAuthor = guard((login: unknown): string | null =>
+const isAllowedCloudflarePreviewCommentAuthor = guard<unknown, string>((login) =>
   typeof login === "string" && CLOUDFLARE_PREVIEW_COMMENT_AUTHORS.has(login.toLowerCase())
     ? login
     : null,

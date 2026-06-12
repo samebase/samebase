@@ -542,11 +542,11 @@ function getTailwindColorOption(token: string): TailwindColorOption | undefined 
   return tailwindColorOptionMap.get(token);
 }
 
-export const isTailwindColorToken = guard(
-  (token: string): TailwindColorToken | null => getTailwindColorOption(token)?.token ?? null,
+export const isTailwindColorToken = guard<string, TailwindColorToken>(
+  (token) => getTailwindColorOption(token)?.token ?? null,
 );
 
-export const isLogoColorToken = guard((token: string): LogoColorToken | null =>
+export const isLogoColorToken = guard<string, LogoColorToken>((token) =>
   isHexColorToken(token) || isTailwindColorToken(token) ? token : null,
 );
 

@@ -118,9 +118,8 @@ type ConvexManagementRequestParams = {
 
 export type ConvexCloudDeployment = Extract<PlatformDeploymentResponse, { kind: "cloud" }>;
 
-export const isConvexCloudDeployment = guard(
-  (deployment: PlatformDeploymentResponse): ConvexCloudDeployment | null =>
-    deployment.kind === "cloud" ? deployment : null,
+export const isConvexCloudDeployment = guard<PlatformDeploymentResponse, ConvexCloudDeployment>(
+  (deployment) => (deployment.kind === "cloud" ? deployment : null),
 );
 
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{

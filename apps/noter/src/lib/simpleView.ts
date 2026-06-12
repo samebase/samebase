@@ -54,18 +54,22 @@ export function getSimpleViewPreferenceStorageKey(vaultId: string): string {
   return `${SIMPLE_VIEW_STORAGE_KEY_PREFIX}:${vaultId}`;
 }
 
-export const hasStagedSimpleViewConfigFile = guard(
-  (stagedConfigFile: StagedSimpleViewConfigFile): { fileDeleted: false } | null =>
-    stagedConfigFile !== undefined && stagedConfigFile !== null && !stagedConfigFile.fileDeleted
-      ? stagedConfigFile
-      : null,
+export const hasStagedSimpleViewConfigFile = guard<
+  StagedSimpleViewConfigFile,
+  { fileDeleted: false }
+>((stagedConfigFile) =>
+  stagedConfigFile !== undefined && stagedConfigFile !== null && !stagedConfigFile.fileDeleted
+    ? stagedConfigFile
+    : null,
 );
 
-export const isStagedSimpleViewConfigDeleted = guard(
-  (stagedConfigFile: StagedSimpleViewConfigFile): { fileDeleted: true } | null =>
-    stagedConfigFile !== undefined && stagedConfigFile !== null && stagedConfigFile.fileDeleted
-      ? stagedConfigFile
-      : null,
+export const isStagedSimpleViewConfigDeleted = guard<
+  StagedSimpleViewConfigFile,
+  { fileDeleted: true }
+>((stagedConfigFile) =>
+  stagedConfigFile !== undefined && stagedConfigFile !== null && stagedConfigFile.fileDeleted
+    ? stagedConfigFile
+    : null,
 );
 
 export function hasSimpleViewConfigFile(

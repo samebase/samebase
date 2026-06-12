@@ -8,14 +8,12 @@ export type NoterManagedConnectedVault = Extract<
   { githubMode: "create_repository" }
 >;
 
-export const isConnectedVault = guard(
-  (vault: Doc<"vaults"> | null | undefined): ConnectedVault | null =>
-    vault?.state === "connected" ? vault : null,
+export const isConnectedVault = guard<Doc<"vaults"> | null | undefined, ConnectedVault>((vault) =>
+  vault?.state === "connected" ? vault : null,
 );
 
-export const isLiveConnectedVault = guard(
-  (vault: Doc<"vaults"> | null | undefined): ConnectedVault | null =>
-    isConnectedVault(vault) && !isVaultDeletingOrDeleteFailed(vault) ? vault : null,
+export const isLiveConnectedVault = guard<Doc<"vaults"> | null | undefined, ConnectedVault>(
+  (vault) => (isConnectedVault(vault) && !isVaultDeletingOrDeleteFailed(vault) ? vault : null),
 );
 
 /**
@@ -38,7 +36,6 @@ export function assertConnectedVault(vault: Doc<"vaults"> | null | undefined): C
   return vault;
 }
 
-export const isNoterManagedVault = guard(
-  (vault: ConnectedVault): NoterManagedConnectedVault | null =>
-    vault.githubMode === "create_repository" ? vault : null,
+export const isNoterManagedVault = guard<ConnectedVault, NoterManagedConnectedVault>((vault) =>
+  vault.githubMode === "create_repository" ? vault : null,
 );

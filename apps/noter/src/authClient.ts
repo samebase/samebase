@@ -43,7 +43,7 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return true;
 }
 
-const isAuthPopupRedirectTo = guard((value: unknown): string | null => {
+const isAuthPopupRedirectTo = guard<unknown, string>((value) => {
   if (typeof value !== "string" || !value.startsWith("/")) {
     return null;
   }

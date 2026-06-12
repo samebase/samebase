@@ -51,7 +51,7 @@ const pickNodeBinFromNvm = (preferredMajors: string[]) => {
   const nvmCandidates: string[] = Array.from(
     new Set(
       [process.env.NVM_DIR, path.join(os.homedir(), ".nvm")].filter(
-        guard((value: string | undefined): string | null =>
+        guard<string | undefined, string>((value) =>
           typeof value === "string" && value.length > 0 ? value : null,
         ),
       ),
