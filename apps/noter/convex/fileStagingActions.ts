@@ -11,7 +11,7 @@ import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
 import type { GithubTree } from "./schema";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
-import { isObjectRecord } from "./jsonUtils";
+import { isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import {
@@ -90,7 +90,7 @@ async function getGithubAccessToken(ctx: ActionCtx, userId: Id<"users">): Promis
 }
 
 function readDefaultBranch(repoData: unknown): string {
-  if (!isObjectRecord(repoData)) {
+  if (!isRecord(repoData)) {
     return "main";
   }
 
@@ -519,7 +519,7 @@ async function getBranchTreeMap(args: {
 }
 
 function toHeaderMap(value: unknown): HeaderMap | null {
-  if (!isObjectRecord(value)) {
+  if (!isRecord(value)) {
     return null;
   }
 
@@ -568,12 +568,12 @@ function getHeaderValue(headers: HeaderMap | null, name: string): string | null 
 }
 
 function getErrorHeaders(error: unknown): HeaderMap | null {
-  if (!isObjectRecord(error)) {
+  if (!isRecord(error)) {
     return null;
   }
 
   const response = error.response;
-  if (!isObjectRecord(response)) {
+  if (!isRecord(response)) {
     return null;
   }
 
@@ -581,7 +581,7 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
 }
 
 function getErrorStatus(error: unknown): number | null {
-  if (!isObjectRecord(error)) {
+  if (!isRecord(error)) {
     return null;
   }
   const status = error.status;
@@ -589,7 +589,7 @@ function getErrorStatus(error: unknown): number | null {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (!isObjectRecord(error)) {
+  if (!isRecord(error)) {
     return "";
   }
   const message = error.message;

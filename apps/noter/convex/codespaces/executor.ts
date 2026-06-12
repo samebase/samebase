@@ -4,7 +4,7 @@ import { action, type ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
-import { isObjectRecord, readBoolean, readNumber, readString } from "../jsonUtils";
+import { isRecord, readBoolean, readNumber, readString } from "../jsonUtils";
 import { starterTemplateManifest } from "../starterSeedManifest.generated";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
@@ -541,7 +541,7 @@ async function readCodespaceFileOrNull(args: {
   }
 
   const payload = await response.json();
-  if (!isObjectRecord(payload)) {
+  if (!isRecord(payload)) {
     throw new Error(`Invalid response while reading ${args.filePath}`);
   }
 
@@ -616,7 +616,7 @@ async function executeCodespaceAgentCommandResult(args: {
   }
 
   const payload = await response.json();
-  if (!isObjectRecord(payload)) {
+  if (!isRecord(payload)) {
     throw new Error("Invalid response from Codespace command execution");
   }
 
@@ -842,7 +842,7 @@ function parseCodespaceAgentSyncStatus(content: string | null): CodespaceAgentSy
     return null;
   }
 
-  if (!isObjectRecord(parsed)) {
+  if (!isRecord(parsed)) {
     return null;
   }
 
@@ -1338,7 +1338,7 @@ function normalizeCodexStatus(payload: unknown): Infer<typeof codexStatusResult>
     eventCursor: 0,
   };
 
-  if (!isObjectRecord(payload)) {
+  if (!isRecord(payload)) {
     return {
       codexInstalled: false,
       codexVersion: undefined,
@@ -1347,7 +1347,7 @@ function normalizeCodexStatus(payload: unknown): Infer<typeof codexStatusResult>
     };
   }
 
-  const runtimeRecord = isObjectRecord(payload.runtime) ? payload.runtime : {};
+  const runtimeRecord = isRecord(payload.runtime) ? payload.runtime : {};
   const runtime: Infer<typeof codexRuntimeStatusResult> = {
     running: readBoolean(runtimeRecord, "running") ?? false,
     initialized: readBoolean(runtimeRecord, "initialized") ?? false,
@@ -1475,7 +1475,7 @@ export const startCodexThread = action({
     }
 
     const payload = await response.json();
-    if (!isObjectRecord(payload) || !isObjectRecord(payload.thread)) {
+    if (!isRecord(payload) || !isRecord(payload.thread)) {
       throw new Error("Invalid response from Codex thread/start");
     }
 
@@ -1526,7 +1526,7 @@ export const startCodexTurn = action({
     }
 
     const payload = await response.json();
-    if (!isObjectRecord(payload) || !isObjectRecord(payload.turn)) {
+    if (!isRecord(payload) || !isRecord(payload.turn)) {
       throw new Error("Invalid response from Codex turn/start");
     }
 
@@ -1570,7 +1570,7 @@ export const getCodexEvents = action({
     }
 
     const payload = await response.json();
-    if (!isObjectRecord(payload)) {
+    if (!isRecord(payload)) {
       throw new Error("Invalid response from Codex events endpoint");
     }
 
@@ -1580,7 +1580,7 @@ export const getCodexEvents = action({
 
     if (Array.isArray(eventsValue)) {
       for (const event of eventsValue) {
-        if (!isObjectRecord(event)) {
+        if (!isRecord(event)) {
           continue;
         }
         const cursor = readNumber(event, "cursor");

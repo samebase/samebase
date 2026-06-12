@@ -8,6 +8,7 @@ import {
   expectType,
   guard,
   includes,
+  isRecord,
   map,
   notEmpty,
   promiseAll,
@@ -133,6 +134,22 @@ describe("dependent type helpers", () => {
     expectType<{ a: 1 } & { b: 2 }>()(intersected, true);
     expectType<Intersected>()(intersected, true);
     expectType<Omitted>()(omitted, true);
+  });
+});
+
+describe("isRecord", () => {
+  it("admits plain objects and rejects null, arrays, and functions", () => {
+    const value: unknown = { a: 1 };
+
+    expect(isRecord(value)).toBe(true);
+    if (isRecord(value)) {
+      expectType<Record<string, unknown>>()(value, true);
+    }
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord(undefined)).toBe(false);
+    expect(isRecord([1, 2])).toBe(false);
+    expect(isRecord(() => null)).toBe(false);
+    expect(isRecord("a")).toBe(false);
   });
 });
 
