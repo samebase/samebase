@@ -87,7 +87,7 @@ declaring one.
 
   A good predicate needs two things at once: complete type safety (the claim is checked, so it
   cannot drift) and visibility (the guarded type is readable at the definition). Derive reusable
-  predicates with `guardBy` in `@noter-md/dependent`: the callback returns the received value where
+  predicates with `guard` in `@noter-md/dependent`: the callback returns the received value where
   control flow narrowed it, or null to reject — see `isConnectedVault` in
   `apps/noter/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and the
   factory identity-checks the result at runtime, so the `value is` claim is earned, never asserted,

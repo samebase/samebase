@@ -252,7 +252,7 @@ export function includes<const ArrayValue extends readonly unknown[]>(
  * a null input would otherwise compare null to null and falsely succeed. The
  * value must be returned as-is — a reconstruction like `{ ...value }` rejects.
  */
-export function guardBy<Value, Narrowed extends Value>(
+export function guard<Value, Narrowed extends Value>(
   match: (value: Value) => Narrowed | null,
 ): (value: Value) => value is Narrowed {
   return (value): value is Narrowed => value !== null && Object.is(match(value), value);

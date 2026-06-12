@@ -1,4 +1,4 @@
-import { guardBy } from "@noter-md/dependent/main";
+import { guard } from "@noter-md/dependent/main";
 import type { Doc } from "../_generated/dataModel";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 
@@ -8,12 +8,12 @@ export type NoterManagedConnectedVault = Extract<
   { githubMode: "create_repository" }
 >;
 
-export const isConnectedVault = guardBy(
+export const isConnectedVault = guard(
   (vault: Doc<"vaults"> | null | undefined): ConnectedVault | null =>
     vault?.state === "connected" ? vault : null,
 );
 
-export const isLiveConnectedVault = guardBy(
+export const isLiveConnectedVault = guard(
   (vault: Doc<"vaults"> | null | undefined): ConnectedVault | null =>
     isConnectedVault(vault) && !isVaultDeletingOrDeleteFailed(vault) ? vault : null,
 );
@@ -38,7 +38,7 @@ export function assertConnectedVault(vault: Doc<"vaults"> | null | undefined): C
   return vault;
 }
 
-export const isNoterManagedVault = guardBy(
+export const isNoterManagedVault = guard(
   (vault: ConnectedVault): NoterManagedConnectedVault | null =>
     vault.githubMode === "create_repository" ? vault : null,
 );

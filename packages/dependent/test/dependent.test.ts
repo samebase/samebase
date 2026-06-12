@@ -6,7 +6,7 @@ import {
   atMod,
   exactly,
   expectType,
-  guardBy,
+  guard,
   includes,
   map,
   notEmpty,
@@ -136,7 +136,7 @@ describe("dependent type helpers", () => {
   });
 });
 
-describe("guardBy", () => {
+describe("guard", () => {
   type Circle = { kind: "circle"; radius: number };
   type Square = { kind: "square"; size: number };
   type Shape = Circle | Square;
@@ -145,7 +145,7 @@ describe("guardBy", () => {
   const square: Shape = { kind: "square", size: 2 };
 
   it("narrows through an identity-checked callback", () => {
-    const isCircle = guardBy((shape: Shape | null | undefined): Circle | null =>
+    const isCircle = guard((shape: Shape | null | undefined): Circle | null =>
       shape?.kind === "circle" ? shape : null,
     );
 
@@ -157,14 +157,14 @@ describe("guardBy", () => {
   });
 
   it("accepts the generics-first call shape", () => {
-    const isSquare = guardBy<Shape, Square>((shape) => (shape.kind === "square" ? shape : null));
+    const isSquare = guard<Shape, Square>((shape) => (shape.kind === "square" ? shape : null));
 
     expect(isSquare(square)).toBe(true);
     expect(isSquare(circle)).toBe(false);
   });
 
   it("rejects null inputs instead of matching the null failure result", () => {
-    const isCircle = guardBy((shape: Shape | null | undefined): Circle | null =>
+    const isCircle = guard((shape: Shape | null | undefined): Circle | null =>
       shape?.kind === "circle" ? shape : null,
     );
 
@@ -175,7 +175,7 @@ describe("guardBy", () => {
   });
 
   it("rejects reconstructed values: the callback must return the value itself", () => {
-    const isCircleCopy = guardBy((shape: Shape): Circle | null =>
+    const isCircleCopy = guard((shape: Shape): Circle | null =>
       shape.kind === "circle" ? { ...shape } : null,
     );
 
@@ -183,7 +183,7 @@ describe("guardBy", () => {
   });
 
   it("treats equal primitives as identical, including NaN", () => {
-    const isNumber = guardBy((value: unknown): number | null =>
+    const isNumber = guard((value: unknown): number | null =>
       typeof value === "number" ? value : null,
     );
 
@@ -193,7 +193,7 @@ describe("guardBy", () => {
   });
 
   it("makes an unearned claim a compile error", () => {
-    void guardBy((shape: Shape): Circle | null => {
+    void guard((shape: Shape): Circle | null => {
       // @ts-expect-error the un-narrowed input cannot earn the Circle claim.
       return shape;
     });
@@ -203,7 +203,7 @@ describe("guardBy", () => {
     // Considered alternative: failure is a throw instead of a null result.
     // It avoids the `| null` in the callback's return annotation, but the
     // catch-all turns every genuine bug inside the callback into "no match".
-    function guardByThrow<Value, Narrowed extends Value>(
+    function guardThrow<Value, Narrowed extends Value>(
       match: (value: Value) => Narrowed,
     ): (value: Value) => value is Narrowed {
       return (value): value is Narrowed => {
@@ -215,7 +215,7 @@ describe("guardBy", () => {
       };
     }
 
-    const isCircle = guardByThrow((shape: Shape): Circle => {
+    const isCircle = guardThrow((shape: Shape): Circle => {
       if (shape.kind === "circle") return shape;
       throw new Error("no match");
     });
@@ -223,7 +223,7 @@ describe("guardBy", () => {
     expect(isCircle(circle)).toBe(true);
     expect(isCircle(square)).toBe(false);
 
-    const buggy = guardByThrow((shape: Shape): Circle => {
+    const buggy = guardThrow((shape: Shape): Circle => {
       const parsed: unknown = JSON.parse("{"); // stands in for an accidental bug
       if (shape.kind === "circle" && parsed !== undefined) return shape;
       throw new Error("no match");

@@ -1,8 +1,10 @@
 # guardBy prior art: derived type predicates across the ecosystem
 
-Web survey (2026-06-12) run before settling the `guardBy`/`guard(schema)` pair, answering: does an
+Web survey (2026-06-12) run before settling the predicate-factory design, answering: does an
 established library already implement an earned, drift-proof type predicate, and what do the major
-schema ecosystems do?
+schema ecosystems do? Below, `guard` is the control-flow factory that shipped in
+`@noter-md/dependent` (working name `guardBy`, hence this file's name); `guard(schema)` is the
+schema-derived prototype that was dropped.
 
 ## Why predicates need deriving at all
 
@@ -40,9 +42,9 @@ The ecosystem split (guard the input vs the decoded output) is exactly the ambig
 schemas only" rule on `guard()` closes: a transforming schema cannot pass through it, so the io-ts
 divergence cannot occur.
 
-## Control-flow-earned guards (the `guardBy` tier)
+## Control-flow-earned guards (the `guard` tier)
 
-No npm package or published post implements the `guardBy` shape — a callback typed
+No npm package or published post implements the `guard` shape — a callback typed
 `(value: Value) => Narrowed | null` whose claim is earned by control-flow narrowing (returning the
 un-narrowed input is a compile error) and enforced at runtime by
 `value !== null && Object.is(match(value), value)`. Closest partial precedents:
@@ -62,10 +64,10 @@ factory's null pre-check; `Object.is` keeps a legitimate NaN match from false-ne
 
 ## Conclusion
 
-Ship `guardBy` only; there is nothing to adopt. `guardBy` fills a gap the ecosystem has named but
-not solved — TypeScript declined to check predicate bodies, inference cannot reach factories or
-calls, and the only existing factory (ts-pattern) trades control flow for pattern objects. Five
-lines with tests beats a dependency.
+Ship `guard` only; there is nothing to adopt. `guard` fills a gap the ecosystem has named but not
+solved — TypeScript declined to check predicate bodies, inference cannot reach factories or calls,
+and the only existing factory (ts-pattern) trades control flow for pattern objects. Five lines with
+tests beats a dependency.
 
 The prototyped `guard(schema)` was dropped before merge: a census of all 75 hand-written predicates
 in the repo (2026-06-12) found zero sites where a sure schema proves the shape a predicate restates

@@ -262,8 +262,8 @@ Types and validation:
   in `@noter-md/dependent`), never costume types the code cannot earn.
 - Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` claim TS
   cannot check — a disconnected predicate keeps narrowing to a stale shape when the source evolves,
-  with no error. Derive predicates with `guardBy` from `@noter-md/dependent` (the callback returns
-  the narrowed value or null; identity-checked, keeps the target type visible); where a sure schema
+  with no error. Derive predicates with `guard` from `@noter-md/dependent` (the callback returns the
+  narrowed value or null; identity-checked, keeps the target type visible); where a sure schema
   proves the shape, let the validator's own result narrow. Plain local boolean checks may rely on
   TS-inferred predicates ("disconnected type safety" in `docs/code-guardrails.md`).
 - Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
