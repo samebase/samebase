@@ -60,10 +60,11 @@ export function normalizeEnvQueryResult(value: unknown): EnvEntry[] {
 
   const entries: EnvEntry[] = [];
   for (const item of value) {
-    if (!isEnvEntry(item)) {
+    const entry = parseEnvEntry(item);
+    if (!entry) {
       throw new Error("Convex environment query returned invalid entries.");
     }
-    entries.push({ name: item.name, value: item.value });
+    entries.push(entry);
   }
   return entries;
 }
@@ -96,14 +97,18 @@ function parseDeploymentSpecifier(rawDeployment: string): Deployment | null {
   };
 }
 
-function isEnvEntry(value: unknown): value is EnvEntry {
+function parseEnvEntry(value: unknown): EnvEntry | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
+    return null;
   }
 
   if (!("name" in value) || !("value" in value)) {
-    return false;
+    return null;
   }
 
-  return typeof value.name === "string" && typeof value.value === "string";
+  if (typeof value.name !== "string" || typeof value.value !== "string") {
+    return null;
+  }
+
+  return { name: value.name, value: value.value };
 }
