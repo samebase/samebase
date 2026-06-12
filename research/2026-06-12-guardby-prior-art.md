@@ -20,7 +20,8 @@ schema ecosystems do?
 
 ## Schema-derived guards (the `guard(schema)` tier)
 
-Well-established pattern; `guard(schema)` in `@samebase/sure` has direct precedent:
+Well-established pattern; a `guard(schema)` for `@samebase/sure` was prototyped on this branch with
+direct precedent:
 
 - Effect `Schema.is(schema)` → `(u: unknown) => u is A` — the closest analogue
   ([docs](https://effect.website/docs/schema/introduction/)).
@@ -61,8 +62,15 @@ factory's null pre-check; `Object.is` keeps a legitimate NaN match from false-ne
 
 ## Conclusion
 
-Keep the in-house pair; there is nothing to adopt. `guard(schema)` follows the established ecosystem
-pattern (Effect/Valibot/io-ts), with the transforming-schema footgun ruled out by construction.
-`guardBy` fills a gap the ecosystem has named but not solved — TypeScript declined to check
-predicate bodies, inference cannot reach factories or calls, and the only existing factory
-(ts-pattern) trades control flow for pattern objects. Five lines with tests beats a dependency.
+Ship `guardBy` only; there is nothing to adopt. `guardBy` fills a gap the ecosystem has named but
+not solved — TypeScript declined to check predicate bodies, inference cannot reach factories or
+calls, and the only existing factory (ts-pattern) trades control flow for pattern objects. Five
+lines with tests beats a dependency.
+
+The prototyped `guard(schema)` was dropped before merge: a census of all 75 hand-written predicates
+in the repo (2026-06-12) found zero sites where a sure schema proves the shape a predicate restates
+— the backend boundary belongs to Convex validators, and the route-search sure schemas are
+transforming (trim), which a refining-only guard correctly refuses. Sure call sites narrow through
+the validator's own `[ok, value]` result instead. If a reusable schema-derived guard is ever needed,
+re-add it in the Effect `Schema.is` shape recorded above (the implementation is ~5 lines over
+`InferGood`/`InferInput`, refining schemas only).

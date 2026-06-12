@@ -1318,6 +1318,7 @@ export const trackedFilePaths = [
   "research/2026-05-27-cloudflare-transform-rule-spa-shell.md",
   "research/2026-05-28-dvh-android-pwa-draft.md",
   "research/2026-06-11-agents-md-truncation-audit.md",
+  "research/2026-06-12-guardby-prior-art.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",

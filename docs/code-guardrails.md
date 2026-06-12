@@ -87,16 +87,16 @@ declaring one.
 
   A good predicate needs two things at once: complete type safety (the claim is checked, so it
   cannot drift) and visibility (the guarded type is readable at the definition). Derive reusable
-  predicates instead of hand-annotating them:
-  - `guard(schema)` in `@samebase/sure`, when a schema already proves the shape: the predicate
-    target is inferred from the schema, so it cannot drift. Refining schemas only — the claim is
-    about the input as-is, so transforming `after` schemas must not pass through it. Even then,
-    prefer the validator's own narrowing when the call site allows it.
-  - `guardBy` in `@noter-md/dependent`, when there is no schema, just control flow: the callback
-    returns the received value where narrowing proved it, or null to reject — see `isConnectedVault`
-    in `apps/noter/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and
-    the factory identity-checks the result at runtime, so the `value is` claim is earned, never
-    asserted, while the annotated callback keeps the guarded type visible.
+  predicates with `guardBy` in `@noter-md/dependent`: the callback returns the received value where
+  control flow narrowed it, or null to reject — see `isConnectedVault` in
+  `apps/noter/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and the
+  factory identity-checks the result at runtime, so the `value is` claim is earned, never asserted,
+  while the annotated callback keeps the guarded type visible.
+
+  Where a sure schema already proves the shape, do not wrap it in a predicate at all — let the
+  validator's own `[ok, value]` result narrow at the call site. (A schema-derived guard factory in
+  the Effect `Schema.is` shape was prototyped and dropped for having no callsites; the pattern is
+  recorded in `research/2026-06-12-guardby-prior-art.md` if a reusable schema-guard need appears.)
 
   For one-off local boolean checks, no annotation also stays connected: since TS 5.5 the predicate
   is inferred from the body (single return statement that refines the parameter), so there is no
