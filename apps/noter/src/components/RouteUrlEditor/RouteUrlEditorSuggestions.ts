@@ -52,9 +52,113 @@ export type Suggestion = {
   value: string;
 };
 
+export function readCurrentRouteUrlEditorSuggestionIndex(args: {
+  prefix: string;
+  routeAddress: string;
+  selection: Selection | null;
+  suggestions: readonly Suggestion[];
+}): number | null {
+  const routeAddressParts = parseRouteAddress(args.routeAddress);
+
+  if (args.selection === null) {
+    return findSuggestionIndex(args.suggestions, (suggestion) =>
+      pathSuggestionMatchesRoutePath(suggestion, routeAddressParts.path),
+    );
+  }
+
+  const selectionRouteIndex = readSelectionIndex({
+    prefix: args.prefix,
+    routeAddress: args.routeAddress,
+    selection: args.selection,
+  });
+  const cursorContext = readRouteAddressCursorContext(routeAddressParts, selectionRouteIndex);
+
+  switch (cursorContext.kind) {
+    case "path":
+      return findSuggestionIndex(args.suggestions, (suggestion) =>
+        pathSuggestionMatchesRoutePath(suggestion, routeAddressParts.path),
+      );
+    case "hash":
+      return findSuggestionIndex(
+        args.suggestions,
+        (suggestion) =>
+          suggestion.kind === "hash" && suggestion.value === `#${cursorContext.hash.value}`,
+      );
+    case "searchKey":
+      return findSuggestionIndex(args.suggestions, (suggestion) =>
+        searchSuggestionMatchesToken(suggestion, cursorContext.token),
+      );
+    case "searchValue":
+      return findSuggestionIndex(args.suggestions, (suggestion) =>
+        searchValueSuggestionMatchesToken({
+          suggestion,
+          token: cursorContext.token,
+          valuePrefix: cursorContext.valuePrefix,
+        }),
+      );
+  }
+}
+
 const ROUTE_URL_HASH_KEYS_BY_PATH: Readonly<Record<string, readonly string[]>> = {
   "/machines/connect": ["connected-machines"],
 } as const;
+
+function findSuggestionIndex(
+  suggestions: readonly Suggestion[],
+  predicate: (suggestion: Suggestion) => boolean,
+): number | null {
+  const suggestionIndex = suggestions.findIndex(predicate);
+  return suggestionIndex === -1 ? null : suggestionIndex;
+}
+
+function pathSuggestionMatchesRoutePath(suggestion: Suggestion, path: string): boolean {
+  return suggestion.kind === "path" && suggestion.value === path;
+}
+
+function searchSuggestionMatchesToken(
+  suggestion: Suggestion,
+  token: RouteAddressSearchToken,
+): boolean {
+  if (suggestion.kind !== "search" || token.key.length === 0) {
+    return false;
+  }
+
+  const tokenValue = `${token.delimiter}${token.key}`;
+  return suggestion.value === tokenValue || suggestion.value.startsWith(`${tokenValue}=`);
+}
+
+function searchValueSuggestionMatchesToken(args: {
+  suggestion: Suggestion;
+  token: Extract<RouteAddressSearchToken, { kind: "value" }>;
+  valuePrefix: string;
+}): boolean {
+  if (args.token.value.length === 0) {
+    return false;
+  }
+
+  const familySeparatorIndex = args.valuePrefix.indexOf("-");
+  if (familySeparatorIndex !== -1) {
+    const family = args.valuePrefix.slice(0, familySeparatorIndex);
+    const shadePrefix = `${family}-`;
+    if (args.token.value.startsWith(shadePrefix)) {
+      return (
+        args.suggestion.kind === "searchValue" &&
+        args.suggestion.value === args.token.value.slice(shadePrefix.length)
+      );
+    }
+  }
+
+  if (
+    args.suggestion.kind === "searchValuePrefix" &&
+    typeof args.suggestion.sampleValueStart === "number"
+  ) {
+    return args.token.value.startsWith(
+      args.suggestion.value.slice(0, args.suggestion.sampleValueStart),
+    );
+  }
+
+  return args.suggestion.kind === "searchValue" && args.suggestion.value === args.token.value;
+}
 
 /**
 Converts the input cursor index into a route-address index.

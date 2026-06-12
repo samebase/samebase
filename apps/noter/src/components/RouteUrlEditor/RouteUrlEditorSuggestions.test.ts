@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
-import { readSuggestions } from "./RouteUrlEditorSuggestions";
+import {
+  readCurrentRouteUrlEditorSuggestionIndex,
+  readSuggestions,
+} from "./RouteUrlEditorSuggestions";
 
 const prefix = "http://localhost:5174/";
 const routesByPath = getRouter().routesByPath;
@@ -44,7 +47,74 @@ function readRows(args: {
   });
 }
 
+function readCurrentSuggestionValue(args: {
+  currentRouteAddress?: string;
+  pageHashKeys?: readonly string[];
+  routeAddress: string;
+  routeTextBeforeCursor?: string;
+  viewerIsAdmin?: boolean;
+}): string | null {
+  const suggestions = readRows(args);
+  const suggestionIndex = readCurrentRouteUrlEditorSuggestionIndex({
+    prefix,
+    routeAddress: args.routeAddress,
+    selection:
+      typeof args.routeTextBeforeCursor === "string"
+        ? cursorAfter(args.routeTextBeforeCursor)
+        : null,
+    suggestions,
+  });
+  const suggestion = suggestionIndex === null ? undefined : suggestions[suggestionIndex];
+
+  return suggestion?.value ?? null;
+}
+
 describe("readSuggestions", () => {
+  it("identifies the current path suggestion from a path cursor", () => {
+    expect(
+      readCurrentSuggestionValue({
+        routeAddress: "/logo?",
+        routeTextBeforeCursor: "/lo",
+      }),
+    ).toBe("/logo");
+  });
+
+  it("identifies the current query-key suggestion from the active token", () => {
+    expect(
+      readCurrentSuggestionValue({
+        routeAddress: "/logo?depth=2&",
+        routeTextBeforeCursor: "/logo?de",
+      }),
+    ).toBe("?depth=2");
+  });
+
+  it("identifies the current value suggestion from the active value", () => {
+    expect(
+      readCurrentSuggestionValue({
+        routeAddress: "/logo?zoom=0.5&",
+        routeTextBeforeCursor: "/logo?zoom=0.",
+      }),
+    ).toBe("0.5");
+  });
+
+  it("identifies the current color family suggestion from the active value", () => {
+    expect(
+      readCurrentSuggestionValue({
+        routeAddress: "/logo?top=blue-200&",
+        routeTextBeforeCursor: "/logo?top=bl",
+      }),
+    ).toBe("blue-500");
+  });
+
+  it("identifies the current color shade suggestion from the active value", () => {
+    expect(
+      readCurrentSuggestionValue({
+        routeAddress: "/logo?top=blue-200&",
+        routeTextBeforeCursor: "/logo?top=blue-",
+      }),
+    ).toBe("200");
+  });
+
   it("shows path suggestions when there is no focused input selection", () => {
     const values = readValues({
       routeAddress: "/logo?",
