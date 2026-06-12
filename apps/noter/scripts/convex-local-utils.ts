@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
+import { notEmpty } from "@noter-md/dependent/main";
 import { normalizeEnvValue } from "./normalizeEnvValue.ts";
 
 const LOCAL_CONVEX_HOSTS = new Set(["127.0.0.1", "localhost"]);
@@ -162,8 +163,6 @@ export const parsePort = (url: string): number | null => {
 };
 
 export const listListeningPids = (port: number): string[] => {
-  const isString = (value: unknown): value is string => typeof value === "string";
-
   if (process.platform === "win32") {
     const netstatResult = spawnSync("netstat", ["-ano", "-p", "tcp"], {
       stdio: "pipe",
@@ -184,7 +183,7 @@ export const listListeningPids = (port: number): string[] => {
         return localAddress.endsWith(`:${port}`) || localAddress.endsWith(`]:${port}`);
       })
       .map((parts) => parts.at(-1))
-      .filter(isString)
+      .filter(notEmpty)
       .filter((pid, index, all) => all.indexOf(pid) === index);
   }
 

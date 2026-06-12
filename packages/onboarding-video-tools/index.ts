@@ -4,6 +4,7 @@ import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
+import { isRecord } from "@noter-md/dependent";
 
 type ParsedArgs = Record<string, string | undefined>;
 type BufferedChildProcess = ChildProcessByStdio<null, Readable, Readable>;
@@ -113,10 +114,6 @@ const LANDING_DEMO_RECORDER_WARMUP_SECONDS = 0.8;
 const LANDING_DEMO_AUTOMATION_START_DELAY_SECONDS = LANDING_DEMO_RECORDER_WARMUP_SECONDS + 0.12;
 const LANDING_DEMO_RECORDER_BUFFER_SECONDS = 0.75;
 const LANDING_DEMO_BROWSER_BUFFER_SECONDS = 3;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 export async function main(argv: string[]) {
   const [command, ...commandArgs] = argv;

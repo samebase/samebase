@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { guard, isRecord } from "@noter-md/dependent";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { noterAppFilePath } from "./lib/trackedFilePath.ts";
@@ -14,6 +15,11 @@ import {
 } from "../runtime/convexSyncDevEnv.ts";
 
 type DeploymentType = "dev" | "prod" | "preview";
+
+// Declared before the top-level `await main()` below so the guard exists when parsing runs.
+const isDeploymentType = guard((value: string): DeploymentType | null =>
+  value === "dev" || value === "prod" || value === "preview" ? value : null,
+);
 
 type SyncOptions = {
   sourceEnv: string | null;
@@ -249,10 +255,6 @@ function parseDeploymentFromEnv(vars: Record<string, string>): Deployment | null
 
 function stripTrailingInlineComment(value: string): string {
   return value.replace(/\s+#.*$/, "").trim();
-}
-
-function isDeploymentType(value: string): value is DeploymentType {
-  return value === "dev" || value === "prod" || value === "preview";
 }
 
 function isAnonymousLikeDeploymentName(name: string): boolean {
@@ -540,20 +542,12 @@ function formatSeedEnvCommand(sourceEnvPath: string | null): string {
   return `node ./scripts/convex-sync-dev-env.ts${sourceArg}`;
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses ConvexHttpClient only as Function, never its constructor signature
 function isConvexBrowserModule(value: unknown): value is ConvexBrowserModule {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.ConvexHttpClient === "function";
+  return isRecord(value) && typeof value.ConvexHttpClient === "function";
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses makeFunctionReference only as Function, never its call signature
 function isConvexServerModule(value: unknown): value is ConvexServerModule {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.makeFunctionReference === "function";
+  return isRecord(value) && typeof value.makeFunctionReference === "function";
 }

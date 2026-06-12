@@ -14,6 +14,7 @@ export function isTrackedFilePath(filePath: unknown) {
   return includes(trackedFilePaths, filePath);
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- membership is checked on the derived `apps/noter/${filePath}` string, so control flow earns only `string`; the prefixed hit makes the suffix claim sound by construction
 export function isNoterAppFilePath(filePath: unknown): filePath is NoterAppFilePath {
   return typeof filePath === "string" && isTrackedFilePath(`apps/noter/${filePath}`);
 }

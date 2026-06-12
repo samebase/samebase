@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
+import { includes } from "@noter-md/dependent/main";
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(appDir, "public");
@@ -13,7 +14,8 @@ const publicDir = path.join(appDir, "public");
 const ANDROID_HOME_SCREEN_ICON_BOX_RATIO = 464 / 512;
 
 type IconJob = { boxRatio?: number; canvasSize: number; filename: string };
-type LogoFaceTreatment = "duotone" | "striped";
+const logoFaceTreatmentValues = ["duotone", "striped"] as const;
+type LogoFaceTreatment = (typeof logoFaceTreatmentValues)[number];
 type LogoIdentitySvgAsset = {
   assetPath: string;
   markup: string;
@@ -76,10 +78,6 @@ const socialAssets: SocialAsset[] = [
   },
 ];
 
-function isLogoFaceTreatment(value: unknown): value is LogoFaceTreatment {
-  return value === "duotone" || value === "striped";
-}
-
 function readRecord(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Expected ${label} to be an object.`);
@@ -92,6 +90,7 @@ function readRecord(value: unknown, label: string): Record<string, unknown> {
   return record;
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses the export only as Function, never its call signature
 function isUnknownFunction(value: unknown): value is UnknownFunction {
   return typeof value === "function";
 }
@@ -120,7 +119,7 @@ function readLogoFaceTreatments(value: unknown): LogoFaceTreatment[] {
 
   const treatments: LogoFaceTreatment[] = [];
   for (const treatment of value) {
-    if (!isLogoFaceTreatment(treatment)) {
+    if (!includes(logoFaceTreatmentValues, treatment)) {
       throw new Error(`Unexpected logo face treatment: ${String(treatment)}`);
     }
     treatments.push(treatment);
@@ -176,7 +175,7 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       "social logo asset module",
     );
     const defaultLogoFaceTreatment = faceTreatmentModule.DEFAULT_LOGO_FACE_TREATMENT;
-    if (!isLogoFaceTreatment(defaultLogoFaceTreatment)) {
+    if (!includes(logoFaceTreatmentValues, defaultLogoFaceTreatment)) {
       throw new Error("Expected DEFAULT_LOGO_FACE_TREATMENT to be a logo face treatment.");
     }
 
