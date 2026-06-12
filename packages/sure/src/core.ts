@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slots; unknown/never cannot express the constraint */
 // Copied from Zod
 // TODO: review all the types
 export type Primitive =

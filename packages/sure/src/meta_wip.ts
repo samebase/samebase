@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slots; unknown/never cannot express the constraint */
 import type { Sure } from "./core.ts";
 import { object } from "./object.ts";
 import { objMapEntries } from "./utils.ts";

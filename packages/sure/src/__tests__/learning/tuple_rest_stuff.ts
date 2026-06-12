@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, no-unused-vars -- type-level learning scratch */
 import {
   MetaObj,
   Sure,

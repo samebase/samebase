@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, no-unused-vars -- type-level learning scratch */
 import { InferInput, InferMeta, MetaNever, MetaObj, Sure } from "../../core.ts";
 import { assertEqual } from "../typeTestUtils.ts";
 

@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slots; unknown/never cannot express the constraint */
 import { sure, good, bad } from "./core.ts";
-import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from "./core.ts";
+import type { Sure, InferGood, InferBad, MetaObj } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {

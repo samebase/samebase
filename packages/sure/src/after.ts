@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slots; unknown/never cannot express the constraint */
 import { sure, bad } from "./core.ts";
 import type { Sure, MetaObj, InferBad, InferGood, InferInput } from "./core.ts";
 
