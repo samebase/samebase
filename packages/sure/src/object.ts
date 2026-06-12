@@ -1,11 +1,12 @@
 import { sure, good, bad } from "./core.ts";
-import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from "./core.ts";
+import type { Sure, InferGood, InferBad, MetaObj } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
   v: Sure<
     unknown,
     unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
     any,
     MetaObj<{
       type: "optional";
@@ -19,6 +20,7 @@ type PickNonOptionals<T extends KVPair<Sure>> = T extends {
   v: Sure<
     unknown,
     unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
     any,
     MetaObj<{
       type: "optional";
@@ -35,6 +37,7 @@ export type InferSchemaGood<T extends Record<string, Sure>> = Prettify<
 /**
 Necessary because `typeof x` is not a type guard.
  */
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature, so the audited gap lives here
 export function isObject(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }
@@ -46,6 +49,7 @@ export function isObject(x: unknown): x is Record<string, unknown> {
  * The `optional` function will be checked `only` by the `object` function.
  * In all other cases it will the value will not be perceived as optional.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
 export function optional<TSchema extends Sure<unknown, unknown, any>>(
   schema: TSchema,
 ): Sure<

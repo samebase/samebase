@@ -255,15 +255,20 @@ Types and validation:
   for anything except hiding a type issue — where you would reach for `as`, use the narrowest
   `@ts-expect-error` plus a comment stating the runtime fact that makes it safe (greppable, errors
   once stale); assertions hide in plain sight. Rare exception for `any` only: type-level generics
-  where `unknown`/`never` cannot express a constraint use `any` under a scoped lint-disable
-  (`packages/sure` precedent).
+  where `unknown`/`never` cannot express a constraint use `any` under a next-line lint-disable
+  (`packages/sure` precedent). Lint exceptions are `eslint-disable-next-line` + reason on the exact
+  offending line; lift to one file-top header only when a rule saturates the file (a density
+  judgement, not a count). Never config-level exemptions; only generated files, which cannot carry
+  disables, get a config override.
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@noter-md/dependent`), never costume types the code cannot earn.
-- Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` that
-  restates what a validator already proves — a disconnected predicate keeps narrowing to a stale
-  shape when the schema evolves, with no error. Let the validator's result narrow, or derive the
-  target via `Infer` ("disconnected type safety" in `docs/code-guardrails.md`).
+- Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` claim TS
+  cannot check — a disconnected predicate keeps narrowing to a stale shape when the source evolves,
+  with no error. Derive predicates with `guard` from `@noter-md/dependent` (the callback returns the
+  narrowed value or null; identity-checked, keeps the target type visible); where a sure schema
+  proves the shape, let the validator's own result narrow. Plain local boolean checks may rely on
+  TS-inferred predicates ("disconnected type safety" in `docs/code-guardrails.md`).
 - Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
   `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@noter-md/dependent`; `packages/sure`
   is the philosophy at its extreme). Keep that vocabulary small; no long-named one-line helpers

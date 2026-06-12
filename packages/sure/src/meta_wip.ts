@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/consistent-type-assertions -- type-level scratch */
+/* eslint-disable @typescript-eslint/no-explicit-any -- type-level scratch */
 import type { Sure } from "./core.ts";
 import { object } from "./object.ts";
 import { objMapEntries } from "./utils.ts";
@@ -92,6 +94,7 @@ export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
 ): PrettifyRec<InferJustMeta<TSchema>> {
   // object.getMeta(insure) -> if not object -> null
 
+  // eslint-disable-next-line no-unused-expressions -- type-level scratch
   object;
 
   // @ts-expect-error more explicit?

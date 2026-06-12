@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- type-test scaffolding */
 import { describe, it, expect } from "vite-plus/test";
 import {
   object,

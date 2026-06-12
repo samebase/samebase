@@ -1,3 +1,4 @@
+import { guard } from "@noter-md/dependent/main";
 import type { Doc } from "../_generated/dataModel";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 
@@ -7,15 +8,15 @@ export type NoterManagedConnectedVault = Extract<
   { githubMode: "create_repository" }
 >;
 
-export function isConnectedVault(vault: Doc<"vaults"> | null | undefined): vault is ConnectedVault {
-  return vault?.state === "connected";
-}
+export const isConnectedVault = guard(
+  (vault: Doc<"vaults"> | null | undefined): ConnectedVault | null =>
+    vault?.state === "connected" ? vault : null,
+);
 
-export function isLiveConnectedVault(
-  vault: Doc<"vaults"> | null | undefined,
-): vault is ConnectedVault {
-  return isConnectedVault(vault) && !isVaultDeletingOrDeleteFailed(vault);
-}
+export const isLiveConnectedVault = guard(
+  (vault: Doc<"vaults"> | null | undefined): ConnectedVault | null =>
+    isConnectedVault(vault) && !isVaultDeletingOrDeleteFailed(vault) ? vault : null,
+);
 
 /**
  * Asserts both that the vault row exists and that repo-backed code can use it.
@@ -37,6 +38,7 @@ export function assertConnectedVault(vault: Doc<"vaults"> | null | undefined): C
   return vault;
 }
 
-export function isNoterManagedVault(vault: ConnectedVault): vault is NoterManagedConnectedVault {
-  return vault.githubMode === "create_repository";
-}
+export const isNoterManagedVault = guard(
+  (vault: ConnectedVault): NoterManagedConnectedVault | null =>
+    vault.githubMode === "create_repository" ? vault : null,
+);

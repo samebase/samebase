@@ -6,6 +6,7 @@ import {
   atMod,
   exactly,
   expectType,
+  guard,
   includes,
   map,
   notEmpty,
@@ -132,6 +133,105 @@ describe("dependent type helpers", () => {
     expectType<{ a: 1 } & { b: 2 }>()(intersected, true);
     expectType<Intersected>()(intersected, true);
     expectType<Omitted>()(omitted, true);
+  });
+});
+
+describe("guard", () => {
+  type Circle = { kind: "circle"; radius: number };
+  type Square = { kind: "square"; size: number };
+  type Shape = Circle | Square;
+
+  const circle: Shape = { kind: "circle", radius: 1 };
+  const square: Shape = { kind: "square", size: 2 };
+
+  it("narrows through an identity-checked callback", () => {
+    const isCircle = guard((shape: Shape | null | undefined): Circle | null =>
+      shape?.kind === "circle" ? shape : null,
+    );
+
+    expect(isCircle(circle)).toBe(true);
+    expect(isCircle(square)).toBe(false);
+    if (isCircle(circle)) {
+      expectType<Circle>()(circle, true);
+    }
+  });
+
+  it("accepts the generics-first call shape", () => {
+    const isSquare = guard<Shape, Square>((shape) => (shape.kind === "square" ? shape : null));
+
+    expect(isSquare(square)).toBe(true);
+    expect(isSquare(circle)).toBe(false);
+  });
+
+  it("rejects null inputs instead of matching the null failure result", () => {
+    const isCircle = guard((shape: Shape | null | undefined): Circle | null =>
+      shape?.kind === "circle" ? shape : null,
+    );
+
+    // Without the factory's null pre-check, a failed match on a null input
+    // would compare null to null and falsely claim `null is Circle`.
+    expect(isCircle(null)).toBe(false);
+    expect(isCircle(undefined)).toBe(false);
+  });
+
+  it("rejects reconstructed values: the callback must return the value itself", () => {
+    const isCircleCopy = guard((shape: Shape): Circle | null =>
+      shape.kind === "circle" ? { ...shape } : null,
+    );
+
+    expect(isCircleCopy(circle)).toBe(false);
+  });
+
+  it("treats equal primitives as identical, including NaN", () => {
+    const isNumber = guard((value: unknown): number | null =>
+      typeof value === "number" ? value : null,
+    );
+
+    expect(isNumber(5)).toBe(true);
+    expect(isNumber(Number.NaN)).toBe(true);
+    expect(isNumber("5")).toBe(false);
+  });
+
+  it("makes an unearned claim a compile error", () => {
+    void guard((shape: Shape): Circle | null => {
+      // @ts-expect-error the un-narrowed input cannot earn the Circle claim.
+      return shape;
+    });
+  });
+
+  it("documents why the throw-based variant does not ship", () => {
+    // Considered alternative: failure is a throw instead of a null result.
+    // It avoids the `| null` in the callback's return annotation, but the
+    // catch-all turns every genuine bug inside the callback into "no match".
+    function guardThrow<Value, Narrowed extends Value>(
+      match: (value: Value) => Narrowed,
+      // eslint-disable-next-line noter/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
+    ): (value: Value) => value is Narrowed {
+      // eslint-disable-next-line noter/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
+      return (value): value is Narrowed => {
+        try {
+          return Object.is(match(value), value);
+        } catch {
+          return false;
+        }
+      };
+    }
+
+    const isCircle = guardThrow((shape: Shape): Circle => {
+      if (shape.kind === "circle") return shape;
+      throw new Error("no match");
+    });
+
+    expect(isCircle(circle)).toBe(true);
+    expect(isCircle(square)).toBe(false);
+
+    const buggy = guardThrow((shape: Shape): Circle => {
+      const parsed: unknown = JSON.parse("{"); // stands in for an accidental bug
+      if (shape.kind === "circle" && parsed !== undefined) return shape;
+      throw new Error("no match");
+    });
+
+    expect(buggy(circle)).toBe(false);
   });
 });
 

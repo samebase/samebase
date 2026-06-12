@@ -1,3 +1,4 @@
+/* eslint-disable noter/no-hand-written-type-predicate -- audited vocabulary */
 // https://stackoverflow.com/a/50375286/2659549
 export type UnionToIntersection<Union> = (
   Union extends unknown ? (value: Union) => void : never
@@ -238,6 +239,24 @@ export function includes<const ArrayValue extends readonly unknown[]>(
   value: unknown,
 ): value is ArrayValue[number] {
   return arr.includes(value);
+}
+
+/**
+ * Build a type predicate whose `value is` claim is earned instead of asserted.
+ * The callback returns the received value where control flow narrowed it, or
+ * null to reject. Returning the un-narrowed input is a compile error, and the
+ * factory checks identity at runtime, so the claim cannot drift from the
+ * narrowing that produced it. Annotating the callback's input and return types
+ * keeps the guarded type visible at the definition.
+ *
+ * Null inputs always reject: null is the failure result, so a failed match on
+ * a null input would otherwise compare null to null and falsely succeed. The
+ * value must be returned as-is — a reconstruction like `{ ...value }` rejects.
+ */
+export function guard<Value, Narrowed extends Value>(
+  match: (value: Value) => Narrowed | null,
+): (value: Value) => value is Narrowed {
+  return (value): value is Narrowed => value !== null && Object.is(match(value), value);
 }
 
 export type SafeOmit<Value, Key extends keyof Value> = Omit<Value, Key>;

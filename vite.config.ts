@@ -47,8 +47,14 @@ export default defineConfig({
         name: "react-refresh",
         specifier: "eslint-plugin-react-refresh",
       },
+      {
+        name: "noter",
+        specifier: "./scripts/lint/eslint-plugin-noter.mjs",
+      },
     ],
     rules: {
+      // Warn until the codebase-wide predicate conversion lands, then error.
+      "noter/no-hand-written-type-predicate": "warn",
       "react-refresh/only-export-components": [
         "error",
         {
@@ -104,6 +110,14 @@ export default defineConfig({
       "require-await": "off",
     },
     overrides: [
+      {
+        // Generated output cannot carry in-file disables; its predicates are
+        // derived from a named source of truth, not hand-written.
+        files: ["**/*.generated.ts", "**/*.generated.d.ts"],
+        rules: {
+          "noter/no-hand-written-type-predicate": "off",
+        },
+      },
       {
         files: [
           "scripts/**/*.ts",

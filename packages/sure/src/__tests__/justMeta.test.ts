@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- type-test scaffolding */
 import { describe, expect, it } from "vite-plus/test";
 import { MetaNever, MetaObj } from "../core.ts";
 import { InferJustMeta, ExtractPrimitives, justMeta, metaToJsonSchema } from "../meta_wip.ts";

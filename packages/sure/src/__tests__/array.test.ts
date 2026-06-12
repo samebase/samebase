@@ -7,6 +7,7 @@ import type {
   InferMeta,
   Sure,
   MetaObj,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaNever,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
@@ -14,6 +15,7 @@ import { assertEqual } from "./typeTestUtils.ts";
 const someArray = array(number);
 
 // Type Checks
+// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 type InferredSure = typeof someArray;
 type InferredGood = InferGood<typeof someArray>;
 type InferredBad = InferBad<typeof someArray>;

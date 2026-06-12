@@ -37,11 +37,17 @@ declaring one.
   (`T extends (...args: any) => infer COutput`) and variance-sensitive inference slots
   (`Sure<unknown, unknown, any>`), both throughout `packages/sure/src`. There `any` is the honest
   option and `@ts-expect-error` is the wrong tool (suppressing inside generics breaks inference
-  instead of marking a gap). Mark it with a scoped lint-disable for
-  `typescript-eslint/no-explicit-any` (which is an `error` repo-wide): line-level with a short
-  reason in mixed files; a package-level exemption only for dedicated type-level libraries, as
-  `packages/sure` does in its lint script. Roughly 90% of generic code still needs no `any` — reach
-  for `unknown`/`never` first, every time.
+  instead of marking a gap). Mark it with an `eslint-disable-next-line` for
+  `typescript-eslint/no-explicit-any` (which is an `error` repo-wide) plus a short reason, on the
+  exact offending line. That is the default shape of every lint exception in this repo; when a
+  single rule genuinely saturates a file, lift that rule to one file-top `eslint-disable` header
+  with the same reason, keeping sparse rules line-level. Saturation is a density judgement, not a
+  count — a few hits in a large file stay line-level; a compact type-level or scratch file where the
+  rule applies throughout takes a header. Never a config-level exemption (`-A` flags, rule
+  overrides) — the disable lives in the file it excuses, greppable and validated by
+  `--report-unused-disable-directives`. Sole exception: machine-generated files, which cannot carry
+  disables, get a config override. Roughly 90% of generic code still needs no `any` — reach for
+  `unknown`/`never` first, every time.
 - Do not launder type gaps through cleverness. Overload signatures the implementation cannot prove,
   `as unknown as` chains, intermediate `unknown` variables, and "flexible" generics that quietly
   erase a type all hide unsafety instead of declaring it — each is worse than a visible
@@ -85,9 +91,23 @@ declaring one.
   }
   ```
 
-  If a reusable guard genuinely earns its place, its target must be derived from the same schema
-  (`value is InferGood<typeof vault>`), never restated by hand — and even then prefer the
-  validator's own narrowing when the call site allows it.
+  A good predicate needs two things at once: complete type safety (the claim is checked, so it
+  cannot drift) and visibility (the guarded type is readable at the definition). Derive reusable
+  predicates with `guard` in `@noter-md/dependent`: the callback returns the received value where
+  control flow narrowed it, or null to reject — see `isConnectedVault` in
+  `apps/noter/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and the
+  factory identity-checks the result at runtime, so the `value is` claim is earned, never asserted,
+  while the annotated callback keeps the guarded type visible.
+
+  Where a sure schema already proves the shape, do not wrap it in a predicate at all — let the
+  validator's own `[ok, value]` result narrow at the call site. (A schema-derived guard factory in
+  the Effect `Schema.is` shape was prototyped and dropped for having no callsites; the pattern is
+  recorded in `research/2026-06-12-guardby-prior-art.md` if a reusable schema-guard need appears.)
+
+  For one-off local boolean checks, no annotation also stays connected: since TS 5.5 the predicate
+  is inferred from the body (single return statement that refines the parameter), so there is no
+  claim to drift — but the guarded type is invisible at the definition, so prefer the derived forms
+  for anything exported or reused.
 
 - Do not use `Reflect.get` or `Reflect.set` as a workaround for TypeScript property access, browser
   API typing, global property writes, or object mutation. Prefer direct typed property access with a

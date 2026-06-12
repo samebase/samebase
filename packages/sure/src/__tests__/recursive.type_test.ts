@@ -1,4 +1,5 @@
 import { RecurseSymbol, ReplaceSymbolWithObj } from "../recursive.ts";
+// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 import { assertEqual, type AssertEqual } from "./typeTestUtils.ts";
 
 type Obj = {

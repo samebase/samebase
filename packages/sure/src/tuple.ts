@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slot */
 import { bad, good, sure } from "./core.ts";
 import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
-import { isObject } from "./object.ts";
 
 // TODO: add tests, also implement tuple spread
 export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer InferRest]
@@ -126,8 +126,6 @@ export function tuple<
       initial: arr,
     },
   );
-
-  struct.meta;
 
   // @ts-expect-error
   return struct;

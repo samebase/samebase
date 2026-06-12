@@ -18,6 +18,7 @@ export async function getThreadById(
 export function ensureThreadAccess<T extends { userId: Id<"users"> }>(
   ctxUserId: Id<"users">,
   threadContext: T | null,
+  // eslint-disable-next-line noter/no-hand-written-type-predicate -- asserts cannot be derived; rejects missing and foreign threads with one uniform error
 ): asserts threadContext is T {
   if (!threadContext || threadContext.userId !== ctxUserId) {
     throw new Error("Thread not found");

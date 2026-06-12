@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- learning scratch */
 import {
   MetaObj,
   Sure,
@@ -11,7 +12,8 @@ import {
 // Doesn't work
 export type TupleInferGoods01<T> = //
   T extends readonly [infer First, ...infer InferRest]
-    ? First extends Sure<unknown, infer Good, any, infer Meta>
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
+      First extends Sure<unknown, infer Good, any, infer Meta>
       ? Meta extends { parent: typeof spread_NOT_IMPLEMENTED }
         ? // try spreading the rest if it's an array
           Good extends readonly unknown[]
@@ -37,7 +39,8 @@ type Check01 = TupleInferGoods01<Sample>;
 // ## Try fixing
 export type TupleInferGoods_02<T> = //
   T extends readonly [infer First, ...infer InferRest]
-    ? First extends Sure<unknown, infer Good, any, infer Meta>
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
+      First extends Sure<unknown, infer Good, any, infer Meta>
       ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
         ? // try spreading the rest if it's an array
           Good extends readonly unknown[]

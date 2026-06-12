@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slot */
 // Copied from Zod
 // TODO: review all the types
 export type Primitive =
