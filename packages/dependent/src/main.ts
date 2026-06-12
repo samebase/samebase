@@ -122,6 +122,16 @@ export function notEmpty<Value>(value: Value | null | undefined): value is Value
   return value !== null && value !== undefined;
 }
 
+/**
+ * Narrow unknown to a string-keyed record, excluding arrays. Control flow can
+ * only earn `object` from a typeof check, never an index signature, so this
+ * claim stays hand-written as the one audited copy outside convex
+ * (`apps/noter/convex/jsonUtils.ts` is the convex-side home).
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function atMod<Value>(arr: Array1<Value>, indexMod: number): Value {
   const len = arr.length;
   const elem = arr[(indexMod + len) % len];
