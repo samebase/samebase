@@ -3,6 +3,7 @@ export type JsonRecord = Record<string, unknown>;
 /**
  * Checks whether the value is any non-null object, including arrays.
  */
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature; convex-side audited copy
 export function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -10,6 +11,7 @@ export function isObjectRecord(value: unknown): value is Record<string, unknown>
 /**
  * Checks whether the value is a non-null object that is not an array.
  */
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature; convex-side audited copy
 export function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

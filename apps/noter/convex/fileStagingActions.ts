@@ -6,11 +6,12 @@ import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
+import { notEmpty } from "@noter-md/dependent/main";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
 import type { GithubTree } from "./schema";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
-import { isObjectRecord as isRecord } from "./jsonUtils";
+import { isObjectRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import {
@@ -89,7 +90,7 @@ async function getGithubAccessToken(ctx: ActionCtx, userId: Id<"users">): Promis
 }
 
 function readDefaultBranch(repoData: unknown): string {
-  if (!isRecord(repoData)) {
+  if (!isObjectRecord(repoData)) {
     return "main";
   }
 
@@ -518,7 +519,7 @@ async function getBranchTreeMap(args: {
 }
 
 function toHeaderMap(value: unknown): HeaderMap | null {
-  if (!isRecord(value)) {
+  if (!isObjectRecord(value)) {
     return null;
   }
 
@@ -567,12 +568,12 @@ function getHeaderValue(headers: HeaderMap | null, name: string): string | null 
 }
 
 function getErrorHeaders(error: unknown): HeaderMap | null {
-  if (!isRecord(error)) {
+  if (!isObjectRecord(error)) {
     return null;
   }
 
   const response = error.response;
-  if (!isRecord(response)) {
+  if (!isObjectRecord(response)) {
     return null;
   }
 
@@ -580,7 +581,7 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
 }
 
 function getErrorStatus(error: unknown): number | null {
-  if (!isRecord(error)) {
+  if (!isObjectRecord(error)) {
     return null;
   }
   const status = error.status;
@@ -588,7 +589,7 @@ function getErrorStatus(error: unknown): number | null {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (!isRecord(error)) {
+  if (!isObjectRecord(error)) {
     return "";
   }
   const message = error.message;
@@ -3056,11 +3057,7 @@ export const getCommitPreview = action({
     );
 
     const stagedBranches: string[] = Array.from(
-      new Set(
-        stagedFiles
-          .map((file: StagedFileForCommit) => file.branch)
-          .filter((branch): branch is string => typeof branch === "string"),
-      ),
+      new Set(stagedFiles.map((file: StagedFileForCommit) => file.branch).filter(notEmpty)),
     );
     if (stagedBranches.length > 1) {
       throw new Error(
@@ -3119,11 +3116,7 @@ export const getBranchComparePreview = action({
       },
     );
     const stagedBranches = Array.from(
-      new Set(
-        stagedFiles
-          .map((file) => file.branch)
-          .filter((branch): branch is string => typeof branch === "string"),
-      ),
+      new Set(stagedFiles.map((file) => file.branch).filter(notEmpty)),
     );
     if (stagedBranches.length > 1) {
       throw new Error(
@@ -3223,7 +3216,7 @@ export const getBranchComparePreview = action({
           }),
         ),
       )
-    ).filter((file): file is CommitPreviewFile => file !== null);
+    ).filter(notEmpty);
     const files =
       stagedFiles.length > 0
         ? await buildBranchComparePreviewFiles({
@@ -3370,11 +3363,7 @@ export const getRebaseConflictPreview = action({
     );
 
     const stagedBranches: string[] = Array.from(
-      new Set(
-        stagedFiles
-          .map((file: StagedFileForCommit) => file.branch)
-          .filter((branch): branch is string => typeof branch === "string"),
-      ),
+      new Set(stagedFiles.map((file: StagedFileForCommit) => file.branch).filter(notEmpty)),
     );
     if (stagedBranches.length > 1) {
       throw new Error(
@@ -3432,11 +3421,7 @@ export const getRebaseConflictBundle = action({
     );
 
     const stagedBranches: string[] = Array.from(
-      new Set(
-        stagedFiles
-          .map((file: StagedFileForCommit) => file.branch)
-          .filter((branch): branch is string => typeof branch === "string"),
-      ),
+      new Set(stagedFiles.map((file: StagedFileForCommit) => file.branch).filter(notEmpty)),
     );
     if (stagedBranches.length > 1) {
       throw new Error(
@@ -3849,11 +3834,7 @@ export const commitAllStaged = internalAction({
       }
 
       const stagedBranches: string[] = Array.from(
-        new Set(
-          changedFiles
-            .map((file: StagedFileForCommit) => file.branch)
-            .filter((branch): branch is string => typeof branch === "string"),
-        ),
+        new Set(changedFiles.map((file: StagedFileForCommit) => file.branch).filter(notEmpty)),
       );
       if (stagedBranches.length > 1) {
         throw new Error(

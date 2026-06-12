@@ -13,7 +13,13 @@ import {
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
 import { callCloudflareMcpTool } from "../cloudflareMcp";
-import { readBoolean, readString, readStringOrNumber, toErrorMessage } from "../jsonUtils";
+import {
+  isRecord,
+  readBoolean,
+  readString,
+  readStringOrNumber,
+  toErrorMessage,
+} from "../jsonUtils";
 import type { ProviderApiCallRecorder } from "../providerApiLog";
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
@@ -396,10 +402,6 @@ function readOptionalRecordProperty(
     return value;
   }
   throw new Error(`Cloudflare API request params.${name} must be an object.`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 async function executeCloudflareApiMcpRequest(args: {

@@ -9,12 +9,13 @@ import {
   type MethodResponse,
 } from "openapi-fetch";
 import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
+import { guard } from "@noter-md/dependent/main";
 import type { paths, PlatformDeploymentResponse } from "./types.generated";
 import {
   convexManagementResponseValidators,
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
-import { toErrorMessage } from "../jsonUtils";
+import { isRecord, toErrorMessage } from "../jsonUtils";
 import { ConvexManagementApiError } from "./errors";
 import type { ProviderApiCallRecorder } from "../providerApiLog";
 
@@ -117,11 +118,10 @@ type ConvexManagementRequestParams = {
 
 export type ConvexCloudDeployment = Extract<PlatformDeploymentResponse, { kind: "cloud" }>;
 
-export function isConvexCloudDeployment(
-  deployment: PlatformDeploymentResponse,
-): deployment is ConvexCloudDeployment {
-  return deployment.kind === "cloud";
-}
+export const isConvexCloudDeployment = guard(
+  (deployment: PlatformDeploymentResponse): ConvexCloudDeployment | null =>
+    deployment.kind === "cloud" ? deployment : null,
+);
 
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{
   teamId: string;
@@ -270,10 +270,6 @@ function readOptionalRecordProperty(
     return value;
   }
   throw new Error(`Convex Management API request params.${name} must be an object.`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 async function executeConvexManagementApiRequest(args: {

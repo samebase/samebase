@@ -1,3 +1,5 @@
+import { isRecord } from "./jsonUtils";
+
 export type ProviderApiCall = {
   provider: "Cloudflare" | "Convex" | "GitHub";
   method: string;
@@ -54,10 +56,6 @@ const PII_KEY_MARKERS = [
   "vault",
   "worker",
 ];
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeKey(key: string): string {
   return key.replace(/[^a-z0-9]/gi, "").toLowerCase();

@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
+import { notEmpty } from "@noter-md/dependent/main";
 import { action, internalMutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
@@ -388,7 +389,7 @@ export function deriveBillingFromCustomerState(args: {
 
   const proMonthly = readOptionalProductId(POLAR_PRODUCTS[args.server].pro.monthly);
   const proAnnual = readOptionalProductId(POLAR_PRODUCTS[args.server].pro.annual);
-  const proProductIds = [proMonthly, proAnnual].filter((id): id is string => id !== null);
+  const proProductIds = [proMonthly, proAnnual].filter(notEmpty);
 
   const activeSubscriptions = args.customerState.active_subscriptions;
   if (!Array.isArray(activeSubscriptions)) {

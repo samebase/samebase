@@ -5,7 +5,7 @@ import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
-import { isObjectRecord as isRecord, readString } from "../jsonUtils";
+import { isObjectRecord, readString } from "../jsonUtils";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
 type PortVisibility = "public" | "private";
@@ -41,7 +41,7 @@ function readRecord(
   key: string,
 ): Record<string, unknown> | undefined {
   const value = record[key];
-  return isRecord(value) ? value : undefined;
+  return isObjectRecord(value) ? value : undefined;
 }
 
 function readStringArray(value: unknown): string[] | undefined {
@@ -161,7 +161,7 @@ async function fetchCodespaceTunnelAuth(args: {
   }
 
   const json: unknown = await response.json();
-  if (!isRecord(json)) {
+  if (!isObjectRecord(json)) {
     throw new Error("Unexpected codespace metadata response shape");
   }
 
@@ -280,7 +280,7 @@ function portDefinitionMatchesVisibility(args: {
   portDefinitionJson: unknown;
   desired: PortVisibility;
 }): boolean {
-  if (!isRecord(args.portDefinitionJson)) {
+  if (!isObjectRecord(args.portDefinitionJson)) {
     return false;
   }
   const accessControl = readRecord(args.portDefinitionJson, "accessControl");
@@ -291,7 +291,7 @@ function portDefinitionMatchesVisibility(args: {
 
   let hasAnonymousConnect = false;
   for (const entry of entriesValue) {
-    if (!isRecord(entry)) {
+    if (!isObjectRecord(entry)) {
       continue;
     }
     const type = readString(entry, "type");

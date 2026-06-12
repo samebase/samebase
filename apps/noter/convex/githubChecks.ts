@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { Octokit } from "@octokit/rest";
 import { describeRepositoryTreeRefreshFailure } from "./github";
-import { isObjectRecord as isRecord } from "./jsonUtils";
+import { isObjectRecord } from "./jsonUtils";
 
 const { array, literal, number, object, string, union } = v;
 
@@ -76,7 +76,7 @@ function readSharedCooldownMessage(vault: {
 }
 
 function toHeaderMap(value: unknown): HeaderMap | null {
-  if (!isRecord(value)) {
+  if (!isObjectRecord(value)) {
     return null;
   }
 
@@ -100,7 +100,7 @@ function toHeaderMap(value: unknown): HeaderMap | null {
 }
 
 function getErrorStatus(error: unknown): number | null {
-  if (!isRecord(error)) {
+  if (!isObjectRecord(error)) {
     return null;
   }
   const status = error.status;
@@ -108,7 +108,7 @@ function getErrorStatus(error: unknown): number | null {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (!isRecord(error)) {
+  if (!isObjectRecord(error)) {
     return "GitHub API rate limit exceeded.";
   }
   const message = error.message;
@@ -119,11 +119,11 @@ function getErrorMessage(error: unknown): string {
 }
 
 function getErrorHeaders(error: unknown): HeaderMap | null {
-  if (!isRecord(error)) {
+  if (!isObjectRecord(error)) {
     return null;
   }
   const response = error.response;
-  if (!isRecord(response)) {
+  if (!isObjectRecord(response)) {
     return null;
   }
   return toHeaderMap(response.headers);
