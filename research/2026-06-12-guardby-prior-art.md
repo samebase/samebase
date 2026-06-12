@@ -73,18 +73,20 @@ Surveyed 2026-06-12 with a live probe on the repo's pinned oxlint 1.60.0 (bundle
 - No existing ESLint plugin bans hand-written predicates either; typescript-eslint's closest is a
   speculative aside in its TS 5.5 thread
   ([typescript-eslint#8996](https://github.com/typescript-eslint/typescript-eslint/issues/8996)).
-- A ~20-line repo-local ESLint-compatible rule (report every `TSTypePredicate` node unless
-  `node.asserts`) works through oxlint's `jsPlugins` and the existing `vp lint` pipeline — verified
-  end to end: it flags named `value is T` functions and inline `.filter((v): v is string => ...)`
-  annotations, and passes `asserts` functions, TS 5.5-inferred predicates, and `guard()` callbacks.
-  The JS-plugins API is alpha, but the repo's lint config already loads `jsPlugins` in production.
+- A ~20-line repo-local ESLint-compatible rule (report every `TSTypePredicate` node, with a
+  dedicated message for `asserts` signatures, which are equally unchecked and underivable) works
+  through oxlint's `jsPlugins` and the existing `vp lint` pipeline — verified end to end: it flags
+  named `value is T` functions, inline `.filter((v): v is string => ...)` annotations, and `asserts`
+  signatures, and passes TS 5.5-inferred predicates and `guard()` callbacks (no annotation, so no
+  AST node — the rule has no guard-shaped backdoor). The JS-plugins API is alpha, but the repo's
+  lint config already loads `jsPlugins` in production.
 
 Shipped as `noter/no-hand-written-type-predicate` (`scripts/lint/eslint-plugin-noter.mjs`, loaded
 via `lint.jsPlugins`) at `warn` while the tree still holds the unconverted census sites; it flips to
-`error` with the codebase-wide predicate conversion. Exemptions are in-file: disable headers in
-`packages/dependent` (the audited vocabulary hand-writes its predicates by design), line-level
-disables with reasons at vocabulary-tier sites (`isObject` in sure), and a config override only for
-`*.generated.*` files, which cannot carry headers.
+`error` with the codebase-wide predicate conversion. Exemptions are next-line disables with reasons
+in the files they excuse — the `packages/dependent` vocabulary and factory lines, `isObject` in
+sure, the lone `asserts` site (`ensureThreadAccess`) — plus a config override only for
+`*.generated.*` files, which cannot carry in-file disables.
 
 ## Conclusion
 
