@@ -65,6 +65,8 @@ export function RouteUrlEditorNext() {
   const vm = useRouteEditorVm({ pageHashKeys });
   const { canGoBack, canGoForward } = useNavigationControls();
   const touchScrollPicker = useRouteUrlEditorTouchScrollPicker({
+    currentSuggestionIndex: vm.currentSuggestionIndex,
+    currentSuggestionScrollEnabled: vm.state.kind === "focused" && vm.state.focusMode === "editing",
     previewTouchSuggestion: vm.previewTouchSuggestion,
     suggestions: vm.suggestions,
     suggestionsVisible: vm.suggestionsVisible,
@@ -81,12 +83,12 @@ export function RouteUrlEditorNext() {
       : null;
 
   useEffect(() => {
-    if (editingDraftRouteAddress === null) {
+    if (editingDraftRouteAddress === null || touchScrollPicker.enabled) {
       return;
     }
 
     resetTouchScrollPosition();
-  }, [editingDraftRouteAddress, resetTouchScrollPosition]);
+  }, [editingDraftRouteAddress, resetTouchScrollPosition, touchScrollPicker.enabled]);
 
   useEffect(() => {
     if (!vm.activeSuggestionId || touchScrollPicker.enabled) {

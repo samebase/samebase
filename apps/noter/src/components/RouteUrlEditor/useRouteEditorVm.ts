@@ -21,7 +21,11 @@ import {
 } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { api } from "../../../convex/_generated/api";
-import { readSuggestions, type Suggestion } from "./RouteUrlEditorSuggestions";
+import {
+  readCurrentRouteUrlEditorSuggestionIndex,
+  readSuggestions,
+  type Suggestion,
+} from "./RouteUrlEditorSuggestions";
 import {
   readActiveRouteEditorSuggestion,
   readNextRouteEditorSuggestionIndex,
@@ -1231,6 +1235,14 @@ reload, so an unapplied suggestion preview does not become durable.
 
   const handleDisplayInputClick = useCallback(
     (event: MouseEvent<HTMLInputElement>) => {
+      if (event.currentTarget.value.startsWith(prefix)) {
+        sendEvent({
+          type: "clickedFocusedInput",
+          selection: readRouteAddressSelection(event.currentTarget),
+        });
+        return;
+      }
+
       sendEvent({
         type: "clickedInput",
         committedRouteAddress,
@@ -1516,6 +1528,16 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
     [activeSuggestionIndex, listboxId, suggestions],
   );
 
+  const currentSuggestionIndex =
+    state.kind === "focused" && state.focusMode === "editing"
+      ? readCurrentRouteUrlEditorSuggestionIndex({
+          prefix: state.prefix,
+          routeAddress: suggestionsRouteAddress,
+          selection: suggestionSelection,
+          suggestions,
+        })
+      : null;
+
   const handleInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -1747,6 +1769,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
   return useMemo(
     () => ({
       activeSuggestionId: activeSuggestion?.id ?? null,
+      currentSuggestionIndex,
       displayInputProps,
       getSuggestionProps,
       inputProps,
@@ -1761,6 +1784,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
     }),
     [
       activeSuggestion?.id,
+      currentSuggestionIndex,
       displayInputProps,
       getSuggestionProps,
       inputProps,

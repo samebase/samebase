@@ -226,6 +226,100 @@ async function scrollTouchPickerToSuggestion(
   return suggestions.nth(suggestionIndex);
 }
 
+async function tapDisplayInputAfterRouteText(
+  input: Locator,
+  routeTextBeforeTap: string,
+): Promise<void> {
+  const inputBox = await input.boundingBox();
+  if (!inputBox) {
+    throw new Error("Expected visible route URL editor display.");
+  }
+
+  const x = await input.evaluate((element, textBeforeTap) => {
+    if (!(element instanceof HTMLInputElement)) {
+      throw new Error("Expected route URL editor display input.");
+    }
+
+    const style = window.getComputedStyle(element);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (context === null) {
+      throw new Error("Expected canvas text measurement context.");
+    }
+
+    context.font = style.font;
+    const paddingLeft = Number.parseFloat(style.paddingLeft);
+    const safePaddingLeft = Number.isFinite(paddingLeft) ? paddingLeft : 0;
+    const characterWidth = context.measureText("0").width;
+    const textWidth = context.measureText(textBeforeTap).width;
+    const requestedX = safePaddingLeft + textWidth - characterWidth / 2;
+
+    return Math.min(Math.max(requestedX, 1), element.clientWidth - 1);
+  }, routeTextBeforeTap);
+
+  await input.tap({
+    position: {
+      x,
+      y: inputBox.height / 2,
+    },
+  });
+}
+
+async function readTouchSlateSuggestionAlignment(page: Page, suggestionValue: string) {
+  return page.evaluate((value) => {
+    const slate = document.querySelector('[data-testid="route-url-editor-scroll-slate"]');
+    const scrollport = document.querySelector('[data-testid="route-url-editor-suggestions"]');
+    if (!(slate instanceof HTMLElement) || !(scrollport instanceof HTMLElement)) {
+      throw new Error("Expected route URL editor touch picker.");
+    }
+
+    const suggestions: HTMLElement[] = [];
+    for (const element of document.querySelectorAll(
+      '[data-testid="route-url-editor-suggestion"]',
+    )) {
+      if (element instanceof HTMLElement) {
+        suggestions.push(element);
+      }
+    }
+
+    const suggestionIndex = suggestions.findIndex(
+      (element) => element.textContent?.trim() === value,
+    );
+    const suggestion = suggestions[suggestionIndex];
+    if (!suggestion) {
+      throw new Error(`Expected route URL editor suggestion: ${value}`);
+    }
+
+    const firstSuggestion = suggestions[0];
+    if (!firstSuggestion) {
+      throw new Error("Expected at least one route URL editor suggestion.");
+    }
+
+    return {
+      differencePx: suggestion.getBoundingClientRect().top - slate.getBoundingClientRect().top,
+      expectedScrollTop: suggestionIndex * firstSuggestion.getBoundingClientRect().height,
+      scrollTop: scrollport.scrollTop,
+    };
+  }, suggestionValue);
+}
+
+async function expectTouchSlateAlignedToSuggestion(
+  page: Page,
+  suggestionValue: string,
+): Promise<void> {
+  await expect(page.getByRole("option", { exact: true, name: suggestionValue })).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const alignment = await readTouchSlateSuggestionAlignment(page, suggestionValue);
+      return Math.abs(alignment.differencePx);
+    })
+    .toBeLessThanOrEqual(1);
+
+  const alignment = await readTouchSlateSuggestionAlignment(page, suggestionValue);
+  expect(Math.abs(alignment.scrollTop - alignment.expectedScrollTop)).toBeLessThanOrEqual(1);
+}
+
 async function scrollTouchPickerTo(page: Page, scrollTop: number): Promise<void> {
   await page
     .getByTestId("route-url-editor-suggestions")
@@ -265,6 +359,42 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(input).toHaveValue(prefix);
     await expect(input).toHaveJSProperty("readOnly", false);
     await expect(input).toHaveAttribute("data-route-editor-node-marker", "before-touch-focus");
+  });
+
+  test("mobile focus scrolls path suggestions to the tapped path", async ({ page }) => {
+    const displayInput = await openRouteUrlEditor(page, "/logo");
+
+    await tapDisplayInputAfterRouteText(displayInput, "/lo");
+
+    const input = page.getByTestId("route-url-editor-input");
+    await expect(input).toBeFocused();
+    await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
+    await expect(page).toHaveURL(/\/logo$/);
+    await expectTouchSlateAlignedToSuggestion(page, "/logo");
+  });
+
+  test("mobile focus scrolls query-key suggestions to the tapped query key", async ({ page }) => {
+    const displayInput = await openRouteUrlEditor(page, "/logo?depth=2");
+
+    await tapDisplayInputAfterRouteText(displayInput, "/logo?de");
+
+    const input = page.getByTestId("route-url-editor-input");
+    await expect(input).toBeFocused();
+    await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
+    await expect(page).toHaveURL(/\/logo\?depth=2$/);
+    await expectTouchSlateAlignedToSuggestion(page, "?depth=2");
+  });
+
+  test("mobile focus scrolls value suggestions to the tapped query value", async ({ page }) => {
+    const displayInput = await openRouteUrlEditor(page, "/logo?top=blue-200");
+
+    await tapDisplayInputAfterRouteText(displayInput, "/logo?top=blue-");
+
+    const input = page.getByTestId("route-url-editor-input");
+    await expect(input).toBeFocused();
+    await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
+    await expect(page).toHaveURL(/\/logo\?top=blue-200$/);
+    await expectTouchSlateAlignedToSuggestion(page, "200");
   });
 
   test("touch path suggestion lists use the same scroll picker", async ({ page }) => {

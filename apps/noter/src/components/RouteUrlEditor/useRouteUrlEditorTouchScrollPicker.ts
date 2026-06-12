@@ -77,10 +77,14 @@ Touch lists get spacer rows plus a fixed slate. Scrolling a row under that slate
 suggestion behavior.
 */
 export function useRouteUrlEditorTouchScrollPicker({
+  currentSuggestionIndex,
+  currentSuggestionScrollEnabled,
   previewTouchSuggestion,
   suggestions,
   suggestionsVisible,
 }: {
+  currentSuggestionIndex: number | null;
+  currentSuggestionScrollEnabled: boolean;
   previewTouchSuggestion: (suggestion: Suggestion, suggestionIndex: number) => void;
   suggestions: readonly Suggestion[];
   suggestionsVisible: boolean;
@@ -102,18 +106,31 @@ export function useRouteUrlEditorTouchScrollPicker({
     touchScrollSettleTimeoutRef.current = null;
   }, []);
 
+  const scrollToSuggestionIndex = useCallback(
+    (suggestionIndex: number | null) => {
+      clearTouchScrollSettleTimeout();
+      touchScrollPickingArmedRef.current = false;
+
+      const suggestionsElement = suggestionsRef.current;
+      if (!suggestionsElement) {
+        return;
+      }
+
+      const nextScrollTop =
+        suggestionIndex === null ? 0 : suggestionIndex * routeUrlEditorTouchSuggestionRowHeightPx;
+      if (suggestionsElement.scrollTop === nextScrollTop) {
+        return;
+      }
+
+      skipNextTouchScrollEventRef.current = true;
+      suggestionsElement.scrollTop = nextScrollTop;
+    },
+    [clearTouchScrollSettleTimeout],
+  );
+
   const resetScrollPosition = useCallback(() => {
-    clearTouchScrollSettleTimeout();
-    touchScrollPickingArmedRef.current = false;
-
-    const suggestionsElement = suggestionsRef.current;
-    if (!suggestionsElement || suggestionsElement.scrollTop === 0) {
-      return;
-    }
-
-    skipNextTouchScrollEventRef.current = true;
-    suggestionsElement.scrollTop = 0;
-  }, [clearTouchScrollSettleTimeout]);
+    scrollToSuggestionIndex(null);
+  }, [scrollToSuggestionIndex]);
 
   const handleSuggestionsTouchStart = useCallback(() => {
     touchScrollPickingArmedRef.current = true;
@@ -167,6 +184,27 @@ export function useRouteUrlEditorTouchScrollPicker({
       window.removeEventListener("resize", syncMetrics);
     };
   }, [suggestionsVisible, touchScrollPickerEnabled]);
+
+  useLayoutEffect(() => {
+    if (
+      !currentSuggestionScrollEnabled ||
+      !touchScrollPickerEnabled ||
+      touchScrollPickerMetrics === null ||
+      !suggestionsVisible
+    ) {
+      return;
+    }
+
+    scrollToSuggestionIndex(currentSuggestionIndex);
+  }, [
+    currentSuggestionScrollEnabled,
+    currentSuggestionIndex,
+    scrollToSuggestionIndex,
+    suggestions,
+    suggestionsVisible,
+    touchScrollPickerEnabled,
+    touchScrollPickerMetrics,
+  ]);
 
   const handleSuggestionsScroll = useCallback(() => {
     if (skipNextTouchScrollEventRef.current) {
