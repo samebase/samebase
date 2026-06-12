@@ -35,7 +35,7 @@ import {
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
 import { readLogoThemeColors } from "@/lib/appThemeColorSearch";
-import { type LogoRouteSearch, type LogoRouteSearchBuildState } from "@/lib/logoRouteSearch";
+import { type LogoIsoRouteSearch, type LogoRouteSearchBuildState } from "@/lib/logoRouteSearch";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 
 export type LogoRouteRenderMode = Exclude<LogoDepthRenderer, "svg">;
@@ -47,11 +47,11 @@ export const DEFAULT_LOGO_ROUTE_VIEW_STATE: LogoViewState = {
   rotationDegrees: DEFAULT_ROTATION_DEGREES,
 };
 
-function readRouteGridSize(routeSearch: LogoRouteSearch): LogoGridSize {
+function readRouteGridSize(routeSearch: LogoIsoRouteSearch): LogoGridSize {
   return normalizeLogoGridSize(routeSearch.gridSize);
 }
 
-function readRouteVoxelState(routeSearch: LogoRouteSearch, gridSize: LogoGridSize): string {
+function readRouteVoxelState(routeSearch: LogoIsoRouteSearch, gridSize: LogoGridSize): string {
   const parsedState = parseVoxelState(routeSearch.vox ?? null);
   if (parsedState === null || parsedState.gridSize !== gridSize) {
     return createDefaultVoxelState(gridSize);
@@ -60,7 +60,7 @@ function readRouteVoxelState(routeSearch: LogoRouteSearch, gridSize: LogoGridSiz
   return serializeVoxelState(parsedState.filledVoxels, gridSize);
 }
 
-function readRouteIsoStyleId(routeSearch: LogoRouteSearch): LogoIsometricStyleId {
+function readRouteIsoStyleId(routeSearch: LogoIsoRouteSearch): LogoIsometricStyleId {
   const isoStyle = routeSearch.isoStyle ?? null;
   if (!isLogoIsometricStyleId(isoStyle)) {
     return DEFAULT_LOGO_ISOMETRIC_STYLE_ID;
@@ -69,7 +69,7 @@ function readRouteIsoStyleId(routeSearch: LogoRouteSearch): LogoIsometricStyleId
   return isoStyle;
 }
 
-function readRouteIsoCubeSidePixels(routeSearch: LogoRouteSearch): number {
+function readRouteIsoCubeSidePixels(routeSearch: LogoIsoRouteSearch): number {
   if (typeof routeSearch.isoSide !== "number") {
     return LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue;
   }
@@ -78,7 +78,7 @@ function readRouteIsoCubeSidePixels(routeSearch: LogoRouteSearch): number {
 }
 
 function readRouteRotationDegrees(
-  routeSearch: LogoRouteSearch,
+  routeSearch: LogoIsoRouteSearch,
   defaultView: LogoViewState,
 ): number {
   if (typeof routeSearch.rot !== "number") {
@@ -92,7 +92,7 @@ function isLogoRotationAxisMode(value: string | null) {
   return value === "cube-y" || value === "screen-vertical";
 }
 
-function readRouteRotationAxisMode(routeSearch: LogoRouteSearch): LogoRotationAxisMode {
+function readRouteRotationAxisMode(routeSearch: LogoIsoRouteSearch): LogoRotationAxisMode {
   const value = routeSearch.axis ?? null;
   if (!isLogoRotationAxisMode(value)) {
     return "cube-y";
@@ -101,11 +101,11 @@ function readRouteRotationAxisMode(routeSearch: LogoRouteSearch): LogoRotationAx
   return value;
 }
 
-function readRouteViewSnapEnabled(routeSearch: LogoRouteSearch, enableViewSnapping: boolean) {
+function readRouteViewSnapEnabled(routeSearch: LogoIsoRouteSearch, enableViewSnapping: boolean) {
   return enableViewSnapping && !routeSearch.freeView;
 }
 
-function hasRouteViewSearch(routeSearch: LogoRouteSearch): boolean {
+function hasRouteViewSearch(routeSearch: LogoIsoRouteSearch): boolean {
   return (
     typeof routeSearch.elev === "number" ||
     typeof routeSearch.rot === "number" ||
@@ -114,7 +114,7 @@ function hasRouteViewSearch(routeSearch: LogoRouteSearch): boolean {
 }
 
 function readRouteElevationDegrees(
-  routeSearch: LogoRouteSearch,
+  routeSearch: LogoIsoRouteSearch,
   defaultView: LogoViewState,
 ): number {
   if (typeof routeSearch.elev !== "number") {
@@ -124,7 +124,7 @@ function readRouteElevationDegrees(
   return normalizeElevationDegrees(routeSearch.elev);
 }
 
-function readRouteDistanceScale(routeSearch: LogoRouteSearch): number {
+function readRouteDistanceScale(routeSearch: LogoIsoRouteSearch): number {
   if (typeof routeSearch.dist !== "number") {
     return LOGO_DISTANCE_SCALE.defaultValue;
   }
@@ -132,7 +132,7 @@ function readRouteDistanceScale(routeSearch: LogoRouteSearch): number {
   return normalizeLogoDistanceScale(routeSearch.dist);
 }
 
-function readRouteZoom(routeSearch: LogoRouteSearch): number {
+function readRouteZoom(routeSearch: LogoIsoRouteSearch): number {
   if (typeof routeSearch.zoom !== "number") {
     return LOGO_PREVIEW_ZOOM.defaultValue;
   }
@@ -141,7 +141,7 @@ function readRouteZoom(routeSearch: LogoRouteSearch): number {
 }
 
 function readRouteFractalDepth(
-  routeSearch: LogoRouteSearch,
+  routeSearch: LogoIsoRouteSearch,
   renderMode: LogoRouteRenderMode,
 ): number {
   if (typeof routeSearch.depth !== "number") {
@@ -159,7 +159,7 @@ function readRouteViewState({
 }: {
   defaultView: LogoViewState;
   enableViewSnapping: boolean;
-  routeSearch: LogoRouteSearch;
+  routeSearch: LogoIsoRouteSearch;
   snapFallbackView: boolean;
 }): LogoViewState & { viewSnapEnabled: boolean } {
   const viewSnapEnabled = readRouteViewSnapEnabled(routeSearch, enableViewSnapping);
@@ -192,7 +192,7 @@ export function readLogoRouteRenderState({
   defaultView?: LogoViewState;
   enableViewSnapping?: boolean;
   renderMode?: LogoRouteRenderMode;
-  routeSearch: LogoRouteSearch;
+  routeSearch: LogoIsoRouteSearch;
   snapFallbackView?: boolean;
 }): LogoRouteRenderState {
   const view = readRouteViewState({

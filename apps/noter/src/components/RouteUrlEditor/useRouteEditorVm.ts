@@ -12,7 +12,11 @@ import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { includes } from "@noter-md/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
-import { readRouteAddressReadiness, type RouteAddressReadiness } from "@/lib/routeAddress";
+import {
+  readMatchingRouteAcceptedSearchKeys,
+  readRouteAddressReadiness,
+  type RouteAddressReadiness,
+} from "@/lib/routeAddress";
 import { openRouteAddressQuerySlot } from "@/lib/routeAddressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
@@ -1206,9 +1210,13 @@ reload, so an unapplied suggestion preview does not become durable.
             _includeValidateSearch: true,
           });
           const redirectRouteAddress = readRootRouteRedirectRouteAddress({
+            acceptedSearchKeys: readMatchingRouteAcceptedSearchKeys(
+              builtLocation.pathname,
+              router.routesByPath,
+            ),
             hash: builtLocation.hash,
             pathname: builtLocation.pathname,
-            search: validateRootRouteSearch(builtLocation.search),
+            searchStr: builtLocation.searchStr,
           });
 
           return redirectRouteAddress ?? builtLocation.href;

@@ -90,15 +90,28 @@ A route without `acceptedSearchKeys` accepts only root-owned keys. The route URL
 update filter (`readRouteAddressRouteUpdateDraft`) drops draft query tokens whose key is neither
 root-owned nor accepted by the destination's most specific matching route template.
 
-Why the editor is the enforcement point today: plain `Link`/`navigate` calls without a `search` prop
-already drop non-retained keys, because the root retain middleware picks only
-`RETAINED_ROOT_SEARCH_KEYS` and TanStack's final search middleware returns `{}` when no `search` was
-passed. The editor pushed raw addresses past those middlewares and kept unknown keys by default;
-that was the `machineId` leak. Cross-route `search: true` or spread-prev navigations would be the
-remaining carriers; do not introduce them.
+Acceptance is enforced at two points:
 
-History rule: acceptance filtering runs only while building new route updates. It never runs on
-Back/Forward traversal, so restored history entries keep their original URLs.
+1. **Editor route updates**: `readRouteAddressRouteUpdateDraft` filters draft tokens, so typed or
+   suggestion-selected destinations never carry non-accepted keys. (Plain `Link`/`navigate` calls
+   without a `search` prop already drop non-retained keys via the root retain middleware plus
+   TanStack's final search middleware; the editor's raw `history.push` path was the `machineId`
+   leak. Cross-route `search: true` or spread-prev navigations would be the remaining carriers; do
+   not introduce them.)
+2. **Load-time canonical redirect**: the existing root `beforeLoad` redirect (the same mechanism
+   that canonicalizes `?reset` and conflicting `dark&light`) now also drops raw query keys no
+   matched route accepts, so a directly loaded deep link like `/logo?isoStyle=shaded-edge` lands on
+   `/logo` with a `replace` redirect. Implementation note: TanStack's `beforeLoad` `search` argument
+   merges raw keys with validated results, so the redirect derives the canonical root search from
+   `location.searchStr` itself — spreading the contaminated argument re-adds dropped keys and loops
+   the redirect.
+
+The editor's canonical-address prediction calls the same redirect function with the same
+accepted-keys lookup, keeping the editor state machine in sync with what TanStack reports.
+
+History rule: an entry that is already canonical never redirects, so Back/Forward restore canonical
+entries unchanged; a pre-existing dirty entry canonicalizes on traversal exactly like the shipped
+`reset`/theme-conflict redirects.
 
 ## User Stories
 
@@ -110,8 +123,10 @@ Back/Forward traversal, so restored history entries keep their original URLs.
    set them anywhere, keep them everywhere, including across `/machines` and `/pricing`. Slice 2
    formalizes this by moving them into the root schema, which is what "root-owned" already means
    structurally.
-3. **Renderer params are route-owned.** `isoSide` configures the `/logo/iso` renderer; after the
-   slice-2 logo split, navigating from `/logo/iso?isoSide=120` to `/home` or `/logo` drops it.
+3. **Renderer params are route-owned (implemented).** `isoSide`/`isoStyle` configure the `/logo/iso`
+   renderer and live in `RouteSearchSchema_logoIso` (the shared logo schema plus the iso params);
+   `/logo?isoStyle=shaded-edge` redirects to `/logo` on load, and editor drafts drop the iso keys on
+   every non-iso destination.
 4. **Back restores what you saw.** After any pruned navigation, Back returns to the previous history
    entry with its original query string intact.
 5. **Shared URLs are viewer-independent.** A URL pasted to another user resolves to the same query
@@ -125,8 +140,11 @@ Back/Forward traversal, so restored history entries keep their original URLs.
 **Slice 1 (this PR, done).** Rename the twelve schema constants to `RouteSearchSchema_*`; add
 `readRouteSearchAcceptedKeys`; declare `staticData.acceptedSearchKeys` on every schema-bearing route
 (machines, machine-connect, pricing, mcp-consent, vault-file, codex research x2, landing-preview,
-all eight logo routes, visual-fixture); make the editor's route update filter acceptance-based; unit
-coverage in `routeAddress.test.ts`.
+all eight logo routes, visual-fixture); make the editor's route update filter acceptance-based; add
+the load-time canonical redirect to root `beforeLoad`; split `isoSide`/`isoStyle` into
+`RouteSearchSchema_logoIso` ahead of the full logo split (the first route-owned params). Unit
+coverage in `routeAddress.test.ts`, `rootRouteSearch.test.ts`, `logoRouteSearch.test.ts`, and
+load-redirect coverage in `appRouter.test.tsx`.
 
 **Slice 2 — root ownership transfer and logo split.** Move the app-wide logo params into the root
 schema as the single declaration of "accepted everywhere + retained across navigation"; derive the

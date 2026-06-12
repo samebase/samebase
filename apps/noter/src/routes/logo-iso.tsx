@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LogoPreviewPage } from "@/components/logo/LogoPreviewPage";
 import {
-  LOGO_ROUTE_SEARCH_KEYS,
+  LOGO_ISO_ROUTE_SEARCH_KEYS,
   readLogoRouteSearchParamSuggestionsForRenderer,
-  validateLogoRouteSearchForRenderer,
+  validateLogoIsoRouteSearch,
 } from "@/lib/logoRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
@@ -33,9 +33,9 @@ function LogoIsoRouteComponent() {
 export const Route = createFileRoute("/logo/iso")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
+    acceptedSearchKeys: LOGO_ISO_ROUTE_SEARCH_KEYS,
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("iso"),
   },
   component: LogoIsoRouteComponent,
-  validateSearch: validateLogoRouteSearchForRenderer("iso"),
+  validateSearch: validateLogoIsoRouteSearch,
 });

@@ -219,4 +219,26 @@ describe("readRouteAddressReadiness", () => {
       routeAddress: "/home",
     });
   });
+
+  it("keeps iso renderer params on the iso route and drops them on other logo routes", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/logo",
+        draftRouteAddress: "/logo/iso?isoStyle=shaded-edge",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/logo/iso?isoStyle=shaded-edge",
+    });
+
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/logo/iso?isoStyle=shaded-edge",
+        draftRouteAddress: "/logo?isoStyle=shaded-edge",
+      }),
+    ).toEqual({
+      kind: "readyNormalized",
+      routeAddress: "/logo",
+    });
+  });
 });

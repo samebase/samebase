@@ -184,8 +184,6 @@ describe("rootRouteSearch", () => {
         axis: "screen-vertical",
         elev: "32.4",
         freeView: "",
-        isoSide: "52",
-        isoStyle: "flat",
         leftFace: "striped",
         rot: "721",
         stripeG: "0.4",
@@ -196,8 +194,6 @@ describe("rootRouteSearch", () => {
       axis: "screen-vertical",
       elev: 32.4,
       freeView: true,
-      isoSide: 40,
-      isoStyle: "flat",
       leftFace: "striped",
       rot: 1,
       stripeG: 0.4,
@@ -205,6 +201,10 @@ describe("rootRouteSearch", () => {
       stripeW: 0.4,
       vox: DEFAULT_VOXEL_STATE,
     });
+  });
+
+  it("drops iso renderer params from root surfaces", () => {
+    expect(validateRootRouteSearch({ isoSide: "52", isoStyle: "flat" })).toEqual({});
   });
 
   it("replaces logo params without dropping dashboard route state", () => {
@@ -268,11 +268,9 @@ describe("rootRouteSearch", () => {
   it("predicts the root redirect for reset search", () => {
     expect(
       readRootRouteRedirectRouteAddress({
+        acceptedSearchKeys: [],
         pathname: "/logo",
-        search: validateRootRouteSearch({
-          dark: true,
-          reset: true,
-        }),
+        searchStr: "?dark&reset",
         hash: "",
       }),
     ).toBe("/logo");
@@ -281,14 +279,44 @@ describe("rootRouteSearch", () => {
   it("predicts the root redirect for conflicting theme flags", () => {
     expect(
       readRootRouteRedirectRouteAddress({
+        acceptedSearchKeys: [],
         pathname: "/logo",
-        search: validateRootRouteSearch({
-          dark: true,
-          dev: true,
-          light: true,
-        }),
+        searchStr: "?dark&dev&light",
         hash: "section",
       }),
     ).toBe("/logo?dev#section");
+  });
+
+  it("predicts the root redirect that drops keys no matched route accepts", () => {
+    expect(
+      readRootRouteRedirectRouteAddress({
+        acceptedSearchKeys: [],
+        pathname: "/home",
+        searchStr: "?machineId=sample-machine",
+        hash: "",
+      }),
+    ).toBe("/home");
+  });
+
+  it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {
+    expect(
+      readRootRouteRedirectRouteAddress({
+        acceptedSearchKeys: ["machineId", "threadId"],
+        pathname: "/machines",
+        searchStr: "?prod-ui&machineId=sample-machine&unknownKey=1",
+        hash: "",
+      }),
+    ).toBe("/machines?machineId=sample-machine&prod-ui");
+  });
+
+  it("does not redirect when every raw key is accepted", () => {
+    expect(
+      readRootRouteRedirectRouteAddress({
+        acceptedSearchKeys: ["machineId"],
+        pathname: "/machines",
+        searchStr: "?machineId=sample-machine",
+        hash: "",
+      }),
+    ).toBe(null);
   });
 });

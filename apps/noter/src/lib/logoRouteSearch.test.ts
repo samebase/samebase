@@ -25,8 +25,10 @@ import {
   createDefaultVoxelState,
 } from "@/components/logo/logoVoxelState";
 import {
+  buildLogoIsoRouteSearch,
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
+  validateLogoIsoRouteSearch,
   validateLogoRouteSearch,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
@@ -41,8 +43,6 @@ describe("logoRouteSearch", () => {
         dist: "-1",
         elev: "32.4",
         freeView: "",
-        isoSide: "52",
-        isoStyle: "flat",
         background: "sky-500",
         border: "stone-300",
         dark: "",
@@ -69,8 +69,6 @@ describe("logoRouteSearch", () => {
       dist: 0,
       elev: 32.4,
       freeView: true,
-      isoSide: 40,
-      isoStyle: "flat",
       leftFace: "striped",
       primary: "emerald-500",
       rot: 1,
@@ -116,10 +114,6 @@ describe("logoRouteSearch", () => {
     expect(search.freeView).toBeUndefined();
     expect("gridSize" in search).toBe(true);
     expect(search.gridSize).toBeUndefined();
-    expect("isoSide" in search).toBe(true);
-    expect(search.isoSide).toBeUndefined();
-    expect("isoStyle" in search).toBe(true);
-    expect(search.isoStyle).toBeUndefined();
     expect("zoom" in search).toBe(true);
     expect(search.zoom).toBeUndefined();
     expect("leftFace" in search).toBe(true);
@@ -128,6 +122,39 @@ describe("logoRouteSearch", () => {
     expect(search.rot).toBeUndefined();
     expect("vox" in search).toBe(true);
     expect(search.vox).toBeUndefined();
+  });
+
+  it("keeps iso renderer params on the iso route schema only", () => {
+    expect(validateLogoIsoRouteSearch({ isoSide: "52", isoStyle: "flat" })).toEqual({
+      isoSide: 40,
+      isoStyle: "flat",
+    });
+
+    expect(validateLogoRouteSearch({ isoSide: "52", isoStyle: "flat" })).toEqual({});
+  });
+
+  it("clears default iso state with tombstones when building iso route search", () => {
+    const search = buildLogoIsoRouteSearch({
+      distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
+      zoom: LOGO_PREVIEW_ZOOM.defaultValue,
+      elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+      fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+      gridSize: DEFAULT_LOGO_GRID_SIZE,
+      isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
+      isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+      leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
+      rotationAxisMode: "cube-y",
+      rotationDegrees: DEFAULT_ROTATION_DEGREES,
+      themeColors: DEFAULT_LOGO_THEME_COLORS,
+      viewSnapEnabled: true,
+      voxelState: DEFAULT_VOXEL_STATE,
+    });
+
+    expect(search).toEqual({});
+    expect("isoSide" in search).toBe(true);
+    expect(search.isoSide).toBeUndefined();
+    expect("isoStyle" in search).toBe(true);
+    expect(search.isoStyle).toBeUndefined();
   });
 
   it("preserves canonical theme mode flags when building route search", () => {

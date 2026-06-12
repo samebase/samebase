@@ -212,7 +212,7 @@ route's schema-derived `staticData.acceptedSearchKeys` without permission or
 surface filtering, so the same draft address resolves identically for every
 viewer. Routes without the field accept only root-owned keys.
 */
-function readMatchingRouteAcceptedSearchKeys(
+export function readMatchingRouteAcceptedSearchKeys(
   path: string,
   routesByPath: AppRouter["routesByPath"],
 ): readonly string[] {

@@ -262,24 +262,49 @@ Returns the route address that root `beforeLoad` redirects to, or `null` when th
 Example: pathname `/logo` plus search `{ reset: true }` redirects to `/logo`.
 
 Example: pathname `/logo` plus search `{ dark: true, light: true }` redirects to `/logo`.
+
+Example: pathname `/home` plus raw search `?machineId=x` redirects to `/home`, because no matched
+route schema accepts `machineId` there. `acceptedSearchKeys` is the union of the matched route
+chain's `staticData.acceptedSearchKeys`; root-owned keys are always kept.
 */
 export function readRootRouteRedirectRouteAddress(args: {
+  acceptedSearchKeys: readonly string[];
   hash: string;
   pathname: string;
-  search: RootRouteSearch;
+  searchStr: string;
 }): string | null {
-  if (args.search.reset) {
+  // TanStack's beforeLoad search merges raw keys with validated results, so
+  // the canonical root search derives from the raw search string instead.
+  const rawSearch = parseTanStackSearch(args.searchStr);
+  const rootSearch = validateRootRouteSearch(rawSearch);
+  if (rootSearch.reset) {
     return buildPathWithTanStackSearch({
       pathname: args.pathname,
       hash: args.hash,
     });
   }
 
-  const nextSearch = clearConflictingRootThemeModeSearch(args.search);
-  if (nextSearch !== args.search) {
+  const keptRawSearch: Record<string, unknown> = {};
+  let hasDroppedSearchKey = false;
+  for (const [key, value] of Object.entries(rawSearch)) {
+    if (isRootRouteOwnedSearchKey(key)) {
+      // The validated root search is the canonical form of root-owned keys,
+      // matching the route URL editor's readCanonicalRouteAddress.
+      continue;
+    }
+
+    if (args.acceptedSearchKeys.includes(key)) {
+      keptRawSearch[key] = value;
+    } else {
+      hasDroppedSearchKey = true;
+    }
+  }
+
+  const nextSearch = clearConflictingRootThemeModeSearch(rootSearch);
+  if (hasDroppedSearchKey || nextSearch !== rootSearch) {
     return buildPathWithTanStackSearch({
       pathname: args.pathname,
-      search: nextSearch,
+      search: { ...keptRawSearch, ...nextSearch },
       hash: args.hash,
     });
   }

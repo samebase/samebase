@@ -85,6 +85,7 @@ import {
   routeSearchPresenceParam,
   routeSearchStringValue,
   routeSearchValueParam,
+  type RouteSearchParamMetadata,
   type RouteSearchParamMetadataByKey,
 } from "@/lib/routeSearchParamMetadata";
 import { after, bad, good, pure } from "@samebase/sure";
@@ -232,32 +233,6 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
     valueType: "numeric-options",
   }),
-  isoSide: routeSearchValueParam(
-    routeSearchNormalizedFiniteNumber(normalizeLogoIsometricCubeSidePixels),
-    {
-      numericDefaultValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
-      numericRange: {
-        maxValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max,
-        minValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.min,
-        rangeType: "closed",
-      },
-      numericStepValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
-      permission: "public",
-      sampleValue: `${normalizeLogoIsometricCubeSidePixels(
-        LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue + LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
-      )}`,
-      suggestion: "route",
-      valueSuggestions: null,
-      valueType: "numeric",
-    },
-  ),
-  isoStyle: routeSearchValueParam(logoIsometricStyleSearchValue, {
-    permission: "public",
-    sampleValue: "shaded-edge",
-    suggestion: "route",
-    valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
-    valueType: "options",
-  }),
   leftFace: routeSearchValueParam(logoLeftFaceStyleSearchValue, {
     permission: "public",
     sampleValue: "secondary",
@@ -387,7 +362,43 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
   }),
 });
 
+/**
+The isometric renderer params are owned by the /logo/iso route alone; every
+other logo route (and root retention) accepts only the shared schema keys.
+*/
+const RouteSearchSchema_logoIso = defineRouteSearchParams({
+  ...RouteSearchSchema_logo.shape,
+  isoSide: routeSearchValueParam(
+    routeSearchNormalizedFiniteNumber(normalizeLogoIsometricCubeSidePixels),
+    {
+      numericDefaultValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
+      numericRange: {
+        maxValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.max,
+        minValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.min,
+        rangeType: "closed",
+      },
+      numericStepValue: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
+      permission: "public",
+      sampleValue: `${normalizeLogoIsometricCubeSidePixels(
+        LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue + LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.step,
+      )}`,
+      suggestion: "route",
+      valueSuggestions: null,
+      valueType: "numeric",
+    },
+  ),
+  isoStyle: routeSearchValueParam(logoIsometricStyleSearchValue, {
+    permission: "public",
+    sampleValue: "shaded-edge",
+    suggestion: "route",
+    valueSuggestions: LOGO_ISOMETRIC_STYLE_VALUES,
+    valueType: "options",
+  }),
+});
+
 type LogoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logo>;
+
+type LogoIsoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logoIso>;
 
 function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
   const themeModeSearch = readRootThemeModeSearch(search);
@@ -411,8 +422,6 @@ function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
     ...(typeof search.elev === "number" ? { elev: search.elev } : {}),
     ...(search.freeView ? { freeView: true } : {}),
     ...(gridSize !== DEFAULT_LOGO_GRID_SIZE ? { gridSize } : {}),
-    ...(typeof search.isoSide === "number" ? { isoSide: search.isoSide } : {}),
-    ...(typeof search.isoStyle === "string" ? { isoStyle: search.isoStyle } : {}),
     ...readLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
     ...(typeof search.rot === "number" ? { rot: search.rot } : {}),
     ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
@@ -420,7 +429,17 @@ function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
   };
 }
 
+function readLogoIsoRouteSearchFields(search: LogoIsoRouteSearchFields) {
+  return {
+    ...readLogoRouteSearchFields(search),
+    ...(typeof search.isoSide === "number" ? { isoSide: search.isoSide } : {}),
+    ...(typeof search.isoStyle === "string" ? { isoStyle: search.isoStyle } : {}),
+  };
+}
+
 export type LogoRouteSearch = ReturnType<typeof readLogoRouteSearchFields>;
+
+export type LogoIsoRouteSearch = ReturnType<typeof readLogoIsoRouteSearchFields>;
 
 export type LogoRouteSearchBuildState = {
   distanceScale: number;
@@ -454,6 +473,12 @@ export const LOGO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
 
 export const LOGO_ROUTE_SEARCH_KEYS = keys(LOGO_ROUTE_SEARCH_PARAM_METADATA);
 
+const LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
+  RouteSearchSchema_logoIso,
+) satisfies RouteSearchParamMetadataByKey<LogoIsoRouteSearch>;
+
+export const LOGO_ISO_ROUTE_SEARCH_KEYS = keys(LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA);
+
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
 );
@@ -471,6 +496,7 @@ function readLogoDepthValueSuggestions(depthMax: number): NoterRouteSearchParamV
 }
 
 function readLogoRouteSearchParamSuggestionsWithDepthMax(
+  metadata: Readonly<Record<string, RouteSearchParamMetadata>>,
   depthMax: number,
 ): readonly NoterRouteSearchParamSuggestion[] {
   const depthNumericRange = {
@@ -479,33 +505,34 @@ function readLogoRouteSearchParamSuggestionsWithDepthMax(
     rangeType: "closed" as const,
   };
 
-  return readRouteSearchParamSuggestions(LOGO_ROUTE_SEARCH_PARAM_METADATA, "route").map(
-    (suggestion) => {
-      if (
-        suggestion.key !== "depth" ||
-        suggestion.searchParamKind !== "value" ||
-        suggestion.valueType !== "numeric"
-      ) {
-        return suggestion;
-      }
+  return readRouteSearchParamSuggestions(metadata, "route").map((suggestion) => {
+    if (
+      suggestion.key !== "depth" ||
+      suggestion.searchParamKind !== "value" ||
+      suggestion.valueType !== "numeric"
+    ) {
+      return suggestion;
+    }
 
-      return {
-        ...suggestion,
-        numericRange: depthNumericRange,
-        sampleValue: `${Math.min(DEFAULT_LOGO_FRACTAL_DEPTH + 1, depthMax)}`,
-        valueSuggestions: readLogoDepthValueSuggestions(depthMax),
-      };
-    },
-  );
+    return {
+      ...suggestion,
+      numericRange: depthNumericRange,
+      sampleValue: `${Math.min(DEFAULT_LOGO_FRACTAL_DEPTH + 1, depthMax)}`,
+      valueSuggestions: readLogoDepthValueSuggestions(depthMax),
+    };
+  });
 }
 
-export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS =
-  readLogoRouteSearchParamSuggestionsWithDepthMax(MAX_LOGO_FRACTAL_DEPTH);
+export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readLogoRouteSearchParamSuggestionsWithDepthMax(
+  LOGO_ROUTE_SEARCH_PARAM_METADATA,
+  MAX_LOGO_FRACTAL_DEPTH,
+);
 
 export function readLogoRouteSearchParamSuggestionsForRenderer(
   renderer: LogoDepthRenderer,
 ): readonly NoterRouteSearchParamSuggestion[] {
   return readLogoRouteSearchParamSuggestionsWithDepthMax(
+    renderer === "iso" ? LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA : LOGO_ROUTE_SEARCH_PARAM_METADATA,
     getLogoRendererFractalDepthHardMax(renderer),
   );
 }
@@ -531,6 +558,33 @@ export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRo
   return readLogoRouteSearchFields(
     RouteSearchSchema_logo.parse(normalizeLogoRouteColorSearchAliases(presenceNormalizedSearch)),
   );
+}
+
+/**
+The /logo/iso route validator: parses the iso schema and bakes in the iso
+renderer's depth recovery cap, mirroring validateLogoRouteSearchForRenderer.
+*/
+export function validateLogoIsoRouteSearch(search: Record<string, unknown>): LogoIsoRouteSearch {
+  const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
+    search,
+    LOGO_ROUTE_PRESENCE_SEARCH_KEYS,
+  );
+  const parsedSearch = readLogoIsoRouteSearchFields(
+    RouteSearchSchema_logoIso.parse(normalizeLogoRouteColorSearchAliases(presenceNormalizedSearch)),
+  );
+  if (typeof parsedSearch.depth !== "number") {
+    return parsedSearch;
+  }
+
+  const depth = clampLogoFractalDepthForRenderer(parsedSearch.depth, "iso");
+  if (depth === parsedSearch.depth) {
+    return parsedSearch;
+  }
+
+  return {
+    ...parsedSearch,
+    depth,
+  };
 }
 
 /**
@@ -600,11 +654,6 @@ export function buildLogoRouteSearch(
         : undefined,
     freeView: args.viewSnapEnabled ? undefined : true,
     gridSize: gridSize !== DEFAULT_LOGO_GRID_SIZE ? gridSize : undefined,
-    isoSide:
-      args.isoCubeSidePixels !== LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue
-        ? args.isoCubeSidePixels
-        : undefined,
-    isoStyle: args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? args.isoStyleId : undefined,
     ...buildLogoLeftFaceStyleSearch(leftFaceStyle),
     rot:
       args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
@@ -612,6 +661,23 @@ export function buildLogoRouteSearch(
         : undefined,
     vox: voxelState !== defaultVoxelState ? voxelState : undefined,
     zoom: zoom !== LOGO_PREVIEW_ZOOM.defaultValue ? Number(zoom.toFixed(2)) : undefined,
+  };
+}
+
+export function buildLogoIsoRouteSearch(
+  args: LogoRouteSearchBuildState & {
+    themeModeSearch?: RootThemeModeSearch;
+  },
+): LogoIsoRouteSearch {
+  return {
+    ...buildLogoRouteSearch(args),
+    // Default-valued iso controls use own undefined tombstones like the shared
+    // build, so /logo/iso search replaces cannot revive stale iso params.
+    isoSide:
+      args.isoCubeSidePixels !== LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue
+        ? args.isoCubeSidePixels
+        : undefined,
+    isoStyle: args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? args.isoStyleId : undefined,
   };
 }
 
@@ -707,9 +773,9 @@ function buildLogoLeftFaceStyleSearch(leftFaceStyle: LogoLeftFaceStyle): LogoLef
  * the operator has that root shell mode enabled.
  */
 export function preserveLogoRouteDevModeSearch(
-  nextSearch: LogoRouteSearch,
-  currentSearch: LogoRouteSearch,
-): LogoRouteSearch {
+  nextSearch: LogoIsoRouteSearch,
+  currentSearch: LogoIsoRouteSearch,
+): LogoIsoRouteSearch {
   if (!currentSearch.dev) {
     return nextSearch;
   }

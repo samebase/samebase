@@ -70,10 +70,11 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 
 export const Route = createRootRouteWithContext<AppQueryClients>()({
   staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-  beforeLoad: ({ location, matches, search }) => {
+  beforeLoad: ({ location, matches }) => {
     const rootRedirectRouteAddress = readRootRouteRedirectRouteAddress({
+      acceptedSearchKeys: matches.flatMap((match) => match.staticData.acceptedSearchKeys ?? []),
       pathname: location.pathname,
-      search,
+      searchStr: location.searchStr,
       hash: location.hash,
     });
     if (rootRedirectRouteAddress !== null) {
