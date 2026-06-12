@@ -257,8 +257,9 @@ Types and validation:
   once stale); assertions hide in plain sight. Rare exception for `any` only: type-level generics
   where `unknown`/`never` cannot express a constraint use `any` under a next-line lint-disable
   (`packages/sure` precedent). Lint exceptions are `eslint-disable-next-line` + reason on the exact
-  offending line; a rule saturating a file (more than ~3 hits) lifts to one file-top header. Never
-  config-level exemptions; only generated files, which cannot carry disables, get a config override.
+  offending line; lift to one file-top header only when a rule saturates the file (a density
+  judgement, not a count). Never config-level exemptions; only generated files, which cannot carry
+  disables, get a config override.
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@noter-md/dependent`), never costume types the code cannot earn.

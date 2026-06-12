@@ -40,12 +40,14 @@ declaring one.
   instead of marking a gap). Mark it with an `eslint-disable-next-line` for
   `typescript-eslint/no-explicit-any` (which is an `error` repo-wide) plus a short reason, on the
   exact offending line. That is the default shape of every lint exception in this repo; when a
-  single rule saturates a file (more than about three hits — type-level libraries, learning
-  scratch), lift that rule to one file-top `eslint-disable` header with the same reason, keeping
-  sparse rules line-level. Never a config-level exemption (`-A` flags, rule overrides) — the disable
-  lives in the file it excuses, greppable and validated by `--report-unused-disable-directives`.
-  Sole exception: machine-generated files, which cannot carry disables, get a config override.
-  Roughly 90% of generic code still needs no `any` — reach for `unknown`/`never` first, every time.
+  single rule genuinely saturates a file, lift that rule to one file-top `eslint-disable` header
+  with the same reason, keeping sparse rules line-level. Saturation is a density judgement, not a
+  count — a few hits in a large file stay line-level; a compact type-level or scratch file where the
+  rule applies throughout takes a header. Never a config-level exemption (`-A` flags, rule
+  overrides) — the disable lives in the file it excuses, greppable and validated by
+  `--report-unused-disable-directives`. Sole exception: machine-generated files, which cannot carry
+  disables, get a config override. Roughly 90% of generic code still needs no `any` — reach for
+  `unknown`/`never` first, every time.
 - Do not launder type gaps through cleverness. Overload signatures the implementation cannot prove,
   `as unknown as` chains, intermediate `unknown` variables, and "flexible" generics that quietly
   erase a type all hide unsafety instead of declaring it — each is worse than a visible
