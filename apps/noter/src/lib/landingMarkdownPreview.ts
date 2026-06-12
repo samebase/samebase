@@ -1,6 +1,7 @@
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
+  readRouteSearchAcceptedKeys,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
   readRouteSearchPresenceKeys,
@@ -24,7 +25,7 @@ export type LandingMarkdownPreviewLanguage = (typeof LANDING_MARKDOWN_PREVIEW_LA
 export const LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE = "en";
 export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM}=ro`;
 
-const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_landingMarkdownPreview = defineRouteSearchParams({
   left: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "hidden",
@@ -46,11 +47,11 @@ const landingMarkdownPreviewRouteSearchSchema = defineRouteSearchParams({
 });
 
 export type LandingMarkdownPreviewRouteSearch = InferRouteSearch<
-  typeof landingMarkdownPreviewRouteSearchSchema
+  typeof RouteSearchSchema_landingMarkdownPreview
 >;
 
 const landingMarkdownPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
-  landingMarkdownPreviewRouteSearchSchema,
+  RouteSearchSchema_landingMarkdownPreview,
 );
 
 const LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
@@ -60,10 +61,14 @@ const LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKey
 export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS =
   readRouteSearchParamSuggestions(landingMarkdownPreviewRouteSearchParamMetadata, "route");
 
+export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
+  RouteSearchSchema_landingMarkdownPreview,
+);
+
 export function validateLandingMarkdownPreviewRouteSearch(
   search: Record<string, unknown>,
 ): LandingMarkdownPreviewRouteSearch {
-  return landingMarkdownPreviewRouteSearchSchema.parse(
+  return RouteSearchSchema_landingMarkdownPreview.parse(
     normalizeRouteSearchPresenceFlags(search, LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS),
   );
 }

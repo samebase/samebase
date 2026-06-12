@@ -2,6 +2,7 @@ import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
+  readRouteSearchAcceptedKeys,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
@@ -13,7 +14,7 @@ import {
 
 const pricingCheckoutValues = ["success", "cancel"] as const;
 
-const mcpConsentRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_mcpConsent = defineRouteSearchParams({
   mcp_consent_request: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     sampleValue: "sample-request",
@@ -22,10 +23,10 @@ const mcpConsentRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-export type McpConsentRouteSearch = InferRouteSearch<typeof mcpConsentRouteSearchSchema>;
+export type McpConsentRouteSearch = InferRouteSearch<typeof RouteSearchSchema_mcpConsent>;
 
 const mcpConsentRouteSearchParamMetadata = readRouteSearchParamMetadata(
-  mcpConsentRouteSearchSchema,
+  RouteSearchSchema_mcpConsent,
 );
 
 export const MCP_CONSENT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
@@ -33,13 +34,17 @@ export const MCP_CONSENT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSu
   "route",
 );
 
+export const MCP_CONSENT_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
+  RouteSearchSchema_mcpConsent,
+);
+
 export function validateMcpConsentRouteSearch(
   search: Record<string, unknown>,
 ): McpConsentRouteSearch {
-  return mcpConsentRouteSearchSchema.parse(search);
+  return RouteSearchSchema_mcpConsent.parse(search);
 }
 
-const pricingRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_pricing = defineRouteSearchParams({
   checkout: routeSearchValueParam(routeSearchStringValue(pricingCheckoutValues), {
     permission: "admin",
     sampleValue: "success",
@@ -49,17 +54,19 @@ const pricingRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-export type PricingRouteSearch = InferRouteSearch<typeof pricingRouteSearchSchema>;
+export type PricingRouteSearch = InferRouteSearch<typeof RouteSearchSchema_pricing>;
 
-const pricingRouteSearchParamMetadata = readRouteSearchParamMetadata(pricingRouteSearchSchema);
+const pricingRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_pricing);
 
 export const PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   pricingRouteSearchParamMetadata,
   "route",
 );
 
+export const PRICING_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_pricing);
+
 export function validatePricingRouteSearch(search: Record<string, unknown>): PricingRouteSearch {
-  return pricingRouteSearchSchema.parse(search);
+  return RouteSearchSchema_pricing.parse(search);
 }
 
 export function buildPricingRouteSearch(
@@ -68,7 +75,7 @@ export function buildPricingRouteSearch(
   return checkout === "success" || checkout === "cancel" ? { checkout } : {};
 }
 
-const machineConnectRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_machineConnect = defineRouteSearchParams({
   openedByCli: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
@@ -81,10 +88,10 @@ const machineConnectRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-export type MachineConnectRouteSearch = InferRouteSearch<typeof machineConnectRouteSearchSchema>;
+export type MachineConnectRouteSearch = InferRouteSearch<typeof RouteSearchSchema_machineConnect>;
 
 const machineConnectRouteSearchParamMetadata = readRouteSearchParamMetadata(
-  machineConnectRouteSearchSchema,
+  RouteSearchSchema_machineConnect,
 );
 
 const MACHINE_CONNECT_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
@@ -96,15 +103,19 @@ export const MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchPar
   "route",
 );
 
+export const MACHINE_CONNECT_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
+  RouteSearchSchema_machineConnect,
+);
+
 export function validateMachineConnectRouteSearch(
   search: Record<string, unknown>,
 ): MachineConnectRouteSearch {
-  return machineConnectRouteSearchSchema.parse(
+  return RouteSearchSchema_machineConnect.parse(
     normalizeRouteSearchPresenceFlags(search, MACHINE_CONNECT_PRESENCE_SEARCH_KEYS),
   );
 }
 
-const machinesRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_machines = defineRouteSearchParams({
   machineId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     sampleValue: "sample-machine",
@@ -119,17 +130,19 @@ const machinesRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-export type MachinesRouteSearch = InferRouteSearch<typeof machinesRouteSearchSchema>;
+export type MachinesRouteSearch = InferRouteSearch<typeof RouteSearchSchema_machines>;
 
-const machinesRouteSearchParamMetadata = readRouteSearchParamMetadata(machinesRouteSearchSchema);
+const machinesRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_machines);
 
 export const MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   machinesRouteSearchParamMetadata,
   "route",
 );
 
+export const MACHINES_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_machines);
+
 export function validateMachinesRouteSearch(search: Record<string, unknown>): MachinesRouteSearch {
-  return machinesRouteSearchSchema.parse(search);
+  return RouteSearchSchema_machines.parse(search);
 }
 
 export function buildMachinesRouteSearch(args?: {

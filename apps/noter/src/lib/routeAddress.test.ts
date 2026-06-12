@@ -160,4 +160,63 @@ describe("readRouteAddressReadiness", () => {
       routeAddress: "/logo?background=%23112233",
     });
   });
+
+  it("drops route-owned params the destination route does not accept", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/machines?machineId=sample-machine",
+        draftRouteAddress: "/home?machineId=sample-machine",
+      }),
+    ).toEqual({
+      kind: "readyNormalized",
+      routeAddress: "/home",
+    });
+  });
+
+  it("keeps route-owned params the destination route accepts", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/home",
+        draftRouteAddress: "/machines?machineId=sample-machine&threadId=sample-thread",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/machines?machineId=sample-machine&threadId=sample-thread",
+    });
+  });
+
+  it("keeps root-owned params on destination routes without their own schema", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/machines?machineId=sample-machine",
+        draftRouteAddress: "/home?prod-ui&dark",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/home?prod-ui&dark",
+    });
+  });
+
+  it("keeps hidden root-owned params on every destination route", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/machines",
+        draftRouteAddress: "/home?devtools",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/home?devtools",
+    });
+  });
+
+  it("drops query keys no route schema accepts", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        draftRouteAddress: "/home?unknownKey=1",
+      }),
+    ).toEqual({
+      kind: "readyNormalized",
+      routeAddress: "/home",
+    });
+  });
 });

@@ -80,6 +80,15 @@ export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = 
 export type NoterRouteStaticData = {
   availableOn?: NoterRouteAvailability;
   permission: NoterRoutePermission;
+
+  /**
+  Query keys this route's own search schema accepts, beyond the root-owned keys
+  every path accepts. Absent means the route accepts only root-owned keys.
+
+  Acceptance is structural (schema membership) and viewer-independent; the
+  per-param `permission` gates editor exposure, never key acceptance.
+  */
+  acceptedSearchKeys?: readonly string[];
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
 

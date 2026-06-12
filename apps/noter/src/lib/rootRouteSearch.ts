@@ -28,7 +28,7 @@ import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstack
 export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
 export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
 
-const rootRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_root = defineRouteSearchParams({
   [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
@@ -98,7 +98,7 @@ const rootRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-type RootRouteSearchBase = InferRouteSearch<typeof rootRouteSearchSchema>;
+type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_METADATA) {
@@ -108,7 +108,7 @@ function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_ME
   };
 }
 
-const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(rootRouteSearchSchema);
+const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_root);
 
 const rootRouteSearchParamMetadata = {
   ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
@@ -220,7 +220,7 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
     ROOT_ROUTE_PRESENCE_SEARCH_KEYS,
   );
   const parsedSearch = normalizeDashboardModalSearch(
-    rootRouteSearchSchema.parse(presenceNormalizedSearch),
+    RouteSearchSchema_root.parse(presenceNormalizedSearch),
   );
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);

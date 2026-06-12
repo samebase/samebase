@@ -114,7 +114,7 @@ const logoColorTokenSearchValue = pure((value) => {
   return isLogoColorToken(trimmedValue) ? good(trimmedValue) : bad("not-logo-color-token");
 });
 
-export const appThemeColorSearchFieldSchema = defineRouteSearchParams({
+export const RouteSearchSchema_appThemeColor = defineRouteSearchParams({
   background: routeSearchValueParam(logoColorTokenSearchValue, {
     ...logoThemeColorValueParamOptions,
     sampleValue: "stone-50",

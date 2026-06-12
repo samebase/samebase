@@ -1,5 +1,5 @@
 import { includes } from "@noter-md/dependent";
-import { entries, fromEntries } from "@noter-md/dependent/object";
+import { entries, fromEntries, keys } from "@noter-md/dependent/object";
 import {
   after,
   bad,
@@ -146,6 +146,17 @@ export function readRouteSearchParamMetadata<const Shape extends RouteSearchPara
   shape: Shape;
 }): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
   return fromEntries(entries(group.shape).map(([key, param]) => [key, param.meta] as const));
+}
+
+/**
+The query keys a route's search schema accepts, independent of suggestion
+surface or viewer permission. Hidden and manual params are accepted keys even
+though the route URL editor never suggests them.
+*/
+export function readRouteSearchAcceptedKeys<const Shape extends RouteSearchParamShape>(group: {
+  shape: Shape;
+}): readonly (keyof Shape & string)[] {
+  return keys(group.shape);
 }
 
 export function readRouteSearchParamSuggestions<

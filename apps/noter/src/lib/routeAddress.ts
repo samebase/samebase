@@ -110,8 +110,11 @@ function readRouteAddressRouteUpdateDraft(args: RouteAddressRouteUpdateDraftInpu
     ...args,
     path: parts.path,
   });
+  const acceptedSearchKeys = readMatchingRouteAcceptedSearchKeys(parts.path, args.routesByPath);
   const routeUpdateSearchTokens = parts.search.tokens
-    .filter((token) => isRouteAddressSearchTokenReady(token, searchParamSuggestions))
+    .filter((token) =>
+      isRouteAddressSearchTokenReady(token, searchParamSuggestions, acceptedSearchKeys),
+    )
     .map((token) => readRouteAddressSearchTokenText(args.draftRouteAddress, token))
     .filter((tokenText) => tokenText.length > 0);
   const search = routeUpdateSearchTokens.length > 0 ? `?${routeUpdateSearchTokens.join("&")}` : "";
@@ -123,7 +126,15 @@ function readRouteAddressRouteUpdateDraft(args: RouteAddressRouteUpdateDraftInpu
 function isRouteAddressSearchTokenReady(
   token: RouteAddressSearchToken,
   suggestions: readonly NoterRouteSearchParamSuggestion[],
+  acceptedSearchKeys: readonly string[],
 ): boolean {
+  // A destination route accepts only root-owned keys plus its own schema keys.
+  // Keys the destination does not accept never ride along into the route
+  // update: editing `/machines?machineId=x` to `/home` must drop `machineId`.
+  if (!isRootRouteOwnedSearchKey(token.key) && !acceptedSearchKeys.includes(token.key)) {
+    return false;
+  }
+
   const suggestion = suggestions.find((value) => value.key === token.key);
   if (token.kind === "key") {
     if (suggestion?.searchParamKind === "presence") {
@@ -193,6 +204,27 @@ function readRouteAddressSearchParamSuggestions(
   }
 
   return uniqueValues;
+}
+
+/**
+Key acceptance is structural and viewer-independent: it reads the destination
+route's schema-derived `staticData.acceptedSearchKeys` without permission or
+surface filtering, so the same draft address resolves identically for every
+viewer. Routes without the field accept only root-owned keys.
+*/
+function readMatchingRouteAcceptedSearchKeys(
+  path: string,
+  routesByPath: AppRouter["routesByPath"],
+): readonly string[] {
+  const matches = entries(routesByPath)
+    .filter(
+      ([routePath]) =>
+        (routePath === "/" || (routePath.startsWith("/") && !routePath.startsWith("/_"))) &&
+        routePathTemplateMatchesPath(routePath, path),
+    )
+    .sort(([leftPath], [rightPath]) => compareRoutePathSpecificity(leftPath, rightPath));
+
+  return matches[0]?.[1].options.staticData.acceptedSearchKeys ?? [];
 }
 
 function readMatchingRouteSearchParamSuggestions(args: {

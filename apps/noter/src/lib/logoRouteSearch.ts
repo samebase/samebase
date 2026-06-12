@@ -39,13 +39,13 @@ import {
   type LogoLeftFaceStripeBasis,
 } from "@/components/logo/logoLeftFaceStyle";
 import {
-  appThemeColorSearchFieldSchema,
+  RouteSearchSchema_appThemeColor,
   buildLogoThemeColorSearch,
   readLogoThemeColorSearch,
 } from "@/lib/appThemeColorSearch";
 import {
   readRootThemeModeSearch,
-  rootThemeModeSearchFieldSchema,
+  RouteSearchSchema_rootThemeMode,
   type RootThemeModeSearch,
 } from "@/lib/rootThemeModeSearch";
 import {
@@ -161,7 +161,7 @@ const canonicalVoxelStateSearchValue = pure((value) => {
   return typeof voxelState === "string" ? good(voxelState) : bad("invalid-voxel-state");
 });
 
-const logoRouteSearchFieldSchema = defineRouteSearchParams({
+const RouteSearchSchema_logo = defineRouteSearchParams({
   axis: routeSearchValueParam(routeSearchStringValue(LOGO_ROTATION_AXIS_MODE_VALUES), {
     permission: "public",
     sampleValue: "screen-vertical",
@@ -169,9 +169,9 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     valueSuggestions: LOGO_ROTATION_AXIS_MODE_VALUES,
     valueType: "options",
   }),
-  background: appThemeColorSearchFieldSchema.shape.background,
-  border: appThemeColorSearchFieldSchema.shape.border,
-  dark: rootThemeModeSearchFieldSchema.shape.dark,
+  background: RouteSearchSchema_appThemeColor.shape.background,
+  border: RouteSearchSchema_appThemeColor.shape.border,
+  dark: RouteSearchSchema_rootThemeMode.shape.dark,
   [LANDING_DEV_MODE_QUERY_PARAM]: routeSearchPresenceParam({
     permission: "public",
     suggestion: "hidden",
@@ -265,8 +265,8 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     valueSuggestions: LOGO_LEFT_FACE_STYLE_KINDS,
     valueType: "options",
   }),
-  light: rootThemeModeSearchFieldSchema.shape.light,
-  primary: appThemeColorSearchFieldSchema.shape.primary,
+  light: RouteSearchSchema_rootThemeMode.shape.light,
+  primary: RouteSearchSchema_appThemeColor.shape.primary,
   rot: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeRotationDegrees), {
     numericDefaultValue: DEFAULT_ROTATION_DEGREES,
     numericRange: {
@@ -281,7 +281,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
     valueSuggestions: null,
     valueType: "numeric",
   }),
-  secondary: appThemeColorSearchFieldSchema.shape.secondary,
+  secondary: RouteSearchSchema_appThemeColor.shape.secondary,
   stripeA: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeAngleDegrees),
     {
@@ -363,7 +363,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
       valueType: "numeric",
     },
   ),
-  top: appThemeColorSearchFieldSchema.shape.top,
+  top: RouteSearchSchema_appThemeColor.shape.top,
   vox: routeSearchValueParam(canonicalVoxelStateSearchValue, {
     permission: "public",
     sampleValue: DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION,
@@ -387,7 +387,7 @@ const logoRouteSearchFieldSchema = defineRouteSearchParams({
   }),
 });
 
-type LogoRouteSearchFields = InferRouteSearch<typeof logoRouteSearchFieldSchema>;
+type LogoRouteSearchFields = InferRouteSearch<typeof RouteSearchSchema_logo>;
 
 function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
   const themeModeSearch = readRootThemeModeSearch(search);
@@ -449,7 +449,7 @@ type LogoLeftFaceStyleSearch = {
 };
 
 export const LOGO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
-  logoRouteSearchFieldSchema,
+  RouteSearchSchema_logo,
 ) satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;
 
 export const LOGO_ROUTE_SEARCH_KEYS = keys(LOGO_ROUTE_SEARCH_PARAM_METADATA);
@@ -529,9 +529,7 @@ export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRo
   );
 
   return readLogoRouteSearchFields(
-    logoRouteSearchFieldSchema.parse(
-      normalizeLogoRouteColorSearchAliases(presenceNormalizedSearch),
-    ),
+    RouteSearchSchema_logo.parse(normalizeLogoRouteColorSearchAliases(presenceNormalizedSearch)),
   );
 }
 
