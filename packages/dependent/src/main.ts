@@ -1,3 +1,4 @@
+/* eslint-disable noter/no-hand-written-type-predicate -- the audited predicate vocabulary lives here; each `value is` is a quarantined gap */
 // https://stackoverflow.com/a/50375286/2659549
 export type UnionToIntersection<Union> = (
   Union extends unknown ? (value: Union) => void : never

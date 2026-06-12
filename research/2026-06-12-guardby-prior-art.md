@@ -79,9 +79,12 @@ Surveyed 2026-06-12 with a live probe on the repo's pinned oxlint 1.60.0 (bundle
   annotations, and passes `asserts` functions, TS 5.5-inferred predicates, and `guard()` callbacks.
   The JS-plugins API is alpha, but the repo's lint config already loads `jsPlugins` in production.
 
-Plan: ship the rule with the codebase-wide predicate conversion, with an override for
-`packages/dependent` (the audited vocabulary hand-writes its predicates by design) and line-level
-disables with reasons at the remaining vocabulary-tier sites.
+Shipped as `noter/no-hand-written-type-predicate` (`scripts/lint/eslint-plugin-noter.mjs`, loaded
+via `lint.jsPlugins`) at `warn` while the tree still holds the unconverted census sites; it flips to
+`error` with the codebase-wide predicate conversion. Exemptions are in-file: disable headers in
+`packages/dependent` (the audited vocabulary hand-writes its predicates by design), line-level
+disables with reasons at vocabulary-tier sites (`isObject` in sure), and a config override only for
+`*.generated.*` files, which cannot carry headers.
 
 ## Conclusion
 

@@ -1,3 +1,4 @@
+/* eslint-disable noter/no-hand-written-type-predicate -- tests exercise predicate-factory shapes */
 import { describe, expect, it } from "vite-plus/test";
 
 import {
