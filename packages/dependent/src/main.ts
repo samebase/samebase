@@ -1,3 +1,4 @@
+/* eslint-disable noter/no-hand-written-type-predicate -- audited vocabulary */
 // https://stackoverflow.com/a/50375286/2659549
 export type UnionToIntersection<Union> = (
   Union extends unknown ? (value: Union) => void : never
@@ -89,15 +90,10 @@ export function map<Value, Result>(
   return arr.map(callbackfn);
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function atLeast<Value>(n: 1, arr: Value[]): arr is Array1<Value>;
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function atLeast<Value>(n: 2, arr: Value[]): arr is Array2<Value>;
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function atLeast<Value>(n: 3, arr: Value[]): arr is Array3<Value>;
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function atLeast<Value>(n: number, arr: Value[]): arr is Value[];
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function atLeast<Value>(n: number, arr: Value[]): arr is Value[] {
   return arr.length >= n;
 }
@@ -108,27 +104,20 @@ export function atLeast<Value>(n: number, arr: Value[]): arr is Value[] {
 export function isKeyOf<Value extends object>(
   obj: Value,
   key: string | number | symbol,
-  // eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 ): key is keyof Value {
   return key in obj;
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function exactly<Value>(length: 1, arr: Value[]): arr is [Value];
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function exactly<Value>(length: 2, arr: Value[]): arr is [Value, Value];
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function exactly<Value>(length: 3, arr: Value[]): arr is [Value, Value, Value];
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function exactly<Value>(length: number, arr: Value[]): arr is Value[];
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function exactly<Value>(length: number, arr: Value[]): arr is Value[] {
   return arr.length === length;
 }
 
 export const excactly = exactly;
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 export function notEmpty<Value>(value: Value | null | undefined): value is Value {
   return value !== null && value !== undefined;
 }
@@ -248,7 +237,6 @@ export function promiseTimeout(millis: number): Promise<void> {
 export function includes<const ArrayValue extends readonly unknown[]>(
   arr: ArrayValue,
   value: unknown,
-  // eslint-disable-next-line noter/no-hand-written-type-predicate -- audited vocabulary
 ): value is ArrayValue[number] {
   return arr.includes(value);
 }
@@ -267,9 +255,7 @@ export function includes<const ArrayValue extends readonly unknown[]>(
  */
 export function guard<Value, Narrowed extends Value>(
   match: (value: Value) => Narrowed | null,
-  // eslint-disable-next-line noter/no-hand-written-type-predicate -- the factory mints the claim it identity-checks at runtime
 ): (value: Value) => value is Narrowed {
-  // eslint-disable-next-line noter/no-hand-written-type-predicate -- the factory mints the claim it identity-checks at runtime
   return (value): value is Narrowed => value !== null && Object.is(match(value), value);
 }
 

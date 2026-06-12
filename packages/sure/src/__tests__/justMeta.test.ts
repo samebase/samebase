@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- type-test scaffolding */
 import { describe, expect, it } from "vite-plus/test";
 import { MetaNever, MetaObj } from "../core.ts";
 import { InferJustMeta, ExtractPrimitives, justMeta, metaToJsonSchema } from "../meta_wip.ts";
@@ -17,14 +18,12 @@ const simpleObj = object({
   }),
 });
 
-// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 type SimplifyMeta<TMeta extends MetaNever | MetaObj> = TMeta extends MetaObj<infer S> ? S : {};
 
 type InferredJustMeta = InferJustMeta<typeof simpleObj>;
 type Prett = PrettifyRec<InferredJustMeta>;
 
 const temp = optional(number);
-// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 type tempType = InferJustMeta<typeof temp>;
 
 assertEqual<
@@ -56,10 +55,8 @@ assertEqual<
   }
 >(true);
 
-// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 type InferredString = InferJustMeta<typeof string>;
 
-// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 type test3 = ExtractPrimitives<{
   name: typeof string;
 }>;
@@ -158,7 +155,6 @@ describe("toJsonSchema", () => {
     });
 
     const ajv = new Ajv();
-    // eslint-disable-next-line no-unused-vars -- type-test scaffolding
     const validate = ajv.compile(jsonSchema);
 
     // expect that it doesn't throw

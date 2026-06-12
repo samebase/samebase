@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- learning scratch */
 import {
   MetaObj,
   Sure,
@@ -5,7 +6,6 @@ import {
   number,
   spread_NOT_IMPLEMENTED,
   string,
-  // eslint-disable-next-line no-unused-vars -- learning scratch
   tuple,
 } from "../../index.ts";
 
@@ -34,7 +34,6 @@ const sample = [
 type Sample = typeof sample;
 
 // [unknown[]]
-// eslint-disable-next-line no-unused-vars -- learning scratch
 type Check01 = TupleInferGoods01<Sample>;
 
 // ## Try fixing
@@ -53,11 +52,9 @@ export type TupleInferGoods_02<T> = //
     : [];
 
 // works
-// eslint-disable-next-line no-unused-vars -- learning scratch
 type Check02 = TupleInferGoods_02<Sample>;
 
 // Check for full tuple
-// eslint-disable-next-line no-unused-vars -- learning scratch
 const schema = [
   //
   string,

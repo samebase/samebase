@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slot */
 import { bad, good, sure } from "./core.ts";
 import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
 
 // TODO: add tests, also implement tuple spread
 export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer InferRest]
-  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-    First extends Sure<unknown, infer Good, any, MetaObj | MetaNever>
+  ? First extends Sure<unknown, infer Good, any, MetaObj | MetaNever>
     ? [Good, ...TupleInferGoods<InferRest>]
     : []
   : [];
@@ -12,8 +12,7 @@ export type TupleInferGoods_old<T> = T extends readonly [infer First, ...infer I
 // Add test
 export type TupleInferGoods<T> = //
   T extends readonly [infer First, ...infer InferRest]
-    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-      First extends Sure<unknown, infer Good, any, infer Meta>
+    ? First extends Sure<unknown, infer Good, any, infer Meta>
       ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
         ? // try spreading the rest if it's an array
           Good extends readonly unknown[]
@@ -25,15 +24,13 @@ export type TupleInferGoods<T> = //
     : [];
 
 export type TupleInferBads_old<T> = T extends readonly [infer First, ...infer InferRest]
-  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-    First extends Sure<infer Bad, unknown, any, MetaObj | MetaNever>
+  ? First extends Sure<infer Bad, unknown, any, MetaObj | MetaNever>
     ? [Bad | undefined, ...TupleInferBads<InferRest>]
     : []
   : [];
 
 export type TupleInferBads<T> = T extends readonly [infer First, ...infer InferRest]
-  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
-    First extends Sure<infer Bad, unknown, any, infer Meta>
+  ? First extends Sure<infer Bad, unknown, any, infer Meta>
     ? Meta extends MetaObj<{ parent: typeof spread_NOT_IMPLEMENTED }>
       ? // try spreading the rest if it's an array
         Bad extends readonly unknown[]
@@ -77,7 +74,6 @@ export function spread_NOT_IMPLEMENTED<Arr extends Sure<unknown, unknown[], unkn
 }
 
 export function tuple<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
   Arr extends [Sure<unknown, unknown, any>, ...Sure<unknown, unknown, any>[]] | [],
 >(
   arr: Arr,

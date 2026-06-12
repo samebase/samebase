@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slot */
 // Copied from Zod
 // TODO: review all the types
 export type Primitive =
@@ -88,12 +89,10 @@ export type InferBad<
     unknown,
     unknown,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
     any,
     MetaObj | MetaNever
   >,
 > = //
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
   T extends (...args: any) => infer COutput //
     ? COutput extends readonly [false, infer CGood] //
       ? CGood
@@ -106,12 +105,10 @@ export type InferGood<
     unknown,
     unknown,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
     any,
     MetaObj | MetaNever
   >,
 > = //
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
   T extends (...args: any) => infer COutput //
     ? COutput extends readonly [true, infer CGood] //
       ? CGood
@@ -123,7 +120,6 @@ export type InferInput<
     unknown,
     unknown,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
     any,
     MetaObj | MetaNever
   >,
@@ -140,9 +136,7 @@ export type InferInput<
       CFrom
     : never;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
 export type InferMeta<T extends Sure<unknown, unknown, any, {}>> = //
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
   T extends Sure<unknown, unknown, any, infer CMeta> //
     ? CMeta
     : {};

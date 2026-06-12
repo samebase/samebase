@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- learning scratch */
 import { InferInput, InferMeta, MetaNever, MetaObj, Sure } from "../../core.ts";
 import { assertEqual } from "../typeTestUtils.ts";
 
@@ -6,7 +7,6 @@ type InferBad_initial<
     unknown,
     unknown,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
     any,
     MetaObj | MetaNever
   >,
@@ -15,7 +15,6 @@ type InferBad_initial<
     infer CFailure,
     unknown,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
     any,
     MetaObj | MetaNever
   >
@@ -28,7 +27,6 @@ type InferGood_initial<
     unknown,
     unknown,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
     any,
     MetaObj | MetaNever
   >,
@@ -37,7 +35,6 @@ type InferGood_initial<
     unknown,
     infer CDefine,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
     any,
     MetaObj | MetaNever
   >
@@ -121,7 +118,6 @@ type afdf = ReturnType<typeof rawNumber>;
 
 // # Important: This is the solution
 type ExtractDirectly<T> = //
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
   T extends (...args: any) => infer COutput //
     ? COutput extends readonly [true, infer CGood] //
       ? CGood
@@ -137,7 +133,6 @@ type ExtractDirectly<T> = //
 }
 
 // Try to simplify but doesn't work
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
 type ExtractDirectly01<T extends (...args: any) => any> = //
   ReturnType<T> extends readonly [true, infer CGood] //
     ? CGood
@@ -155,7 +150,7 @@ type ExtractDirectly01<T extends (...args: any) => any> = //
 
 type ExtractDirectly02<
   //
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, no-unused-vars -- learning scratch
+  // eslint-disable-next-line no-unused-vars -- learning scratch
   T extends (...args: any) => any,
   // Now `Inferred` is a `generic` type and will be distributed?
   // Unfortunatelly no
@@ -185,12 +180,10 @@ type InferGoodRaw<
     unknown,
     unknown,
     // Input issue
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
     any,
     MetaObj | MetaNever
   >,
 > = //
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
   T extends (...args: any) => infer COutput //
     ? COutput extends readonly [true, infer CGood] //
       ? CGood
