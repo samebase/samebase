@@ -1,0 +1,191 @@
+# 086 Route Search Schema Naming And Accepted Keys Plan
+
+## Document Control
+
+- Status: Proposed; slice 1 implemented in the same PR
+- Owner: Noter frontend/app shell
+- Last updated: 2026-06-12
+- Depends on:
+  - `apps/noter/src/lib/routeSearchParamMetadata.ts`
+  - `apps/noter/src/lib/rootRouteSearch.ts`
+  - `apps/noter/src/lib/logoRouteSearch.ts`
+  - `apps/noter/src/lib/routeAddress.ts`
+  - `apps/noter/src/routes/*`
+  - `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`
+  - `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`
+  - `specs/109_ROUTE_URL_EDITOR_REBUILD_REQUIREMENTS_SPEC.md`
+  - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
+  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+
+## Summary
+
+Route search definitions are schemas, not incidental helper objects. They define the query keys a
+route accepts, how values parse, which keys are presence flags, and what metadata the route URL
+editor can use. This plan makes each route's schema the source of truth for one more output: the set
+of query keys that may appear on a destination path at all.
+
+The user-visible bug this fixes first: editing the route URL from `/machines?machineId=x` to `/home`
+kept `?machineId=x` on `/home` even though no `/home` surface reads it. Query params now need to
+become more durable objects, because the access-model rollout (`rfcs/085`) will attach permission
+metadata to each of them.
+
+## Vocabulary: accepted keys, not availability
+
+The repo already uses "availability" for deployment-surface gating (`staticData.availableOn`,
+`canAccessNoterRouteMatchesAvailability` in `apps/noter/src/lib/routeAvailability.ts`), and the
+access model adds `access_*` requirement keys next. Following `rfcs/085`'s disjoint-vocabulary
+principle, this plan names its concept **accepted search keys**:
+
+- A query key is **accepted** on a path when it is root-owned (the root route matches every path) or
+  belongs to the schema of the most specific route template matching that path.
+- Acceptance is **structural and role-independent**: it reads schema membership only, never
+  `permission`/`canAccess`. URLs resolve identically for every viewer; permissions gate page access
+  and editor exposure, never URL shape.
+- Editor **suggestions remain a derived exposure view**. A hidden or manual param is accepted even
+  though the editor never suggests it (`suggestion` metadata controls exposure only).
+
+## Naming Contract
+
+Route search schema constants use an uppercase greppable stem:
+
+```ts
+const RouteSearchSchema_machines = defineRouteSearchParams({
+  // /machines-owned params
+});
+```
+
+Rules:
+
+1. The constant is `RouteSearchSchema_<owner>`; the suffix names the route, route family, or shared
+   cross-cutting owner (`RouteSearchSchema_appThemeColor`) of the params.
+2. No leading `v` (reserved for Convex validators) and no `*FieldSchema` names.
+3. Schema constants live in `.ts` lib modules. Exported capitalized constants in `.tsx` files match
+   eslint-plugin-react-refresh's component regex and silently disable its only-export-components
+   protection; the one module-private exception is `routes/visual-fixture.tsx`.
+4. When the contract graduates from this RFC, it gets one naming bullet in
+   `docs/code-guardrails.md`.
+
+Slice 1 renamed all twelve existing schema constants (they previously used camelCase
+`<owner>RouteSearchSchema` and `*FieldSchema` forms).
+
+## Accepted Keys Contract
+
+Every route schema derives its accepted keys once:
+
+```ts
+export const MACHINES_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_machines);
+```
+
+and declares them on the route:
+
+```ts
+staticData: {
+  ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  acceptedSearchKeys: MACHINES_ROUTE_SEARCH_KEYS,
+  searchParamSuggestions: MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+},
+```
+
+A route without `acceptedSearchKeys` accepts only root-owned keys. The route URL editor's route
+update filter (`readRouteAddressRouteUpdateDraft`) drops draft query tokens whose key is neither
+root-owned nor accepted by the destination's most specific matching route template.
+
+Why the editor is the enforcement point today: plain `Link`/`navigate` calls without a `search` prop
+already drop non-retained keys, because the root retain middleware picks only
+`RETAINED_ROOT_SEARCH_KEYS` and TanStack's final search middleware returns `{}` when no `search` was
+passed. The editor pushed raw addresses past those middlewares and kept unknown keys by default;
+that was the `machineId` leak. Cross-route `search: true` or spread-prev navigations would be the
+remaining carriers; do not introduce them.
+
+History rule: acceptance filtering runs only while building new route updates. It never runs on
+Back/Forward traversal, so restored history entries keep their original URLs.
+
+## User Stories
+
+1. **Machines to home (implemented).** On `/machines?machineId=x&threadId=y`, editing the path to
+   `/home` navigates to `/home` with both keys dropped. Typing `/machines?machineId=x` from `/home`
+   keeps the keys, because `/machines` accepts them.
+2. **Fun params are app-wide.** The interactive logo ships on `/` and `/home`, not only `/logo`, so
+   its appearance controls (theme colors, `dark`/`light`, `zoom`, `depth`, ...) are app-level state:
+   set them anywhere, keep them everywhere, including across `/machines` and `/pricing`. Slice 2
+   formalizes this by moving them into the root schema, which is what "root-owned" already means
+   structurally.
+3. **Renderer params are route-owned.** `isoSide` configures the `/logo/iso` renderer; after the
+   slice-2 logo split, navigating from `/logo/iso?isoSide=120` to `/home` or `/logo` drops it.
+4. **Back restores what you saw.** After any pruned navigation, Back returns to the previous history
+   entry with its original query string intact.
+5. **Shared URLs are viewer-independent.** A URL pasted to another user resolves to the same query
+   keys regardless of role; what the page then shows them is the access model's job.
+6. **Auth flows survive deep paths.** Root-owned auth params (`auth`, `auth-return`, `sign-in`,
+   `create-account`) are accepted on every path, so inline sign-in on `/oauth/mcp/consent` keeps
+   round-tripping its markers.
+
+## Implementation Slices
+
+**Slice 1 (this PR, done).** Rename the twelve schema constants to `RouteSearchSchema_*`; add
+`readRouteSearchAcceptedKeys`; declare `staticData.acceptedSearchKeys` on every schema-bearing route
+(machines, machine-connect, pricing, mcp-consent, vault-file, codex research x2, landing-preview,
+all eight logo routes, visual-fixture); make the editor's route update filter acceptance-based; unit
+coverage in `routeAddress.test.ts`.
+
+**Slice 2 — root ownership transfer and logo split.** Move the app-wide logo params into the root
+schema as the single declaration of "accepted everywhere + retained across navigation"; derive the
+retain middleware's key list from the root schema, deleting the hand-maintained
+`RETAINED_ROOT_SEARCH_KEYS` spread of all logo keys. Split `RouteSearchSchema_logo` into per-route
+schemas covering all eight logo routes (including `/logo/single-cube`, `/logo/raster-seams`, and the
+transition labs, which today declare suggestions without any `validateSearch`). This requires the
+key-by-key disposition in Open Questions, splits
+`LogoRouteSearch`/`buildLogoRouteSearch`/`replaceRootLogoRouteSearch`, and rewrites the
+`appRouter.test.tsx` retention tests to the new contract.
+
+**Slice 3 — param groups.** Add a `group` metadata field (first value: `"fun"`) and ship it together
+with its consumer: the route URL editor renders grouped suggestion sections separating playful
+controls from functional globals like `prod-ui` and `reset`. `group` is presentation semantics; it
+never affects acceptance.
+
+**Slice 4 — presence-flag derivation.** Derive `ROUTE_SEARCH_PRESENCE_FLAG_KEYS` from the union of
+schema presence keys and amend `specs/090` (its hand-enumerated list is already stale: `left`,
+`right`, and `stripeLink` are missing).
+
+Sequencing with the access model: slice 1's mechanical renames land before `rfcs/085` Phase 2
+renames `permission` to `access` across the same nine search modules; the slice-2 logo split lands
+after Phase 2, and shared-schema params then carry the weakest access key of any route that composes
+them while route-owned params inherit their owning route's key.
+
+## Validation
+
+Implemented in `routeAddress.test.ts`:
+
+1. `/machines?machineId=...` draft to `/home` drops the machine keys
+2. drafts to `/machines` keep `machineId`/`threadId`
+3. root-owned params (`prod-ui`, `dark`) survive on schema-less destinations
+4. hidden root-owned params (`devtools`) survive on every destination
+5. keys no schema accepts are dropped everywhere
+
+Slice 2 adds: per-key disposition coverage for the logo split, retention-middleware derivation tests
+replacing the current `appRouter.test.tsx` retention assertions, and Back/Forward coverage proving
+pruning never rewrites restored entries.
+
+## Open Questions
+
+1. **isoSide transit:** while editing `/logo/iso?isoSide=120`, intermediate live-applied routes
+   (`/logo` after deleting `/iso`) would drop `isoSide` before the final destination accepts it
+   again. Should renderer params survive transit within the logo family, or is losing them on
+   intermediate routes acceptable?
+2. **Per-key disposition for slice 2:** proposed split — app-wide fun (root-owned): `background`,
+   `border`, `base` alias, `dark`, `light`, `primary`, `secondary`, `top`, `zoom`, `depth`, `dist`,
+   `gridSize`, `dev`, `elev`, `rot`, `axis`, `freeView`, `leftFace`, `vox`; route-owned: `isoSide`,
+   `isoStyle` (`/logo/iso` family), raster seam controls. Confirm or adjust.
+3. **Group vocabulary:** is `"fun"` the only group, or also `"debug"` (`devtools`, `dev`) and
+   `"auth"` (`auth`, `auth-return`, `sign-in`)?
+
+## Non-Goals
+
+This plan does not change the shipped key-only query string format from `specs/090`.
+
+This plan does not require a single giant route-search schema file; schemas stay near the route or
+family that owns them as long as they follow the naming contract and expose the same derived
+metadata.
+
+This plan does not make editor suggestions the acceptance source of truth, and it does not make
+acceptance viewer-dependent.
