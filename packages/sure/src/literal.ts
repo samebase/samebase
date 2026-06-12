@@ -1,4 +1,4 @@
-import { bad, good, pure, sure } from "./core.ts";
+import { bad, good, sure } from "./core.ts";
 import type { Primitive } from "./core.ts";
 
 export const literal = <

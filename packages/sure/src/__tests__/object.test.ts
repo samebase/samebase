@@ -6,9 +6,12 @@ import {
   string,
   good,
   pure,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   sure,
   optional,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   union,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   literal,
   is,
   or,
@@ -18,13 +21,16 @@ import type {
   InferGood,
   InferInput,
   InferMeta,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   InferSchemaGood,
   MetaNever,
   MetaObj,
   Sure,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
+// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 import { Prettify, PrettifyRec } from "../utils.ts";
+// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 import { ExtractPrimitives, InferJustMeta } from "../meta_wip.ts";
 
 const someObj = object({

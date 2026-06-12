@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slots; unknown/never cannot express the constraint */
 import type { Sure } from "./core.ts";
 import { object } from "./object.ts";
 import { objMapEntries } from "./utils.ts";
@@ -12,6 +11,7 @@ export type InferJustMetaOld<T
 // extends Sure<unknown, unknown, any, {}>
 > =
   // for objects
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- type-level scratch
   T extends Sure<unknown, unknown, any, {meta: {
     type: 'object'
     schema: infer CSchema
@@ -22,6 +22,7 @@ export type InferJustMetaOld<T
     }
 
       // for optional
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- type-level scratch
   :T extends Sure<unknown, unknown, any, {meta: {
     type: 'optional'
     schema: infer CSchema
@@ -32,6 +33,7 @@ export type InferJustMetaOld<T
     }
 
     // for array
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- type-level scratch
   :T extends Sure<unknown, unknown, any, {meta: {
     type: 'array'
     schema: infer CSchema
@@ -43,6 +45,7 @@ export type InferJustMetaOld<T
 
     // for any other type
     :
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- type-level scratch
     T extends Sure<unknown, unknown, any, {meta: infer Meta}>
     ? Meta :
 
@@ -54,6 +57,7 @@ export type InferJustMetaOld<T
 export type InferJustMeta<
   T,
   // extends Sure<unknown, unknown, any, {}>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type-level scratch
 > = T extends Sure<unknown, unknown, any, { meta: infer Meta }>
   ? // for objects
     Meta extends {
@@ -88,15 +92,18 @@ export type InferJustMeta<
     // Both will be extracted as `undefined`
     undefined
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type-level scratch
 export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
   insure: TSchema,
 ): PrettifyRec<InferJustMeta<TSchema>> {
   // object.getMeta(insure) -> if not object -> null
 
+  // eslint-disable-next-line no-unused-expressions -- type-level scratch
   object;
 
   // @ts-expect-error more explicit?
   if (insure.meta?.type === "object") {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any -- type-level scratch
     const { schema, ...rest } = insure.meta as any;
 
     // @ts-expect-error more explicit?
@@ -109,6 +116,7 @@ export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
 
   // @ts-expect-error more explicit?
   if (insure.meta?.type === "optional") {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any -- type-level scratch
     const { schema, ...rest } = insure.meta as any;
 
     return {
@@ -119,6 +127,7 @@ export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
 
   // @ts-expect-error more explicit?
   if (insure.meta?.type === "array") {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any -- type-level scratch
     const { schema, ...rest } = insure.meta as any;
 
     return {
@@ -128,12 +137,15 @@ export function justMeta<TSchema extends Sure<unknown, unknown, any>>(
   }
 
   if (insure.meta) {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any -- type-level scratch
     return insure.meta as any;
   }
 
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any -- type-level scratch
   return undefined as any;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type-level scratch
 export function metaToJsonSchema<TMeta>(meta: TMeta): any {
   if (!meta) {
     return {
@@ -146,6 +158,7 @@ export function metaToJsonSchema<TMeta>(meta: TMeta): any {
     // go through each and check if it's optional
     const optionalKeys: string[] = [];
     // @ts-expect-error asdfsd
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions, @typescript-eslint/no-explicit-any -- type-level scratch
     const withoutOptional = objMapEntries(meta.schema as any, ([key, value]) => {
       if (value.type === "optional") {
         // @ts-expect-error asdfsd

@@ -37,12 +37,14 @@ declaring one.
   (`T extends (...args: any) => infer COutput`) and variance-sensitive inference slots
   (`Sure<unknown, unknown, any>`), both throughout `packages/sure/src`. There `any` is the honest
   option and `@ts-expect-error` is the wrong tool (suppressing inside generics breaks inference
-  instead of marking a gap). Mark it with a scoped lint-disable for
-  `typescript-eslint/no-explicit-any` (which is an `error` repo-wide): line-level with a short
-  reason in mixed files; a file-level disable header only for dedicated type-level modules, as the
-  `packages/sure/src` files do — no config-level exemptions, the disable lives in the file it
-  excuses. Roughly 90% of generic code still needs no `any` — reach for `unknown`/`never` first,
-  every time.
+  instead of marking a gap). Mark it with an `eslint-disable-next-line` for
+  `typescript-eslint/no-explicit-any` (which is an `error` repo-wide) plus a short reason, on the
+  exact offending line. That is the shape of every lint exception in this repo: never a file-top
+  `eslint-disable` header, never a config-level exemption (`-A` flags, rule overrides) — the disable
+  sits where the issue appears, so each gap is individually visible, greppable, and validated by
+  `--report-unused-disable-directives`. Sole exception: machine-generated files, which cannot carry
+  disables, get a config override. Roughly 90% of generic code still needs no `any` — reach for
+  `unknown`/`never` first, every time.
 - Do not launder type gaps through cleverness. Overload signatures the implementation cannot prove,
   `as unknown as` chains, intermediate `unknown` variables, and "flexible" generics that quietly
   erase a type all hide unsafety instead of declaring it — each is worse than a visible

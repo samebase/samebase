@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slots; unknown/never cannot express the constraint */
 import { sure, bad } from "./core.ts";
 import type { Sure, MetaObj, InferBad, InferGood, InferInput } from "./core.ts";
 
@@ -13,6 +12,7 @@ If it returns a good value, then the new @see second function will be run.
  */
 
 export function after<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
   TFirst extends Sure<unknown, unknown, any>,
   TSecond extends Sure<unknown, unknown, InferGood<TFirst>>,
 >(

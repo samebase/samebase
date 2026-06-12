@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 import { describe, it, expect } from "vite-plus/test";
 import {
   InferBad,
@@ -5,9 +6,11 @@ import {
   InferInput,
   Sure,
   good,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   sure,
   bad,
   InferMeta,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaObj,
   pure,
   MetaNever,

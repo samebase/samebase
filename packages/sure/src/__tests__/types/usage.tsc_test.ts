@@ -102,18 +102,22 @@ import { assertEqual } from "../typeTestUtils.ts";
   };
 
   // badFunc doesn't satisfy Sure constraint
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   type InferredGood = InferGood<
     // @ts-expect-error
     typeof badFunc
   >;
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   type InferredBad = InferBad<
     // @ts-expect-error
     typeof badFunc
   >;
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   type InferredInput = InferInput<
     // @ts-expect-error
     typeof badFunc
   >;
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   type InferredMeta = InferMeta<
     // @ts-expect-error
     typeof badFunc

@@ -1,19 +1,27 @@
+// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 import { describe, it, expect, assert } from "vite-plus/test";
 import {
   recurse,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   after,
   intersection,
   array,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   bad,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   good,
   object,
   union,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   pure,
   string,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   sure,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   unknown,
   recursiveElem,
   number,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   tuple,
   literal,
 } from "../index.ts";
@@ -22,6 +30,7 @@ import type {
   InferGood,
   InferInput,
   InferMeta,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaNever,
   MetaObj,
   RecurseSymbol,
@@ -182,6 +191,7 @@ describe("recursive", () => {
     type InferredGood = InferGood<typeof recurseComplexSure>;
     type InferredBad = InferBad<typeof recurseComplexSure>;
     type InferredInput = InferInput<typeof recurseComplexSure>;
+    // eslint-disable-next-line no-unused-vars -- type-test scaffolding
     type InferredMeta = InferMeta<typeof recurseComplexSure>;
 
     assertEqual<InferredInput, unknown>(true);

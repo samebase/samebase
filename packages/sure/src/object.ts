@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- variance-sensitive inference slots; unknown/never cannot express the constraint */
 import { sure, good, bad } from "./core.ts";
 import type { Sure, InferGood, InferBad, MetaObj } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
@@ -7,6 +6,7 @@ type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
   v: Sure<
     unknown,
     unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
     any,
     MetaObj<{
       type: "optional";
@@ -20,6 +20,7 @@ type PickNonOptionals<T extends KVPair<Sure>> = T extends {
   v: Sure<
     unknown,
     unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
     any,
     MetaObj<{
       type: "optional";
@@ -48,6 +49,7 @@ export function isObject(x: unknown): x is Record<string, unknown> {
  * The `optional` function will be checked `only` by the `object` function.
  * In all other cases it will the value will not be perceived as optional.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance-sensitive inference slot
 export function optional<TSchema extends Sure<unknown, unknown, any>>(
   schema: TSchema,
 ): Sure<

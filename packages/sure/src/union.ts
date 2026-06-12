@@ -1,5 +1,5 @@
-import { bad, good, sure } from "./core.ts";
-import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
+import { good, sure } from "./core.ts";
+import type { MetaNever, MetaObj, Sure } from "./core.ts";
 
 export function union<
   //

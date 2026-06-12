@@ -255,8 +255,10 @@ Types and validation:
   for anything except hiding a type issue — where you would reach for `as`, use the narrowest
   `@ts-expect-error` plus a comment stating the runtime fact that makes it safe (greppable, errors
   once stale); assertions hide in plain sight. Rare exception for `any` only: type-level generics
-  where `unknown`/`never` cannot express a constraint use `any` under a scoped lint-disable
-  (`packages/sure` precedent).
+  where `unknown`/`never` cannot express a constraint use `any` under a next-line lint-disable
+  (`packages/sure` precedent). Every lint exception is an `eslint-disable-next-line` with a reason
+  on the exact offending line — never a file-top header or config-level exemption; only generated
+  files, which cannot carry disables, get a config override.
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@noter-md/dependent`), never costume types the code cannot earn.

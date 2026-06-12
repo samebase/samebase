@@ -5,7 +5,9 @@ import type {
   InferGood,
   InferInput,
   InferMeta,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   InferSchemaGood,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaNever,
   MetaObj,
   Sure,

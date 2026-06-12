@@ -8,6 +8,7 @@ import {
   InferInput,
   InferMeta,
   Sure,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaObj,
   MetaNever,
   pure,
@@ -218,6 +219,7 @@ describe("core", () => {
         { meta: { myMeta: string } }
       >
     >(true);
+    // eslint-disable-next-line no-unused-vars -- type-test scaffolding
     type fasdf = InferGood<typeof sureStringMeta>;
 
     assertEqual<InferGood<typeof sureStringMeta>, string>(true);

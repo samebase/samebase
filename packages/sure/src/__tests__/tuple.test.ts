@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars -- type-test scaffolding
 import { describe, it, expect, assert } from "vite-plus/test";
 import {
   tuple,
@@ -18,10 +19,12 @@ import type {
   InferMeta,
   Sure,
   MetaObj,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   MetaNever,
   Good,
   Bad,
   TupleInferGoods,
+  // eslint-disable-next-line no-unused-vars -- type-test scaffolding
   TupleInferBads,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
@@ -255,6 +258,7 @@ describe("tuple", () => {
       string,
     ] as const;
 
+    // eslint-disable-next-line no-unused-vars -- type-test scaffolding
     type InferSchema = typeof arrSchema;
 
     const schema = tuple([
