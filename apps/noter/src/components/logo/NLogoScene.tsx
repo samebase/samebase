@@ -1631,12 +1631,7 @@ function syncTransparentFaceRenderOrder(sceneState: SceneState) {
     ...sceneState.logoMeshes,
     ...sceneState.activeCubeMoves.filter((move) => move.mesh.visible).map((move) => move.mesh),
     ...sceneState.activeTileMoves.flatMap((move) =>
-      move.group.visible
-        ? move.group.children.filter(
-            (child): child is THREE.Mesh<THREE.BufferGeometry, LogoSceneMaterial> =>
-              child instanceof THREE.Mesh,
-          )
-        : [],
+      move.group.visible ? move.group.children.filter((child) => child instanceof THREE.Mesh) : [],
     ),
   ];
   const meshDepths = meshes.map((mesh) => {

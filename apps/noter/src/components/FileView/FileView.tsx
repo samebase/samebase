@@ -41,7 +41,7 @@ import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
-import { nonNullable } from "@/lib/utils";
+import { notEmpty } from "@noter-md/dependent";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
@@ -702,6 +702,7 @@ type FileViewVault = NonNullable<(typeof api.vault.records.getVaultByRepository)
 
 function hasFileViewVaultTree(
   vault: NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>,
+  // eslint-disable-next-line noter/no-hand-written-type-predicate -- property-presence intersection: the checks narrow property references, not the vault object
 ): vault is FileViewVault {
   return Boolean(vault.treeSHA && vault.treeData);
 }
@@ -1972,7 +1973,7 @@ function FileViewInner({
           status: status ?? undefined,
         };
       })
-      .filter(nonNullable);
+      .filter(notEmpty);
 
     // Add new files from staging (parentCommitSha is null)
     const newFiles = (stagedFiles || [])
@@ -3059,7 +3060,7 @@ function FileViewInner({
                 size: item.size,
               };
             })
-            .filter(nonNullable)}
+            .filter(notEmpty)}
         />
       )}
 

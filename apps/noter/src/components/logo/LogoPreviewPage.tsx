@@ -80,9 +80,9 @@ import {
   LOGO_PRESETS,
   getLogoPreset,
   getLogoPresetSelection,
-  type LogoPresetId,
   type LogoPresetSelection,
 } from "@/components/logo/logoPresets";
+import { includes } from "@noter-md/dependent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -1069,8 +1069,10 @@ function useLogoPreviewController({
   };
 }
 
-function isLogoPresetId(value: string): value is LogoPresetId {
-  return LOGO_PRESETS.some((preset) => preset.id === value);
+const LOGO_PRESET_IDS = LOGO_PRESETS.map((preset) => preset.id);
+
+function isLogoPresetId(value: string) {
+  return includes(LOGO_PRESET_IDS, value);
 }
 
 function readCanonicalLogoRouteSearch(

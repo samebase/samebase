@@ -1,3 +1,4 @@
+import { notEmpty } from "@noter-md/dependent";
 import type {
   CodexAppServerThread,
   CodexAppServerThreadItem,
@@ -55,7 +56,8 @@ function readTextContent(value: unknown): string[] {
 
   return value
     .map((entry) => readString(asRecord(entry)?.text))
-    .filter((text): text is string => text !== null && text.trim().length > 0);
+    .filter(notEmpty)
+    .filter((text) => text.trim().length > 0);
 }
 
 /**
@@ -107,7 +109,8 @@ function readChangedFiles(item: CodexAppServerThreadItem): string[] {
 
   return changes
     .map((change) => readString(asRecord(change)?.path))
-    .filter((path): path is string => path !== null && path.length > 0);
+    .filter(notEmpty)
+    .filter((path) => path.length > 0);
 }
 
 function itemTypeIsToolActivity(itemType: string): boolean {

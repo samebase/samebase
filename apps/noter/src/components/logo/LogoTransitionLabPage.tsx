@@ -10,6 +10,7 @@ import {
   type Point,
 } from "@/components/logo/logoTransitionLabUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { notEmpty } from "@noter-md/dependent";
 import { useEffect, useRef, useState } from "react";
 
 type ViewBox = {
@@ -154,7 +155,7 @@ export function LogoTransitionLabPage() {
             ),
           };
         })
-        .filter((face): face is Face => face !== null);
+        .filter(notEmpty);
 
       const defaultFaceIndex = parsedFaces.findIndex(
         (face) => face.fill.toLowerCase() === "#390000",

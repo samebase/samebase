@@ -34,6 +34,7 @@ import {
 } from "../../../shared/cloudflareTokenRefresh";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { useNow } from "@/hooks/useNow";
+import { isRecord } from "@noter-md/dependent";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import {
   useCallback,
@@ -140,9 +141,6 @@ const formatMcpTokenStatusLabel = (
   if (status === "invalid") return "Invalid";
   return "Unknown";
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
 
 const getRedirectOrigin = (oauthUrl: string): string | null => {
   try {

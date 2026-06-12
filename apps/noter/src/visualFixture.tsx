@@ -53,7 +53,6 @@ import {
 } from "@/components/RepositoryRouteConnectStateVisualFixture";
 import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
-  isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
 } from "@/components/fileViewPushActionsVisualModes";
 import { VaultDashboardBranchVisualFixture } from "@/components/vault-dashboard/VaultDashboardBranchVisualFixture";
@@ -101,6 +100,7 @@ import {
 } from "@/components/RouteUrlEditor/RouteUrlEditorVisualFixture";
 import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import { includes } from "@noter-md/dependent";
 import "./index.css";
 
 type VisualFixtureMode =
@@ -330,13 +330,7 @@ const VISUAL_FIXTURE_GROUPS = [
   modes: readonly VisualFixtureMode[];
 }[];
 
-function isCommitReviewVisualMode(mode: VisualFixtureMode): mode is CommitReviewVisualMode {
-  return COMMIT_REVIEW_VISUAL_MODES.some((commitReviewMode) => commitReviewMode === mode);
-}
-
-function isVisualFixtureMode(value: string): value is VisualFixtureMode {
-  return VISUAL_FIXTURE_GROUPS.some((group) => group.modes.some((mode) => mode === value));
-}
+const VISUAL_FIXTURE_MODES = VISUAL_FIXTURE_GROUPS.flatMap((group) => group.modes);
 
 function readSelection(modeSearchValue: string | undefined): VisualFixtureSelection {
   if (!modeSearchValue) {
@@ -348,7 +342,7 @@ function readSelection(modeSearchValue: string | undefined): VisualFixtureSelect
     return { status: "missing" };
   }
 
-  if (isVisualFixtureMode(value)) {
+  if (includes(VISUAL_FIXTURE_MODES, value)) {
     return {
       status: "valid",
       mode: value,
@@ -427,7 +421,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <VaultSyncStatusVisualFixture mode={mode} />;
   }
 
-  if (isFileViewPushActionsVisualMode(mode)) {
+  if (includes(FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES, mode)) {
     return <FileViewPushActionsVisualFixture mode={mode} />;
   }
 
@@ -518,7 +512,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <CornerNotchDetailVisualFixture />;
   }
 
-  if (isCommitReviewVisualMode(mode)) {
+  if (includes(COMMIT_REVIEW_VISUAL_MODES, mode)) {
     return <CommitReviewVisualFixture mode={mode} />;
   }
 

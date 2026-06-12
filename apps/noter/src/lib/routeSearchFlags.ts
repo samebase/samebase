@@ -1,3 +1,4 @@
+import { isRecord } from "@noter-md/dependent";
 import { keys } from "@noter-md/dependent/object";
 
 const NativeURLSearchParams = URLSearchParams;
@@ -29,10 +30,6 @@ export type SearchPatch<Search extends object> = {
 
 export function formatRouteSearchPresenceFlagLinkLabel(key: string, enable: boolean): string {
   return `?${key}${enable ? "" : "-"}`;
-}
-
-function isSearchRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -80,7 +77,7 @@ export function normalizeRouteSearchPresenceFlags(
     return normalizeRouteSearchPresenceFlags(Object.fromEntries(search.entries()), keys);
   }
 
-  if (!isSearchRecord(search)) {
+  if (!isRecord(search)) {
     return search;
   }
 

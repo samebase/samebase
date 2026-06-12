@@ -1,3 +1,5 @@
+import { includes } from "@noter-md/dependent";
+
 export const LOGO_LEFT_FACE_STYLE_KINDS = ["secondary", "striped"] as const;
 export const LOGO_LEFT_FACE_STRIPE_BASIS_VALUES = [
   "auto",
@@ -94,14 +96,12 @@ function clampFiniteNumber({
   return Math.min(Math.max(value, min), max);
 }
 
-export function isLogoLeftFaceStyleKind(value: string | undefined): value is LogoLeftFaceStyleKind {
-  return value === "secondary" || value === "striped";
+export function isLogoLeftFaceStyleKind(value: string | undefined) {
+  return includes(LOGO_LEFT_FACE_STYLE_KINDS, value);
 }
 
-export function isLogoLeftFaceStripeBasis(
-  value: string | undefined,
-): value is LogoLeftFaceStripeBasis {
-  return value === "auto" || value === "horizontal" || value === "vertical" || value === "raw";
+export function isLogoLeftFaceStripeBasis(value: string | undefined) {
+  return includes(LOGO_LEFT_FACE_STRIPE_BASIS_VALUES, value);
 }
 
 export function normalizeLogoLeftFaceStripeAngleDegrees(value: number): number {

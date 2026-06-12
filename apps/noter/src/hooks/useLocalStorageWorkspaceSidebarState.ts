@@ -1,3 +1,4 @@
+import { guard, isRecord } from "@noter-md/dependent";
 import * as React from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
@@ -48,10 +49,6 @@ function areWorkspaceSidebarStatesEqual(left: WorkspaceSidebarState, right: Work
   return serializeWorkspaceSidebarState(left) === serializeWorkspaceSidebarState(right);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function parseMobilePane(value: unknown): WorkspaceSidebarState["mobilePane"] | null {
   if (value === "left" || value === "main" || value === "right") {
     return value;
@@ -60,9 +57,9 @@ function parseMobilePane(value: unknown): WorkspaceSidebarState["mobilePane"] | 
   return null;
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
+const isFiniteNumber = guard((value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null,
+);
 
 function parseMobileSurface(value: unknown): WorkspaceSidebarState["mobileSurface"] | null {
   if (!isRecord(value)) {

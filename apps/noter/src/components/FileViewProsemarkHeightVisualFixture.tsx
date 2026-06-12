@@ -14,6 +14,7 @@ import { linkStyle } from "@/components/styles";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
+import { isKeyOf } from "@noter-md/dependent";
 
 export type FileViewProsemarkHeightVisualMode = "fileview-prosemark-flex-height";
 
@@ -131,15 +132,11 @@ const FIXTURE_TREE_ITEMS = [
   type: "blob" | "tree";
 }>;
 
-function isFixtureDocumentPath(path: string): path is keyof typeof FIXTURE_DOCUMENTS {
-  return Object.prototype.hasOwnProperty.call(FIXTURE_DOCUMENTS, path);
-}
-
 function getFirstVisibleFixtureFile(
   items: ReadonlyArray<(typeof FIXTURE_TREE_ITEMS)[number]>,
 ): keyof typeof FIXTURE_DOCUMENTS {
   for (const item of items) {
-    if (item.type === "blob" && isFixtureDocumentPath(item.path)) {
+    if (item.type === "blob" && isKeyOf(FIXTURE_DOCUMENTS, item.path)) {
       return item.path;
     }
   }
@@ -283,7 +280,7 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
         <FileTree
           items={visibleTreeItems}
           onFileSelect={(path) => {
-            if (isFixtureDocumentPath(path)) {
+            if (isKeyOf(FIXTURE_DOCUMENTS, path)) {
               setSelectedFile(path);
             }
           }}

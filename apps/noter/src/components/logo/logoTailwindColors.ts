@@ -1,3 +1,4 @@
+import { guard } from "@noter-md/dependent";
 import tailwindColors from "tailwindcss/colors";
 
 export type FaceColorKey = "left" | "right" | "top";
@@ -184,6 +185,7 @@ function resolveStaticColorSource(
   return source.fallbackHexByTheme?.[themeMode] ?? source.fallbackHex;
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- regex test cannot narrow to a template-literal type
 function isHexColorToken(token: string): token is HexColorToken {
   return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token);
 }
@@ -540,13 +542,13 @@ function getTailwindColorOption(token: string): TailwindColorOption | undefined 
   return tailwindColorOptionMap.get(token);
 }
 
-export function isTailwindColorToken(token: string): token is TailwindColorToken {
-  return getTailwindColorOption(token) !== undefined;
-}
+export const isTailwindColorToken = guard(
+  (token: string): TailwindColorToken | null => getTailwindColorOption(token)?.token ?? null,
+);
 
-export function isLogoColorToken(token: string): token is LogoColorToken {
-  return isHexColorToken(token) || isTailwindColorToken(token);
-}
+export const isLogoColorToken = guard((token: string): LogoColorToken | null =>
+  isHexColorToken(token) || isTailwindColorToken(token) ? token : null,
+);
 
 function getStaticTailwindColorHex(
   token: LogoColorToken,

@@ -1,3 +1,5 @@
+import { guard } from "@noter-md/dependent";
+
 export const APP_BUILD_STATUS_BAR_TEST_ID = "app-build-status-bar";
 export const APP_BUILD_VERSION_TEST_ID = "app-build-version";
 export const APP_BUILD_COMMIT_LINK_TEST_ID = "app-build-commit-link";
@@ -6,13 +8,13 @@ export const APP_BUILD_VERSION_PREFIX = "v";
 const UNKNOWN_APP_BUILD_VERSION_NUMBER = "?";
 const SHORT_APP_BUILD_COMMIT_LENGTH = 8;
 
-function isValidAppBuildCommitNumber(commitNumber: number | null): commitNumber is number {
+const isValidAppBuildCommitNumber = guard((commitNumber: number | null): number | null => {
   if (commitNumber === null || !Number.isSafeInteger(commitNumber) || commitNumber < 1) {
-    return false;
+    return null;
   }
 
-  return true;
-}
+  return commitNumber;
+});
 
 /**
  * Keep the numeric segment separate from surrounding chrome so the status bar

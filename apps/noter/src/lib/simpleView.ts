@@ -1,3 +1,4 @@
+import { guard } from "@noter-md/dependent";
 import { minimatch } from "minimatch";
 import { z } from "zod";
 import { parseDocument } from "yaml";
@@ -9,7 +10,10 @@ const SIMPLE_VIEW_STORAGE_KEY_PREFIX = "noter-simple-view";
 
 type StagedSimpleViewConfigFile =
   | {
-      fileDeleted: boolean;
+      fileDeleted: false;
+    }
+  | {
+      fileDeleted: true;
     }
   | null
   | undefined;
@@ -50,21 +54,19 @@ export function getSimpleViewPreferenceStorageKey(vaultId: string): string {
   return `${SIMPLE_VIEW_STORAGE_KEY_PREFIX}:${vaultId}`;
 }
 
-export function hasStagedSimpleViewConfigFile(
-  stagedConfigFile: StagedSimpleViewConfigFile,
-): stagedConfigFile is { fileDeleted: false } {
-  return (
+export const hasStagedSimpleViewConfigFile = guard(
+  (stagedConfigFile: StagedSimpleViewConfigFile): { fileDeleted: false } | null =>
     stagedConfigFile !== undefined && stagedConfigFile !== null && !stagedConfigFile.fileDeleted
-  );
-}
+      ? stagedConfigFile
+      : null,
+);
 
-export function isStagedSimpleViewConfigDeleted(
-  stagedConfigFile: StagedSimpleViewConfigFile,
-): stagedConfigFile is { fileDeleted: true } {
-  return (
+export const isStagedSimpleViewConfigDeleted = guard(
+  (stagedConfigFile: StagedSimpleViewConfigFile): { fileDeleted: true } | null =>
     stagedConfigFile !== undefined && stagedConfigFile !== null && stagedConfigFile.fileDeleted
-  );
-}
+      ? stagedConfigFile
+      : null,
+);
 
 export function hasSimpleViewConfigFile(
   stagedConfigFile: StagedSimpleViewConfigFile,

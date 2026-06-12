@@ -1,4 +1,5 @@
 import { clampNumber } from "@/lib/clampNumber";
+import { notEmpty } from "@noter-md/dependent";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   type MobilePane,
@@ -13,12 +14,6 @@ export type WorkspaceLayoutV2ResizeHandleConfig = {
   positionPx: number;
   side: "left" | "right";
 };
-
-function isWorkspaceLayoutV2ResizeHandleConfig(
-  resizeHandle: WorkspaceLayoutV2ResizeHandleConfig | null,
-): resizeHandle is WorkspaceLayoutV2ResizeHandleConfig {
-  return resizeHandle !== null;
-}
 
 export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
   desktopLeftWidthPx: number;
@@ -75,7 +70,7 @@ export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
           side: "right" as const,
         }
       : null,
-  ].filter(isWorkspaceLayoutV2ResizeHandleConfig);
+  ].filter(notEmpty);
 }
 
 /**
@@ -139,5 +134,5 @@ export function getWorkspaceLayoutV2MobileResizeHandles(args: {
           side: "right" as const,
         }
       : null,
-  ].filter(isWorkspaceLayoutV2ResizeHandleConfig);
+  ].filter(notEmpty);
 }

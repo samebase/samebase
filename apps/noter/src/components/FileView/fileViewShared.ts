@@ -1,3 +1,4 @@
+import { guard } from "@noter-md/dependent";
 import { api } from "../../../convex/_generated/api";
 import type { GithubTree } from "../../../convex/schema";
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";
@@ -8,9 +9,9 @@ import { getStagedFileStatus as getSharedStagedFileStatus } from "../../../share
  * Keep FileView-specific helpers and derived types together so the main route
  * file can focus on state flow and rendered structure.
  */
-export function isFileTreeNodeType(type: string): type is "tree" | "blob" {
-  return type === "tree" || type === "blob";
-}
+export const isFileTreeNodeType = guard((type: string): "tree" | "blob" | null =>
+  type === "tree" || type === "blob" ? type : null,
+);
 
 export function findBestInitialFile(files: GithubTree[]) {
   const fileList = files.filter((item) => item.type === "blob");

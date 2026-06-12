@@ -12,6 +12,7 @@ import {
   voxelKey,
 } from "@/components/logo/logoVoxelState";
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
+import { includes } from "@noter-md/dependent";
 import {
   parseLogoIsoCubePixelKey,
   type LogoIsoCubePixelSprite,
@@ -140,12 +141,10 @@ export const LOGO_ISOMETRIC_STYLES = [
   },
 ] as const satisfies readonly LogoIsometricStyle[];
 
-export function isLogoIsometricStyleId(value: string | null): value is LogoIsometricStyleId {
-  if (value === null) {
-    return false;
-  }
+const LOGO_ISOMETRIC_STYLE_IDS = LOGO_ISOMETRIC_STYLES.map((style) => style.id);
 
-  return LOGO_ISOMETRIC_STYLES.some((style) => style.id === value);
+export function isLogoIsometricStyleId(value: string | null) {
+  return includes(LOGO_ISOMETRIC_STYLE_IDS, value);
 }
 
 export function getLogoIsometricStyle(styleId: LogoIsometricStyleId): LogoIsometricStyle {
