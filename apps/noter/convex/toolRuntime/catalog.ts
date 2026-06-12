@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolJsonSchema, ToolSurface } from "./types";
 import { hasAllScopes } from "./utils";
+import { isRecord } from "../jsonUtils";
 
 const emptyInputSchema = z.object({});
 const readFileInputSchema = z.object({
@@ -126,10 +127,6 @@ function contextRequiredFields(args: {
     required.add("threadId");
   }
   return Array.from(required);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function parseRequiredFields(value: unknown): string[] | undefined {

@@ -88,7 +88,7 @@ function readRouteRotationDegrees(
   return normalizeRotationDegrees(routeSearch.rot);
 }
 
-function isLogoRotationAxisMode(value: string | null): value is LogoRotationAxisMode {
+function isLogoRotationAxisMode(value: string | null) {
   return value === "cube-y" || value === "screen-vertical";
 }
 

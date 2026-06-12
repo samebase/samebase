@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isRecord } from "@noter-md/dependent/main";
 import { describe, expect, it } from "vite-plus/test";
 import repoViteConfig from "../../vite.config.ts";
 
@@ -31,10 +32,6 @@ type PackageSurface = {
   scripts?: Record<string, string>;
   devDependencies?: Record<string, string>;
 };
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function expectRecord(value: unknown, label: string): JsonRecord {
   if (!isRecord(value)) {

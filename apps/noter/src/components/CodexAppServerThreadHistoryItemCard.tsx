@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExpandableClampToggleButton } from "@/components/ExpandableClampText";
 import { useExpandableClampText } from "@/hooks/useExpandableClampText";
 import { type CodexAppServerThreadItem } from "@/lib/codexAppServerResearch";
+import { notEmpty } from "@noter-md/dependent";
 import { clsx } from "clsx";
 
 type CodexAppServerThreadHistoryItemCardProps = {
@@ -35,7 +36,8 @@ function readThreadItemDisplayText(item: CodexAppServerThreadItem): string | nul
 
   const textParts = content
     .map((entry) => readString(asRecord(entry)?.text))
-    .filter((text): text is string => text !== null && text.length > 0);
+    .filter(notEmpty)
+    .filter((text) => text.length > 0);
 
   if (textParts.length === 0) {
     return item.summary;

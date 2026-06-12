@@ -11,6 +11,7 @@ import openapiTS, {
   type SchemaObject,
   type TransformNodeOptions,
 } from "openapi-typescript";
+import { isRecord } from "@noter-md/dependent/main";
 
 import { noterAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
@@ -94,6 +95,7 @@ function parseJsonSchemaDocument(documentText: string): OpenAPI3 {
   throw new Error(`${sourceUrl} did not return an OpenAPI document.`);
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
 function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   return (
     typeof payload === "boolean" ||
@@ -101,12 +103,9 @@ function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   );
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info as records, never the nested OpenAPI3 interface
 function isOpenApiDocument(payload: unknown): payload is OpenAPI3 {
   return isRecord(payload) && typeof payload.openapi === "string" && isRecord(payload.info);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeConvexManagementValidationDocument(document: OpenAPI3): AnySchema {
@@ -115,7 +114,7 @@ function normalizeConvexManagementValidationDocument(document: OpenAPI3): AnySch
 
   for (const schemaName of convexManagementDecimalIdSchemaNames) {
     const schema = schemas[schemaName];
-    if (!isConvexManagementInt64IdSchema(schema)) {
+    if (!isRecord(schema) || schema.type !== "integer" || schema.format !== "int64") {
       throw new Error(`${sourceUrl} schema ${schemaName} is no longer an int64 schema.`);
     }
     schemas[schemaName] = {
@@ -143,12 +142,6 @@ function readRecordPath(root: unknown, pathSegments: readonly string[]): Record<
     return value;
   }
   throw new Error(`Expected ${pathSegments.join(".")} to be an object.`);
-}
-
-function isConvexManagementInt64IdSchema(
-  value: unknown,
-): value is { description?: string; format: "int64"; type: "integer" } {
-  return isRecord(value) && value.type === "integer" && value.format === "int64";
 }
 
 function collectConvexManagementResponseValidatorEntries(

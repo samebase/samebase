@@ -16,6 +16,7 @@ import {
   type ProdReadProposalPayload as ProdReadProposal,
 } from "../../shared/chatMetadata";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { isRecord } from "@noter-md/dependent";
 
 // --- Metadata parsing ---
 
@@ -26,12 +27,8 @@ function parseMetadata(metadata: unknown): MessageMetadata | null {
   return result.success ? result.data : null;
 }
 
-function hasRecordKey(value: unknown, key: string): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && key in value;
-}
-
 function getRecordValue(value: unknown, key: string): unknown {
-  return hasRecordKey(value, key) ? value[key] : undefined;
+  return isRecord(value) && key in value ? value[key] : undefined;
 }
 
 // --- Tool activity badge ---
@@ -54,7 +51,7 @@ function ToolActivityBadge({ tools }: { tools: Array<{ tool: string; input: unkn
             const meta = TOOL_CATALOG.find((c) => c.name === t.tool);
             const displayKey = meta?.inputDisplayKey;
             const displayValue = displayKey
-              ? hasRecordKey(t.input, displayKey)
+              ? isRecord(t.input) && displayKey in t.input
                 ? String(t.input[displayKey])
                 : undefined
               : undefined;
@@ -135,7 +132,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
           const meta = TOOL_CATALOG.find((tool) => tool.name === call.tool);
           const displayKey = meta?.inputDisplayKey;
           const displayValue = displayKey
-            ? hasRecordKey(call.input, displayKey)
+            ? isRecord(call.input) && displayKey in call.input
               ? String(call.input[displayKey])
               : undefined
             : undefined;

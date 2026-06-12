@@ -1,3 +1,4 @@
+import { notEmpty } from "@noter-md/dependent";
 import { type CodexAppServerThread } from "@/lib/codexAppServerResearch";
 
 export type CodexThreadSidebarThread = {
@@ -111,8 +112,8 @@ export function buildCodexThreadSidebarViewModel(args: {
   const projectMap = new Map<string, CodexThreadSidebarProject>();
 
   const pinnedThreads = args.pinnedThreadIds
-    .map((threadId) => threadById.get(threadId) ?? null)
-    .filter((thread): thread is CodexAppServerThread => thread !== null)
+    .map((threadId) => threadById.get(threadId))
+    .filter(notEmpty)
     .map((thread) =>
       buildSidebarThread({
         loadedThreadIds,

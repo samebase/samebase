@@ -14,6 +14,7 @@ import remarkGfm from "remark-gfm";
 import { getLandingMarkdownHeadings } from "@/lib/landingMarkdownHeadings";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
 import { cn } from "@/lib/utils";
+import { guard } from "@noter-md/dependent";
 
 const SANITIZED_VIDEO_ATTRIBUTES: string[] = [
   "ariaLabel",
@@ -75,13 +76,13 @@ function isExternalUrl(value: string | undefined): boolean {
   }
 }
 
-function isInternalRouteHref(value: string | undefined): value is string {
+const isInternalRouteHref = guard<string | undefined, string>((value) => {
   if (!value) {
-    return false;
+    return null;
   }
 
-  return value.startsWith("?") || (value.startsWith("/") && !value.startsWith("//"));
-}
+  return value.startsWith("?") || (value.startsWith("/") && !value.startsWith("//")) ? value : null;
+});
 
 function buildInternalLinkTarget({
   href,

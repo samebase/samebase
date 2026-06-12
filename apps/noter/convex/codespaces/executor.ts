@@ -4,7 +4,7 @@ import { action, type ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
-import { isObjectRecord as isRecord, readBoolean, readNumber, readString } from "../jsonUtils";
+import { isRecord, readBoolean, readNumber, readString } from "../jsonUtils";
 import { starterTemplateManifest } from "../starterSeedManifest.generated";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
 

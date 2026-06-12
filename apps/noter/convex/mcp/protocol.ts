@@ -1,3 +1,4 @@
+import { includes } from "@noter-md/dependent/main";
 import { asRecord } from "../jsonUtils";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
@@ -22,7 +23,6 @@ export const MCP_V1_SUPPORTED_SCOPES = [
   "commits.propose",
   "prod.read.propose",
 ] as const;
-const mcpSupportedScopeSet = new Set<string>(MCP_V1_SUPPORTED_SCOPES);
 
 type McpSupportedScope = (typeof MCP_V1_SUPPORTED_SCOPES)[number];
 
@@ -231,10 +231,6 @@ function validateResponseTypes(responseTypes: string[]): boolean {
 
 function normalizeScopeToken(scope: string): string {
   return scope.trim().toLowerCase();
-}
-
-function isMcpSupportedScope(value: string): value is McpSupportedScope {
-  return mcpSupportedScopeSet.has(value);
 }
 
 export function buildMcpProtectedResourceMetadata(baseUrl: string): {
@@ -473,7 +469,7 @@ export function validateAuthorizeRequestFromUrl(
 
   const supportedScopes: McpSupportedScope[] = [];
   for (const scope of scopes) {
-    if (!isMcpSupportedScope(scope)) {
+    if (!includes(MCP_V1_SUPPORTED_SCOPES, scope)) {
       return {
         ok: false,
         status: 400,

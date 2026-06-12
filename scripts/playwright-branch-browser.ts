@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { isRecord } from "@noter-md/dependent";
 
 const HELP_TEXT = `Usage: scripts/playwright-branch-browser.ts <command> [args]
 
@@ -453,10 +454,6 @@ function parseJsonObject(rawJson: string): Record<string, unknown> {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function clearCrashFlagsFromSessionEventLog(eventLog: unknown[]): unknown[] {
   return eventLog.map((entry) => (isRecord(entry) ? { ...entry, crashed: false } : entry));
 }
@@ -869,9 +866,7 @@ FileHandle.standardOutput.write(data)`;
   } catch {
     return [];
   }
-  return Array.isArray(parsed)
-    ? parsed.filter((title): title is string => typeof title === "string")
-    : [];
+  return Array.isArray(parsed) ? parsed.filter((title) => typeof title === "string") : [];
 }
 
 function listProfileBrowserProcesses(profileDir: string): { pid: number; args: string }[] {

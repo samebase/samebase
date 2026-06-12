@@ -146,12 +146,8 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
       console.log("finished stage 1, read all blobs");
 
       // 2) Split
-      const inlineItems: StagedInline[] = staged.filter(
-        (x): x is StagedInline => x.kind === "inline",
-      );
-      const storedItems: StagedStored[] = staged.filter(
-        (x): x is StagedStored => x.kind === "stored",
-      );
+      const inlineItems: StagedInline[] = staged.filter((x) => x.kind === "inline");
+      const storedItems: StagedStored[] = staged.filter((x) => x.kind === "stored");
 
       await Promise.all([
         // 3) Write inline blobs to DB (no storage) — throttle lightly

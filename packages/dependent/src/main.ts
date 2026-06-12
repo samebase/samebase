@@ -122,6 +122,16 @@ export function notEmpty<Value>(value: Value | null | undefined): value is Value
   return value !== null && value !== undefined;
 }
 
+/**
+ * Narrow unknown to a string-keyed record, excluding arrays. Control flow can
+ * only earn `object` from a typeof check, never an index signature, so this
+ * claim stays hand-written as the one audited copy outside convex
+ * (`apps/noter/convex/jsonUtils.ts` is the convex-side home).
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function atMod<Value>(arr: Array1<Value>, indexMod: number): Value {
   const len = arr.length;
   const elem = arr[(indexMod + len) % len];
@@ -246,8 +256,11 @@ export function includes<const ArrayValue extends readonly unknown[]>(
  * The callback returns the received value where control flow narrowed it, or
  * null to reject. Returning the un-narrowed input is a compile error, and the
  * factory checks identity at runtime, so the claim cannot drift from the
- * narrowing that produced it. Annotating the callback's input and return types
- * keeps the guarded type visible at the definition.
+ * narrowing that produced it. Write it generics-first so both types stay
+ * visible without spelling the null failure channel:
+ * `guard<string | undefined, Mode>((value) => (value === "deploy" ? value : null))`.
+ * An annotated callback (`(value: Input): Target | null => ...`) is equally
+ * checked.
  *
  * Null inputs always reject: null is the failure result, so a failed match on
  * a null input would otherwise compare null to null and falsely succeed. The

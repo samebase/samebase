@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020, type AnySchema } from "ajv/dist/2020.js";
 import { standaloneCode } from "ajv/dist/standalone/index.js";
 import openapiTS, { astToString, COMMENT_HEADER, type OpenAPI3 } from "openapi-typescript";
-import { includes } from "@noter-md/dependent/main";
+import { includes, isRecord } from "@noter-md/dependent/main";
 
 import { noterAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
@@ -107,6 +107,7 @@ function parseJsonSchemaDocument(documentText: string): OpenAPI3WithPaths {
   throw new Error(`${sourceUrl} did not return an OpenAPI document.`);
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
 function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   return (
     typeof payload === "boolean" ||
@@ -114,6 +115,7 @@ function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   );
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info/paths as records, never the nested OpenAPI3 interface
 function isOpenApiDocument(payload: unknown): payload is OpenAPI3WithPaths {
   return (
     isRecord(payload) &&
@@ -121,10 +123,6 @@ function isOpenApiDocument(payload: unknown): payload is OpenAPI3WithPaths {
     isRecord(payload.info) &&
     isRecord(payload.paths)
   );
-}
-
-function isRecord(value: unknown): value is JsonRecord {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function readOptionalString(record: JsonRecord, key: string): string | undefined {

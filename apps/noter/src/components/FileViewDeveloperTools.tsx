@@ -8,7 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 export type FileViewMode = "editor" | "graph";
 export type FileViewEditorOverride = "default" | "codemirror";
 
-function isFileViewEditorOverride(value: string | undefined): value is FileViewEditorOverride {
+function isFileViewEditorOverride(value: string | undefined) {
   return value === "default" || value === "codemirror";
 }
 

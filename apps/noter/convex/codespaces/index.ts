@@ -1,6 +1,7 @@
 "use node";
 
 import { Infer, v } from "convex/values";
+import { guard } from "@noter-md/dependent/main";
 import { action, type ActionCtx } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
@@ -519,9 +520,9 @@ async function pollCodespaceState(
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const isNotFoundError = (error: unknown): error is Error => {
-  return error instanceof RequestError && error.status === 404;
-};
+const isNotFoundError = guard<unknown, RequestError>((error) =>
+  error instanceof RequestError && error.status === 404 ? error : null,
+);
 
 const formatError = (error: unknown) => (error instanceof Error ? error.message : String(error));
 

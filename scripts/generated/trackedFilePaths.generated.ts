@@ -1426,6 +1426,7 @@ export const trackedFilePaths = [
   "scripts/lib/killport.ts",
   "scripts/lib/scriptRuntime.ts",
   "scripts/lib/trackedFilePath.ts",
+  "scripts/lint/eslint-plugin-noter.mjs",
   "scripts/noter-pr-connect.ts",
   "scripts/playwright-branch-browser.test.ts",
   "scripts/playwright-branch-browser.ts",

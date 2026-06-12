@@ -1,3 +1,4 @@
+import { isRecord } from "@noter-md/dependent";
 import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
 
 export const PUBLIC_LANDING_LOGO_VIEW_STATE_KEY = "public-landing";
@@ -34,10 +35,6 @@ const STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY = {
 let cachedRotatedLogoViewStateByKey: Partial<
   Record<RotatedLogoViewStateKey, RotatedLogoViewState>
 > = {};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function normalizeRotatedLogoViewState(view: RotatedLogoViewState): RotatedLogoViewState {
   return {

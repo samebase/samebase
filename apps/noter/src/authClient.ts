@@ -1,3 +1,4 @@
+import { guard } from "@noter-md/dependent";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -29,6 +30,7 @@ type AuthPopupMessage = {
   tokens?: unknown;
 };
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -41,20 +43,20 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return true;
 }
 
-function isAuthPopupRedirectTo(value: unknown): value is string {
+const isAuthPopupRedirectTo = guard<unknown, string>((value) => {
   if (typeof value !== "string" || !value.startsWith("/")) {
-    return false;
+    return null;
   }
 
   try {
     const redirectUrl = new URL(value, window.location.origin);
-    return (
-      redirectUrl.origin === window.location.origin && redirectUrl.pathname === DASHBOARD_ROUTE
-    );
+    return redirectUrl.origin === window.location.origin && redirectUrl.pathname === DASHBOARD_ROUTE
+      ? value
+      : null;
   } catch {
-    return false;
+    return null;
   }
-}
+});
 
 export function clearAuthFlag() {
   localStorage.removeItem(AUTH_FLAG_KEY);

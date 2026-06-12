@@ -1,3 +1,5 @@
+import { guard } from "@noter-md/dependent";
+
 const VIDEO_EXTENSIONS = [".m4v", ".mov", ".mp4", ".ogv", ".webm"] as const;
 
 function getUrlPathname(value: string): string {
@@ -13,11 +15,11 @@ function getUrlPathname(value: string): string {
   }
 }
 
-export function isMarkdownVideoUrl(value: string | undefined): value is string {
+export const isMarkdownVideoUrl = guard<string | undefined, string>((value) => {
   if (!value) {
-    return false;
+    return null;
   }
 
   const pathname = getUrlPathname(value);
-  return VIDEO_EXTENSIONS.some((extension) => pathname.endsWith(extension));
-}
+  return VIDEO_EXTENSIONS.some((extension) => pathname.endsWith(extension)) ? value : null;
+});

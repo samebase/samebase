@@ -33,6 +33,7 @@ type PublicPrerenderPagesModule = {
   readPublicPrerenderPages: () => unknown;
 };
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses readPublicPrerenderPages only as Function, never its call signature
 function isPublicPrerenderPagesModule(value: unknown): value is PublicPrerenderPagesModule {
   if (!isObject(value)) {
     return false;

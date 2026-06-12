@@ -3,6 +3,7 @@
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { getUserId } from "./common";
 import { Infer, v } from "convex/values";
+import { guard } from "@noter-md/dependent/main";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { guessMime, withRetry } from "./gitOperationsActions";
@@ -989,9 +990,11 @@ export function readPullRequestLabels(labels: unknown): PullRequestLabelSummary[
   return labelNames;
 }
 
-function isAllowedCloudflarePreviewCommentAuthor(login: unknown): login is string {
-  return typeof login === "string" && CLOUDFLARE_PREVIEW_COMMENT_AUTHORS.has(login.toLowerCase());
-}
+const isAllowedCloudflarePreviewCommentAuthor = guard<unknown, string>((login) =>
+  typeof login === "string" && CLOUDFLARE_PREVIEW_COMMENT_AUTHORS.has(login.toLowerCase())
+    ? login
+    : null,
+);
 
 async function getLatestPullRequestCloudflarePreviewComment(args: {
   octokit: Octokit;

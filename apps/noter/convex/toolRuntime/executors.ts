@@ -8,6 +8,7 @@ import {
   ReplaceInFileError,
   type ReplaceInFileResolvedEdit,
 } from "../agent/replaceInFile";
+import { isRecord } from "../jsonUtils";
 
 type ReadFileInput = {
   path: string;
@@ -263,6 +264,7 @@ async function isPathHiddenByStagingChangeForOriginal(args: {
   return isPathHiddenByStagingChange(byOriginalPath);
 }
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- property-presence over unknown: the in-check narrows the property reference, not the error object
 function hasStatusCode(error: unknown, status: number): error is { status: number } {
   return (
     typeof error === "object" && error !== null && "status" in error && error.status === status
@@ -980,10 +982,6 @@ async function executeRequestConvexDataRead(
     },
     allowRawFallback: input.allowRawFallback,
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {

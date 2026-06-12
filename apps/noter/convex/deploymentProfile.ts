@@ -1,4 +1,5 @@
 import { Infer, v } from "convex/values";
+import { notEmpty } from "@noter-md/dependent/main";
 import { query } from "./_generated/server";
 import { readOptionalEnv } from "./oauthUtils";
 
@@ -59,7 +60,7 @@ function isLocalhostUrl(rawUrl: string): boolean {
 function hasLocalRuntimeUrl(env: DeploymentProfileEnv): boolean {
   const runtimeUrls = [env.CONVEX_CLOUD_URL, env.CONVEX_SITE_URL, env.SITE_URL]
     .map(readTrimmedValue)
-    .filter((value): value is string => value !== null);
+    .filter(notEmpty);
   return runtimeUrls.some(isLocalhostUrl);
 }
 

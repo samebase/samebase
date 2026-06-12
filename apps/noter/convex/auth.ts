@@ -1,6 +1,7 @@
 import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
+import { guard } from "@noter-md/dependent/main";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -22,9 +23,9 @@ type UserPatch = {
   phoneVerificationTime?: number;
 };
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
+const isNonEmptyString = guard<unknown, string>((value) =>
+  typeof value === "string" && value.trim().length > 0 ? value : null,
+);
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();

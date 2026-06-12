@@ -53,8 +53,7 @@ export default defineConfig({
       },
     ],
     rules: {
-      // Warn until the codebase-wide predicate conversion lands, then error.
-      "noter/no-hand-written-type-predicate": "warn",
+      "noter/no-hand-written-type-predicate": "error",
       "react-refresh/only-export-components": [
         "error",
         {

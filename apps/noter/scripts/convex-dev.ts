@@ -9,6 +9,7 @@ import {
   sleep,
   usesLocalConvexDeployment,
 } from "./convex-local-utils.ts";
+import { guard } from "@noter-md/dependent/main";
 import { normalizeEnvValue } from "./normalizeEnvValue.ts";
 import { pickAvailableAnonymousLocalPorts } from "../../../runtime/anonymousLocalPorts.ts";
 
@@ -50,7 +51,9 @@ const pickNodeBinFromNvm = (preferredMajors: string[]) => {
   const nvmCandidates: string[] = Array.from(
     new Set(
       [process.env.NVM_DIR, path.join(os.homedir(), ".nvm")].filter(
-        (value): value is string => typeof value === "string" && value.length > 0,
+        guard<string | undefined, string>((value) =>
+          typeof value === "string" && value.length > 0 ? value : null,
+        ),
       ),
     ),
   );

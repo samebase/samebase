@@ -1,3 +1,4 @@
+import { guard } from "@noter-md/dependent";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
@@ -23,9 +24,9 @@ function readAuthProviderValue(): string | null {
   return withLocalStorage((storage) => storage.getItem(AUTH_PROVIDER_KEY), null);
 }
 
-function isStoredPasswordAuthMode(value: string | null): value is PublicPasswordAuthMode {
-  return value === "off" || value === "local_worktree_seed" || value === "preview_seed";
-}
+const isStoredPasswordAuthMode = guard<string | null, PublicPasswordAuthMode>((value) =>
+  value === "off" || value === "local_worktree_seed" || value === "preview_seed" ? value : null,
+);
 
 function readStoredPasswordAuthMode(): PublicPasswordAuthMode | null {
   const storedValue = withLocalStorage((storage) => storage.getItem(PASSWORD_AUTH_MODE_KEY), null);

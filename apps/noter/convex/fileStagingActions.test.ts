@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
+import { notEmpty } from "@noter-md/dependent/main";
 import {
   buildCommitPreviewFromStagedFiles,
   buildComparedCommitPreviewFileFromStagedFile,
@@ -33,6 +34,7 @@ type GetTreeData = GitApi["getTree"]["response"]["data"];
 type GetBlobData = GitApi["getBlob"]["response"]["data"];
 type CreateTreeEntry = NonNullable<GitApi["createTree"]["parameters"]["tree"]>[number];
 
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- property-presence intersection: the in-check narrows the property reference, not the object
 function hasInlineContent(entry: CreateTreeEntry): entry is CreateTreeEntry & { content: string } {
   return "content" in entry && typeof entry.content === "string";
 }
@@ -1401,9 +1403,7 @@ describe("createCommitWithMultipleFiles", () => {
     expect(createTreeCall.base_tree).toBe("tree123");
 
     // Verify all paths are present
-    const paths = createTreeCall.tree
-      .map((entry) => entry.path)
-      .filter((path): path is string => typeof path === "string");
+    const paths = createTreeCall.tree.map((entry) => entry.path).filter(notEmpty);
     expect(paths).toContain("src/edit1.ts");
     expect(paths).toContain("src/edit2.ts");
     expect(paths).toContain("src/deleted.ts");

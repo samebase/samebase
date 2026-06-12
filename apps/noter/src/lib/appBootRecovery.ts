@@ -1,3 +1,4 @@
+import { notEmpty } from "@noter-md/dependent";
 import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
 import { ensureWindowStorageAccess } from "@/lib/storageAccess";
 
@@ -104,7 +105,7 @@ async function clearAllIndexedDbDatabases() {
   await Promise.all(
     databases
       .map((database) => database.name)
-      .filter((name): name is string => typeof name === "string")
+      .filter(notEmpty)
       .map((name) => deleteIndexedDbDatabase(name)),
   );
 }
@@ -179,11 +180,7 @@ function autoRecoverFromStaleAssets(event: Event): boolean {
   return true;
 }
 
-type VitePreloadErrorEvent = Event & {
-  payload?: unknown;
-};
-
-function isVitePreloadErrorEvent(event: Event): event is VitePreloadErrorEvent {
+function isVitePreloadErrorEvent(event: Event) {
   return "payload" in event;
 }
 

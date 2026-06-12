@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
+import { guard } from "@noter-md/dependent/main";
 
 const modes = {
   deploy: ["deploy"],
@@ -8,9 +9,9 @@ const modes = {
 
 type Mode = keyof typeof modes;
 
-function isMode(value: string | undefined): value is Mode {
-  return value === "deploy" || value === "preview";
-}
+const isMode = guard<string | undefined, Mode>((value) =>
+  value === "deploy" || value === "preview" ? value : null,
+);
 
 function isReservedWranglerFlag(value: string) {
   return value === "--name" || value.startsWith("--name=") || value === "-n";

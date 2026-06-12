@@ -1,3 +1,4 @@
+import { includes } from "@noter-md/dependent";
 import { entries, fromEntries } from "@noter-md/dependent/object";
 import {
   after,
@@ -75,21 +76,12 @@ export function routeSearchNormalizedFiniteNumber(normalizeValue: (value: number
   });
 }
 
-function includesStringValue<const Values extends readonly string[]>(
-  values: Values,
-  value: string,
-): value is Values[number] {
-  return values.includes(value);
-}
-
 export function routeSearchStringValue<const Values extends NoterRouteSearchParamValueSuggestions>(
   values: Values,
 ) {
   return after(routeSearchString, (value) => {
     const trimmedValue = value.trim();
-    return includesStringValue(values, trimmedValue)
-      ? good(trimmedValue)
-      : bad("unsupported-value");
+    return includes(values, trimmedValue) ? good(trimmedValue) : bad("unsupported-value");
   });
 }
 

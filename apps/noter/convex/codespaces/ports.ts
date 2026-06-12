@@ -5,7 +5,7 @@ import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getUserId } from "../common";
 import type { Id } from "../_generated/dataModel";
-import { isObjectRecord as isRecord, readString } from "../jsonUtils";
+import { isRecord, readString } from "../jsonUtils";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
 
 type PortVisibility = "public" | "private";

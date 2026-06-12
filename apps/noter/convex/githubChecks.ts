@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { Octokit } from "@octokit/rest";
 import { describeRepositoryTreeRefreshFailure } from "./github";
-import { isObjectRecord as isRecord } from "./jsonUtils";
+import { isRecord } from "./jsonUtils";
 
 const { array, literal, number, object, string, union } = v;
 
