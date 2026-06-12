@@ -62,6 +62,27 @@ Known risks of the identity-check approach (none published as critique; covered 
 rejects at runtime by design; a failed match on a null input would falsely succeed without the
 factory's null pre-check; `Object.is` keeps a legitimate NaN match from false-negating.
 
+## Lint enforcement
+
+Surveyed 2026-06-12 with a live probe on the repo's pinned oxlint 1.60.0 (bundled by vite-plus):
+
+- No built-in oxlint rule restricts type predicate annotations, and `no-restricted-syntax` (the
+  standard ESLint mechanism for banning AST nodes such as `TSTypePredicate`) is not implemented
+  natively — the config parser rejects it (open ask:
+  [oxc discussion #11649](https://github.com/oxc-project/oxc/discussions/11649)).
+- No existing ESLint plugin bans hand-written predicates either; typescript-eslint's closest is a
+  speculative aside in its TS 5.5 thread
+  ([typescript-eslint#8996](https://github.com/typescript-eslint/typescript-eslint/issues/8996)).
+- A ~20-line repo-local ESLint-compatible rule (report every `TSTypePredicate` node unless
+  `node.asserts`) works through oxlint's `jsPlugins` and the existing `vp lint` pipeline — verified
+  end to end: it flags named `value is T` functions and inline `.filter((v): v is string => ...)`
+  annotations, and passes `asserts` functions, TS 5.5-inferred predicates, and `guard()` callbacks.
+  The JS-plugins API is alpha, but the repo's lint config already loads `jsPlugins` in production.
+
+Plan: ship the rule with the codebase-wide predicate conversion, with an override for
+`packages/dependent` (the audited vocabulary hand-writes its predicates by design) and line-level
+disables with reasons at the remaining vocabulary-tier sites.
+
 ## Conclusion
 
 Ship `guard` only; there is nothing to adopt. `guard` fills a gap the ecosystem has named but not
