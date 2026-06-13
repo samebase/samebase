@@ -9,6 +9,10 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future Convex releases do not bypass the
 # cooling period automatically.
 minimumReleaseAgeExclude:
+  # TODO(2026-06-20): Remove the esbuild@0.28.1 and @esbuild/*@0.28.1
+  # release-age exceptions after the normal 7-day cooling period has passed. Keep
+  # the esbuild override below until `pnpm why esbuild --recursive` shows upstream
+  # packages no longer need the transitive pin.
   - "@esbuild/aix-ppc64@0.28.1"
   - "@esbuild/android-arm@0.28.1"
   - "@esbuild/android-arm64@0.28.1"
