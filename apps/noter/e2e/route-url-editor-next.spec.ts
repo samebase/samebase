@@ -45,6 +45,14 @@ async function expectInputSelection(input: Locator, position: number): Promise<v
   await expect(input).toHaveJSProperty("selectionEnd", position);
 }
 
+async function expectInputSelectionAfterRouteText(
+  input: Locator,
+  prefix: string,
+  routeTextBeforeCursor: string,
+): Promise<void> {
+  await expectInputSelection(input, prefix.length + routeTextBeforeCursor.length - 1);
+}
+
 async function expectNoPageErrorDuring(page: Page, action: () => Promise<void>): Promise<void> {
   const errors: Error[] = [];
   const rememberError = (error: Error) => {
@@ -250,9 +258,8 @@ async function tapDisplayInputAfterRouteText(
     context.font = style.font;
     const paddingLeft = Number.parseFloat(style.paddingLeft);
     const safePaddingLeft = Number.isFinite(paddingLeft) ? paddingLeft : 0;
-    const characterWidth = context.measureText("0").width;
     const textWidth = context.measureText(textBeforeTap).width;
-    const requestedX = safePaddingLeft + textWidth - characterWidth / 2;
+    const requestedX = safePaddingLeft + textWidth + 1;
 
     return Math.min(Math.max(requestedX, 1), element.clientWidth - 1);
   }, routeTextBeforeTap);
@@ -363,11 +370,13 @@ test.describe("route URL editor touch scroll picker", () => {
 
   test("mobile focus scrolls path suggestions to the tapped path", async ({ page }) => {
     const displayInput = await openRouteUrlEditor(page, "/logo");
+    const prefix = await readRouteAddressPrefix(page);
 
     await tapDisplayInputAfterRouteText(displayInput, "/lo");
 
     const input = page.getByTestId("route-url-editor-input");
     await expect(input).toBeFocused();
+    await expectInputSelectionAfterRouteText(input, prefix, "/lo");
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
     await expect(page).toHaveURL(/\/logo$/);
     await expectTouchSlateAlignedToSuggestion(page, "/logo");
@@ -375,11 +384,13 @@ test.describe("route URL editor touch scroll picker", () => {
 
   test("mobile focus scrolls query-key suggestions to the tapped query key", async ({ page }) => {
     const displayInput = await openRouteUrlEditor(page, "/logo?depth=2");
+    const prefix = await readRouteAddressPrefix(page);
 
     await tapDisplayInputAfterRouteText(displayInput, "/logo?de");
 
     const input = page.getByTestId("route-url-editor-input");
     await expect(input).toBeFocused();
+    await expectInputSelectionAfterRouteText(input, prefix, "/logo?de");
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
     await expect(page).toHaveURL(/\/logo\?depth=2$/);
     await expectTouchSlateAlignedToSuggestion(page, "?depth=2");
@@ -387,11 +398,13 @@ test.describe("route URL editor touch scroll picker", () => {
 
   test("mobile focus scrolls value suggestions to the tapped query value", async ({ page }) => {
     const displayInput = await openRouteUrlEditor(page, "/logo?top=blue-200");
+    const prefix = await readRouteAddressPrefix(page);
 
     await tapDisplayInputAfterRouteText(displayInput, "/logo?top=blue-");
 
     const input = page.getByTestId("route-url-editor-input");
     await expect(input).toBeFocused();
+    await expectInputSelectionAfterRouteText(input, prefix, "/logo?top=blue-");
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
     await expect(page).toHaveURL(/\/logo\?top=blue-200$/);
     await expectTouchSlateAlignedToSuggestion(page, "200");
