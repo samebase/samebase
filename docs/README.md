@@ -16,8 +16,6 @@ Current key docs:
 - `docs/agent-workflows.md` for deeper git/PR/worktree workflow rules
 - `docs/repo-documentation-standard.md` for deciding whether material belongs in `specs/`, `rfcs/`,
   `research/`, `docs/`, `skills/`, `archive/`, or a PR body
-- `docs/terminology.md` for repo vocabulary that must stay consistent in code, comments, specs, PRs,
-  and agent discussion
 - `docs/artifacts/notermd-app/` for regenerating the public `notermd/app` artifact history
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
 - `docs/samebase-domains-workers-builds.md` for the `samebase-domains` Workers Builds trigger

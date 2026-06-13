@@ -20,7 +20,7 @@ import {
 import { openRouteAddressQuerySlot } from "@/lib/routeAddressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
-  readRootRouteRedirectRouteAddress,
+  readCanonicalRouteAddressForRootSearch,
   validateRootRouteSearch,
 } from "@/lib/rootRouteSearch";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
@@ -1209,7 +1209,7 @@ reload, so an unapplied suggestion preview does not become durable.
             }),
             _includeValidateSearch: true,
           });
-          const redirectRouteAddress = readRootRouteRedirectRouteAddress({
+          const canonicalRouteAddress = readCanonicalRouteAddressForRootSearch({
             acceptedSearchKeys: readMatchingRouteAcceptedSearchKeys(
               builtLocation.pathname,
               router.routesByPath,
@@ -1219,7 +1219,7 @@ reload, so an unapplied suggestion preview does not become durable.
             searchStr: builtLocation.searchStr,
           });
 
-          return redirectRouteAddress ?? builtLocation.href;
+          return canonicalRouteAddress ?? builtLocation.href;
         },
         routesByPath: router.routesByPath,
         viewerIsAdmin: viewerCanSeeAdminRoutes,

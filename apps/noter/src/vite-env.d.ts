@@ -18,5 +18,5 @@ interface Window {
 interface ImportMetaEnv {
   readonly VITE_LOCAL_WORKTREE_PASSWORD_EMAIL?: string;
   readonly VITE_LOCAL_WORKTREE_PASSWORD_VALUE?: string;
-  readonly VITE_NOTER_ROUTE_SURFACE?: string;
+  readonly VITE_NOTER_ROUTE_ENVIRONMENT?: string;
 }

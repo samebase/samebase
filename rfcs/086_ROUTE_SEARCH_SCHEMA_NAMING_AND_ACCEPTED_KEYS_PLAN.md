@@ -31,10 +31,11 @@ metadata to each of them.
 
 ## Vocabulary: accepted keys, not availability
 
-The repo already uses "availability" for deployment-surface gating (`staticData.availableOn`,
-`canAccessNoterRouteMatchesAvailability` in `apps/noter/src/lib/routeAvailability.ts`), and the
-access model adds `access_*` requirement keys next. Following `rfcs/085`'s disjoint-vocabulary
-principle, this plan names its concept **accepted search keys**:
+The repo already uses "availability" for deployment-environment gating
+(`staticData.availableEnvironments`, `canAccessNoterRouteMatchesAvailability` in
+`apps/noter/src/lib/routeAvailability.ts`), and the access model adds `access_*` requirement keys
+next. Following `rfcs/085`'s disjoint-vocabulary principle, this plan names its concept **accepted
+search keys**:
 
 - A query key is **accepted** on a path when it is root-owned (the root route matches every path) or
   belongs to the schema of the most specific route template matching that path.

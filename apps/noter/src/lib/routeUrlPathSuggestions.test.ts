@@ -11,13 +11,13 @@ const DEPLOYED_ORIGIN = "https://preview.noter.md";
 const routesByPath = getRouter().routesByPath;
 const adminViewer = { isAdmin: true };
 const publicViewer = { isAdmin: false };
-const localSurface = "local";
-const prodUiSurface = "production";
-const deployedSurface = "preview";
+const localEnvironment = "local";
+const prodUiEnvironment = "production";
+const deployedEnvironment = "preview";
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, localSurface);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, localEnvironment);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/home");
@@ -50,7 +50,7 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("filters admin route paths for public viewers", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer, localSurface);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer, localEnvironment);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
@@ -68,16 +68,16 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/vault/$");
   });
 
-  it("hides local-only route paths from the prod UI surface", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, prodUiSurface);
+  it("hides local-only route paths from the prod UI environment", () => {
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, prodUiEnvironment);
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
   });
 
-  it("hides local-only route paths outside local route surfaces", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, deployedSurface);
+  it("hides local-only route paths outside local route environments", () => {
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, deployedEnvironment);
 
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
@@ -164,7 +164,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         routesByPath,
         viewer: adminViewer,
       }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer, localSurface));
+    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer, localEnvironment));
 
     expect(
       filterRouteUrlPathSuggestions({

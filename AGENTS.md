@@ -338,8 +338,6 @@ Comments:
 
 - Comment the constraint or invariant, in the code's own terminology (`draftPath`, not invented
   labels); JSDoc for functions with non-obvious ownership or timing; name concrete runtime cases.
-- For domain terms listed in `docs/terminology.md`, use the preferred term and exact code
-  identifiers from that file in comments, docs, PRs, and agent handoffs.
 - Local-type JSDoc uses the simplest direct vocabulary, multiline blocks without leading `*`
   prefixes; preserve user-authored wording.
 

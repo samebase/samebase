@@ -3,7 +3,7 @@ import type { AppRouter } from "@/router";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
   isRouteUrlPathReadyForNavigation,
-  readRouteUrlPathSuggestionSurface,
+  readRouteUrlPathSuggestionEnvironment,
 } from "@/lib/routeUrlPathSuggestions";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -25,7 +25,7 @@ import {
   readRouteAddressSearchTokenText,
   type RouteAddressSearchToken,
 } from "@/lib/routeAddressParts";
-import { type NoterRouteSurface } from "@/lib/routeAvailability";
+import { type NoterRouteEnvironment } from "@/lib/routeAvailability";
 
 type RouteAddressReadinessInput = {
   currentRouteAddress: string;
@@ -179,7 +179,7 @@ function readRouteAddressSearchParamSuggestions(
 ): readonly NoterRouteSearchParamSuggestion[] {
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: args.path,
-    routeSurface: readRouteUrlPathSuggestionSurface({
+    routeEnvironment: readRouteUrlPathSuggestionEnvironment({
       currentHref: args.currentRouteAddress,
       draftHref: args.draftRouteAddress,
       origin: args.origin,
@@ -209,7 +209,7 @@ function readRouteAddressSearchParamSuggestions(
 /**
 Key acceptance is structural and viewer-independent: it reads the destination
 route's schema-derived `staticData.acceptedSearchKeys` without permission or
-surface filtering, so the same draft address resolves identically for every
+environment filtering, so the same draft address resolves identically for every
 viewer. Routes without the field accept only root-owned keys.
 */
 export function readMatchingRouteAcceptedSearchKeys(
@@ -229,7 +229,7 @@ export function readMatchingRouteAcceptedSearchKeys(
 
 function readMatchingRouteSearchParamSuggestions(args: {
   path: string;
-  routeSurface: NoterRouteSurface;
+  routeEnvironment: NoterRouteEnvironment;
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): readonly NoterRouteSearchParamSuggestion[] {
@@ -240,7 +240,7 @@ function readMatchingRouteSearchParamSuggestions(args: {
           routePath,
           route.options.staticData,
           args.viewer,
-          args.routeSurface,
+          args.routeEnvironment,
         ) && routePathTemplateMatchesPath(routePath, args.path),
     )
     .map(([routePath, route]) => ({
@@ -256,11 +256,11 @@ function isUserFacingAccessibleRoute(
   path: string,
   staticData: NoterRouteStaticData,
   viewer: NoterRoutePermissionViewer,
-  routeSurface: NoterRouteSurface,
+  routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    canAccessNoterRouteStaticData(staticData, viewer, routeSurface)
+    canAccessNoterRouteStaticData(staticData, viewer, routeEnvironment)
   );
 }
 

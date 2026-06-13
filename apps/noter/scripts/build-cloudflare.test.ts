@@ -41,7 +41,7 @@ describe("build-cloudflare", () => {
       kind: "deploy",
       deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
       deployKey: "prod-key",
-      routeSurface: "production",
+      routeEnvironment: "production",
       args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
     });
   });
@@ -58,7 +58,7 @@ describe("build-cloudflare", () => {
       kind: "previewDeploy",
       deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
       deployKey: "preview-key",
-      routeSurface: "preview",
+      routeEnvironment: "preview",
       args: [
         "exec",
         "convex",
@@ -84,7 +84,7 @@ describe("build-cloudflare", () => {
   });
 
   it("skips Convex deploys for local builds without deploy keys", () => {
-    expect(selectConvexDeployPlan({})).toEqual({ kind: "frontendOnly", routeSurface: "local" });
+    expect(selectConvexDeployPlan({})).toEqual({ kind: "frontendOnly", routeEnvironment: "local" });
   });
 
   it("requires an explicit branch when split keys are present locally", () => {

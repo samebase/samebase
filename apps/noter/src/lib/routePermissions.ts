@@ -1,7 +1,7 @@
 import {
   canAccessNoterRouteAvailability,
   type NoterRouteAvailability,
-  type NoterRouteSurface,
+  type NoterRouteEnvironment,
 } from "@/lib/routeAvailability";
 
 export type NoterRoutePermission = "public" | "admin";
@@ -78,7 +78,7 @@ export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = 
 >;
 
 export type NoterRouteStaticData = {
-  availableOn?: NoterRouteAvailability;
+  availableEnvironments?: NoterRouteAvailability;
   permission: NoterRoutePermission;
 
   /**
@@ -113,11 +113,11 @@ export function canAccessNoterRoutePermission(
 export function canAccessNoterRouteStaticData(
   staticData: NoterRouteStaticData,
   viewer: NoterRoutePermissionViewer,
-  surface: NoterRouteSurface,
+  routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
     canAccessNoterRoutePermission(staticData.permission, viewer) &&
-    canAccessNoterRouteAvailability(staticData.availableOn, surface)
+    canAccessNoterRouteAvailability(staticData.availableEnvironments, routeEnvironment)
   );
 }
 

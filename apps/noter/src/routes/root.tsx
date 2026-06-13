@@ -12,12 +12,12 @@ import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { AppRootClient } from "@/components/AppRootClient";
 import {
   canAccessNoterRouteMatchesAvailability,
-  readNoterRouteSurfaceForRouteGuard,
+  readNoterRouteEnvironmentForRouteGuard,
 } from "@/lib/routeAvailability";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   clearConflictingRootThemeModeSearch,
-  readRootRouteRedirectRouteAddress,
+  readCanonicalRouteAddressForRootSearch,
   type RootRouteSearch,
   validateRootRouteSearch,
 } from "@/lib/rootRouteSearch";
@@ -71,21 +71,24 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 export const Route = createRootRouteWithContext<AppQueryClients>()({
   staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   beforeLoad: ({ location, matches }) => {
-    const rootRedirectRouteAddress = readRootRouteRedirectRouteAddress({
+    const rootCanonicalRouteAddress = readCanonicalRouteAddressForRootSearch({
       acceptedSearchKeys: matches.flatMap((match) => match.staticData.acceptedSearchKeys ?? []),
       pathname: location.pathname,
       searchStr: location.searchStr,
       hash: location.hash,
     });
-    if (rootRedirectRouteAddress !== null) {
+    if (rootCanonicalRouteAddress !== null) {
       throw redirect({
-        href: rootRedirectRouteAddress,
+        href: rootCanonicalRouteAddress,
         replace: true,
       });
     }
 
-    const routeSurface = readNoterRouteSurfaceForRouteGuard();
-    if (routeSurface !== null && !canAccessNoterRouteMatchesAvailability(matches, routeSurface)) {
+    const routeEnvironment = readNoterRouteEnvironmentForRouteGuard();
+    if (
+      routeEnvironment !== null &&
+      !canAccessNoterRouteMatchesAvailability(matches, routeEnvironment)
+    ) {
       throw notFound({ routeId: rootRouteId });
     }
   },

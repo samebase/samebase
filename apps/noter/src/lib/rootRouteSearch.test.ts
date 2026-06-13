@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
 import { DEFAULT_VOXEL_STATE, LOGO_GRID_SIZE_2 } from "@/components/logo/logoVoxelState";
 import {
-  readRootRouteRedirectRouteAddress,
+  readCanonicalRouteAddressForRootSearch,
   readRootRouteSearch,
   replaceRootLogoRouteSearch,
   validateRootRouteSearch,
@@ -267,7 +267,7 @@ describe("rootRouteSearch", () => {
 
   it("predicts the root redirect for reset search", () => {
     expect(
-      readRootRouteRedirectRouteAddress({
+      readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
         pathname: "/logo",
         searchStr: "?dark&reset",
@@ -278,7 +278,7 @@ describe("rootRouteSearch", () => {
 
   it("predicts the root redirect for conflicting theme flags", () => {
     expect(
-      readRootRouteRedirectRouteAddress({
+      readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
         pathname: "/logo",
         searchStr: "?dark&dev&light",
@@ -289,7 +289,7 @@ describe("rootRouteSearch", () => {
 
   it("predicts the root redirect that drops keys no matched route accepts", () => {
     expect(
-      readRootRouteRedirectRouteAddress({
+      readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
         pathname: "/home",
         searchStr: "?machineId=sample-machine",
@@ -300,7 +300,7 @@ describe("rootRouteSearch", () => {
 
   it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {
     expect(
-      readRootRouteRedirectRouteAddress({
+      readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: ["machineId", "threadId"],
         pathname: "/machines",
         searchStr: "?prod-ui&machineId=sample-machine&unknownKey=1",
@@ -311,7 +311,7 @@ describe("rootRouteSearch", () => {
 
   it("does not redirect when every raw key is accepted", () => {
     expect(
-      readRootRouteRedirectRouteAddress({
+      readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: ["machineId"],
         pathname: "/machines",
         searchStr: "?machineId=sample-machine",

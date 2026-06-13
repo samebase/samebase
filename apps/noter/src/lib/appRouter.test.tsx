@@ -776,8 +776,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders local-only routes as not found on deployed route surfaces", async () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_SURFACE", "production");
+  it("renders local-only routes as not found in deployed route environments", async () => {
+    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "production");
 
     await renderRoute("/test");
 

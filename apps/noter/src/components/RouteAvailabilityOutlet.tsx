@@ -2,13 +2,13 @@ import { Outlet, useMatches } from "@tanstack/react-router";
 import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import {
   canAccessNoterRouteMatchesAvailability,
-  readBrowserNoterRouteSurface,
+  readBrowserNoterRouteEnvironment,
 } from "@/lib/routeAvailability";
 
 export function RouteAvailabilityOutlet() {
-  const routeSurface = readBrowserNoterRouteSurface();
+  const routeEnvironment = readBrowserNoterRouteEnvironment();
   const routeAvailable = useMatches({
-    select: (matches) => canAccessNoterRouteMatchesAvailability(matches, routeSurface),
+    select: (matches) => canAccessNoterRouteMatchesAvailability(matches, routeEnvironment),
   });
 
   return routeAvailable ? <Outlet /> : <NotFoundRoutePage />;

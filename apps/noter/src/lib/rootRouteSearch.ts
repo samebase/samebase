@@ -257,17 +257,18 @@ export function clearConflictingRootThemeModeSearch(search: RootRouteSearch): Ro
 }
 
 /**
-Returns the route address that root `beforeLoad` redirects to, or `null` when the route can load.
+Returns the canonical route address for root search handling, or `null` when the route can load
+without normalization.
 
-Example: pathname `/logo` plus search `{ reset: true }` redirects to `/logo`.
+Example: pathname `/logo` plus search `{ reset: true }` canonicalizes to `/logo`.
 
-Example: pathname `/logo` plus search `{ dark: true, light: true }` redirects to `/logo`.
+Example: pathname `/logo` plus search `{ dark: true, light: true }` canonicalizes to `/logo`.
 
-Example: pathname `/home` plus raw search `?machineId=x` redirects to `/home`, because no matched
-route schema accepts `machineId` there. `acceptedSearchKeys` is the union of the matched route
+Example: pathname `/home` plus raw search `?machineId=x` canonicalizes to `/home`, because no
+matched route schema accepts `machineId` there. `acceptedSearchKeys` is the union of the matched route
 chain's `staticData.acceptedSearchKeys`; root-owned keys are always kept.
 */
-export function readRootRouteRedirectRouteAddress(args: {
+export function readCanonicalRouteAddressForRootSearch(args: {
   acceptedSearchKeys: readonly string[];
   hash: string;
   pathname: string;
