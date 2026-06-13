@@ -59,6 +59,9 @@ export const convexManagementResponseValidators: {
     "/list_personal_access_tokens": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["list personal access tokens"]>
     >;
+    "/teams/{team_id}/list_access_tokens": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["list team access tokens"]>
+    >;
     "/token_details": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["get token details"]>
     >;
@@ -101,6 +104,7 @@ export const convexManagementResponseValidators: {
       SuccessResponseJSON<operations["create personal access token"]>
     >;
     "/delete_personal_access_token": null;
+    "/teams/{team_id}/delete_access_token": null;
     "/deployments/{deployment_name}/create_custom_domain": null;
     "/deployments/{deployment_name}/delete_custom_domain": null;
     "/teams/create_team": AjvStandaloneValidateFunction<
