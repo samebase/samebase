@@ -221,6 +221,7 @@ type RouteEditorEvent =
   | {
       type: "clickedInput";
       committedRouteAddress: string;
+      selectionMode: "preserve" | "querySlot";
       selection: RouteAddressSelection;
     }
   // The physical input takes ownership back while already focused, such as an
@@ -464,11 +465,14 @@ const routeEditorTransition: RouteEditorTransitionTable = {
   blurred: {
     clickedInput: (prev, event) => {
       const draftRouteAddress = openRouteAddressQuerySlot(event.committedRouteAddress).routeAddress;
-      const selection = readRouteAddressFocusedSelection({
-        draftRouteAddress,
-        prefix: prev.prefix,
-        selection: event.selection,
-      });
+      const selection =
+        event.selectionMode === "preserve"
+          ? event.selection
+          : readRouteAddressFocusedSelection({
+              draftRouteAddress,
+              prefix: prev.prefix,
+              selection: event.selection,
+            });
 
       return {
         actions: [{ brand: "setInputSelection", selection, timing: "afterRender" }],
@@ -999,6 +1003,7 @@ export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEdit
 
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLFormElement>(null);
+  const displayInputPointerDownRef = useRef(false);
   const pendingRenderedInputSelectionRef = useRef<RouteAddressSelection | null>(null);
 
   const runRouteEditorTransitionActions = useCallback((actions: RouteEditorAction[]) => {
@@ -1221,9 +1226,12 @@ reload, so an unapplied suggestion preview does not become durable.
 
   const handleDisplayInputFocus = useCallback(
     (event: FocusEvent<HTMLInputElement>) => {
+      const selectionMode = displayInputPointerDownRef.current ? "preserve" : "querySlot";
+      displayInputPointerDownRef.current = false;
       sendEvent({
         type: "clickedInput",
         committedRouteAddress,
+        selectionMode,
         selection: readFocusedInputSelectionFromDisplaySelection(
           prefix,
           readRouteAddressSelection(event.currentTarget),
@@ -1233,8 +1241,13 @@ reload, so an unapplied suggestion preview does not become durable.
     [committedRouteAddress, prefix, sendEvent],
   );
 
+  const handleDisplayInputPointerDown = useCallback(() => {
+    displayInputPointerDownRef.current = true;
+  }, []);
+
   const handleDisplayInputClick = useCallback(
     (event: MouseEvent<HTMLInputElement>) => {
+      displayInputPointerDownRef.current = false;
       if (event.currentTarget.value.startsWith(prefix)) {
         sendEvent({
           type: "clickedFocusedInput",
@@ -1243,16 +1256,18 @@ reload, so an unapplied suggestion preview does not become durable.
         return;
       }
 
+      // Mobile tap can deliver this display-input click before React has swapped the input to the
+      // focused full-URL value. Focus already opened edit mode; the click still owns the tapped
+      // route-only selection.
       sendEvent({
-        type: "clickedInput",
-        committedRouteAddress,
+        type: "clickedFocusedInput",
         selection: readFocusedInputSelectionFromDisplaySelection(
           prefix,
           readRouteAddressSelection(event.currentTarget),
         ),
       });
     },
-    [committedRouteAddress, prefix, sendEvent],
+    [prefix, sendEvent],
   );
 
   const handleDisplayInputChange = useCallback(
@@ -1260,6 +1275,7 @@ reload, so an unapplied suggestion preview does not become durable.
       sendEvent({
         type: "clickedInput",
         committedRouteAddress,
+        selectionMode: "querySlot",
         selection: readFocusedInputSelectionFromDisplaySelection(
           prefix,
           readRouteAddressSelection(event.currentTarget),
@@ -1701,6 +1717,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       onChange: handleDisplayInputChange,
       onClick: handleDisplayInputClick,
       onFocus: handleDisplayInputFocus,
+      onPointerDown: handleDisplayInputPointerDown,
       title: inputValue,
       value: committedRouteAddress,
     }),
@@ -1709,6 +1726,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       handleDisplayInputChange,
       handleDisplayInputClick,
       handleDisplayInputFocus,
+      handleDisplayInputPointerDown,
       inputId,
       inputValue,
     ],
