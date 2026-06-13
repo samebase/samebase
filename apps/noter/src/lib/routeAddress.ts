@@ -207,10 +207,17 @@ function readRouteAddressSearchParamSuggestions(
 }
 
 /**
-Key acceptance is structural and viewer-independent: it reads the destination
-route's schema-derived `staticData.acceptedSearchKeys` without permission or
-environment filtering, so the same draft address resolves identically for every
-viewer. Routes without the field accept only root-owned keys.
+Returns the destination path's route-owned search keys for route URL editor
+draft cleanup.
+
+Example: editing `/machines?machineId=x` into `/home?machineId=x` should drop
+`machineId`, because `/home` does not declare that key in
+`staticData.acceptedSearchKeys`. The caller handles root-owned keys separately;
+this helper only answers which keys belong to the destination route itself.
+
+Permission, route environment, and suggestion visibility are deliberately
+ignored so the same draft address canonicalizes the same way for every viewer.
+Routes without `acceptedSearchKeys` accept only root-owned keys.
 */
 export function readMatchingRouteAcceptedSearchKeys(
   path: string,
