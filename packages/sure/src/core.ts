@@ -1,3 +1,6 @@
+import { standardProps } from "./standard.ts";
+import type { SureStandardSchema } from "./standard.ts";
+
 // Copied from Zod
 // TODO: review all the types
 export type Primitive =
@@ -36,6 +39,34 @@ export type Sure<
 > = ((value: TInput) => Good<TGood> | Bad<TBad>) & TMeta;
 
 /**
+A Sure schema that also implements the
+{@link https://standardschema.dev Standard Schema} interface.
+
+Everything created through `sure()`/`pure()` (and therefore every built-in
+factory) is one of these. Plain-function validators stay plain `Sure`s — pass
+them through `standard()` (see standard.ts) to attach the `~standard` props.
+
+`Sure` remains the input-side type (what combinators accept), `StandardSure`
+the output-side type (what factories return): a raw arrow function must stay
+assignable to `Sure`, so `~standard` cannot be required there.
+
+Note the standard props are intersected into the *meta slot* of the `Sure`
+alias rather than wrapped around it. Both spell the same structural type, but
+this way generic inference against `Sure<_, _, _, infer TMeta>` (used by every
+combinator) keeps matching alias-to-alias and infers a clean
+`MetaObj<...> & StandardSchemaV1<...>` instead of swallowing the whole
+intersection.
+ */
+export type StandardSure<
+  //
+  TBad = unknown,
+  TGood = unknown,
+  TInput = unknown,
+  //
+  TMeta extends MetaNever | MetaObj = MetaNever | MetaObj,
+> = Sure<TBad, TGood, TInput, TMeta & SureStandardSchema<TInput, TGood>>;
+
+/**
 Returns the exact function back.
 But the types are inferred automatically for you.
 
@@ -53,14 +84,14 @@ Check the `sure.ts` version to check the types
 export function sure<TGood, TBad, TInput, TMeta>(
   insure: Sure<TBad, TGood, TInput>,
   meta: TMeta,
-): Sure<TBad, TGood, TInput, MetaObj<TMeta>> {
-  return Object.assign(insure, { meta });
+): StandardSure<TBad, TGood, TInput, MetaObj<TMeta>> {
+  return Object.assign(insure, { meta, "~standard": standardProps<TInput, TGood>(insure) });
 }
 
 export function pure<TGood, TBad, TInput>(
   insure: Sure<TBad, TGood, TInput, MetaNever>,
-): Sure<TBad, TGood, TInput, MetaNever> {
-  return insure;
+): StandardSure<TBad, TGood, TInput, MetaNever> {
+  return Object.assign(insure, { "~standard": standardProps<TInput, TGood>(insure) });
 }
 
 // So that `as const` is not needed for literals
@@ -135,7 +166,12 @@ export type InferInput<
       CFrom
     : never;
 
+// Extracts the `meta` property directly instead of pattern-matching the whole
+// Sure intersection — robust to the extra `~standard` props that sure()/pure()
+// attach (the old `infer CMeta` picked those up too).
 export type InferMeta<T extends Sure<unknown, unknown, any, {}>> = //
-  T extends Sure<unknown, unknown, any, infer CMeta> //
-    ? CMeta
-    : {};
+  "meta" extends keyof T
+    ? undefined extends T["meta"]
+      ? MetaNever
+      : MetaObj<T["meta"]>
+    : MetaNever | MetaObj;

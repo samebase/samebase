@@ -1,5 +1,5 @@
 import { sure, bad, good } from "./core.ts";
-import type { Sure, InferBad, InferGood, MetaNever, MetaObj } from "./core.ts";
+import type { Sure, StandardSure, InferBad, InferGood, MetaNever, MetaObj } from "./core.ts";
 
 export function array<
   //
@@ -8,9 +8,9 @@ export function array<
   TSchema extends Sure<TPropFail, TPropGood, unknown, MetaObj | MetaNever>,
 >(
   schema: TSchema,
-): Sure<
+): StandardSure<
   //
-  Array<InferBad<TSchema> | undefined>,
+  "not array" | Array<InferBad<TSchema> | undefined>,
   Array<InferGood<TSchema>>,
   unknown,
   MetaObj<{
@@ -22,7 +22,9 @@ export function array<
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
-        return bad([]);
+        // The explicit union helps sure() infer the full TBad from this first
+        // return — otherwise it locks onto "not array" alone.
+        return bad<"not array" | Array<TPropFail | undefined>>("not array");
       }
 
       let atLeastOneBad = false;

@@ -33,26 +33,26 @@ export const number = sure(
 );
 
 /**
- * Defined without using the `sure` or `pure` functions
- *
- * This is the same as the `pure` function
+ * Wrapped in `pure` so the schema carries the Standard Schema `~standard`
+ * props like every other built-in. (A raw arrow function is still a valid
+ * `Sure` — it just isn't a `StandardSure`.)
  */
-export const boolean = (x: unknown) => {
+export const boolean = pure((x: unknown) => {
   return typeof x === "boolean" //
     ? good(x)
     : bad("not boolean" as const);
-};
+});
 
-export const undef = (value: unknown) => {
+export const undef = pure((value: unknown) => {
   return value === undefined //
     ? good(value)
     : bad("not undefined" as const);
-};
+});
 
-export const nil = (value: unknown) => {
+export const nil = pure((value: unknown) => {
   return value === null //
     ? good(value)
     : bad("not null" as const);
-};
+});
 
 export const unknown = pure((x) => good(x));

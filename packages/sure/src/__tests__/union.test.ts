@@ -7,6 +7,7 @@ import type {
   InferMeta,
   MetaNever,
   MetaObj,
+  StandardSure,
   Sure,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
@@ -27,7 +28,7 @@ assertEqual<
   {
     meta: {
       type: "union";
-      first: Sure<
+      first: StandardSure<
         "not number",
         number,
         unknown,
@@ -35,7 +36,7 @@ assertEqual<
           type: "number";
         }>
       >;
-      second: Sure<
+      second: StandardSure<
         "not string",
         string,
         unknown,

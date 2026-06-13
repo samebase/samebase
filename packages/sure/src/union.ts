@@ -1,5 +1,5 @@
 import { bad, good, sure } from "./core.ts";
-import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
+import type { InferBad, InferGood, MetaNever, MetaObj, StandardSure, Sure } from "./core.ts";
 
 export function union<
   //
@@ -15,7 +15,7 @@ export function union<
 >(
   first: Sure<TFirstBad, TFirstGood, TFirstInput, TFirstMeta>,
   second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>,
-): Sure<
+): StandardSure<
   TFirstBad | TSecondBad,
   TFirstGood | TSecondGood,
   // Variance

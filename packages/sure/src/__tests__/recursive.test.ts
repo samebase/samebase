@@ -25,6 +25,7 @@ import type {
   MetaNever,
   MetaObj,
   RecurseSymbol,
+  StandardSure,
   Sure,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
@@ -62,26 +63,31 @@ describe("recursive", () => {
 
     assertEqual<
       InferredBad,
-      {
-        name?: "not string";
-        children?: (
-          | {
-              name?: "not string";
-              children?: typeof RecurseSymbol;
-            }
-          | undefined
-        )[];
-      }
+      | "not object"
+      | {
+          name?: "not string";
+          children?:
+            | "not array"
+            | (
+                | "not object"
+                | {
+                    name?: "not string";
+                    children?: typeof RecurseSymbol;
+                  }
+                | undefined
+              )[];
+        }
     >(true);
 
     assertEqual<
       InferredMeta,
       MetaObj<{
         baseObj: Sure<
-          {
-            name?: "not string";
-            children?: typeof RecurseSymbol;
-          },
+          | "not object"
+          | {
+              name?: "not string";
+              children?: typeof RecurseSymbol;
+            },
           {
             name: string;
             children: typeof RecurseSymbol;
@@ -90,10 +96,11 @@ describe("recursive", () => {
         >;
         childParser: (
           surer: Sure<
-            {
-              name?: "not string";
-              children?: typeof RecurseSymbol;
-            },
+            | "not object"
+            | {
+                name?: "not string";
+                children?: typeof RecurseSymbol;
+              },
             {
               name: string;
               children: typeof RecurseSymbol;
@@ -101,13 +108,15 @@ describe("recursive", () => {
             unknown
           >,
         ) => Sure<
-          (
-            | {
-                name?: "not string";
-                children?: typeof RecurseSymbol;
-              }
-            | undefined
-          )[],
+          | "not array"
+          | (
+              | "not object"
+              | {
+                  name?: "not string";
+                  children?: typeof RecurseSymbol;
+                }
+              | undefined
+            )[],
           {
             name: string;
             children: typeof RecurseSymbol;
@@ -119,7 +128,7 @@ describe("recursive", () => {
 
     assertEqual<
       typeof recurseSure,
-      Sure<
+      StandardSure<
         //
         InferredBad,
         InferredGood,
@@ -214,44 +223,47 @@ describe("recursive", () => {
 
     assertEqual<
       InferredBad,
-      {
-        value?: "not number";
-        left?:
-          | {
-              value?: "not number";
-              left?: typeof RecurseSymbol;
-              right?: typeof RecurseSymbol;
-            }
-          | {
-              parent?: "not number";
-            }
-          | `not literal string (${string})`
-          | `not literal number (${string})`
-          | `not literal bigint (${string})`
-          | `not literal boolean (${string})`
-          | `not literal symbol (${string})`
-          | `not literal undefined (${string})`
-          | `not literal object (${string})`
-          | `not literal function (${string})`;
+      | "not object"
+      | {
+          value?: "not number";
+          left?:
+            | "not object"
+            | {
+                value?: "not number";
+                left?: typeof RecurseSymbol;
+                right?: typeof RecurseSymbol;
+              }
+            | {
+                parent?: "not number";
+              }
+            | `not literal string (${string})`
+            | `not literal number (${string})`
+            | `not literal bigint (${string})`
+            | `not literal boolean (${string})`
+            | `not literal symbol (${string})`
+            | `not literal undefined (${string})`
+            | `not literal object (${string})`
+            | `not literal function (${string})`;
 
-        right?:
-          | {
-              value?: "not number";
-              left?: typeof RecurseSymbol;
-              right?: typeof RecurseSymbol;
-            }
-          | {
-              parent?: "not number";
-            }
-          | `not literal string (${string})`
-          | `not literal number (${string})`
-          | `not literal bigint (${string})`
-          | `not literal boolean (${string})`
-          | `not literal symbol (${string})`
-          | `not literal undefined (${string})`
-          | `not literal object (${string})`
-          | `not literal function (${string})`;
-      }
+          right?:
+            | "not object"
+            | {
+                value?: "not number";
+                left?: typeof RecurseSymbol;
+                right?: typeof RecurseSymbol;
+              }
+            | {
+                parent?: "not number";
+              }
+            | `not literal string (${string})`
+            | `not literal number (${string})`
+            | `not literal bigint (${string})`
+            | `not literal boolean (${string})`
+            | `not literal symbol (${string})`
+            | `not literal undefined (${string})`
+            | `not literal object (${string})`
+            | `not literal function (${string})`;
+        }
     >(true);
 
     it("should work for complex things", () => {

@@ -11,6 +11,7 @@ import {
   InferMeta,
   object,
   string,
+  StandardSure,
   Sure,
   Good,
   Bad,
@@ -108,6 +109,7 @@ const sureBig = after(
 
   assertEqual<
     InferredBad,
+    | "not object"
     | {
         age?: "not number" | "not positive" | "not integer" | "too old, sorry";
         name?: "not string";
@@ -122,11 +124,12 @@ const sureBig = after(
     {
       meta: {
         type: "after";
-        first: Sure<
-          {
-            age?: "not number" | "not positive" | "not integer" | "too old, sorry";
-            name?: "not string";
-          },
+        first: StandardSure<
+          | "not object"
+          | {
+              age?: "not number" | "not positive" | "not integer" | "too old, sorry";
+              name?: "not string";
+            },
           {
             age: number;
             name: string;
@@ -135,7 +138,7 @@ const sureBig = after(
           MetaObj<{
             type: "object";
             schema: {
-              age: Sure<
+              age: StandardSure<
                 "not number" | "not positive" | "not integer" | "too old, sorry",
                 number,
                 unknown,

@@ -6,6 +6,7 @@ import {
   InferMeta,
   MetaNever,
   MetaObj,
+  StandardSure,
   Sure,
   number,
   object,
@@ -42,11 +43,12 @@ assertEqual<
 
 assertEqual<
   InferredBad,
-  {
-    name?: "not string";
-    age?: "not number";
-    lastName?: "not string" | "not undefined";
-  }
+  | "not object"
+  | {
+      name?: "not string";
+      age?: "not number";
+      lastName?: "not string" | "not undefined";
+    }
 >(true);
 
 assertEqual<InferredInput, unknown>(true);
@@ -57,7 +59,7 @@ assertEqual<
     meta: {
       type: "object";
       schema: {
-        name: Sure<
+        name: StandardSure<
           "not string",
           string,
           unknown,
@@ -65,13 +67,13 @@ assertEqual<
             type: "string";
           }>
         >;
-        age: Sure<
+        age: StandardSure<
           "not number",
           number,
           unknown,
           MetaObj<{
             type: "optional";
-            schema: Sure<
+            schema: StandardSure<
               "not number",
               number,
               unknown,
@@ -81,19 +83,19 @@ assertEqual<
             >;
           }>
         >;
-        lastName: Sure<
+        lastName: StandardSure<
           "not string" | "not undefined",
           string | undefined,
           unknown,
           MetaObj<{
             type: "optional";
-            schema: Sure<
+            schema: StandardSure<
               "not string" | "not undefined",
               string | undefined,
               unknown,
               MetaObj<{
                 type: "union";
-                first: Sure<
+                first: StandardSure<
                   "not string",
                   string,
                   unknown,
@@ -101,7 +103,7 @@ assertEqual<
                     type: "string";
                   }>
                 >;
-                second: Sure<"not undefined", undefined, unknown, MetaNever | MetaObj>;
+                second: StandardSure<"not undefined", undefined, unknown, MetaNever>;
               }>
             >;
           }>
@@ -113,7 +115,7 @@ assertEqual<
 
 assertEqual<
   typeof optionalObj,
-  Sure<
+  StandardSure<
     //
     InferredBad,
     InferredGood,

@@ -17,6 +17,7 @@ import type {
   InferInput,
   InferMeta,
   Sure,
+  StandardSure,
   MetaObj,
   MetaNever,
   Good,
@@ -39,7 +40,8 @@ const someTuple = tuple([number, string, boolean]);
   assertEqual<InferredGood, [number, string, boolean]>(true);
   assertEqual<
     InferredBad,
-    ["not number" | undefined, "not string" | undefined, "not boolean" | undefined]
+    | "not array"
+    | ["not number" | undefined, "not string" | undefined, "not boolean" | undefined]
   >(true);
   assertEqual<
     InferredMeta,
@@ -47,7 +49,7 @@ const someTuple = tuple([number, string, boolean]);
       meta: {
         type: "tuple";
         schema: [
-          Sure<
+          StandardSure<
             "not number",
             number,
             unknown,
@@ -55,7 +57,7 @@ const someTuple = tuple([number, string, boolean]);
               type: "number";
             }>
           >,
-          Sure<
+          StandardSure<
             "not string",
             string,
             unknown,
@@ -63,7 +65,7 @@ const someTuple = tuple([number, string, boolean]);
               type: "string";
             }>
           >,
-          (x: unknown) => Good<boolean> | Bad<"not boolean">,
+          StandardSure<"not boolean", boolean, unknown, MetaNever>,
         ];
       };
     }
@@ -88,12 +90,12 @@ const myTuple = tuple([
   assertEqual<InferredGood, [string, ...number[], string]>(true);
   assertEqual<
     InferredBad,
-    [
-      //
-      "not string" | undefined,
-      ...("not number" | undefined)[],
-      "not string" | undefined,
-    ]
+    // The spread element's bad is now a union ("not array" | element bads), and
+    // TupleInferBads distributes over it: the array member still spreads, the
+    // "not array" member stays as a single middle element.
+    | "not array"
+    | ["not string" | undefined, "not array" | undefined, "not string" | undefined]
+    | ["not string" | undefined, ...("not number" | undefined)[], "not string" | undefined]
   >(true);
 
   assertEqual<
@@ -104,7 +106,7 @@ const myTuple = tuple([
         schema: [
           typeof string,
           Sure<
-            ("not number" | undefined)[],
+            "not array" | ("not number" | undefined)[],
             number[],
             unknown,
             MetaObj<{
@@ -119,8 +121,8 @@ const myTuple = tuple([
                   schema: Arr;
                 }>
               >;
-              schema: Sure<
-                ("not number" | undefined)[],
+              schema: StandardSure<
+                "not array" | ("not number" | undefined)[],
                 number[],
                 unknown,
                 MetaObj<{
@@ -155,12 +157,10 @@ const smallSchema = tuple([
   assertEqual<InferredGood, [undefined, ...string[], number]>(true);
   assertEqual<
     InferredBad,
-    [
-      //
-      "not undefined" | undefined,
-      ...("not string" | undefined)[],
-      "not number" | undefined,
-    ]
+    // Same distribution as above.
+    | "not array"
+    | ["not undefined" | undefined, "not array" | undefined, "not number" | undefined]
+    | ["not undefined" | undefined, ...("not string" | undefined)[], "not number" | undefined]
   >(true);
 
   assertEqual<
@@ -169,9 +169,9 @@ const smallSchema = tuple([
       meta: {
         type: "tuple";
         schema: [
-          (value: unknown) => Good<undefined> | Bad<"not undefined">,
+          StandardSure<"not undefined", undefined, unknown, MetaNever>,
           Sure<
-            ("not string" | undefined)[],
+            "not array" | ("not string" | undefined)[],
             string[],
             unknown,
             MetaObj<{
@@ -186,13 +186,13 @@ const smallSchema = tuple([
                   schema: Arr;
                 }>
               >;
-              schema: Sure<
-                ("not string" | undefined)[],
+              schema: StandardSure<
+                "not array" | ("not string" | undefined)[],
                 string[],
                 unknown,
                 MetaObj<{
                   type: "array";
-                  schema: Sure<
+                  schema: StandardSure<
                     "not string",
                     string,
                     unknown,
@@ -204,7 +204,7 @@ const smallSchema = tuple([
               >;
             }>
           >,
-          Sure<
+          StandardSure<
             "not number",
             number,
             unknown,

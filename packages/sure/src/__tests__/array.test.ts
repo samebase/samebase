@@ -6,6 +6,7 @@ import type {
   InferInput,
   InferMeta,
   Sure,
+  StandardSure,
   MetaObj,
   MetaNever,
 } from "../index.ts";
@@ -21,14 +22,14 @@ type InferredInput = InferInput<typeof someArray>;
 type InferredMeta = InferMeta<typeof someArray>;
 
 assertEqual<InferredGood, number[]>(true);
-assertEqual<InferredBad, ("not number" | undefined)[]>(true);
+assertEqual<InferredBad, "not array" | ("not number" | undefined)[]>(true);
 assertEqual<InferredInput, unknown>(true);
 assertEqual<
   InferredMeta,
   {
     meta: {
       type: "array";
-      schema: Sure<
+      schema: StandardSure<
         "not number",
         number,
         unknown,

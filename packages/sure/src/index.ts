@@ -13,3 +13,6 @@ export * from "./intersection.ts";
 export * from "./recursive.ts";
 
 export * from "./err.ts";
+
+export * from "./standard.ts";
+export type { StandardSchemaV1, StandardTypedV1 } from "./standardSpec.ts";

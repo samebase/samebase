@@ -8,6 +8,7 @@ import {
   InferInput,
   InferMeta,
   Sure,
+  StandardSure,
   MetaObj,
   MetaNever,
   pure,
@@ -210,7 +211,7 @@ describe("core", () => {
   it("should have strong types with meta", () => {
     assertEqual<
       typeof sureStringMeta,
-      Sure<
+      StandardSure<
         //
         "not a string",
         string,
@@ -234,7 +235,9 @@ describe("core", () => {
   });
 
   it("should have strong types for validators with custom input", () => {
-    assertEqual<typeof sureNonEmptyString, Sure<"empty string", string, string, MetaNever>>(true);
+    assertEqual<typeof sureNonEmptyString, StandardSure<"empty string", string, string, MetaNever>>(
+      true,
+    );
 
     assertEqual<InferGood<typeof sureNonEmptyString>, string>(true);
     assertEqual<InferBad<typeof sureNonEmptyString>, "empty string">(true);
@@ -245,7 +248,7 @@ describe("core", () => {
   it("should have strong types for validators with multiple errors", () => {
     assertEqual<
       typeof sureMultipleErrors,
-      Sure<"not a string" | "too small" | "too big", string & {}, unknown, MetaNever>
+      StandardSure<"not a string" | "too small" | "too big", string & {}, unknown, MetaNever>
     >(true);
 
     assertEqual<InferGood<typeof sureMultipleErrors>, string & {}>(true);

@@ -1,5 +1,5 @@
 import { sure, good, bad } from "./core.ts";
-import type { Sure, InferGood, InferBad, MetaNever, MetaObj } from "./core.ts";
+import type { Sure, StandardSure, InferGood, InferBad, MetaNever, MetaObj } from "./core.ts";
 import type { KVPair, Objectify, Prettify, Unionize } from "./utils.ts";
 
 type PickOptionalsGood<T extends KVPair<Sure>> = T extends {
@@ -48,7 +48,7 @@ export function isObject(x: unknown): x is Record<string, unknown> {
  */
 export function optional<TSchema extends Sure<unknown, unknown, any>>(
   schema: TSchema,
-): Sure<
+): StandardSure<
   InferBad<TSchema>,
   InferGood<TSchema>,
   unknown,
@@ -75,8 +75,8 @@ export function object<
   TSchema extends Record<string, Sure<TPropFail, TPropGood, unknown>>,
 >(
   schema: TSchema,
-): Sure<
-  { [K in keyof TSchema & string]?: InferBad<TSchema[K]> },
+): StandardSure<
+  "not object" | { [K in keyof TSchema & string]?: InferBad<TSchema[K]> },
   InferSchemaGood<TSchema>,
   unknown,
   MetaObj<{
@@ -89,7 +89,7 @@ export function object<
   return sure(
     (value) => {
       if (!isObject(value)) {
-        return bad({});
+        return bad("not object" as const);
       }
 
       const groupFail = {};

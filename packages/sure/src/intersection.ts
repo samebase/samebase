@@ -1,5 +1,5 @@
 import { sure, bad, good } from "./core.ts";
-import type { MetaNever, MetaObj, Sure } from "./core.ts";
+import type { MetaNever, MetaObj, StandardSure, Sure } from "./core.ts";
 
 export function intersection<
   //
@@ -15,7 +15,7 @@ export function intersection<
 >(
   first: Sure<TFirstBad, TFirstGood, TFirstInput, TFirstMeta>,
   second: Sure<TSecondBad, TSecondGood, TSecondInput, TSecondMeta>,
-): Sure<
+): StandardSure<
   TFirstBad | TSecondBad,
   TFirstGood & TSecondGood,
   // Variance

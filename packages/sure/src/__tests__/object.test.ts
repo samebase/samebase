@@ -21,6 +21,7 @@ import type {
   InferSchemaGood,
   MetaNever,
   MetaObj,
+  StandardSure,
   Sure,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
@@ -66,15 +67,16 @@ assertEqual<
 
 assertEqual<
   InferredBad,
-  {
-    age?: "not number";
-    firstName?: "not string (sure)";
-    middleName?: "not string (pure)";
-    lastName?: "not string (raw)";
-    address?: {
-      country?: "not string";
-    };
-  }
+  | "not object"
+  | {
+      age?: "not number";
+      firstName?: "not string (sure)";
+      middleName?: "not string (pure)";
+      lastName?: "not string (raw)";
+      address?: "not object" | {
+        country?: "not string";
+      };
+    }
 >(true);
 
 assertEqual<InferredInput, unknown>(true);
@@ -85,7 +87,7 @@ assertEqual<
     meta: {
       type: "object";
       schema: {
-        age: Sure<
+        age: StandardSure<
           "not number",
           number,
           unknown,
@@ -93,15 +95,16 @@ assertEqual<
             type: "number";
           }>
         >;
-        firstName: Sure<"not string (sure)", string, unknown, MetaNever>;
-        middleName: Sure<"not string (pure)", string, unknown, MetaNever>;
+        firstName: StandardSure<"not string (sure)", string, unknown, MetaNever>;
+        middleName: StandardSure<"not string (pure)", string, unknown, MetaNever>;
         lastName: (
           value: unknown,
         ) => readonly [true, string] | readonly [false, "not string (raw)"];
-        address: Sure<
-          {
-            country?: "not string";
-          },
+        address: StandardSure<
+          | "not object"
+          | {
+              country?: "not string";
+            },
           {
             country: string;
           },
@@ -109,7 +112,7 @@ assertEqual<
           MetaObj<{
             type: "object";
             schema: {
-              country: Sure<
+              country: StandardSure<
                 "not string",
                 string,
                 unknown,
@@ -125,7 +128,9 @@ assertEqual<
   }
 >(true);
 
-assertEqual<typeof someObj, Sure<InferredBad, InferredGood, InferredInput, InferredMeta>>(true);
+assertEqual<typeof someObj, StandardSure<InferredBad, InferredGood, InferredInput, InferredMeta>>(
+  true,
+);
 
 describe("object", () => {
   it("should return good value", () => {

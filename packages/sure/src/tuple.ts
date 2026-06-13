@@ -1,5 +1,5 @@
 import { bad, good, sure } from "./core.ts";
-import type { InferBad, InferGood, MetaNever, MetaObj, Sure } from "./core.ts";
+import type { InferBad, InferGood, MetaNever, MetaObj, StandardSure, Sure } from "./core.ts";
 import { isObject } from "./object.ts";
 
 // TODO: add tests, also implement tuple spread
@@ -77,9 +77,9 @@ export function tuple<
   Arr extends [Sure<unknown, unknown, any>, ...Sure<unknown, unknown, any>[]] | [],
 >(
   arr: Arr,
-): Sure<
+): StandardSure<
   //
-  TupleInferBads<Arr>,
+  "not array" | TupleInferBads<Arr>,
   TupleInferGoods<Arr>,
   unknown,
   MetaObj<{
@@ -91,7 +91,9 @@ export function tuple<
   const struct = sure(
     (value) => {
       if (!Array.isArray(value)) {
-        return bad([]);
+        // The explicit union helps sure() infer the full TBad from this first
+        // return — otherwise it locks onto "not array" alone.
+        return bad<"not array" | unknown[]>("not array");
       }
 
       let atLeastOneBad = false;

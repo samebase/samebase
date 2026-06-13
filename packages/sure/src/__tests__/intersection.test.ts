@@ -8,6 +8,7 @@ import type {
   InferSchemaGood,
   MetaNever,
   MetaObj,
+  StandardSure,
   Sure,
 } from "../index.ts";
 import { assertEqual } from "./typeTestUtils.ts";
@@ -30,17 +31,18 @@ type InferredInput = InferInput<typeof simple>;
 type InferredMeta = InferMeta<typeof simple>;
 
 assertEqual<InferredGood, { name: string } & { age: number }>(true);
-assertEqual<InferredBad, { name?: "not string" } | { age?: "not number" }>(true);
+assertEqual<InferredBad, "not object" | { name?: "not string" } | { age?: "not number" }>(true);
 assertEqual<InferredInput, unknown>(true); // The input needs more tests
 assertEqual<
   InferredMeta,
   {
     meta: {
       type: "intersection";
-      first: Sure<
-        {
-          name?: "not string";
-        },
+      first: StandardSure<
+        | "not object"
+        | {
+            name?: "not string";
+          },
         {
           name: string;
         },
@@ -48,7 +50,7 @@ assertEqual<
         MetaObj<{
           type: "object";
           schema: {
-            name: Sure<
+            name: StandardSure<
               "not string",
               string,
               unknown,
@@ -59,10 +61,11 @@ assertEqual<
           };
         }>
       >;
-      second: Sure<
-        {
-          age?: "not number";
-        },
+      second: StandardSure<
+        | "not object"
+        | {
+            age?: "not number";
+          },
         {
           age: number;
         },
@@ -70,7 +73,7 @@ assertEqual<
         MetaObj<{
           type: "object";
           schema: {
-            age: Sure<
+            age: StandardSure<
               "not number",
               number,
               unknown,
@@ -114,6 +117,7 @@ describe("and", () => {
     if (value[0] === false) {
       assertEqual<
         (typeof value)[1],
+        | "not object"
         | {
             name?: "not string";
           }

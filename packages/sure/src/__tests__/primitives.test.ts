@@ -4,6 +4,7 @@ import {
   InferGood,
   InferInput,
   Sure,
+  StandardSure,
   good,
   sure,
   bad,
@@ -24,7 +25,9 @@ describe("primitives", () => {
   it("should return good value", () => {
     nonEmptyString("1");
 
-    assertEqual<typeof nonEmptyString, Sure<"not string", string, unknown, MetaNever>>(true);
+    assertEqual<typeof nonEmptyString, StandardSure<"not string", string, unknown, MetaNever>>(
+      true,
+    );
 
     assertEqual<InferGood<typeof nonEmptyString>, string>(true);
     assertEqual<InferBad<typeof nonEmptyString>, "not string">(true);
