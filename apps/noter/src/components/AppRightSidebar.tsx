@@ -1,6 +1,9 @@
 import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
+import {
+  PublicLandingAccountLoadingSection,
+  PublicLandingAccountSection,
+} from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { useApiKeyConnectDialog, type ApiKeyProvider } from "@/components/ApiKeyConnectDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -502,9 +505,8 @@ function AuthenticatedAppRightSidebarContent() {
         : "Not connected",
     },
   };
-  const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
-  const accountEmail = user?.email ?? user?.githubUsername ?? user?.name ?? null;
-  const accountDisplayName = userDisplayName ?? accountEmail;
+  const accountEmail = user?.email ?? user?.githubUsername ?? user?.name ?? "Signed in";
+  const accountDisplayName = user?.name ?? user?.email ?? user?.githubUsername ?? "Account";
   const accountProviderLabel = authProviders?.primaryProvider
     ? formatAuthProviderLabel(authProviders.primaryProvider)
     : null;
@@ -763,7 +765,7 @@ function AuthenticatedAppRightSidebarContent() {
 
   return (
     <VaultDashboardSidebarContent>
-      {user && accountEmail && accountDisplayName ? (
+      {user ? (
         <VaultDashboardAccountSection
           displayName={accountDisplayName}
           email={accountEmail}
@@ -778,7 +780,9 @@ function AuthenticatedAppRightSidebarContent() {
           providerLabel={accountProviderLabel}
           signOutDisabled={false}
         />
-      ) : null}
+      ) : (
+        <PublicLandingAccountLoadingSection />
+      )}
       <VaultDashboardProvidersSection
         onOpenChange={(isOpen) => {
           void setProvidersPanelOpen({ isOpen }).catch((error: unknown) => {
