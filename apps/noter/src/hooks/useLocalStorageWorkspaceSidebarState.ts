@@ -1,8 +1,10 @@
-import { guard, isRecord } from "@noter-md/dependent";
 import * as React from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_VERSION } from "@/lib/appWorkspaceSidebarPreferences";
+import {
+  APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+  appWorkspaceSidebarStoredStateSchema,
+} from "@/lib/appWorkspaceSidebarPreferences";
 import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
 import type {
   WorkspaceSidebarStateController,
@@ -49,87 +51,6 @@ function areWorkspaceSidebarStatesEqual(left: WorkspaceSidebarState, right: Work
   return serializeWorkspaceSidebarState(left) === serializeWorkspaceSidebarState(right);
 }
 
-function parseMobilePane(value: unknown): WorkspaceSidebarState["mobilePane"] | null {
-  if (value === "left" || value === "main" || value === "right") {
-    return value;
-  }
-
-  return null;
-}
-
-const isFiniteNumber = guard<unknown, number>((value) =>
-  typeof value === "number" && Number.isFinite(value) ? value : null,
-);
-
-function parseMobileSurface(value: unknown): WorkspaceSidebarState["mobileSurface"] | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (value.kind === "unmerged") {
-    return { kind: "unmerged" };
-  }
-
-  if (
-    value.kind === "merged" &&
-    (value.side === "left" || value.side === "right") &&
-    isFiniteNumber(value.mainWidthPx) &&
-    value.mainWidthPx >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX
-  ) {
-    return {
-      kind: "merged",
-      mainWidthPx: value.mainWidthPx,
-      side: value.side,
-    };
-  }
-
-  return null;
-}
-
-function parseWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const mobilePane = parseMobilePane(value.mobilePane);
-  const mobileSurface = parseMobileSurface(value.mobileSurface);
-  if (
-    typeof value.leftDesktopOpen !== "boolean" ||
-    !isFiniteNumber(value.leftDesktopWidthPx) ||
-    !isFiniteNumber(value.leftMobileWidthPx) ||
-    mobilePane === null ||
-    mobileSurface === null ||
-    typeof value.rightDesktopOpen !== "boolean" ||
-    !isFiniteNumber(value.rightDesktopWidthPx) ||
-    !isFiniteNumber(value.rightMobileWidthPx)
-  ) {
-    return null;
-  }
-
-  return {
-    leftDesktopOpen: value.leftDesktopOpen,
-    leftDesktopWidthPx: value.leftDesktopWidthPx,
-    leftMobileWidthPx: value.leftMobileWidthPx,
-    mobilePane,
-    mobileSurface,
-    rightDesktopOpen: value.rightDesktopOpen,
-    rightDesktopWidthPx: value.rightDesktopWidthPx,
-    rightMobileWidthPx: value.rightMobileWidthPx,
-  };
-}
-
-function parseStoredWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (value.version !== APP_WORKSPACE_SIDEBAR_STORAGE_VERSION) {
-    return null;
-  }
-
-  return parseWorkspaceSidebarState(value.state);
-}
-
 function readLocalStorageWorkspaceSidebarState({
   defaults,
   reset,
@@ -149,12 +70,16 @@ function readLocalStorageWorkspaceSidebarState({
       return defaults;
     }
 
-    const storedState = parseStoredWorkspaceSidebarState(JSON.parse(storedValue));
-    if (storedState === null) {
+    const storedState = appWorkspaceSidebarStoredStateSchema({
+      mobileMainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
+      storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+      value: JSON.parse(storedValue),
+    });
+    if (!storedState[0]) {
       return defaults;
     }
 
-    return storedState;
+    return storedState[1];
   } catch (error: unknown) {
     console.warn("Failed to read local workspace sidebar state:", error);
     return defaults;
