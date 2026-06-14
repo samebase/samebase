@@ -133,6 +133,53 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('title="Open branch on GitHub"');
   });
 
+  it("keeps the default branch Noter link pointed at the branch editor", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="noter-md/noter"
+          branch={{
+            name: "main",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="/vault/noter-md/noter/main"');
+    expect(markup).toContain('title="Open branch in Noter"');
+    expect(markup).toContain(">Edit<");
+    expect(markup).not.toContain(">View changes<");
+    expect(markup).not.toContain("?compare");
+  });
+
+  it("links non-default branch Noter actions to changed files", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="noter-md/noter"
+          branch={{
+            name: "codex/view changes",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            isDefault: false,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="/vault/noter-md/noter/codex%2Fview%20changes?compare"');
+    expect(markup).toContain('title="View changes in Noter"');
+    expect(markup).toContain(">View changes<");
+    expect(markup).not.toContain(">Edit<");
+  });
+
   it("links the default branch to the production app URL", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>

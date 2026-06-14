@@ -51,6 +51,7 @@ import {
 import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/lib/fileViewRouteSearch";
 import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
@@ -1941,9 +1942,10 @@ const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
   github: GitHubProviderLogo,
 };
 
-function buildVaultDashboardBranchEditRoute(args: {
+function buildVaultDashboardBranchNoterRoute(args: {
   repositoryFullName: string;
   branchName: string;
+  openChangedFiles: boolean;
 }): string | null {
   const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
 
@@ -1957,10 +1959,20 @@ function buildVaultDashboardBranchEditRoute(args: {
     return null;
   }
 
-  return buildVaultFileRoute({
+  const branchRoute = buildVaultFileRoute({
     owner,
     repoName,
     branch: args.branchName,
+  });
+
+  if (!args.openChangedFiles) {
+    return branchRoute;
+  }
+
+  return buildFileViewSearchHref({
+    pathname: branchRoute,
+    search: {},
+    fileViewSearch: buildFileViewRouteSearch({ compare: true }),
   });
 }
 
@@ -2046,10 +2058,13 @@ export function VaultBranchLinkContent({
     hasPullRequestTitle ? "font-mono text-muted-foreground" : "text-muted-foreground",
     !hasPullRequestTitle && branch.isDefault && "font-medium text-foreground",
   );
-  const branchEditRoute = buildVaultDashboardBranchEditRoute({
+  const branchNoterRoute = buildVaultDashboardBranchNoterRoute({
     repositoryFullName,
     branchName: branch.name,
+    openChangedFiles: !branch.isDefault,
   });
+  const branchNoterLinkLabel = branch.isDefault ? "Edit" : "View changes";
+  const branchNoterLinkTitle = branch.isDefault ? "Open branch in Noter" : "View changes in Noter";
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
     pullRequestNumber: branch.pullRequestNumber,
     cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
@@ -2226,17 +2241,17 @@ export function VaultBranchLinkContent({
                 </a>
               </div>
             ) : null}
-            {branchEditRoute ? (
+            {branchNoterRoute ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <Link
-                  to={branchEditRoute}
+                  to={branchNoterRoute}
                   className={clsx(metadataLinkClassName, "gap-1.5")}
-                  title="Open branch in Noter"
+                  title={branchNoterLinkTitle}
                 >
                   <DashboardLinkIconSlot>
                     <NoterLogoMark />
                   </DashboardLinkIconSlot>
-                  <span>Edit</span>
+                  <span>{branchNoterLinkLabel}</span>
                 </Link>
               </div>
             ) : null}
