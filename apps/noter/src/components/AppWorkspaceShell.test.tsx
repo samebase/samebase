@@ -13,10 +13,6 @@ import {
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import {
-  WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
-  WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
-} from "@/components/workspace-layout-v2/workspaceLayoutV2Prehydration";
 
 const { act, useState } = React;
 const { useConvexAuthMock, useQueryMock } = vi.hoisted(() => ({
@@ -51,6 +47,11 @@ const LOCAL_SIDEBAR_STATE = {
   rightDesktopWidthPx: 340,
   rightMobileWidthPx: 340,
 } satisfies WorkspaceSidebarState;
+
+const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR =
+  "style#noter-app-workspace-sidebar-prehydration";
+const APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR =
+  ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
 
 const SERVER_SIDEBAR_STATE = {
   leftDesktopOpen: true,
@@ -201,6 +202,20 @@ describe("AppWorkspaceShell", () => {
     return element;
   }
 
+  function getRequiredDocumentElement(selector: string) {
+    const element = document.querySelector(selector);
+    if (!(element instanceof HTMLElement)) {
+      throw new Error(`Expected document element matching ${selector}.`);
+    }
+
+    return element;
+  }
+
+  function getRequiredPrehydrationStyleText() {
+    return getRequiredDocumentElement(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)
+      .textContent;
+  }
+
   function readStoredAppWorkspaceSidebarState() {
     const storedValue = window.localStorage.getItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY);
     if (storedValue === null) {
@@ -313,34 +328,31 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expect(
-      document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
-      ),
-    ).toBe("360px");
-    expect(
-      document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
-      ),
-    ).toBe("420px");
+    expect(document.documentElement.getAttribute("style") ?? "").not.toContain(
+      "workspace-layout-v2-prehydrated",
+    );
+    expect(getRequiredPrehydrationStyleText()).toBe(
+      `@media (min-width:768px){${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane{width:360px!important;}${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane{width:420px!important;}}`,
+    );
 
     const recoverableErrors = await hydrateClientShellFromServerMarkup();
 
     const viewport = getRequiredElement('[data-testid="workspace-layout-v2-pane-main"]');
     expect(viewport.getAttribute("style")).toContain(
-      `--workspace-layout-v2-left-desktop-width: var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY}, 360px)`,
+      "--workspace-layout-v2-left-desktop-width: 360px",
     );
     expect(viewport.getAttribute("style")).toContain(
-      `--workspace-layout-v2-right-desktop-width: var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY}, 420px)`,
+      "--workspace-layout-v2-right-desktop-width: 420px",
     );
+    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
     expect(
       document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+        "--workspace-layout-v2-prehydrated-left-desktop-width",
       ),
     ).toBe("");
     expect(
       document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+        "--workspace-layout-v2-prehydrated-right-desktop-width",
       ),
     ).toBe("");
     expect(recoverableErrors).toEqual([]);
@@ -363,12 +375,12 @@ describe("AppWorkspaceShell", () => {
 
     expect(
       document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+        "--workspace-layout-v2-prehydrated-left-desktop-width",
       ),
     ).toBe("");
     expect(
       document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+        "--workspace-layout-v2-prehydrated-right-desktop-width",
       ),
     ).toBe("");
   });
@@ -388,16 +400,9 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expect(
-      document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
-      ),
-    ).toBe("0px");
-    expect(
-      document.documentElement.style.getPropertyValue(
-        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
-      ),
-    ).toBe("0px");
+    expect(getRequiredPrehydrationStyleText()).toBe(
+      `@media (min-width:768px){${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane{width:0px!important;}${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane{width:0px!important;}}`,
+    );
   });
 
   it("uses default sidebar width fallbacks in server markup", () => {
@@ -409,11 +414,7 @@ describe("AppWorkspaceShell", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(
-      `--workspace-layout-v2-left-desktop-width:var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY}, 240px)`,
-    );
-    expect(markup).toContain(
-      `--workspace-layout-v2-right-desktop-width:var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY}, 288px)`,
-    );
+    expect(markup).toContain("--workspace-layout-v2-left-desktop-width:240px");
+    expect(markup).toContain("--workspace-layout-v2-right-desktop-width:288px");
   });
 });

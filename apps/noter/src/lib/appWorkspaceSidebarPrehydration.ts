@@ -13,8 +13,7 @@ type AppWorkspaceSidebarPrehydrationArgs = {
   storageKey: string;
   storageVersion: number;
   desktopSidebarMinWidthPx: number;
-  leftDesktopWidthProperty: string;
-  rightDesktopWidthProperty: string;
+  styleElementId: string;
 };
 
 type AppWorkspaceSidebarPrehydrationState = Pick<
@@ -22,12 +21,20 @@ type AppWorkspaceSidebarPrehydrationState = Pick<
   "leftDesktopOpen" | "leftDesktopWidthPx" | "rightDesktopOpen" | "rightDesktopWidthPx"
 >;
 
+const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
+  "noter-app-workspace-sidebar-prehydration";
+
+declare global {
+  interface Window {
+    __noterAppWorkspaceSidebarPrehydrationStyleSheet?: CSSStyleSheet;
+  }
+}
+
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-  leftDesktopWidthProperty: WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
-  rightDesktopWidthProperty: WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
   storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+  styleElementId: APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID,
 } satisfies AppWorkspaceSidebarPrehydrationArgs;
 
 function getWorkspaceSidebarState(value: unknown): AppWorkspaceSidebarPrehydrationState | null {
@@ -64,6 +71,25 @@ function InlineScript_prehidrateSidebar(
   args: AppWorkspaceSidebarPrehydrationArgs,
   readWorkspaceSidebarState: typeof getWorkspaceSidebarState,
 ) {
+  function installPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
+    const viewportSelector =
+      ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
+    const cssText = `@media (min-width:768px){${viewportSelector} .workspace-layout-v2-responsive-left-pane{width:${leftDesktopWidth}!important;}${viewportSelector} .workspace-layout-v2-responsive-right-pane{width:${rightDesktopWidth}!important;}}`;
+
+    if ("adoptedStyleSheets" in document && typeof CSSStyleSheet === "function") {
+      const styleSheet = new CSSStyleSheet();
+      styleSheet.replaceSync(cssText);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, styleSheet];
+      window.__noterAppWorkspaceSidebarPrehydrationStyleSheet = styleSheet;
+      return;
+    }
+
+    const styleElement = document.createElement("style");
+    styleElement.id = args.styleElementId;
+    styleElement.textContent = cssText;
+    document.head.append(styleElement);
+  }
+
   function readDesktopWidth(open: boolean, width: number) {
     if (!open) return "0px";
 
@@ -85,15 +111,22 @@ function InlineScript_prehidrateSidebar(
     const leftDesktopWidth = readDesktopWidth(state.leftDesktopOpen, state.leftDesktopWidthPx);
     const rightDesktopWidth = readDesktopWidth(state.rightDesktopOpen, state.rightDesktopWidthPx);
 
-    const rootStyle = document.documentElement.style;
-    rootStyle.setProperty(args.leftDesktopWidthProperty, leftDesktopWidth);
-    rootStyle.setProperty(args.rightDesktopWidthProperty, rightDesktopWidth);
+    installPrehydrationStyle(leftDesktopWidth, rightDesktopWidth);
   } catch {}
 }
 
 export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehidrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)}, ${getWorkspaceSidebarState.toString()});`;
 
 export function clearAppWorkspaceSidebarPrehydrationStyle() {
+  const styleSheet = window.__noterAppWorkspaceSidebarPrehydrationStyleSheet;
+  if (styleSheet !== undefined) {
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+      (candidateStyleSheet) => candidateStyleSheet !== styleSheet,
+    );
+    window.__noterAppWorkspaceSidebarPrehydrationStyleSheet = undefined;
+  }
+
+  document.getElementById(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID)?.remove();
   document.documentElement.style.removeProperty(
     WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
   );

@@ -1,10 +1,6 @@
 import { type CSSProperties, type ReactElement, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import {
-  WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
-  WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
-} from "./workspaceLayoutV2Prehydration";
-import {
   type MobilePane,
   type WorkspaceLayoutV2ActiveResizeSide,
   type WorkspaceLayoutV2MobileMergedSide,
@@ -68,8 +64,8 @@ export function WorkspaceLayoutV2Viewport({
   showRightPane,
 }: WorkspaceLayoutV2ViewportProps) {
   const viewportStyle: WorkspaceLayoutV2ViewportStyle = {
-    "--workspace-layout-v2-left-desktop-width": `var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY}, ${desktopLeftWidthPx}px)`,
-    "--workspace-layout-v2-right-desktop-width": `var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY}, ${desktopRightWidthPx}px)`,
+    "--workspace-layout-v2-left-desktop-width": `${desktopLeftWidthPx}px`,
+    "--workspace-layout-v2-right-desktop-width": `${desktopRightWidthPx}px`,
     paddingLeft: `${peekWidthPx}px`,
     paddingRight: `${peekWidthPx}px`,
   };
@@ -161,6 +157,7 @@ export function WorkspaceLayoutV2Viewport({
     <div
       ref={carouselRef}
       data-testid="workspace-layout-v2-pane-main"
+      data-workspace-layout-v2-measured={hasMeasuredViewport ? "" : undefined}
       className={cn(
         "workspace-layout-v2-responsive-viewport absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         lockCarouselScroll ? "overflow-x-hidden" : "overflow-x-auto",
