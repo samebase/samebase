@@ -51,8 +51,10 @@ behavior:
    labels and the draft badge belong with PR metadata, not the commit row.
 4. The branch name remains visible with a branch icon and links to the GitHub branch tree, but is
    not itself the Noter edit navigation target.
-5. A Noter `Edit` link renders below the Cloudflare preview/logs affordance, uses the version 2
-   side-diagonal identity mark, and opens the branch file view.
+5. A Noter link renders below the Cloudflare preview/logs affordance and uses the version 2
+   side-diagonal identity mark. On the default branch it is labeled `Edit` and opens the branch file
+   view. On non-default branches it is labeled `View changes` and opens the branch file view in
+   Changed Files mode.
 6. A current Cloudflare branch preview remains a separate visible affordance on the branch row. It
    must not disappear when PR metadata is moved or restyled.
 7. The Cloudflare branch preview affordance uses the label `Cloudflare preview` and shows the
@@ -60,7 +62,7 @@ behavior:
 8. The preview affordance target is still the parsed `Branch Preview URL`.
 9. The preview affordance renders only when the cached preview belongs to the branch's current PR,
    according to the freshness rules below.
-10. Branch-row icons use a fixed-width slot so PR, branch, commit, Cloudflare, Convex, and Edit
+10. Branch-row icons use a fixed-width slot so PR, branch, commit, Cloudflare, Convex, and Noter
     labels share a stable text rail.
 
 ## Why This Is The Right Scope
