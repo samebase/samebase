@@ -157,6 +157,11 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Prefer concrete, step-by-step explanations over compressed implementation shorthand. Name the
   thing that changes, where it is stored, when it is read, and why that fixes the user-visible
   behavior.
+- Treat operator suggestions as hypotheses to evaluate, not instructions to accept by default. Say
+  whether the suggestion is correct, partially correct, or would make the code worse, then name the
+  deciding reason.
+- When a code decision is questioned or a follow-up edit would reverse an earlier choice, explain
+  the rationale before editing. Do not substitute a patch for the reason the decision was made.
 - Avoid opaque phrases like "per-entry `history.state` persistence" in final handoffs. Say the
   direct version, such as "the app now saves the Back/Forward indexes into the current browser
   history entry before reload and reads them back after reload."
