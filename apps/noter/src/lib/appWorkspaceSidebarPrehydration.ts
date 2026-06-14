@@ -16,6 +16,13 @@ type AppWorkspaceSidebarPrehydrationArgs = {
   rightDesktopWidthProperty: string;
 };
 
+type AppWorkspaceSidebarPrehydrationState = {
+  leftDesktopOpen: boolean;
+  leftDesktopWidthPx: number;
+  rightDesktopOpen: boolean;
+  rightDesktopWidthPx: number;
+};
+
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   leftDesktopWidthProperty: WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
@@ -24,18 +31,44 @@ const appWorkspaceSidebarPrehydrationArgs = {
   storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } satisfies AppWorkspaceSidebarPrehydrationArgs;
 
+function getWorkspaceSidebarState(value: unknown): AppWorkspaceSidebarPrehydrationState | null {
+  if (value === null || typeof value !== "object") return null;
+  if (!("leftDesktopOpen" in value) || !("leftDesktopWidthPx" in value)) return null;
+  if (!("rightDesktopOpen" in value) || !("rightDesktopWidthPx" in value)) return null;
+
+  if (
+    typeof value.leftDesktopOpen !== "boolean" ||
+    typeof value.leftDesktopWidthPx !== "number" ||
+    !Number.isFinite(value.leftDesktopWidthPx) ||
+    typeof value.rightDesktopOpen !== "boolean" ||
+    typeof value.rightDesktopWidthPx !== "number" ||
+    !Number.isFinite(value.rightDesktopWidthPx)
+  ) {
+    return null;
+  }
+
+  return {
+    leftDesktopOpen: value.leftDesktopOpen,
+    leftDesktopWidthPx: value.leftDesktopWidthPx,
+    rightDesktopOpen: value.rightDesktopOpen,
+    rightDesktopWidthPx: value.rightDesktopWidthPx,
+  };
+}
+
+type GetWorkspaceSidebarState = typeof getWorkspaceSidebarState;
+
 /**
 This function is serialized with Function#toString and emitted as a classic
 inline head script before React hydration. Keep the body self-contained: it can
-only reference browser globals and values passed through args, not module-scope
-imports or helpers that disappear when the string runs in the document.
+only reference browser globals, values passed through args, and helper functions
+serialized into the call site.
 */
-function InlineScript_prehidrateSidebar(args: AppWorkspaceSidebarPrehydrationArgs) {
-  function readDesktopWidth(open: unknown, width: unknown) {
-    if (open === false) return "0px";
-    if (open !== true) return null;
-
-    if (typeof width !== "number" || !Number.isFinite(width)) return null;
+function InlineScript_prehidrateSidebar(
+  args: AppWorkspaceSidebarPrehydrationArgs,
+  readWorkspaceSidebarState: GetWorkspaceSidebarState,
+) {
+  function readDesktopWidth(open: boolean, width: number) {
+    if (!open) return "0px";
 
     return Math.max(args.desktopSidebarMinWidthPx, Math.round(width)) + "px";
   }
@@ -49,14 +82,11 @@ function InlineScript_prehidrateSidebar(args: AppWorkspaceSidebarPrehydrationArg
     if (!("version" in stored) || stored.version !== args.storageVersion) return;
     if (!("state" in stored)) return;
 
-    const state = stored.state;
-    if (state === null || typeof state !== "object") return;
-    if (!("leftDesktopOpen" in state) || !("leftDesktopWidthPx" in state)) return;
-    if (!("rightDesktopOpen" in state) || !("rightDesktopWidthPx" in state)) return;
+    const state = readWorkspaceSidebarState(stored.state);
+    if (state === null) return;
 
     const leftDesktopWidth = readDesktopWidth(state.leftDesktopOpen, state.leftDesktopWidthPx);
     const rightDesktopWidth = readDesktopWidth(state.rightDesktopOpen, state.rightDesktopWidthPx);
-    if (leftDesktopWidth === null || rightDesktopWidth === null) return;
 
     const rootStyle = document.documentElement.style;
     rootStyle.setProperty(args.leftDesktopWidthProperty, leftDesktopWidth);
@@ -64,7 +94,7 @@ function InlineScript_prehidrateSidebar(args: AppWorkspaceSidebarPrehydrationArg
   } catch {}
 }
 
-export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehidrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)});`;
+export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehidrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)}, ${getWorkspaceSidebarState.toString()});`;
 
 export function clearAppWorkspaceSidebarPrehydrationStyle() {
   document.documentElement.style.removeProperty(
