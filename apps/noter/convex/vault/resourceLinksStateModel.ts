@@ -8,8 +8,8 @@ const vaultResourceLinksStateFields = {
 };
 
 /**
- * No row means the vault header uses its default collapsed resource links.
- * Saved rows always store the user's explicit open or closed choice.
+ * New vault creation inserts an open row so the connection rail starts visible.
+ * Missing rows still use the dashboard's collapsed fallback for legacy or directly seeded vaults.
  */
 export const vVaultResourceLinksState = object(vaultResourceLinksStateFields);
 export type VaultResourceLinksState = Infer<typeof vVaultResourceLinksState>;

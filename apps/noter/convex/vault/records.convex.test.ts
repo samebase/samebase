@@ -4,6 +4,55 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 describe("vault records Convex contract", () => {
+  it("defaults connection resource links open for new vaults", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+
+    const existingRepository = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Existing-App",
+      },
+    );
+    const noterManaged = await t.mutation(
+      internal.vault.records.createInitializingNoterManagedVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "Ada",
+        ghRepoName: "Created-App",
+        visibility: "private",
+        convexProjectName: "created-app",
+        cloudflareAccountId: "cloudflare-account",
+        cloudflareWorkerName: "created-app",
+      },
+    );
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.vault.dashboard.getUserVaultResourceLinksState)).resolves.toEqual(
+      expect.arrayContaining([
+        {
+          vaultId: existingRepository.vaultId,
+          resourceLinksOpen: true,
+        },
+        {
+          vaultId: noterManaged.vaultId,
+          resourceLinksOpen: true,
+        },
+      ]),
+    );
+  });
+
   it("rejects case-insensitive duplicate Noter-managed repository targets", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

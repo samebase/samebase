@@ -106,6 +106,22 @@ function pickProvisioningVaultOperationalFields(vault: ProvisioningVault) {
   };
 }
 
+async function insertDefaultVaultResourceLinksState(
+  ctx: Pick<MutationCtx, "db">,
+  args: {
+    now: number;
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+  },
+): Promise<void> {
+  await ctx.db.insert("vaultResourceLinksState", {
+    userId: args.userId,
+    vaultId: args.vaultId,
+    resourceLinksOpen: true,
+    updatedAt: args.now,
+  });
+}
+
 export const createInitializingExistingRepositoryVaultForUser = internalMutation({
   args: {
     userId: id("users"),
@@ -143,6 +159,11 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       userId: args.userId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
+    });
+    await insertDefaultVaultResourceLinksState(ctx, {
+      now,
+      userId: args.userId,
+      vaultId,
     });
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("appProvisioningRuns", {
@@ -297,6 +318,11 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       userId: args.userId,
       deletion: { state: "not_deleting" },
       state: "not_connected",
+    });
+    await insertDefaultVaultResourceLinksState(ctx, {
+      now,
+      userId: args.userId,
+      vaultId,
     });
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("appProvisioningRuns", {
