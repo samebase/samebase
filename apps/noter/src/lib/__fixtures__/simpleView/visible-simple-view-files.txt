@@ -20,8 +20,6 @@ apps/noter/e2e/file-view-code-parity.spec.ts-snapshots/file-view-code-parity-dif
 apps/noter/e2e/file-view-code-parity.spec.ts-snapshots/file-view-code-parity-editors.png
 apps/noter/e2e/file-view-compare-visual.spec.ts-snapshots/file-view-compare-loading.png
 apps/noter/e2e/file-view-compare-visual.spec.ts-snapshots/file-view-compare-sidebar.png
-apps/noter/e2e/file-view-connect-route-visual.spec.ts-snapshots/file-view-connect-github.png
-apps/noter/e2e/file-view-connect-route-visual.spec.ts-snapshots/file-view-connect-route.png
 apps/noter/e2e/file-view-developer-tools-visual.spec.ts-snapshots/file-view-developer-tools-codemirror.png
 apps/noter/e2e/file-view-developer-tools-visual.spec.ts-snapshots/file-view-developer-tools-collapsed.png
 apps/noter/e2e/file-view-developer-tools-visual.spec.ts-snapshots/file-view-developer-tools-graph.png

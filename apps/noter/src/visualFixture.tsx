@@ -48,10 +48,6 @@ import {
   type FileViewProsemarkHeightVisualMode,
 } from "@/components/FileViewProsemarkHeightVisualFixture";
 import {
-  RepositoryRouteConnectStateVisualFixture,
-  type RepositoryRouteConnectStateVisualMode,
-} from "@/components/RepositoryRouteConnectStateVisualFixture";
-import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   type FileViewPushActionsVisualMode,
 } from "@/components/fileViewPushActionsVisualModes";
@@ -110,7 +106,6 @@ type VisualFixtureMode =
   | FileViewDeveloperToolsVisualMode
   | FileViewMonacoDragVisualMode
   | FileViewProsemarkHeightVisualMode
-  | RepositoryRouteConnectStateVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
   | LogoSnapAnglesVisualMode
@@ -235,11 +230,6 @@ const FILE_VIEW_PROSEMARK_HEIGHT_VISUAL_MODES = [
   "fileview-prosemark-flex-height",
 ] as const satisfies readonly FileViewProsemarkHeightVisualMode[];
 
-const FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES = [
-  "file-view-connect-repository",
-  "file-view-connect-github",
-] as const satisfies readonly RepositoryRouteConnectStateVisualMode[];
-
 const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
   "fileview-monaco-drag",
   "fileview-monaco-flex-height",
@@ -281,7 +271,6 @@ const VISUAL_FIXTURE_GROUPS = [
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
       ...FILE_VIEW_MONACO_DRAG_VISUAL_MODES,
       ...FILE_VIEW_PROSEMARK_HEIGHT_VISUAL_MODES,
-      ...FILE_VIEW_ROUTE_CONNECT_VISUAL_MODES,
     ],
   },
   {
@@ -445,10 +434,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "fileview-prosemark-flex-height") {
     return <FileViewProsemarkHeightVisualFixture mode={mode} />;
-  }
-
-  if (mode === "file-view-connect-repository" || mode === "file-view-connect-github") {
-    return <RepositoryRouteConnectStateVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-dashboard-branch-pr-title") {

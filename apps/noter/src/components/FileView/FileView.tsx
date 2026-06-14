@@ -60,20 +60,16 @@ import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
-import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
 import { CHAT_ENABLED } from "../../../shared/featureFlags";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
-import { isInIframe } from "@/authClient";
 import {
   resolveFilePathForResolvedBranch,
   resolveLegacyBranchlessFilePath,
 } from "@/lib/legacyBranchlessRoute";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
@@ -117,7 +113,7 @@ function FileViewWrapper() {
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
-  const { href, pathname } = location;
+  const { pathname } = location;
   const isCompareRequested = routeSearch.compare ?? false;
   const {
     owner,
@@ -128,8 +124,6 @@ function FileViewWrapper() {
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
-  const connectRepository = useAction(api.vault.actions.connectRepository);
-  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
@@ -146,8 +140,6 @@ function FileViewWrapper() {
         }
       : "skip",
   );
-  const githubConnection = useLiveQuery(api.users.getGithubConnectionStatus);
-  const isGithubConnectionResolved = githubConnection !== undefined;
   const branch = routeBranch ?? vault?.resolvedBranch;
   const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
@@ -193,11 +185,6 @@ function FileViewWrapper() {
     },
     [router],
   );
-  const [connectRouteError, setConnectRouteError] = useState<string | null>(null);
-  const [isConnectingRepository, setIsConnectingRepository] = useState(false);
-  const [isConnectingGithub, setIsConnectingGithub] = useState(false);
-  const githubConnected = githubConnection?.connected === true;
-  const githubConnectPopupRef = useRef<Window | null>(null);
 
   /**
    * Clear `storageBackedSelection` whenever we switch to a different vault or
@@ -209,111 +196,6 @@ function FileViewWrapper() {
       setStorageBackedSelection({});
     }
   }, [vaultId, branch]);
-
-  useEffect(() => {
-    if (vault !== null) {
-      setConnectRouteError(null);
-    }
-  }, [vault]);
-
-  useEffect(() => {
-    if (githubConnected) {
-      githubConnectPopupRef.current = null;
-      setIsConnectingGithub(false);
-      return;
-    }
-
-    if (!isConnectingGithub) {
-      githubConnectPopupRef.current = null;
-      return;
-    }
-
-    const popup = githubConnectPopupRef.current;
-    if (!(popup instanceof Window)) {
-      return;
-    }
-
-    const popupClosePoll = window.setInterval(() => {
-      if (!popup.closed) {
-        return;
-      }
-      githubConnectPopupRef.current = null;
-      setIsConnectingGithub(false);
-    }, 500);
-
-    return () => {
-      window.clearInterval(popupClosePoll);
-    };
-  }, [githubConnected, isConnectingGithub]);
-
-  const handleConnectGithub = useCallback(() => {
-    if (isConnectingGithub) {
-      return;
-    }
-
-    void (async () => {
-      setConnectRouteError(null);
-      setIsConnectingGithub(true);
-
-      try {
-        const oauthUrl = await getGithubOAuthUrl({
-          returnToPath: href,
-        });
-        if (isInIframe()) {
-          const popup = openGithubOAuthPopup(oauthUrl);
-          if (popup) {
-            githubConnectPopupRef.current = popup;
-            return;
-          }
-        }
-
-        window.location.assign(oauthUrl);
-      } catch (connectGithubError) {
-        githubConnectPopupRef.current = null;
-        setConnectRouteError(
-          connectGithubError instanceof Error
-            ? connectGithubError.message
-            : "Failed to start GitHub OAuth",
-        );
-        setIsConnectingGithub(false);
-      }
-    })();
-  }, [getGithubOAuthUrl, href, isConnectingGithub]);
-
-  const handleConnectRepository = useCallback(() => {
-    if (!repositoryFullName || isConnectingRepository) {
-      return;
-    }
-
-    void (async () => {
-      setConnectRouteError(null);
-      setIsConnectingRepository(true);
-
-      try {
-        await queueExistingRepositoryAndNavigateToDashboard({
-          connectRepository,
-          navigateByHref,
-          repositoryFullName,
-          replace: true,
-          search: location.search,
-        });
-      } catch (connectRepositoryError) {
-        setConnectRouteError(
-          connectRepositoryError instanceof Error
-            ? connectRepositoryError.message
-            : "Failed to connect repository",
-        );
-      } finally {
-        setIsConnectingRepository(false);
-      }
-    })();
-  }, [
-    connectRepository,
-    isConnectingRepository,
-    location.search,
-    navigateByHref,
-    repositoryFullName,
-  ]);
 
   /**
    * If the branch from the URL no longer exists, replace it with
@@ -605,20 +487,6 @@ function FileViewWrapper() {
     owner,
     repoName,
   ]);
-
-  if (vault === null && repositoryFullName && isGithubConnectionResolved) {
-    return (
-      <RepositoryRouteConnectState
-        repositoryFullName={repositoryFullName}
-        githubConnected={githubConnected}
-        isConnectingGithub={isConnectingGithub}
-        isConnectingRepository={isConnectingRepository}
-        errorMessage={connectRouteError}
-        onConnectGithub={handleConnectGithub}
-        onConnectRepository={handleConnectRepository}
-      />
-    );
-  }
 
   if (!vault || !owner || !repoName || !branch) {
     return null;
