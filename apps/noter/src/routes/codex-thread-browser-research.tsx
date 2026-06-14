@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CodexAppServerThreadBrowserResearchPage } from "@/components/CodexAppServerThreadBrowserResearchPage";
 import { CODEX_APP_SERVER_THREAD_BROWSER_ROUTE } from "@/lib/codexAppServerResearch";
 import {
+  CODEX_RESEARCH_ROUTE_SEARCH_KEYS,
   CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateCodexResearchRouteSearch,
 } from "@/lib/codexResearchRouteSearch";
@@ -48,6 +49,7 @@ function CodexThreadBrowserRouteComponent() {
 export const Route = createFileRoute("/research/codex-app-server/browser")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    acceptedSearchKeys: CODEX_RESEARCH_ROUTE_SEARCH_KEYS,
     searchParamSuggestions: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: CodexThreadBrowserRouteComponent,

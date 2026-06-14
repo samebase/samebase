@@ -3,10 +3,10 @@ import {
   canAccessNoterRouteAvailability,
   canAccessNoterRouteMatchesAvailability,
   isLocalRouteHostname,
-  readBrowserNoterRouteSurface,
-  readNoterRouteSurfaceForOrigin,
-  readNoterRouteSurfaceForRouteGuard,
-  resolveNoterRouteSurface,
+  readBrowserNoterRouteEnvironment,
+  readNoterRouteEnvironmentForOrigin,
+  readNoterRouteEnvironmentForRouteGuard,
+  resolveNoterRouteEnvironment,
 } from "./routeAvailability";
 
 afterEach(() => {
@@ -33,63 +33,65 @@ describe("isLocalRouteHostname", () => {
   });
 });
 
-describe("resolveNoterRouteSurface", () => {
-  it("maps known hostnames to local, production, and preview surfaces", () => {
-    expect(resolveNoterRouteSurface({ hostname: "localhost" })).toBe("local");
-    expect(resolveNoterRouteSurface({ hostname: "noter.md" })).toBe("production");
-    expect(resolveNoterRouteSurface({ hostname: "www.noter.md" })).toBe("production");
-    expect(resolveNoterRouteSurface({ hostname: "preview.noter.md" })).toBe("preview");
-    expect(resolveNoterRouteSurface({ hostname: "a3070b07.noter-ax1.pages.dev" })).toBe("preview");
+describe("resolveNoterRouteEnvironment", () => {
+  it("maps known hostnames to local, production, and preview environments", () => {
+    expect(resolveNoterRouteEnvironment({ hostname: "localhost" })).toBe("local");
+    expect(resolveNoterRouteEnvironment({ hostname: "noter.md" })).toBe("production");
+    expect(resolveNoterRouteEnvironment({ hostname: "www.noter.md" })).toBe("production");
+    expect(resolveNoterRouteEnvironment({ hostname: "preview.noter.md" })).toBe("preview");
+    expect(resolveNoterRouteEnvironment({ hostname: "a3070b07.noter-ax1.pages.dev" })).toBe(
+      "preview",
+    );
   });
 
-  it("uses the build route surface when Cloudflare sets one", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_SURFACE", "preview");
+  it("uses the build route environment when Cloudflare sets one", () => {
+    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "preview");
 
-    expect(resolveNoterRouteSurface({ hostname: "localhost" })).toBe("preview");
+    expect(resolveNoterRouteEnvironment({ hostname: "localhost" })).toBe("preview");
   });
 
-  it("ignores unknown build route surface values", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_SURFACE", "staging");
+  it("ignores unknown build route environment values", () => {
+    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "staging");
 
-    expect(resolveNoterRouteSurface({ hostname: "localhost" })).toBe("local");
-  });
-});
-
-describe("readBrowserNoterRouteSurface", () => {
-  it("uses the build route surface before browser host fallback", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_SURFACE", "production");
-
-    expect(readBrowserNoterRouteSurface()).toBe("production");
-  });
-
-  it("fails closed when no browser host or build surface is available", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_SURFACE", "");
-
-    expect(readNoterRouteSurfaceForRouteGuard()).toBeNull();
-    expect(readBrowserNoterRouteSurface()).toBe("production");
+    expect(resolveNoterRouteEnvironment({ hostname: "localhost" })).toBe("local");
   });
 });
 
-describe("readNoterRouteSurfaceForOrigin", () => {
-  it("resolves route surface from URL origins", () => {
-    expect(readNoterRouteSurfaceForOrigin("http://localhost:5174")).toBe("local");
-    expect(readNoterRouteSurfaceForOrigin("https://noter.md")).toBe("production");
-    expect(readNoterRouteSurfaceForOrigin("https://preview.noter.md")).toBe("preview");
+describe("readBrowserNoterRouteEnvironment", () => {
+  it("uses the build route environment before browser host fallback", () => {
+    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "production");
+
+    expect(readBrowserNoterRouteEnvironment()).toBe("production");
+  });
+
+  it("fails closed when no browser host or build environment is available", () => {
+    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "");
+
+    expect(readNoterRouteEnvironmentForRouteGuard()).toBeNull();
+    expect(readBrowserNoterRouteEnvironment()).toBe("production");
+  });
+});
+
+describe("readNoterRouteEnvironmentForOrigin", () => {
+  it("resolves route environment from URL origins", () => {
+    expect(readNoterRouteEnvironmentForOrigin("http://localhost:5174")).toBe("local");
+    expect(readNoterRouteEnvironmentForOrigin("https://noter.md")).toBe("production");
+    expect(readNoterRouteEnvironmentForOrigin("https://preview.noter.md")).toBe("preview");
   });
 
   it("fails closed for invalid origins", () => {
-    expect(readNoterRouteSurfaceForOrigin("not a url")).toBe("production");
+    expect(readNoterRouteEnvironmentForOrigin("not a url")).toBe("production");
   });
 });
 
 describe("canAccessNoterRouteAvailability", () => {
-  it("treats missing availability as available on every surface", () => {
+  it("treats missing availability as available in every environment", () => {
     expect(canAccessNoterRouteAvailability(undefined, "local")).toBe(true);
     expect(canAccessNoterRouteAvailability(undefined, "preview")).toBe(true);
     expect(canAccessNoterRouteAvailability(undefined, "production")).toBe(true);
   });
 
-  it("allows only named surfaces", () => {
+  it("allows only named environments", () => {
     expect(canAccessNoterRouteAvailability(["local"], "local")).toBe(true);
     expect(canAccessNoterRouteAvailability(["local"], "preview")).toBe(false);
     expect(canAccessNoterRouteAvailability(["preview", "production"], "preview")).toBe(true);
@@ -98,16 +100,19 @@ describe("canAccessNoterRouteAvailability", () => {
 });
 
 describe("canAccessNoterRouteMatchesAvailability", () => {
-  it("requires every matched route availability policy to allow the surface", () => {
+  it("requires every matched route availability policy to allow the environment", () => {
     expect(
       canAccessNoterRouteMatchesAvailability(
-        [{ staticData: {} }, { staticData: { availableOn: ["local", "preview"] } }],
+        [{ staticData: {} }, { staticData: { availableEnvironments: ["local", "preview"] } }],
         "preview",
       ),
     ).toBe(true);
     expect(
       canAccessNoterRouteMatchesAvailability(
-        [{ staticData: { availableOn: ["local"] } }, { staticData: { availableOn: ["preview"] } }],
+        [
+          { staticData: { availableEnvironments: ["local"] } },
+          { staticData: { availableEnvironments: ["preview"] } },
+        ],
         "preview",
       ),
     ).toBe(false);

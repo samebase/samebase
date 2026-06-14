@@ -5,6 +5,7 @@ import {
   validateLogoRouteSearch,
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
+import { MOBILE_SIDEBAR_DEBUG_QUERY_PARAM } from "@/lib/mobileSidebarGestureDebug";
 import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
@@ -28,7 +29,7 @@ import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstack
 export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
 export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
 
-const rootRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_root = defineRouteSearchParams({
   [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
@@ -74,6 +75,10 @@ const rootRouteSearchSchema = defineRouteSearchParams({
     // hover/keyboard suggestions so previewing a row cannot remount the app.
     suggestion: "hidden",
   }),
+  [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]: routeSearchPresenceParam({
+    permission: "public",
+    suggestion: "hidden",
+  }),
   "new-app": routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
@@ -98,7 +103,7 @@ const rootRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-type RootRouteSearchBase = InferRouteSearch<typeof rootRouteSearchSchema>;
+type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_METADATA) {
@@ -108,7 +113,7 @@ function globalLogoRouteSearchParam(key: keyof typeof LOGO_ROUTE_SEARCH_PARAM_ME
   };
 }
 
-const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(rootRouteSearchSchema);
+const rootRouteSearchOwnParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_root);
 
 const rootRouteSearchParamMetadata = {
   ...LOGO_ROUTE_SEARCH_PARAM_METADATA,
@@ -131,6 +136,8 @@ const rootRouteSearchParamMetadata = {
   dist: globalLogoRouteSearchParam("dist"),
   gridSize: globalLogoRouteSearchParam("gridSize"),
   light: globalLogoRouteSearchParam("light"),
+  [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
+    rootRouteSearchOwnParamMetadata[MOBILE_SIDEBAR_DEBUG_QUERY_PARAM],
   "new-app": rootRouteSearchOwnParamMetadata["new-app"],
   primary: globalLogoRouteSearchParam("primary"),
   "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
@@ -170,7 +177,7 @@ export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM
 );
 
 export function isRootRouteOwnedSearchKey(key: string): boolean {
-  return key === "base" || key in rootRouteSearchParamMetadata;
+  return key in rootRouteSearchParamMetadata;
 }
 
 function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootRouteSearchBase {
@@ -211,6 +218,7 @@ a caller clears the key with `undefined` or `null` in a route search patch.
 */
 export const RETAINED_ROOT_SEARCH_KEYS = [
   "devtools",
+  MOBILE_SIDEBAR_DEBUG_QUERY_PARAM,
   ...LOGO_ROUTE_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 
@@ -220,7 +228,7 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
     ROOT_ROUTE_PRESENCE_SEARCH_KEYS,
   );
   const parsedSearch = normalizeDashboardModalSearch(
-    rootRouteSearchSchema.parse(presenceNormalizedSearch),
+    RouteSearchSchema_root.parse(presenceNormalizedSearch),
   );
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);
@@ -257,29 +265,55 @@ export function clearConflictingRootThemeModeSearch(search: RootRouteSearch): Ro
 }
 
 /**
-Returns the route address that root `beforeLoad` redirects to, or `null` when the route can load.
+Returns the canonical route address for root search handling, or `null` when the route can load
+without normalization.
 
-Example: pathname `/logo` plus search `{ reset: true }` redirects to `/logo`.
+Example: pathname `/logo` plus search `{ reset: true }` canonicalizes to `/logo`.
 
-Example: pathname `/logo` plus search `{ dark: true, light: true }` redirects to `/logo`.
+Example: pathname `/logo` plus search `{ dark: true, light: true }` canonicalizes to `/logo`.
+
+Example: pathname `/home` plus raw search `?machineId=x` canonicalizes to `/home`, because no
+matched route schema accepts `machineId` there. `acceptedSearchKeys` is the union of the matched route
+chain's `staticData.acceptedSearchKeys`; root-owned keys are always kept.
 */
-export function readRootRouteRedirectRouteAddress(args: {
+export function readCanonicalRouteAddressForRootSearch(args: {
+  acceptedSearchKeys: readonly string[];
   hash: string;
   pathname: string;
-  search: RootRouteSearch;
+  searchStr: string;
 }): string | null {
-  if (args.search.reset) {
+  // TanStack's beforeLoad search merges raw keys with validated results, so
+  // the canonical root search derives from the raw search string instead.
+  const rawSearch = parseTanStackSearch(args.searchStr);
+  const rootSearch = validateRootRouteSearch(rawSearch);
+  if (rootSearch.reset) {
     return buildPathWithTanStackSearch({
       pathname: args.pathname,
       hash: args.hash,
     });
   }
 
-  const nextSearch = clearConflictingRootThemeModeSearch(args.search);
-  if (nextSearch !== args.search) {
+  const keptRawSearch: Record<string, unknown> = {};
+  let hasDroppedSearchKey = false;
+  for (const [key, value] of Object.entries(rawSearch)) {
+    if (isRootRouteOwnedSearchKey(key)) {
+      // The validated root search is the canonical form of root-owned keys,
+      // matching the route URL editor's readCanonicalRouteAddress.
+      continue;
+    }
+
+    if (args.acceptedSearchKeys.includes(key)) {
+      keptRawSearch[key] = value;
+    } else {
+      hasDroppedSearchKey = true;
+    }
+  }
+
+  const nextSearch = clearConflictingRootThemeModeSearch(rootSearch);
+  if (hasDroppedSearchKey || nextSearch !== rootSearch) {
     return buildPathWithTanStackSearch({
       pathname: args.pathname,
-      search: nextSearch,
+      search: { ...keptRawSearch, ...nextSearch },
       hash: args.hash,
     });
   }

@@ -13,8 +13,8 @@ function isConcreteRoutePath(routePath: string): boolean {
   return !routePath.includes("$");
 }
 
-function isProductionAvailable(availableOn: readonly string[] | undefined): boolean {
-  return availableOn === undefined || availableOn.includes("production");
+function isProductionAvailable(availableEnvironments: readonly string[] | undefined): boolean {
+  return availableEnvironments === undefined || availableEnvironments.includes("production");
 }
 
 function compareRoutePaths(left: string, right: string): number {
@@ -39,7 +39,7 @@ export function readPublicPrerenderPages() {
       ([routePath, routeAccessMetadata]) =>
         routeAccessMetadata.permission === "public" &&
         isConcreteRoutePath(routePath) &&
-        isProductionAvailable(routeAccessMetadata.availableOn),
+        isProductionAvailable(routeAccessMetadata.availableEnvironments),
     )
     .map(([routePath]) => routePath)
     .sort(compareRoutePaths)

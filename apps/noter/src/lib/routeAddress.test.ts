@@ -149,15 +149,95 @@ describe("readRouteAddressReadiness", () => {
     });
   });
 
-  it("replaces old root-owned aliases with canonical keys", () => {
+  it("drops the unsupported base query key", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/logo",
         draftRouteAddress: "/logo?base=%23112233",
       }),
     ).toEqual({
       kind: "readyNormalized",
-      routeAddress: "/logo?background=%23112233",
+      routeAddress: "/logo",
+    });
+  });
+
+  it("drops route-owned params the destination route does not accept", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/machines?machineId=sample-machine",
+        draftRouteAddress: "/home?machineId=sample-machine",
+      }),
+    ).toEqual({
+      kind: "readyNormalized",
+      routeAddress: "/home",
+    });
+  });
+
+  it("keeps route-owned params the destination route accepts", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/home",
+        draftRouteAddress: "/machines?machineId=sample-machine&threadId=sample-thread",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/machines?machineId=sample-machine&threadId=sample-thread",
+    });
+  });
+
+  it("keeps root-owned params on destination routes without their own schema", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/machines?machineId=sample-machine",
+        draftRouteAddress: "/home?prod-ui&dark",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/home?prod-ui&dark",
+    });
+  });
+
+  it("keeps hidden root-owned params on every destination route", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/machines",
+        draftRouteAddress: "/home?devtools",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/home?devtools",
+    });
+  });
+
+  it("drops query keys no route schema accepts", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        draftRouteAddress: "/home?unknownKey=1",
+      }),
+    ).toEqual({
+      kind: "readyNormalized",
+      routeAddress: "/home",
+    });
+  });
+
+  it("keeps iso renderer params on the iso route and drops them on other logo routes", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/logo",
+        draftRouteAddress: "/logo/iso?isoStyle=shaded-edge",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/logo/iso?isoStyle=shaded-edge",
+    });
+
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/logo/iso?isoStyle=shaded-edge",
+        draftRouteAddress: "/logo?isoStyle=shaded-edge",
+      }),
+    ).toEqual({
+      kind: "readyNormalized",
+      routeAddress: "/logo",
     });
   });
 });

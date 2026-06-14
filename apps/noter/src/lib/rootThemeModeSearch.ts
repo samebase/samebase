@@ -8,7 +8,7 @@ type ForcedRootThemeMode = Exclude<RootThemeMode, "system">;
 export type RootThemeModeSearch = Partial<Record<RootThemeModeSearchKey, true | undefined>>;
 export type RootThemeModeSearchPatch = SearchPatch<RootThemeModeSearch>;
 
-export const rootThemeModeSearchFieldSchema = defineRouteSearchParams({
+export const RouteSearchSchema_rootThemeMode = defineRouteSearchParams({
   dark: routeSearchPresenceParam({
     permission: "public",
     suggestion: "hidden",
@@ -20,7 +20,7 @@ export const rootThemeModeSearchFieldSchema = defineRouteSearchParams({
 });
 
 export function validateRootThemeModeSearch(search: Record<string, unknown>): RootThemeModeSearch {
-  return rootThemeModeSearchFieldSchema.parse(
+  return RouteSearchSchema_rootThemeMode.parse(
     normalizeRouteSearchPresenceFlags(search, ROOT_THEME_MODE_SEARCH_KEYS),
   );
 }

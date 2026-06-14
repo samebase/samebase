@@ -1,7 +1,7 @@
 import type { NoterRouteStaticData } from "./lib/routePermissions";
 import type { FileRoutesByFullPath } from "./routeTree.gen";
 
-type NoterRouteAccessMetadata = Pick<NoterRouteStaticData, "availableOn" | "permission">;
+type NoterRouteAccessMetadata = Pick<NoterRouteStaticData, "availableEnvironments" | "permission">;
 
 /**
  * Config-time consumers need route access policy without importing route
@@ -35,10 +35,10 @@ const noterRouteAccessMetadataByPath = {
   "/research/codex-app-server": { permission: "admin" },
   "/research/codex-app-server/browser": { permission: "admin" },
   "/terms": { permission: "public" },
-  "/test": { availableOn: ["local"], permission: "admin" },
+  "/test": { availableEnvironments: ["local"], permission: "admin" },
   "/vault/$": { permission: "admin" },
   "/vault/$owner/$repo/codespace/$branch/chat": { permission: "admin" },
-  "/visual-fixture": { availableOn: ["local"], permission: "public" },
+  "/visual-fixture": { availableEnvironments: ["local"], permission: "public" },
 } as const satisfies Record<keyof FileRoutesByFullPath, NoterRouteAccessMetadata>;
 
 export const NOTER_ROUTE_ACCESS_METADATA_BY_PATH: Record<
