@@ -277,6 +277,7 @@ describe("rootRouteSearch", () => {
         pathname: "/logo",
         searchStr: "?dark&reset",
         hash: "",
+        stripProdUi: false,
       }),
     ).toBe("/logo");
   });
@@ -288,6 +289,7 @@ describe("rootRouteSearch", () => {
         pathname: "/logo",
         searchStr: "?dark&dev&light",
         hash: "section",
+        stripProdUi: false,
       }),
     ).toBe("/logo?dev#section");
   });
@@ -299,6 +301,7 @@ describe("rootRouteSearch", () => {
         pathname: "/home",
         searchStr: "?machineId=sample-machine",
         hash: "",
+        stripProdUi: false,
       }),
     ).toBe("/home");
   });
@@ -310,8 +313,21 @@ describe("rootRouteSearch", () => {
         pathname: "/machines",
         searchStr: "?prod-ui&machineId=sample-machine&swipe-debug&unknownKey=1",
         hash: "",
+        stripProdUi: false,
       }),
     ).toBe("/machines?machineId=sample-machine&swipe-debug&prod-ui");
+  });
+
+  it("strips prod-ui in production canonicalization while preserving accepted route parts", () => {
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: ["machineId", "threadId"],
+        pathname: "/machines",
+        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug",
+        hash: "ready",
+        stripProdUi: true,
+      }),
+    ).toBe("/machines?machineId=sample-machine&swipe-debug#ready");
   });
 
   it("does not redirect when every raw key is accepted", () => {
@@ -321,6 +337,7 @@ describe("rootRouteSearch", () => {
         pathname: "/machines",
         searchStr: "?machineId=sample-machine",
         hash: "",
+        stripProdUi: false,
       }),
     ).toBe(null);
   });

@@ -4,7 +4,6 @@ import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebar
 const appTitle = "noter | GitHub-backed markdown notes and AI workspace";
 const appDescription =
   "GitHub-backed markdown notes and AI workspace. Keep notes and code in a real repository, collaborate in real time, and ship small apps from the same workspace.";
-const productionHostnames = ["noter.md", "www.noter.md"] as const;
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
@@ -28,22 +27,6 @@ const disableInstallPromptScript = `
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
 });
-`;
-const stripProductionUiQueryScript = `
-(() => {
-  const productionHostnames = new Set(${JSON.stringify(productionHostnames)});
-  if (!productionHostnames.has(window.location.hostname)) return;
-
-  const url = new URL(window.location.href);
-  if (!url.searchParams.has("prod-ui")) return;
-
-  url.searchParams.delete("prod-ui");
-  window.history.replaceState(
-    window.history.state,
-    "",
-    \`\${url.pathname}\${url.search}\${url.hash}\`,
-  );
-})();
 `;
 const initialThemeScript = `
 (() => {
@@ -202,9 +185,6 @@ export function buildRootHead() {
       {
         type: "application/ld+json",
         children: JSON.stringify(structuredData),
-      },
-      {
-        children: stripProductionUiQueryScript,
       },
       {
         children: initialThemeScript,
