@@ -234,6 +234,16 @@ export function readMatchingRouteAcceptedSearchKeys(
   return matches[0]?.[1].options.staticData.acceptedSearchKeys ?? [];
 }
 
+/**
+Returns URL-editor search suggestions for the most specific accessible route
+that matches the draft path.
+
+Example: when the draft route address is `/logo?to`, the path is `/logo`, so
+the editor should suggest `/logo` search params such as `top`. When the draft
+route address is `/vault/acme/demo/main/README.md?d`, the path matches the
+`/vault/$` route, so an admin viewer can see file-view suggestions such as
+`diff`.
+*/
 function readMatchingRouteSearchParamSuggestions(args: {
   path: string;
   routeEnvironment: NoterRouteEnvironment;
