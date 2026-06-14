@@ -1,5 +1,4 @@
 import { useNow } from "@/hooks/useNow";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   CodexAppServerRequestError,
   requestCodexAppServerJson,
@@ -953,7 +952,6 @@ export function MachinesWorkspacePage() {
       hasPendingStartedThread={selectedThreadIsPendingStart}
       machineInventories={machineInventories}
       isSubmittingTurn={isSubmittingTurn}
-      leftSidebarFooter={<AppSidebarMetaSection />}
       pendingPinThreadKey={pendingPinThreadKey}
       pendingConversation={
         selectedPendingConversation === null

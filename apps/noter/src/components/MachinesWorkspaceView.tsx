@@ -33,7 +33,6 @@ import { ArrowUpRight, Folder, GitBranch, GitFork, Loader2, Pin, Plus } from "lu
 
 type MachinesWorkspaceViewProps = {
   machineInventories: MachinesWorkspaceSidebarInventory[];
-  leftSidebarFooter?: ReactNode;
   selectedMachineId: string | null;
   selectedThreadId: string | null;
   selectedThread: CodexAppServerThread | null;
@@ -725,7 +724,6 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
             </div>
           </div>
         ),
-        footer: props.leftSidebarFooter ?? null,
       }}
     >
       <MachinesWorkspaceThreadPane
