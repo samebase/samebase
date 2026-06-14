@@ -2,7 +2,7 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import * as React from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
@@ -138,6 +138,30 @@ describe("AppWorkspaceShell", () => {
     });
   }
 
+  async function hydrateClientShellFromServerMarkup() {
+    const container = document.createElement("div");
+    rootElement = container;
+    document.body.append(container);
+    container.innerHTML = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppWorkspaceShell>
+          <div data-testid="workspace-route-content">workspace route content</div>
+        </AppWorkspaceShell>
+      </TestRouterProvider>,
+    );
+
+    await act(async () => {
+      root = hydrateRoot(
+        container,
+        <TestRouterProvider initialEntries={["/"]}>
+          <AppWorkspaceShell>
+            <div data-testid="workspace-route-content">workspace route content</div>
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+    });
+  }
+
   function getRequiredElement(selector: string) {
     const element = rootElement?.querySelector(selector);
     if (!(element instanceof HTMLElement)) {
@@ -238,5 +262,33 @@ describe("AppWorkspaceShell", () => {
       state: LOCAL_SIDEBAR_STATE,
       version: 2,
     });
+  });
+
+  it("applies local sidebar widths as a real client hydration update", async () => {
+    const localWidthState = {
+      ...LOCAL_SIDEBAR_STATE,
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 360,
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 420,
+    } satisfies WorkspaceSidebarState;
+
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: localWidthState,
+        version: 2,
+      }),
+    );
+
+    await hydrateClientShellFromServerMarkup();
+
+    const viewport = getRequiredElement('[data-testid="workspace-layout-v2-pane-main"]');
+    expect(viewport.getAttribute("style")).toContain(
+      "--workspace-layout-v2-left-desktop-width: 360px",
+    );
+    expect(viewport.getAttribute("style")).toContain(
+      "--workspace-layout-v2-right-desktop-width: 420px",
+    );
   });
 });

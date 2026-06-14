@@ -208,9 +208,7 @@ export function useLocalStorageWorkspaceSidebarState({
   reset,
   storageKey,
 }: UseLocalStorageWorkspaceSidebarStateArgs): WorkspaceSidebarStateController {
-  const [sidebarState, setSidebarState] = React.useState(() =>
-    readLocalStorageWorkspaceSidebarState({ defaults, reset, storageKey }),
-  );
+  const [sidebarState, setSidebarState] = React.useState(defaults);
   const latestSidebarStateRef = React.useRef(sidebarState);
   const pendingWidthPersistTimeoutRef = React.useRef<number | null>(null);
   const pendingWidthPersistStateRef = React.useRef<WorkspaceSidebarState | null>(null);
@@ -288,7 +286,7 @@ export function useLocalStorageWorkspaceSidebarState({
     [persistSidebarState, scheduleWidthPersist],
   );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (reset) {
       clearPendingWidthPersist();
       removeLocalStorageWorkspaceSidebarState(storageKey);
