@@ -7,6 +7,7 @@ import {
   WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
   WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
 } from "@/components/workspace-layout-v2/workspaceLayoutV2Prehydration";
+import type { Sure } from "@samebase/sure";
 
 type AppWorkspaceSidebarPrehydrationArgs = {
   storageKey: string;
@@ -14,6 +15,11 @@ type AppWorkspaceSidebarPrehydrationArgs = {
   desktopSidebarMinWidthPx: number;
   leftDesktopWidthProperty: string;
   rightDesktopWidthProperty: string;
+};
+
+type AppWorkspaceSidebarPrehydratedWidths = {
+  leftDesktopWidth: string;
+  rightDesktopWidth: string;
 };
 
 const appWorkspaceSidebarPrehydrationArgs = {
@@ -25,36 +31,90 @@ const appWorkspaceSidebarPrehydrationArgs = {
 } satisfies AppWorkspaceSidebarPrehydrationArgs;
 
 function runAppWorkspaceSidebarPrehydration(args: AppWorkspaceSidebarPrehydrationArgs) {
-  function readDesktopWidth(open: unknown, width: unknown) {
-    if (open === false) return "0px";
-    if (open !== true) return null;
-
-    if (typeof width !== "number" || !Number.isFinite(width)) return null;
-
-    return Math.max(args.desktopSidebarMinWidthPx, Math.round(width)) + "px";
+  function good<const Value>(value: Value) {
+    return [true, value] as const;
   }
+
+  function bad<const Issue extends string>(issue: Issue) {
+    return [false, issue] as const;
+  }
+
+  const desktopWidthSchema = ((value: unknown) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return bad("not-finite-number");
+    }
+
+    return good(Math.max(args.desktopSidebarMinWidthPx, Math.round(value)) + "px");
+  }) satisfies Sure<string, string, unknown>;
+
+  const desktopSidebarWidthSchema = ((value: { open: unknown; widthPx: unknown }) => {
+    if (value.open === false) {
+      return good("0px");
+    }
+    if (value.open !== true) {
+      return bad("not-open-boolean");
+    }
+
+    return desktopWidthSchema(value.widthPx);
+  }) satisfies Sure<string, string, { open: unknown; widthPx: unknown }>;
+
+  const prehydratedWidthsSchema = ((value: unknown) => {
+    if (value === null || typeof value !== "object") {
+      return bad("not-object");
+    }
+    if (!("leftDesktopOpen" in value) || !("leftDesktopWidthPx" in value)) {
+      return bad("missing-left-desktop");
+    }
+    if (!("rightDesktopOpen" in value) || !("rightDesktopWidthPx" in value)) {
+      return bad("missing-right-desktop");
+    }
+
+    const leftDesktopWidth = desktopSidebarWidthSchema({
+      open: value.leftDesktopOpen,
+      widthPx: value.leftDesktopWidthPx,
+    });
+    if (!leftDesktopWidth[0]) {
+      return bad(leftDesktopWidth[1]);
+    }
+
+    const rightDesktopWidth = desktopSidebarWidthSchema({
+      open: value.rightDesktopOpen,
+      widthPx: value.rightDesktopWidthPx,
+    });
+    if (!rightDesktopWidth[0]) {
+      return bad(rightDesktopWidth[1]);
+    }
+
+    return good({
+      leftDesktopWidth: leftDesktopWidth[1],
+      rightDesktopWidth: rightDesktopWidth[1],
+    });
+  }) satisfies Sure<string, AppWorkspaceSidebarPrehydratedWidths, unknown>;
+
+  const storedPrehydratedWidthsSchema = ((value: unknown) => {
+    if (value === null || typeof value !== "object") {
+      return bad("not-object");
+    }
+    if (!("version" in value) || value.version !== args.storageVersion) {
+      return bad("unsupported-version");
+    }
+    if (!("state" in value)) {
+      return bad("missing-state");
+    }
+
+    return prehydratedWidthsSchema(value.state);
+  }) satisfies Sure<string, AppWorkspaceSidebarPrehydratedWidths, unknown>;
 
   try {
     const storedValue = window.localStorage.getItem(args.storageKey);
     if (storedValue === null) return;
 
-    const stored: unknown = JSON.parse(storedValue);
-    if (stored === null || typeof stored !== "object") return;
-    if (!("version" in stored) || stored.version !== args.storageVersion) return;
-    if (!("state" in stored)) return;
-
-    const state = stored.state;
-    if (state === null || typeof state !== "object") return;
-    if (!("leftDesktopOpen" in state) || !("leftDesktopWidthPx" in state)) return;
-    if (!("rightDesktopOpen" in state) || !("rightDesktopWidthPx" in state)) return;
-
-    const leftDesktopWidth = readDesktopWidth(state.leftDesktopOpen, state.leftDesktopWidthPx);
-    const rightDesktopWidth = readDesktopWidth(state.rightDesktopOpen, state.rightDesktopWidthPx);
-    if (leftDesktopWidth === null || rightDesktopWidth === null) return;
+    const prehydratedWidths = storedPrehydratedWidthsSchema(JSON.parse(storedValue));
+    if (!prehydratedWidths[0]) return;
 
     const rootStyle = document.documentElement.style;
-    rootStyle.setProperty(args.leftDesktopWidthProperty, leftDesktopWidth);
-    rootStyle.setProperty(args.rightDesktopWidthProperty, rightDesktopWidth);
+    rootStyle.setProperty(args.leftDesktopWidthProperty, prehydratedWidths[1].leftDesktopWidth);
+    rootStyle.setProperty(args.rightDesktopWidthProperty, prehydratedWidths[1].rightDesktopWidth);
   } catch {}
 }
 
