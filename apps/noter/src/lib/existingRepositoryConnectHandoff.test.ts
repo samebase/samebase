@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { queueExistingRepositoryAndNavigateToDashboard } from "./existingRepositoryConnectHandoff";
 
 describe("queueExistingRepositoryAndNavigateToDashboard", () => {
-  it("queues the /add connection before navigating to the dashboard", async () => {
+  it("queues the /connect-repo connection before navigating to the dashboard", async () => {
     const calls: string[] = [];
     const connectRepository = vi.fn(async (args: { repositoryFullName: string }) => {
       calls.push(`connect:${args.repositoryFullName}`);

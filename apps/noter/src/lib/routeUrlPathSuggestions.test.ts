@@ -54,7 +54,7 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
-    expect(suggestions).not.toContain("/add");
+    expect(suggestions).not.toContain("/connect-repo");
     expect(suggestions).not.toContain("/home");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/landing-preview");
@@ -62,6 +62,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/logo/iso");
     expect(suggestions).not.toContain("/logo/raster");
     expect(suggestions).not.toContain("/logo/svg");
+    expect(suggestions).not.toContain("/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
     expect(suggestions).not.toContain("/research/codex-app-server");

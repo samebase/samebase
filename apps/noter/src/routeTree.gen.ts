@@ -15,13 +15,14 @@ import { Route as termsRouteImport } from "./routes/terms";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
+import { Route as newAppRouteImport } from "./routes/new-app";
 import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
-import { Route as addRepositoryRouteImport } from "./routes/add-repository";
+import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
@@ -69,6 +70,11 @@ const pitchRoute = pitchRouteImport.update({
   path: "/pitch",
   getParentRoute: () => rootRouteImport,
 } as any);
+const newAppRoute = newAppRouteImport.update({
+  id: "/new-app",
+  path: "/new-app",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const machinesRoute = machinesRouteImport.update({
   id: "/machines",
   path: "/machines",
@@ -99,9 +105,9 @@ const dashboardHomeRoute = dashboardHomeRouteImport.update({
   path: "/home",
   getParentRoute: () => rootRouteImport,
 } as any);
-const addRepositoryRoute = addRepositoryRouteImport.update({
-  id: "/add",
-  path: "/add",
+const connectRepoRoute = connectRepoRouteImport.update({
+  id: "/connect-repo",
+  path: "/connect-repo",
   getParentRoute: () => rootRouteImport,
 } as any);
 const indexRoute = indexRouteImport.update({
@@ -189,13 +195,14 @@ const codespaceChatRoute = codespaceChatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
-  "/add": typeof addRepositoryRoute;
+  "/connect-repo": typeof connectRepoRoute;
   "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
+  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -220,13 +227,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
-  "/add": typeof addRepositoryRoute;
+  "/connect-repo": typeof connectRepoRoute;
   "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
+  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -252,13 +260,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
-  "/add": typeof addRepositoryRoute;
+  "/connect-repo": typeof connectRepoRoute;
   "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
+  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -285,13 +294,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
-    | "/add"
+    | "/connect-repo"
     | "/home"
     | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
     | "/machines"
+    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -316,13 +326,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
-    | "/add"
+    | "/connect-repo"
     | "/home"
     | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
     | "/machines"
+    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -347,13 +358,14 @@ export interface FileRouteTypes {
   id:
     | "__root__"
     | "/"
-    | "/add"
+    | "/connect-repo"
     | "/home"
     | "/indexDB"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
     | "/machines"
+    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -379,13 +391,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
-  addRepositoryRoute: typeof addRepositoryRoute;
+  connectRepoRoute: typeof connectRepoRoute;
   dashboardHomeRoute: typeof dashboardHomeRoute;
   indexDBRoute: typeof indexDBRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
   machinesRoute: typeof machinesRoute;
+  newAppRoute: typeof newAppRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
@@ -453,6 +466,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof pitchRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/new-app": {
+      id: "/new-app";
+      path: "/new-app";
+      fullPath: "/new-app";
+      preLoaderRoute: typeof newAppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/machines": {
       id: "/machines";
       path: "/machines";
@@ -495,11 +515,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof dashboardHomeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/add": {
-      id: "/add";
-      path: "/add";
-      fullPath: "/add";
-      preLoaderRoute: typeof addRepositoryRouteImport;
+    "/connect-repo": {
+      id: "/connect-repo";
+      path: "/connect-repo";
+      fullPath: "/connect-repo";
+      preLoaderRoute: typeof connectRepoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/": {
@@ -619,13 +639,14 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
-  addRepositoryRoute: addRepositoryRoute,
+  connectRepoRoute: connectRepoRoute,
   dashboardHomeRoute: dashboardHomeRoute,
   indexDBRoute: indexDBRoute,
   landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,
   machinesRoute: machinesRoute,
+  newAppRoute: newAppRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,

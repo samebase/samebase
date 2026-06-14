@@ -2,13 +2,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { AddRepositoryPageContent, type AddRepositoryRepository } from "./AddRepository";
+import {
+  ConnectRepositoryPageContent,
+  type ConnectRepositoryRepository,
+} from "./ConnectRepository";
 
-type AddRepositoryPageContentProps = Parameters<typeof AddRepositoryPageContent>[0];
+type ConnectRepositoryPageContentProps = Parameters<typeof ConnectRepositoryPageContent>[0];
 
 const noop = () => {};
 
-function buildRepository(id: number, fullName: string): AddRepositoryRepository {
+function buildRepository(id: number, fullName: string): ConnectRepositoryRepository {
   const slashIndex = fullName.indexOf("/");
   if (slashIndex === -1) {
     throw new Error(`Invalid repository full name: ${fullName}`);
@@ -32,7 +35,7 @@ function buildRepository(id: number, fullName: string): AddRepositoryRepository 
   };
 }
 
-function buildRepositoryRow(repository: AddRepositoryRepository, searchQuery: string) {
+function buildRepositoryRow(repository: ConnectRepositoryRepository, searchQuery: string) {
   const searchMatch = findRepositorySearchMatch(searchQuery, repository);
   if (searchMatch === null) {
     throw new Error(`${repository.full_name} does not match ${searchQuery}`);
@@ -44,8 +47,8 @@ function buildRepositoryRow(repository: AddRepositoryRepository, searchQuery: st
   };
 }
 
-function renderAddRepositoryContent(overrides: Partial<AddRepositoryPageContentProps>) {
-  const props: AddRepositoryPageContentProps = {
+function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPageContentProps>) {
+  const props: ConnectRepositoryPageContentProps = {
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
@@ -66,17 +69,17 @@ function renderAddRepositoryContent(overrides: Partial<AddRepositoryPageContentP
   };
 
   const markup = renderToStaticMarkup(
-    <TestRouterProvider initialEntries={["/add"]}>
-      <AddRepositoryPageContent {...props} />
+    <TestRouterProvider initialEntries={["/connect-repo"]}>
+      <ConnectRepositoryPageContent {...props} />
     </TestRouterProvider>,
   );
 
   return markup.split("&#x27;").join("'").split("&amp;").join("&");
 }
 
-describe("AddRepositoryPageContent", () => {
+describe("ConnectRepositoryPageContent", () => {
   it("renders the disconnected GitHub state from the shipped page content", () => {
-    const markup = renderAddRepositoryContent({
+    const markup = renderConnectRepositoryContent({
       githubConnected: false,
     });
 
@@ -92,7 +95,7 @@ describe("AddRepositoryPageContent", () => {
     const firstRepository = buildRepository(1, "noter-md/noter");
     const secondRepository = buildRepository(2, "noter-md/starter-kit");
 
-    const markup = renderAddRepositoryContent({
+    const markup = renderConnectRepositoryContent({
       githubConnected: true,
       loadingMore: true,
       repositoryPreviewCount: 10,
@@ -121,7 +124,7 @@ describe("AddRepositoryPageContent", () => {
   it("renders an in-button pending state for the connecting repository", () => {
     const repository = buildRepository(1, "noter-md/noter");
 
-    const markup = renderAddRepositoryContent({
+    const markup = renderConnectRepositoryContent({
       connectingRepositoryFullName: repository.full_name,
       repositoryRows: [buildRepositoryRow(repository, "")],
       repositoryTotalCount: 1,
@@ -132,7 +135,7 @@ describe("AddRepositoryPageContent", () => {
   });
 
   it("renders the search-empty background failure message", () => {
-    const markup = renderAddRepositoryContent({
+    const markup = renderConnectRepositoryContent({
       emptyRepositoryMessage:
         "Couldn't finish loading the rest of your repositories. Retry to finish your search.",
       githubConnected: true,
@@ -148,13 +151,13 @@ describe("AddRepositoryPageContent", () => {
   });
 
   it("keeps the loading state and stays silent for default empty content", () => {
-    const loadingMarkup = renderAddRepositoryContent({
+    const loadingMarkup = renderConnectRepositoryContent({
       githubConnected: true,
       loading: true,
       repositoryRows: [],
       repositoryTotalCount: 0,
     });
-    const emptyMarkup = renderAddRepositoryContent({
+    const emptyMarkup = renderConnectRepositoryContent({
       githubConnected: true,
       repositoryRows: [],
       repositoryTotalCount: 0,

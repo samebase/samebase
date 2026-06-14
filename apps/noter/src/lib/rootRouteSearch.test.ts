@@ -27,7 +27,6 @@ describe("rootRouteSearch", () => {
         dark: "",
         dev: "",
         devtools: "true",
-        "new-app": "",
         primary: "red-600",
         "prod-ui": "",
         secondary: "lime-100",
@@ -80,9 +79,7 @@ describe("rootRouteSearch", () => {
         dev: "1",
         devtools: "false",
         "create-account": "false",
-        "add-app-root": "false",
         light: 0,
-        "new-app": "false",
         "prod-ui": false,
         "sign-in": "false",
         "swipe-debug": "false",
@@ -125,7 +122,7 @@ describe("rootRouteSearch", () => {
   it("parses the root search contract from a search string", () => {
     expect(
       readRootRouteSearch(
-        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete&new-app&add-app-root",
+        "?prod-ui&dev&auth=google&signup=google&sign-in&create-account&primary=red-600&delete&add-app-root",
       ),
     ).toEqual({
       auth: "google",
@@ -218,7 +215,7 @@ describe("rootRouteSearch", () => {
   it("replaces logo params without dropping dashboard route state", () => {
     const nextSearch = replaceRootLogoRouteSearch(
       {
-        "new-app": true,
+        delete: true,
         depth: 2,
         elev: 24,
         freeView: true,
@@ -232,7 +229,7 @@ describe("rootRouteSearch", () => {
       },
     );
 
-    expect(nextSearch["new-app"]).toBe(true);
+    expect(nextSearch.delete).toBe(true);
     expect(nextSearch.primary).toBe("green-500");
     expect(nextSearch.rot).toBe(90);
     expect(nextSearch.depth).toBeUndefined();

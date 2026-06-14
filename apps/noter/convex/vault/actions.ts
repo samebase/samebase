@@ -26,11 +26,12 @@ import {
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
 
-const { array, literal, null: nullValue, object, optional, string, union } = v;
+const { array, boolean, literal, null: nullValue, object, optional, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
 const githubRepositoryOwnerOption = object({
   login: string(),
   kind: githubRepositoryOwnerKind,
+  canCreateRepository: boolean(),
 });
 const appResourceNameAvailability = object({
   status: union(literal("available"), literal("taken"), literal("invalid"), literal("unknown")),
@@ -39,6 +40,7 @@ const appResourceNameAvailability = object({
 });
 
 type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
+type GitHubRepositoryOwnerOption = Infer<typeof githubRepositoryOwnerOption>;
 
 function buildAvailableResult(): AppResourceNameAvailability {
   return {
@@ -164,6 +166,53 @@ async function buildAvailableGitHubRepositoryNameSuggestion(args: {
     }
   }
   return null;
+}
+
+async function listGitHubRepositoryOwnerOptions(args: {
+  octokit: Octokit;
+  username: string;
+}): Promise<GitHubRepositoryOwnerOption[]> {
+  const memberships = await args.octokit.rest.orgs.listMembershipsForAuthenticatedUser({
+    state: "active",
+    per_page: 100,
+  });
+  const organizationOwners = memberships.data
+    .map((membership) => ({
+      login: membership.organization.login,
+      kind: "organization" as const,
+      canCreateRepository:
+        membership.permissions?.can_create_repository ?? membership.role === "admin",
+    }))
+    .filter((owner) => owner.login.length > 0)
+    .sort((left, right) => left.login.localeCompare(right.login));
+
+  return [
+    {
+      login: args.username,
+      kind: "user",
+      canCreateRepository: true,
+    },
+    ...organizationOwners,
+  ];
+}
+
+function resolveGitHubRepositoryCreateOwner(args: {
+  owner: string;
+  ownerOptions: GitHubRepositoryOwnerOption[];
+}): string {
+  const selectedOwner = args.owner.trim();
+  const ownerOption = args.ownerOptions.find(
+    (option) => option.login.toLowerCase() === selectedOwner.toLowerCase(),
+  );
+  if (!ownerOption) {
+    throw new Error(`GitHub owner ${selectedOwner} is not available to this account.`);
+  }
+  if (!ownerOption.canCreateRepository) {
+    throw new Error(
+      `Your GitHub account cannot create repositories under ${ownerOption.login}. Choose your user account or an organization where you can create repositories.`,
+    );
+  }
+  return ownerOption.login;
 }
 
 async function markProvisioningStartupFailed(
@@ -584,7 +633,7 @@ async function resolveGithubConnectionUsername(
 export const listRepositoryOwners = action({
   args: {},
   returns: array(githubRepositoryOwnerOption),
-  handler: async (ctx): Promise<Array<{ login: string; kind: "user" | "organization" }>> => {
+  handler: async (ctx): Promise<GitHubRepositoryOwnerOption[]> => {
     const userId = await getUserId(ctx);
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
       userId,
@@ -601,19 +650,7 @@ export const listRepositoryOwners = action({
     const octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
-    const organizations = await octokit.rest.orgs.listForAuthenticatedUser({
-      per_page: 100,
-    });
-    const organizationOwners = organizations.data
-      .map((organization) => organization.login)
-      .filter((login) => login.length > 0)
-      .sort((left, right) => left.localeCompare(right))
-      .map((login) => ({
-        login,
-        kind: "organization" as const,
-      }));
-
-    return [{ login: username, kind: "user" }, ...organizationOwners];
+    return await listGitHubRepositoryOwnerOptions({ octokit, username });
   },
 });
 
@@ -684,8 +721,8 @@ export const createRepository = action({
     if (!repoName) {
       throw new Error("Repository name is required.");
     }
-    const ghRepoOwner = args.owner.trim();
-    if (!ghRepoOwner) {
+    const ghRepoOwnerInput = args.owner.trim();
+    if (!ghRepoOwnerInput) {
       throw new Error("GitHub owner is required.");
     }
 
@@ -696,6 +733,20 @@ export const createRepository = action({
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected.");
     }
+    const githubUsername = await resolveGithubConnectionUsername(ctx, {
+      connection: githubConnection,
+      userId,
+    });
+    const githubOctokit = new Octokit({
+      auth: githubConnection.auth.credential,
+    });
+    const ghRepoOwner = resolveGitHubRepositoryCreateOwner({
+      owner: ghRepoOwnerInput,
+      ownerOptions: await listGitHubRepositoryOwnerOptions({
+        octokit: githubOctokit,
+        username: githubUsername,
+      }),
+    });
 
     const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
     if (!convexNameValidation.valid) {

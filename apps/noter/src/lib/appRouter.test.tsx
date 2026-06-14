@@ -115,8 +115,12 @@ vi.mock("@/components/PricingPage", () => ({
   PricingPage: () => <div data-testid="pricing-page">Pricing page</div>,
 }));
 
-vi.mock("@/components/AddRepository", () => ({
-  AddRepository: () => <div data-testid="add-repository-page">Add repository page</div>,
+vi.mock("@/components/ConnectRepository", () => ({
+  ConnectRepository: () => <div data-testid="connect-repository-page">Connect repository page</div>,
+}));
+
+vi.mock("@/components/NewAppPage", () => ({
+  NewAppPage: () => <div data-testid="new-app-page">New app page</div>,
 }));
 
 vi.mock("@/components/MachinesWorkspacePage", () => ({
@@ -340,7 +344,7 @@ describe("appRouter", () => {
   });
 
   it("renders /home through the explicit dashboard route", async () => {
-    await renderRoute("/home?new-app");
+    await renderRoute("/home");
 
     expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
       "Dashboard route",
@@ -350,7 +354,7 @@ describe("appRouter", () => {
   });
 
   it("does not redirect old root dashboard query URLs to /home", async () => {
-    const router = await renderRoute("/?new-app");
+    const router = await renderRoute("/?delete");
 
     expect(router.state.location.pathname).toBe("/");
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
@@ -380,7 +384,7 @@ describe("appRouter", () => {
   });
 
   it("does not keep the removed /dashboard route", async () => {
-    await renderRoute("/dashboard?new-app");
+    await renderRoute("/dashboard?delete");
 
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
       "Not found route",
@@ -597,11 +601,11 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders add repository through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/add");
+  it("renders connect repository through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/connect-repo");
 
-    expect(rootElement?.querySelector('[data-testid="add-repository-page"]')?.textContent).toBe(
-      "Add repository page",
+    expect(rootElement?.querySelector('[data-testid="connect-repository-page"]')?.textContent).toBe(
+      "Connect repository page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
@@ -615,11 +619,29 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("accepts a trailing slash on the promoted add route", async () => {
-    await renderRoute("/add/");
+  it("accepts a trailing slash on the promoted connect repository route", async () => {
+    await renderRoute("/connect-repo/");
 
-    expect(rootElement?.querySelector('[data-testid="add-repository-page"]')?.textContent).toBe(
-      "Add repository page",
+    expect(rootElement?.querySelector('[data-testid="connect-repository-page"]')?.textContent).toBe(
+      "Connect repository page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders new app through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/new-app");
+
+    expect(rootElement?.querySelector('[data-testid="new-app-page"]')?.textContent).toBe(
+      "New app page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("accepts a trailing slash on the promoted new app route", async () => {
+    await renderRoute("/new-app/");
+
+    expect(rootElement?.querySelector('[data-testid="new-app-page"]')?.textContent).toBe(
+      "New app page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

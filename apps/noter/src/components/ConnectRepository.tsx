@@ -16,19 +16,19 @@ import {
   splitRepositoryFullNameMatch,
   type RepositorySearchMatch,
 } from "@/lib/repositorySearch";
-import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
+import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
-export type AddRepositoryRepository = Repository;
+export type ConnectRepositoryRepository = Repository;
 
-type AddRepositoryRow = {
+type ConnectRepositoryRow = {
   repo: Repository;
   searchMatch: RepositorySearchMatch;
 };
 
-type AddRepositoryPageContentProps = {
+type ConnectRepositoryPageContentProps = {
   connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
@@ -36,7 +36,7 @@ type AddRepositoryPageContentProps = {
   loading: boolean;
   loadingMore: boolean;
   repositoryPreviewCount: number;
-  repositoryRows: AddRepositoryRow[];
+  repositoryRows: ConnectRepositoryRow[];
   repositoryTotalCount: number;
   retryingFullRepositories: boolean;
   searchQuery: string;
@@ -101,7 +101,7 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
   return <span>{elements}</span>;
 }
 
-export function AddRepository() {
+export function ConnectRepository() {
   const location = useLocation();
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
@@ -130,7 +130,7 @@ export function AddRepository() {
     enabled: githubConnected,
   });
 
-  // Keep the fast preview and the full discovery scan separate so /add can
+  // Keep the fast preview and the full discovery scan separate so /connect-repo can
   // paint recent repositories immediately without regressing eventual search completeness.
   const {
     data: fullRepositories,
@@ -265,7 +265,7 @@ export function AddRepository() {
   };
 
   return (
-    <AddRepositoryPageContent
+    <ConnectRepositoryPageContent
       connectingRepositoryFullName={connectingRepositoryFullName}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
@@ -286,7 +286,7 @@ export function AddRepository() {
   );
 }
 
-export function AddRepositoryPageContent({
+export function ConnectRepositoryPageContent({
   connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
@@ -303,7 +303,7 @@ export function AddRepositoryPageContent({
   onConnectRepository,
   onRetryFullRepositories,
   onSearchQueryChange,
-}: AddRepositoryPageContentProps) {
+}: ConnectRepositoryPageContentProps) {
   return (
     <div className="container flex min-h-0 flex-1 flex-col py-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 flex-shrink-0">
