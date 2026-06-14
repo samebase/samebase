@@ -1,9 +1,7 @@
-import { Link } from "@tanstack/react-router";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 
 export function RepositoryRouteConnectState({
   repositoryFullName,
@@ -79,9 +77,6 @@ export function RepositoryRouteConnectState({
               disabled={isConnectingGithub || isConnectingRepository}
             >
               {primaryLabel}
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to={DASHBOARD_ROUTE}>Back to Vaults</Link>
             </Button>
           </div>
         </div>

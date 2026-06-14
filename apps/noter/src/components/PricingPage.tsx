@@ -105,9 +105,6 @@ export function PricingPage() {
                 {isPro && <Badge>Pro active</Badge>}
               </div>
             </div>
-            <Button variant="outline" asChild>
-              <Link to={DASHBOARD_ROUTE}>Back to Vaults</Link>
-            </Button>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

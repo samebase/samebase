@@ -624,14 +624,7 @@ function FileViewWrapper() {
     return null;
   }
   if (!hasFileViewVaultTree(vault)) {
-    return (
-      <FileViewRepositorySetupState
-        repositoryFullName={`${owner}/${repoName}`}
-        onBackToVaults={() => {
-          navigateByHref(appendCurrentSearch("/"), { replace: true });
-        }}
-      />
-    );
+    return <FileViewRepositorySetupState repositoryFullName={`${owner}/${repoName}`} />;
   }
 
   return (
@@ -646,13 +639,7 @@ function FileViewWrapper() {
   );
 }
 
-function FileViewRepositorySetupState({
-  onBackToVaults,
-  repositoryFullName,
-}: {
-  onBackToVaults: () => void;
-  repositoryFullName: string;
-}) {
+function FileViewRepositorySetupState({ repositoryFullName }: { repositoryFullName: string }) {
   return (
     <AppWorkspaceRouteChrome
       headerAccessory={
@@ -677,11 +664,6 @@ function FileViewRepositorySetupState({
           <p className="mt-3 max-w-lg text-sm text-muted-foreground">
             Repository setup is not ready.
           </p>
-          <div className="mt-5">
-            <Button variant="outline" onClick={onBackToVaults}>
-              Back to Vaults
-            </Button>
-          </div>
         </div>
       </div>
     </AppWorkspaceRouteChrome>
