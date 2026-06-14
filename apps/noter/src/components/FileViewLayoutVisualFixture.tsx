@@ -1,12 +1,8 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { Button } from "@/components/ui/button";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type FileViewLayoutVisualMode =
@@ -20,7 +16,6 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
   const [bodyClickCount, setBodyClickCount] = useState(0);
   const scrollRows = Array.from({ length: 40 }, (_, index) => index + 1);
 
-  const sidebarHeader = <SidebarHomeAccountHeader userDisplayName="nicu@noter.md" />;
   const sidebarContent =
     mode === "fileview-layout" ? (
       <div data-testid="fileview-layout-sidebar-body" className="h-full min-h-0 bg-muted/10" />
@@ -58,21 +53,25 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
       Upload area
     </div>
   );
-  const inactiveSidebar: WorkspaceLayoutV2PaneFrameProps = {};
   const activeSidebar: WorkspaceLayoutV2PaneFrameProps = {
-    header: sidebarHeader,
-    content:
-      FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? (
-        <div
-          data-testid="fileview-layout-right-sidebar-body"
-          className="flex h-full min-h-0 flex-col bg-muted/10"
-        >
-          {sidebarContent}
-        </div>
-      ) : (
-        sidebarContent
-      ),
+    header: null,
+    content: sidebarContent,
     footer: sidebarFooter,
+  };
+  const rightSidebar: WorkspaceLayoutV2PaneFrameProps = {
+    content: (
+      <div
+        data-testid="fileview-layout-right-pane-body"
+        className="flex h-full min-h-0 flex-col bg-muted/10"
+      >
+        <div className="border-b border-border/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Details
+        </div>
+        <div className="min-h-0 flex-1 p-3 text-sm text-muted-foreground">
+          File view secondary pane
+        </div>
+      </div>
+    ),
   };
 
   return (
@@ -82,21 +81,8 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
         mobileMinResizeBehavior={
           mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined
         }
-        shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-        left={
-          FILE_VIEW_TREE_SIDEBAR_SIDE === "left"
-            ? activeSidebar
-            : {
-                content: (
-                  <div data-testid="fileview-layout-left-sidebar-links" className="flex flex-col">
-                    <Link to={DASHBOARD_ROUTE}>Home</Link>
-                    <Link to="/machines">Machines</Link>
-                    <Link to="/add">Connect repository</Link>
-                    <Link to="/pricing">Pricing</Link>
-                  </div>
-                ),
-              }
-        }
+        shortcutPaneSide="left"
+        left={activeSidebar}
         main={{
           headerAccessory: (
             <div
@@ -128,7 +114,7 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
             </div>
           ),
         }}
-        right={FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? activeSidebar : inactiveSidebar}
+        right={rightSidebar}
       />
     </TestRouterProvider>
   );

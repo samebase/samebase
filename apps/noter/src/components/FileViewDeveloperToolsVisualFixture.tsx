@@ -1,4 +1,3 @@
-import { PersonIcon } from "@/lib/radixIcons";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -6,9 +5,7 @@ import {
   type FileViewEditorOverride,
   type FileViewMode,
 } from "@/components/FileViewDeveloperTools";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"
@@ -38,17 +35,6 @@ export function FileViewDeveloperToolsVisualFixture({
   const developerToolsOpen = getFixtureDeveloperToolsOpen(mode);
   const editorOverride = getFixtureEditorOverride(mode);
   const showEditorActions = viewMode === "editor";
-  const sidebarHeader = (
-    <SidebarAccountSection>
-      <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
-        <span className="block min-w-0 truncate">nicu@noter.md</span>
-        <Button variant="secondary" size="icon" className="h-8 w-8 rounded-ui md:h-6 md:w-6">
-          <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
-          <span className="sr-only">Open user menu</span>
-        </Button>
-      </div>
-    </SidebarAccountSection>
-  );
   const sidebarContent = (
     <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
       <div className="border-b p-3 text-xs text-muted-foreground">noter-md/noter</div>
@@ -60,10 +46,10 @@ export function FileViewDeveloperToolsVisualFixture({
   return (
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="file-view-developer-tools-visual-fixture"
-      shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
+      shortcutPaneSide="left"
       left={{
-        header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
-        content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
+        header: null,
+        content: sidebarContent,
       }}
       main={{
         headerAccessory: (
@@ -162,9 +148,6 @@ export function FileViewDeveloperToolsVisualFixture({
             </div>
           </div>
         ),
-      }}
-      right={{
-        content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
       }}
     />
   );

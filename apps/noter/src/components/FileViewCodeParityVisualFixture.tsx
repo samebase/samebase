@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { PersonIcon } from "@/lib/radixIcons";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { toCanvas } from "html-to-image";
@@ -7,9 +6,7 @@ import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import {
@@ -660,17 +657,7 @@ export function FileViewCodeParityVisualFixture({
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="file-view-code-parity-visual-fixture"
       left={{
-        header: (
-          <SidebarAccountSection>
-            <div className="flex h-full w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
-              <span className="block min-w-0 truncate">nicu@noter.md</span>
-              <Button variant="secondary" size="icon" className="h-8 w-8 rounded-ui md:h-6 md:w-6">
-                <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
-                <span className="sr-only">Open user menu</span>
-              </Button>
-            </div>
-          </SidebarAccountSection>
-        ),
+        header: null,
         content: (
           <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
             <div className="border-b border-border/50 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">

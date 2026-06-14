@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { FilePlusIcon, GitHubLogoIcon, PersonIcon, PlusIcon } from "@/lib/radixIcons";
-import { SidebarAccountSection } from "@/components/SidebarAccountSection";
+import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/components/FileTree";
 import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
@@ -11,7 +10,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { linkStyle } from "@/components/styles";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
 import { isKeyOf } from "@noter-md/dependent";
@@ -192,17 +190,6 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
     setSelectedFile(getFirstVisibleFixtureFile(visibleTreeItems));
   }, [selectedFile, visibleTreeItems]);
 
-  const sidebarHeader = (
-    <SidebarAccountSection>
-      <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
-        <span className="block min-w-0 truncate">nicu@noter.md</span>
-        <Button variant="secondary" size="icon" className="h-8 w-8 rounded-ui md:h-6 md:w-6">
-          <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
-          <span className="sr-only">Open user menu</span>
-        </Button>
-      </div>
-    </SidebarAccountSection>
-  );
   const sidebarContent = (
     <>
       <div className="border-b border-border/50 p-3">
@@ -325,9 +312,8 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
       </button>
     </div>
   );
-  const inactiveSidebar: WorkspaceLayoutV2PaneFrameProps = {};
   const activeSidebar: WorkspaceLayoutV2PaneFrameProps = {
-    header: sidebarHeader,
+    header: null,
     content: sidebarContent,
     footer: sidebarFooter,
   };
@@ -335,8 +321,8 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
   return (
     <WorkspaceLayoutV2FixtureFrame
       dataTestId="fileview-prosemark-height-fixture-frame"
-      shortcutPaneSide={FILE_VIEW_TREE_SIDEBAR_SIDE}
-      left={FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? activeSidebar : inactiveSidebar}
+      shortcutPaneSide="left"
+      left={activeSidebar}
       main={{
         headerAccessory: (
           <RepositoryWorkspacePaneHeader title={headerTitle} onQuickOpen={() => {}} />
@@ -416,7 +402,6 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
           </div>
         ),
       }}
-      right={FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? activeSidebar : inactiveSidebar}
     />
   );
 }

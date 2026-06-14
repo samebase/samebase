@@ -55,7 +55,6 @@ import {
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
-import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
 import { type GithubTree } from "../../../convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
@@ -64,7 +63,6 @@ import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
 import { CHAT_ENABLED } from "../../../shared/featureFlags";
@@ -758,8 +756,6 @@ function FileViewInner({
   const reviewOnMountRequested = routeSearch.review ?? false;
   const isCompareRequested = routeSearch.compare ?? false;
 
-  // Get current user for sidebar
-  const user = useQuery(api.users.viewer);
   const remoteBranches = useQuery(api.vault.branches.getVaultRemoteBranches, {
     vaultId: vault._id,
   });
@@ -2393,11 +2389,6 @@ function FileViewInner({
 
   // MARK: Return
 
-  const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
-  const sidebarHeader = useMemo(
-    () => (userDisplayName ? <SidebarHomeAccountHeader userDisplayName={userDisplayName} /> : null),
-    [userDisplayName],
-  );
   const handleSidebarModeChange = useCallback(
     (value: string) => {
       if (value === "simple" || value === "all") {
@@ -2474,17 +2465,14 @@ function FileViewInner({
   );
   const sidebarFooter = useMemo(
     () => (
-      <>
-        <FileViewSidebarFooter
-          mediaUploadError={mediaUploadError}
-          isMediaUploadDragOver={isMediaUploadDragOver}
-          isUploadingMedia={isUploadingMedia}
-          onRequestMediaUpload={handleRequestMediaUpload}
-          onMediaUploadDragOverChange={setIsMediaUploadDragOver}
-          onMediaUploadDrop={handleMediaUploadDrop}
-        />
-        <AppSidebarMetaSection />
-      </>
+      <FileViewSidebarFooter
+        mediaUploadError={mediaUploadError}
+        isMediaUploadDragOver={isMediaUploadDragOver}
+        isUploadingMedia={isUploadingMedia}
+        onRequestMediaUpload={handleRequestMediaUpload}
+        onMediaUploadDragOverChange={setIsMediaUploadDragOver}
+        onMediaUploadDrop={handleMediaUploadDrop}
+      />
     ),
     [
       handleMediaUploadDrop,
@@ -2999,24 +2987,17 @@ function FileViewInner({
   );
   const fileViewLeftPane = useMemo(
     () => ({
-      header: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarHeader : null,
-      content: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarContent : null,
-      footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "left" ? sidebarFooter : null,
+      header: null,
+      content: sidebarContent,
+      footer: sidebarFooter,
     }),
-    [sidebarContent, sidebarFooter, sidebarHeader],
-  );
-  const fileViewRightPane = useMemo(
-    () => ({
-      header: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarHeader : null,
-      content: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarContent : null,
-      footer: FILE_VIEW_TREE_SIDEBAR_SIDE === "right" ? sidebarFooter : null,
-    }),
-    [sidebarContent, sidebarFooter, sidebarHeader],
+    [sidebarContent, sidebarFooter],
   );
   return (
     <AppWorkspaceRouteChrome
       headerAccessory={fileViewMainHeader}
       left={fileViewLeftPane}
+      shortcutPaneSide="left"
       panel={
         CHAT_ENABLED
           ? {
@@ -3037,7 +3018,6 @@ function FileViewInner({
             }
           : undefined
       }
-      right={fileViewRightPane}
     >
       {fileViewMainContent}
 

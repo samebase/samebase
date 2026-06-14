@@ -39,7 +39,7 @@ async function getFixtureViewportClip(page: Page) {
   };
 }
 
-test("fileview desktop shell with right tree", async ({ page }) => {
+test("fileview desktop shell with left tree", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto("/visual-fixture?mode=fileview-layout", {
     waitUntil: "domcontentloaded",
@@ -49,7 +49,7 @@ test("fileview desktop shell with right tree", async ({ page }) => {
   const fixture = page.getByTestId("fileview-layout-visual-fixture");
   await expect(page.getByRole("button", { name: "Open bottom panel" })).toHaveCount(0);
 
-  await expect(fixture).toHaveScreenshot("fileview-layout-shell-right-tree.png", {
+  await expect(fixture).toHaveScreenshot("fileview-layout-shell-left-tree.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
