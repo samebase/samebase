@@ -474,7 +474,7 @@ export const trackedFilePaths = [
   "apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-sidebar-open.png",
   "apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-left-to-main.png",
   "apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-main-to-left.png",
-  "apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-shell-right-tree.png",
+  "apps/noter/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-shell-left-tree.png",
   "apps/noter/fixtures/browser-convex-proxy.env",
   "apps/noter/lintConfig.test.ts",
   "apps/noter/manual_notch.css",

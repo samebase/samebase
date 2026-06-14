@@ -270,17 +270,14 @@ test("fileview mobile resize grip waits for the carousel to settle", async ({ pa
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(1);
 });
 
-test("fileview mobile left sidebar exposes fixture links", async ({ page }) => {
+test("fileview mobile left sidebar exposes file tree controls", async ({ page }) => {
   await gotoFileViewFixture(page);
 
   await scrollFileViewCarouselToPane(page, "left");
 
-  const leftLinks = page.getByTestId("fileview-layout-left-sidebar-links");
-  await expect(leftLinks.getByRole("link")).toHaveCount(4);
-  await expect(leftLinks.getByRole("link", { name: "Home" })).toBeVisible();
-  await expect(leftLinks.getByRole("link", { name: "Machines" })).toBeVisible();
-  await expect(leftLinks.getByRole("link", { name: "Connect repository" })).toBeVisible();
-  await expect(leftLinks.getByRole("link", { name: "Pricing" })).toBeVisible();
+  await expect(page.getByTestId("fileview-layout-counter-button")).toBeVisible();
+  await expect(page.getByTestId("fileview-layout-sidebar-scroll")).toBeVisible();
+  await expect(page.getByText("Upload area")).toBeVisible();
 });
 
 test("fileview mobile sidebar minimum uses the configured mobile pane width", async ({ page }) => {
@@ -636,7 +633,7 @@ test("fileview mobile sidebar grips resize the active sidebars", async ({ page }
 
   await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(1);
   const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
-  const contentSizedWidthPx = (await getBox(page, "fileview-layout-right-sidebar-body")).width;
+  const contentSizedWidthPx = (await getBox(page, "fileview-layout-right-pane-body")).width;
   expect(contentSizedWidthPx).toBeGreaterThanOrEqual(159);
   expect(contentSizedWidthPx).toBeLessThan(maxWidthPx);
 
@@ -650,7 +647,7 @@ test("fileview mobile sidebar grips resize the active sidebars", async ({ page }
   await scrollFileViewCarouselToPane(page, "right");
 
   await expect
-    .poll(async () => (await getBox(page, "fileview-layout-right-sidebar-body")).width)
+    .poll(async () => (await getBox(page, "fileview-layout-right-pane-body")).width)
     .toBeLessThan(contentSizedWidthPx - 40);
   await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(1);
 });
