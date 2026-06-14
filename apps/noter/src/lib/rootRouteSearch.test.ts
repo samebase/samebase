@@ -33,6 +33,7 @@ describe("rootRouteSearch", () => {
         secondary: "lime-100",
         signup: "google",
         "sign-in": "",
+        "swipe-debug": "",
         top: "white-base",
       }),
     ).toEqual({
@@ -51,6 +52,7 @@ describe("rootRouteSearch", () => {
       secondary: "lime-100",
       signup: "google",
       "sign-in": true,
+      "swipe-debug": true,
       top: "white-base",
     });
   });
@@ -83,6 +85,7 @@ describe("rootRouteSearch", () => {
         "new-app": "false",
         "prod-ui": false,
         "sign-in": "false",
+        "swipe-debug": "false",
       }),
     ).toEqual({
       "create-account": true,
@@ -92,6 +95,7 @@ describe("rootRouteSearch", () => {
       light: true,
       "prod-ui": true,
       "sign-in": true,
+      "swipe-debug": true,
     });
   });
 
@@ -137,6 +141,12 @@ describe("rootRouteSearch", () => {
   it("parses the one-shot dashboard auth return marker", () => {
     expect(readRootRouteSearch("?auth-return=dashboard")).toEqual({
       "auth-return": "dashboard",
+    });
+  });
+
+  it("parses the global swipe debug flag", () => {
+    expect(readRootRouteSearch("?swipe-debug")).toEqual({
+      "swipe-debug": true,
     });
   });
 
@@ -301,10 +311,10 @@ describe("rootRouteSearch", () => {
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: ["machineId", "threadId"],
         pathname: "/machines",
-        searchStr: "?prod-ui&machineId=sample-machine&unknownKey=1",
+        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug&unknownKey=1",
         hash: "",
       }),
-    ).toBe("/machines?machineId=sample-machine&prod-ui");
+    ).toBe("/machines?machineId=sample-machine&swipe-debug&prod-ui");
   });
 
   it("does not redirect when every raw key is accepted", () => {

@@ -572,6 +572,13 @@ describe("appRouter", () => {
     expect(searchParams.has("prod-ui")).toBe(true);
   });
 
+  it("keeps the global swipe debug flag on public routes", async () => {
+    const router = await renderRoute("/privacy?swipe-debug");
+
+    expect(router.state.location.pathname).toBe("/privacy");
+    expect(new URLSearchParams(router.state.location.searchStr).has("swipe-debug")).toBe(true);
+  });
+
   it("renders MCP consent through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/oauth/mcp/consent?mcp_consent_request=mcpar_test");
 

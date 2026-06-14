@@ -5,6 +5,7 @@ import {
   readRouteSearchAcceptedKeys,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
+  routeSearchFiniteNumber,
   routeSearchString,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
@@ -14,10 +15,22 @@ import { VisualFixturePage } from "@/visualFixture";
 const pathname = "/visual-fixture";
 
 const RouteSearchSchema_visualFixture = defineRouteSearchParams({
+  elevation: routeSearchValueParam(routeSearchFiniteNumber, {
+    permission: "public",
+    sampleValue: "45",
+    suggestion: "hidden",
+    valueType: "freeform",
+  }),
   mode: routeSearchValueParam(routeSearchString, {
     permission: "public",
     sampleValue: "route-url-editor",
     suggestion: "route",
+    valueType: "freeform",
+  }),
+  rotation: routeSearchValueParam(routeSearchFiniteNumber, {
+    permission: "public",
+    sampleValue: "90",
+    suggestion: "hidden",
     valueType: "freeform",
   }),
 });
