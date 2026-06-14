@@ -24,7 +24,7 @@ import {
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import { toSafeRepoName } from "../../shared/repoName";
-import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboard";
+import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,

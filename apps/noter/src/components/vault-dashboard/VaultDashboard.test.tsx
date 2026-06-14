@@ -8,12 +8,12 @@ import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import {
   VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
-  VaultDashboardCloudflareAccountDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
+import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
 import {

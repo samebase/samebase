@@ -15,8 +15,8 @@ const { useConvexAuthMock, useQueryMock } = vi.hoisted(() => ({
   useQueryMock: vi.fn(),
 }));
 
-vi.mock("@/components/PublicRightSidebar", () => ({
-  usePublicRightSidebarPane: () => ({
+vi.mock("@/components/useAppRightSidebarPane", () => ({
+  useAppRightSidebarPane: () => ({
     content: null,
   }),
 }));

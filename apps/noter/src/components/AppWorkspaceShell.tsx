@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useConvexAuth } from "convex/react";
 import { useLocation } from "@tanstack/react-router";
-import { usePublicRightSidebarPane } from "@/components/PublicRightSidebar";
+import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
@@ -41,7 +41,6 @@ type AppWorkspaceRouteChromeConfig = {
   mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: AppWorkspaceRouteChromePane;
-  rightToggleVisibility?: AppWorkspaceShellToggleVisibility;
   shortcutPaneSide?: WorkspacePaneSide;
 };
 
@@ -223,13 +222,13 @@ function AppWorkspaceShellFrame({
   chrome: AppWorkspaceRouteChromeSnapshot | null;
 }) {
   const sidebarState = useAppWorkspaceSidebarState();
-  const publicRightSidebarPane = usePublicRightSidebarPane();
+  const appRightSidebarPane = useAppRightSidebarPane();
   const mainPane = {
     header: <AppWorkspaceMainHeader accessory={chrome?.headerAccessory} />,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies WorkspaceLayoutV2PaneFrameProps;
   const leftPane = chrome?.left === null ? undefined : (chrome?.left ?? {});
-  const rightPane = chrome?.right === null ? undefined : (chrome?.right ?? publicRightSidebarPane);
+  const rightPane = chrome?.right === null ? undefined : (chrome?.right ?? appRightSidebarPane);
 
   return (
     <WorkspacePaneRuntimeProvider
@@ -247,7 +246,7 @@ function AppWorkspaceShellFrame({
         }
         panel={chrome?.panel}
         right={rightPane}
-        rightToggleVisibility={chrome?.rightToggleVisibility ?? "desktop"}
+        rightToggleVisibility="desktop"
       />
     </WorkspacePaneRuntimeProvider>
   );
@@ -283,7 +282,6 @@ export function AppWorkspaceRouteChrome({
   mobilePanePeekWidthPx,
   panel,
   right,
-  rightToggleVisibility,
   shortcutPaneSide,
 }: AppWorkspaceRouteChromeConfig & { children?: ReactNode }) {
   const context = useContext(AppWorkspaceRouteChromeContext);
@@ -319,7 +317,6 @@ export function AppWorkspaceRouteChrome({
       panel,
       pathname,
       right,
-      rightToggleVisibility,
       shortcutPaneSide,
     }),
     [
@@ -332,7 +329,6 @@ export function AppWorkspaceRouteChrome({
       panel,
       pathname,
       right,
-      rightToggleVisibility,
       shortcutPaneSide,
     ],
   );
