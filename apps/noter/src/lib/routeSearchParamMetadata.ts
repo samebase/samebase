@@ -123,7 +123,7 @@ export function defineRouteSearchParams<const Shape extends RouteSearchParamShap
 ): RouteSearchSchema<Shape> {
   return {
     shape,
-    parse(search: Record<string, unknown>): ParsedRouteSearchParams<Shape> {
+    parse(search) {
       return parseRouteSearchParams(shape, search);
     },
   };
