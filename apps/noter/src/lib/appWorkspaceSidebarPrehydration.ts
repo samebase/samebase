@@ -66,12 +66,31 @@ This function is serialized with Function#toString and emitted as a classic
 inline head script before React hydration. Keep the body self-contained: it can
 only reference browser globals, values passed through args, and helper functions
 serialized into the call site.
+
+The script exists because the desktop sidebar widths are per-device localStorage
+state. Static server markup cannot read that state, so the initial markup uses
+default widths. This script reads the stored widths before hydration and applies
+them with a temporary stylesheet for the first desktop paint.
+
+The stylesheet targets the server-rendered pane elements directly instead of
+writing custom properties on documentElement. The viewport markup has its own
+inline desktop-width custom properties, and those element-level properties would
+override inherited root values.
+
+The selector must include the measured-viewport guard. React adds
+data-workspace-layout-v2-measured after ResizeObserver reports the viewport
+size. Once that attribute is present, the temporary stylesheet no longer
+matches, and the panes use React's live inline widths for resizing and normal
+layout updates.
 */
 function InlineScript_prehidrateSidebar(
   args: AppWorkspaceSidebarPrehydrationArgs,
   readWorkspaceSidebarState: typeof getWorkspaceSidebarState,
 ) {
   function installPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
+    // This attribute is the ownership boundary: before measurement, the head
+    // script may correct the first paint; after measurement, React controls the
+    // pane widths.
     const viewportSelector =
       ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
     const cssText = `
