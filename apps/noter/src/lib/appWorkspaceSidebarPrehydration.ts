@@ -7,6 +7,7 @@ import {
   WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
   WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
 } from "@/components/workspace-layout-v2/workspaceLayoutV2Prehydration";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceSidebarPrehydrationArgs = {
   storageKey: string;
@@ -16,12 +17,10 @@ type AppWorkspaceSidebarPrehydrationArgs = {
   rightDesktopWidthProperty: string;
 };
 
-type AppWorkspaceSidebarPrehydrationState = {
-  leftDesktopOpen: boolean;
-  leftDesktopWidthPx: number;
-  rightDesktopOpen: boolean;
-  rightDesktopWidthPx: number;
-};
+type AppWorkspaceSidebarPrehydrationState = Pick<
+  WorkspaceSidebarState,
+  "leftDesktopOpen" | "leftDesktopWidthPx" | "rightDesktopOpen" | "rightDesktopWidthPx"
+>;
 
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
