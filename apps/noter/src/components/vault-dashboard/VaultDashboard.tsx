@@ -22,19 +22,13 @@ import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-route
 import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
+import { formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import {
   hasCurrentCloudflareBuildFailureLogs,
   hasCurrentCloudflareBranchPreview,
 } from "@/lib/cloudflarePreviewLinks";
 import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
-import {
-  CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
-  CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
-} from "../../../shared/cloudflareTokenRefresh";
-import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { useNow } from "@/hooks/useNow";
-import { isRecord } from "@noter-md/dependent";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import {
   useCallback,
@@ -44,17 +38,10 @@ import {
   useState,
   type FormEvent,
   type KeyboardEvent,
-  type MutableRefObject,
-  type ReactElement,
   type ReactNode,
 } from "react";
-import { isInIframe, useNoterAuthActions } from "@/authClient";
-import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/lib/fileViewRouteSearch";
-import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
   Dialog,
@@ -68,17 +55,15 @@ import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBra
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import {
-  VaultDashboardAccountSection,
   VaultDashboardEmptyState,
-  VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
   VaultDashboardScrollTargetEndPadding,
-  VaultDashboardSidebarContent,
-  type VaultDashboardProviderRowViewModel,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
-import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
-import { useApiKeyConnectDialog, type ApiKeyProvider } from "@/components/ApiKeyConnectDialog";
+import {
+  compareCloudflareAccountOptions,
+  type CloudflareAccountOption,
+} from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { buildVaultCodespaceChatRoute, buildVaultFileRoute } from "@/lib/vaultRoutes";
 import {
@@ -130,43 +115,6 @@ export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
 
-const formatMcpTokenStatusLabel = (
-  status: "valid" | "expiring_soon" | "expired" | "invalid" | "unknown" | undefined,
-): string => {
-  if (status === "valid") return "Valid";
-  if (status === "expiring_soon") return "Expiring soon";
-  if (status === "expired") return "Expired";
-  if (status === "invalid") return "Invalid";
-  return "Unknown";
-};
-
-const getRedirectOrigin = (oauthUrl: string): string | null => {
-  try {
-    const url = new URL(oauthUrl);
-    const redirect = url.searchParams.get("redirect_uri");
-    if (!redirect) return null;
-    return new URL(redirect).origin;
-  } catch {
-    return null;
-  }
-};
-
-const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
-type ProviderKey = (typeof PROVIDER_KEYS)[number];
-type ProviderMetadata = {
-  label: string;
-  oauthButtonLabel: string;
-  popupName: string;
-  completionEventType: string;
-  icon: ReactElement;
-  apiKeyProvider: ApiKeyProvider | null;
-};
-type ProviderRuntimeConfig = {
-  getOAuthUrl: () => Promise<string>;
-  disconnect: () => Promise<unknown>;
-  popupRef: MutableRefObject<Window | null>;
-  popupOriginRef: MutableRefObject<string | null>;
-};
 type VaultDashboardLogoComponent = () => ReactNode;
 
 export type VaultDeleteDialogTarget = {
@@ -200,10 +148,6 @@ type VaultConvexDialogTarget = {
   repositoryFullName: string;
   repositoryName: string;
 };
-type CloudflareAccountOption = {
-  accountId: string;
-  accountName: string;
-};
 type CloudflareWorkerOption = {
   workerName: string;
   workerTag: string;
@@ -216,16 +160,6 @@ type ConvexProjectOption = {
   teamSlug: string;
 };
 type ConvexProjectConnectMode = "existing" | "create";
-
-function compareCloudflareAccountOptions(
-  left: CloudflareAccountOption,
-  right: CloudflareAccountOption,
-) {
-  return (
-    left.accountName.localeCompare(right.accountName) ||
-    left.accountId.localeCompare(right.accountId)
-  );
-}
 
 function compareCloudflareWorkerOptions(
   left: CloudflareWorkerOption,
@@ -287,14 +221,6 @@ type VaultDashboardLocalState = {
     isSubmitting: boolean;
     mode: AddAppRootMode;
   };
-  cloudflareAccountDialog: {
-    error: string | null;
-    isLoadingAccounts: boolean;
-    isOpen: boolean;
-    isSubmitting: boolean;
-    options: CloudflareAccountOption[];
-    selectedAccountId: string;
-  };
   cloudflareConnectDialog: {
     accounts: CloudflareAccountOption[];
     appRoot: string;
@@ -317,18 +243,12 @@ type VaultDashboardLocalState = {
     isSubmittingProject: boolean;
     selectedProjectId: string;
   };
-  cloudflarePollingPaused: boolean;
   commitError: string | null;
-  createError: string | null;
   deleteError: string | null;
   didAttemptCommit: boolean;
-  disconnectingProvider: ProviderKey | null;
-  isAutoCheckingCloudflareToken: boolean;
-  isCheckingCloudflareToken: boolean;
   isCommitting: boolean;
   isDeleting: boolean;
   isGlobalChatBusy: boolean;
-  isSigningOut: boolean;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   removeCodespaces: boolean;
   removeConvexProvision: boolean;
@@ -359,14 +279,6 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
       isSubmitting: false,
       mode: "app",
     },
-    cloudflareAccountDialog: {
-      error: null,
-      isLoadingAccounts: false,
-      isOpen: false,
-      isSubmitting: false,
-      options: [],
-      selectedAccountId: "",
-    },
     cloudflareConnectDialog: {
       accounts: [],
       appRoot: ROOT_VAULT_APP_ROOT,
@@ -380,19 +292,12 @@ function readVaultDashboardInitialLocalState(): VaultDashboardLocalState {
       workers: [],
     },
     convexConnectDialog: readInitialConvexConnectDialogState(),
-    cloudflarePollingPaused:
-      typeof document !== "undefined" ? document.visibilityState !== "visible" : false,
     commitError: null,
-    createError: null,
     deleteError: null,
     didAttemptCommit: false,
-    disconnectingProvider: null,
-    isAutoCheckingCloudflareToken: false,
-    isCheckingCloudflareToken: false,
     isCommitting: false,
     isDeleting: false,
     isGlobalChatBusy: false,
-    isSigningOut: false,
     openDeveloperToolsByVaultId: {},
     removeCodespaces: false,
     removeConvexProvision: false,
@@ -461,9 +366,6 @@ function useVaultDashboardLocalStore() {
         addAppRootDialog: { ...state.addAppRootDialog, isSubmitting },
       }));
     },
-    clearCreateError: () => {
-      setState((state) => (state.createError === null ? state : { ...state, createError: null }));
-    },
     prepareDeleteDialog: () => {
       setState((state) => ({
         ...state,
@@ -512,45 +414,6 @@ function useVaultDashboardLocalStore() {
         removeConvexProvision: false,
         removeGithubRepo: false,
         removeCloudflareProvision: false,
-      }));
-    },
-    setCloudflarePollingPaused: (cloudflarePollingPaused: boolean) => {
-      setState((state) => ({ ...state, cloudflarePollingPaused }));
-    },
-    setCloudflareAccountDialogError: (error: string | null) => {
-      setState((state) => ({
-        ...state,
-        cloudflareAccountDialog: { ...state.cloudflareAccountDialog, error },
-      }));
-    },
-    setCloudflareAccountDialogOpen: (isOpen: boolean) => {
-      setState((state) => ({
-        ...state,
-        cloudflareAccountDialog: { ...state.cloudflareAccountDialog, isOpen },
-      }));
-    },
-    setCloudflareAccountDialogOptions: (options: CloudflareAccountOption[]) => {
-      setState((state) => ({
-        ...state,
-        cloudflareAccountDialog: { ...state.cloudflareAccountDialog, options },
-      }));
-    },
-    setCloudflareAccountDialogSelectedAccountId: (selectedAccountId: string) => {
-      setState((state) => ({
-        ...state,
-        cloudflareAccountDialog: { ...state.cloudflareAccountDialog, selectedAccountId },
-      }));
-    },
-    setCloudflareAccountsLoading: (isLoadingAccounts: boolean) => {
-      setState((state) => ({
-        ...state,
-        cloudflareAccountDialog: { ...state.cloudflareAccountDialog, isLoadingAccounts },
-      }));
-    },
-    setCloudflareAccountSubmitting: (isSubmitting: boolean) => {
-      setState((state) => ({
-        ...state,
-        cloudflareAccountDialog: { ...state.cloudflareAccountDialog, isSubmitting },
       }));
     },
     setCloudflareConnectDialogAccounts: (accounts: CloudflareAccountOption[]) => {
@@ -675,9 +538,6 @@ function useVaultDashboardLocalStore() {
     setCommitError: (commitError: string | null) => {
       setState((state) => ({ ...state, commitError }));
     },
-    setCreateError: (createError: string | null) => {
-      setState((state) => ({ ...state, createError }));
-    },
     setDeleteError: (deleteError: string | null) => {
       setState((state) => ({ ...state, deleteError }));
     },
@@ -707,20 +567,11 @@ function useVaultDashboardLocalStore() {
         },
       }));
     },
-    setDisconnectingProvider: (disconnectingProvider: ProviderKey | null) => {
-      setState((state) => ({ ...state, disconnectingProvider }));
-    },
     setGlobalChatAutoFocus: (shouldAutoFocusChatInput: boolean) => {
       setState((state) => ({ ...state, shouldAutoFocusChatInput }));
     },
     setGlobalChatBusy: (isGlobalChatBusy: boolean) => {
       setState((state) => ({ ...state, isGlobalChatBusy }));
-    },
-    setIsAutoCheckingCloudflareToken: (isAutoCheckingCloudflareToken: boolean) => {
-      setState((state) => ({ ...state, isAutoCheckingCloudflareToken }));
-    },
-    setIsCheckingCloudflareToken: (isCheckingCloudflareToken: boolean) => {
-      setState((state) => ({ ...state, isCheckingCloudflareToken }));
     },
     setIsCommitting: (isCommitting: boolean) => {
       setState((state) => ({ ...state, isCommitting }));
@@ -730,9 +581,6 @@ function useVaultDashboardLocalStore() {
     },
     setRetryingDeletionRunId: (retryingDeletionRunId: Id<"vaultDeletionRuns"> | null) => {
       setState((state) => ({ ...state, retryingDeletionRunId }));
-    },
-    setIsSigningOut: (isSigningOut: boolean) => {
-      setState((state) => ({ ...state, isSigningOut }));
     },
   }));
 }
@@ -1159,116 +1007,7 @@ export function VaultDashboardAppRootDialog({
   );
 }
 
-const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
-  github: {
-    label: "GitHub",
-    oauthButtonLabel: "GitHub OAuth",
-    popupName: "github-oauth",
-    completionEventType: "github-oauth-complete",
-    icon: <GitHubProviderLogo />,
-    apiKeyProvider: "github",
-  },
-  convex: {
-    label: "Convex",
-    oauthButtonLabel: "Convex OAuth",
-    popupName: "convex-oauth",
-    completionEventType: "convex-oauth-complete",
-    icon: <ConvexProviderLogo />,
-    apiKeyProvider: "convex",
-  },
-  cloudflare: {
-    label: "Cloudflare",
-    oauthButtonLabel: "Cloudflare OAuth",
-    popupName: "cloudflare-mcp-oauth",
-    completionEventType: "cloudflare-mcp-oauth-complete",
-    icon: <CloudflareProviderLogo />,
-    apiKeyProvider: null,
-  },
-};
-
 const VAULT_DASHBOARD_SCROLLABLE_OVERFLOW_VALUES = new Set(["auto", "overlay", "scroll"]);
-
-/**
- * Bridges provider OAuth popup callbacks back into the dashboard shell. Remove
- * this hook by replacing popup OAuth with redirect flow, or by routing callback
- * completion through provider connection invalidation instead of window
- * messages.
- */
-function useProviderOAuthPopupCompletionReload({
-  cloudflarePopupOriginRef,
-  cloudflarePopupRef,
-  convexPopupOriginRef,
-  convexPopupRef,
-  githubPopupOriginRef,
-  githubPopupRef,
-}: {
-  cloudflarePopupOriginRef: MutableRefObject<string | null>;
-  cloudflarePopupRef: MutableRefObject<Window | null>;
-  convexPopupOriginRef: MutableRefObject<string | null>;
-  convexPopupRef: MutableRefObject<Window | null>;
-  githubPopupOriginRef: MutableRefObject<string | null>;
-  githubPopupRef: MutableRefObject<Window | null>;
-}) {
-  useEffect(() => {
-    const expectedOrigin = window.location.origin;
-    const providerPopupConfig: Record<
-      ProviderKey,
-      {
-        completionEventType: string;
-        popupRef: MutableRefObject<Window | null>;
-        popupOriginRef: MutableRefObject<string | null>;
-      }
-    > = {
-      github: {
-        completionEventType: PROVIDER_METADATA.github.completionEventType,
-        popupRef: githubPopupRef,
-        popupOriginRef: githubPopupOriginRef,
-      },
-      convex: {
-        completionEventType: PROVIDER_METADATA.convex.completionEventType,
-        popupRef: convexPopupRef,
-        popupOriginRef: convexPopupOriginRef,
-      },
-      cloudflare: {
-        completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
-        popupRef: cloudflarePopupRef,
-        popupOriginRef: cloudflarePopupOriginRef,
-      },
-    };
-    const handler = (event: MessageEvent) => {
-      if (!isRecord(event.data) || typeof event.data.type !== "string") {
-        return;
-      }
-
-      for (const provider of PROVIDER_KEYS) {
-        const popupConfig = providerPopupConfig[provider];
-        if (event.data.type !== popupConfig.completionEventType) {
-          continue;
-        }
-        if (event.source !== popupConfig.popupRef.current) {
-          return;
-        }
-        if (event.origin !== (popupConfig.popupOriginRef.current ?? expectedOrigin)) {
-          return;
-        }
-        window.location.reload();
-        return;
-      }
-    };
-
-    window.addEventListener("message", handler);
-    return () => {
-      window.removeEventListener("message", handler);
-    };
-  }, [
-    cloudflarePopupOriginRef,
-    cloudflarePopupRef,
-    convexPopupOriginRef,
-    convexPopupRef,
-    githubPopupOriginRef,
-    githubPopupRef,
-  ]);
-}
 
 export function VaultDashboardConvexDialog({
   appRoot,
@@ -1573,196 +1312,6 @@ export function VaultDashboardCloudflareDialog({
       </AppDialogContent>
     </Dialog>
   );
-}
-
-export function VaultDashboardCloudflareAccountDialog({
-  accounts,
-  error,
-  isLoading,
-  isSubmitting,
-  onAccountChange,
-  onOpenChange,
-  onSubmit,
-  open,
-  selectedAccountId,
-}: {
-  accounts: CloudflareAccountOption[];
-  error: string | null;
-  isLoading: boolean;
-  isSubmitting: boolean;
-  onAccountChange: (accountId: string) => void;
-  onOpenChange: (isOpen: boolean) => void;
-  onSubmit: () => void;
-  open: boolean;
-  selectedAccountId: string;
-}) {
-  const sortedAccounts = useMemo(
-    () => [...accounts].sort(compareCloudflareAccountOptions),
-    [accounts],
-  );
-  const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
-  const submitDisabled = isLoading || isSubmitting || !selectedAccountId;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent>
-        <DialogHeader>
-          <DialogTitle>Select Cloudflare Account</DialogTitle>
-          <DialogDescription>Choose the Cloudflare account to use for new apps.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Select value={selectedAccountId} onValueChange={onAccountChange} disabled={isLoading}>
-            <SelectTrigger aria-label="Cloudflare account" className="w-full">
-              <SelectValue placeholder={isLoading ? "Loading accounts" : "Cloudflare account"}>
-                {selectedAccount?.accountName}
-              </SelectValue>
-            </SelectTrigger>
-            <AppSelectContent>
-              {sortedAccounts.map((account) => (
-                <AppSelectItem key={account.accountId} value={account.accountId}>
-                  {account.accountName}
-                </AppSelectItem>
-              ))}
-            </AppSelectContent>
-          </Select>
-          {error ? <div className="text-sm text-red-600">{error}</div> : null}
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              onOpenChange(false);
-            }}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button onClick={onSubmit} disabled={submitDisabled}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Save Account
-          </Button>
-        </DialogFooter>
-      </AppDialogContent>
-    </Dialog>
-  );
-}
-
-type DashboardCloudflareConnection =
-  (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
-type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
-
-/**
- * Keeps Cloudflare MCP token health fresh while the dashboard is active. Remove
- * this hook by making token refresh a server-owned scheduler or connection
- * maintenance job and subscribing only to the resulting status.
- */
-function useCloudflareMcpTokenAutoCheck({
-  cloudflareConnection,
-  refreshCloudflareMcpTokenIfNeeded,
-  setCloudflarePollingPaused,
-  setIsAutoCheckingCloudflareToken,
-  userId,
-}: {
-  cloudflareConnection: DashboardCloudflareConnection | undefined;
-  refreshCloudflareMcpTokenIfNeeded: (args: {
-    force: false;
-    trigger: CloudflareTokenAutoCheckTrigger;
-  }) => Promise<unknown>;
-  setCloudflarePollingPaused: (isPaused: boolean) => void;
-  setIsAutoCheckingCloudflareToken: (isChecking: boolean) => void;
-  userId: Id<"users"> | undefined;
-}) {
-  const cloudflareAutoCheckInFlightRef = useRef(false);
-
-  useEffect(() => {
-    const isCloudflareMcpConnected =
-      cloudflareConnection?.connected === true && cloudflareConnection.authMethod === "mcp_oauth";
-    if (!isCloudflareMcpConnected) {
-      setCloudflarePollingPaused(false);
-      return;
-    }
-
-    const debounceKey = userId ?? "cloudflare-dashboard";
-    const runAutoCheck = (trigger: CloudflareTokenAutoCheckTrigger) => {
-      if (cloudflareAutoCheckInFlightRef.current) {
-        return;
-      }
-      if (
-        !claimRefreshDebounce(
-          "cloudflare_token",
-          debounceKey,
-          CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
-        )
-      ) {
-        return;
-      }
-
-      cloudflareAutoCheckInFlightRef.current = true;
-      setIsAutoCheckingCloudflareToken(true);
-      void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
-        .catch((error: unknown) => {
-          console.error("Failed to auto-check Cloudflare token:", error);
-        })
-        .finally(() => {
-          releaseRefreshDebounce("cloudflare_token", debounceKey);
-          cloudflareAutoCheckInFlightRef.current = false;
-          setIsAutoCheckingCloudflareToken(false);
-        });
-    };
-
-    const handleFocus = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      setCloudflarePollingPaused(false);
-      runAutoCheck("focus");
-    };
-
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === "visible";
-      setCloudflarePollingPaused(!isVisible);
-      if (isVisible) {
-        runAutoCheck("visibility");
-      }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const isVisible = document.visibilityState === "visible";
-    setCloudflarePollingPaused(!isVisible);
-    if (isVisible) {
-      runAutoCheck("page_load");
-    }
-
-    const pollId = window.setInterval(() => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      if (
-        typeof cloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
-        Date.now() < cloudflareConnection.mcpTokenNextAutoCheckAt
-      ) {
-        return;
-      }
-      runAutoCheck("poll");
-    }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.clearInterval(pollId);
-      cloudflareAutoCheckInFlightRef.current = false;
-    };
-  }, [
-    cloudflareConnection?.authMethod,
-    cloudflareConnection?.connected,
-    cloudflareConnection?.mcpTokenNextAutoCheckAt,
-    refreshCloudflareMcpTokenIfNeeded,
-    setCloudflarePollingPaused,
-    setIsAutoCheckingCloudflareToken,
-    userId,
-  ]);
 }
 
 interface StagedSummary {
@@ -3533,56 +3082,14 @@ export function VaultDashboard() {
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
-  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
-  const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
-  const getCloudflareMcpOAuthUrl = useAction(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl);
-  const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
   const listConvexProjects = useAction(api.vault.convex.listProjects);
   const connectExistingConvexProject = useAction(api.vault.convex.connectExistingProject);
   const createConvexProject = useAction(api.vault.convex.createProject);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
-  const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
   const connectExistingCloudflareWorker = useAction(api.vault.cloudflare.connectExistingWorker);
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
-  const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
-  const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
-  const disconnectGithub = useMutation(api.users.disconnectGithub);
-  const disconnectConvex = useMutation(api.users.disconnectConvex);
-  const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
   const createVaultAppRoot = useMutation(api.vault.dashboard.createVaultAppRoot);
-  const persistAccountPanelOpen = useMutation(
-    api.dashboardSettings.setAccountPanelOpen,
-  ).withOptimisticUpdate((localStore, args) => {
-    const currentSettings = localStore.getQuery(api.dashboardSettings.getDashboardSettings, {});
-    if (!currentSettings) {
-      return;
-    }
-    localStore.setQuery(
-      api.dashboardSettings.getDashboardSettings,
-      {},
-      {
-        ...currentSettings,
-        accountPanelOpen: args.isOpen,
-      },
-    );
-  });
-  const setProvidersPanelOpen = useMutation(
-    api.dashboardSettings.setProvidersPanelOpen,
-  ).withOptimisticUpdate((localStore, args) => {
-    const currentSettings = localStore.getQuery(api.dashboardSettings.getDashboardSettings, {});
-    if (!currentSettings) {
-      return;
-    }
-    localStore.setQuery(
-      api.dashboardSettings.getDashboardSettings,
-      {},
-      {
-        ...currentSettings,
-        providersPanelOpen: args.isOpen,
-      },
-    );
-  });
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3604,20 +3111,13 @@ export function VaultDashboard() {
           },
     );
   });
-  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
-  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const userVaultBranchFilters = useConvexQuery(api.vault.dashboard.getUserVaultBranchFilters);
   const userVaultResourceLinksState = useConvexQuery(
     api.vault.dashboard.getUserVaultResourceLinksState,
   );
-  const user = useConvexQuery(api.users.viewer);
-  const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
+  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
-  const { signOut } = useNoterAuthActions();
-  const dashboardAccountPanelOpen = dashboardSettings?.accountPanelOpen;
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
-  const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const addAppRootModeActive = rootRouteSearch[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM] === true;
   const deleteModeActive = rootRouteSearch.delete;
   const addConvexModeActive = rootRouteSearch["add-convex"];
@@ -3700,12 +3200,6 @@ export function VaultDashboard() {
 
     localStore.setQuery(api.vault.dashboard.getUserVaultResourceLinksState, {}, nextState);
   });
-  const githubPopupRef = useRef<Window | null>(null);
-  const convexPopupRef = useRef<Window | null>(null);
-  const cloudflarePopupRef = useRef<Window | null>(null);
-  const githubPopupOriginRef = useRef<string | null>(null);
-  const convexPopupOriginRef = useRef<string | null>(null);
-  const cloudflarePopupOriginRef = useRef<string | null>(null);
   const preparedAddAppRootRepositoryRef = useRef<string | null>(null);
   const preparedDeleteRepositoryRef = useRef<string | null>(null);
   const preparedAddConvexRepositoryRef = useRef<string | null>(null);
@@ -3723,45 +3217,17 @@ export function VaultDashboard() {
   const convexDialogResourcesRequestIdRef = useRef(0);
   const cloudflareWorkersRequestIdRef = useRef(0);
   const cloudflareDialogResourcesRequestIdRef = useRef(0);
-  const cloudflareAccountDialogRequestIdRef = useRef(0);
-  const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
-    github: {
-      getOAuthUrl: () => getGithubOAuthUrl({}),
-      disconnect: disconnectGithub,
-      popupRef: githubPopupRef,
-      popupOriginRef: githubPopupOriginRef,
-    },
-    convex: {
-      getOAuthUrl: getConvexOAuthUrl,
-      disconnect: disconnectConvex,
-      popupRef: convexPopupRef,
-      popupOriginRef: convexPopupOriginRef,
-    },
-    cloudflare: {
-      getOAuthUrl: getCloudflareMcpOAuthUrl,
-      disconnect: disconnectCloudflare,
-      popupRef: cloudflarePopupRef,
-      popupOriginRef: cloudflarePopupOriginRef,
-    },
-  };
   const dashboardLocalStore = useVaultDashboardLocalStore();
   const {
     addAppRootDialog,
-    cloudflareAccountDialog,
     cloudflareConnectDialog,
-    cloudflarePollingPaused,
     commitError,
     convexConnectDialog,
-    createError,
     deleteError,
     didAttemptCommit,
-    disconnectingProvider,
-    isAutoCheckingCloudflareToken,
-    isCheckingCloudflareToken,
     isCommitting,
     isDeleting,
     isGlobalChatBusy,
-    isSigningOut,
     openDeveloperToolsByVaultId,
     removeCodespaces,
     removeConvexProvision,
@@ -3776,14 +3242,6 @@ export function VaultDashboard() {
     isSubmitting: isSubmittingAppRoot,
     mode: addAppRootMode,
   } = addAppRootDialog;
-  const {
-    error: cloudflareAccountDialogError,
-    isLoadingAccounts: isLoadingCloudflareAccounts,
-    isOpen: cloudflareAccountDialogOpen,
-    isSubmitting: isSubmittingCloudflareAccount,
-    options: cloudflareDefaultAccountOptions,
-    selectedAccountId: selectedCloudflareDefaultAccountId,
-  } = cloudflareAccountDialog;
   const {
     accounts: cloudflareAccounts,
     appRoot: cloudflareAppRoot,
@@ -3811,23 +3269,16 @@ export function VaultDashboard() {
   );
   const {
     resetAddAppRootDialogState,
-    clearCreateError,
     markCommitAttempted,
     prepareAddAppRootDialog,
     prepareDeleteDialog,
     resetCloudflareConnectDialogState,
     resetConvexConnectDialogState,
     resetDeleteDialogState,
-    setCloudflareAccountDialogError,
-    setCloudflareAccountDialogOpen,
-    setCloudflareAccountDialogOptions,
-    setCloudflareAccountDialogSelectedAccountId,
-    setCloudflareAccountSubmitting,
     setAddAppRootDialogAppRoot,
     setAddAppRootDialogError,
     setAddAppRootDialogMode,
     setAddAppRootDialogSubmitting,
-    setCloudflareAccountsLoading,
     setCloudflareConnectDialogAccounts,
     setCloudflareConnectDialogAppRoot,
     setCloudflareConnectDialogConnectMode,
@@ -3839,7 +3290,6 @@ export function VaultDashboard() {
     setCloudflareConnectDialogSubmitting,
     setCloudflareConnectDialogWorkers,
     setConvexConnectDialogAppRoot,
-    setCloudflarePollingPaused,
     setCommitError,
     setConvexConnectDialogConnectMode,
     setConvexConnectDialogCreateProjectName,
@@ -3848,39 +3298,17 @@ export function VaultDashboard() {
     setConvexConnectDialogLoading,
     setConvexConnectDialogSelectedProjectId,
     setConvexConnectDialogSubmitting,
-    setCreateError,
     setDeleteError,
     setDeleteOption,
     setDeveloperToolsOpen,
-    setDisconnectingProvider,
     setGlobalChatAutoFocus,
     setGlobalChatBusy,
-    setIsAutoCheckingCloudflareToken,
-    setIsCheckingCloudflareToken,
     setIsCommitting,
     setIsDeleting,
-    setIsSigningOut,
     setRetryingDeletionRunId,
   } = dashboardLocalStore.actions;
 
-  useProviderOAuthPopupCompletionReload({
-    cloudflarePopupOriginRef,
-    cloudflarePopupRef,
-    convexPopupOriginRef,
-    convexPopupRef,
-    githubPopupOriginRef,
-    githubPopupRef,
-  });
-
   const { enqueueManualRepositoryRefresh } = useDashboardRepositoryRefreshDemand();
-
-  useCloudflareMcpTokenAutoCheck({
-    cloudflareConnection,
-    refreshCloudflareMcpTokenIfNeeded,
-    setCloudflarePollingPaused,
-    setIsAutoCheckingCloudflareToken,
-    userId: user?._id,
-  });
 
   const addAppRootDialogVault =
     addAppRootRepositoryFullName && vaults
@@ -4187,49 +3615,6 @@ export function VaultDashboard() {
     resetCloudflareConnectDialogState();
   }, [resetCloudflareConnectDialogState]);
 
-  const loadCloudflareAccountDialogResources = useCallback(
-    async (preferredAccountId: string | undefined) => {
-      const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
-      cloudflareAccountDialogRequestIdRef.current = requestId;
-      setCloudflareAccountsLoading(true);
-      setCloudflareAccountDialogError(null);
-      try {
-        const accounts = await listCloudflareAccounts({});
-        if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-          return;
-        }
-        setCloudflareAccountDialogOptions(accounts);
-        if (accounts.length === 0) {
-          setCloudflareAccountDialogSelectedAccountId("");
-          setCloudflareAccountDialogError("No Cloudflare accounts are available.");
-          return;
-        }
-
-        const selectedAccount =
-          accounts.find((account) => account.accountId === preferredAccountId) ?? accounts[0];
-        setCloudflareAccountDialogSelectedAccountId(selectedAccount.accountId);
-      } catch (error) {
-        if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-          return;
-        }
-        setCloudflareAccountDialogError(
-          error instanceof Error ? error.message : "Could not load Cloudflare accounts.",
-        );
-      } finally {
-        if (cloudflareAccountDialogRequestIdRef.current === requestId) {
-          setCloudflareAccountsLoading(false);
-        }
-      }
-    },
-    [
-      listCloudflareAccounts,
-      setCloudflareAccountDialogError,
-      setCloudflareAccountDialogOptions,
-      setCloudflareAccountDialogSelectedAccountId,
-      setCloudflareAccountsLoading,
-    ],
-  );
-
   useEffect(() => {
     const previousAddAppRootModeActive = previousAddAppRootModeActiveRef.current;
     if (!previousAddAppRootModeActive && addAppRootModeActive) {
@@ -4399,89 +3784,6 @@ export function VaultDashboard() {
     vaults,
   ]);
 
-  const handleConnect = async (provider: ProviderKey) => {
-    const providerConfig = providerRuntimeConfig[provider];
-    const providerMetadata = PROVIDER_METADATA[provider];
-    if (createError) {
-      clearCreateError();
-    }
-    try {
-      const oauthUrl =
-        provider === "github"
-          ? await getGithubOAuthUrl({
-              returnToPath: location.href,
-            })
-          : await providerConfig.getOAuthUrl();
-      if (isInIframe()) {
-        providerConfig.popupOriginRef.current =
-          getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        providerConfig.popupRef.current =
-          provider === "github"
-            ? openGithubOAuthPopup(oauthUrl)
-            : window.open(oauthUrl, providerMetadata.popupName, "width=600,height=700,popup=true");
-        if (providerConfig.popupRef.current) {
-          return;
-        }
-      }
-      window.location.assign(oauthUrl);
-    } catch (error) {
-      setCreateError(
-        error instanceof Error ? error.message : `Failed to start ${providerMetadata.label} OAuth`,
-      );
-    }
-  };
-
-  const handleDisconnect = async (provider: ProviderKey) => {
-    const providerConfig = providerRuntimeConfig[provider];
-    const providerMetadata = PROVIDER_METADATA[provider];
-    if (disconnectingProvider) return;
-    setDisconnectingProvider(provider);
-    if (createError) {
-      clearCreateError();
-    }
-    try {
-      await providerConfig.disconnect();
-    } catch (error) {
-      setCreateError(
-        error instanceof Error ? error.message : `Failed to disconnect ${providerMetadata.label}`,
-      );
-    } finally {
-      setDisconnectingProvider(null);
-    }
-  };
-
-  const handleCheckCloudflareToken = async () => {
-    if (isCheckingCloudflareToken) {
-      return;
-    }
-    setIsCheckingCloudflareToken(true);
-    if (createError) {
-      clearCreateError();
-    }
-    try {
-      await refreshCloudflareMcpTokenIfNeeded({
-        trigger: "manual",
-        force: true,
-      });
-    } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Failed to check Cloudflare token");
-    } finally {
-      setIsCheckingCloudflareToken(false);
-    }
-  };
-
-  const handleOpenCloudflareAccountDialog = () => {
-    setCloudflareAccountDialogOpen(true);
-    void loadCloudflareAccountDialogResources(cloudflareConnection?.accountId);
-  };
-
-  const handleCloudflareAccountDialogOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      cloudflareAccountDialogRequestIdRef.current += 1;
-    }
-    setCloudflareAccountDialogOpen(isOpen);
-  };
-
   const handleAddAppRootDialogOpenChange = (isOpen: boolean) => {
     if (isOpen || isSubmittingAppRoot) {
       return;
@@ -4510,27 +3812,6 @@ export function VaultDashboard() {
       setAddAppRootDialogError(error instanceof Error ? error.message : "Could not add app root.");
     } finally {
       setAddAppRootDialogSubmitting(false);
-    }
-  };
-
-  const handleSubmitCloudflareAccount = async () => {
-    if (isSubmittingCloudflareAccount || !selectedCloudflareDefaultAccountId) {
-      return;
-    }
-    setCloudflareAccountDialogError(null);
-    setCloudflareAccountSubmitting(true);
-    try {
-      await selectCloudflareDefaultAccount({
-        accountId: selectedCloudflareDefaultAccountId,
-      });
-      clearCreateError();
-      handleCloudflareAccountDialogOpenChange(false);
-    } catch (error) {
-      setCloudflareAccountDialogError(
-        error instanceof Error ? error.message : "Could not save Cloudflare account.",
-      );
-    } finally {
-      setCloudflareAccountSubmitting(false);
     }
   };
 
@@ -4699,177 +3980,7 @@ export function VaultDashboard() {
     }
   };
 
-  const githubConnected = githubConnection?.connected === true;
-  const convexConnected = convexConnection?.connected === true;
-  const cloudflareConnected = cloudflareConnection?.connected === true;
-  const cloudflareAccountSelectionRequired =
-    cloudflareConnection?.connected === true && !cloudflareConnection.accountId;
-  const cloudflareAuthMethod = cloudflareConnection?.authMethod;
-  const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
-  const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
-  const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
-  const cloudflareMcpTokenError = cloudflareConnection?.mcpTokenError;
-  const cloudflareMcpTokenNextAutoCheckAt = cloudflareConnection?.mcpTokenNextAutoCheckAt;
-  const cloudflareRefreshWindowStartsAt =
-    typeof cloudflareMcpTokenExpiresAt === "number"
-      ? cloudflareMcpTokenExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS
-      : undefined;
-  const formatAuthMethod = (
-    method: "oauth" | "mcp_oauth" | "api_key" | "device_auth" | undefined,
-  ) => {
-    if (method === "api_key") return "API key";
-    if (method === "device_auth") return "Device auth";
-    if (method === "oauth") return "OAuth";
-    if (method === "mcp_oauth") return "OAuth";
-    return "Unknown";
-  };
-  const githubStatus = githubConnected
-    ? `Connected as ${githubConnection.username ?? "GitHub user"} (${formatAuthMethod(githubConnection.authMethod)})`
-    : "Not connected";
-  const convexStatus = convexConnected
-    ? `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`
-    : "Not connected";
-  const cloudflareMcpTokenTimeStatus =
-    cloudflareConnection?.authMethod === "mcp_oauth"
-      ? cloudflareMcpTokenStatus === "valid" || cloudflareMcpTokenStatus === "expiring_soon"
-        ? typeof cloudflareMcpTokenExpiresAt === "number"
-          ? `Expires ${formatRelativeTimeUntil(cloudflareMcpTokenExpiresAt, now)}.`
-          : ""
-        : cloudflareMcpTokenStatus === "expired"
-          ? typeof cloudflareMcpTokenExpiresAt === "number"
-            ? `Expired ${formatRelativeTimeAgo(cloudflareMcpTokenExpiresAt, now)}.`
-            : ""
-          : typeof cloudflareMcpTokenCheckedAt === "number"
-            ? `Last checked ${formatRelativeTimeAgo(cloudflareMcpTokenCheckedAt, now)}.`
-            : ""
-      : "";
-  const cloudflareSchedulerStatus =
-    cloudflareAuthMethod === "mcp_oauth"
-      ? isCheckingCloudflareToken || isAutoCheckingCloudflareToken
-        ? "Checking..."
-        : cloudflarePollingPaused
-          ? "Auto-check paused (tab hidden)."
-          : typeof cloudflareMcpTokenNextAutoCheckAt === "number"
-            ? typeof cloudflareRefreshWindowStartsAt === "number" &&
-              now < cloudflareRefreshWindowStartsAt
-              ? `Auto-refresh starts ${formatRelativeTimeUntil(cloudflareRefreshWindowStartsAt, now)}.`
-              : `Auto-refresh ${formatRelativeTimeUntil(cloudflareMcpTokenNextAutoCheckAt, now)}.`
-            : ""
-      : "";
-  const cloudflareMcpTokenErrorStatus =
-    cloudflareAuthMethod === "mcp_oauth" && cloudflareMcpTokenError
-      ? `Error: ${cloudflareMcpTokenError}`
-      : "";
-  const cloudflareAccountStatus = cloudflareAccountSelectionRequired
-    ? "Choose account."
-    : cloudflareConnection?.accountName
-      ? `Account ${cloudflareConnection.accountName}.`
-      : "";
-  const cloudflareStatus = cloudflareConnected
-    ? cloudflareAuthMethod === "mcp_oauth"
-      ? [
-          "Connected (OAuth).",
-          cloudflareAccountStatus,
-          `Token ${formatMcpTokenStatusLabel(cloudflareMcpTokenStatus)}.`,
-          cloudflareMcpTokenTimeStatus,
-          cloudflareSchedulerStatus,
-          cloudflareMcpTokenErrorStatus,
-        ]
-          .filter((part) => part.length > 0)
-          .join(" ")
-      : [`Connected (${formatAuthMethod(cloudflareAuthMethod)}).`, cloudflareAccountStatus]
-          .filter((part) => part.length > 0)
-          .join(" ")
-    : "Not connected";
-  const providerConnectionState: Record<
-    ProviderKey,
-    { connected: boolean; status: string; showTokenCheck: boolean }
-  > = {
-    github: {
-      connected: githubConnected,
-      status: githubStatus,
-      showTokenCheck: false,
-    },
-    convex: {
-      connected: convexConnected,
-      status: convexStatus,
-      showTokenCheck: false,
-    },
-    cloudflare: {
-      connected: cloudflareConnected,
-      status: cloudflareStatus,
-      showTokenCheck: cloudflareConnected && cloudflareAuthMethod === "mcp_oauth",
-    },
-  };
-  const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
-  const accountEmail = user?.email ?? user?.githubUsername ?? user?.name ?? null;
-  const accountDisplayName = userDisplayName ?? accountEmail;
-  const accountProviderLabel = authProviders?.primaryProvider
-    ? formatAuthProviderLabel(authProviders.primaryProvider)
-    : null;
-  const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
-    connectGithubWithApiKey,
-    connectConvexWithApiKey,
-  });
-  const createControl = (
-    <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-      <Button className="w-full" asChild>
-        <Link to={NEW_APP_ROUTE}>New App</Link>
-      </Button>
-      {githubConnected ? (
-        <Link
-          className={clsx(
-            buttonVariants({ variant: "outline" }),
-            "h-auto min-h-8 w-full whitespace-normal py-2",
-          )}
-          to={CONNECT_REPO_ROUTE}
-        >
-          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-            Connect existing app
-          </span>
-        </Link>
-      ) : (
-        <Button variant="outline" className="h-auto min-h-8 w-full whitespace-normal py-2" disabled>
-          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-            Connect existing app
-          </span>
-        </Button>
-      )}
-    </div>
-  );
-
-  const resolvedProvidersPanelOpen = dashboardProvidersPanelOpen ?? false;
-  const resolvedAccountPanelOpen = dashboardAccountPanelOpen ?? false;
   const resolvedGlobalChatOpen = dashboardGlobalChatOpen ?? false;
-
-  const handleAccountPanelOpenChange = (isOpen: boolean) => {
-    void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
-      console.error("Failed to persist account panel state:", error);
-    });
-  };
-
-  const handleProvidersPanelOpenChange = (isOpen: boolean) => {
-    void setProvidersPanelOpen({ isOpen }).catch((error: unknown) => {
-      console.error("Failed to persist providers panel state:", error);
-    });
-  };
-  const handleSignOut = () => {
-    if (isSigningOut) {
-      return;
-    }
-    setIsSigningOut(true);
-    void signOut()
-      .catch((error: unknown) => {
-        toast({
-          title: "Could not sign out",
-          description: error instanceof Error ? error.message : "Please try again.",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setIsSigningOut(false);
-      });
-  };
 
   const handleGlobalChatOpenChange = (isOpen: boolean) => {
     setGlobalChatAutoFocus(isOpen);
@@ -4878,86 +3989,6 @@ export function VaultDashboard() {
       setGlobalChatAutoFocus(false);
     });
   };
-
-  const providerRows = PROVIDER_KEYS.map((provider) => {
-    const providerMetadata = PROVIDER_METADATA[provider];
-    const providerState = providerConnectionState[provider];
-    const apiKeyProvider = providerMetadata.apiKeyProvider;
-    const actions = providerState.connected
-      ? [
-          ...(provider === "cloudflare"
-            ? [
-                {
-                  key: "select-account",
-                  label: cloudflareAccountSelectionRequired ? "Select account" : "Manage account",
-                  onClick: handleOpenCloudflareAccountDialog,
-                  disabled:
-                    disconnectingProvider !== null ||
-                    isCheckingCloudflareToken ||
-                    isAutoCheckingCloudflareToken,
-                },
-              ]
-            : []),
-          ...(providerState.showTokenCheck
-            ? [
-                {
-                  key: "check-token",
-                  label: "Check token",
-                  onClick: () => {
-                    void handleCheckCloudflareToken();
-                  },
-                  disabled:
-                    disconnectingProvider !== null ||
-                    isCheckingCloudflareToken ||
-                    isAutoCheckingCloudflareToken,
-                  isPending: isCheckingCloudflareToken,
-                  pendingLabel: "Checking...",
-                },
-              ]
-            : []),
-          {
-            key: "disconnect",
-            label: "Disconnect",
-            onClick: () => {
-              void handleDisconnect(provider);
-            },
-            disabled:
-              disconnectingProvider !== null ||
-              (providerState.showTokenCheck &&
-                (isCheckingCloudflareToken || isAutoCheckingCloudflareToken)),
-            isPending: disconnectingProvider === provider,
-            pendingLabel: "Disconnecting...",
-          },
-        ]
-      : [
-          {
-            key: "oauth",
-            label: providerMetadata.oauthButtonLabel,
-            onClick: () => {
-              void handleConnect(provider);
-            },
-            disabled: disconnectingProvider !== null,
-          },
-          ...(apiKeyProvider
-            ? [
-                {
-                  key: "api-key",
-                  label: "Use API key",
-                  onClick: () => openApiKeyDialog(apiKeyProvider),
-                  disabled: disconnectingProvider !== null,
-                },
-              ]
-            : []),
-        ];
-
-    return {
-      key: provider,
-      icon: providerMetadata.icon,
-      label: providerMetadata.label,
-      status: providerState.status,
-      actions,
-    } satisfies VaultDashboardProviderRowViewModel;
-  });
 
   if (!vaults) {
     return null;
@@ -5034,31 +4065,6 @@ export function VaultDashboard() {
     clearDeleteSearchParam({ preferHistoryBack: true });
   };
 
-  const sidebarContent = (
-    <VaultDashboardSidebarContent>
-      {user && accountEmail && accountDisplayName ? (
-        <VaultDashboardAccountSection
-          open={resolvedAccountPanelOpen}
-          onOpenChange={handleAccountPanelOpenChange}
-          displayName={accountDisplayName}
-          email={accountEmail}
-          providerLabel={accountProviderLabel}
-          onSignOut={handleSignOut}
-          isSignOutPending={isSigningOut}
-          signOutDisabled={false}
-        />
-      ) : null}
-      <VaultDashboardProvidersSection
-        open={resolvedProvidersPanelOpen}
-        onOpenChange={handleProvidersPanelOpenChange}
-        providerRows={providerRows}
-      />
-      {createControl}
-      <div className="mt-auto">
-        <AppSidebarMetaSection linkAlignment="left" />
-      </div>
-    </VaultDashboardSidebarContent>
-  );
   const dashboardBody = (
     <VaultDashboardBody
       developerToolsVisible={developerToolsVisible}
@@ -5096,10 +4102,6 @@ export function VaultDashboard() {
 
   return (
     <AppWorkspaceRouteChrome
-      right={{
-        header: null,
-        content: sidebarContent,
-      }}
       panel={
         CHAT_ENABLED
           ? {
@@ -5201,23 +4203,6 @@ export function VaultDashboard() {
         vault={vaultToConnectCloudflare}
         workers={cloudflareWorkers}
       />
-      <VaultDashboardCloudflareAccountDialog
-        accounts={cloudflareDefaultAccountOptions}
-        error={cloudflareAccountDialogError}
-        isLoading={isLoadingCloudflareAccounts}
-        isSubmitting={isSubmittingCloudflareAccount}
-        onAccountChange={(accountId) => {
-          setCloudflareAccountDialogSelectedAccountId(accountId);
-          setCloudflareAccountDialogError(null);
-        }}
-        onOpenChange={handleCloudflareAccountDialogOpenChange}
-        onSubmit={() => {
-          void handleSubmitCloudflareAccount();
-        }}
-        open={cloudflareAccountDialogOpen}
-        selectedAccountId={selectedCloudflareDefaultAccountId}
-      />
-      {apiKeyDialog}
     </AppWorkspaceRouteChrome>
   );
 }
