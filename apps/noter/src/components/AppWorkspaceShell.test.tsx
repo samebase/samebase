@@ -216,6 +216,19 @@ describe("AppWorkspaceShell", () => {
       .textContent;
   }
 
+  function expectPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
+    const styleText = getRequiredPrehydrationStyleText();
+    expect(styleText).toContain("@media (min-width: 768px)");
+    expect(styleText).toContain(
+      `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane`,
+    );
+    expect(styleText).toContain(`width: ${leftDesktopWidth} !important;`);
+    expect(styleText).toContain(
+      `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane`,
+    );
+    expect(styleText).toContain(`width: ${rightDesktopWidth} !important;`);
+  }
+
   function readStoredAppWorkspaceSidebarState() {
     const storedValue = window.localStorage.getItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY);
     if (storedValue === null) {
@@ -331,9 +344,7 @@ describe("AppWorkspaceShell", () => {
     expect(document.documentElement.getAttribute("style") ?? "").not.toContain(
       "workspace-layout-v2-prehydrated",
     );
-    expect(getRequiredPrehydrationStyleText()).toBe(
-      `@media (min-width:768px){${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane{width:360px!important;}${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane{width:420px!important;}}`,
-    );
+    expectPrehydrationStyle("360px", "420px");
 
     const recoverableErrors = await hydrateClientShellFromServerMarkup();
 
@@ -400,9 +411,7 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expect(getRequiredPrehydrationStyleText()).toBe(
-      `@media (min-width:768px){${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane{width:0px!important;}${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane{width:0px!important;}}`,
-    );
+    expectPrehydrationStyle("0px", "0px");
   });
 
   it("uses default sidebar width fallbacks in server markup", () => {

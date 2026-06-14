@@ -74,7 +74,17 @@ function InlineScript_prehidrateSidebar(
   function installPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
     const viewportSelector =
       ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
-    const cssText = `@media (min-width:768px){${viewportSelector} .workspace-layout-v2-responsive-left-pane{width:${leftDesktopWidth}!important;}${viewportSelector} .workspace-layout-v2-responsive-right-pane{width:${rightDesktopWidth}!important;}}`;
+    const cssText = `
+@media (min-width: 768px) {
+  ${viewportSelector} .workspace-layout-v2-responsive-left-pane {
+    width: ${leftDesktopWidth} !important;
+  }
+
+  ${viewportSelector} .workspace-layout-v2-responsive-right-pane {
+    width: ${rightDesktopWidth} !important;
+  }
+}
+`;
 
     if ("adoptedStyleSheets" in document && typeof CSSStyleSheet === "function") {
       const styleSheet = new CSSStyleSheet();
