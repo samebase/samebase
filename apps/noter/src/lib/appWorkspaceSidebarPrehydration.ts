@@ -54,8 +54,6 @@ function getWorkspaceSidebarState(value: unknown): AppWorkspaceSidebarPrehydrati
   };
 }
 
-type GetWorkspaceSidebarState = typeof getWorkspaceSidebarState;
-
 /**
 This function is serialized with Function#toString and emitted as a classic
 inline head script before React hydration. Keep the body self-contained: it can
@@ -64,7 +62,7 @@ serialized into the call site.
 */
 function InlineScript_prehidrateSidebar(
   args: AppWorkspaceSidebarPrehydrationArgs,
-  readWorkspaceSidebarState: GetWorkspaceSidebarState,
+  readWorkspaceSidebarState: typeof getWorkspaceSidebarState,
 ) {
   function readDesktopWidth(open: boolean, width: number) {
     if (!open) return "0px";
