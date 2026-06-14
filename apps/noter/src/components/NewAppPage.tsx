@@ -1124,9 +1124,6 @@ export function NewAppPage() {
       <form className="flex w-full max-w-md flex-col gap-4" onSubmit={handleSubmit}>
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold">New App</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            GitHub, Convex, and Cloudflare resources.
-          </p>
         </div>
         <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
         <div className="min-h-5">{createControlFooterMessages}</div>
