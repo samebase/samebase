@@ -33,7 +33,6 @@ import { ArrowUpRight, Folder, GitBranch, GitFork, Loader2, Pin, Plus } from "lu
 
 type MachinesWorkspaceViewProps = {
   machineInventories: MachinesWorkspaceSidebarInventory[];
-  leftSidebarHeader?: ReactNode;
   leftSidebarFooter?: ReactNode;
   selectedMachineId: string | null;
   selectedThreadId: string | null;
@@ -567,7 +566,7 @@ export function MachinesWorkspaceView(props: MachinesWorkspaceViewProps) {
     <AppWorkspaceRouteChrome
       dataTestId={props.dataTestId}
       left={{
-        header: props.leftSidebarHeader ?? null,
+        header: null,
         content: (
           <div
             data-testid={sidebarTestId}

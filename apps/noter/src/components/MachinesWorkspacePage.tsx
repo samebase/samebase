@@ -1,6 +1,5 @@
 import { useNow } from "@/hooks/useNow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { SidebarHomeAccountHeader } from "@/components/SidebarHomeAccountHeader";
 import {
   CodexAppServerRequestError,
   requestCodexAppServerJson,
@@ -133,7 +132,6 @@ export function MachinesWorkspacePage() {
   const navigate = machinesRouteApi.useNavigate();
   const routeSearch = machinesRouteApi.useSearch();
   const now = useNow();
-  const user = useQuery(api.users.viewer);
   const connectedMachinesQuery = useQuery(api.connectedMachines.listConnectedMachines, {});
   const issueMachineControlToken = useMutation(
     api.connectedMachineControl.issueMachineControlToken,
@@ -202,8 +200,6 @@ export function MachinesWorkspacePage() {
     enabled: turnDraft.trim().length > 0 || isSubmittingTurn,
     reason: "Pending connected-machine prompt",
   });
-  const userDisplayName =
-    user?.name ?? user?.email ?? user?.githubUsername ?? (user ? "Account" : null);
   const selectedMachineControlId = selectedMachine?.machineId ?? null;
   const selectedMachineInteractionBlockedReason =
     selectedMachineStatusReason ??
@@ -957,11 +953,6 @@ export function MachinesWorkspacePage() {
       hasPendingStartedThread={selectedThreadIsPendingStart}
       machineInventories={machineInventories}
       isSubmittingTurn={isSubmittingTurn}
-      leftSidebarHeader={
-        userDisplayName !== null ? (
-          <SidebarHomeAccountHeader userDisplayName={userDisplayName} />
-        ) : null
-      }
       leftSidebarFooter={<AppSidebarMetaSection />}
       pendingPinThreadKey={pendingPinThreadKey}
       pendingConversation={

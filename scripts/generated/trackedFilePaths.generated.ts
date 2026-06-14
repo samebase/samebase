@@ -728,8 +728,6 @@ export const trackedFilePaths = [
   "apps/noter/src/components/RouteUrlEditor/useRouteUrlEditorTouchScrollPicker.ts",
   "apps/noter/src/components/RouteUrlEditor/useTypedTransitionMachine.ts",
   "apps/noter/src/components/RouterGestureDebugOverlay.tsx",
-  "apps/noter/src/components/SidebarAccountSection.tsx",
-  "apps/noter/src/components/SidebarHomeAccountHeader.tsx",
   "apps/noter/src/components/SidebarMediaUploadVisualFixture.tsx",
   "apps/noter/src/components/StaticMarkdownDocument.tsx",
   "apps/noter/src/components/TermsOfServicePage.tsx",
