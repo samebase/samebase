@@ -267,9 +267,11 @@ test("logo public query links repaint the three scene theme colors", async ({ pa
   expect(darkPixel).toEqual([57, 68, 71, 255]);
 });
 
-test("logo public query color overrides repaint the three scene base color", async ({ page }) => {
+test("logo public query color overrides repaint the three scene background color", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/logo?dev&light&base=%23112233", {
+  await page.goto("/logo?dev&light&background=%23112233", {
     waitUntil: "domcontentloaded",
   });
 

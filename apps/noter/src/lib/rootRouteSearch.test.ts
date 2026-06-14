@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
 import { DEFAULT_VOXEL_STATE, LOGO_GRID_SIZE_2 } from "@/components/logo/logoVoxelState";
 import {
-  readRootRouteRedirectRouteAddress,
+  readCanonicalRouteAddressForRootSearch,
   readRootRouteSearch,
   replaceRootLogoRouteSearch,
   validateRootRouteSearch,
@@ -33,6 +33,7 @@ describe("rootRouteSearch", () => {
         secondary: "lime-100",
         signup: "google",
         "sign-in": "",
+        "swipe-debug": "",
         top: "white-base",
       }),
     ).toEqual({
@@ -51,6 +52,7 @@ describe("rootRouteSearch", () => {
       secondary: "lime-100",
       signup: "google",
       "sign-in": true,
+      "swipe-debug": true,
       top: "white-base",
     });
   });
@@ -83,6 +85,7 @@ describe("rootRouteSearch", () => {
         "new-app": "false",
         "prod-ui": false,
         "sign-in": "false",
+        "swipe-debug": "false",
       }),
     ).toEqual({
       "create-account": true,
@@ -92,6 +95,7 @@ describe("rootRouteSearch", () => {
       light: true,
       "prod-ui": true,
       "sign-in": true,
+      "swipe-debug": true,
     });
   });
 
@@ -140,6 +144,12 @@ describe("rootRouteSearch", () => {
     });
   });
 
+  it("parses the global swipe debug flag", () => {
+    expect(readRootRouteSearch("?swipe-debug")).toEqual({
+      "swipe-debug": true,
+    });
+  });
+
   it("caps root logo depth at the shared route recovery max", () => {
     expect(readRootRouteSearch("?depth=99")).toEqual({
       depth: MAX_LOGO_FRACTAL_DEPTH,
@@ -164,10 +174,8 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("accepts the old root logo base color alias as background", () => {
-    expect(readRootRouteSearch("?base=%23112233")).toEqual({
-      background: "#112233",
-    });
+  it("ignores the unsupported base query key", () => {
+    expect(readRootRouteSearch("?base=%23112233")).toEqual({});
   });
 
   it("preserves explicit supported root logo grid sizes", () => {
@@ -184,8 +192,6 @@ describe("rootRouteSearch", () => {
         axis: "screen-vertical",
         elev: "32.4",
         freeView: "",
-        isoSide: "52",
-        isoStyle: "flat",
         leftFace: "striped",
         rot: "721",
         stripeG: "0.4",
@@ -196,8 +202,6 @@ describe("rootRouteSearch", () => {
       axis: "screen-vertical",
       elev: 32.4,
       freeView: true,
-      isoSide: 40,
-      isoStyle: "flat",
       leftFace: "striped",
       rot: 1,
       stripeG: 0.4,
@@ -205,6 +209,10 @@ describe("rootRouteSearch", () => {
       stripeW: 0.4,
       vox: DEFAULT_VOXEL_STATE,
     });
+  });
+
+  it("drops iso renderer params from root surfaces", () => {
+    expect(validateRootRouteSearch({ isoSide: "52", isoStyle: "flat" })).toEqual({});
   });
 
   it("replaces logo params without dropping dashboard route state", () => {
@@ -267,12 +275,10 @@ describe("rootRouteSearch", () => {
 
   it("predicts the root redirect for reset search", () => {
     expect(
-      readRootRouteRedirectRouteAddress({
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: [],
         pathname: "/logo",
-        search: validateRootRouteSearch({
-          dark: true,
-          reset: true,
-        }),
+        searchStr: "?dark&reset",
         hash: "",
       }),
     ).toBe("/logo");
@@ -280,15 +286,45 @@ describe("rootRouteSearch", () => {
 
   it("predicts the root redirect for conflicting theme flags", () => {
     expect(
-      readRootRouteRedirectRouteAddress({
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: [],
         pathname: "/logo",
-        search: validateRootRouteSearch({
-          dark: true,
-          dev: true,
-          light: true,
-        }),
+        searchStr: "?dark&dev&light",
         hash: "section",
       }),
     ).toBe("/logo?dev#section");
+  });
+
+  it("predicts the root redirect that drops keys no matched route accepts", () => {
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: [],
+        pathname: "/home",
+        searchStr: "?machineId=sample-machine",
+        hash: "",
+      }),
+    ).toBe("/home");
+  });
+
+  it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: ["machineId", "threadId"],
+        pathname: "/machines",
+        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug&unknownKey=1",
+        hash: "",
+      }),
+    ).toBe("/machines?machineId=sample-machine&swipe-debug&prod-ui");
+  });
+
+  it("does not redirect when every raw key is accepted", () => {
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: ["machineId"],
+        pathname: "/machines",
+        searchStr: "?machineId=sample-machine",
+        hash: "",
+      }),
+    ).toBe(null);
   });
 });

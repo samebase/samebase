@@ -19,7 +19,7 @@ import {
   type RouteAddressSearchToken,
 } from "@/lib/routeAddressParts";
 import {
-  readRouteUrlPathSuggestionSurface,
+  readRouteUrlPathSuggestionEnvironment,
   readRouteUrlPathSuggestions,
 } from "@/lib/routeUrlPathSuggestions";
 import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch";
@@ -540,7 +540,7 @@ function readRouteHashKeys(args: {
   viewerIsAdmin: boolean;
 }): readonly string[] {
   const parsedRouteAddress = parseRouteAddress(args.routeAddress);
-  const routeSurface = readRouteUrlPathSuggestionSurface({
+  const routeEnvironment = readRouteUrlPathSuggestionEnvironment({
     currentHref: args.routeAddress,
     draftHref: args.routeAddress,
     origin: args.origin,
@@ -551,7 +551,7 @@ function readRouteHashKeys(args: {
       canAccessNoterRouteStaticData(
         route.options.staticData,
         { isAdmin: args.viewerIsAdmin },
-        routeSurface,
+        routeEnvironment,
       ),
   );
 
@@ -616,7 +616,7 @@ function readPathRows(args: {
   return readRouteUrlPathSuggestions(
     args.routesByPath,
     { isAdmin: args.viewerIsAdmin },
-    readRouteUrlPathSuggestionSurface({
+    readRouteUrlPathSuggestionEnvironment({
       currentHref: args.routeAddress,
       draftHref: args.routeAddress,
       origin,

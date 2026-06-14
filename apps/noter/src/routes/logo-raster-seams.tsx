@@ -1,6 +1,7 @@
 import { LogoRasterSeamLabPage } from "@/components/logo/LogoRasterSeamLabPage";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import {
+  LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateLogoRouteSearch,
 } from "@/lib/logoRouteSearch";
@@ -22,6 +23,7 @@ function LogoRasterSeamsRouteComponent() {
 export const Route = createFileRoute("/logo/raster-seams")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LogoRasterSeamsRouteComponent,

@@ -1,13 +1,14 @@
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
+  readRouteSearchAcceptedKeys,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
   routeSearchNonEmptyString,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
 
-const codexResearchRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_codexResearch = defineRouteSearchParams({
   threadId: routeSearchValueParam(routeSearchNonEmptyString, {
     permission: "admin",
     sampleValue: "sample-thread",
@@ -16,10 +17,10 @@ const codexResearchRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-export type CodexResearchRouteSearch = InferRouteSearch<typeof codexResearchRouteSearchSchema>;
+export type CodexResearchRouteSearch = InferRouteSearch<typeof RouteSearchSchema_codexResearch>;
 
 const codexResearchRouteSearchParamMetadata = readRouteSearchParamMetadata(
-  codexResearchRouteSearchSchema,
+  RouteSearchSchema_codexResearch,
 );
 
 export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
@@ -27,10 +28,14 @@ export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchPara
   "route",
 );
 
+export const CODEX_RESEARCH_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
+  RouteSearchSchema_codexResearch,
+);
+
 export function validateCodexResearchRouteSearch(
   search: Record<string, unknown>,
 ): CodexResearchRouteSearch {
-  return codexResearchRouteSearchSchema.parse(search);
+  return RouteSearchSchema_codexResearch.parse(search);
 }
 
 export function buildCodexResearchRouteSearch(

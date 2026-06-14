@@ -111,10 +111,11 @@ import {
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
-  LOGO_ROUTE_SEARCH_KEYS,
+  LOGO_ISO_ROUTE_SEARCH_KEYS,
+  buildLogoIsoRouteSearch,
   buildLogoRouteSearch,
   preserveLogoRouteDevModeSearch,
-  type LogoRouteSearch,
+  type LogoIsoRouteSearch,
 } from "@/lib/logoRouteSearch";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { useAnimationFrameLoop } from "@/lib/useAnimationFrameLoop";
@@ -172,8 +173,8 @@ const LEFT_FACE_STRIPE_BASIS_LABELS: Record<LogoLeftFaceStripeBasis, string> = {
 type LogoPreviewRenderMode = LogoRouteRenderMode;
 type LogoPreviewPageProps = {
   renderMode?: LogoPreviewRenderMode;
-  replaceRouteSearch: (nextSearch: LogoRouteSearch) => void;
-  routeSearch: LogoRouteSearch;
+  replaceRouteSearch: (nextSearch: LogoIsoRouteSearch) => void;
+  routeSearch: LogoIsoRouteSearch;
 };
 
 const THEME_COLOR_LABELS: Record<LogoThemeColorKey, string> = {
@@ -424,7 +425,7 @@ type LogoPreviewLocalStoreState = {
 type LogoPreviewState = LogoPreviewRouteState & LogoPreviewLocalStoreState;
 
 function readLogoPreviewRouteState(
-  routeSearch: LogoRouteSearch,
+  routeSearch: LogoIsoRouteSearch,
   renderMode: LogoPreviewRenderMode,
 ): LogoPreviewRouteState {
   const routeState = readLogoRouteRenderState({
@@ -484,9 +485,9 @@ function resolveLogoPreviewViewState(view: LogoViewState, viewSnapEnabled: boole
 
 function buildLogoPreviewRouteSearch(
   routeState: LogoRouteRenderState,
-  routeSearch: LogoRouteSearch,
+  routeSearch: LogoIsoRouteSearch,
   renderMode: LogoPreviewRenderMode,
-): LogoRouteSearch {
+): LogoIsoRouteSearch {
   const resolvedView = resolveLogoPreviewViewState(
     {
       elevationDegrees: routeState.elevationDegrees,
@@ -495,14 +496,17 @@ function buildLogoPreviewRouteSearch(
     routeState.viewSnapEnabled,
   );
 
+  const buildArgs = {
+    ...routeState,
+    elevationDegrees: resolvedView.elevationDegrees,
+    fractalDepth: clampLogoFractalDepthForRenderer(routeState.fractalDepth, renderMode),
+    rotationDegrees: resolvedView.rotationDegrees,
+    themeModeSearch: routeSearch,
+  };
+
   return preserveLogoRouteDevModeSearch(
-    buildLogoRouteSearch({
-      ...routeState,
-      elevationDegrees: resolvedView.elevationDegrees,
-      fractalDepth: clampLogoFractalDepthForRenderer(routeState.fractalDepth, renderMode),
-      rotationDegrees: resolvedView.rotationDegrees,
-      themeModeSearch: routeSearch,
-    }),
+    // Only /logo/iso owns the iso params; other renderers must not write them.
+    renderMode === "iso" ? buildLogoIsoRouteSearch(buildArgs) : buildLogoRouteSearch(buildArgs),
     routeSearch,
   );
 }
@@ -514,7 +518,7 @@ function replaceLogoPreviewRouteSearch({
   renderMode,
 }: {
   replaceRouteSearch: LogoPreviewPageProps["replaceRouteSearch"];
-  routeSearch: LogoRouteSearch;
+  routeSearch: LogoIsoRouteSearch;
   routeState: LogoPreviewRouteState;
   renderMode: LogoPreviewRenderMode;
 }) {
@@ -680,7 +684,7 @@ function useLogoPreviewController({
 }: {
   replaceRouteSearch: LogoPreviewPageProps["replaceRouteSearch"];
   renderMode: LogoPreviewRenderMode;
-  routeSearch: LogoRouteSearch;
+  routeSearch: LogoIsoRouteSearch;
 }) {
   const store = useLogoPreviewStore();
   const localState = useSelector(store);
@@ -1076,9 +1080,9 @@ function isLogoPresetId(value: string) {
 }
 
 function readCanonicalLogoRouteSearch(
-  routeSearch: LogoRouteSearch,
+  routeSearch: LogoIsoRouteSearch,
   renderMode: LogoPreviewRenderMode,
-): LogoRouteSearch {
+): LogoIsoRouteSearch {
   return buildLogoPreviewRouteSearch(
     readLogoPreviewRouteState(routeSearch, renderMode),
     routeSearch,
@@ -1086,8 +1090,8 @@ function readCanonicalLogoRouteSearch(
   );
 }
 
-function areLogoRouteSearchesEqual(left: LogoRouteSearch, right: LogoRouteSearch): boolean {
-  return LOGO_ROUTE_SEARCH_KEYS.every((key) => left[key] === right[key]);
+function areLogoRouteSearchesEqual(left: LogoIsoRouteSearch, right: LogoIsoRouteSearch): boolean {
+  return LOGO_ISO_ROUTE_SEARCH_KEYS.every((key) => left[key] === right[key]);
 }
 
 function areLogoThemeColorsEqual(left: LogoThemeColors, right: LogoThemeColors): boolean {

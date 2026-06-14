@@ -1,6 +1,9 @@
 import type { AppRouter } from "@/router";
 import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
-import { readNoterRouteSurfaceForOrigin, type NoterRouteSurface } from "@/lib/routeAvailability";
+import {
+  readNoterRouteEnvironmentForOrigin,
+  type NoterRouteEnvironment,
+} from "@/lib/routeAvailability";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
   canAccessNoterRouteStaticData,
@@ -24,11 +27,11 @@ type RouteUrlPathSuggestionsInput = {
 export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
   viewer: NoterRoutePermissionViewer,
-  surface: NoterRouteSurface,
+  routeEnvironment: NoterRouteEnvironment,
 ) {
   return entries(routesByPath)
     .filter(([path, route]) =>
-      isRouteUrlPathSuggestion(path, route.options.staticData, viewer, surface),
+      isRouteUrlPathSuggestion(path, route.options.staticData, viewer, routeEnvironment),
     )
     .map(([path]) => path)
     .sort(compareRouteUrlPathSuggestion);
@@ -44,7 +47,7 @@ export function filterRouteUrlPathSuggestions({
   const suggestions = readRouteUrlPathSuggestions(
     routesByPath,
     viewer,
-    readRouteUrlPathSuggestionSurface({
+    readRouteUrlPathSuggestionEnvironment({
       currentHref,
       draftHref,
       origin,
@@ -80,7 +83,7 @@ export function isRouteUrlPathReadyForNavigation({
   const suggestions = readRouteUrlPathSuggestions(
     routesByPath,
     viewer,
-    readRouteUrlPathSuggestionSurface({
+    readRouteUrlPathSuggestionEnvironment({
       currentHref,
       draftHref,
       origin,
@@ -104,11 +107,11 @@ function isRouteUrlPathSuggestion(
   path: string,
   staticData: NoterRouteStaticData,
   viewer: NoterRoutePermissionViewer,
-  surface: NoterRouteSurface,
+  routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    canAccessNoterRouteStaticData(staticData, viewer, surface)
+    canAccessNoterRouteStaticData(staticData, viewer, routeEnvironment)
   );
 }
 
@@ -132,15 +135,15 @@ function compareRouteUrlPathSuggestion(left: string, right: string): number {
  * Chooses which route set path suggestions should come from.
  *
  * Some routes are local-only, preview-only, or production-only. The origin gives
- * the normal surface for this app instance, while `?prod-ui` in either the
+ * the normal environment for this app instance, while `?prod-ui` in either the
  * current URL or editable draft forces production suggestions so the editor
  * doesn't offer local/preview routes while the page is pretending to be prod.
  */
-export function readRouteUrlPathSuggestionSurface({
+export function readRouteUrlPathSuggestionEnvironment({
   currentHref,
   draftHref,
   origin,
-}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): NoterRouteSurface {
+}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): NoterRouteEnvironment {
   try {
     const appOrigin = new URL(origin);
     const currentUrl = new URL(currentHref, appOrigin);
@@ -150,7 +153,7 @@ export function readRouteUrlPathSuggestionSurface({
 
     const trimmedDraftHref = draftHref.trim();
     if (!trimmedDraftHref) {
-      return readNoterRouteSurfaceForOrigin(origin);
+      return readNoterRouteEnvironmentForOrigin(origin);
     }
 
     const routeHref = normalizeRouteUrlEditorHref({
@@ -159,14 +162,14 @@ export function readRouteUrlPathSuggestionSurface({
       rawHref: trimmedDraftHref,
     });
     if (routeHref === null) {
-      return readNoterRouteSurfaceForOrigin(origin);
+      return readNoterRouteEnvironmentForOrigin(origin);
     }
 
     if (new URL(routeHref, appOrigin).searchParams.has(FORCE_PROD_UI_QUERY_PARAM)) {
       return "production";
     }
 
-    return readNoterRouteSurfaceForOrigin(origin);
+    return readNoterRouteEnvironmentForOrigin(origin);
   } catch {
     return "production";
   }

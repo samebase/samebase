@@ -3,7 +3,7 @@ import type { AppRouter } from "@/router";
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
   isRouteUrlPathReadyForNavigation,
-  readRouteUrlPathSuggestionSurface,
+  readRouteUrlPathSuggestionEnvironment,
 } from "@/lib/routeUrlPathSuggestions";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -25,7 +25,7 @@ import {
   readRouteAddressSearchTokenText,
   type RouteAddressSearchToken,
 } from "@/lib/routeAddressParts";
-import { type NoterRouteSurface } from "@/lib/routeAvailability";
+import { type NoterRouteEnvironment } from "@/lib/routeAvailability";
 
 type RouteAddressReadinessInput = {
   currentRouteAddress: string;
@@ -110,8 +110,11 @@ function readRouteAddressRouteUpdateDraft(args: RouteAddressRouteUpdateDraftInpu
     ...args,
     path: parts.path,
   });
+  const acceptedSearchKeys = readMatchingRouteAcceptedSearchKeys(parts.path, args.routesByPath);
   const routeUpdateSearchTokens = parts.search.tokens
-    .filter((token) => isRouteAddressSearchTokenReady(token, searchParamSuggestions))
+    .filter((token) =>
+      isRouteAddressSearchTokenReady(token, searchParamSuggestions, acceptedSearchKeys),
+    )
     .map((token) => readRouteAddressSearchTokenText(args.draftRouteAddress, token))
     .filter((tokenText) => tokenText.length > 0);
   const search = routeUpdateSearchTokens.length > 0 ? `?${routeUpdateSearchTokens.join("&")}` : "";
@@ -123,7 +126,15 @@ function readRouteAddressRouteUpdateDraft(args: RouteAddressRouteUpdateDraftInpu
 function isRouteAddressSearchTokenReady(
   token: RouteAddressSearchToken,
   suggestions: readonly NoterRouteSearchParamSuggestion[],
+  acceptedSearchKeys: readonly string[],
 ): boolean {
+  // A destination route accepts only root-owned keys plus its own schema keys.
+  // Keys the destination does not accept never ride along into the route
+  // update: editing `/machines?machineId=x` to `/home` must drop `machineId`.
+  if (!isRootRouteOwnedSearchKey(token.key) && !acceptedSearchKeys.includes(token.key)) {
+    return false;
+  }
+
   const suggestion = suggestions.find((value) => value.key === token.key);
   if (token.kind === "key") {
     if (suggestion?.searchParamKind === "presence") {
@@ -168,7 +179,7 @@ function readRouteAddressSearchParamSuggestions(
 ): readonly NoterRouteSearchParamSuggestion[] {
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: args.path,
-    routeSurface: readRouteUrlPathSuggestionSurface({
+    routeEnvironment: readRouteUrlPathSuggestionEnvironment({
       currentHref: args.currentRouteAddress,
       draftHref: args.draftRouteAddress,
       origin: args.origin,
@@ -195,9 +206,47 @@ function readRouteAddressSearchParamSuggestions(
   return uniqueValues;
 }
 
+/**
+Returns the destination path's route-owned search keys for route URL editor
+draft cleanup.
+
+Example: editing `/machines?machineId=x` into `/home?machineId=x` should drop
+`machineId`, because `/home` does not declare that key in
+`staticData.acceptedSearchKeys`. The caller handles root-owned keys separately;
+this helper only answers which keys belong to the destination route itself.
+
+Permission, route environment, and suggestion visibility are deliberately
+ignored so the same draft address canonicalizes the same way for every viewer.
+Routes without `acceptedSearchKeys` accept only root-owned keys.
+*/
+export function readMatchingRouteAcceptedSearchKeys(
+  path: string,
+  routesByPath: AppRouter["routesByPath"],
+): readonly string[] {
+  const matches = entries(routesByPath)
+    .filter(
+      ([routePath]) =>
+        (routePath === "/" || (routePath.startsWith("/") && !routePath.startsWith("/_"))) &&
+        routePathTemplateMatchesPath(routePath, path),
+    )
+    .sort(([leftPath], [rightPath]) => compareRoutePathSpecificity(leftPath, rightPath));
+
+  return matches[0]?.[1].options.staticData.acceptedSearchKeys ?? [];
+}
+
+/**
+Returns URL-editor search suggestions for the most specific accessible route
+that matches the draft path.
+
+Example: when the draft route address is `/logo?to`, the path is `/logo`, so
+the editor should suggest `/logo` search params such as `top`. When the draft
+route address is `/vault/acme/demo/main/README.md?d`, the path matches the
+`/vault/$` route, so an admin viewer can see file-view suggestions such as
+`diff`.
+*/
 function readMatchingRouteSearchParamSuggestions(args: {
   path: string;
-  routeSurface: NoterRouteSurface;
+  routeEnvironment: NoterRouteEnvironment;
   routesByPath: AppRouter["routesByPath"];
   viewer: NoterRoutePermissionViewer;
 }): readonly NoterRouteSearchParamSuggestion[] {
@@ -208,7 +257,7 @@ function readMatchingRouteSearchParamSuggestions(args: {
           routePath,
           route.options.staticData,
           args.viewer,
-          args.routeSurface,
+          args.routeEnvironment,
         ) && routePathTemplateMatchesPath(routePath, args.path),
     )
     .map(([routePath, route]) => ({
@@ -224,11 +273,11 @@ function isUserFacingAccessibleRoute(
   path: string,
   staticData: NoterRouteStaticData,
   viewer: NoterRoutePermissionViewer,
-  routeSurface: NoterRouteSurface,
+  routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    canAccessNoterRouteStaticData(staticData, viewer, routeSurface)
+    canAccessNoterRouteStaticData(staticData, viewer, routeEnvironment)
   );
 }
 

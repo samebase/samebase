@@ -1,5 +1,5 @@
 import { includes } from "@noter-md/dependent";
-import { entries, fromEntries } from "@noter-md/dependent/object";
+import { entries, fromEntries, keys } from "@noter-md/dependent/object";
 import {
   after,
   bad,
@@ -22,6 +22,12 @@ type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
 
 type RouteSearchParamMetadataBase = {
   permission: NoterRoutePermission;
+
+  /**
+  Controls how the route URL editor exposes this param.
+
+  This is not the same as whether the param is available on a route.
+  */
   suggestion: RouteSearchParamSuggestionSurface;
 };
 
@@ -40,8 +46,12 @@ type ParsedRouteSearchParams<Shape extends RouteSearchParamShape> = {
   [Key in keyof Shape]?: InferGood<Shape[Key]>;
 };
 
-export type InferRouteSearch<Group extends { parse(search: Record<string, unknown>): object }> =
-  ReturnType<Group["parse"]>;
+export type RouteSearchSchema<Shape extends RouteSearchParamShape = RouteSearchParamShape> = {
+  readonly shape: Shape;
+  parse(search: Record<string, unknown>): ParsedRouteSearchParams<Shape>;
+};
+
+export type InferRouteSearch<Schema extends RouteSearchSchema> = ReturnType<Schema["parse"]>;
 
 export const routeSearchString = pure((value) =>
   typeof value === "string" ? good(value) : bad("not-string"),
@@ -108,10 +118,12 @@ export function routeSearchPresenceParam(
   );
 }
 
-export function defineRouteSearchParams<const Shape extends RouteSearchParamShape>(shape: Shape) {
+export function defineRouteSearchParams<const Shape extends RouteSearchParamShape>(
+  shape: Shape,
+): RouteSearchSchema<Shape> {
   return {
     shape,
-    parse(search: Record<string, unknown>): ParsedRouteSearchParams<Shape> {
+    parse(search) {
       return parseRouteSearchParams(shape, search);
     },
   };
@@ -136,10 +148,21 @@ function parseRouteSearchParams<const Shape extends RouteSearchParamShape>(
   return parsedSearch;
 }
 
-export function readRouteSearchParamMetadata<const Shape extends RouteSearchParamShape>(group: {
-  shape: Shape;
-}): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
-  return fromEntries(entries(group.shape).map(([key, param]) => [key, param.meta] as const));
+export function readRouteSearchParamMetadata<const Shape extends RouteSearchParamShape>(
+  schema: RouteSearchSchema<Shape>,
+): Readonly<Record<keyof Shape & string, RouteSearchParamMetadata>> {
+  return fromEntries(entries(schema.shape).map(([key, param]) => [key, param.meta] as const));
+}
+
+/**
+The query keys a route's search schema accepts, independent of suggestion
+surface or viewer permission. Hidden and manual params are accepted keys even
+though the route URL editor never suggests them.
+*/
+export function readRouteSearchAcceptedKeys<const Shape extends RouteSearchParamShape>(
+  schema: RouteSearchSchema<Shape>,
+): readonly (keyof Shape & string)[] {
+  return keys(schema.shape);
 }
 
 export function readRouteSearchParamSuggestions<

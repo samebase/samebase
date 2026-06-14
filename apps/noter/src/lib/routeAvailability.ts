@@ -1,12 +1,12 @@
 import { isProductionPublicHostname } from "@/lib/prodUiMode";
 
-export type NoterRouteSurface = "local" | "preview" | "production";
+export type NoterRouteEnvironment = "local" | "preview" | "production";
 
-export type NoterRouteAvailability = readonly NoterRouteSurface[];
+export type NoterRouteAvailability = readonly NoterRouteEnvironment[];
 
 type NoterRouteAvailabilityMatch = {
   staticData: {
-    availableOn?: NoterRouteAvailability;
+    availableEnvironments?: NoterRouteAvailability;
   };
 };
 
@@ -21,13 +21,13 @@ function normalizeHostname(hostname: string): string {
   return normalized;
 }
 
-function readEnvNoterRouteSurface(): NoterRouteSurface | null {
-  const surface = import.meta.env.VITE_NOTER_ROUTE_SURFACE;
-  switch (surface) {
+function readEnvNoterRouteEnvironment(): NoterRouteEnvironment | null {
+  const environment = import.meta.env.VITE_NOTER_ROUTE_ENVIRONMENT;
+  switch (environment) {
     case "local":
     case "preview":
     case "production":
-      return surface;
+      return environment;
     default:
       return null;
   }
@@ -38,10 +38,10 @@ export function isLocalRouteHostname(hostname: string): boolean {
   return LOCAL_ROUTE_HOSTNAMES.some((localHostname) => localHostname === normalizedHostname);
 }
 
-export function resolveNoterRouteSurface(args: { hostname: string }): NoterRouteSurface {
-  const envSurface = readEnvNoterRouteSurface();
-  if (envSurface !== null) {
-    return envSurface;
+export function resolveNoterRouteEnvironment(args: { hostname: string }): NoterRouteEnvironment {
+  const envEnvironment = readEnvNoterRouteEnvironment();
+  if (envEnvironment !== null) {
+    return envEnvironment;
   }
 
   if (isLocalRouteHostname(args.hostname)) {
@@ -55,50 +55,50 @@ export function resolveNoterRouteSurface(args: { hostname: string }): NoterRoute
   return "preview";
 }
 
-export function readBrowserNoterRouteSurface(): NoterRouteSurface {
-  return readNoterRouteSurfaceForRouteGuard() ?? "production";
+export function readBrowserNoterRouteEnvironment(): NoterRouteEnvironment {
+  return readNoterRouteEnvironmentForRouteGuard() ?? "production";
 }
 
-export function readNoterRouteSurfaceForRouteGuard(): NoterRouteSurface | null {
-  const envSurface = readEnvNoterRouteSurface();
-  if (envSurface !== null) {
-    return envSurface;
+export function readNoterRouteEnvironmentForRouteGuard(): NoterRouteEnvironment | null {
+  const envEnvironment = readEnvNoterRouteEnvironment();
+  if (envEnvironment !== null) {
+    return envEnvironment;
   }
 
   if (typeof window !== "undefined") {
-    return resolveNoterRouteSurface({ hostname: window.location.hostname });
+    return resolveNoterRouteEnvironment({ hostname: window.location.hostname });
   }
 
   return null;
 }
 
-export function readNoterRouteSurfaceForOrigin(origin: string): NoterRouteSurface {
+export function readNoterRouteEnvironmentForOrigin(origin: string): NoterRouteEnvironment {
   try {
-    return resolveNoterRouteSurface({ hostname: new URL(origin).hostname });
+    return resolveNoterRouteEnvironment({ hostname: new URL(origin).hostname });
   } catch {
     return "production";
   }
 }
 
 export function canAccessNoterRouteAvailability(
-  availableOn: NoterRouteAvailability | undefined,
-  surface: NoterRouteSurface,
+  availableEnvironments: NoterRouteAvailability | undefined,
+  routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
-    availableOn === undefined ||
-    availableOn.some((availableSurface) => availableSurface === surface)
+    availableEnvironments === undefined ||
+    availableEnvironments.some((availableEnvironment) => availableEnvironment === routeEnvironment)
   );
 }
 
 /**
  * Parent route availability is restrictive: a child can only render when every
- * matched route that declares an availability policy allows the current surface.
+ * matched route that declares an availability policy allows the current environment.
  */
 export function canAccessNoterRouteMatchesAvailability(
   matches: readonly NoterRouteAvailabilityMatch[],
-  surface: NoterRouteSurface,
+  routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return matches.every((match) =>
-    canAccessNoterRouteAvailability(match.staticData.availableOn, surface),
+    canAccessNoterRouteAvailability(match.staticData.availableEnvironments, routeEnvironment),
   );
 }

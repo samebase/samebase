@@ -1397,6 +1397,7 @@ export const trackedFilePaths = [
   "rfcs/083_CONNECTED_MACHINE_WORKTREE_STATE_DIR_SPEC.md",
   "rfcs/084_LOGO_ASSET_TREATMENT_ORGANIZATION_SPEC.md",
   "rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md",
+  "rfcs/086_ROUTE_SEARCH_SCHEMA_NAMING_AND_ACCEPTED_KEYS_PLAN.md",
   "rfcs/README.md",
   "rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png",
   "rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png",

@@ -1,7 +1,7 @@
 import {
   canAccessNoterRouteAvailability,
   type NoterRouteAvailability,
-  type NoterRouteSurface,
+  type NoterRouteEnvironment,
 } from "@/lib/routeAvailability";
 
 export type NoterRoutePermission = "public" | "admin";
@@ -78,8 +78,17 @@ export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = 
 >;
 
 export type NoterRouteStaticData = {
-  availableOn?: NoterRouteAvailability;
+  availableEnvironments?: NoterRouteAvailability;
   permission: NoterRoutePermission;
+
+  /**
+  Query keys this route's own search schema accepts, beyond the root-owned keys
+  every path accepts. Absent means the route accepts only root-owned keys.
+
+  Acceptance is structural (schema membership) and viewer-independent; the
+  per-param `permission` gates editor exposure, never key acceptance.
+  */
+  acceptedSearchKeys?: readonly string[];
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
 
@@ -104,11 +113,11 @@ export function canAccessNoterRoutePermission(
 export function canAccessNoterRouteStaticData(
   staticData: NoterRouteStaticData,
   viewer: NoterRoutePermissionViewer,
-  surface: NoterRouteSurface,
+  routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
     canAccessNoterRoutePermission(staticData.permission, viewer) &&
-    canAccessNoterRouteAvailability(staticData.availableOn, surface)
+    canAccessNoterRouteAvailability(staticData.availableEnvironments, routeEnvironment)
   );
 }
 

@@ -545,6 +545,40 @@ describe("appRouter", () => {
     expect(searchParams.get("secondary")).toBe("amber-500");
   });
 
+  it("redirects iso renderer params away from non-iso logo routes on load", async () => {
+    const router = await renderRoute("/logo?isoStyle=shaded-edge");
+
+    expect(router.state.location.pathname).toBe("/logo");
+    expect(new URLSearchParams(router.state.location.searchStr).has("isoStyle")).toBe(false);
+  });
+
+  it("keeps iso renderer params on the iso route on load", async () => {
+    const router = await renderRoute("/logo/iso?isoStyle=shaded-edge&isoSide=40");
+
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+    expect(router.state.location.pathname).toBe("/logo/iso");
+    expect(searchParams.get("isoStyle")).toBe("shaded-edge");
+    expect(searchParams.get("isoSide")).toBe("40");
+  });
+
+  it("redirects machine params away from /home on load", async () => {
+    const router = await renderRoute("/home?machineId=sample-machine&prod-ui");
+
+    const searchParams = new URLSearchParams(router.state.location.searchStr);
+
+    expect(router.state.location.pathname).toBe("/home");
+    expect(searchParams.has("machineId")).toBe(false);
+    expect(searchParams.has("prod-ui")).toBe(true);
+  });
+
+  it("keeps the global swipe debug flag on public routes", async () => {
+    const router = await renderRoute("/privacy?swipe-debug");
+
+    expect(router.state.location.pathname).toBe("/privacy");
+    expect(new URLSearchParams(router.state.location.searchStr).has("swipe-debug")).toBe(true);
+  });
+
   it("renders MCP consent through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/oauth/mcp/consent?mcp_consent_request=mcpar_test");
 
@@ -749,8 +783,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders local-only routes as not found on deployed route surfaces", async () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_SURFACE", "production");
+  it("renders local-only routes as not found in deployed route environments", async () => {
+    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "production");
 
     await renderRoute("/test");
 

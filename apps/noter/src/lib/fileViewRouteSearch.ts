@@ -7,6 +7,7 @@ import {
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
+  readRouteSearchAcceptedKeys,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
@@ -16,7 +17,7 @@ import {
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { literal } from "@samebase/sure";
 
-const fileViewRouteSearchSchema = defineRouteSearchParams({
+const RouteSearchSchema_fileView = defineRouteSearchParams({
   compare: routeSearchPresenceParam({
     permission: "admin",
     suggestion: "route",
@@ -38,10 +39,10 @@ const fileViewRouteSearchSchema = defineRouteSearchParams({
   }),
 });
 
-export type FileViewRouteSearch = InferRouteSearch<typeof fileViewRouteSearchSchema>;
+export type FileViewRouteSearch = InferRouteSearch<typeof RouteSearchSchema_fileView>;
 export type FileViewRouteSearchPatch = SearchPatch<FileViewRouteSearch>;
 
-const fileViewRouteSearchParamMetadata = readRouteSearchParamMetadata(fileViewRouteSearchSchema);
+const fileViewRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_fileView);
 
 const FILE_VIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   fileViewRouteSearchParamMetadata,
@@ -52,8 +53,10 @@ export const FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSugg
   "route",
 );
 
+export const FILE_VIEW_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_fileView);
+
 export function validateFileViewRouteSearch(search: Record<string, unknown>): FileViewRouteSearch {
-  return fileViewRouteSearchSchema.parse(
+  return RouteSearchSchema_fileView.parse(
     normalizeRouteSearchPresenceFlags(search, FILE_VIEW_PRESENCE_SEARCH_KEYS),
   );
 }
