@@ -61,7 +61,6 @@ import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFee
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { RepositoryRouteConnectState } from "@/components/RepositoryRouteConnectState";
-import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
@@ -615,7 +614,6 @@ function FileViewWrapper() {
         isConnectingGithub={isConnectingGithub}
         isConnectingRepository={isConnectingRepository}
         errorMessage={connectRouteError}
-        leftSidebarFooter={<AppSidebarMetaSection />}
         onConnectGithub={handleConnectGithub}
         onConnectRepository={handleConnectRepository}
       />
@@ -672,7 +670,6 @@ function FileViewRepositorySetupState({
           }
         />
       }
-      left={{ footer: <AppSidebarMetaSection /> }}
     >
       <div className="flex h-full min-h-0 items-center justify-center p-6">
         <div className="w-full max-w-xl">
