@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { INDEXED_DB_ROUTE } from "../src/lib/indexedDbRoute";
 import { LOCAL_STORAGE_ROUTE } from "../src/lib/localStorageRoute";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 
+const AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID = "dashboard-sidebar-account-section";
 const indexedDbRouteScreenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -82,7 +82,7 @@ test("indexedDB route shows database store keys and formatted values", async ({ 
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  const accountSection = rightSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  const accountSection = rightSidebar.getByTestId(AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "not logged in" })).toHaveCount(0);
   await expect(rightSidebar.getByRole("link", { name: "/terms", exact: true })).toHaveAttribute(
