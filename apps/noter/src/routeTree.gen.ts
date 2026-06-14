@@ -21,7 +21,7 @@ import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
-import { Route as addRepositoryRouteImport } from "./routes/add-repository";
+import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
@@ -99,9 +99,9 @@ const dashboardHomeRoute = dashboardHomeRouteImport.update({
   path: "/home",
   getParentRoute: () => rootRouteImport,
 } as any);
-const addRepositoryRoute = addRepositoryRouteImport.update({
-  id: "/add",
-  path: "/add",
+const connectRepoRoute = connectRepoRouteImport.update({
+  id: "/connect-repo",
+  path: "/connect-repo",
   getParentRoute: () => rootRouteImport,
 } as any);
 const indexRoute = indexRouteImport.update({
@@ -189,7 +189,7 @@ const codespaceChatRoute = codespaceChatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
-  "/add": typeof addRepositoryRoute;
+  "/connect-repo": typeof connectRepoRoute;
   "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -220,7 +220,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
-  "/add": typeof addRepositoryRoute;
+  "/connect-repo": typeof connectRepoRoute;
   "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -252,7 +252,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
-  "/add": typeof addRepositoryRoute;
+  "/connect-repo": typeof connectRepoRoute;
   "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -285,7 +285,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
-    | "/add"
+    | "/connect-repo"
     | "/home"
     | "/indexDB"
     | "/landing-preview"
@@ -316,7 +316,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
-    | "/add"
+    | "/connect-repo"
     | "/home"
     | "/indexDB"
     | "/landing-preview"
@@ -347,7 +347,7 @@ export interface FileRouteTypes {
   id:
     | "__root__"
     | "/"
-    | "/add"
+    | "/connect-repo"
     | "/home"
     | "/indexDB"
     | "/landing-preview"
@@ -379,7 +379,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
-  addRepositoryRoute: typeof addRepositoryRoute;
+  connectRepoRoute: typeof connectRepoRoute;
   dashboardHomeRoute: typeof dashboardHomeRoute;
   indexDBRoute: typeof indexDBRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
@@ -495,11 +495,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof dashboardHomeRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/add": {
-      id: "/add";
-      path: "/add";
-      fullPath: "/add";
-      preLoaderRoute: typeof addRepositoryRouteImport;
+    "/connect-repo": {
+      id: "/connect-repo";
+      path: "/connect-repo";
+      fullPath: "/connect-repo";
+      preLoaderRoute: typeof connectRepoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/": {
@@ -619,7 +619,7 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
-  addRepositoryRoute: addRepositoryRoute,
+  connectRepoRoute: connectRepoRoute,
   dashboardHomeRoute: dashboardHomeRoute,
   indexDBRoute: indexDBRoute,
   landingPreviewRoute: landingPreviewRoute,

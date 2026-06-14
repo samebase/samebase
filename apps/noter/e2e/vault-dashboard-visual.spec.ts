@@ -240,7 +240,7 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture.locator('a[href="/home?new-app"]')).toHaveText("New App");
-  await expect(fixture.locator('a[href="/add"]')).toContainText("Connect existing app");
+  await expect(fixture.locator('a[href="/connect-repo"]')).toContainText("Connect existing app");
   await expect(fixture).toHaveScreenshot("vault-create-control.png", {
     animations: "disabled",
     caret: "hide",

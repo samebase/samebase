@@ -11,7 +11,7 @@ type NoterRouteAccessMetadata = Pick<NoterRouteStaticData, "availableEnvironment
  */
 const noterRouteAccessMetadataByPath = {
   "/": { permission: "public" },
-  "/add": { permission: "admin" },
+  "/connect-repo": { permission: "admin" },
   "/home": { permission: "admin" },
   "/indexDB": { permission: "admin" },
   "/landing-preview": { permission: "admin" },

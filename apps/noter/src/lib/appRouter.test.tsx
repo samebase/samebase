@@ -115,8 +115,8 @@ vi.mock("@/components/PricingPage", () => ({
   PricingPage: () => <div data-testid="pricing-page">Pricing page</div>,
 }));
 
-vi.mock("@/components/AddRepository", () => ({
-  AddRepository: () => <div data-testid="add-repository-page">Add repository page</div>,
+vi.mock("@/components/ConnectRepository", () => ({
+  ConnectRepository: () => <div data-testid="connect-repository-page">Connect repository page</div>,
 }));
 
 vi.mock("@/components/MachinesWorkspacePage", () => ({
@@ -597,11 +597,11 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders add repository through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/add");
+  it("renders connect repository through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/connect-repo");
 
-    expect(rootElement?.querySelector('[data-testid="add-repository-page"]')?.textContent).toBe(
-      "Add repository page",
+    expect(rootElement?.querySelector('[data-testid="connect-repository-page"]')?.textContent).toBe(
+      "Connect repository page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
@@ -615,11 +615,11 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("accepts a trailing slash on the promoted add route", async () => {
-    await renderRoute("/add/");
+  it("accepts a trailing slash on the promoted connect repository route", async () => {
+    await renderRoute("/connect-repo/");
 
-    expect(rootElement?.querySelector('[data-testid="add-repository-page"]')?.textContent).toBe(
-      "Add repository page",
+    expect(rootElement?.querySelector('[data-testid="connect-repository-page"]')?.textContent).toBe(
+      "Connect repository page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

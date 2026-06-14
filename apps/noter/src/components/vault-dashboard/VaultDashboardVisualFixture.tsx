@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -1168,7 +1169,7 @@ function FixtureDashboardCreateControl() {
               className="h-auto min-h-8 w-full whitespace-normal py-2"
               asChild
             >
-              <Link to="/add">
+              <Link to={CONNECT_REPO_ROUTE}>
                 <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
                   Connect existing app
                 </span>

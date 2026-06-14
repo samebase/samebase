@@ -49,6 +49,7 @@ import {
   type ReactNode,
 } from "react";
 import { isInIframe, useNoterAuthActions } from "@/authClient";
+import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
@@ -5962,7 +5963,7 @@ export function VaultDashboard() {
             buttonVariants({ variant: "outline" }),
             "h-auto min-h-8 w-full whitespace-normal py-2",
           )}
-          to="/add"
+          to={CONNECT_REPO_ROUTE}
         >
           <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
             Connect existing app

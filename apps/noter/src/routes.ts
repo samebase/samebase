@@ -3,6 +3,7 @@ import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
 } from "./lib/codexAppServerResearch";
+import { CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./lib/landingMarkdownPreview";
@@ -40,7 +41,7 @@ export const routes = rootRoute("root.tsx", [
   route(LANDING_MARKDOWN_PREVIEW_ROUTE, "landing-preview.tsx"),
   route(DASHBOARD_ROUTE, "dashboard-home.tsx"),
   route("/pricing", "pricing.tsx"),
-  route("/add", "add-repository.tsx"),
+  route(CONNECT_REPO_ROUTE, "connect-repo.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),
   route(MACHINE_CONNECT_ROUTE, "machine-connect.tsx"),
   route("/vault/$owner/$repo/codespace/$branch/chat", "codespace-chat.tsx"),

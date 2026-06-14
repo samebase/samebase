@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveDisplayedRepositories } from "./addRepositoryPicker";
+import { resolveDisplayedRepositories } from "./connectRepositoryPicker";
 
 function buildRepository(id: number, fullName: string) {
   const [ownerName, repoName] = fullName.split("/");
