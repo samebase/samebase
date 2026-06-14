@@ -81,6 +81,7 @@ describe("AddRepositoryPageContent", () => {
     });
 
     expect(markup).toContain("Connect an existing repository");
+    expect(markup).not.toContain("Back to Vaults");
     expect(markup).toContain("GitHub connection required");
     expect(markup).toContain("Connect GitHub to list your repositories.");
     expect(markup).toContain("Search repositories...");
