@@ -50,6 +50,12 @@ function compareGitHubRepositoryOwnerOptions(
   left: GitHubRepositoryOwnerOption,
   right: GitHubRepositoryOwnerOption,
 ) {
+  if (left.kind !== right.kind) {
+    return left.kind === "user" ? -1 : 1;
+  }
+  if (left.canCreateRepository !== right.canCreateRepository) {
+    return left.canCreateRepository ? -1 : 1;
+  }
   return left.login.localeCompare(right.login) || left.kind.localeCompare(right.kind);
 }
 
@@ -470,8 +476,12 @@ export function NewAppCreateFormFields({
           </SelectTrigger>
           <AppSelectContent>
             {sortedGithubRepositoryOwnerOptions.map((owner) => (
-              <AppSelectItem key={owner.login} value={owner.login}>
-                {owner.login}
+              <AppSelectItem
+                key={owner.login}
+                value={owner.login}
+                disabled={!owner.canCreateRepository}
+              >
+                {owner.canCreateRepository ? owner.login : `${owner.login} (cannot create repos)`}
               </AppSelectItem>
             ))}
           </AppSelectContent>
@@ -599,8 +609,13 @@ export function NewAppPage() {
   const hasRequiredCreateConnections = Boolean(
     hasConnectedCreateProviders && !cloudflareAccountSelectionRequired,
   );
+  const selectedGithubRepositoryOwnerOption = githubRepositoryOwnerOptions.find(
+    (owner) => owner.login === selectedGithubRepositoryOwner,
+  );
   const canCreateRepo = Boolean(
-    hasRequiredCreateConnections && selectedGithubRepositoryOwner.trim(),
+    hasRequiredCreateConnections &&
+    selectedGithubRepositoryOwner.trim() &&
+    selectedGithubRepositoryOwnerOption?.canCreateRepository,
   );
   const createRepositoryName = newRepositoryName.trim();
   const defaultConvexProjectName = buildDefaultAppResourceName({
@@ -723,11 +738,13 @@ export function NewAppPage() {
     setGithubRepositoryOwnerLoadError(null);
     setGithubRepositoryOwnerOptionsState(sortedOwners);
     setSelectedGithubRepositoryOwnerState((currentOwner) => {
-      const currentOwnerStillExists = sortedOwners.some((owner) => owner.login === currentOwner);
+      const currentOwnerStillExists = sortedOwners.some(
+        (owner) => owner.login === currentOwner && owner.canCreateRepository,
+      );
       if (currentOwnerStillExists) {
         return currentOwner;
       }
-      return sortedOwners[0]?.login ?? "";
+      return sortedOwners.find((owner) => owner.canCreateRepository)?.login ?? "";
     });
   }, []);
   const loadCloudflareAccountDialogResources = useCallback(
