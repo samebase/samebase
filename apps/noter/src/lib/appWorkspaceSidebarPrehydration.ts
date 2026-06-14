@@ -77,6 +77,11 @@ writing custom properties on documentElement. The viewport markup has its own
 inline desktop-width custom properties, and those element-level properties would
 override inherited root values.
 
+The rule is emitted into Tailwind's utilities layer because the app's desktop
+pane width rules also live there and use important declarations. An unlayered
+important declaration loses to the layered app rule in Chrome, so it would not
+affect the first paint.
+
 The selector must include the measured-viewport guard. React adds
 data-workspace-layout-v2-measured after ResizeObserver reports the viewport
 size. Once that attribute is present, the temporary stylesheet no longer
@@ -94,13 +99,15 @@ function InlineScript_prehidrateSidebar(
     const viewportSelector =
       ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
     const cssText = `
-@media (min-width: 768px) {
-  ${viewportSelector} .workspace-layout-v2-responsive-left-pane {
-    width: ${leftDesktopWidth} !important;
-  }
+@layer utilities {
+  @media (min-width: 768px) {
+    ${viewportSelector} .workspace-layout-v2-responsive-left-pane {
+      width: ${leftDesktopWidth} !important;
+    }
 
-  ${viewportSelector} .workspace-layout-v2-responsive-right-pane {
-    width: ${rightDesktopWidth} !important;
+    ${viewportSelector} .workspace-layout-v2-responsive-right-pane {
+      width: ${rightDesktopWidth} !important;
+    }
   }
 }
 `;

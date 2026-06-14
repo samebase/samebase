@@ -218,6 +218,7 @@ describe("AppWorkspaceShell", () => {
 
   function expectPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
     const styleText = getRequiredPrehydrationStyleText();
+    expect(styleText).toContain("@layer utilities");
     expect(styleText).toContain("@media (min-width: 768px)");
     expect(styleText).toContain(
       `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane`,
