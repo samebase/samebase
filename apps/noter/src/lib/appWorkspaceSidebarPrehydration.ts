@@ -30,7 +30,7 @@ inline head script before React hydration. Keep the body self-contained: it can
 only reference browser globals and values passed through args, not module-scope
 imports or helpers that disappear when the string runs in the document.
 */
-function prehydrateSidebar_inlineScript(args: AppWorkspaceSidebarPrehydrationArgs) {
+function InlineScript_prehidrateSidebar(args: AppWorkspaceSidebarPrehydrationArgs) {
   function readDesktopWidth(open: unknown, width: unknown) {
     if (open === false) return "0px";
     if (open !== true) return null;
@@ -64,7 +64,7 @@ function prehydrateSidebar_inlineScript(args: AppWorkspaceSidebarPrehydrationArg
   } catch {}
 }
 
-export const appWorkspaceSidebarPrehydrationScript = `(${prehydrateSidebar_inlineScript.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)});`;
+export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehidrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)});`;
 
 export function clearAppWorkspaceSidebarPrehydrationStyle() {
   document.documentElement.style.removeProperty(
