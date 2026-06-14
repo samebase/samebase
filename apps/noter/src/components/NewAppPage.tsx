@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { CheckIcon, Loader2 } from "lucide-react";
 import {
   useCallback,
@@ -11,14 +11,12 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../../convex/_generated/api";
-import { isInIframe } from "@/authClient";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clsx } from "clsx";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { linkStyle } from "@/components/styles";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -33,7 +31,6 @@ import {
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 
-type ProviderKey = "github" | "convex" | "cloudflare";
 type CreateResourceNameMode = "auto" | "manual";
 type CreateResourceNameCheckResult =
   (typeof api.vault.actions.checkCreateRepositoryResourceNames)["_returnType"];
@@ -525,33 +522,6 @@ export function NewAppCreateFormFields({
   );
 }
 
-function ProviderConnectButton({
-  connected,
-  disabled,
-  isPending,
-  label,
-  onConnect,
-}: {
-  connected: boolean;
-  disabled: boolean;
-  isPending: boolean;
-  label: string;
-  onConnect: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      className="h-auto min-h-9 whitespace-normal py-2"
-      variant={connected ? "outline" : "default"}
-      disabled={connected || disabled}
-      onClick={onConnect}
-    >
-      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-      {connected ? `${label} connected` : `Connect ${label}`}
-    </Button>
-  );
-}
-
 export function NewAppPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -562,9 +532,6 @@ export function NewAppPage() {
   const listGithubRepositoryOwners = useAction(api.vault.actions.listRepositoryOwners);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
-  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
-  const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
-  const getCloudflareMcpOAuthUrl = useAction(api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
@@ -577,7 +544,6 @@ export function NewAppPage() {
     useState<CreateResourceNameMode>("auto");
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [connectingProvider, setConnectingProvider] = useState<ProviderKey | null>(null);
   const [isLoadingGithubRepositoryOwners, setIsLoadingGithubRepositoryOwners] = useState(false);
   const [githubRepositoryOwnerOptions, setGithubRepositoryOwnerOptionsState] = useState<
     GitHubRepositoryOwnerOption[]
@@ -713,7 +679,6 @@ export function NewAppPage() {
     createRepositoryName.length === 0 ||
     !canCreateRepo ||
     hasBlockingCreateResourceName;
-  const providerConnectDisabled = connectingProvider !== null || isCreating;
 
   const setNewRepositoryName = useCallback((value: string) => {
     setCreateError(null);
@@ -820,45 +785,6 @@ export function NewAppPage() {
       );
     } finally {
       setIsSubmittingCloudflareAccount(false);
-    }
-  };
-  const handleConnectProvider = async (provider: ProviderKey) => {
-    if (connectingProvider !== null) {
-      return;
-    }
-    const providerLabel =
-      provider === "github" ? "GitHub" : provider === "convex" ? "Convex" : "Cloudflare";
-    setConnectingProvider(provider);
-    setCreateError(null);
-    try {
-      const oauthUrl =
-        provider === "github"
-          ? await getGithubOAuthUrl({
-              returnToPath: location.href,
-            })
-          : provider === "convex"
-            ? await getConvexOAuthUrl()
-            : await getCloudflareMcpOAuthUrl();
-      if (isInIframe()) {
-        const popup =
-          provider === "github"
-            ? openGithubOAuthPopup(oauthUrl)
-            : window.open(
-                oauthUrl,
-                provider === "convex" ? "noter-convex-oauth" : "noter-cloudflare-oauth",
-                "width=600,height=700,popup=true",
-              );
-        if (popup) {
-          return;
-        }
-      }
-      window.location.assign(oauthUrl);
-    } catch (error) {
-      setCreateError(
-        error instanceof Error ? error.message : `Failed to start ${providerLabel} OAuth`,
-      );
-    } finally {
-      setConnectingProvider(null);
     }
   };
   const renderCreateResourceNameSupport = ({
@@ -1201,46 +1127,6 @@ export function NewAppPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             GitHub, Convex, and Cloudflare resources.
           </p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <ProviderConnectButton
-            connected={githubConnected}
-            disabled={providerConnectDisabled}
-            isPending={connectingProvider === "github"}
-            label="GitHub"
-            onConnect={() => {
-              void handleConnectProvider("github");
-            }}
-          />
-          <ProviderConnectButton
-            connected={convexConnected}
-            disabled={providerConnectDisabled}
-            isPending={connectingProvider === "convex"}
-            label="Convex"
-            onConnect={() => {
-              void handleConnectProvider("convex");
-            }}
-          />
-          {cloudflareAccountSelectionRequired ? (
-            <Button
-              type="button"
-              className="h-auto min-h-9 whitespace-normal py-2"
-              disabled={providerConnectDisabled}
-              onClick={openCloudflareAccountDialog}
-            >
-              Select Cloudflare account
-            </Button>
-          ) : (
-            <ProviderConnectButton
-              connected={cloudflareConnected}
-              disabled={providerConnectDisabled}
-              isPending={connectingProvider === "cloudflare"}
-              label="Cloudflare"
-              onConnect={() => {
-                void handleConnectProvider("cloudflare");
-              }}
-            />
-          )}
         </div>
         <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
         <div className="min-h-5">{createControlFooterMessages}</div>
