@@ -149,15 +149,14 @@ describe("readRouteAddressReadiness", () => {
     });
   });
 
-  it("replaces old root-owned aliases with canonical keys", () => {
+  it("drops the unsupported base query key", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/logo",
         draftRouteAddress: "/logo?base=%23112233",
       }),
     ).toEqual({
       kind: "readyNormalized",
-      routeAddress: "/logo?background=%23112233",
+      routeAddress: "/logo",
     });
   });
 

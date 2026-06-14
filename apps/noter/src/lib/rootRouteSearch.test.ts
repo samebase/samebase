@@ -164,10 +164,8 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("accepts the old root logo base color alias as background", () => {
-    expect(readRootRouteSearch("?base=%23112233")).toEqual({
-      background: "#112233",
-    });
+  it("ignores the unsupported base query key", () => {
+    expect(readRootRouteSearch("?base=%23112233")).toEqual({});
   });
 
   it("preserves explicit supported root logo grid sizes", () => {

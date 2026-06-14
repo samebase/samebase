@@ -537,27 +537,13 @@ export function readLogoRouteSearchParamSuggestionsForRenderer(
   );
 }
 
-function normalizeLogoRouteColorSearchAliases(search: Record<string, unknown>) {
-  const background = search.background ?? search.base;
-  if (typeof background === "undefined" || background === search.background) {
-    return search;
-  }
-
-  return {
-    ...search,
-    background,
-  };
-}
-
 export function validateLogoRouteSearch(search: Record<string, unknown>): LogoRouteSearch {
   const presenceNormalizedSearch = normalizeRouteSearchPresenceFlags(
     search,
     LOGO_ROUTE_PRESENCE_SEARCH_KEYS,
   );
 
-  return readLogoRouteSearchFields(
-    RouteSearchSchema_logo.parse(normalizeLogoRouteColorSearchAliases(presenceNormalizedSearch)),
-  );
+  return readLogoRouteSearchFields(RouteSearchSchema_logo.parse(presenceNormalizedSearch));
 }
 
 /**
@@ -570,7 +556,7 @@ export function validateLogoIsoRouteSearch(search: Record<string, unknown>): Log
     LOGO_ROUTE_PRESENCE_SEARCH_KEYS,
   );
   const parsedSearch = readLogoIsoRouteSearchFields(
-    RouteSearchSchema_logoIso.parse(normalizeLogoRouteColorSearchAliases(presenceNormalizedSearch)),
+    RouteSearchSchema_logoIso.parse(presenceNormalizedSearch),
   );
   if (typeof parsedSearch.depth !== "number") {
     return parsedSearch;

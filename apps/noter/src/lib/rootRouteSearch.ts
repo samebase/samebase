@@ -170,7 +170,7 @@ export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM
 );
 
 export function isRootRouteOwnedSearchKey(key: string): boolean {
-  return key === "base" || key in rootRouteSearchParamMetadata;
+  return key in rootRouteSearchParamMetadata;
 }
 
 function normalizeDashboardModalSearch(parsedSearch: RootRouteSearchBase): RootRouteSearchBase {

@@ -237,11 +237,8 @@ describe("logoRouteSearch", () => {
     });
   });
 
-  it("accepts the old base color alias as background", () => {
-    expect(validateLogoRouteSearch({ base: "#112233" })).toEqual({
-      background: "#112233",
-    });
-
+  it("ignores the unsupported base query key", () => {
+    expect(validateLogoRouteSearch({ base: "#112233" })).toEqual({});
     expect(validateLogoRouteSearch({ background: "#445566", base: "#112233" })).toEqual({
       background: "#445566",
     });

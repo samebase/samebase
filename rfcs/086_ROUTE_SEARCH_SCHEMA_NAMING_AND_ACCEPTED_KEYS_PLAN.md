@@ -199,9 +199,9 @@ pruning never rewrites restored entries.
 ## Open Questions
 
 1. **Per-key disposition for slice 2:** proposed split — app-wide fun (root-owned): `background`,
-   `border`, `base` alias, `dark`, `light`, `primary`, `secondary`, `top`, `zoom`, `depth`, `dist`,
-   `gridSize`, `dev`, `elev`, `rot`, `axis`, `freeView`, `leftFace`, `vox`; route-owned: `isoSide`,
-   `isoStyle` (`/logo/iso` family), raster seam controls. Confirm or adjust.
+   `border`, `dark`, `light`, `primary`, `secondary`, `top`, `zoom`, `depth`, `dist`, `gridSize`,
+   `dev`, `elev`, `rot`, `axis`, `freeView`, `leftFace`, `vox`; route-owned: `isoSide`, `isoStyle`
+   (`/logo/iso` family), raster seam controls. Confirm or adjust.
 2. **Group vocabulary:** is `"fun"` the only group, or also `"debug"` (`devtools`, `dev`) and
    `"auth"` (`auth`, `auth-return`, `sign-in`)?
 
