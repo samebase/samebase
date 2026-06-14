@@ -51,6 +51,7 @@ const OPEN_LEFT_SIDEBAR_STATE = {
 function SidebarStateProbe() {
   const sidebarState = usePersistedWorkspaceSidebarState({
     defaults: DEFAULT_SIDEBAR_STATE,
+    onPersistedStateApplied: null,
     workspaceKey: "machines",
   });
   latestSidebarStateController = sidebarState;

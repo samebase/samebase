@@ -1,6 +1,7 @@
 import {
   createContext,
   memo,
+  useCallback,
   useContext,
   useLayoutEffect,
   useMemo,
@@ -194,8 +195,16 @@ function useAppWorkspaceSidebarState() {
     reset: false,
     storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   });
+  const setLocalSidebarState = localSidebarState.setState;
+  const mirrorPersistedSidebarState = useCallback(
+    (state: WorkspaceSidebarState) => {
+      setLocalSidebarState(() => state, "immediate");
+    },
+    [setLocalSidebarState],
+  );
   const persistedSidebarState = usePersistedWorkspaceSidebarState({
-    defaults: APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
+    defaults: localSidebarState.state,
+    onPersistedStateApplied: isAuthenticated ? mirrorPersistedSidebarState : null,
     workspaceKey: "app",
   });
 
