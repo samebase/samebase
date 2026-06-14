@@ -311,9 +311,12 @@ export function useLocalStorageWorkspaceSidebarState({
     };
   }, [flushPendingWidthPersist]);
 
-  return {
-    isHydrated: true,
-    state: sidebarState,
-    setState: applySidebarState,
-  };
+  return React.useMemo(
+    () => ({
+      isHydrated: true,
+      state: sidebarState,
+      setState: applySidebarState,
+    }),
+    [applySidebarState, sidebarState],
+  );
 }

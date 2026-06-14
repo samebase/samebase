@@ -5,28 +5,70 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act, useState } = React;
+const { useConvexAuthMock, useQueryMock } = vi.hoisted(() => ({
+  useConvexAuthMock: vi.fn(),
+  useQueryMock: vi.fn(),
+}));
+
+vi.mock("@/components/PublicRightSidebar", () => ({
+  usePublicRightSidebarPane: () => ({
+    content: null,
+  }),
+}));
+
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
 
   return {
     ...actual,
-    useConvexAuth: () => ({
-      isAuthenticated: false,
-      isLoading: false,
-    }),
+    useConvexAuth: useConvexAuthMock,
     useMutation: () => () => Promise.resolve(),
-    useQuery: () => undefined,
+    useQuery: useQueryMock,
   };
 });
+
+const LOCAL_SIDEBAR_STATE = {
+  leftDesktopOpen: false,
+  leftDesktopWidthPx: 260,
+  leftMobileWidthPx: 260,
+  mobilePane: "left",
+  mobileSurface: { kind: "unmerged" },
+  rightDesktopOpen: true,
+  rightDesktopWidthPx: 340,
+  rightMobileWidthPx: 340,
+} satisfies WorkspaceSidebarState;
+
+const SERVER_SIDEBAR_STATE = {
+  leftDesktopOpen: true,
+  leftDesktopWidthPx: 300,
+  leftMobileWidthPx: 300,
+  mobilePane: "right",
+  mobileSurface: {
+    kind: "merged",
+    mainWidthPx: 300,
+    side: "right",
+  },
+  rightDesktopOpen: false,
+  rightDesktopWidthPx: 420,
+  rightMobileWidthPx: 420,
+} satisfies WorkspaceSidebarState;
 
 describe("AppWorkspaceShell", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
 
   beforeEach(() => {
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    });
+    useQueryMock.mockReturnValue(undefined);
+    window.localStorage.clear();
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn((query: string) => ({
@@ -43,6 +85,9 @@ describe("AppWorkspaceShell", () => {
   });
 
   afterEach(() => {
+    useConvexAuthMock.mockReset();
+    useQueryMock.mockReset();
+    window.localStorage.clear();
     const mountedRoot = root;
     if (mountedRoot) {
       act(() => {
@@ -102,6 +147,15 @@ describe("AppWorkspaceShell", () => {
     return element;
   }
 
+  function readStoredAppWorkspaceSidebarState() {
+    const storedValue = window.localStorage.getItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY);
+    if (storedValue === null) {
+      throw new Error("Expected app workspace sidebar state in localStorage.");
+    }
+
+    return JSON.parse(storedValue);
+  }
+
   it("server-renders route content inside the workspace layout", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>
@@ -147,5 +201,42 @@ describe("AppWorkspaceShell", () => {
     expect(getRequiredElement('[data-testid="route-chrome-accessory"]').textContent).toBe(
       "Updated route chrome",
     );
+  });
+
+  it("mirrors hydrated Convex sidebar state into localStorage", () => {
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+    useQueryMock.mockReturnValue(SERVER_SIDEBAR_STATE);
+
+    renderClientShell();
+
+    expect(readStoredAppWorkspaceSidebarState()).toMatchObject({
+      state: SERVER_SIDEBAR_STATE,
+      version: 2,
+    });
+  });
+
+  it("keeps the local sidebar cache when Convex has no row", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: LOCAL_SIDEBAR_STATE,
+        version: 2,
+      }),
+    );
+    useConvexAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    });
+    useQueryMock.mockReturnValue(null);
+
+    renderClientShell();
+
+    expect(readStoredAppWorkspaceSidebarState()).toMatchObject({
+      state: LOCAL_SIDEBAR_STATE,
+      version: 2,
+    });
   });
 });

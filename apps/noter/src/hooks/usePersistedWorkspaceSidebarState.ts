@@ -40,6 +40,7 @@ function areWorkspaceSidebarStatesEqual(left: WorkspaceSidebarState, right: Work
 
 type UsePersistedWorkspaceSidebarStateArgs = {
   defaults: WorkspaceSidebarState;
+  onPersistedStateApplied: ((state: WorkspaceSidebarState) => void) | null;
   workspaceKey: WorkspaceSidebarStateKey;
 };
 
@@ -49,6 +50,7 @@ type UsePersistedWorkspaceSidebarStateArgs = {
  */
 export function usePersistedWorkspaceSidebarState({
   defaults,
+  onPersistedStateApplied,
   workspaceKey,
 }: UsePersistedWorkspaceSidebarStateArgs): WorkspaceSidebarStateController {
   const persistedState = useQuery(api.workspaceSidebarState.getWorkspaceSidebarState, {
@@ -195,13 +197,17 @@ export function usePersistedWorkspaceSidebarState({
       pendingPersistSignatureRef.current = null;
     }
 
+    if (persistedState !== null && onPersistedStateApplied !== null) {
+      onPersistedStateApplied(nextServerState);
+    }
+
     if (areWorkspaceSidebarStatesEqual(latestSidebarStateRef.current, nextServerState)) {
       return;
     }
 
     latestSidebarStateRef.current = nextServerState;
     setSidebarState(nextServerState);
-  }, [clearPendingWidthPersist, defaults, persistedState]);
+  }, [clearPendingWidthPersist, defaults, onPersistedStateApplied, persistedState]);
 
   React.useEffect(() => {
     return () => {
@@ -209,9 +215,12 @@ export function usePersistedWorkspaceSidebarState({
     };
   }, [clearPendingWidthPersist]);
 
-  return {
-    isHydrated,
-    state: sidebarState,
-    setState: applySidebarState,
-  };
+  return React.useMemo(
+    () => ({
+      isHydrated,
+      state: sidebarState,
+      setState: applySidebarState,
+    }),
+    [applySidebarState, isHydrated, sidebarState],
+  );
 }
