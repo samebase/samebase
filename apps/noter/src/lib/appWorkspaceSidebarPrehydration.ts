@@ -24,7 +24,13 @@ const appWorkspaceSidebarPrehydrationArgs = {
   storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } satisfies AppWorkspaceSidebarPrehydrationArgs;
 
-function runAppWorkspaceSidebarPrehydration(args: AppWorkspaceSidebarPrehydrationArgs) {
+/**
+This function is serialized with Function#toString and emitted as a classic
+inline head script before React hydration. Keep the body self-contained: it can
+only reference browser globals and values passed through args, not module-scope
+imports or helpers that disappear when the string runs in the document.
+*/
+function runAppWorkspaceSidebarPrehydrationInlineScript(args: AppWorkspaceSidebarPrehydrationArgs) {
   function readDesktopWidth(open: unknown, width: unknown) {
     if (open === false) return "0px";
     if (open !== true) return null;
@@ -58,7 +64,7 @@ function runAppWorkspaceSidebarPrehydration(args: AppWorkspaceSidebarPrehydratio
   } catch {}
 }
 
-export const appWorkspaceSidebarPrehydrationScript = `(${runAppWorkspaceSidebarPrehydration.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)});`;
+export const appWorkspaceSidebarPrehydrationScript = `(${runAppWorkspaceSidebarPrehydrationInlineScript.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)});`;
 
 export function clearAppWorkspaceSidebarPrehydrationStyle() {
   document.documentElement.style.removeProperty(
