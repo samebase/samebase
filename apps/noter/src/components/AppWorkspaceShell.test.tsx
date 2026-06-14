@@ -1,13 +1,22 @@
 // @vitest-environment jsdom
 
+import { createContext, Script } from "node:vm";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as React from "react";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import {
+  appWorkspaceSidebarPrehydrationScript,
+  clearAppWorkspaceSidebarPrehydrationStyle,
+} from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import {
+  WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+  WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+} from "@/components/workspace-layout-v2/workspaceLayoutV2Prehydration";
 
 const { act, useState } = React;
 const { useConvexAuthMock, useQueryMock } = vi.hoisted(() => ({
@@ -87,6 +96,7 @@ describe("AppWorkspaceShell", () => {
   afterEach(() => {
     useConvexAuthMock.mockReset();
     useQueryMock.mockReset();
+    clearAppWorkspaceSidebarPrehydrationStyle();
     window.localStorage.clear();
     const mountedRoot = root;
     if (mountedRoot) {
@@ -138,7 +148,20 @@ describe("AppWorkspaceShell", () => {
     });
   }
 
+  function runAppWorkspaceSidebarPrehydrationScript() {
+    new Script(appWorkspaceSidebarPrehydrationScript).runInContext(
+      createContext({
+        document,
+        JSON,
+        Math,
+        Number,
+        window,
+      }),
+    );
+  }
+
   async function hydrateClientShellFromServerMarkup() {
+    const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
     rootElement = container;
     document.body.append(container);
@@ -158,8 +181,15 @@ describe("AppWorkspaceShell", () => {
             <div data-testid="workspace-route-content">workspace route content</div>
           </AppWorkspaceShell>
         </TestRouterProvider>,
+        {
+          onRecoverableError: (error: unknown) => {
+            recoverableErrors.push(error);
+          },
+        },
       );
     });
+
+    return recoverableErrors;
   }
 
   function getRequiredElement(selector: string) {
@@ -264,7 +294,7 @@ describe("AppWorkspaceShell", () => {
     });
   });
 
-  it("applies local sidebar widths as a real client hydration update", async () => {
+  it("prehydrates local sidebar widths before the client hydration update", async () => {
     const localWidthState = {
       ...LOCAL_SIDEBAR_STATE,
       leftDesktopOpen: true,
@@ -281,14 +311,109 @@ describe("AppWorkspaceShell", () => {
       }),
     );
 
-    await hydrateClientShellFromServerMarkup();
+    runAppWorkspaceSidebarPrehydrationScript();
+
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("360px");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("420px");
+
+    const recoverableErrors = await hydrateClientShellFromServerMarkup();
 
     const viewport = getRequiredElement('[data-testid="workspace-layout-v2-pane-main"]');
     expect(viewport.getAttribute("style")).toContain(
-      "--workspace-layout-v2-left-desktop-width: 360px",
+      `--workspace-layout-v2-left-desktop-width: var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY}, 360px)`,
     );
     expect(viewport.getAttribute("style")).toContain(
-      "--workspace-layout-v2-right-desktop-width: 420px",
+      `--workspace-layout-v2-right-desktop-width: var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY}, 420px)`,
+    );
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("");
+    expect(recoverableErrors).toEqual([]);
+  });
+
+  it("does not prehydrate invalid local sidebar widths", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftDesktopOpen: true,
+          leftDesktopWidthPx: "360",
+        },
+        version: 2,
+      }),
+    );
+
+    runAppWorkspaceSidebarPrehydrationScript();
+
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("");
+  });
+
+  it("prehydrates closed local sidebars as zero width", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftDesktopOpen: false,
+          rightDesktopOpen: false,
+        },
+        version: 2,
+      }),
+    );
+
+    runAppWorkspaceSidebarPrehydrationScript();
+
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("0px");
+    expect(
+      document.documentElement.style.getPropertyValue(
+        WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+      ),
+    ).toBe("0px");
+  });
+
+  it("uses default sidebar width fallbacks in server markup", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/"]}>
+        <AppWorkspaceShell>
+          <div data-testid="workspace-route-content">workspace route content</div>
+        </AppWorkspaceShell>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(
+      `--workspace-layout-v2-left-desktop-width:var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY}, 240px)`,
+    );
+    expect(markup).toContain(
+      `--workspace-layout-v2-right-desktop-width:var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY}, 288px)`,
     );
   });
 });

@@ -311,6 +311,11 @@ describe("page metadata", () => {
     expect(
       rootHead.scripts.some((script) => script.children.includes("event.preventDefault();")),
     ).toBe(true);
+    expect(
+      rootHead.scripts.some((script) =>
+        script.children.includes("noter_app_workspace_sidebar_state"),
+      ),
+    ).toBe(true);
     expect(rootHead.links).toContainEqual({
       rel: "apple-touch-icon",
       href: "/apple-touch-icon.png",

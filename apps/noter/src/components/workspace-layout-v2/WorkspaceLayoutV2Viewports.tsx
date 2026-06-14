@@ -1,6 +1,10 @@
 import { type CSSProperties, type ReactElement, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import {
+  WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
+  WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
+} from "./workspaceLayoutV2Prehydration";
+import {
   type MobilePane,
   type WorkspaceLayoutV2ActiveResizeSide,
   type WorkspaceLayoutV2MobileMergedSide,
@@ -64,8 +68,8 @@ export function WorkspaceLayoutV2Viewport({
   showRightPane,
 }: WorkspaceLayoutV2ViewportProps) {
   const viewportStyle: WorkspaceLayoutV2ViewportStyle = {
-    "--workspace-layout-v2-left-desktop-width": `${desktopLeftWidthPx}px`,
-    "--workspace-layout-v2-right-desktop-width": `${desktopRightWidthPx}px`,
+    "--workspace-layout-v2-left-desktop-width": `var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY}, ${desktopLeftWidthPx}px)`,
+    "--workspace-layout-v2-right-desktop-width": `var(${WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY}, ${desktopRightWidthPx}px)`,
     paddingLeft: `${peekWidthPx}px`,
     paddingRight: `${peekWidthPx}px`,
   };
