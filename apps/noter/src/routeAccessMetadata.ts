@@ -26,6 +26,7 @@ const noterRouteAccessMetadataByPath = {
   "/logo/transition/transforms": { permission: "admin" },
   "/machines": { permission: "admin" },
   "/machines/connect": { permission: "admin" },
+  "/new-app": { permission: "admin" },
   "/oauth/mcp/consent": { permission: "admin" },
   "/pitch": { permission: "admin" },
   "/pitch/print": { permission: "admin" },

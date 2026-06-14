@@ -4,13 +4,12 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import {
-  GitHubRepositoryNameSlashPreview,
   VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardCloudflareAccountDialog,
   VaultDashboardConvexDialog,
-  VaultDashboardCreateDialog,
   VaultDashboardDeleteDialog,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
@@ -610,27 +609,6 @@ describe("VaultDashboardAppRootDialog", () => {
     expect(markup).not.toContain("App root mode");
     expect(markup).toContain("apps/domain-router");
     expect(markup).toContain("Add app root");
-  });
-});
-
-describe("VaultDashboardCreateDialog", () => {
-  it("renders the create form in a dialog shell", () => {
-    const markup = renderToStaticMarkup(
-      <VaultDashboardCreateDialog
-        createButtonDisabled={false}
-        footerMessages={null}
-        isCreating={false}
-        onOpenChange={vi.fn()}
-        onSubmit={vi.fn()}
-        open
-      >
-        <GitHubRepositoryNameSlashPreview rawName="field/notes" />
-      </VaultDashboardCreateDialog>,
-    );
-
-    expect(markup).toContain("New App");
-    expect(markup).toContain("GitHub, Convex, and Cloudflare resources.");
-    expect(markup).toContain("GitHub repo name:");
   });
 });
 

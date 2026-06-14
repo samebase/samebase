@@ -16,7 +16,6 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "diff",
   "freeView",
   "light",
-  "new-app",
   "openedByCli",
   "prod-ui",
   "reset",

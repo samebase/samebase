@@ -141,7 +141,7 @@ describe("useAppAuthRuntimeEffects", () => {
     vi.stubGlobal("window", {
       location: {
         pathname: "/home",
-        search: "?new-app",
+        search: "?delete",
         hash: "#vaults",
       },
       history: {
@@ -150,7 +150,7 @@ describe("useAppAuthRuntimeEffects", () => {
     });
 
     useAppAuthRuntimeEffects("/home", {
-      "new-app": true,
+      delete: true,
     });
 
     expect(navigateMock).toHaveBeenCalledWith({

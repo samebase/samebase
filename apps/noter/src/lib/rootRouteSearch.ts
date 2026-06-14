@@ -79,10 +79,6 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     permission: "public",
     suggestion: "hidden",
   }),
-  "new-app": routeSearchPresenceParam({
-    permission: "admin",
-    suggestion: "route",
-  }),
   "prod-ui": routeSearchPresenceParam({
     permission: "public",
     suggestion: "global",
@@ -138,7 +134,6 @@ const rootRouteSearchParamMetadata = {
   light: globalLogoRouteSearchParam("light"),
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[MOBILE_SIDEBAR_DEBUG_QUERY_PARAM],
-  "new-app": rootRouteSearchOwnParamMetadata["new-app"],
   primary: globalLogoRouteSearchParam("primary"),
   "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
@@ -155,7 +150,6 @@ const DASHBOARD_MODAL_SEARCH_KEYS = [
   "add-cloudflare",
   "add-convex",
   "delete",
-  "new-app",
 ] as const satisfies readonly (keyof RootRouteSearchBase)[];
 
 export const ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(

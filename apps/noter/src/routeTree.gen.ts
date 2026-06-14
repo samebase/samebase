@@ -15,6 +15,7 @@ import { Route as termsRouteImport } from "./routes/terms";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
+import { Route as newAppRouteImport } from "./routes/new-app";
 import { Route as machinesRouteImport } from "./routes/machines";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
@@ -67,6 +68,11 @@ const pricingRoute = pricingRouteImport.update({
 const pitchRoute = pitchRouteImport.update({
   id: "/pitch",
   path: "/pitch",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const newAppRoute = newAppRouteImport.update({
+  id: "/new-app",
+  path: "/new-app",
   getParentRoute: () => rootRouteImport,
 } as any);
 const machinesRoute = machinesRouteImport.update({
@@ -159,12 +165,11 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
-const codexThreadBrowserResearchRoute =
-  codexThreadBrowserResearchRouteImport.update({
-    id: "/research/codex-app-server/browser",
-    path: "/research/codex-app-server/browser",
-    getParentRoute: () => rootRouteImport,
-  } as any);
+const codexThreadBrowserResearchRoute = codexThreadBrowserResearchRouteImport.update({
+  id: "/research/codex-app-server/browser",
+  path: "/research/codex-app-server/browser",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
@@ -175,12 +180,11 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const logoTransitionTransformsLabRoute =
-  logoTransitionTransformsLabRouteImport.update({
-    id: "/logo/transition/transforms",
-    path: "/logo/transition/transforms",
-    getParentRoute: () => rootRouteImport,
-  } as any);
+const logoTransitionTransformsLabRoute = logoTransitionTransformsLabRouteImport.update({
+  id: "/logo/transition/transforms",
+  path: "/logo/transition/transforms",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
@@ -196,6 +200,7 @@ export interface FileRoutesByFullPath {
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
+  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -227,6 +232,7 @@ export interface FileRoutesByTo {
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
+  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -259,6 +265,7 @@ export interface FileRoutesById {
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/machines": typeof machinesRoute;
+  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
@@ -292,6 +299,7 @@ export interface FileRouteTypes {
     | "/localStorage"
     | "/logo"
     | "/machines"
+    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -323,6 +331,7 @@ export interface FileRouteTypes {
     | "/localStorage"
     | "/logo"
     | "/machines"
+    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -354,6 +363,7 @@ export interface FileRouteTypes {
     | "/localStorage"
     | "/logo"
     | "/machines"
+    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
@@ -386,6 +396,7 @@ export interface RootRouteChildren {
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
   machinesRoute: typeof machinesRoute;
+  newAppRoute: typeof newAppRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
@@ -451,6 +462,13 @@ declare module "@tanstack/react-router" {
       path: "/pitch";
       fullPath: "/pitch";
       preLoaderRoute: typeof pitchRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/new-app": {
+      id: "/new-app";
+      path: "/new-app";
+      fullPath: "/new-app";
+      preLoaderRoute: typeof newAppRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/machines": {
@@ -626,6 +644,7 @@ const rootRouteChildren: RootRouteChildren = {
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,
   machinesRoute: machinesRoute,
+  newAppRoute: newAppRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,

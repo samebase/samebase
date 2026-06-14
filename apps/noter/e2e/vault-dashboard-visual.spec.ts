@@ -239,27 +239,9 @@ test("vault dashboard fixture (create control)", async ({ page }) => {
   await openVaultDashboardVisualFixture(page, "vault-create-control");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
-  await expect(fixture.locator('a[href="/home?new-app"]')).toHaveText("New App");
+  await expect(fixture.locator('a[href="/new-app"]')).toHaveText("New App");
   await expect(fixture.locator('a[href="/connect-repo"]')).toContainText("Connect existing app");
   await expect(fixture).toHaveScreenshot("vault-create-control.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-});
-
-test("vault dashboard fixture (create dialog)", async ({ page }) => {
-  await page.setViewportSize({ width: 960, height: 760 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-create-open");
-
-  const dialog = page.getByRole("dialog", { name: "New App" });
-  await expect(dialog.getByPlaceholder("GitHub repo name")).toHaveValue("field/notes");
-  await expectMobileSafeTextEntrySize(dialog.getByPlaceholder("GitHub repo name"));
-  await expectMobileSafeTextEntrySize(dialog.getByPlaceholder("Convex project name"));
-  await expectMobileSafeTextEntrySize(dialog.getByPlaceholder("Cloudflare Worker name"));
-  await expect(dialog.getByRole("button", { name: "New App" })).toBeVisible();
-  await expect(page).toHaveScreenshot("vault-dashboard-create-open.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",

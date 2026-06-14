@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
 import { GitHubLogoIcon } from "@/lib/radixIcons";
@@ -21,15 +21,12 @@ import {
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
-  GitHubRepositoryNameSlashPreview,
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
   VaultDashboardBody,
   VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
-  VaultDashboardCreateDialog,
-  VaultDashboardCreateFormFields,
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
@@ -47,7 +44,6 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
   | "vault-create-control"
-  | "vault-dashboard-create-open"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-add-first-app-root-open"
@@ -1160,9 +1156,7 @@ function FixtureDashboardCreateControl() {
           <VaultDashboardProvidersSection open={true} onOpenChange={() => {}} providerRows={[]} />
           <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
             <Button className="w-full" asChild>
-              <Link to={DASHBOARD_ROUTE} search={{ "new-app": true }}>
-                New App
-              </Link>
+              <Link to={NEW_APP_ROUTE}>New App</Link>
             </Button>
             <Button
               variant="outline"
@@ -1186,52 +1180,9 @@ function FixtureDashboardCreateControl() {
   );
 }
 
-function FixtureDashboardCreateDialog() {
-  return (
-    <div data-testid="vault-dashboard-visual-fixture" className="min-h-screen bg-background">
-      <VaultDashboardCreateDialog
-        createButtonDisabled={false}
-        footerMessages={null}
-        isCreating={false}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-        open
-      >
-        <VaultDashboardCreateFormFields
-          cloudflareWorkerName="field-notes"
-          cloudflareWorkerNameSupport={null}
-          convexProjectName="field-notes"
-          convexProjectNameSupport={null}
-          githubConnected
-          githubRepositoryNameSupport={<GitHubRepositoryNameSlashPreview rawName="field/notes" />}
-          githubRepositoryOwnerOptions={[
-            { login: "nicu-chiciuc", kind: "user" },
-            { login: "noter-md", kind: "organization" },
-          ]}
-          hasRequiredCreateConnections
-          isCreating={false}
-          isLoadingGithubRepositoryOwners={false}
-          newRepositoryName="field/notes"
-          onCloudflareWorkerNameBlur={() => {}}
-          onCloudflareWorkerNameChange={() => {}}
-          onConvexProjectNameBlur={() => {}}
-          onConvexProjectNameChange={() => {}}
-          onGithubRepositoryOwnerChange={() => {}}
-          onNewRepositoryNameChange={() => {}}
-          selectedGithubRepositoryOwner="nicu-chiciuc"
-        />
-      </VaultDashboardCreateDialog>
-    </div>
-  );
-}
-
 export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisualMode }) {
   if (mode === "vault-create-control") {
     return <FixtureDashboardCreateControl />;
-  }
-
-  if (mode === "vault-dashboard-create-open") {
-    return <FixtureDashboardCreateDialog />;
   }
 
   if (mode === "vault-dashboard-dev-tools-hidden") {
