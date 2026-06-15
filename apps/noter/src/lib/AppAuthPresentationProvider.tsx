@@ -17,7 +17,10 @@ export function AppAuthPresentationProvider({
   const [localAuthHint] = useState(() => readLocalAppAuthPresentationHint(storageNamespace));
   const presentationState = useMemo((): AppAuthPresentationState => {
     if (isAuthenticated) {
-      return { kind: "confirmedAuthenticated" };
+      return {
+        kind: "confirmedAuthenticated",
+        profile: localAuthHint.kind === "present" ? localAuthHint.profile : null,
+      };
     }
 
     if (!isLoading) {
@@ -27,6 +30,7 @@ export function AppAuthPresentationProvider({
     if (localAuthHint.kind === "present") {
       return {
         kind: "temporaryAuthenticated",
+        profile: localAuthHint.profile,
         source: localAuthHint.source,
         tokenExpiresAt: localAuthHint.tokenExpiresAt,
       };

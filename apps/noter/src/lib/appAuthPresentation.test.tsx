@@ -21,8 +21,35 @@ vi.mock("convex/react", () => ({
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
+const PROFILE_JWT =
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIiwicGljdHVyZSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vYXZhdGFyLnBuZyJ9.signature";
 const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
 const NO_EXP_JWT = "header.e30.signature";
+
+function createTestStorage(): Storage {
+  const entries = new Map<string, string>();
+
+  return {
+    clear() {
+      entries.clear();
+    },
+    getItem(key) {
+      return entries.get(String(key)) ?? null;
+    },
+    key(index) {
+      return Array.from(entries.keys())[index] ?? null;
+    },
+    get length() {
+      return entries.size;
+    },
+    removeItem(key) {
+      entries.delete(String(key));
+    },
+    setItem(key, value) {
+      entries.set(String(key), String(value));
+    },
+  };
+}
 
 function AuthPresentationProbe() {
   const authPresentation = useAppAuthPresentation();
@@ -41,7 +68,10 @@ describe("app auth presentation", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
-    window.localStorage.clear();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
   });
 
   it("uses the same namespaced JWT key shape as Convex Auth", () => {
@@ -55,10 +85,26 @@ describe("app auth presentation", () => {
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
+      profile: null,
       source: "jwt",
       tokenExpiresAt: 4_100_000_000_000,
     });
     expect(renderPresentationProvider()).toBe("<span>temporaryAuthenticated</span>");
+  });
+
+  it("reads presentation profile claims from the local JWT", () => {
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
+      kind: "present",
+      profile: {
+        email: "nicu@noter.md",
+        image: "https://example.com/avatar.png",
+        name: "Nicu",
+      },
+      source: "jwt",
+      tokenExpiresAt: 4_100_000_000_000,
+    });
   });
 
   it("accepts a decodable local JWT without exp as not obviously expired", () => {
@@ -66,6 +112,7 @@ describe("app auth presentation", () => {
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
+      profile: null,
       source: "jwt",
       tokenExpiresAt: null,
     });
@@ -86,6 +133,7 @@ describe("app auth presentation", () => {
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
+      profile: null,
       source: "remembered",
       tokenExpiresAt: null,
     });
@@ -98,6 +146,7 @@ describe("app auth presentation", () => {
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
+      profile: null,
       source: "remembered",
       tokenExpiresAt: null,
     });

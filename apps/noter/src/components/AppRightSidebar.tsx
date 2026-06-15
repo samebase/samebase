@@ -20,7 +20,10 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useNow } from "@/hooks/useNow";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
-import { useAppAuthPresentation } from "@/lib/appAuthPresentationState";
+import {
+  useAppAuthPresentation,
+  type AppAuthPresentationProfile,
+} from "@/lib/appAuthPresentationState";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -311,9 +314,15 @@ function PublicAppRightSidebarContent() {
   );
 }
 
-function GenericSignedInAccountSection() {
+function GenericSignedInAccountSection({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
   const { signOut } = useNoterAuthActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const accountDisplayName = profile?.name ?? profile?.email ?? "Account";
+  const accountEmail = profile?.email ?? profile?.name ?? "Signed in";
   const handleSignOut = () => {
     if (isSigningOut) {
       return;
@@ -335,8 +344,8 @@ function GenericSignedInAccountSection() {
 
   return (
     <VaultDashboardAccountSection
-      displayName="Account"
-      email="Signed in"
+      displayName={accountDisplayName}
+      email={accountEmail}
       isSignOutPending={isSigningOut}
       onOpenChange={() => {}}
       onSignOut={handleSignOut}
@@ -347,10 +356,14 @@ function GenericSignedInAccountSection() {
   );
 }
 
-function TemporaryAuthenticatedAppRightSidebarContent() {
+function TemporaryAuthenticatedAppRightSidebarContent({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
   return (
     <VaultDashboardSidebarContent>
-      <GenericSignedInAccountSection />
+      <GenericSignedInAccountSection profile={profile} />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -358,7 +371,11 @@ function TemporaryAuthenticatedAppRightSidebarContent() {
   );
 }
 
-function AuthenticatedAppRightSidebarContent() {
+function AuthenticatedAppRightSidebarContent({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
   const location = useLocation();
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
@@ -826,7 +843,7 @@ function AuthenticatedAppRightSidebarContent() {
           signOutDisabled={false}
         />
       ) : (
-        <GenericSignedInAccountSection />
+        <GenericSignedInAccountSection profile={profile} />
       )}
       <VaultDashboardProvidersSection
         onOpenChange={(isOpen) => {
@@ -896,11 +913,11 @@ export function AppRightSidebarContent() {
   const authPresentation = useAppAuthPresentation();
 
   if (authPresentation.kind === "confirmedAuthenticated") {
-    return <AuthenticatedAppRightSidebarContent />;
+    return <AuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 
   if (authPresentation.kind === "temporaryAuthenticated") {
-    return <TemporaryAuthenticatedAppRightSidebarContent />;
+    return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 
   return <PublicAppRightSidebarContent />;

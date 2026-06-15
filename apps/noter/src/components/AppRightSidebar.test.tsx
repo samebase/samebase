@@ -18,6 +18,33 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
 }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
+const PROFILE_JWT =
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIiwicGljdHVyZSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vYXZhdGFyLnBuZyJ9.signature";
+
+function createTestStorage(): Storage {
+  const entries = new Map<string, string>();
+
+  return {
+    clear() {
+      entries.clear();
+    },
+    getItem(key) {
+      return entries.get(String(key)) ?? null;
+    },
+    key(index) {
+      return Array.from(entries.keys())[index] ?? null;
+    },
+    get length() {
+      return entries.size;
+    },
+    removeItem(key) {
+      entries.delete(String(key));
+    },
+    setItem(key, value) {
+      entries.set(String(key), String(value));
+    },
+  };
+}
 
 function createAsyncHandler() {
   const handler = vi.fn(() => Promise.resolve(undefined));
@@ -99,7 +126,10 @@ describe("AppRightSidebarContent", () => {
   beforeEach(() => {
     authState.isAuthenticated = true;
     authState.isLoading = false;
-    window.localStorage.clear();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
     queryState.index = 0;
     queryState.results = [];
   });
@@ -127,6 +157,30 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("Account");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("Providers");
+  });
+
+  it("uses local JWT profile claims for the temporary signed-in account row", () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const markup = renderRightSidebar([]);
+
+    expect(markup).toContain("Nicu");
+    expect(markup).not.toContain("checking login");
+    expect(markup).not.toContain("Providers");
+  });
+
+  it("keeps local JWT profile claims while the authenticated viewer loads", () => {
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const markup = renderRightSidebar([]);
+    const accountIndex = markup.indexOf("Nicu");
+    const providersIndex = markup.indexOf("Providers");
+
+    expect(accountIndex).toBeGreaterThanOrEqual(0);
+    expect(providersIndex).toBeGreaterThan(accountIndex);
+    expect(markup).not.toContain("checking login");
   });
 
   it("keeps a signed-in account slot above providers while the authenticated viewer loads", () => {

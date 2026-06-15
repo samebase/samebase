@@ -1,22 +1,40 @@
 import { AUTH_FLAG_STORAGE_KEY } from "@/lib/authStorageKeys";
+import { isRecord } from "@noter-md/dependent";
 import { useConvexAuth } from "convex/react";
 import { createContext, useContext } from "react";
 
 const CONVEX_AUTH_JWT_STORAGE_KEY = "__convexAuthJWT";
 
+export type AppAuthPresentationProfile = {
+  email?: string;
+  image?: string;
+  name?: string;
+};
 type LocalAppAuthPresentationHint =
   | { kind: "absent" }
-  | { kind: "present"; source: "jwt" | "remembered"; tokenExpiresAt: number | null };
-type ConvexAuthJwtPayload = { kind: "invalid" } | { kind: "valid"; tokenExpiresAt: number | null };
+  | {
+      kind: "present";
+      profile: AppAuthPresentationProfile | null;
+      source: "jwt" | "remembered";
+      tokenExpiresAt: number | null;
+    };
+type ConvexAuthJwtPayload =
+  | { kind: "invalid" }
+  | {
+      kind: "valid";
+      profile: AppAuthPresentationProfile | null;
+      tokenExpiresAt: number | null;
+    };
 
 export type AppAuthPresentationState =
   | { kind: "unknown" }
   | {
       kind: "temporaryAuthenticated";
+      profile: AppAuthPresentationProfile | null;
       source: "jwt" | "remembered";
       tokenExpiresAt: number | null;
     }
-  | { kind: "confirmedAuthenticated" }
+  | { kind: "confirmedAuthenticated"; profile: AppAuthPresentationProfile | null }
   | { kind: "signedOut" };
 
 export const AppAuthPresentationContext = createContext<AppAuthPresentationState | null>(null);
@@ -31,7 +49,7 @@ export function convexAuthJwtStorageKey(storageNamespace: string) {
 
 function readRememberedAuthHint(storage: Storage): LocalAppAuthPresentationHint {
   return storage.getItem(AUTH_FLAG_STORAGE_KEY) === "1"
-    ? { kind: "present", source: "remembered", tokenExpiresAt: null }
+    ? { kind: "present", profile: null, source: "remembered", tokenExpiresAt: null }
     : { kind: "absent" };
 }
 
@@ -39,6 +57,31 @@ function decodeBase64UrlJson(base64UrlValue: string) {
   const base64 = base64UrlValue.replace(/-/g, "+").replace(/_/g, "/");
   const paddedBase64 = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
   return window.atob(paddedBase64);
+}
+
+function readOptionalStringClaim(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+function readJwtProfile(payload: Record<string, unknown>): AppAuthPresentationProfile | null {
+  const name = readOptionalStringClaim(payload, "name");
+  const email = readOptionalStringClaim(payload, "email");
+  const image =
+    readOptionalStringClaim(payload, "picture") ?? readOptionalStringClaim(payload, "image");
+  const profile: AppAuthPresentationProfile = {};
+
+  if (name !== undefined) {
+    profile.name = name;
+  }
+  if (email !== undefined) {
+    profile.email = email;
+  }
+  if (image !== undefined) {
+    profile.image = image;
+  }
+
+  return Object.keys(profile).length > 0 ? profile : null;
 }
 
 function readJwtPayload(token: string): ConvexAuthJwtPayload {
@@ -49,23 +92,23 @@ function readJwtPayload(token: string): ConvexAuthJwtPayload {
 
   try {
     const parsedPayload: unknown = JSON.parse(decodeBase64UrlJson(payload));
-    if (
-      typeof parsedPayload !== "object" ||
-      parsedPayload === null ||
-      Array.isArray(parsedPayload)
-    ) {
+    if (!isRecord(parsedPayload)) {
       return { kind: "invalid" };
     }
 
     if (!("exp" in parsedPayload)) {
-      return { kind: "valid", tokenExpiresAt: null };
+      return { kind: "valid", profile: readJwtProfile(parsedPayload), tokenExpiresAt: null };
     }
 
     if (typeof parsedPayload.exp !== "number") {
       return { kind: "invalid" };
     }
 
-    return { kind: "valid", tokenExpiresAt: parsedPayload.exp * 1000 };
+    return {
+      kind: "valid",
+      profile: readJwtProfile(parsedPayload),
+      tokenExpiresAt: parsedPayload.exp * 1000,
+    };
   } catch {
     return { kind: "invalid" };
   }
@@ -96,6 +139,7 @@ export function readLocalAppAuthPresentationHint(
 
     return {
       kind: "present",
+      profile: tokenPayload.profile,
       source: "jwt",
       tokenExpiresAt: tokenPayload.tokenExpiresAt,
     };
@@ -113,7 +157,7 @@ export function useAppAuthPresentation() {
   }
 
   if (isAuthenticated) {
-    return { kind: "confirmedAuthenticated" } satisfies AppAuthPresentationState;
+    return { kind: "confirmedAuthenticated", profile: null } satisfies AppAuthPresentationState;
   }
 
   if (isLoading) {

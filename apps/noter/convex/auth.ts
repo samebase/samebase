@@ -54,6 +54,25 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
   return patch;
 }
 
+function buildUserJwtCustomClaims(user: unknown): Record<string, string> {
+  const claims: Record<string, string> = {};
+  if (typeof user !== "object" || user === null || Array.isArray(user)) {
+    return claims;
+  }
+
+  if ("name" in user && isNonEmptyString(user.name)) {
+    claims.name = user.name;
+  }
+  if ("email" in user && isNonEmptyString(user.email)) {
+    claims.email = user.email;
+  }
+  if ("image" in user && isNonEmptyString(user.image)) {
+    claims.picture = user.image;
+  }
+
+  return claims;
+}
+
 async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
   const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
   if (credential === null) {
@@ -178,6 +197,10 @@ if ((googleClientId === null) !== (googleClientSecret === null)) {
 }
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
+  jwt: {
+    customClaims: async (ctx, { userId }) =>
+      buildUserJwtCustomClaims(await ctx.db.get("users", userId)),
+  },
   providers: [
     ...(passwordAuthEnabled
       ? [
