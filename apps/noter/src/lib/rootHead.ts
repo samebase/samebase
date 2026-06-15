@@ -1,4 +1,3 @@
-import appCss from "@/index.css?url";
 import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebarPrehydration";
 
 const appTitle = "noter | GitHub-backed markdown notes and AI workspace";
@@ -104,10 +103,6 @@ export function buildRootHead() {
       {
         rel: "canonical",
         href: "https://noter.md/",
-      },
-      {
-        rel: "stylesheet",
-        href: appCss,
       },
     ],
     meta: [
