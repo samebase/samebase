@@ -26,6 +26,7 @@ import {
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
+import { clearAppWorkspaceSidebarPrehydrationStyle } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
@@ -194,6 +195,11 @@ function useAppWorkspaceSidebarState() {
     reset: false,
     storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   });
+  useLayoutEffect(() => {
+    // The localStorage hook above installs the real React state before this
+    // layout effect removes the temporary prehydration stylesheet.
+    clearAppWorkspaceSidebarPrehydrationStyle();
+  }, []);
   const setLocalSidebarState = localSidebarState.setState;
   const mirrorPersistedSidebarState = useCallback(
     (state: WorkspaceSidebarState) => {

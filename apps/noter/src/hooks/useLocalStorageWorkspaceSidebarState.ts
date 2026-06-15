@@ -2,6 +2,7 @@ import { guard, isRecord } from "@noter-md/dependent";
 import * as React from "react";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_VERSION } from "@/lib/appWorkspaceSidebarPreferences";
 import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
 import type {
   WorkspaceSidebarStateController,
@@ -10,7 +11,6 @@ import type {
 } from "@/lib/workspaceSidebarStateController";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
-const STORED_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 
 type UseLocalStorageWorkspaceSidebarStateArgs = {
   defaults: WorkspaceSidebarState;
@@ -123,7 +123,7 @@ function parseStoredWorkspaceSidebarState(value: unknown): WorkspaceSidebarState
     return null;
   }
 
-  if (value.version !== STORED_WORKSPACE_SIDEBAR_STATE_VERSION) {
+  if (value.version !== APP_WORKSPACE_SIDEBAR_STORAGE_VERSION) {
     return null;
   }
 
@@ -177,7 +177,7 @@ function writeLocalStorageWorkspaceSidebarState({
       storageKey,
       JSON.stringify({
         state,
-        version: STORED_WORKSPACE_SIDEBAR_STATE_VERSION,
+        version: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
       }),
     );
     notifyBrowserLocalStorageChanged();

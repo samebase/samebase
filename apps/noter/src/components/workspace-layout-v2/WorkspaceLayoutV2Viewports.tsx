@@ -157,6 +157,7 @@ export function WorkspaceLayoutV2Viewport({
     <div
       ref={carouselRef}
       data-testid="workspace-layout-v2-pane-main"
+      data-workspace-layout-v2-measured={hasMeasuredViewport ? "" : undefined}
       className={cn(
         "workspace-layout-v2-responsive-viewport absolute inset-0 flex min-h-0 snap-x snap-mandatory overflow-y-hidden overscroll-x-contain bg-background [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         lockCarouselScroll ? "overflow-x-hidden" : "overflow-x-auto",

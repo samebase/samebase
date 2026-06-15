@@ -23,6 +23,7 @@ import {
 } from "@/lib/rootRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
+import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
 import { type AppQueryClients } from "@/lib/appQueryClient";
 import { type ReactNode } from "react";
 
@@ -76,6 +77,7 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
       pathname: location.pathname,
       searchStr: location.searchStr,
       hash: location.hash,
+      stripProdUi: isBrowserProductionPublicOrigin(),
     });
     if (rootCanonicalRouteAddress !== null) {
       throw redirect({

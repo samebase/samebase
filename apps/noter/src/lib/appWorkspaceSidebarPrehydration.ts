@@ -1,0 +1,159 @@
+import {
+  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+  APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+} from "@/lib/appWorkspaceSidebarPreferences";
+import { WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+
+type AppWorkspaceSidebarPrehydrationArgs = {
+  storageKey: string;
+  storageVersion: number;
+  desktopSidebarMinWidthPx: number;
+  styleElementId: string;
+};
+
+type AppWorkspaceSidebarPrehydrationState = Pick<
+  WorkspaceSidebarState,
+  "leftDesktopOpen" | "leftDesktopWidthPx" | "rightDesktopOpen" | "rightDesktopWidthPx"
+>;
+
+const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
+  "noter-app-workspace-sidebar-prehydration";
+
+const appWorkspaceSidebarPrehydrationArgs = {
+  desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+  storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+  storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
+  styleElementId: APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID,
+} satisfies AppWorkspaceSidebarPrehydrationArgs;
+
+function getWorkspaceSidebarState(value: unknown): AppWorkspaceSidebarPrehydrationState | null {
+  if (value === null || typeof value !== "object") return null;
+  if (!("leftDesktopOpen" in value) || !("leftDesktopWidthPx" in value)) return null;
+  if (!("rightDesktopOpen" in value) || !("rightDesktopWidthPx" in value)) return null;
+
+  if (
+    typeof value.leftDesktopOpen !== "boolean" ||
+    typeof value.leftDesktopWidthPx !== "number" ||
+    !Number.isFinite(value.leftDesktopWidthPx) ||
+    typeof value.rightDesktopOpen !== "boolean" ||
+    typeof value.rightDesktopWidthPx !== "number" ||
+    !Number.isFinite(value.rightDesktopWidthPx)
+  ) {
+    return null;
+  }
+
+  return {
+    leftDesktopOpen: value.leftDesktopOpen,
+    leftDesktopWidthPx: value.leftDesktopWidthPx,
+    rightDesktopOpen: value.rightDesktopOpen,
+    rightDesktopWidthPx: value.rightDesktopWidthPx,
+  };
+}
+
+/**
+This function is serialized with Function#toString and emitted as a classic
+inline head script before React hydration. Keep the body self-contained: it can
+only reference browser globals, values passed through args, and helper functions
+serialized into the call site.
+
+The script exists because the desktop sidebar geometry is per-device
+localStorage state. Static server markup cannot read that state, so the initial
+markup uses default widths and open-pane separator borders. This script reads
+the stored state before hydration and applies a temporary stylesheet for the
+first desktop paint. A closed prehydrated pane must have zero total layout
+width, including its separator border, so the sidebar controls do not move when
+React takes ownership.
+
+The stylesheet targets the server-rendered pane elements directly instead of
+writing custom properties on documentElement. The viewport markup has its own
+inline desktop-width custom properties, and those element-level properties would
+override inherited root values.
+
+The rule is emitted into Tailwind's utilities layer because the app's desktop
+pane width rules also live there and use important declarations. An unlayered
+important declaration loses to the layered app rule in Chrome, so it would not
+affect the first paint.
+
+The selector must include the measured-viewport guard. React adds
+data-workspace-layout-v2-measured after ResizeObserver reports the viewport
+size. Once that attribute is present, the temporary stylesheet no longer
+matches, and the panes use React's live inline widths for resizing and normal
+layout updates.
+*/
+function InlineScript_prehydrateSidebar(
+  args: AppWorkspaceSidebarPrehydrationArgs,
+  readWorkspaceSidebarState: typeof getWorkspaceSidebarState,
+) {
+  function installPrehydrationStyle({
+    left,
+    right,
+  }: {
+    left: { width: string; open: boolean };
+    right: { width: string; open: boolean };
+  }) {
+    // This attribute is the ownership boundary: before measurement, the head
+    // script may correct the first paint; after measurement, React controls the
+    // pane widths.
+    const viewportSelector =
+      ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
+    // Server markup may still carry open-state desktop border classes. A
+    // closed prehydrated pane must contribute zero layout geometry, including
+    // its separator border.
+    const leftDesktopSeparatorRule = left.open ? "" : "border-right-width: 0 !important;";
+    const rightDesktopSeparatorRule = right.open ? "" : "border-left-width: 0 !important;";
+    const cssText = `
+@layer utilities {
+  @media (min-width: 768px) {
+    ${viewportSelector} .workspace-layout-v2-responsive-left-pane {
+      width: ${left.width} !important;
+      ${leftDesktopSeparatorRule}
+    }
+
+    ${viewportSelector} .workspace-layout-v2-responsive-right-pane {
+      width: ${right.width} !important;
+      ${rightDesktopSeparatorRule}
+    }
+  }
+}
+`;
+
+    const styleElement = document.createElement("style");
+    styleElement.id = args.styleElementId;
+    styleElement.textContent = cssText;
+    document.head.append(styleElement);
+  }
+
+  function readDesktopWidth(open: boolean, width: number) {
+    if (!open) return "0px";
+
+    return Math.max(args.desktopSidebarMinWidthPx, Math.round(width)) + "px";
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(args.storageKey);
+    if (storedValue === null) return;
+
+    const stored: unknown = JSON.parse(storedValue);
+    if (stored === null || typeof stored !== "object") return;
+    if (!("version" in stored) || stored.version !== args.storageVersion) return;
+    if (!("state" in stored)) return;
+
+    const state = readWorkspaceSidebarState(stored.state);
+    if (state === null) return;
+
+    const leftDesktopWidth = readDesktopWidth(state.leftDesktopOpen, state.leftDesktopWidthPx);
+    const rightDesktopWidth = readDesktopWidth(state.rightDesktopOpen, state.rightDesktopWidthPx);
+
+    installPrehydrationStyle({
+      left: { width: leftDesktopWidth, open: state.leftDesktopOpen },
+      right: { width: rightDesktopWidth, open: state.rightDesktopOpen },
+    });
+  } catch {}
+}
+
+export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehydrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)}, ${getWorkspaceSidebarState.toString()});`;
+
+export function clearAppWorkspaceSidebarPrehydrationStyle() {
+  document.getElementById(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID)?.remove();
+}

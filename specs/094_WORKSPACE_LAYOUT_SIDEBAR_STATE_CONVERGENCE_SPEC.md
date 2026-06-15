@@ -4,10 +4,13 @@
 
 - Status: Accepted
 - Owner: Noter frontend/workspace shell
-- Last updated: 2026-05-06
+- Last updated: 2026-06-15
 - Related files:
   - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
+  - `apps/noter/src/components/AppWorkspaceShell.tsx`
+  - `apps/noter/src/lib/appWorkspaceSidebarPrehydration.ts`
+  - `apps/noter/src/lib/rootHead.ts`
   - `apps/noter/src/components/PersistedSidebarProvider.tsx`
   - `apps/noter/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/noter/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
@@ -73,6 +76,28 @@ type WorkspaceSidebarStateController = {
 
 The runtime receives that controller and owns pane behavior such as toggling a pane, changing the
 active mobile pane, updating widths, and handling the global pane shortcut.
+
+## Static First Paint
+
+Static server markup cannot read per-device `localStorage`, but the first desktop paint should still
+use the stored desktop pane geometry when that state is available. The app may emit a small inline
+head script from `rootHead.ts` for this boundary because it runs before React hydration and before
+the first useful desktop paint.
+
+That script is not another workspace pane runtime. It may only read the current persisted storage
+version, validate the desktop open/width fields it needs, and apply temporary CSS to the
+server-rendered `WorkspaceLayoutV2` pane elements.
+
+Temporary first-paint CSS must follow the same geometry model as the hydrated layout:
+
+- an open desktop side pane uses its persisted width, clamped to the desktop minimum width
+- a closed desktop side pane contributes `0px` total layout width
+- closed pane separator borders are part of the pane geometry and must also be removed before
+  hydration
+
+The temporary CSS is scoped to the responsive viewport while it is not marked
+`data-workspace-layout-v2-measured`. Once React measures the viewport, the temporary rule must stop
+matching and the normal runtime owns pane width, borders, resizing, and toggles.
 
 ## Provider Boundary
 
