@@ -4,16 +4,34 @@ import {
   APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } from "../src/lib/appWorkspaceSidebarPreferences";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { PUBLIC_LANDING_LOGO_STAGE_TEST_ID } from "../src/lib/publicLandingLogo";
 import { expectScreenshotsToMatch } from "./visualDiff";
 
 const MOBILE_VIEWPORT_SIZE = {
   height: 844,
   width: 390,
 };
-const EDGE_CAPTURE_LEFT_INSET_PX = 1;
-const EDGE_CAPTURE_WIDTH_PX = 3;
-const EDGE_CAPTURE_TOP_PX = 80;
-const EDGE_CAPTURE_HEIGHT_PX = 160;
+const STABLE_VIEWPORT_CAPTURE = {
+  height: 844,
+  width: 390,
+  x: 0,
+  y: 0,
+} as const;
+const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
+[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] {
+  display: none !important;
+}
+
+[data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}"] {
+  visibility: hidden !important;
+}
+
+[data-testid="workspace-layout-v2-left-resize"],
+[data-testid="workspace-layout-v2-right-resize"] {
+  visibility: hidden !important;
+}
+`;
 
 type MobilePrehydrationVisualScenario = {
   edgePane: "left" | "right";
@@ -118,6 +136,12 @@ async function waitForFonts(page: Page) {
   });
 }
 
+async function maskHydrationOnlyVisualDifferences(page: Page) {
+  await page.addStyleTag({
+    content: STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE,
+  });
+}
+
 async function openMobileWorkspacePage({
   browser,
   hydrate,
@@ -138,6 +162,7 @@ async function openMobileWorkspacePage({
   await page.goto("/", {
     waitUntil: "domcontentloaded",
   });
+  await maskHydrationOnlyVisualDifferences(page);
   await waitForFonts(page);
   await expect(page.locator('[data-workspace-layout-v2="responsive"]').first()).toHaveAttribute(
     "data-mobile-pane",
@@ -166,27 +191,24 @@ async function getSidebarEdgeX(page: Page, edgePane: "left" | "right") {
   return Math.floor(paneBox.x);
 }
 
-async function captureSidebarEdge(page: Page, edgeX: number) {
+async function captureStableWorkspaceViewport(page: Page) {
   const viewportSize = page.viewportSize();
   if (viewportSize === null) {
     throw new Error("Expected the page to have a viewport size.");
   }
 
-  const clipX = Math.max(0, edgeX - EDGE_CAPTURE_LEFT_INSET_PX);
-  const clipWidth = Math.min(EDGE_CAPTURE_WIDTH_PX, viewportSize.width - clipX);
-
   return page.screenshot({
     animations: "disabled",
     caret: "hide",
     clip: {
-      // Whole-page equality would include unrelated hydration differences such
-      // as the auth control and logo implementation. This strip compares only
-      // the separator edge after asserting that its viewport coordinate is the
-      // same before and after hydration.
-      height: Math.min(EDGE_CAPTURE_HEIGHT_PX, viewportSize.height - EDGE_CAPTURE_TOP_PX),
-      width: clipWidth,
-      x: clipX,
-      y: EDGE_CAPTURE_TOP_PX,
+      // The test stylesheet removes hydration-only auth content and hides the
+      // SVG/canvas logo renderer difference while preserving the logo's layout
+      // space. The remaining viewport should be pixel-identical if
+      // prehydration picked the same pane geometry as React hydration.
+      height: Math.min(STABLE_VIEWPORT_CAPTURE.height, viewportSize.height),
+      width: Math.min(STABLE_VIEWPORT_CAPTURE.width, viewportSize.width),
+      x: STABLE_VIEWPORT_CAPTURE.x,
+      y: STABLE_VIEWPORT_CAPTURE.y,
     },
     scale: "css",
   });
@@ -212,9 +234,9 @@ for (const scenario of MOBILE_PREHYDRATION_VISUAL_SCENARIOS) {
       const hydratedEdgeX = await getSidebarEdgeX(hydratedPage, scenario.edgePane);
       expect(prehydratedEdgeX).toBe(hydratedEdgeX);
 
-      const prehydratedScreenshot = await captureSidebarEdge(prehydratedPage, hydratedEdgeX);
-      const hydratedScreenshot = await captureSidebarEdge(hydratedPage, hydratedEdgeX);
-      const artifactPrefix = `workspace-mobile-prehydration-${scenario.id}-edge`;
+      const prehydratedScreenshot = await captureStableWorkspaceViewport(prehydratedPage);
+      const hydratedScreenshot = await captureStableWorkspaceViewport(hydratedPage);
+      const artifactPrefix = `workspace-mobile-prehydration-${scenario.id}-viewport`;
 
       await expectScreenshotsToMatch({
         actual: prehydratedScreenshot,
