@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { CheckIcon, Loader2 } from "lucide-react";
 import {
@@ -1131,9 +1131,6 @@ export function NewAppPage() {
           <Button type="submit" disabled={createButtonDisabled}>
             {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {isCreating ? "Creating app..." : "New App"}
-          </Button>
-          <Button type="button" variant="outline" asChild>
-            <Link to={DASHBOARD_ROUTE}>Cancel</Link>
           </Button>
         </div>
       </form>
