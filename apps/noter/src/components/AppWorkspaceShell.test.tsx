@@ -218,22 +218,29 @@ describe("AppWorkspaceShell", () => {
     carousel.className = "workspace-layout-v2-responsive-viewport";
     carousel.style.paddingLeft = `${peekWidthPx}px`;
     carousel.style.paddingRight = `${peekWidthPx}px`;
+    layoutRoot.setAttribute("data-mobile-pane", "main");
+    layoutRoot.setAttribute("data-workspace-layout-v2", "responsive");
 
     if (includeLeftPane) {
       const leftPane = document.createElement("div");
-      leftPane.className = "workspace-layout-v2-responsive-left-pane";
+      leftPane.className =
+        "workspace-layout-v2-responsive-left-pane workspace-mobile-pane-separators";
       leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
       carousel.append(leftPane);
     }
 
     const mainPane = document.createElement("div");
+    const mainPaneSurface = document.createElement("div");
     mainPane.className = "workspace-layout-v2-responsive-main-pane";
     mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
+    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
+    mainPane.append(mainPaneSurface);
     carousel.append(mainPane);
 
     if (includeRightPane) {
       const rightPane = document.createElement("div");
-      rightPane.className = "workspace-layout-v2-responsive-right-pane";
+      rightPane.className =
+        "workspace-layout-v2-responsive-right-pane workspace-mobile-pane-separators";
       rightPane.setAttribute("data-testid", "workspace-layout-v2-pane-right");
       carousel.append(rightPane);
     }
@@ -244,6 +251,7 @@ describe("AppWorkspaceShell", () => {
 
     return {
       carousel,
+      layoutRoot,
       scriptElement,
     };
   }
@@ -561,7 +569,7 @@ describe("AppWorkspaceShell", () => {
         version: 2,
       }),
     );
-    const { carousel, scriptElement } = appendMobilePrehydrationCarousel({});
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
 
     withMobileViewportWidth(390, () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
@@ -576,6 +584,22 @@ describe("AppWorkspaceShell", () => {
     expect(styleText).toContain("width: 390px !important;");
     expect(styleText).toContain("width: 340px !important;");
     expect(carousel.scrollLeft).toBe(600);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
+    expect(
+      carousel
+        .querySelector('[data-testid="workspace-layout-v2-pane-left"]')
+        ?.classList.contains("workspace-mobile-pane-separators"),
+    ).toBe(true);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane-surface]")
+        ?.classList.contains("workspace-mobile-pane-separators"),
+    ).toBe(true);
+    expect(
+      carousel
+        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
+        ?.classList.contains("workspace-mobile-pane-separators"),
+    ).toBe(false);
   });
 
   it("leaves merged mobile pane state for React hydration", () => {

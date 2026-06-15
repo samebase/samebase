@@ -152,11 +152,13 @@ workspace layout markup. It runs before TanStack's client scripts, when the
 carousel DOM exists but React has not hydrated it yet.
 
 Desktop prehydration can live in the document head because it only installs CSS
-for future elements. Mobile pane selection also needs to set the native
-scrollLeft of the carousel, so this script must run after the carousel node.
-Static output can include framework scripts between the layout root and this
-script, so the script walks preceding siblings until it finds the workspace
-carousel.
+for future elements. Mobile pane selection changes existing DOM state: it sets
+the temporary pane widths, scrolls the native carousel, and moves the mobile
+separator ownership classes to the pane that localStorage says is active. Those
+operations require the carousel node, so this script must run after the
+workspace layout markup. Static output can include framework scripts between
+the layout root and this script, so the script walks preceding siblings until it
+finds the workspace carousel.
 
 The script only prehydrates the ordinary unmerged mobile carousel. The merged
 mobile surface changes the pane wrapper structure, while the SSG markup renders
@@ -289,6 +291,38 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     }
   }
 
+  function setPaneSeparatorClass(element: Element | null, active: boolean) {
+    if (!(element instanceof window.HTMLElement)) return;
+
+    element.classList.toggle("workspace-mobile-pane-separators", !active);
+  }
+
+  function syncMobilePaneDomState({
+    carouselNode,
+    mobilePane,
+  }: {
+    carouselNode: Element;
+    mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
+  }) {
+    const layoutRoot = carouselNode.closest('[data-workspace-layout-v2="responsive"]');
+    if (layoutRoot instanceof window.HTMLElement) {
+      layoutRoot.setAttribute("data-mobile-pane", mobilePane);
+    }
+
+    setPaneSeparatorClass(
+      carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]'),
+      mobilePane === "left",
+    );
+    setPaneSeparatorClass(
+      carouselNode.querySelector("[data-workspace-layout-v2-mobile-main-pane-surface]"),
+      mobilePane === "main",
+    );
+    setPaneSeparatorClass(
+      carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-right"]'),
+      mobilePane === "right",
+    );
+  }
+
   function removeMobilePrehydrationStyleAfterMeasurement(carouselNode: Element) {
     const removeStyle = () => {
       document.getElementById(args.mobileStyleElementId)?.remove();
@@ -382,6 +416,10 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       leftWidthPx,
       mainWidthPx,
       rightWidthPx,
+    });
+    syncMobilePaneDomState({
+      carouselNode,
+      mobilePane,
     });
     carouselNode.scrollLeft = getMobilePaneScrollLeftPx({
       hasLeftPane,

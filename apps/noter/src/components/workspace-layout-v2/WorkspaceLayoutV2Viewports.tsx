@@ -113,6 +113,7 @@ export function WorkspaceLayoutV2Viewport({
         style={{ width: mainPaneWidth }}
       >
         <div
+          data-workspace-layout-v2-mobile-main-pane-surface
           className={cn(
             "box-border h-full min-h-0 overflow-hidden bg-background",
             getMobilePaneSeparatorClass("main", mobilePane),
