@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import {
+  appWorkspaceMobilePanePrehydrationScript,
   appWorkspaceSidebarPrehydrationScript,
   clearAppWorkspaceSidebarPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
@@ -50,6 +51,8 @@ const LOCAL_SIDEBAR_STATE = {
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR =
   "style#noter-app-workspace-sidebar-prehydration";
+const APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_SELECTOR =
+  "style#noter-app-workspace-sidebar-mobile-prehydration";
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR =
   ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
 
@@ -164,6 +167,86 @@ describe("AppWorkspaceShell", () => {
     );
   }
 
+  function runAppWorkspaceMobilePanePrehydrationScript(scriptElement: HTMLScriptElement) {
+    const currentScriptSpy = vi
+      .spyOn(document, "currentScript", "get")
+      .mockReturnValue(scriptElement);
+    try {
+      new Script(appWorkspaceMobilePanePrehydrationScript).runInContext(
+        createContext({
+          document,
+          JSON,
+          Math,
+          Number,
+          window,
+        }),
+      );
+    } finally {
+      currentScriptSpy.mockRestore();
+    }
+  }
+
+  function withMobileViewportWidth<T>(widthPx: number, callback: () => T) {
+    const originalInnerWidthDescriptor = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      get: () => widthPx,
+    });
+    try {
+      return callback();
+    } finally {
+      if (originalInnerWidthDescriptor !== undefined) {
+        Object.defineProperty(window, "innerWidth", originalInnerWidthDescriptor);
+      }
+    }
+  }
+
+  function appendMobilePrehydrationCarousel({
+    includeLeftPane = true,
+    includeRightPane = true,
+    peekWidthPx = 0,
+  }: {
+    includeLeftPane?: boolean;
+    includeRightPane?: boolean;
+    peekWidthPx?: number;
+  }) {
+    const container = document.createElement("div");
+    const layoutRoot = document.createElement("div");
+    const carousel = document.createElement("div");
+    const scriptElement = document.createElement("script");
+    carousel.className = "workspace-layout-v2-responsive-viewport";
+    carousel.style.paddingLeft = `${peekWidthPx}px`;
+    carousel.style.paddingRight = `${peekWidthPx}px`;
+
+    if (includeLeftPane) {
+      const leftPane = document.createElement("div");
+      leftPane.className = "workspace-layout-v2-responsive-left-pane";
+      leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
+      carousel.append(leftPane);
+    }
+
+    const mainPane = document.createElement("div");
+    mainPane.className = "workspace-layout-v2-responsive-main-pane";
+    mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
+    carousel.append(mainPane);
+
+    if (includeRightPane) {
+      const rightPane = document.createElement("div");
+      rightPane.className = "workspace-layout-v2-responsive-right-pane";
+      rightPane.setAttribute("data-testid", "workspace-layout-v2-pane-right");
+      carousel.append(rightPane);
+    }
+
+    layoutRoot.append(carousel);
+    container.append(layoutRoot, scriptElement);
+    document.body.append(container);
+
+    return {
+      carousel,
+      scriptElement,
+    };
+  }
+
   async function hydrateClientShellFromServerMarkup() {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
@@ -216,6 +299,11 @@ describe("AppWorkspaceShell", () => {
 
   function getRequiredPrehydrationStyleText() {
     return getRequiredDocumentElement(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)
+      .textContent;
+  }
+
+  function getRequiredMobilePrehydrationStyleText() {
+    return getRequiredDocumentElement(APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_SELECTOR)
       .textContent;
   }
 
@@ -456,6 +544,65 @@ describe("AppWorkspaceShell", () => {
       rightDesktopOpen: false,
       rightDesktopWidth: "0px",
     });
+  });
+
+  it("prehydrates the unmerged mobile pane before hydration", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
+          mobilePane: "right",
+          mobileSurface: { kind: "unmerged" },
+          rightMobileWidthPx: 340,
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, scriptElement } = appendMobilePrehydrationCarousel({});
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    const styleText = getRequiredMobilePrehydrationStyleText();
+    expect(styleText).toContain("@media (max-width: 767px)");
+    expect(styleText).toContain(
+      `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane`,
+    );
+    expect(styleText).toContain("width: 260px !important;");
+    expect(styleText).toContain("width: 390px !important;");
+    expect(styleText).toContain("width: 340px !important;");
+    expect(carousel.scrollLeft).toBe(600);
+  });
+
+  it("leaves merged mobile pane state for React hydration", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          mobilePane: "right",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: 294,
+            side: "right",
+          },
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, scriptElement } = appendMobilePrehydrationCarousel({});
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(
+      document.querySelector(APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_SELECTOR),
+    ).toBeNull();
+    expect(carousel.scrollLeft).toBe(0);
   });
 
   it("uses default sidebar width fallbacks in server markup", () => {

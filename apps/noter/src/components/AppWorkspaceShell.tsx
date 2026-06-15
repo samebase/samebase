@@ -26,7 +26,10 @@ import {
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
-import { clearAppWorkspaceSidebarPrehydrationStyle } from "@/lib/appWorkspaceSidebarPrehydration";
+import {
+  appWorkspaceMobilePanePrehydrationScript,
+  clearAppWorkspaceSidebarDesktopPrehydrationStyle,
+} from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
@@ -197,8 +200,10 @@ function useAppWorkspaceSidebarState() {
   });
   useLayoutEffect(() => {
     // The localStorage hook above installs the real React state before this
-    // layout effect removes the temporary prehydration stylesheet.
-    clearAppWorkspaceSidebarPrehydrationStyle();
+    // layout effect removes the temporary desktop prehydration stylesheet.
+    // Mobile prehydration is cleared by the carousel-local script after
+    // ResizeObserver reports the viewport size.
+    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
   }, []);
   const setLocalSidebarState = localSidebarState.setState;
   const mirrorPersistedSidebarState = useCallback(
@@ -253,6 +258,10 @@ function AppWorkspaceShellFrame({
         panel={chrome?.panel}
         right={rightPane}
         rightToggleVisibility="desktop"
+      />
+      <script
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: appWorkspaceMobilePanePrehydrationScript }}
       />
     </WorkspacePaneRuntimeProvider>
   );
