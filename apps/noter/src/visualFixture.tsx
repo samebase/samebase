@@ -97,7 +97,6 @@ import {
 import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@noter-md/dependent";
-import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
