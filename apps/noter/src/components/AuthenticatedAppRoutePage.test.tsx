@@ -27,10 +27,12 @@ vi.mock("convex/react", async (importOriginal) => {
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
+  const location = { pathname: "/home" };
 
   return {
     ...actual,
-    useLocation: () => "/home",
+    useLocation: ({ select }: { select?: (value: typeof location) => unknown } = {}) =>
+      select ? select(location) : location,
   };
 });
 
@@ -59,6 +61,31 @@ vi.mock("@/lib/usePageMetadata", () => ({
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 
+function createTestStorage(): Storage {
+  const entries = new Map<string, string>();
+
+  return {
+    clear() {
+      entries.clear();
+    },
+    getItem(key) {
+      return entries.get(String(key)) ?? null;
+    },
+    key(index) {
+      return Array.from(entries.keys())[index] ?? null;
+    },
+    get length() {
+      return entries.size;
+    },
+    removeItem(key) {
+      entries.delete(String(key));
+    },
+    setItem(key, value) {
+      entries.set(String(key), String(value));
+    },
+  };
+}
+
 function renderAuthenticatedRoutePage() {
   return renderToStaticMarkup(
     <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
@@ -73,7 +100,10 @@ describe("AuthenticatedAppRoutePage", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
-    window.localStorage.clear();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
   });
 
   it("renders the temporary auth shell instead of route children or the sign-in form", () => {

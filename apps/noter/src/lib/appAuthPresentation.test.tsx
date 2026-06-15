@@ -24,6 +24,7 @@ const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
   "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIiwicGljdHVyZSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vYXZhdGFyLnBuZyJ9.signature";
 const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
+const NON_FINITE_EXP_JWT = "header.eyJleHAiOjFlOTk5fQ.signature";
 const NO_EXP_JWT = "header.e30.signature";
 
 function createTestStorage(): Storage {
@@ -120,6 +121,13 @@ describe("app auth presentation", () => {
 
   it("rejects expired and malformed local JWTs without a remembered auth hint", () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), EXPIRED_JWT);
+
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "absent" });
+
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+      NON_FINITE_EXP_JWT,
+    );
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "absent" });
 

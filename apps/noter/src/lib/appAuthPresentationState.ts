@@ -40,6 +40,7 @@ export type AppAuthPresentationState =
 export const AppAuthPresentationContext = createContext<AppAuthPresentationState | null>(null);
 
 function convexAuthStorageSuffix(storageNamespace: string) {
+  // Match @convex-dev/auth's useNamespacedStorage key so this pre-auth read sees the same JWT.
   return storageNamespace.replace(/[^a-zA-Z0-9]/g, "");
 }
 
@@ -100,7 +101,7 @@ function readJwtPayload(token: string): ConvexAuthJwtPayload {
       return { kind: "valid", profile: readJwtProfile(parsedPayload), tokenExpiresAt: null };
     }
 
-    if (typeof parsedPayload.exp !== "number") {
+    if (typeof parsedPayload.exp !== "number" || !Number.isFinite(parsedPayload.exp)) {
       return { kind: "invalid" };
     }
 
