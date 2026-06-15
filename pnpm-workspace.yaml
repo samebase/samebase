@@ -39,10 +39,12 @@ minimumReleaseAgeExclude:
   - "@esbuild/win32-arm64@0.28.1"
   - "@esbuild/win32-ia32@0.28.1"
   - "@esbuild/win32-x64@0.28.1"
+  # TODO(2026-06-17): Remove the protobufjs@7.6.3 release-age exception after
+  # the normal 7-day cooling period has passed.
   - convex@1.40.0
   - esbuild@0.28.1
+  - protobufjs@7.6.3
   - qs@6.15.2
-  - ws@8.20.1
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
@@ -51,6 +53,7 @@ blockExoticSubdeps: true
 # Rejects releases whose registry trust evidence is weaker than prior releases.
 trustPolicy: no-downgrade
 overrides:
+  "@babel/core": 7.29.7
   "@protobufjs/utf8": 1.1.1
   "ajv@6": 6.15.0
   "ajv@8": 8.18.0
@@ -62,15 +65,18 @@ overrides:
   flatted: 3.4.2
   hono: 4.12.21
   ip-address: 10.1.1
+  js-yaml: 4.2.0
   mailparser: 3.9.8
   "minimatch@3": 3.1.5
   "picomatch@2": 2.3.2
   "picomatch@4.0.3": 4.0.4
   postcss: 8.5.10
-  protobufjs: 7.5.8
+  protobufjs: 7.6.3
   qs: 6.15.2
+  "semver@6": 7.7.4
   shell-quote: 1.8.4
-  ws: 8.20.1
+  vite: 8.0.16
+  ws: 8.21.0
 # Every dependency lifecycle script is reviewed explicitly. `true` allows the
 # script to run; `false` records that the script was seen and suppressed.
 allowBuilds:
