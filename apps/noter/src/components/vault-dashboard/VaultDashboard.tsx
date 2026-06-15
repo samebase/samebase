@@ -3078,7 +3078,7 @@ export function VaultDashboard() {
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
-  const now = useNow({ intervalMs: 60_000 });
+  const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
