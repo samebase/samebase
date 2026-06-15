@@ -1,9 +1,6 @@
 import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import {
-  PublicLandingAccountLoadingSection,
-  PublicLandingAccountSection,
-} from "@/components/PublicLandingAccountSection";
+import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { useApiKeyConnectDialog, type ApiKeyProvider } from "@/components/ApiKeyConnectDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -314,7 +311,7 @@ function PublicAppRightSidebarContent() {
   );
 }
 
-function TemporaryAuthenticatedAppRightSidebarContent() {
+function GenericSignedInAccountSection() {
   const { signOut } = useNoterAuthActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const handleSignOut = () => {
@@ -337,17 +334,23 @@ function TemporaryAuthenticatedAppRightSidebarContent() {
   };
 
   return (
+    <VaultDashboardAccountSection
+      displayName="Account"
+      email="Signed in"
+      isSignOutPending={isSigningOut}
+      onOpenChange={() => {}}
+      onSignOut={handleSignOut}
+      open={false}
+      providerLabel={null}
+      signOutDisabled={false}
+    />
+  );
+}
+
+function TemporaryAuthenticatedAppRightSidebarContent() {
+  return (
     <VaultDashboardSidebarContent>
-      <VaultDashboardAccountSection
-        displayName="Account"
-        email="Signed in"
-        isSignOutPending={isSigningOut}
-        onOpenChange={() => {}}
-        onSignOut={handleSignOut}
-        open={false}
-        providerLabel={null}
-        signOutDisabled={false}
-      />
+      <GenericSignedInAccountSection />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -823,7 +826,7 @@ function AuthenticatedAppRightSidebarContent() {
           signOutDisabled={false}
         />
       ) : (
-        <PublicLandingAccountLoadingSection />
+        <GenericSignedInAccountSection />
       )}
       <VaultDashboardProvidersSection
         onOpenChange={(isOpen) => {

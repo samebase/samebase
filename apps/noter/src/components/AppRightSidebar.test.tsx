@@ -129,13 +129,14 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("Providers");
   });
 
-  it("keeps the account slot above providers while the authenticated viewer loads", () => {
+  it("keeps a signed-in account slot above providers while the authenticated viewer loads", () => {
     const markup = renderRightSidebar([]);
-    const checkingLoginIndex = markup.indexOf("checking login");
+    const accountIndex = markup.indexOf("Account");
     const providersIndex = markup.indexOf("Providers");
 
-    expect(checkingLoginIndex).toBeGreaterThanOrEqual(0);
-    expect(providersIndex).toBeGreaterThan(checkingLoginIndex);
+    expect(accountIndex).toBeGreaterThanOrEqual(0);
+    expect(providersIndex).toBeGreaterThan(accountIndex);
+    expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("not logged in");
   });
 
