@@ -125,6 +125,17 @@ async function waitForVaultCreationResult(args: {
 }
 
 test.describe("vault create app live flow", () => {
+  test("shows the new app form without a cancel control", async ({ page }) => {
+    await page.goto("/new-app", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/new-app");
+
+    const newAppPage = page.getByTestId("new-app-page");
+    await expect(newAppPage).toBeVisible();
+    await expect(newAppPage.getByRole("button", { name: "New App" })).toBeVisible();
+    await expect(newAppPage.getByRole("button", { exact: true, name: "Cancel" })).toHaveCount(0);
+    await expect(newAppPage.getByRole("link", { exact: true, name: "Cancel" })).toHaveCount(0);
+  });
+
   test("creates a temporary app and shows it on the dashboard", async ({ page }, testInfo) => {
     test.slow();
     test.setTimeout(240_000);
