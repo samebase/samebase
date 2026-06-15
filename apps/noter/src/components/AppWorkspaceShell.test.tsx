@@ -213,6 +213,7 @@ describe("AppWorkspaceShell", () => {
     const container = document.createElement("div");
     const layoutRoot = document.createElement("div");
     const carousel = document.createElement("div");
+    const frameworkScriptElement = document.createElement("script");
     const scriptElement = document.createElement("script");
     carousel.className = "workspace-layout-v2-responsive-viewport";
     carousel.style.paddingLeft = `${peekWidthPx}px`;
@@ -238,7 +239,7 @@ describe("AppWorkspaceShell", () => {
     }
 
     layoutRoot.append(carousel);
-    container.append(layoutRoot, scriptElement);
+    container.append(layoutRoot, frameworkScriptElement, scriptElement);
     document.body.append(container);
 
     return {

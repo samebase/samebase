@@ -147,13 +147,16 @@ function InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar(
 }
 
 /**
-This function is serialized with Function#toString and rendered immediately
-after the mobile carousel markup. It runs before TanStack's client scripts,
-when the carousel DOM exists but React has not hydrated it yet.
+This function is serialized with Function#toString and rendered after the
+workspace layout markup. It runs before TanStack's client scripts, when the
+carousel DOM exists but React has not hydrated it yet.
 
 Desktop prehydration can live in the document head because it only installs CSS
 for future elements. Mobile pane selection also needs to set the native
-scrollLeft of the carousel, so this script must run next to the carousel node.
+scrollLeft of the carousel, so this script must run after the carousel node.
+Static output can include framework scripts between the layout root and this
+script, so the script walks preceding siblings until it finds the workspace
+carousel.
 
 The script only prehydrates the ordinary unmerged mobile carousel. The merged
 mobile surface changes the pane wrapper structure, while the SSG markup renders
@@ -314,19 +317,36 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     });
   }
 
+  function findWorkspaceLayoutCarousel(scriptElement: HTMLScriptElement) {
+    let layoutElement = scriptElement.previousElementSibling;
+    while (layoutElement !== null) {
+      if (layoutElement instanceof window.HTMLElement) {
+        if (layoutElement.classList.contains("workspace-layout-v2-responsive-viewport")) {
+          return layoutElement;
+        }
+
+        const carouselNode = layoutElement.querySelector(
+          ".workspace-layout-v2-responsive-viewport",
+        );
+        if (carouselNode instanceof window.HTMLElement) {
+          return carouselNode;
+        }
+      }
+
+      layoutElement = layoutElement.previousElementSibling;
+    }
+
+    return null;
+  }
+
   try {
     if (window.innerWidth >= 768) return;
 
     const scriptElement = document.currentScript;
     if (!(scriptElement instanceof window.HTMLScriptElement)) return;
 
-    const layoutElement = scriptElement.previousElementSibling;
-    if (!(layoutElement instanceof window.HTMLElement)) return;
-
-    const carouselNode = layoutElement.classList.contains("workspace-layout-v2-responsive-viewport")
-      ? layoutElement
-      : layoutElement.querySelector(".workspace-layout-v2-responsive-viewport");
-    if (!(carouselNode instanceof window.HTMLElement)) return;
+    const carouselNode = findWorkspaceLayoutCarousel(scriptElement);
+    if (carouselNode === null) return;
 
     const state = getStoredWorkspaceSidebarState();
     if (state === null || state.mobileSurface.kind !== "unmerged") return;
