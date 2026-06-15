@@ -5,7 +5,7 @@
 - Status: Draft research
 - Owner: Noter market positioning and recommended app stack
 - Created: 2026-05-18
-- Last checked: 2026-06-08
+- Last checked: 2026-06-15
 
 ## Prompt
 
@@ -15,8 +15,10 @@ material shows Convex is the default or a core generated backend path.
 
 ## Current Finding
 
-The exact niche is small but real. The direct web competitors are not just Chef and Vly. The three
-meaningful independent names to watch are `cto.new`, `Converge`, and `VibeFlow`.
+The exact niche is small but real. The direct web competitors are not just Chef and Vly. The
+meaningful independent web names to watch are `cto.new`, `Converge`, `VibeFlow`,
+`Vly / Freebuff Web`, and `SparkBuilt`. `CLONK` remains a likely direct watch target, but still
+needs generated-output evidence before treating Convex as proven default.
 
 `cto.new` is the closest match to the Noter stack thesis because it publicly combines Convex with
 TanStack-generated web apps. `Converge` is the most direct public positioning competitor because it
@@ -28,7 +30,7 @@ uses Convex as its real-time database, generates TypeScript workflows plus optio
 positions editable workflow graphs as the antidote to black-box AI-generated backends.
 
 Mobile-native Convex app builders are also clustering around Expo, React Native, and Convex. That
-category includes BNA, Vibra Code, Bloom, and a0.dev.
+category includes BNA, Vibra Code, Bloom, Bravo Studio / Bravo MCP, and a0.dev.
 
 June 1 update: `CLONK` should be added as a likely direct watch target, but not yet as a confirmed
 Convex-default builder. Its homepage advertises one-shot full-stack app generation, Expo mobile
@@ -41,7 +43,72 @@ page, stronger VibeFlow control-plane evidence, and Cloudflare's VoidZero acquis
 post-June-1 Convex-default web builder was found. CLONK remains a likely direct watch target, but
 still lacks generated-output evidence that Convex is always the default backend.
 
+June 15 update: Vly being acquired by Freebuff is the biggest direct-competitor move. Freebuff Web
+now folds Vly's Convex-native app-builder surface into a free Codebuff/Freebuff distribution path
+with GitHub eject, custom domains, deployed URLs, and CLI continuation. SparkBuilt is a new likely
+direct web competitor because its docs say Convex is the only supported backend/database for its web
+app builder. Bravo Studio / Bravo MCP is a new mobile/native watch target because it advertises
+React Native app generation with Convex backend from Claude, Cursor, and ChatGPT. Cloudflare still
+does not appear to be the origin host for direct Convex-native web builders found in this run;
+generated-app hosting evidence points mainly to Vercel, Netlify, Freestyle-managed domains, or
+unknown managed hosts.
+
 ## High-Priority Watch Items
+
+### 2026-06-15
+
+1. `Vly / Freebuff Web` is now a high-priority direct competitor lane. [vly.ai](https://vly.ai/)
+   says Vly has been acquired by Freebuff and points users to Freebuff Web. Freebuff's migration and
+   launch posts say Vly is becoming Freebuff Web with the same app-generation engine, templates,
+   dashboard, project migration, custom domains, GitHub eject, auth, database, file storage,
+   hosting, deployed URLs, and Web-to-CLI continuation. Codebuff had already said Vly was building
+   on top of the Codebuff agent framework, so the acquisition likely formalizes an existing
+   technical and distribution dependency. Convex appears core/default for the Vly-generated app lane
+   and present in Freebuff Web's platform layer; the public Codebuff repo references Freebuff Web
+   access tiers carried in a Convex JWT and Web session limits enforced in Convex. Generated-app
+   hosting evidence from reachable public `*.vly.dev` projects points to Vercel; Cloudflare appears
+   to be DNS/proxy only, not generated-app origin hosting. Competitive read: this combines
+   Convex-native generation, free pricing, GitHub/source ownership, CLI continuation, public app
+   community, and aggressive comparison SEO against Lovable, Replit, Bolt, Base44, Bloom, a0, and
+   Vly itself.
+2. Vly/Freebuff has meaningful trust and reliability risk despite the strategic move. The
+   [Trustpilot page](https://www.trustpilot.com/review/vly.ai) still says Vly's rating is
+   unavailable due to a guideline breach and says the company displays Trustpilot content
+   misleadingly, while Vly's homepage continues to use Trustpilot comparison/review marketing.
+   Recent [Codebuff issues](https://github.com/CodebuffAI/codebuff/issues) include reports around
+   destructive database command safety, broken `freebuff` npm packaging, auth/TLS API failures, and
+   crashes. Competitive read: Freebuff may win distribution and price attention, but Noter should
+   lean into dependable operations, auditability, domains, rollback, cleanup, and source ownership.
+3. `SparkBuilt` is a new likely direct web competitor. Its
+   [web app builder docs](https://www.sparkbuilt.dev/docs/execution/web-app-builder) and
+   [getting-started docs](https://www.sparkbuilt.dev/docs/getting-started) say Convex is the only
+   supported database/backend and list no other database provider. Pricing and setup materials
+   describe bring-your-own Convex or managed Convex for license holders, GitHub/ZIP export, and
+   Vercel-oriented deployment. Generated-app hosting appears Vercel-oriented; Cloudflare is absent.
+   Competitive read: SparkBuilt is smaller than Vly/Freebuff but unusually direct because it removes
+   backend optionality and treats Convex as the app-builder database path.
+4. `Bravo Studio / Bravo MCP` is a new mobile/native watch target. The
+   [homepage](https://www.bravostudio.app/),
+   [Bravo MCP page](https://www.bravostudio.app/bravo-mcp/), and
+   [pricing](https://www.bravostudio.app/pricing/) advertise React Native app generation from
+   Claude, Cursor, and ChatGPT with Convex backend, Figma sync, and app-store publishing. Generated
+   web hosting is not the lane; the hosting/deployment question is mobile builds and app-store
+   release flow. Convex appears included for the MCP/Solo path, but not proven as the default for
+   all legacy Bravo Studio output. Competitive read: watch as a mobile/native pressure point,
+   especially where Expo/React Native plus Convex builders overlap with Noter's future generated-app
+   scope.
+5. `CLONK` moved its usage claim from 2,450 to 4,000+ vibe coders and still shows Vercel, Expo,
+   GitHub, and Convex with "Backend Pre-Cooked convex" and "deployed to vercel". Convex remains
+   likely core/default but not proven by generated-output evidence. Generated-app hosting appears
+   Vercel; Cloudflare is absent. Competitive read: CLONK remains a cheap local-agent plus one-shot
+   deployed-app watch target, not a confirmed Convex-default competitor yet.
+6. Adjacent substrate movement still supports the same control-plane thesis. Convex Ship added June
+   9 `convex` v1.41.0 changes around nested `runQuery`/`runMutation` transaction limits, non-symlink
+   AI file installs, and separate dashboard servers for anonymous local deployments. Expo's Convex
+   guide was updated June 11. Cloudflare VibeSDK, Vercel Platform Template, and Netlify Agent
+   Runners remain adjacent, not direct, because they do not generate Convex-backed apps by default.
+   Competitive read: Noter's durable differentiation should stay at the opinionated Cloudflare plus
+   Convex app-operations layer, not broad provider optionality.
 
 ### 2026-06-08
 
@@ -287,19 +354,26 @@ entry reduces avoidable query recalculation after code pushes. Competitive read:
 generated deployment management and auditability more first-class while its own app-builder surface
 is in transition.
 
-### Vly
+### Vly / Freebuff Web
 
 - URL: [Vly docs](https://docs.vly.ai/)
 - Homepage evidence: [vly.ai](https://vly.ai/)
+- Migration evidence:
+  [Vly is becoming Freebuff Web](https://freebuff.ai/blog/vly-becomes-freebuff-web)
+- Launch evidence: [Freebuff Web launch](https://freebuff.ai/blog/freebuff-web-launch)
+- Codebuff relationship evidence:
+  [Codebuff goes open source](https://news.codebuff.com/p/codebuff-goes-open-source-beats-claude)
+- Public repo evidence: [CodebuffAI/codebuff](https://github.com/CodebuffAI/codebuff)
 - Trust signal evidence: [Vly on Trustpilot](https://www.trustpilot.com/review/vly.ai)
 - Directness: High
 
 Vly documents generated projects as React, Vite, Convex, and Tailwind, with automatic deployment and
 custom domain support.
 
-Competitive read: Vly is a real Convex-native builder, but its moat depends on managed lifecycle,
-deployment, auth, domains, and reliability rather than raw AI code generation. Raw coding agents are
-cheaper for technical users.
+Competitive read: Vly was already a real Convex-native builder, and Freebuff now makes it more
+important by pairing that hosted app-builder workflow with a free Codebuff/Freebuff agent
+distribution path. The moat shifts from raw generation toward managed lifecycle, GitHub/source
+ownership, domains, deployment, CLI continuation, auth, rollback, and reliability.
 
 May 25 update: Vly's public positioning is now more aggressive against Bolt, Replit, and Base44. The
 homepage emphasizes vly agent 2.0, Claude Code, OpenAI Codex, Gemini CLI, Convex, React, Daytona,
@@ -328,6 +402,59 @@ headers in a weak header check; this is not proof that generated apps are hosted
 Cloudflare appears absent for generated-app hosting evidence. The Trustpilot warning that the
 company's rating is unavailable due to a guideline breach remained visible.
 
+June 15 update: [vly.ai](https://vly.ai/) now says Vly has been acquired by Freebuff, new accounts
+and project access move to Freebuff Web, and existing subscriptions are cancelled because the
+product is now free. Freebuff's migration post says Vly is becoming Freebuff Web with the same
+engine, templates, dashboard, automatic project migration, custom domains, GitHub eject, and CLI
+integration. Freebuff's launch post positions the product as a free alternative to Lovable-style
+builders with auth, database, file storage, hosting, deployed URLs, GitHub repo ownership, and
+Web-to-CLI continuation. Codebuff's earlier open-source announcement said Vly was already using the
+Codebuff agent framework to build a Lovable competitor, so this looks more like consolidation of an
+existing technical dependency than a simple shutdown.
+
+Hosting and control-plane read: public Freebuff community project pages still describe projects as
+"built with Vly" and expose preview URLs under `*.vly.dev` and `*.vly.site`. Reachable sampled
+`*.vly.dev` apps resolved to Vercel and returned Vercel headers; two sampled older `*.vly.site` apps
+did not resolve. Freebuff's own marketing site was behind Cloudflare with a Render origin header,
+but that is only weak own-domain evidence and not proof of generated-app hosting. The public
+Codebuff repo references Freebuff Web access tiers in a Convex JWT and Web session limits enforced
+in Convex, which makes Convex part of the Freebuff Web platform layer as well as the Vly-generated
+app lane. Treat generated-app hosting as Vercel for reachable Vly samples, backend/app state as
+Convex, and Cloudflare as DNS/proxy only.
+
+Traction and risk read: public npm data showed `freebuff` at 104,887 downloads from March 9 to June
+14, 2026 and 16,441 downloads in the week ending June 14, while `codebuff` had 4,934 downloads in
+the same week. The [freebuff npm package](https://www.npmjs.com/package/freebuff) is separate from
+the older Codebuff package. The [Codebuff GitHub repo](https://github.com/CodebuffAI/codebuff) had
+high public activity in the June 15 pass. Trustpilot still says Vly's rating is unavailable due to a
+guideline breach and says the company displays Trustpilot content misleadingly; recent Codebuff
+issues also report packaging, auth/TLS, crash, and destructive-command safety problems. Competitive
+read: this is a serious distribution and price move, but it leaves an opening for Noter to compete
+on reliable app operations, auditable infrastructure state, rollback, cleanup, domain ownership, and
+operator trust.
+
+### SparkBuilt
+
+- URL: [SparkBuilt](https://www.sparkbuilt.dev/)
+- Web app builder docs:
+  [SparkBuilt web app builder](https://www.sparkbuilt.dev/docs/execution/web-app-builder)
+- Getting-started docs:
+  [SparkBuilt getting started](https://www.sparkbuilt.dev/docs/getting-started)
+- Pricing evidence: [SparkBuilt pricing](https://www.sparkbuilt.dev/pricing)
+- Directness: Likely high
+
+SparkBuilt is a new likely direct web competitor. Its docs say the web app builder uses Convex as
+the database/backend and that Convex is the only supported database provider. Setup materials
+describe bring-your-own Convex or managed Convex for license holders, plus GitHub/ZIP export and a
+Vercel-oriented deployment path.
+
+Convex read: likely default/core, because public docs remove backend optionality rather than merely
+listing Convex as an integration. Generated-app hosting appears Vercel-oriented from the public
+deployment path and own-site headers, but generated app examples were not enough to prove every
+project uses Vercel. Cloudflare is absent. Competitive read: SparkBuilt pressures Noter directly on
+the "Convex is the app-builder backend" thesis, but does not currently pressure the Cloudflare plus
+Convex control-plane thesis as much as Vly/Freebuff or VibeFlow.
+
 ### CLONK
 
 - URL: [CLONK](https://www.clonk.ai/)
@@ -352,6 +479,13 @@ core/default but not proven by generated-output evidence. Generated-app hosting 
 based on the public page. Cloudflare is absent from generated-app hosting evidence. This remains a
 likely direct watch target, especially because it combines Mac/local agent orchestration, one-shot
 apps, mobile Expo apps, and cheap bring-your-own-agent economics.
+
+June 15 update: CLONK's homepage now claims "used by 4000+ vibe coders" while continuing to show
+Vercel, Expo, GitHub, and Convex, "Backend Pre-Cooked convex", and "deployed to vercel". Convex
+still appears likely core/default but not proven by generated-output evidence. Generated-app hosting
+still appears Vercel; Cloudflare is absent. Competitive read: keep CLONK as a high-attention likely
+direct watch target, but do not promote it to confirmed Convex-default until a public generated
+project or docs page proves that default.
 
 ## Mobile And Native Convex Builders
 
@@ -383,6 +517,11 @@ React Native, Convex, and E2B.
 Competitive read: this is probably more ecosystem signal than immediate commercial threat, but
 open-source projects can normalize the stack and become reference implementations.
 
+June 15 update: Vibra Code remains an open-source mobile AI app builder around Claude Code, Expo,
+React Native, Convex, and E2B. The repo now also surfaces an App Store link and higher public
+attention, but no material direct web-lane move was found. Competitive read: still mobile ecosystem
+signal more than a direct Noter web-control-plane competitor.
+
 ### Bloom
 
 - URL:
@@ -402,6 +541,24 @@ May 25 update: April 2026 podcast metadata and transcript reinforce Bloom's mobi
 positioning, Expo/Convex context, frontend-and-backend generation, real-time sync examples, YC
 context, and a reported $3.4M raise. This is still Convex-mentioned rather than Convex-default
 public evidence.
+
+### Bravo Studio / Bravo MCP
+
+- URL: [Bravo Studio](https://www.bravostudio.app/)
+- MCP evidence: [Bravo MCP](https://www.bravostudio.app/bravo-mcp/)
+- Pricing evidence: [Bravo Studio pricing](https://www.bravostudio.app/pricing/)
+- Directness: Medium to high for mobile
+
+Bravo Studio / Bravo MCP is a new mobile/native watch target. Public pages advertise React Native
+app generation from Claude, Cursor, and ChatGPT with Convex backend, Figma sync, and app-store
+publishing. Convex appears included for the MCP/Solo path, but public evidence does not prove that
+every legacy Bravo Studio output uses Convex by default.
+
+Hosting read: generated web hosting is not the main lane; the relevant substrate is native build and
+app-store release. Bravo's own site was behind Cloudflare in a weak header check, but that is not
+proof of generated-app hosting. Competitive read: watch for overlap with Expo/React Native plus
+Convex generated apps, especially if Bravo exposes more source ownership, backend visibility, or
+operational control.
 
 ### a0.dev
 
@@ -453,6 +610,10 @@ worth watching because v0 is adding stronger full-stack project, Git, sandbox, t
 services support, but its full-stack docs say v0 defaults to Next.js and connects to databases such
 as Supabase, Neon, and Upstash rather than Convex by default.
 
+June 15 update: no new public evidence was found that Bolt, Lovable, Replit, v0, or Blink now use
+Convex as a default generated backend path. Treat them as adjacent unless they publish a default
+Convex backend path or a first-party Convex-generated project workflow.
+
 ### App Management And Control Plane Lane
 
 This lane tracks products that pressure Noter's operational thesis even when they are not
@@ -493,6 +654,15 @@ Convex-native app builders.
   `EXPO_PUBLIC_CONVEX_URL` locally and into EAS environments, and sends a Convex dashboard claim
   invitation. This is adjacent mobile substrate, not a generated-app competitor, but it reduces the
   setup burden for Expo plus Convex builders.
+
+June 15 hosting summary: reachable direct Convex-native web-builder generated-app evidence still
+does not point to Cloudflare origin hosting. Vly/Freebuff public samples point to Vercel; Converge's
+public custom-domain evidence points to Netlify; VibeFlow points to Freestyle-managed records and
+explicitly discourages Cloudflare proxying; SparkBuilt is Vercel-oriented; Chef's existing projects
+can remain under `convex.app` while migration guidance points users to Netlify or Vercel for
+frontend hosting; CLONK's public page says deployed to Vercel. Cloudflare is strategically important
+through VibeSDK, Workers for Platforms, and VoidZero/Vite+ substrate movement, but it is not yet the
+visible generated-app origin for direct Convex-native competitors.
 
 ## Market Interpretation
 
@@ -536,6 +706,10 @@ Search phrases worth reusing:
 - `"Lovable" "n8n" "Convex"`
 - `"CLONK" "Convex"`
 - `"Backend Pre-Cooked" "convex"`
+- `"Vly" "Freebuff Web"`
+- `"Freebuff Web" "Convex"`
+- `"SparkBuilt" "Convex"`
+- `"Bravo MCP" "Convex"`
 
 New findings should update this document with:
 
