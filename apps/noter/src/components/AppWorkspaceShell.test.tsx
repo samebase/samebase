@@ -219,29 +219,47 @@ describe("AppWorkspaceShell", () => {
       .textContent;
   }
 
-  function expectPrehydrationStyleText(
-    styleText: string,
-    leftDesktopWidth: string,
-    rightDesktopWidth: string,
-  ) {
+  type ExpectedPrehydrationGeometry = {
+    leftDesktopOpen: boolean;
+    leftDesktopWidth: string;
+    rightDesktopOpen: boolean;
+    rightDesktopWidth: string;
+  };
+
+  function expectPrehydrationStyleText({
+    leftDesktopOpen,
+    leftDesktopWidth,
+    rightDesktopOpen,
+    rightDesktopWidth,
+    styleText,
+  }: ExpectedPrehydrationGeometry & { styleText: string }) {
     expect(styleText).toContain("@layer utilities");
     expect(styleText).toContain("@media (min-width: 768px)");
     expect(styleText).toContain(
       `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane`,
     );
     expect(styleText).toContain(`width: ${leftDesktopWidth} !important;`);
+    if (leftDesktopOpen) {
+      expect(styleText).not.toContain("border-right-width: 0 !important;");
+    } else {
+      expect(styleText).toContain("border-right-width: 0 !important;");
+    }
     expect(styleText).toContain(
       `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane`,
     );
     expect(styleText).toContain(`width: ${rightDesktopWidth} !important;`);
+    if (rightDesktopOpen) {
+      expect(styleText).not.toContain("border-left-width: 0 !important;");
+    } else {
+      expect(styleText).toContain("border-left-width: 0 !important;");
+    }
   }
 
-  function expectPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
-    expectPrehydrationStyleText(
-      getRequiredPrehydrationStyleText(),
-      leftDesktopWidth,
-      rightDesktopWidth,
-    );
+  function expectPrehydrationStyle(expectedGeometry: ExpectedPrehydrationGeometry) {
+    expectPrehydrationStyleText({
+      ...expectedGeometry,
+      styleText: getRequiredPrehydrationStyleText(),
+    });
   }
 
   function readStoredAppWorkspaceSidebarState() {
@@ -356,7 +374,12 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expectPrehydrationStyle("360px", "420px");
+    expectPrehydrationStyle({
+      leftDesktopOpen: true,
+      leftDesktopWidth: "360px",
+      rightDesktopOpen: true,
+      rightDesktopWidth: "420px",
+    });
 
     const recoverableErrors = await hydrateClientShellFromServerMarkup();
 
@@ -400,7 +423,13 @@ describe("AppWorkspaceShell", () => {
     expect(document.adoptedStyleSheets).toHaveLength(1);
     expect(replacedCssTexts).toHaveLength(1);
     const styleText = replacedCssTexts.join("");
-    expectPrehydrationStyleText(styleText, "0px", "340px");
+    expectPrehydrationStyleText({
+      leftDesktopOpen: false,
+      leftDesktopWidth: "0px",
+      rightDesktopOpen: true,
+      rightDesktopWidth: "340px",
+      styleText,
+    });
 
     clearAppWorkspaceSidebarPrehydrationStyle();
 
@@ -441,7 +470,12 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expectPrehydrationStyle("0px", "0px");
+    expectPrehydrationStyle({
+      leftDesktopOpen: false,
+      leftDesktopWidth: "0px",
+      rightDesktopOpen: false,
+      rightDesktopWidth: "0px",
+    });
   });
 
   it("uses default sidebar width fallbacks in server markup", () => {
