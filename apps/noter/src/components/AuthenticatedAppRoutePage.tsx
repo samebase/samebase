@@ -6,7 +6,11 @@ import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
-import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
+import {
+  isAppPresentationAuthenticated,
+  useAppAuthPresentation,
+} from "@/lib/appAuthPresentationState";
+import { Authenticated, Unauthenticated } from "convex/react";
 import { Suspense, useMemo, type ReactNode } from "react";
 
 export function AuthenticatedAppRoutePage({ children }: { children: ReactNode }) {
@@ -14,18 +18,23 @@ export function AuthenticatedAppRoutePage({ children }: { children: ReactNode })
     select: (location) => location.pathname,
   });
   const rootRouteSearch = useRootRouteSearch();
-  const { isAuthenticated } = useConvexAuth();
+  const authPresentation = useAppAuthPresentation();
+  const isPresentedAuthenticated = isAppPresentationAuthenticated(authPresentation);
   const pageMetadata = useMemo(
     () =>
       resolvePageMetadata({
         pathname,
-        isAuthenticated,
+        isAuthenticated: isPresentedAuthenticated,
       }),
-    [isAuthenticated, pathname],
+    [isPresentedAuthenticated, pathname],
   );
 
   useAppAuthRuntimeEffects(pathname, rootRouteSearch);
   usePageMetadata(pageMetadata);
+
+  if (authPresentation.kind === "temporaryAuthenticated") {
+    return <div data-testid="temporary-auth-route-shell" />;
+  }
 
   return (
     <>

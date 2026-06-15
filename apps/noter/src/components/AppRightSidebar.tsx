@@ -23,6 +23,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useNow } from "@/hooks/useNow";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
+import { useAppAuthPresentation } from "@/lib/appAuthPresentationState";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -31,7 +32,7 @@ import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebou
 import { isRecord } from "@noter-md/dependent";
 import { Link, useLocation } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { useAction, useConvexAuth, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { useEffect, useRef, useState, type MutableRefObject, type ReactElement } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -306,6 +307,47 @@ function PublicAppRightSidebarContent() {
     <VaultDashboardSidebarContent>
       <PublicLandingAccountSection />
       <PublicLandingPasswordAuthControls />
+      <div className="mt-auto">
+        <AppSidebarMetaSection linkAlignment="left" />
+      </div>
+    </VaultDashboardSidebarContent>
+  );
+}
+
+function TemporaryAuthenticatedAppRightSidebarContent() {
+  const { signOut } = useNoterAuthActions();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const handleSignOut = () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+    void signOut()
+      .catch((error: unknown) => {
+        toast({
+          description: error instanceof Error ? error.message : "Please try again.",
+          title: "Could not sign out",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setIsSigningOut(false);
+      });
+  };
+
+  return (
+    <VaultDashboardSidebarContent>
+      <VaultDashboardAccountSection
+        displayName="Account"
+        email="Signed in"
+        isSignOutPending={isSigningOut}
+        onOpenChange={() => {}}
+        onSignOut={handleSignOut}
+        open={false}
+        providerLabel={null}
+        signOutDisabled={false}
+      />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -848,10 +890,14 @@ function AuthenticatedAppRightSidebarContent() {
 }
 
 export function AppRightSidebarContent() {
-  const { isAuthenticated } = useConvexAuth();
+  const authPresentation = useAppAuthPresentation();
 
-  if (isAuthenticated) {
+  if (authPresentation.kind === "confirmedAuthenticated") {
     return <AuthenticatedAppRightSidebarContent />;
+  }
+
+  if (authPresentation.kind === "temporaryAuthenticated") {
+    return <TemporaryAuthenticatedAppRightSidebarContent />;
   }
 
   return <PublicAppRightSidebarContent />;

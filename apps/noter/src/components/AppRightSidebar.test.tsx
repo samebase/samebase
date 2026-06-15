@@ -1,3 +1,8 @@
+// @vitest-environment jsdom
+
+import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
+import { AUTH_FLAG_STORAGE_KEY } from "@/lib/authStorageKeys";
+import { convexAuthJwtStorageKey } from "@/lib/appAuthPresentationState";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { type ReactNode } from "react";
@@ -11,6 +16,8 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   index: 0,
   results: [],
 }));
+const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
+const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 
 function createAsyncHandler() {
   const handler = vi.fn(() => Promise.resolve(undefined));
@@ -81,15 +88,45 @@ function renderRightSidebar(queryResults: unknown[]) {
   queryState.index = 0;
   queryState.results = queryResults;
 
-  return renderToStaticMarkup(<AppRightSidebarContent />);
+  return renderToStaticMarkup(
+    <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
+      <AppRightSidebarContent />
+    </AppAuthPresentationProvider>,
+  );
 }
 
 describe("AppRightSidebarContent", () => {
   beforeEach(() => {
     authState.isAuthenticated = true;
     authState.isLoading = false;
+    window.localStorage.clear();
     queryState.index = 0;
     queryState.results = [];
+  });
+
+  it("shows a signed-in account row during temporary auth without provider controls", () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
+
+    const markup = renderRightSidebar([]);
+
+    expect(markup).toContain("Account");
+    expect(markup).not.toContain("checking login");
+    expect(markup).not.toContain("Providers");
+    expect(markup).not.toContain("not logged in");
+  });
+
+  it("uses the remembered auth flag for the temporary signed-in account row", () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+    window.localStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
+
+    const markup = renderRightSidebar([]);
+
+    expect(markup).toContain("Account");
+    expect(markup).not.toContain("checking login");
+    expect(markup).not.toContain("Providers");
   });
 
   it("keeps the account slot above providers while the authenticated viewer loads", () => {

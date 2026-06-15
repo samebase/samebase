@@ -1,0 +1,128 @@
+import { AUTH_FLAG_STORAGE_KEY } from "@/lib/authStorageKeys";
+import { useConvexAuth } from "convex/react";
+import { createContext, useContext } from "react";
+
+const CONVEX_AUTH_JWT_STORAGE_KEY = "__convexAuthJWT";
+
+type LocalAppAuthPresentationHint =
+  | { kind: "absent" }
+  | { kind: "present"; source: "jwt" | "remembered"; tokenExpiresAt: number | null };
+type ConvexAuthJwtPayload = { kind: "invalid" } | { kind: "valid"; tokenExpiresAt: number | null };
+
+export type AppAuthPresentationState =
+  | { kind: "unknown" }
+  | {
+      kind: "temporaryAuthenticated";
+      source: "jwt" | "remembered";
+      tokenExpiresAt: number | null;
+    }
+  | { kind: "confirmedAuthenticated" }
+  | { kind: "signedOut" };
+
+export const AppAuthPresentationContext = createContext<AppAuthPresentationState | null>(null);
+
+function convexAuthStorageSuffix(storageNamespace: string) {
+  return storageNamespace.replace(/[^a-zA-Z0-9]/g, "");
+}
+
+export function convexAuthJwtStorageKey(storageNamespace: string) {
+  return `${CONVEX_AUTH_JWT_STORAGE_KEY}_${convexAuthStorageSuffix(storageNamespace)}`;
+}
+
+function readRememberedAuthHint(storage: Storage): LocalAppAuthPresentationHint {
+  return storage.getItem(AUTH_FLAG_STORAGE_KEY) === "1"
+    ? { kind: "present", source: "remembered", tokenExpiresAt: null }
+    : { kind: "absent" };
+}
+
+function decodeBase64UrlJson(base64UrlValue: string) {
+  const base64 = base64UrlValue.replace(/-/g, "+").replace(/_/g, "/");
+  const paddedBase64 = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  return window.atob(paddedBase64);
+}
+
+function readJwtPayload(token: string): ConvexAuthJwtPayload {
+  const [, payload] = token.split(".");
+  if (!payload) {
+    return { kind: "invalid" };
+  }
+
+  try {
+    const parsedPayload: unknown = JSON.parse(decodeBase64UrlJson(payload));
+    if (
+      typeof parsedPayload !== "object" ||
+      parsedPayload === null ||
+      Array.isArray(parsedPayload)
+    ) {
+      return { kind: "invalid" };
+    }
+
+    if (!("exp" in parsedPayload)) {
+      return { kind: "valid", tokenExpiresAt: null };
+    }
+
+    if (typeof parsedPayload.exp !== "number") {
+      return { kind: "invalid" };
+    }
+
+    return { kind: "valid", tokenExpiresAt: parsedPayload.exp * 1000 };
+  } catch {
+    return { kind: "invalid" };
+  }
+}
+
+export function readLocalAppAuthPresentationHint(
+  storageNamespace: string,
+): LocalAppAuthPresentationHint {
+  if (typeof window === "undefined") {
+    return { kind: "absent" };
+  }
+
+  try {
+    const storage = window.localStorage;
+    const token = storage.getItem(convexAuthJwtStorageKey(storageNamespace));
+    if (!token) {
+      return readRememberedAuthHint(storage);
+    }
+
+    const tokenPayload = readJwtPayload(token);
+    if (tokenPayload.kind === "invalid") {
+      return readRememberedAuthHint(storage);
+    }
+
+    if (tokenPayload.tokenExpiresAt !== null && tokenPayload.tokenExpiresAt <= Date.now()) {
+      return readRememberedAuthHint(storage);
+    }
+
+    return {
+      kind: "present",
+      source: "jwt",
+      tokenExpiresAt: tokenPayload.tokenExpiresAt,
+    };
+  } catch {
+    return { kind: "absent" };
+  }
+}
+
+export function useAppAuthPresentation() {
+  const contextState = useContext(AppAuthPresentationContext);
+  const { isAuthenticated, isLoading } = useConvexAuth();
+
+  if (contextState) {
+    return contextState;
+  }
+
+  if (isAuthenticated) {
+    return { kind: "confirmedAuthenticated" } satisfies AppAuthPresentationState;
+  }
+
+  if (isLoading) {
+    return { kind: "unknown" } satisfies AppAuthPresentationState;
+  }
+
+  return { kind: "signedOut" } satisfies AppAuthPresentationState;
+}
+
+export function isAppPresentationAuthenticated(state: AppAuthPresentationState) {
+  return state.kind === "confirmedAuthenticated" || state.kind === "temporaryAuthenticated";
+}
