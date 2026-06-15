@@ -330,6 +330,18 @@ describe("rootRouteSearch", () => {
     ).toBe("/machines?machineId=sample-machine&swipe-debug#ready");
   });
 
+  it("does not redirect production canonicalization when prod-ui is absent", () => {
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: ["machineId", "threadId"],
+        pathname: "/machines",
+        searchStr: "?machineId=sample-machine&swipe-debug",
+        hash: "ready",
+        stripProdUi: true,
+      }),
+    ).toBe(null);
+  });
+
   it("does not redirect when every raw key is accepted", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({

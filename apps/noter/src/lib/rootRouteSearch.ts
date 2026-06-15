@@ -25,7 +25,7 @@ import {
 } from "@/lib/routeSearchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
+import { FORCE_PROD_UI_QUERY_PARAM, isProdUiModeEnabled } from "@/lib/prodUiMode";
 
 export const DASHBOARD_ADD_APP_ROOT_QUERY_PARAM = "add-app-root";
 export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
@@ -306,11 +306,12 @@ export function readCanonicalRouteAddressForRootSearch(args: {
   }
 
   const themeCanonicalSearch = clearConflictingRootThemeModeSearch(rootSearch);
-  const nextSearch = args.stripProdUi
-    ? applySearchPatch(themeCanonicalSearch, {
-        [FORCE_PROD_UI_QUERY_PARAM]: null,
-      })
-    : themeCanonicalSearch;
+  const nextSearch =
+    args.stripProdUi && isProdUiModeEnabled(rootSearch)
+      ? applySearchPatch(themeCanonicalSearch, {
+          [FORCE_PROD_UI_QUERY_PARAM]: null,
+        })
+      : themeCanonicalSearch;
   if (hasDroppedSearchKey || nextSearch !== rootSearch) {
     return buildPathWithTanStackSearch({
       pathname: args.pathname,

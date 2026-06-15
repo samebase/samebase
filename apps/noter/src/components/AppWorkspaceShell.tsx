@@ -196,8 +196,8 @@ function useAppWorkspaceSidebarState() {
     storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   });
   useLayoutEffect(() => {
-    // The localStorage hook above installs the real React state first; these
-    // variables only cover the SSG paint before hydration effects run.
+    // The localStorage hook above installs the real React state before this
+    // layout effect removes the temporary prehydration stylesheet.
     clearAppWorkspaceSidebarPrehydrationStyle();
   }, []);
   const setLocalSidebarState = localSidebarState.setState;

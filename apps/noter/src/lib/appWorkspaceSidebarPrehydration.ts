@@ -3,10 +3,6 @@ import {
   APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } from "@/lib/appWorkspaceSidebarPreferences";
 import { WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import {
-  WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
-  WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
-} from "@/components/workspace-layout-v2/workspaceLayoutV2Prehydration";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceSidebarPrehydrationArgs = {
@@ -88,7 +84,7 @@ size. Once that attribute is present, the temporary stylesheet no longer
 matches, and the panes use React's live inline widths for resizing and normal
 layout updates.
 */
-function InlineScript_prehidrateSidebar(
+function InlineScript_prehydrateSidebar(
   args: AppWorkspaceSidebarPrehydrationArgs,
   readWorkspaceSidebarState: typeof getWorkspaceSidebarState,
 ) {
@@ -151,7 +147,7 @@ function InlineScript_prehidrateSidebar(
   } catch {}
 }
 
-export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehidrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)}, ${getWorkspaceSidebarState.toString()});`;
+export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehydrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)}, ${getWorkspaceSidebarState.toString()});`;
 
 export function clearAppWorkspaceSidebarPrehydrationStyle() {
   const styleSheet = window.__noterAppWorkspaceSidebarPrehydrationStyleSheet;
@@ -163,10 +159,4 @@ export function clearAppWorkspaceSidebarPrehydrationStyle() {
   }
 
   document.getElementById(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID)?.remove();
-  document.documentElement.style.removeProperty(
-    WORKSPACE_LAYOUT_V2_PREHYDRATED_LEFT_DESKTOP_WIDTH_PROPERTY,
-  );
-  document.documentElement.style.removeProperty(
-    WORKSPACE_LAYOUT_V2_PREHYDRATED_RIGHT_DESKTOP_WIDTH_PROPERTY,
-  );
 }

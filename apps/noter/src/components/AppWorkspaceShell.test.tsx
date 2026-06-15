@@ -149,7 +149,9 @@ describe("AppWorkspaceShell", () => {
     });
   }
 
-  function runAppWorkspaceSidebarPrehydrationScript() {
+  function runAppWorkspaceSidebarPrehydrationScript(
+    contextOverrides: Record<string, unknown> = {},
+  ) {
     new Script(appWorkspaceSidebarPrehydrationScript).runInContext(
       createContext({
         document,
@@ -157,6 +159,7 @@ describe("AppWorkspaceShell", () => {
         Math,
         Number,
         window,
+        ...contextOverrides,
       }),
     );
   }
@@ -216,8 +219,11 @@ describe("AppWorkspaceShell", () => {
       .textContent;
   }
 
-  function expectPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
-    const styleText = getRequiredPrehydrationStyleText();
+  function expectPrehydrationStyleText(
+    styleText: string,
+    leftDesktopWidth: string,
+    rightDesktopWidth: string,
+  ) {
     expect(styleText).toContain("@layer utilities");
     expect(styleText).toContain("@media (min-width: 768px)");
     expect(styleText).toContain(
@@ -228,6 +234,14 @@ describe("AppWorkspaceShell", () => {
       `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane`,
     );
     expect(styleText).toContain(`width: ${rightDesktopWidth} !important;`);
+  }
+
+  function expectPrehydrationStyle(leftDesktopWidth: string, rightDesktopWidth: string) {
+    expectPrehydrationStyleText(
+      getRequiredPrehydrationStyleText(),
+      leftDesktopWidth,
+      rightDesktopWidth,
+    );
   }
 
   function readStoredAppWorkspaceSidebarState() {
@@ -342,9 +356,6 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expect(document.documentElement.getAttribute("style") ?? "").not.toContain(
-      "workspace-layout-v2-prehydrated",
-    );
     expectPrehydrationStyle("360px", "420px");
 
     const recoverableErrors = await hydrateClientShellFromServerMarkup();
@@ -357,17 +368,44 @@ describe("AppWorkspaceShell", () => {
       "--workspace-layout-v2-right-desktop-width: 420px",
     );
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(
-      document.documentElement.style.getPropertyValue(
-        "--workspace-layout-v2-prehydrated-left-desktop-width",
-      ),
-    ).toBe("");
-    expect(
-      document.documentElement.style.getPropertyValue(
-        "--workspace-layout-v2-prehydrated-right-desktop-width",
-      ),
-    ).toBe("");
     expect(recoverableErrors).toEqual([]);
+  });
+
+  it("clears the adopted prehydration stylesheet used by modern browsers", () => {
+    const replacedCssTexts: string[] = [];
+    class TestCSSStyleSheet {
+      replaceSync(cssText: string) {
+        replacedCssTexts.push(cssText);
+      }
+    }
+
+    Object.defineProperty(document, "adoptedStyleSheets", {
+      configurable: true,
+      value: [],
+      writable: true,
+    });
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: LOCAL_SIDEBAR_STATE,
+        version: 2,
+      }),
+    );
+
+    runAppWorkspaceSidebarPrehydrationScript({
+      CSSStyleSheet: TestCSSStyleSheet,
+    });
+
+    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
+    expect(document.adoptedStyleSheets).toHaveLength(1);
+    expect(replacedCssTexts).toHaveLength(1);
+    const styleText = replacedCssTexts.join("");
+    expectPrehydrationStyleText(styleText, "0px", "340px");
+
+    clearAppWorkspaceSidebarPrehydrationStyle();
+
+    expect(document.adoptedStyleSheets).toHaveLength(0);
+    expect(window.__noterAppWorkspaceSidebarPrehydrationStyleSheet).toBeUndefined();
   });
 
   it("does not prehydrate invalid local sidebar widths", () => {
@@ -385,16 +423,7 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expect(
-      document.documentElement.style.getPropertyValue(
-        "--workspace-layout-v2-prehydrated-left-desktop-width",
-      ),
-    ).toBe("");
-    expect(
-      document.documentElement.style.getPropertyValue(
-        "--workspace-layout-v2-prehydrated-right-desktop-width",
-      ),
-    ).toBe("");
+    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
   });
 
   it("prehydrates closed local sidebars as zero width", () => {

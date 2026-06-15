@@ -866,7 +866,6 @@ export const trackedFilePaths = [
   "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MemorySidebarController.ts",
   "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileCarousel.ts",
   "apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts",
-  "apps/noter/src/components/workspace-layout-v2/workspaceLayoutV2Prehydration.ts",
   "apps/noter/src/content/landing-preview.md",
   "apps/noter/src/content/landing-preview.ro.md",
   "apps/noter/src/content/privacy-policy.md",
