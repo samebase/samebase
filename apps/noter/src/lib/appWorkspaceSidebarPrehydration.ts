@@ -85,12 +85,13 @@ function InlineScript_prehydrateSidebar(
   args: AppWorkspaceSidebarPrehydrationArgs,
   readWorkspaceSidebarState: typeof getWorkspaceSidebarState,
 ) {
-  function installPrehydrationStyle(
-    leftDesktopWidth: string,
-    leftDesktopOpen: boolean,
-    rightDesktopWidth: string,
-    rightDesktopOpen: boolean,
-  ) {
+  function installPrehydrationStyle({
+    left,
+    right,
+  }: {
+    left: { width: string; open: boolean };
+    right: { width: string; open: boolean };
+  }) {
     // This attribute is the ownership boundary: before measurement, the head
     // script may correct the first paint; after measurement, React controls the
     // pane widths.
@@ -99,18 +100,18 @@ function InlineScript_prehydrateSidebar(
     // Server markup may still carry open-state desktop border classes. A
     // closed prehydrated pane must contribute zero layout geometry, including
     // its separator border.
-    const leftDesktopSeparatorRule = leftDesktopOpen ? "" : "border-right-width: 0 !important;";
-    const rightDesktopSeparatorRule = rightDesktopOpen ? "" : "border-left-width: 0 !important;";
+    const leftDesktopSeparatorRule = left.open ? "" : "border-right-width: 0 !important;";
+    const rightDesktopSeparatorRule = right.open ? "" : "border-left-width: 0 !important;";
     const cssText = `
 @layer utilities {
   @media (min-width: 768px) {
     ${viewportSelector} .workspace-layout-v2-responsive-left-pane {
-      width: ${leftDesktopWidth} !important;
+      width: ${left.width} !important;
       ${leftDesktopSeparatorRule}
     }
 
     ${viewportSelector} .workspace-layout-v2-responsive-right-pane {
-      width: ${rightDesktopWidth} !important;
+      width: ${right.width} !important;
       ${rightDesktopSeparatorRule}
     }
   }
@@ -144,12 +145,10 @@ function InlineScript_prehydrateSidebar(
     const leftDesktopWidth = readDesktopWidth(state.leftDesktopOpen, state.leftDesktopWidthPx);
     const rightDesktopWidth = readDesktopWidth(state.rightDesktopOpen, state.rightDesktopWidthPx);
 
-    installPrehydrationStyle(
-      leftDesktopWidth,
-      state.leftDesktopOpen,
-      rightDesktopWidth,
-      state.rightDesktopOpen,
-    );
+    installPrehydrationStyle({
+      left: { width: leftDesktopWidth, open: state.leftDesktopOpen },
+      right: { width: rightDesktopWidth, open: state.rightDesktopOpen },
+    });
   } catch {}
 }
 
