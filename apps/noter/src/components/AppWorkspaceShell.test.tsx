@@ -394,19 +394,7 @@ describe("AppWorkspaceShell", () => {
     expect(recoverableErrors).toEqual([]);
   });
 
-  it("clears the adopted prehydration stylesheet used by modern browsers", () => {
-    const replacedCssTexts: string[] = [];
-    class TestCSSStyleSheet {
-      replaceSync(cssText: string) {
-        replacedCssTexts.push(cssText);
-      }
-    }
-
-    Object.defineProperty(document, "adoptedStyleSheets", {
-      configurable: true,
-      value: [],
-      writable: true,
-    });
+  it("clears the temporary prehydration style element", () => {
     window.localStorage.setItem(
       APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
       JSON.stringify({
@@ -415,26 +403,18 @@ describe("AppWorkspaceShell", () => {
       }),
     );
 
-    runAppWorkspaceSidebarPrehydrationScript({
-      CSSStyleSheet: TestCSSStyleSheet,
-    });
+    runAppWorkspaceSidebarPrehydrationScript();
 
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
-    expect(document.adoptedStyleSheets).toHaveLength(1);
-    expect(replacedCssTexts).toHaveLength(1);
-    const styleText = replacedCssTexts.join("");
-    expectPrehydrationStyleText({
+    expectPrehydrationStyle({
       leftDesktopOpen: false,
       leftDesktopWidth: "0px",
       rightDesktopOpen: true,
       rightDesktopWidth: "340px",
-      styleText,
     });
 
     clearAppWorkspaceSidebarPrehydrationStyle();
 
-    expect(document.adoptedStyleSheets).toHaveLength(0);
-    expect(window.__noterAppWorkspaceSidebarPrehydrationStyleSheet).toBeUndefined();
+    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
   });
 
   it("does not prehydrate invalid local sidebar widths", () => {

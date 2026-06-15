@@ -20,12 +20,6 @@ type AppWorkspaceSidebarPrehydrationState = Pick<
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
   "noter-app-workspace-sidebar-prehydration";
 
-declare global {
-  interface Window {
-    __noterAppWorkspaceSidebarPrehydrationStyleSheet?: CSSStyleSheet;
-  }
-}
-
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
@@ -123,14 +117,6 @@ function InlineScript_prehydrateSidebar(
 }
 `;
 
-    if ("adoptedStyleSheets" in document && typeof CSSStyleSheet === "function") {
-      const styleSheet = new CSSStyleSheet();
-      styleSheet.replaceSync(cssText);
-      document.adoptedStyleSheets = [...document.adoptedStyleSheets, styleSheet];
-      window.__noterAppWorkspaceSidebarPrehydrationStyleSheet = styleSheet;
-      return;
-    }
-
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = cssText;
@@ -170,13 +156,5 @@ function InlineScript_prehydrateSidebar(
 export const appWorkspaceSidebarPrehydrationScript = `(${InlineScript_prehydrateSidebar.toString()})(${JSON.stringify(appWorkspaceSidebarPrehydrationArgs)}, ${getWorkspaceSidebarState.toString()});`;
 
 export function clearAppWorkspaceSidebarPrehydrationStyle() {
-  const styleSheet = window.__noterAppWorkspaceSidebarPrehydrationStyleSheet;
-  if (styleSheet !== undefined) {
-    document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-      (candidateStyleSheet) => candidateStyleSheet !== styleSheet,
-    );
-    window.__noterAppWorkspaceSidebarPrehydrationStyleSheet = undefined;
-  }
-
   document.getElementById(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID)?.remove();
 }
