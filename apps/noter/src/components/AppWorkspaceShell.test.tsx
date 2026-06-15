@@ -231,7 +231,7 @@ describe("AppWorkspaceShell", () => {
 
     const mainPane = document.createElement("div");
     const mainPaneSurface = document.createElement("div");
-    mainPane.className = "workspace-layout-v2-responsive-main-pane";
+    mainPane.className = "workspace-layout-v2-responsive-main-pane snap-center snap-always";
     mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
     mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
     mainPane.append(mainPaneSurface);
@@ -600,20 +600,79 @@ describe("AppWorkspaceShell", () => {
         .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
         ?.classList.contains("workspace-mobile-pane-separators"),
     ).toBe(false);
+    expect(
+      carousel
+        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
+        ?.hasAttribute("data-workspace-layout-v2-mobile-merged-pane"),
+    ).toBe(false);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-center"),
+    ).toBe(true);
   });
 
-  it("leaves merged mobile pane state for React hydration", () => {
+  it("prehydrates a valid merged mobile pane before hydration", () => {
     window.localStorage.setItem(
       APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
       JSON.stringify({
         state: {
           ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
           mobilePane: "right",
           mobileSurface: {
             kind: "merged",
             mainWidthPx: 294,
             side: "right",
           },
+          rightMobileWidthPx: 96,
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    const styleText = getRequiredMobilePrehydrationStyleText();
+    expect(styleText).toContain("width: 260px !important;");
+    expect(styleText).toContain("width: 294px !important;");
+    expect(styleText).toContain("width: 96px !important;");
+    expect(carousel.scrollLeft).toBe(260);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
+    expect(
+      carousel
+        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
+        ?.getAttribute("data-workspace-layout-v2-mobile-merged-pane"),
+    ).toBe("right");
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-none"),
+    ).toBe(true);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-center"),
+    ).toBe(false);
+  });
+
+  it("prehydrates invalid merged mobile pane state as unmerged geometry", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
+          mobilePane: "right",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: 294,
+            side: "right",
+          },
+          rightMobileWidthPx: 340,
         },
         version: 2,
       }),
@@ -624,10 +683,21 @@ describe("AppWorkspaceShell", () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
     });
 
+    const styleText = getRequiredMobilePrehydrationStyleText();
+    expect(styleText).toContain("width: 260px !important;");
+    expect(styleText).toContain("width: 390px !important;");
+    expect(styleText).toContain("width: 340px !important;");
+    expect(carousel.scrollLeft).toBe(600);
     expect(
-      document.querySelector(APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_SELECTOR),
-    ).toBeNull();
-    expect(carousel.scrollLeft).toBe(0);
+      carousel
+        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
+        ?.hasAttribute("data-workspace-layout-v2-mobile-merged-pane"),
+    ).toBe(false);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-center"),
+    ).toBe(true);
   });
 
   it("uses default sidebar width fallbacks in server markup", () => {

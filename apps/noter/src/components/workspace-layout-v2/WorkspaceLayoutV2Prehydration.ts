@@ -1,7 +1,9 @@
 import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
+  MOBILE_PANE_SETTLED_TOLERANCE_PX,
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
 } from "./WorkspaceLayoutV2Geometry";
 
@@ -27,6 +29,8 @@ export type WorkspaceLayoutV2PrehydrationArgs = {
 type WorkspaceLayoutV2PrehydrationInlineArgs = WorkspaceLayoutV2PrehydrationArgs & {
   desktopSidebarMinWidthPx: number;
   mobileMainPeekMinWidthPx: number;
+  mobileMainMinWidthPx: number;
+  mobilePaneSettledTolerancePx: number;
   mobileSidebarMinWidthPx: number;
 };
 
@@ -41,6 +45,8 @@ function getWorkspaceLayoutV2PrehydrationInlineArgs(
     ...args,
     desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     mobileMainPeekMinWidthPx: MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
+    mobileMainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
+    mobilePaneSettledTolerancePx: MOBILE_PANE_SETTLED_TOLERANCE_PX,
     mobileSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   };
 }
@@ -160,10 +166,9 @@ workspace layout markup. Static output can include framework scripts between
 the layout root and this script, so the script walks preceding siblings until it
 finds the workspace carousel.
 
-The script only prehydrates the ordinary unmerged mobile carousel. The merged
-mobile surface changes the pane wrapper structure, while the SSG markup renders
-the unmerged structure. Leaving merged state to React avoids prehydrating a DOM
-shape that the server did not render.
+Mobile merged and unmerged states share the same pane DOM. Merged state changes
+the measured widths, the selected scroll offset, the side-pane marker attribute,
+and the main pane snap class; it does not move nodes before hydration.
 
 The temporary stylesheet corrects the unmeasured mobile widths first. Without
 those rules, assigning scrollLeft can be clamped to 0 because the SSG side panes
@@ -231,6 +236,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     hasLeftPane,
     leftWidthPx,
     mainWidthPx,
+    mergedSurfaceSide,
     mobilePane,
     peekWidthPx,
     rightWidthPx,
@@ -239,18 +245,58 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     hasLeftPane: boolean;
     leftWidthPx: number;
     mainWidthPx: number;
+    mergedSurfaceSide: "left" | "right" | null;
     mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
     peekWidthPx: number;
     rightWidthPx: number;
     viewportWidthPx: number;
   }) {
     if (mobilePane === "left") return peekWidthPx;
+    if (mergedSurfaceSide !== null && mobilePane === "main") return 0;
     if (mobilePane === "main") return hasLeftPane ? leftWidthPx : 0;
 
     return Math.max(
       0,
       (hasLeftPane ? leftWidthPx : 0) + mainWidthPx + rightWidthPx + peekWidthPx - viewportWidthPx,
     );
+  }
+
+  function getMergedMobileSurface({
+    hasLeftPane,
+    hasRightPane,
+    leftWidthPx,
+    mobilePane,
+    rightWidthPx,
+    state,
+    viewportWidthPx,
+  }: {
+    hasLeftPane: boolean;
+    hasRightPane: boolean;
+    leftWidthPx: number;
+    mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
+    rightWidthPx: number;
+    state: WorkspaceLayoutV2PrehydrationState;
+    viewportWidthPx: number;
+  }) {
+    if (state.mobileSurface.kind !== "merged" || mobilePane === "main") return null;
+
+    const mergedSurfaceSide = state.mobileSurface.side;
+    const hasMergedPane =
+      (mergedSurfaceSide === "left" && hasLeftPane) ||
+      (mergedSurfaceSide === "right" && hasRightPane);
+    if (!hasMergedPane) return null;
+
+    const mergedSideWidthPx = mergedSurfaceSide === "left" ? leftWidthPx : rightWidthPx;
+    const mergedMainWidthPx = state.mobileSurface.mainWidthPx;
+    const isMergedFit =
+      mergedMainWidthPx >= args.mobileMainMinWidthPx &&
+      mergedSideWidthPx + mergedMainWidthPx <= viewportWidthPx + args.mobilePaneSettledTolerancePx;
+    if (!isMergedFit) return null;
+
+    return {
+      mainWidthPx: mergedMainWidthPx,
+      side: mergedSurfaceSide,
+    };
   }
 
   function installMobilePrehydrationStyle({
@@ -297,11 +343,40 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     element.classList.toggle("workspace-mobile-pane-separators", !active);
   }
 
+  function setMergedPaneAttribute(
+    element: Element | null,
+    paneSide: "left" | "right",
+    mergedSurfaceSide: "left" | "right" | null,
+  ) {
+    if (!(element instanceof window.HTMLElement)) return;
+
+    if (mergedSurfaceSide === paneSide) {
+      element.setAttribute("data-workspace-layout-v2-mobile-merged-pane", paneSide);
+      return;
+    }
+
+    element.removeAttribute("data-workspace-layout-v2-mobile-merged-pane");
+  }
+
+  function syncMainPaneSnapClass(
+    element: Element | null,
+    mergedSurfaceSide: "left" | "right" | null,
+  ) {
+    if (!(element instanceof window.HTMLElement)) return;
+
+    const isMerged = mergedSurfaceSide !== null;
+    element.classList.toggle("snap-none", isMerged);
+    element.classList.toggle("snap-center", !isMerged);
+    element.classList.toggle("snap-always", !isMerged);
+  }
+
   function syncMobilePaneDomState({
     carouselNode,
+    mergedSurfaceSide,
     mobilePane,
   }: {
     carouselNode: Element;
+    mergedSurfaceSide: "left" | "right" | null;
     mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
   }) {
     const layoutRoot = carouselNode.closest('[data-workspace-layout-v2="responsive"]');
@@ -309,18 +384,19 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       layoutRoot.setAttribute("data-mobile-pane", mobilePane);
     }
 
-    setPaneSeparatorClass(
-      carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]'),
-      mobilePane === "left",
-    );
+    const leftPane = carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]');
+    const mainPane = carouselNode.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+    const rightPane = carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
+
+    setMergedPaneAttribute(leftPane, "left", mergedSurfaceSide);
+    syncMainPaneSnapClass(mainPane, mergedSurfaceSide);
+    setMergedPaneAttribute(rightPane, "right", mergedSurfaceSide);
+    setPaneSeparatorClass(leftPane, mobilePane === "left");
     setPaneSeparatorClass(
       carouselNode.querySelector("[data-workspace-layout-v2-mobile-main-pane-surface]"),
       mobilePane === "main",
     );
-    setPaneSeparatorClass(
-      carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-right"]'),
-      mobilePane === "right",
-    );
+    setPaneSeparatorClass(rightPane, mobilePane === "right");
   }
 
   function removeMobilePrehydrationStyleAfterMeasurement(carouselNode: Element) {
@@ -383,7 +459,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     if (carouselNode === null) return;
 
     const state = getStoredWorkspaceSidebarState();
-    if (state === null || state.mobileSurface.kind !== "unmerged") return;
+    if (state === null) return;
 
     const hasLeftPane =
       carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]') !== null;
@@ -400,7 +476,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       getPixelValue(computedStyle.paddingLeft),
       getPixelValue(computedStyle.paddingRight),
     );
-    const mainWidthPx = Math.max(1, viewportWidthPx - peekWidthPx * 2);
+    const defaultMainWidthPx = Math.max(1, viewportWidthPx - peekWidthPx * 2);
     const sidebarMaxWidthPx = Math.max(
       1,
       Math.floor(viewportWidthPx - Math.max(args.mobileMainPeekMinWidthPx, peekWidthPx * 2)),
@@ -411,7 +487,17 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     const rightWidthPx = hasRightPane
       ? getSidebarWidth(state.rightMobileWidthPx, sidebarMaxWidthPx)
       : 0;
-
+    const mergedSurface = getMergedMobileSurface({
+      hasLeftPane,
+      hasRightPane,
+      leftWidthPx,
+      mobilePane,
+      rightWidthPx,
+      state,
+      viewportWidthPx,
+    });
+    const mainWidthPx = mergedSurface === null ? defaultMainWidthPx : mergedSurface.mainWidthPx;
+    const mergedSurfaceSide = mergedSurface === null ? null : mergedSurface.side;
     installMobilePrehydrationStyle({
       leftWidthPx,
       mainWidthPx,
@@ -419,12 +505,14 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     });
     syncMobilePaneDomState({
       carouselNode,
+      mergedSurfaceSide,
       mobilePane,
     });
     carouselNode.scrollLeft = getMobilePaneScrollLeftPx({
       hasLeftPane,
       leftWidthPx,
       mainWidthPx,
+      mergedSurfaceSide,
       mobilePane,
       peekWidthPx,
       rightWidthPx,

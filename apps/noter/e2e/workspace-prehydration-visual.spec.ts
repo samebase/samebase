@@ -12,17 +12,71 @@ const MOBILE_VIEWPORT_SIZE = {
 };
 const EDGE_CAPTURE_LEFT_INSET_PX = 1;
 const EDGE_CAPTURE_WIDTH_PX = 3;
-const EDGE_CAPTURE_HEIGHT_PX = 240;
-const MOBILE_RIGHT_PANE_STATE = {
-  leftDesktopOpen: true,
-  leftDesktopWidthPx: 240,
-  leftMobileWidthPx: 240,
-  mobilePane: "right",
-  mobileSurface: { kind: "unmerged" },
-  rightDesktopOpen: true,
-  rightDesktopWidthPx: 288,
-  rightMobileWidthPx: 288,
-} satisfies WorkspaceSidebarState;
+const EDGE_CAPTURE_TOP_PX = 80;
+const EDGE_CAPTURE_HEIGHT_PX = 160;
+
+type MobilePrehydrationVisualScenario = {
+  edgePane: "left" | "right";
+  id: string;
+  mobilePane: "left" | "right";
+  state: WorkspaceSidebarState;
+};
+
+const MOBILE_PREHYDRATION_VISUAL_SCENARIOS = [
+  {
+    edgePane: "right",
+    id: "unmerged-right",
+    mobilePane: "right",
+    state: {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 240,
+      leftMobileWidthPx: 240,
+      mobilePane: "right",
+      mobileSurface: { kind: "unmerged" },
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 288,
+    },
+  },
+  {
+    edgePane: "right",
+    id: "merged-right",
+    mobilePane: "right",
+    state: {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 240,
+      leftMobileWidthPx: 240,
+      mobilePane: "right",
+      mobileSurface: {
+        kind: "merged",
+        mainWidthPx: 294,
+        side: "right",
+      },
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 96,
+      rightMobileWidthPx: 96,
+    },
+  },
+  {
+    edgePane: "left",
+    id: "merged-left",
+    mobilePane: "left",
+    state: {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 96,
+      leftMobileWidthPx: 96,
+      mobilePane: "left",
+      mobileSurface: {
+        kind: "merged",
+        mainWidthPx: 294,
+        side: "left",
+      },
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 288,
+    },
+  },
+] satisfies MobilePrehydrationVisualScenario[];
 
 async function seedWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
   await page.addInitScript(
@@ -67,14 +121,16 @@ async function waitForFonts(page: Page) {
 async function openMobileWorkspacePage({
   browser,
   hydrate,
+  scenario,
 }: {
   browser: Browser;
   hydrate: boolean;
+  scenario: MobilePrehydrationVisualScenario;
 }) {
   const page = await browser.newPage({
     viewport: MOBILE_VIEWPORT_SIZE,
   });
-  await seedWorkspaceSidebarState(page, MOBILE_RIGHT_PANE_STATE);
+  await seedWorkspaceSidebarState(page, scenario.state);
   if (!hydrate) {
     await blockHydrationScripts(page);
   }
@@ -85,7 +141,7 @@ async function openMobileWorkspacePage({
   await waitForFonts(page);
   await expect(page.locator('[data-workspace-layout-v2="responsive"]').first()).toHaveAttribute(
     "data-mobile-pane",
-    "right",
+    scenario.mobilePane,
   );
   if (hydrate) {
     await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveAttribute(
@@ -97,70 +153,89 @@ async function openMobileWorkspacePage({
   return page;
 }
 
-async function captureRightPaneLeadingEdge(page: Page) {
-  const rightPaneBox = await page.getByTestId("workspace-layout-v2-pane-right").boundingBox();
-  if (rightPaneBox === null) {
-    throw new Error("Expected the right workspace pane to have a bounding box.");
+async function getSidebarEdgeX(page: Page, edgePane: "left" | "right") {
+  const paneBox = await page.getByTestId(`workspace-layout-v2-pane-${edgePane}`).boundingBox();
+  if (paneBox === null) {
+    throw new Error(`Expected the ${edgePane} workspace pane to have a bounding box.`);
   }
 
+  if (edgePane === "left") {
+    return Math.floor(paneBox.x + paneBox.width);
+  }
+
+  return Math.floor(paneBox.x);
+}
+
+async function captureSidebarEdge(page: Page, edgeX: number) {
   const viewportSize = page.viewportSize();
   if (viewportSize === null) {
     throw new Error("Expected the page to have a viewport size.");
   }
 
-  const clipX = Math.max(0, Math.floor(rightPaneBox.x) - EDGE_CAPTURE_LEFT_INSET_PX);
+  const clipX = Math.max(0, edgeX - EDGE_CAPTURE_LEFT_INSET_PX);
   const clipWidth = Math.min(EDGE_CAPTURE_WIDTH_PX, viewportSize.width - clipX);
 
   return page.screenshot({
     animations: "disabled",
     caret: "hide",
     clip: {
-      // The public sidebar body can legitimately change after the app bundle
-      // runs. A pane-position jump still moves this top boundary and its controls.
-      height: Math.min(EDGE_CAPTURE_HEIGHT_PX, viewportSize.height),
+      // Whole-page equality would include unrelated hydration differences such
+      // as the auth control and logo implementation. This strip compares only
+      // the separator edge after asserting that its viewport coordinate is the
+      // same before and after hydration.
+      height: Math.min(EDGE_CAPTURE_HEIGHT_PX, viewportSize.height - EDGE_CAPTURE_TOP_PX),
       width: clipWidth,
       x: clipX,
-      y: 0,
+      y: EDGE_CAPTURE_TOP_PX,
     },
     scale: "css",
   });
 }
 
-test("mobile workspace prehydration paints the sidebar edge exactly like hydration", async ({
-  browser,
-}, testInfo: TestInfo) => {
-  const prehydratedPage = await openMobileWorkspacePage({
+for (const scenario of MOBILE_PREHYDRATION_VISUAL_SCENARIOS) {
+  test(`mobile workspace prehydration paints ${scenario.id} exactly like hydration`, async ({
     browser,
-    hydrate: false,
-  });
-  const hydratedPage = await openMobileWorkspacePage({
-    browser,
-    hydrate: true,
-  });
-
-  try {
-    const prehydratedScreenshot = await captureRightPaneLeadingEdge(prehydratedPage);
-    const hydratedScreenshot = await captureRightPaneLeadingEdge(hydratedPage);
-
-    await expectScreenshotsToMatch({
-      actual: prehydratedScreenshot,
-      artifactPrefix: "workspace-mobile-prehydration-edge",
-      artifactWritePaths: {
-        actual: testInfo.outputPath("workspace-mobile-prehydration-edge-prehydrated.png"),
-        diff: testInfo.outputPath("workspace-mobile-prehydration-edge-diff.png"),
-        diffMask: testInfo.outputPath("workspace-mobile-prehydration-edge-diff-mask.png"),
-        expected: testInfo.outputPath("workspace-mobile-prehydration-edge-hydrated.png"),
-      },
-      expected: hydratedScreenshot,
-      maxDiffPixelRatio: 0,
-      pixelmatchOptions: {
-        includeAA: true,
-        threshold: 0,
-      },
-      testInfo,
+  }, testInfo: TestInfo) => {
+    const prehydratedPage = await openMobileWorkspacePage({
+      browser,
+      hydrate: false,
+      scenario,
     });
-  } finally {
-    await prehydratedPage.close();
-    await hydratedPage.close();
-  }
-});
+    const hydratedPage = await openMobileWorkspacePage({
+      browser,
+      hydrate: true,
+      scenario,
+    });
+
+    try {
+      const prehydratedEdgeX = await getSidebarEdgeX(prehydratedPage, scenario.edgePane);
+      const hydratedEdgeX = await getSidebarEdgeX(hydratedPage, scenario.edgePane);
+      expect(prehydratedEdgeX).toBe(hydratedEdgeX);
+
+      const prehydratedScreenshot = await captureSidebarEdge(prehydratedPage, hydratedEdgeX);
+      const hydratedScreenshot = await captureSidebarEdge(hydratedPage, hydratedEdgeX);
+      const artifactPrefix = `workspace-mobile-prehydration-${scenario.id}-edge`;
+
+      await expectScreenshotsToMatch({
+        actual: prehydratedScreenshot,
+        artifactPrefix,
+        artifactWritePaths: {
+          actual: testInfo.outputPath(`${artifactPrefix}-prehydrated.png`),
+          diff: testInfo.outputPath(`${artifactPrefix}-diff.png`),
+          diffMask: testInfo.outputPath(`${artifactPrefix}-diff-mask.png`),
+          expected: testInfo.outputPath(`${artifactPrefix}-hydrated.png`),
+        },
+        expected: hydratedScreenshot,
+        maxDiffPixelRatio: 0,
+        pixelmatchOptions: {
+          includeAA: true,
+          threshold: 0,
+        },
+        testInfo,
+      });
+    } finally {
+      await prehydratedPage.close();
+      await hydratedPage.close();
+    }
+  });
+}

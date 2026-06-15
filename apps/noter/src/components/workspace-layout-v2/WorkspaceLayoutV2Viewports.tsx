@@ -75,17 +75,20 @@ export function WorkspaceLayoutV2Viewport({
   const mainPaneWidth = hasMeasuredViewport ? `${paneWidthPx}px` : "100vw";
   const rightPaneWidth = hasMeasuredViewport ? `${rightWidthPx}px` : "0px";
 
-  function renderLeftPane(shouldSnap: boolean) {
+  function renderLeftPane() {
     if (!showLeftPane) {
       return null;
     }
 
     return (
       <div
+        data-workspace-layout-v2-mobile-merged-pane={
+          mergedSurfaceSide === "left" ? "left" : undefined
+        }
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
           "workspace-layout-v2-responsive-left-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
-          shouldSnap && "snap-start snap-always",
+          "snap-start snap-always",
           getMobilePaneSeparatorClass("left", mobilePane),
           desktopLeftWidthPx > 0
             ? activeResizeSide === "left"
@@ -102,13 +105,13 @@ export function WorkspaceLayoutV2Viewport({
     );
   }
 
-  function renderMainPane(shouldSnap: boolean) {
+  function renderMainPane() {
     return (
       <div
         data-workspace-layout-v2-mobile-main-pane
         className={cn(
           "workspace-layout-v2-responsive-main-pane h-full min-h-0 shrink-0",
-          shouldSnap ? "snap-center snap-always" : "snap-none",
+          mergedSurfaceSide === null ? "snap-center snap-always" : "snap-none",
         )}
         style={{ width: mainPaneWidth }}
       >
@@ -125,17 +128,20 @@ export function WorkspaceLayoutV2Viewport({
     );
   }
 
-  function renderRightPane(shouldSnap: boolean) {
+  function renderRightPane() {
     if (!showRightPane) {
       return null;
     }
 
     return (
       <div
+        data-workspace-layout-v2-mobile-merged-pane={
+          mergedSurfaceSide === "right" ? "right" : undefined
+        }
         data-testid="workspace-layout-v2-pane-right"
         className={cn(
           "workspace-layout-v2-responsive-right-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
-          shouldSnap && "snap-end snap-always",
+          "snap-end snap-always",
           getMobilePaneSeparatorClass("right", mobilePane),
           desktopRightWidthPx > 0
             ? activeResizeSide === "right"
@@ -152,8 +158,6 @@ export function WorkspaceLayoutV2Viewport({
     );
   }
 
-  const mainPane = renderMainPane(mergedSurfaceSide === null);
-
   return (
     <div
       ref={carouselRef}
@@ -165,41 +169,9 @@ export function WorkspaceLayoutV2Viewport({
       )}
       style={viewportStyle}
     >
-      {mergedSurfaceSide === "left" && showLeftPane ? (
-        <div
-          data-workspace-layout-v2-mobile-merged-pane="left"
-          className={cn(
-            "flex h-full min-h-0 shrink-0 snap-start snap-always overflow-hidden bg-background",
-          )}
-          style={{
-            width: hasMeasuredViewport ? `${leftWidthPx + paneWidthPx}px` : "100vw",
-          }}
-        >
-          {renderLeftPane(false)}
-          {mainPane}
-        </div>
-      ) : (
-        renderLeftPane(true)
-      )}
-
-      {mergedSurfaceSide === null ? mainPane : null}
-
-      {mergedSurfaceSide === "right" && showRightPane ? (
-        <div
-          data-workspace-layout-v2-mobile-merged-pane="right"
-          className={cn(
-            "flex h-full min-h-0 shrink-0 snap-end snap-always overflow-hidden bg-background",
-          )}
-          style={{
-            width: hasMeasuredViewport ? `${paneWidthPx + rightWidthPx}px` : "100vw",
-          }}
-        >
-          {mainPane}
-          {renderRightPane(false)}
-        </div>
-      ) : (
-        renderRightPane(true)
-      )}
+      {renderLeftPane()}
+      {renderMainPane()}
+      {renderRightPane()}
     </div>
   );
 }
