@@ -299,6 +299,7 @@ describe("page metadata", () => {
       rel: "manifest",
       href: "/manifest.webmanifest",
     });
+    expect(rootHead.links.some((link) => link.rel === "stylesheet")).toBe(false);
     expect(rootHead.meta).toContainEqual({
       name: "theme-color",
       content: "#ffffff",
