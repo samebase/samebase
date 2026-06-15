@@ -65,9 +65,11 @@ serialized into the call site.
 
 The script exists because the desktop sidebar geometry is per-device
 localStorage state. Static server markup cannot read that state, so the initial
-markup uses default widths and separator borders. This script reads the stored
-state before hydration and applies a temporary stylesheet for the first desktop
-paint.
+markup uses default widths and open-pane separator borders. This script reads
+the stored state before hydration and applies a temporary stylesheet for the
+first desktop paint. A closed prehydrated pane must have zero total layout
+width, including its separator border, so the sidebar controls do not move when
+React takes ownership.
 
 The stylesheet targets the server-rendered pane elements directly instead of
 writing custom properties on documentElement. The viewport markup has its own
