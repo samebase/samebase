@@ -20,6 +20,7 @@ import {
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
+  PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE,
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
@@ -39,7 +40,8 @@ import {
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
 
@@ -173,6 +175,10 @@ export function PublicLandingLogo({
       view: latestViewRef.current,
     });
   }, [viewStateKey, viewStatePersistence]);
+
+  useLayoutEffect(() => {
+    clearPublicLandingLogoStaticFallbackPrehydration();
+  }, [staticLogoSvgSrc]);
 
   useEffect(() => {
     const nextView = {
@@ -365,6 +371,7 @@ export function PublicLandingLogo({
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}
       >
         <img
+          {...{ [PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE]: "" }}
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
           src={staticLogoSvgSrc}
           alt={PUBLIC_LANDING_LOGO_ALT}

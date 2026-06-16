@@ -29,6 +29,8 @@ import {
   buildLogoIsoRouteSearch,
   buildLogoRouteSearch,
   DEFAULT_LOGO_OPACITY,
+  LOGO_ROUTE_SEARCH_KEYS,
+  PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS,
   preserveLogoRouteDevModeSearch,
   validateLogoIsoRouteSearch,
   validateLogoRouteSearch,
@@ -36,6 +38,19 @@ import {
 } from "@/lib/logoRouteSearch";
 
 describe("logoRouteSearch", () => {
+  it("classifies logo search keys that make the SSG landing fallback unsafe", () => {
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("rot");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("elev");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("primary");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("depth");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("opacity");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toContain("auto-rotate");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).not.toContain("zoom");
+    expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toEqual(
+      LOGO_ROUTE_SEARCH_KEYS.filter((key) => key !== "zoom"),
+    );
+  });
+
   it("normalizes logo route search into typed values", () => {
     expect(
       validateLogoRouteSearch({

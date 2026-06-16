@@ -1,4 +1,5 @@
 import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebarPrehydration";
+import { publicLandingLogoPrehydrationScript } from "@/lib/publicLandingLogoPrehydration";
 
 const appTitle = "noter | GitHub-backed markdown notes and AI workspace";
 const appDescription =
@@ -183,6 +184,9 @@ export function buildRootHead() {
       },
       {
         children: initialThemeScript,
+      },
+      {
+        children: publicLandingLogoPrehydrationScript,
       },
       {
         children: appWorkspaceSidebarPrehydrationScript,

@@ -1607,7 +1607,9 @@ test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) =>
   });
 });
 
-test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({ page }) => {
+test("prod-ui landing logo keeps the query fallback when WebGL is unavailable", async ({
+  page,
+}) => {
   const pageErrors: Error[] = [];
   page.on("pageerror", (error) => {
     pageErrors.push(error);
@@ -1632,7 +1634,7 @@ test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", as
     };
   });
 
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+  await page.goto("/?prod-ui&rot=180", { waitUntil: "domcontentloaded" });
 
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
   await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);

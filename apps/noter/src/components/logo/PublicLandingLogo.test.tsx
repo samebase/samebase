@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { createContext, Script } from "node:vm";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -15,6 +16,10 @@ import {
   serializeVoxelState,
 } from "@/components/logo/logoVoxelState";
 import { resolveAppThemeColorState, syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
+import {
+  clearPublicLandingLogoStaticFallbackPrehydration,
+  publicLandingLogoPrehydrationScript,
+} from "@/lib/publicLandingLogoPrehydration";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
 
@@ -80,6 +85,15 @@ function installLogoThemeStyle() {
   document.head.append(styleElement);
 }
 
+function runPublicLandingLogoPrehydrationScript() {
+  new Script(publicLandingLogoPrehydrationScript).runInContext(
+    createContext({
+      document,
+      window,
+    }),
+  );
+}
+
 describe("PublicLandingLogo", () => {
   let root: Root | null = null;
 
@@ -101,6 +115,8 @@ describe("PublicLandingLogo", () => {
       element.remove();
     });
     syncDocumentThemeColorSearch({});
+    clearPublicLandingLogoStaticFallbackPrehydration();
+    window.history.replaceState(null, "", "/");
     window.localStorage.clear();
     vi.unstubAllGlobals();
   });
@@ -150,6 +166,37 @@ describe("PublicLandingLogo", () => {
         faceColors: defaultLogoTheme.faceColors,
       })}#${defaultLogoTheme.cacheKey}:${STATIC_LOGO_GRID_SIZE}:1:1`,
     );
+  });
+
+  it("reveals the query-aware static fallback after prehydration suppression", async () => {
+    window.history.replaceState(null, "", "/?rot=180");
+    runPublicLandingLogoPrehydrationScript();
+
+    expect(
+      document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
+    ).toBe(true);
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          loadInteractiveScene={false}
+          routeSearch={{ rot: 180 }}
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+      );
+    });
+
+    const logoImage = getLogoImage(rootElement);
+    expect(logoImage.hasAttribute("data-public-landing-logo-static-fallback")).toBe(true);
+    expect(
+      document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
+    ).toBe(false);
+    expect(document.getElementById("noter-public-landing-logo-prehydration")).toBeNull();
   });
 
   it("renders static fallback from shareable logo route shape and view params", async () => {

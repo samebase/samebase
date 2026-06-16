@@ -1,3 +1,4 @@
+import { includes } from "@noter-md/dependent";
 import { keys } from "@noter-md/dependent/object";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
@@ -546,6 +547,20 @@ export const LOGO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
 ) satisfies RouteSearchParamMetadataByKey<LogoRouteSearch>;
 
 export const LOGO_ROUTE_SEARCH_KEYS = keys(LOGO_ROUTE_SEARCH_PARAM_METADATA);
+
+const PUBLIC_LANDING_LOGO_STATIC_FALLBACK_SAFE_SEARCH_KEYS = [
+  "zoom",
+] as const satisfies readonly (typeof LOGO_ROUTE_SEARCH_KEYS)[number][];
+
+/**
+These keys can make the requested public landing logo differ from the static
+SSG fallback before React has read the route search. The prehydration head
+script hides that fallback when any of these keys are present, trading a short
+empty logo slot for avoiding a visibly wrong logo frame.
+*/
+export const PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS = LOGO_ROUTE_SEARCH_KEYS.filter(
+  (key) => !includes(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_SAFE_SEARCH_KEYS, key),
+);
 
 const LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
   RouteSearchSchema_logoIso,
