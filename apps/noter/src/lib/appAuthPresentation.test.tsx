@@ -22,7 +22,7 @@ vi.mock("convex/react", () => ({
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIiwicGljdHVyZSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vYXZhdGFyLnBuZyJ9.signature";
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
 const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
 const NON_FINITE_EXP_JWT = "header.eyJleHAiOjFlOTk5fQ.signature";
 const NO_EXP_JWT = "header.e30.signature";
@@ -100,7 +100,6 @@ describe("app auth presentation", () => {
       kind: "present",
       profile: {
         email: "nicu@noter.md",
-        image: "https://example.com/avatar.png",
         name: "Nicu",
       },
       source: "jwt",

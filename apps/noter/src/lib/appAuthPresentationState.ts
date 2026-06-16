@@ -2,14 +2,14 @@ import { AUTH_FLAG_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { isRecord } from "@noter-md/dependent";
 import { useConvexAuth } from "convex/react";
 import { createContext, useContext } from "react";
+import {
+  readAuthTokenProfileClaims,
+  type AuthTokenProfileClaims,
+} from "../../shared/authTokenClaims";
 
 const CONVEX_AUTH_JWT_STORAGE_KEY = "__convexAuthJWT";
 
-export type AppAuthPresentationProfile = {
-  email?: string;
-  image?: string;
-  name?: string;
-};
+export type AppAuthPresentationProfile = AuthTokenProfileClaims;
 type LocalAppAuthPresentationHint =
   | { kind: "absent" }
   | {
@@ -60,31 +60,6 @@ function decodeBase64UrlJson(base64UrlValue: string) {
   return window.atob(paddedBase64);
 }
 
-function readOptionalStringClaim(payload: Record<string, unknown>, key: string) {
-  const value = payload[key];
-  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
-}
-
-function readJwtProfile(payload: Record<string, unknown>): AppAuthPresentationProfile | null {
-  const name = readOptionalStringClaim(payload, "name");
-  const email = readOptionalStringClaim(payload, "email");
-  const image =
-    readOptionalStringClaim(payload, "picture") ?? readOptionalStringClaim(payload, "image");
-  const profile: AppAuthPresentationProfile = {};
-
-  if (name !== undefined) {
-    profile.name = name;
-  }
-  if (email !== undefined) {
-    profile.email = email;
-  }
-  if (image !== undefined) {
-    profile.image = image;
-  }
-
-  return Object.keys(profile).length > 0 ? profile : null;
-}
-
 function readJwtPayload(token: string): ConvexAuthJwtPayload {
   const [, payload] = token.split(".");
   if (!payload) {
@@ -98,7 +73,11 @@ function readJwtPayload(token: string): ConvexAuthJwtPayload {
     }
 
     if (!("exp" in parsedPayload)) {
-      return { kind: "valid", profile: readJwtProfile(parsedPayload), tokenExpiresAt: null };
+      return {
+        kind: "valid",
+        profile: readAuthTokenProfileClaims(parsedPayload),
+        tokenExpiresAt: null,
+      };
     }
 
     if (typeof parsedPayload.exp !== "number" || !Number.isFinite(parsedPayload.exp)) {
@@ -107,7 +86,7 @@ function readJwtPayload(token: string): ConvexAuthJwtPayload {
 
     return {
       kind: "valid",
-      profile: readJwtProfile(parsedPayload),
+      profile: readAuthTokenProfileClaims(parsedPayload),
       tokenExpiresAt: parsedPayload.exp * 1000,
     };
   } catch {

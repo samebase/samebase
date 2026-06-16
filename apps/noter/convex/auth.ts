@@ -2,6 +2,7 @@ import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { guard } from "@noter-md/dependent/main";
+import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -52,25 +53,6 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
   }
 
   return patch;
-}
-
-function buildUserJwtCustomClaims(user: unknown): Record<string, string> {
-  const claims: Record<string, string> = {};
-  if (typeof user !== "object" || user === null || Array.isArray(user)) {
-    return claims;
-  }
-
-  if ("name" in user && isNonEmptyString(user.name)) {
-    claims.name = user.name;
-  }
-  if ("email" in user && isNonEmptyString(user.email)) {
-    claims.email = user.email;
-  }
-  if ("image" in user && isNonEmptyString(user.image)) {
-    claims.picture = user.image;
-  }
-
-  return claims;
 }
 
 async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
@@ -198,8 +180,11 @@ if ((googleClientId === null) !== (googleClientSecret === null)) {
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   jwt: {
-    customClaims: async (ctx, { userId }) =>
-      buildUserJwtCustomClaims(await ctx.db.get("users", userId)),
+    customClaims: async (ctx, { userId }) => {
+      // Convex Auth types this callback with AnyDataModel, so validate before reading claims.
+      const user: unknown = await ctx.db.get("users", userId);
+      return buildAuthTokenProfileCustomClaims(user);
+    },
   },
   providers: [
     ...(passwordAuthEnabled
