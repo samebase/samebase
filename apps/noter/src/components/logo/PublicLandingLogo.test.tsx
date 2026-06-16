@@ -2,7 +2,8 @@
 
 import { createContext, Script } from "node:vm";
 import * as React from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { getLogoRendererFractalDepthHardMax } from "@/components/logo/logoDepthLimits";
@@ -92,6 +93,11 @@ function runPublicLandingLogoPrehydrationScript() {
       window,
     }),
   );
+}
+
+async function settleHydrationUpdate() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 describe("PublicLandingLogo", () => {
@@ -220,6 +226,49 @@ describe("PublicLandingLogo", () => {
     const logoImage = getLogoImage(rootElement);
     expect(logoImage.className).toContain("opacity-0");
     expect(logoImage.className).toContain("pointer-events-none");
+    expect(
+      document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
+    ).toBe(false);
+    expect(document.getElementById("noter-public-landing-logo-prehydration")).toBeNull();
+  });
+
+  it("hydrates query fallback visibility without a recoverable mismatch", async () => {
+    window.history.replaceState(null, "", "/?rot=180");
+
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = renderToString(
+      <PublicLandingLogo viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY} />,
+    );
+    document.body.append(rootElement);
+
+    const serverLogoImage = getLogoImage(rootElement);
+    expect(serverLogoImage.className).toContain("opacity-100");
+    expect(serverLogoImage.className).not.toContain("opacity-0");
+
+    runPublicLandingLogoPrehydrationScript();
+
+    const recoverableErrors: unknown[] = [];
+
+    await act(async () => {
+      root = hydrateRoot(
+        rootElement,
+        <PublicLandingLogo
+          routeSearch={{ rot: 180 }}
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+        {
+          onRecoverableError(error: unknown) {
+            recoverableErrors.push(error);
+          },
+        },
+      );
+      await settleHydrationUpdate();
+    });
+
+    const hydratedLogoImage = getLogoImage(rootElement);
+    expect(recoverableErrors).toEqual([]);
+    expect(hydratedLogoImage.className).toContain("pointer-events-none");
+    expect(hydratedLogoImage.className).toContain("opacity-0");
     expect(
       document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
     ).toBe(false);

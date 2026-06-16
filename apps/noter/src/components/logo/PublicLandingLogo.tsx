@@ -195,7 +195,7 @@ export function PublicLandingLogo({
     }
 
     clearPublicLandingLogoStaticFallbackPrehydration();
-  }, [isHydratedFallbackVisibilityReady, staticLogoSvgSrc]);
+  }, [isHydratedFallbackVisibilityReady]);
 
   useEffect(() => {
     const nextView = {
