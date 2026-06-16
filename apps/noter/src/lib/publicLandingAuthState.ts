@@ -1,5 +1,4 @@
 import { guard } from "@noter-md/dependent";
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
@@ -101,7 +100,7 @@ export function shouldRenderPublicLandingWithoutAuthGate(
 
 /**
  * Keep the anonymous landing auth slot stable while hiding Google auth unless
- * the operator explicitly enables the `?dev` variant from the status bar.
+ * the operator explicitly enables the public `?sign-in` route state.
  */
 export function shouldShowGoogleAuthForPathname(
   pathname: string,
@@ -111,7 +110,7 @@ export function shouldShowGoogleAuthForPathname(
     return false;
   }
   if (pathname === "/") {
-    return hasPublicSignIn(routeSearch) || isLandingDevModeEnabled(routeSearch);
+    return hasPublicSignIn(routeSearch);
   }
   return true;
 }
