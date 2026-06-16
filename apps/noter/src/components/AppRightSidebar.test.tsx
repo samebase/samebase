@@ -19,7 +19,7 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIiwicGljdHVyZSI6Imh0dHBzOi8vZXhhbXBsZS5jb20vYXZhdGFyLnBuZyJ9.signature";
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -145,6 +145,17 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("Providers");
     expect(markup).not.toContain("not logged in");
+  });
+
+  it("shows the public signed-out account row without provider controls", () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = false;
+
+    const markup = renderRightSidebar([]);
+
+    expect(markup).toContain("not logged in");
+    expect(markup).not.toContain("checking login");
+    expect(markup).not.toContain("Providers");
   });
 
   it("uses the remembered auth flag for the temporary signed-in account row", () => {

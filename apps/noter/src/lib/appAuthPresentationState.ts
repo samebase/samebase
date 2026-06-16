@@ -1,6 +1,5 @@
 import { AUTH_FLAG_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { isRecord } from "@noter-md/dependent";
-import { useConvexAuth } from "convex/react";
 import { createContext, useContext } from "react";
 import {
   readAuthTokenProfileClaims,
@@ -15,8 +14,6 @@ type LocalAppAuthPresentationHint =
   | {
       kind: "present";
       profile: AppAuthPresentationProfile | null;
-      source: "jwt" | "remembered";
-      tokenExpiresAt: number | null;
     };
 type ConvexAuthJwtPayload =
   | { kind: "invalid" }
@@ -31,8 +28,6 @@ export type AppAuthPresentationState =
   | {
       kind: "temporaryAuthenticated";
       profile: AppAuthPresentationProfile | null;
-      source: "jwt" | "remembered";
-      tokenExpiresAt: number | null;
     }
   | { kind: "confirmedAuthenticated"; profile: AppAuthPresentationProfile | null }
   | { kind: "signedOut" };
@@ -50,14 +45,15 @@ export function convexAuthJwtStorageKey(storageNamespace: string) {
 
 function readRememberedAuthHint(storage: Storage): LocalAppAuthPresentationHint {
   return storage.getItem(AUTH_FLAG_STORAGE_KEY) === "1"
-    ? { kind: "present", profile: null, source: "remembered", tokenExpiresAt: null }
+    ? { kind: "present", profile: null }
     : { kind: "absent" };
 }
 
 function decodeBase64UrlJson(base64UrlValue: string) {
   const base64 = base64UrlValue.replace(/-/g, "+").replace(/_/g, "/");
   const paddedBase64 = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  return window.atob(paddedBase64);
+  const binary = window.atob(paddedBase64);
+  return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
 }
 
 function readJwtPayload(token: string): ConvexAuthJwtPayload {
@@ -120,8 +116,6 @@ export function readLocalAppAuthPresentationHint(
     return {
       kind: "present",
       profile: tokenPayload.profile,
-      source: "jwt",
-      tokenExpiresAt: tokenPayload.tokenExpiresAt,
     };
   } catch {
     return { kind: "absent" };
@@ -130,21 +124,11 @@ export function readLocalAppAuthPresentationHint(
 
 export function useAppAuthPresentation() {
   const contextState = useContext(AppAuthPresentationContext);
-  const { isAuthenticated, isLoading } = useConvexAuth();
-
-  if (contextState) {
-    return contextState;
+  if (contextState === null) {
+    throw new Error("AppAuthPresentationProvider is required.");
   }
 
-  if (isAuthenticated) {
-    return { kind: "confirmedAuthenticated", profile: null } satisfies AppAuthPresentationState;
-  }
-
-  if (isLoading) {
-    return { kind: "unknown" } satisfies AppAuthPresentationState;
-  }
-
-  return { kind: "signedOut" } satisfies AppAuthPresentationState;
+  return contextState;
 }
 
 export function isAppPresentationAuthenticated(state: AppAuthPresentationState) {

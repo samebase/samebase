@@ -31,8 +31,6 @@ export function AppAuthPresentationProvider({
       return {
         kind: "temporaryAuthenticated",
         profile: localAuthHint.profile,
-        source: localAuthHint.source,
-        tokenExpiresAt: localAuthHint.tokenExpiresAt,
       };
     }
 

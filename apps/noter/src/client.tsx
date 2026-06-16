@@ -1,9 +1,8 @@
 import { StartClient } from "@tanstack/react-start/client";
 import { StrictMode, startTransition } from "react";
 import { hydrateRoot } from "react-dom/client";
-// Keep the root Tailwind bundle owned by the client entry. A rootHead
-// `index.css?url` import can resolve to a chunk-local asset name and leave
-// prerendered HTML pointing at a stylesheet that was not deployed.
+// Keep the client entry importing Tailwind for browser-only dev and hydration
+// paths; the root route imports the same stylesheet for prerendered HTML.
 import "./index.css";
 import { initializeAppBootRecovery } from "@/lib/appBootRecovery";
 

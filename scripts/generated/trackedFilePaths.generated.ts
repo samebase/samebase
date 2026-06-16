@@ -562,6 +562,8 @@ export const trackedFilePaths = [
   "apps/noter/scripts/sync-site-url.ts",
   "apps/noter/shared/appResourceNames.test.ts",
   "apps/noter/shared/appResourceNames.ts",
+  "apps/noter/shared/authTokenClaims.test.ts",
+  "apps/noter/shared/authTokenClaims.ts",
   "apps/noter/shared/chatMetadata.ts",
   "apps/noter/shared/cloudflareTokenRefresh.ts",
   "apps/noter/shared/connectedMachineOrdering.test.ts",

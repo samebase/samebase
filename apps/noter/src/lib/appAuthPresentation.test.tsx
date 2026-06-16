@@ -23,6 +23,8 @@ const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
   "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+const NON_ASCII_PROFILE_JWT =
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJKb3PDqSDkuK3mnZEiLCJlbWFpbCI6Im3DvGxsZXJAbm90ZXIubWQifQ.signature";
 const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
 const NON_FINITE_EXP_JWT = "header.eyJleHAiOjFlOTk5fQ.signature";
 const NO_EXP_JWT = "header.e30.signature";
@@ -81,14 +83,17 @@ describe("app auth presentation", () => {
     );
   });
 
+  it("preserves the unknown state while Convex loads without a local auth hint", () => {
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "absent" });
+    expect(renderPresentationProvider()).toBe("<span>unknown</span>");
+  });
+
   it("treats a future local JWT as a temporary auth hint while Convex loads", () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: null,
-      source: "jwt",
-      tokenExpiresAt: 4_100_000_000_000,
     });
     expect(renderPresentationProvider()).toBe("<span>temporaryAuthenticated</span>");
   });
@@ -102,8 +107,21 @@ describe("app auth presentation", () => {
         email: "nicu@noter.md",
         name: "Nicu",
       },
-      source: "jwt",
-      tokenExpiresAt: 4_100_000_000_000,
+    });
+  });
+
+  it("reads non-ASCII profile claims from the local JWT", () => {
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+      NON_ASCII_PROFILE_JWT,
+    );
+
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
+      kind: "present",
+      profile: {
+        email: "müller@noter.md",
+        name: "José 中村",
+      },
     });
   });
 
@@ -113,8 +131,6 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: null,
-      source: "jwt",
-      tokenExpiresAt: null,
     });
   });
 
@@ -141,8 +157,6 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: null,
-      source: "remembered",
-      tokenExpiresAt: null,
     });
     expect(renderPresentationProvider()).toBe("<span>temporaryAuthenticated</span>");
   });
@@ -154,8 +168,6 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: null,
-      source: "remembered",
-      tokenExpiresAt: null,
     });
   });
 
