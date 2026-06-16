@@ -5,10 +5,13 @@
 - Status: Accepted implementation plan
 - Owner: Noter production hosting
 - Created: 2026-05-16
+- Last updated: 2026-06-16
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-notermd-workers-provisioning-migration.md`
+  - `apps/noter/scripts/generate-cloudflare-redirects.ts`
+  - `apps/noter/scripts/strip-public-prerender-modulepreloads.ts`
 
 ## Summary
 
@@ -98,6 +101,13 @@ Workers Static Assets deploys only `dist/client`, and the tagged generated block
 `apps/noter/public/_redirects` owns the exact prerender aliases. User-owned exact redirects may live
 outside that block. Unknown app-route navigations use Workers' `single-page-application` fallback to
 the SPA shell at `/index.html`.
+
+After `vp build`, the production build post-processes public prerendered HTML files to remove
+`<link rel="modulepreload">` hints. Cold public visits should let HTML and CSS reach first paint
+before hydration chunks compete for bandwidth. The post-processing must preserve the module entry
+script that hydrates the page, must fail if any `modulepreload` reference remains in public
+prerendered HTML, and must not strip modulepreload links from the SPA fallback at
+`dist/client/index.html`.
 
 This section describes the production branch. The stable `ssr` proof branch keeps request-time
 Worker SSR enabled for unmatched app routes, but it should still prerender public routes at build
@@ -199,12 +209,14 @@ Noter production itself.
    - `notFoundMode: "root"`
    - custom `parseSearch`
    - custom `stringifySearch`
-7. Move the existing provider stack into the Start root/document path without changing app behavior:
+7. Strip modulepreload hints from public prerendered HTML after the TanStack Start build, while
+   leaving `dist/client/index.html` unchanged.
+8. Move the existing provider stack into the Start root/document path without changing app behavior:
    - `AppBootErrorBoundary`
    - `OptionalThemeProvider`
    - `ConvexAuthProvider`
    - `QueryProvider`
-8. Preserve font-load waiting and app boot recovery before client hydration.
+9. Preserve font-load waiting and app boot recovery before client hydration.
 
 ### Workers Deploy Contract
 
@@ -270,6 +282,8 @@ Validation:
 3. inspect generated `dist/client/index.html`, `dist/client/_landing.html`,
    `dist/client/logo/index.html`, `dist/client/terms/index.html`, `dist/client/privacy/index.html`,
    and `dist/client/_redirects`
+4. confirm public prerendered HTML contains no `modulepreload` references and
+   `dist/client/index.html` remains the SPA fallback shell
 
 Current implementation result:
 
