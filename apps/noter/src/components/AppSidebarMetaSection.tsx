@@ -19,7 +19,7 @@ import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/lib/
 import { readRootRouteSearch } from "@/lib/rootRouteSearch";
 import { noterBuildConfig } from "@/lib/noterBuildConfig";
 import { Link, useLocation } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 function normalizeRepoUrl(repoUrl: string): string {
   return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
@@ -82,6 +82,22 @@ function AppSidebarMetaQueryLinkRow({
 }
 
 /**
+ * SSG emits the same root HTML for every query string, while hydration renders
+ * against the browser's real URL. Query-derived optional nodes must therefore
+ * wait until after hydration; otherwise the first client tree contains DOM
+ * children that the static HTML could not contain.
+ */
+function useHasHydrated() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  return hasHydrated;
+}
+
+/**
  * Keep build metadata and public-route escape hatches on the rail edge that
  * peeks beside the main pane in the mobile workspace carousel.
  */
@@ -94,9 +110,10 @@ export function AppSidebarMetaSection({
   const location = useLocation();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
 
+  const hasHydrated = useHasHydrated();
   const landingDevEnabled = isLandingDevModeEnabled(rootRouteSearch);
   const themeMode = readRootThemeMode(rootRouteSearch);
-  const showSearchResetLink = location.searchStr.length > 0;
+  const showSearchResetLink = hasHydrated && location.searchStr.length > 0;
 
   const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
 
