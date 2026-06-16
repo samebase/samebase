@@ -1,8 +1,4 @@
-import {
-  LOGO_SHUFFLE_PARALLEL_OPTIONS,
-  NLogoScene,
-  type LogoShuffleParallelMoves,
-} from "@/components/logo/NLogoScene";
+import { NLogoScene } from "@/components/logo/NLogoScene";
 import { NLogoRasterScene } from "@/components/logo/NLogoRasterScene";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
@@ -37,6 +33,11 @@ import {
   LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import {
+  LOGO_SHUFFLE_PARALLEL_OPTIONS,
+  normalizeLogoShuffleParallelMoves,
+  type LogoShuffleParallelMoves,
+} from "@/components/logo/logoShuffleAnimation";
 import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   LOGO_LEFT_FACE_STRIPE_BASIS_VALUES,
@@ -112,9 +113,13 @@ import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logo
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
   LOGO_ISO_ROUTE_SEARCH_KEYS,
+  MAX_LOGO_OPACITY,
+  MIN_LOGO_OPACITY,
   buildLogoIsoRouteSearch,
   buildLogoRouteSearch,
+  normalizeLogoOpacity,
   preserveLogoRouteDevModeSearch,
+  LOGO_OPACITY_STEP,
   type LogoIsoRouteSearch,
 } from "@/lib/logoRouteSearch";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
@@ -134,12 +139,8 @@ import {
 } from "react";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
-const DEFAULT_LOGO_OPACITY = 1;
 const DEFAULT_ROTATION_AXIS_MODE: LogoRotationAxisMode = "cube-y";
 const LOGO_PREVIEW_ROUTE_COMMIT_DEBOUNCE_MS = 150;
-const MIN_LOGO_OPACITY = 0;
-const MAX_LOGO_OPACITY = 1;
-const LOGO_OPACITY_STEP = 0.01;
 const LOGO_DISTANCE_INPUT_DECIMALS = 3;
 const ROTATION_AXIS_MODE_LABELS: Record<LogoRotationAxisMode, string> = {
   "cube-y": "Cube axis",
@@ -190,10 +191,6 @@ const COLOR_SWATCH_SIZE_CLASS_NAMES = {
 } as const;
 type ColorSwatchSize = keyof typeof COLOR_SWATCH_SIZE_CLASS_NAMES;
 
-function clampLogoOpacity(value: number): number {
-  return Math.min(Math.max(value, MIN_LOGO_OPACITY), MAX_LOGO_OPACITY);
-}
-
 function formatLogoDistanceInput(value: number): string {
   return normalizeLogoDistanceScale(value).toFixed(LOGO_DISTANCE_INPUT_DECIMALS);
 }
@@ -225,14 +222,7 @@ function updateStripedLeftFaceStyle(
 }
 
 function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
-  switch (value) {
-    case "2":
-      return 2;
-    case "3":
-      return 3;
-    default:
-      return 1;
-  }
+  return normalizeLogoShuffleParallelMoves(Number(value));
 }
 
 function expandHexColorToken(token: string): string {
@@ -411,15 +401,9 @@ type LogoPreviewRouteState = LogoRouteRenderState & {
 
 type LogoPreviewLocalStoreState = {
   editMode: VoxelEdit["kind"];
-  isAutoRotating: boolean;
-  isFaceColorAnimationEnabled: boolean;
-  isLeftFaceStripeAnimationEnabled: boolean;
   isSceneInteracting: boolean;
-  isShuffleEnabled: boolean;
   isoCubePixelSpritesByCubeSide: ReadonlyMap<number, LogoIsoCubePixelSprite>;
   isoCubePixelTool: LogoIsoCubePixelEditKind | null;
-  logoOpacity: number;
-  shuffleParallelMoves: LogoShuffleParallelMoves;
 };
 
 type LogoPreviewState = LogoPreviewRouteState & LogoPreviewLocalStoreState;
@@ -442,15 +426,9 @@ function readLogoPreviewRouteState(
 function readLogoPreviewLocalStoreState(): LogoPreviewLocalStoreState {
   return {
     editMode: "add",
-    isAutoRotating: false,
-    isFaceColorAnimationEnabled: false,
-    isLeftFaceStripeAnimationEnabled: false,
     isSceneInteracting: false,
-    isShuffleEnabled: false,
     isoCubePixelSpritesByCubeSide: new Map(),
     isoCubePixelTool: null,
-    logoOpacity: DEFAULT_LOGO_OPACITY,
-    shuffleParallelMoves: 3,
   };
 }
 
@@ -459,17 +437,23 @@ function areLogoPreviewRouteStatesEqual(
   right: LogoPreviewRouteState,
 ): boolean {
   return (
+    left.autoRotateEnabled === right.autoRotateEnabled &&
+    left.autoShuffleEnabled === right.autoShuffleEnabled &&
     left.elevationDegrees === right.elevationDegrees &&
     left.distanceScale === right.distanceScale &&
+    left.faceColorAnimationEnabled === right.faceColorAnimationEnabled &&
     left.fractalDepth === right.fractalDepth &&
     left.gridSize === right.gridSize &&
     left.viewSnapEnabled === right.viewSnapEnabled &&
     left.isoCubeSidePixels === right.isoCubeSidePixels &&
     left.isoStyleId === right.isoStyleId &&
+    left.leftFaceStripeAnimationEnabled === right.leftFaceStripeAnimationEnabled &&
     areLogoLeftFaceStylesEqual(left.leftFaceStyle, right.leftFaceStyle) &&
+    left.logoOpacity === right.logoOpacity &&
     left.rotationAxisMode === right.rotationAxisMode &&
     left.rotationDegrees === right.rotationDegrees &&
     left.selectedPresetId === right.selectedPresetId &&
+    left.shuffleParallelMoves === right.shuffleParallelMoves &&
     left.voxelState === right.voxelState &&
     left.zoom === right.zoom &&
     areLogoThemeColorsEqual(left.themeColors, right.themeColors)
@@ -550,22 +534,10 @@ function applyLogoPreviewViewState(
 
 function useLogoPreviewStore() {
   return useCreateStore(readLogoPreviewLocalStoreState(), ({ setState }) => ({
-    setAutoRotating: (isAutoRotating: boolean) => {
-      setState((state) => ({
-        ...state,
-        isAutoRotating,
-      }));
-    },
     setEditMode: (editMode: VoxelEdit["kind"]) => {
       setState((state) => ({
         ...state,
         editMode,
-      }));
-    },
-    setFaceColorAnimationEnabled: (isFaceColorAnimationEnabled: boolean) => {
-      setState((state) => ({
-        ...state,
-        isFaceColorAnimationEnabled,
       }));
     },
     clearIsoCubePixelSprite: (cubeSidePixels: number) => {
@@ -625,18 +597,6 @@ function useLogoPreviewStore() {
         };
       });
     },
-    setLeftFaceStripeAnimationEnabled: (isLeftFaceStripeAnimationEnabled: boolean) => {
-      setState((state) => ({
-        ...state,
-        isLeftFaceStripeAnimationEnabled,
-      }));
-    },
-    setLogoOpacity: (logoOpacity: number) => {
-      setState((state) => ({
-        ...state,
-        logoOpacity: clampLogoOpacity(logoOpacity),
-      }));
-    },
     setIsoCubePixelTool: (isoCubePixelTool: LogoIsoCubePixelEditKind | null) => {
       setState((state) => ({
         ...state,
@@ -647,18 +607,6 @@ function useLogoPreviewStore() {
       setState((state) => ({
         ...state,
         isSceneInteracting,
-      }));
-    },
-    setShuffleEnabled: (isShuffleEnabled: boolean) => {
-      setState((state) => ({
-        ...state,
-        isShuffleEnabled,
-      }));
-    },
-    setShuffleParallelMoves: (shuffleParallelMoves: LogoShuffleParallelMoves) => {
-      setState((state) => ({
-        ...state,
-        shuffleParallelMoves,
       }));
     },
   }));
@@ -743,10 +691,10 @@ function useLogoPreviewController({
       },
       applyPreset: (presetId: Exclude<LogoPresetSelection, "custom">) => {
         const preset = getLogoPreset(presetId);
-        store.actions.setAutoRotating(false);
-        store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => ({
           ...currentState,
+          autoRotateEnabled: false,
+          autoShuffleEnabled: false,
           gridSize: preset.gridSize,
           selectedPresetId: presetId,
           voxelState: preset.voxelState,
@@ -758,12 +706,12 @@ function useLogoPreviewController({
         );
       },
       editVoxel: (edit: VoxelEdit) => {
-        store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => {
           const voxelState = applyVoxelEdit(currentState.voxelState, currentState.gridSize, edit);
 
           return {
             ...currentState,
+            autoShuffleEnabled: false,
             selectedPresetId: getLogoPresetSelection(voxelState, currentState.gridSize),
             voxelState,
           };
@@ -784,25 +732,25 @@ function useLogoPreviewController({
       },
       paintIsoCubePixelSprite: store.actions.paintIsoCubePixelSprite,
       resetView: () => {
-        store.actions.setAutoRotating(false);
         commitRouteState((currentState) => ({
           ...applyLogoPreviewViewState(currentState, {
             elevationDegrees: DEFAULT_ELEVATION_DEGREES,
             rotationDegrees: DEFAULT_ROTATION_DEGREES,
           }),
+          autoRotateEnabled: false,
           distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
           rotationAxisMode: DEFAULT_ROTATION_AXIS_MODE,
           zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         }));
       },
       resetShape: () => {
-        store.actions.setAutoRotating(false);
-        store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => {
           const voxelState = createDefaultVoxelState(currentState.gridSize);
 
           return {
             ...currentState,
+            autoRotateEnabled: false,
+            autoShuffleEnabled: false,
             selectedPresetId: getLogoPresetSelection(voxelState, currentState.gridSize),
             voxelState,
           };
@@ -816,29 +764,40 @@ function useLogoPreviewController({
           }),
         );
       },
-      setAutoRotating: (isAutoRotating: boolean) => {
-        store.actions.setAutoRotating(isAutoRotating);
-        if (isAutoRotating) {
+      setAutoRotating: (autoRotateEnabled: boolean) => {
+        if (autoRotateEnabled) {
           pacedRouteState.cancelCommit();
-          return;
         }
 
-        pacedRouteState.commitCurrent();
+        commitRouteState((currentState) => ({
+          ...currentState,
+          autoRotateEnabled,
+        }));
       },
       setEditMode: (editMode: VoxelEdit["kind"]) => {
         store.actions.setIsoCubePixelTool(null);
         store.actions.setEditMode(editMode);
       },
       setElevationDegrees: (elevationDegrees: number) => {
-        store.actions.setAutoRotating(false);
         debounceRouteState((currentState) =>
-          applyLogoPreviewViewState(currentState, {
-            elevationDegrees: normalizeElevationDegrees(elevationDegrees),
-            rotationDegrees: currentState.rotationDegrees,
-          }),
+          applyLogoPreviewViewState(
+            {
+              ...currentState,
+              autoRotateEnabled: false,
+            },
+            {
+              elevationDegrees: normalizeElevationDegrees(elevationDegrees),
+              rotationDegrees: currentState.rotationDegrees,
+            },
+          ),
         );
       },
-      setFaceColorAnimationEnabled: store.actions.setFaceColorAnimationEnabled,
+      setFaceColorAnimationEnabled: (faceColorAnimationEnabled: boolean) => {
+        commitRouteState((currentState) => ({
+          ...currentState,
+          faceColorAnimationEnabled,
+        }));
+      },
       setDistanceScale: (distanceScale: number) => {
         debounceRouteState((currentState) => ({
           ...currentState,
@@ -854,10 +813,10 @@ function useLogoPreviewController({
       },
       setGridSize: (gridSize: LogoGridSize) => {
         const voxelState = createDefaultVoxelState(gridSize);
-        store.actions.setAutoRotating(false);
-        store.actions.setShuffleEnabled(false);
         commitRouteState((currentState) => ({
           ...currentState,
+          autoRotateEnabled: false,
+          autoShuffleEnabled: false,
           gridSize,
           selectedPresetId: getLogoPresetSelection(voxelState, gridSize),
           voxelState,
@@ -877,7 +836,10 @@ function useLogoPreviewController({
       },
       setIsoCubePixelTool: (isoCubePixelTool: LogoIsoCubePixelEditKind | null) => {
         if (isoCubePixelTool) {
-          store.actions.setShuffleEnabled(false);
+          commitRouteState((currentState) => ({
+            ...currentState,
+            autoShuffleEnabled: false,
+          }));
         }
         store.actions.setIsoCubePixelTool(isoCubePixelTool);
       },
@@ -900,7 +862,12 @@ function useLogoPreviewController({
           };
         });
       },
-      setLeftFaceStripeAnimationEnabled: store.actions.setLeftFaceStripeAnimationEnabled,
+      setLeftFaceStripeAnimationEnabled: (leftFaceStripeAnimationEnabled: boolean) => {
+        commitRouteState((currentState) => ({
+          ...currentState,
+          leftFaceStripeAnimationEnabled,
+        }));
+      },
       setLeftFaceStripeAngleDegrees: (stripeAngleDegrees: number) => {
         debounceRouteState((currentState) =>
           updateStripedLeftFaceStyle(currentState, (style) => ({
@@ -960,7 +927,12 @@ function useLogoPreviewController({
           }),
         );
       },
-      setLogoOpacity: store.actions.setLogoOpacity,
+      setLogoOpacity: (logoOpacity: number) => {
+        debounceRouteState((currentState) => ({
+          ...currentState,
+          logoOpacity: normalizeLogoOpacity(logoOpacity),
+        }));
+      },
       setPresetToCustom: () => {
         setRouteStateDraft((currentState) => ({
           ...currentState,
@@ -974,21 +946,34 @@ function useLogoPreviewController({
         }));
       },
       setRotationDegrees: (rotationDegrees: number) => {
-        store.actions.setAutoRotating(false);
         debounceRouteState((currentState) =>
-          applyLogoPreviewViewState(currentState, {
-            elevationDegrees: currentState.elevationDegrees,
-            rotationDegrees: normalizeRotationDegrees(rotationDegrees),
-          }),
+          applyLogoPreviewViewState(
+            {
+              ...currentState,
+              autoRotateEnabled: false,
+            },
+            {
+              elevationDegrees: currentState.elevationDegrees,
+              rotationDegrees: normalizeRotationDegrees(rotationDegrees),
+            },
+          ),
         );
       },
-      setShuffleEnabled: (isShuffleEnabled: boolean) => {
-        if (isShuffleEnabled) {
+      setShuffleEnabled: (autoShuffleEnabled: boolean) => {
+        if (autoShuffleEnabled) {
           store.actions.setIsoCubePixelTool(null);
         }
-        store.actions.setShuffleEnabled(isShuffleEnabled);
+        commitRouteState((currentState) => ({
+          ...currentState,
+          autoShuffleEnabled,
+        }));
       },
-      setShuffleParallelMoves: store.actions.setShuffleParallelMoves,
+      setShuffleParallelMoves: (shuffleParallelMoves: LogoShuffleParallelMoves) => {
+        commitRouteState((currentState) => ({
+          ...currentState,
+          shuffleParallelMoves,
+        }));
+      },
       setThemeColorFamily: (themeColorKey: LogoThemeColorKey, nextFamily: string) => {
         commitRouteState((currentState) => ({
           ...currentState,
@@ -1065,7 +1050,10 @@ function useLogoPreviewController({
       },
       startSceneInteraction: () => {
         pacedRouteState.cancelCommit();
-        store.actions.setAutoRotating(false);
+        setRouteStateDraft((currentState) => ({
+          ...currentState,
+          autoRotateEnabled: false,
+        }));
         store.actions.setSceneInteracting(true);
       },
     },
@@ -1363,7 +1351,7 @@ export function LogoPreviewPage({
   const stripeAnimationCheckboxId = useId();
 
   useAnimationFrameLoop({
-    isRunning: state.isAutoRotating && renderMode === "three",
+    isRunning: state.autoRotateEnabled && renderMode === "three",
     onFrame: (deltaSeconds) => {
       controls.advanceAutoRotation(deltaSeconds);
     },
@@ -1377,7 +1365,7 @@ export function LogoPreviewPage({
   const rotationAngleControlLabel = ROTATION_ANGLE_CONTROL_LABELS[state.rotationAxisMode];
   const isRecursiveDepth = state.fractalDepth > DEFAULT_LOGO_FRACTAL_DEPTH;
   const shuffleAnimation = {
-    enabled: state.isShuffleEnabled,
+    enabled: state.autoShuffleEnabled,
     parallelMoves: state.shuffleParallelMoves,
   };
   const stripedLeftFaceStyle = state.leftFaceStyle.kind === "striped" ? state.leftFaceStyle : null;
@@ -1456,8 +1444,8 @@ export function LogoPreviewPage({
         rotationAxisMode={state.rotationAxisMode}
         rotationDegrees={state.rotationDegrees}
         shuffleAnimation={shuffleAnimation}
-        animateFaceColors={state.isFaceColorAnimationEnabled}
-        animateLeftFaceStripes={state.isLeftFaceStripeAnimationEnabled}
+        animateFaceColors={state.faceColorAnimationEnabled}
+        animateLeftFaceStripes={state.leftFaceStripeAnimationEnabled}
         fractalDepth={state.fractalDepth}
         voxelEditingEnabled={!isRecursiveDepth}
         viewDragConfig={state.viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined}
@@ -1897,7 +1885,7 @@ export function LogoPreviewPage({
             label="Opacity"
             max={MAX_LOGO_OPACITY}
             min={MIN_LOGO_OPACITY}
-            normalizeValue={clampLogoOpacity}
+            normalizeValue={normalizeLogoOpacity}
             onSliderChange={controls.setLogoOpacity}
             onValueChange={controls.setLogoOpacity}
             sliderAriaLabel="Opacity slider"
@@ -1939,25 +1927,25 @@ export function LogoPreviewPage({
             <Button
               type="button"
               size="sm"
-              variant={state.isAutoRotating ? "default" : "outline"}
+              variant={state.autoRotateEnabled ? "default" : "outline"}
               className="w-full rounded-none"
               onClick={() => {
-                controls.setAutoRotating(!state.isAutoRotating);
+                controls.setAutoRotating(!state.autoRotateEnabled);
               }}
             >
-              {state.isAutoRotating ? "Stop auto rotate" : "Start auto rotate"}
+              {state.autoRotateEnabled ? "Stop auto rotate" : "Start auto rotate"}
             </Button>
           ) : null}
           <Button
             type="button"
             size="sm"
-            variant={state.isShuffleEnabled ? "default" : "outline"}
+            variant={state.autoShuffleEnabled ? "default" : "outline"}
             className="w-full rounded-none"
             onClick={() => {
-              controls.setShuffleEnabled(!state.isShuffleEnabled);
+              controls.setShuffleEnabled(!state.autoShuffleEnabled);
             }}
           >
-            {state.isShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
+            {state.autoShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
           </Button>
         </div>
 
@@ -1988,7 +1976,7 @@ export function LogoPreviewPage({
           <div className="flex items-start gap-3">
             <Checkbox
               id={faceColorAnimationCheckboxId}
-              checked={state.isFaceColorAnimationEnabled}
+              checked={state.faceColorAnimationEnabled}
               onCheckedChange={(checked) => controls.setFaceColorAnimationEnabled(checked === true)}
               className="mt-0.5 border-border"
             />
@@ -2130,7 +2118,7 @@ export function LogoPreviewPage({
               <div className="flex items-center gap-3">
                 <Checkbox
                   id={stripeAnimationCheckboxId}
-                  checked={state.isLeftFaceStripeAnimationEnabled}
+                  checked={state.leftFaceStripeAnimationEnabled}
                   onCheckedChange={(checked) => {
                     controls.setLeftFaceStripeAnimationEnabled(checked === true);
                   }}

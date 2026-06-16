@@ -171,6 +171,15 @@ describe("rootRouteSearch", () => {
     });
   });
 
+  it("parses root logo motion and opacity controls", () => {
+    expect(readRootRouteSearch("?auto-rotate&auto-shuffle&shuffleMoves=2&opacity=0.5")).toEqual({
+      "auto-rotate": true,
+      "auto-shuffle": true,
+      opacity: 0.5,
+      shuffleMoves: 2,
+    });
+  });
+
   it("ignores the unsupported base query key", () => {
     expect(readRootRouteSearch("?base=%23112233")).toEqual({});
   });

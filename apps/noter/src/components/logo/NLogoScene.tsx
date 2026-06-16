@@ -7,6 +7,7 @@ import {
   type LogoRotationAxisMode,
 } from "@/components/logo/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
+import { type LogoShuffleParallelMoves } from "@/components/logo/logoShuffleAnimation";
 import {
   LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
@@ -201,8 +202,6 @@ void main() {
 }
 `;
 
-export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
-export type LogoShuffleParallelMoves = (typeof LOGO_SHUFFLE_PARALLEL_OPTIONS)[number];
 export type LogoShuffleAnimationConfig = {
   enabled: boolean;
   parallelMoves: LogoShuffleParallelMoves;

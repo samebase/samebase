@@ -9,6 +9,10 @@ import {
   LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import {
+  DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
+  normalizeLogoShuffleParallelMoves,
+} from "@/components/logo/logoShuffleAnimation";
 import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   normalizeLogoLeftFaceStyle,
@@ -35,7 +39,12 @@ import {
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
 import { readLogoThemeColors } from "@/lib/appThemeColorSearch";
-import { type LogoIsoRouteSearch, type LogoRouteSearchBuildState } from "@/lib/logoRouteSearch";
+import {
+  DEFAULT_LOGO_OPACITY,
+  normalizeLogoOpacity,
+  type LogoIsoRouteSearch,
+  type LogoRouteSearchBuildState,
+} from "@/lib/logoRouteSearch";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 
 export type LogoRouteRenderMode = Exclude<LogoDepthRenderer, "svg">;
@@ -132,6 +141,22 @@ function readRouteDistanceScale(routeSearch: LogoIsoRouteSearch): number {
   return normalizeLogoDistanceScale(routeSearch.dist);
 }
 
+function readRouteLogoOpacity(routeSearch: LogoIsoRouteSearch): number {
+  if (typeof routeSearch.opacity !== "number") {
+    return DEFAULT_LOGO_OPACITY;
+  }
+
+  return normalizeLogoOpacity(routeSearch.opacity);
+}
+
+function readRouteShuffleParallelMoves(routeSearch: LogoIsoRouteSearch) {
+  if (typeof routeSearch.shuffleMoves !== "number") {
+    return DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES;
+  }
+
+  return normalizeLogoShuffleParallelMoves(routeSearch.shuffleMoves);
+}
+
 function readRouteZoom(routeSearch: LogoIsoRouteSearch): number {
   if (typeof routeSearch.zoom !== "number") {
     return LOGO_PREVIEW_ZOOM.defaultValue;
@@ -205,15 +230,21 @@ export function readLogoRouteRenderState({
   const voxelState = readRouteVoxelState(routeSearch, gridSize);
 
   return {
+    autoRotateEnabled: routeSearch["auto-rotate"] === true,
+    autoShuffleEnabled: routeSearch["auto-shuffle"] === true,
     distanceScale: readRouteDistanceScale(routeSearch),
     elevationDegrees: view.elevationDegrees,
+    faceColorAnimationEnabled: routeSearch["animate-colors"] === true,
     fractalDepth: readRouteFractalDepth(routeSearch, renderMode),
     gridSize,
     isoCubeSidePixels: readRouteIsoCubeSidePixels(routeSearch),
     isoStyleId: readRouteIsoStyleId(routeSearch),
+    leftFaceStripeAnimationEnabled: routeSearch["animate-stripes"] === true,
     leftFaceStyle: normalizeLogoLeftFaceStyle(readLogoLeftFaceStyle(routeSearch)),
+    logoOpacity: readRouteLogoOpacity(routeSearch),
     rotationAxisMode: readRouteRotationAxisMode(routeSearch),
     rotationDegrees: view.rotationDegrees,
+    shuffleParallelMoves: readRouteShuffleParallelMoves(routeSearch),
     themeColors: readLogoThemeColors(routeSearch),
     viewSnapEnabled: view.viewSnapEnabled,
     voxelState,

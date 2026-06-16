@@ -56,10 +56,6 @@ const DEFAULT_LANDING_LOGO_VIEW: RotatedLogoViewState = {
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
 const EMPTY_LOGO_ROUTE_SEARCH: LogoRouteSearch = {};
-const LANDING_LOGO_SCENE_SHUFFLE_ANIMATION = {
-  enabled: false,
-  parallelMoves: 1,
-} as const;
 
 let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
 // Unsupported renderer paths can loop on remount, so keep that failure sticky
@@ -162,7 +158,14 @@ export function PublicLandingLogo({
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
   const isSceneInteractive = isSceneReady && !isSvgVisible;
-  const shouldAnimateLeftFaceStripes = animateLeftFaceStripes && !prefersReducedMotion;
+  const isAutoRotateRequested = autoRotate || routeState.autoRotateEnabled;
+  const shouldAnimateFaceColors = routeState.faceColorAnimationEnabled && !prefersReducedMotion;
+  const shouldAnimateLeftFaceStripes =
+    (animateLeftFaceStripes || routeState.leftFaceStripeAnimationEnabled) && !prefersReducedMotion;
+  const shuffleAnimation = {
+    enabled: routeState.autoShuffleEnabled && !prefersReducedMotion,
+    parallelMoves: routeState.shuffleParallelMoves,
+  };
   const persistLatestLogoView = useCallback(() => {
     persistRotatedLogoViewState({
       key: viewStateKey,
@@ -279,10 +282,10 @@ export function PublicLandingLogo({
   }, [isSceneReady, isSvgVisible]);
 
   useEffect(() => {
-    setIsAutoRotating(autoRotate);
+    setIsAutoRotating(isAutoRotateRequested);
     lastFrameTimeRef.current = null;
     autoRotateResumeStartedAtRef.current = null;
-  }, [autoRotate]);
+  }, [isAutoRotateRequested]);
 
   useEffect(() => {
     latestViewRef.current = view;
@@ -390,7 +393,7 @@ export function PublicLandingLogo({
               elevationDegrees={view.elevationDegrees}
               faceColors={faceColors}
               leftFaceStyle={routeState.leftFaceStyle}
-              opacity={1}
+              opacity={routeState.logoOpacity}
               onInteractionStart={() => {
                 autoRotateResumeStartedAtRef.current = null;
                 setIsAutoRotating(false);
@@ -404,7 +407,7 @@ export function PublicLandingLogo({
                   }),
                 );
                 persistLatestLogoView();
-                if (!autoRotate) {
+                if (!isAutoRotateRequested) {
                   return;
                 }
                 autoRotateResumeStartedAtRef.current = performance.now();
@@ -425,8 +428,8 @@ export function PublicLandingLogo({
               onVoxelEdit={ignoreLogoVoxelEdit}
               rotationAxisMode={routeState.rotationAxisMode}
               rotationDegrees={view.rotationDegrees}
-              shuffleAnimation={LANDING_LOGO_SCENE_SHUFFLE_ANIMATION}
-              animateFaceColors={false}
+              shuffleAnimation={shuffleAnimation}
+              animateFaceColors={shouldAnimateFaceColors}
               animateLeftFaceStripes={shouldAnimateLeftFaceStripes}
               fractalDepth={routeState.fractalDepth}
               voxelGrid={

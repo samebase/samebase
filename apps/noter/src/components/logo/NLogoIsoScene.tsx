@@ -1,4 +1,5 @@
 import { getShuffleOriginCandidates } from "@/components/logo/logoShuffleRules";
+import { type LogoShuffleParallelMoves } from "@/components/logo/logoShuffleAnimation";
 import { clampLogoFractalDepthForRenderer } from "@/components/logo/logoDepthLimits";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -46,8 +47,6 @@ const CLICK_THRESHOLD_PX = 4;
 const MIN_RECURSIVE_ISO_CUBE_SIDE_PX = 1;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
 const SHUFFLE_MOVE_STAGGER_MS = 520;
-
-type LogoShuffleParallelMoves = 1 | 2 | 3;
 
 type LogoShuffleAnimationConfig = {
   enabled: boolean;
