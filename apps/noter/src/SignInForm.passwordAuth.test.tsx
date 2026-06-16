@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
@@ -59,6 +59,12 @@ function renderPasswordAuthForm(surface: "local_worktree" | "preview"): string {
   return renderToStaticMarkup(<PasswordAuthForm surface={surface} />);
 }
 
+async function settleHydrationUpdate() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
 describe("PasswordAuthForm", () => {
   let root: Root | null = null;
 
@@ -77,6 +83,7 @@ describe("PasswordAuthForm", () => {
       root = null;
     }
     document.body.replaceChildren();
+    window.localStorage.clear();
     vi.unstubAllEnvs();
   });
 
@@ -101,7 +108,7 @@ describe("PasswordAuthForm", () => {
     expect(markup).toContain(">Sign in</button>");
   });
 
-  it("renders the landing sidebar password auth for preview deployments", () => {
+  it("omits the landing sidebar password auth from prerendered markup", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
@@ -109,12 +116,52 @@ describe("PasswordAuthForm", () => {
 
     const markup = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
 
-    expect(markup).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(markup).toContain("Password auth (dev)");
-    expect(markup).toContain('placeholder="you@example.com"');
-    expect(markup).toContain('autoComplete="current-password"');
-    expect(markup).not.toContain("Google");
-    expect(markup).not.toContain("Need an account?");
+    expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(markup).not.toContain("Password auth (dev)");
+  });
+
+  it("renders the landing sidebar password auth after hydration", async () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "preview" },
+      passwordAuthMode: "preview_seed",
+    };
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingPasswordAuthControls />);
+      await settleHydrationUpdate();
+    });
+
+    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(rootElement.innerHTML).toContain("Password auth (dev)");
+    expect(rootElement.innerHTML).toContain('placeholder="you@example.com"');
+    expect(rootElement.innerHTML).toContain('autocomplete="current-password"');
+    expect(rootElement.innerHTML).not.toContain("Google");
+    expect(rootElement.innerHTML).not.toContain("Need an account?");
+  });
+
+  it("hydrates without inserting remembered password auth before hydration completes", async () => {
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
+    document.body.append(rootElement);
+    window.localStorage.setItem("noter_public_landing_password_auth_mode", "preview_seed");
+    const recoverableErrors: Array<unknown> = [];
+
+    await act(async () => {
+      root = hydrateRoot(rootElement, <PublicLandingPasswordAuthControls />, {
+        onRecoverableError(error: unknown) {
+          recoverableErrors.push(error);
+        },
+      });
+      await settleHydrationUpdate();
+    });
+
+    expect(recoverableErrors).toEqual([]);
+    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(rootElement.innerHTML).toContain("Password auth (dev)");
   });
 
   it("hides the landing sidebar password auth in prod-ui mode", () => {
