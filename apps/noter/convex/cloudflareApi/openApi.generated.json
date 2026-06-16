@@ -3173,6 +3173,11 @@
         ],
         "requestBody": {
           "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/workers_secret-patch-request"
+              }
+            },
             "application/merge-patch+json": {
               "schema": {
                 "$ref": "#/components/schemas/workers_secret-patch-request"
@@ -11376,6 +11381,11 @@
         ],
         "requestBody": {
           "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/workers_secret-patch-request"
+              }
+            },
             "application/merge-patch+json": {
               "schema": {
                 "$ref": "#/components/schemas/workers_secret-patch-request"
@@ -14392,6 +14402,114 @@
         "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write", "Workers Scripts Read"]
       }
     },
+    "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": {
+      "patch": {
+        "description": "Only `/versions/latest` is supported. Creates a new version by applying a JSON Merge Patch (RFC 7396) to the latest version. Patching a specific version ID is not supported. Omitted fields are inherited from the latest version.",
+        "operationId": "patchLatestWorkerVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/workers_identifier"
+            }
+          },
+          {
+            "in": "path",
+            "name": "worker_id",
+            "required": true,
+            "schema": {
+              "description": "Identifier for the Worker, which can be ID or name.",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deploy",
+            "schema": {
+              "description": "If true, a deployment will be created that sends 100% of traffic to the new version.",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/workers_Version"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "application/merge-patch+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/workers_Version"
+                  },
+                  {
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "description": "JSON Merge Patch to apply to the latest version. An empty object creates a new version with no changes."
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/workers_api-response-common"
+                    },
+                    {
+                      "properties": {
+                        "result": {
+                          "$ref": "#/components/schemas/workers_Version"
+                        }
+                      },
+                      "required": ["result"],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Patch version success."
+          },
+          "4XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/workers_api-response-common-failure"
+                }
+              }
+            },
+            "description": "Patch version failure."
+          }
+        },
+        "security": [
+          {
+            "api_token": []
+          },
+          {
+            "api_email": [],
+            "api_key": []
+          }
+        ],
+        "summary": "Patch Latest Version",
+        "tags": ["Versions"]
+      }
+    },
     "/user/tokens/verify": {
       "get": {
         "description": "Test whether a token works.",
@@ -16683,7 +16801,7 @@
                 "$ref": "#/components/schemas/workers_compatibility_flags"
               },
               "keep_assets": {
-                "description": "Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token.",
+                "description": "Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token. An explicit `assets` upload takes precedence over `keep_assets`.",
                 "example": false,
                 "type": "boolean"
               },

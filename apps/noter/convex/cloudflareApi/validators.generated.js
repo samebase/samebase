@@ -75357,11 +75357,124 @@ validate683.evaluated = {
   dynamicProps: false,
   dynamicItems: false,
 };
-export const ajvUserApiTokensVerifyTokenResponse = validate688;
+export const ajvPatchLatestWorkerVersionResponse = validate688;
 const schema572 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1user~1tokens~1verify/get/responses/200/content/application~1json/schema",
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1latest/patch/responses/200/content/application~1json/schema",
 };
 const schema573 = {
+  allOf: [
+    { $ref: "#/components/schemas/workers_api-response-common" },
+    {
+      properties: { result: { $ref: "#/components/schemas/workers_Version" } },
+      required: ["result"],
+      type: "object",
+    },
+  ],
+};
+function validate689(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate689.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate149(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate149.errors : vErrors.concat(validate149.errors);
+    errors = vErrors.length;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.result === undefined) {
+      const err0 = {
+        instancePath,
+        schemaPath: "#/allOf/1/required",
+        keyword: "required",
+        params: { missingProperty: "result" },
+        message: "must have required property '" + "result" + "'",
+      };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.result !== undefined) {
+      if (
+        !validate665(data.result, {
+          instancePath: instancePath + "/result",
+          parentData: data,
+          parentDataProperty: "result",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate665.errors : vErrors.concat(validate665.errors);
+        errors = vErrors.length;
+      }
+    }
+  } else {
+    const err1 = {
+      instancePath,
+      schemaPath: "#/allOf/1/type",
+      keyword: "type",
+      params: { type: "object" },
+      message: "must be object",
+    };
+    if (vErrors === null) {
+      vErrors = [err1];
+    } else {
+      vErrors.push(err1);
+    }
+    errors++;
+  }
+  validate689.errors = vErrors;
+  return errors === 0;
+}
+validate689.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+function validate688(
+  data,
+  { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
+) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate688.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = undefined;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = undefined;
+  }
+  if (
+    !validate689(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+  ) {
+    vErrors = vErrors === null ? validate689.errors : vErrors.concat(validate689.errors);
+    errors = vErrors.length;
+  }
+  validate688.errors = vErrors;
+  return errors === 0;
+}
+validate688.evaluated = {
+  props: { result: true, errors: true, messages: true, success: true },
+  dynamicProps: false,
+  dynamicItems: false,
+};
+export const ajvUserApiTokensVerifyTokenResponse = validate693;
+const schema574 = {
+  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1user~1tokens~1verify/get/responses/200/content/application~1json/schema",
+};
+const schema575 = {
   allOf: [
     { $ref: "#/components/schemas/iam_api-response-single" },
     {
@@ -75380,14 +75493,14 @@ const schema573 = {
     },
   ],
 };
-const schema574 = {
+const schema576 = {
   description: "The expiration time on or after which the JWT MUST NOT be accepted for processing.",
   example: "2020-01-01T00:00:00Z",
   format: "date-time",
   type: "string",
   "x-auditable": true,
 };
-const schema575 = {
+const schema577 = {
   description: "Token identifier tag.",
   example: "ed17574386854bf78a67040be0a770b0",
   maxLength: 32,
@@ -75395,14 +75508,14 @@ const schema575 = {
   type: "string",
   "x-auditable": true,
 };
-const schema576 = {
+const schema578 = {
   description: "The time before which the token MUST NOT be accepted for processing.",
   example: "2018-07-01T05:20:00Z",
   format: "date-time",
   type: "string",
   "x-auditable": true,
 };
-const schema577 = {
+const schema579 = {
   description: "Status of the token.",
   enum: ["active", "disabled", "expired"],
   example: "active",
@@ -75410,13 +75523,13 @@ const schema577 = {
   "x-auditable": true,
   "x-stainless-terraform-configurability": "computed_optional",
 };
-function validate689(
+function validate694(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate689.evaluated;
+  const evaluated0 = validate694.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -75553,7 +75666,7 @@ function validate689(
               instancePath: instancePath + "/result/status",
               schemaPath: "#/components/schemas/iam_token_status/enum",
               keyword: "enum",
-              params: { allowedValues: schema577.enum },
+              params: { allowedValues: schema579.enum },
               message: "must be equal to one of the allowed values",
             };
             if (vErrors === null) {
@@ -75581,21 +75694,21 @@ function validate689(
     }
     errors++;
   }
-  validate689.errors = vErrors;
+  validate694.errors = vErrors;
   return errors === 0;
 }
-validate689.evaluated = {
+validate694.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
 };
-function validate688(
+function validate693(
   data,
   { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {},
 ) {
   let vErrors = null;
   let errors = 0;
-  const evaluated0 = validate688.evaluated;
+  const evaluated0 = validate693.evaluated;
   if (evaluated0.dynamicProps) {
     evaluated0.props = undefined;
   }
@@ -75603,15 +75716,15 @@ function validate688(
     evaluated0.items = undefined;
   }
   if (
-    !validate689(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
+    !validate694(data, { instancePath, parentData, parentDataProperty, rootData, dynamicAnchors })
   ) {
-    vErrors = vErrors === null ? validate689.errors : vErrors.concat(validate689.errors);
+    vErrors = vErrors === null ? validate694.errors : vErrors.concat(validate694.errors);
     errors = vErrors.length;
   }
-  validate688.errors = vErrors;
+  validate693.errors = vErrors;
   return errors === 0;
 }
-validate688.evaluated = {
+validate693.evaluated = {
   props: { result: true, errors: true, messages: true, success: true },
   dynamicProps: false,
   dynamicItems: false,
@@ -75769,6 +75882,8 @@ export const cloudflareApiResponseValidators = {
     "/accounts/{account_id}/workers/services/{service_name}/environments/{environment_name}/settings":
       ajvWorkerScriptEnvironmentPatchSettingsResponse,
     "/accounts/{account_id}/workers/workers/{worker_id}": ajvEditWorkerResponse,
+    "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest":
+      ajvPatchLatestWorkerVersionResponse,
   },
 
   POST: {

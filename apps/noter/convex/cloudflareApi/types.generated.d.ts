@@ -1916,6 +1916,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Patch Latest Version
+     * @description Only `/versions/latest` is supported. Creates a new version by applying a JSON Merge Patch (RFC 7396) to the latest version. Patching a specific version ID is not supported. Omitted fields are inherited from the latest version.
+     */
+    patch: operations["patchLatestWorkerVersion"];
+    trace?: never;
+  };
   "/user/tokens/verify": {
     parameters: {
       query?: never;
@@ -3067,7 +3087,7 @@ export interface components {
         compatibility_date?: components["schemas"]["workers_compatibility_date"];
         compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
         /**
-         * @description Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token.
+         * @description Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token. An explicit `assets` upload takes precedence over `keep_assets`.
          * @example false
          */
         keep_assets?: boolean;
@@ -7653,6 +7673,7 @@ export interface operations {
     };
     requestBody: {
       content: {
+        "application/json": components["schemas"]["workers_secret-patch-request"];
         "application/merge-patch+json": components["schemas"]["workers_secret-patch-request"];
       };
     };
@@ -11417,6 +11438,7 @@ export interface operations {
     };
     requestBody: {
       content: {
+        "application/json": components["schemas"]["workers_secret-patch-request"];
         "application/merge-patch+json": components["schemas"]["workers_secret-patch-request"];
       };
     };
@@ -12744,6 +12766,49 @@ export interface operations {
         };
       };
       /** @description Delete version failure. */
+      "4XX": {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common-failure"];
+        };
+      };
+    };
+  };
+  patchLatestWorkerVersion: {
+    parameters: {
+      query?: {
+        deploy?: boolean;
+      };
+      header?: never;
+      path: {
+        account_id: components["schemas"]["workers_identifier"];
+        worker_id: string;
+      };
+      cookie?: never;
+    };
+    /** @description JSON Merge Patch to apply to the latest version. An empty object creates a new version with no changes. */
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["workers_Version"] & Record<string, unknown>;
+        "application/merge-patch+json": components["schemas"]["workers_Version"] &
+          Record<string, unknown>;
+      };
+    };
+    responses: {
+      /** @description Patch version success. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["workers_api-response-common"] & {
+            result: components["schemas"]["workers_Version"];
+          };
+        };
+      };
+      /** @description Patch version failure. */
       "4XX": {
         headers: {
           [name: string]: unknown;

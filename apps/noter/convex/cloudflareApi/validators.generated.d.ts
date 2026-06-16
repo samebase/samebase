@@ -280,6 +280,9 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/workers/workers/{worker_id}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["editWorker"]>
     >;
+    "/accounts/{account_id}/workers/workers/{worker_id}/versions/latest": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["patchLatestWorkerVersion"]>
+    >;
   };
 
   POST: {
