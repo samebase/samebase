@@ -26,6 +26,21 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
+/**
+ * SSG cannot read per-browser auth preferences. Password auth controls that
+ * come from localStorage or cached deployment policy therefore wait until
+ * hydration has attached to the anonymous static shell.
+ */
+function useHasHydrated() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  return hasHydrated;
+}
+
 function readLocalWorktreePasswordCredentials(): {
   email: string;
   password: string;
@@ -47,6 +62,7 @@ function usePublicLandingPasswordAuthControls(): {
 } {
   const navigate = useNavigate();
   const { isAuthenticated } = useConvexAuth();
+  const hasHydrated = useHasHydrated();
   const [passwordSignInReadyForDashboard, setPasswordSignInReadyForDashboard] = useState(false);
   const searchStr = useLocation({
     select: (location) => location.searchStr,
@@ -65,10 +81,12 @@ function usePublicLandingPasswordAuthControls(): {
     deploymentAuthPolicy?.passwordAuthMode ??
       (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : undefined),
   );
-  const passwordAuthSurface = getVisiblePasswordAuthSurface({
-    passwordAuthMode,
-    prodUiModeEnabled,
-  });
+  const passwordAuthSurface = hasHydrated
+    ? getVisiblePasswordAuthSurface({
+        passwordAuthMode,
+        prodUiModeEnabled,
+      })
+    : "hidden";
 
   useEffect(() => {
     const nextPasswordAuthMode = deploymentAuthPolicy?.passwordAuthMode;

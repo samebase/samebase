@@ -8,8 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 import {
+  appWorkspaceMobilePanePrehydrationScript,
   appWorkspaceSidebarPrehydrationScript,
-  clearAppWorkspaceSidebarPrehydrationStyle,
+  clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
@@ -97,7 +98,7 @@ describe("AppWorkspaceShell", () => {
   afterEach(() => {
     useConvexAuthMock.mockReset();
     useQueryMock.mockReset();
-    clearAppWorkspaceSidebarPrehydrationStyle();
+    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
     window.localStorage.clear();
     const mountedRoot = root;
     if (mountedRoot) {
@@ -162,6 +163,97 @@ describe("AppWorkspaceShell", () => {
         ...contextOverrides,
       }),
     );
+  }
+
+  function runAppWorkspaceMobilePanePrehydrationScript(scriptElement: HTMLScriptElement) {
+    const currentScriptSpy = vi
+      .spyOn(document, "currentScript", "get")
+      .mockReturnValue(scriptElement);
+    try {
+      new Script(appWorkspaceMobilePanePrehydrationScript).runInContext(
+        createContext({
+          document,
+          JSON,
+          Math,
+          Number,
+          window,
+        }),
+      );
+    } finally {
+      currentScriptSpy.mockRestore();
+    }
+  }
+
+  function withMobileViewportWidth<T>(widthPx: number, callback: () => T) {
+    const originalInnerWidthDescriptor = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      get: () => widthPx,
+    });
+    try {
+      return callback();
+    } finally {
+      if (originalInnerWidthDescriptor !== undefined) {
+        Object.defineProperty(window, "innerWidth", originalInnerWidthDescriptor);
+      }
+    }
+  }
+
+  function appendMobilePrehydrationCarousel({
+    includeLeftPane = true,
+    includeRightPane = true,
+  }: {
+    includeLeftPane?: boolean;
+    includeRightPane?: boolean;
+  }) {
+    const container = document.createElement("div");
+    rootElement = container;
+    const layoutRoot = document.createElement("div");
+    const carousel = document.createElement("div");
+    const frameworkScriptElement = document.createElement("script");
+    const scriptElement = document.createElement("script");
+    carousel.className = "workspace-layout-v2-responsive-viewport";
+    layoutRoot.setAttribute("data-mobile-pane", "main");
+    layoutRoot.setAttribute("data-workspace-layout-v2", "responsive");
+
+    if (includeLeftPane) {
+      const leftPane = document.createElement("div");
+      leftPane.className = "workspace-layout-v2-responsive-left-pane";
+      leftPane.setAttribute("data-workspace-layout-v2-mobile-pane", "left");
+      leftPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "left");
+      leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
+      carousel.append(leftPane);
+    }
+
+    const mainPane = document.createElement("div");
+    const mainPaneSurface = document.createElement("div");
+    mainPane.className = "workspace-layout-v2-responsive-main-pane snap-center snap-always";
+    mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
+    mainPane.setAttribute("data-workspace-layout-v2-mobile-pane", "main");
+    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
+    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "main");
+    mainPane.append(mainPaneSurface);
+    carousel.append(mainPane);
+
+    if (includeRightPane) {
+      const rightPane = document.createElement("div");
+      rightPane.className = "workspace-layout-v2-responsive-right-pane";
+      rightPane.setAttribute("data-workspace-layout-v2-mobile-pane", "right");
+      rightPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "right");
+      rightPane.setAttribute("data-testid", "workspace-layout-v2-pane-right");
+      carousel.append(rightPane);
+    }
+
+    layoutRoot.append(carousel);
+    container.append(layoutRoot, frameworkScriptElement, scriptElement);
+    document.body.append(container);
+
+    return {
+      carousel,
+      container,
+      layoutRoot,
+      scriptElement,
+    };
   }
 
   async function hydrateClientShellFromServerMarkup() {
@@ -412,7 +504,7 @@ describe("AppWorkspaceShell", () => {
       rightDesktopWidth: "340px",
     });
 
-    clearAppWorkspaceSidebarPrehydrationStyle();
+    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
 
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
   });
@@ -456,6 +548,138 @@ describe("AppWorkspaceShell", () => {
       rightDesktopOpen: false,
       rightDesktopWidth: "0px",
     });
+  });
+
+  it("prehydrates the unmerged mobile pane before hydration", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
+          mobilePane: "right",
+          mobileSurface: { kind: "unmerged" },
+          rightMobileWidthPx: 340,
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(
+      document.querySelector("style#noter-app-workspace-sidebar-mobile-prehydration"),
+    ).toBeNull();
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "260px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "390px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "340px",
+    );
+    expect(carousel.scrollLeft).toBe(600);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-center"),
+    ).toBe(true);
+  });
+
+  it("prehydrates a valid merged mobile pane before hydration", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
+          mobilePane: "right",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: 294,
+            side: "right",
+          },
+          rightMobileWidthPx: 96,
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "260px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "294px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "96px",
+    );
+    expect(carousel.scrollLeft).toBe(260);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
+    expect(layoutRoot.getAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe("right");
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-center"),
+    ).toBe(true);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-none"),
+    ).toBe(false);
+  });
+
+  it("prehydrates invalid merged mobile pane state as unmerged geometry", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
+          mobilePane: "right",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: 294,
+            side: "right",
+          },
+          rightMobileWidthPx: 340,
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "260px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "390px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "340px",
+    );
+    expect(carousel.scrollLeft).toBe(600);
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-center"),
+    ).toBe(true);
   });
 
   it("uses default sidebar width fallbacks in server markup", () => {

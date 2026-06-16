@@ -1,4 +1,4 @@
-import { useRef, type ReactElement } from "react";
+import { useRef, type CSSProperties, type ReactElement } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
 import {
   useWorkspaceLayoutV2Actions,
@@ -12,11 +12,9 @@ import {
   WorkspaceLayoutV2MainViewportWithPanel,
 } from "./WorkspaceLayoutV2BottomPanel";
 import {
-  DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   getDesktopSidebarMaxWidthPx,
   getDesktopSidebarWidthPx,
-  getMobilePanePeekWidthPx,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
@@ -36,11 +34,16 @@ type WorkspaceLayoutV2Props = {
   left?: ReactElement;
   main: ReactElement;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: ReactElement;
 
   dataTestId?: string;
+};
+
+type WorkspaceLayoutV2RootStyle = CSSProperties & {
+  "--workspace-layout-v2-left-mobile-width": string;
+  "--workspace-layout-v2-main-mobile-width": string;
+  "--workspace-layout-v2-right-mobile-width": string;
 };
 
 /**
@@ -72,7 +75,6 @@ export function WorkspaceLayoutV2({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
-  mobilePanePeekWidthPx: configuredMobilePanePeekWidthPx = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   panel,
   right,
   dataTestId,
@@ -104,7 +106,6 @@ export function WorkspaceLayoutV2({
   const hasLeftPane = !!left;
   const hasRightPane = !!right;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
-  const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(configuredMobilePanePeekWidthPx);
   const mobilePane = getAvailableMobilePane({
     hasLeftPane,
     hasRightPane,
@@ -126,10 +127,7 @@ export function WorkspaceLayoutV2({
       })
     : 0;
   const desktopSidebarMaxWidthPx = getDesktopSidebarMaxWidthPx(viewportSize.widthPx);
-  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx({
-    peekWidthPx: mobilePanePeekWidthPx,
-    viewportWidthPx: viewportSize.widthPx,
-  });
+  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportSize.widthPx);
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
     configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     maxWidthPx: mobileSidebarMaxWidthPx,
@@ -158,7 +156,6 @@ export function WorkspaceLayoutV2({
     leftWidthPx: mobileLeftWidthPx,
     mobileMinResizeBehavior,
     mobilePane,
-    peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
@@ -173,6 +170,13 @@ export function WorkspaceLayoutV2({
   const mobileMainWidthPx = activeMobileSurface
     ? activeMobileSurface.mainWidthPx
     : mobileGripResize.mobileDefaultMainWidthPx;
+  const layoutRootStyle: WorkspaceLayoutV2RootStyle | undefined = hasMeasuredViewport
+    ? {
+        "--workspace-layout-v2-left-mobile-width": `${mobileLeftWidthPx}px`,
+        "--workspace-layout-v2-main-mobile-width": `${mobileMainWidthPx}px`,
+        "--workspace-layout-v2-right-mobile-width": `${mobileRightWidthPx}px`,
+      }
+    : undefined;
   useWorkspaceLayoutV2MobileCarouselController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
@@ -183,7 +187,6 @@ export function WorkspaceLayoutV2({
     mainWidthPx: mobileMainWidthPx,
     mergedSurfaceSide: activeMobileMergedSurfaceSide,
     mobilePane,
-    peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
     setMobilePane,
     viewportWidthPx: viewportSize.widthPx,
@@ -285,7 +288,14 @@ export function WorkspaceLayoutV2({
         ref={viewportRef}
         data-mobile-pane={mobilePane}
         data-workspace-layout-v2="responsive"
+        data-workspace-layout-v2-mobile-merged-side={
+          isMobile && activeMobileMergedSurfaceSide !== null
+            ? activeMobileMergedSurfaceSide
+            : undefined
+        }
         className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
+        style={layoutRootStyle}
+        suppressHydrationWarning
       >
         <WorkspaceLayoutV2Viewport
           activeResizeSide={activeResizeSide}
@@ -297,10 +307,7 @@ export function WorkspaceLayoutV2({
           leftWidthPx={mobileLeftWidthPx}
           lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}
           mainContent={mainViewportContent}
-          mergedSurfaceSide={isMobile ? activeMobileMergedSurfaceSide : null}
-          mobilePane={mobilePane}
           paneWidthPx={mobileMainWidthPx}
-          peekWidthPx={mobilePanePeekWidthPx}
           rightContent={right}
           rightWidthPx={mobileRightWidthPx}
           showLeftPane={hasLeftPane}

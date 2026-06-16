@@ -6,10 +6,7 @@ import {
   type WorkspaceLayoutV2PaneFrameProps,
 } from "./WorkspaceLayoutV2PaneFrame";
 import { type WorkspaceLayoutV2BottomPanelProps } from "./WorkspaceLayoutV2BottomPanel";
-import {
-  DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
-  type WorkspaceLayoutV2MobileMinResizeBehavior,
-} from "./WorkspaceLayoutV2Geometry";
+import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2 } from "./WorkspaceLayoutV2";
 import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
 
@@ -83,7 +80,6 @@ export function WorkspaceLayoutV2FullPage({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
-  mobilePanePeekWidthPx = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   panel,
   right,
   leftToggleVisibility = "desktop",
@@ -93,7 +89,6 @@ export function WorkspaceLayoutV2FullPage({
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: WorkspaceLayoutV2PaneFrameProps;
   leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
@@ -128,7 +123,6 @@ export function WorkspaceLayoutV2FullPage({
         />
       }
       mobileMinResizeBehavior={mobileMinResizeBehavior}
-      mobilePanePeekWidthPx={mobilePanePeekWidthPx}
       panel={panel}
       right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}
       dataTestId={dataTestId}

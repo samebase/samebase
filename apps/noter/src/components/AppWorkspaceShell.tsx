@@ -19,14 +19,14 @@ import {
   type WorkspacePaneSide,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { type WorkspaceLayoutV2BottomPanelProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel";
-import {
-  type WorkspaceLayoutV2MobileMinResizeBehavior,
-  DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
-} from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
+import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
-import { clearAppWorkspaceSidebarPrehydrationStyle } from "@/lib/appWorkspaceSidebarPrehydration";
+import {
+  appWorkspaceMobilePanePrehydrationScript,
+  clearAppWorkspaceSidebarDesktopPrehydrationStyle,
+} from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
@@ -39,7 +39,6 @@ type AppWorkspaceRouteChromeConfig = {
   left?: AppWorkspaceRouteChromePane;
   leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: AppWorkspaceRouteChromePane;
   shortcutPaneSide?: WorkspacePaneSide;
@@ -71,7 +70,6 @@ type AppWorkspaceRouteChromeContextValue = {
 const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
-const APP_WORKSPACE_DEFAULT_MOBILE_PEEK_WIDTH_PX = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX;
 
 const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: true,
@@ -197,8 +195,10 @@ function useAppWorkspaceSidebarState() {
   });
   useLayoutEffect(() => {
     // The localStorage hook above installs the real React state before this
-    // layout effect removes the temporary prehydration stylesheet.
-    clearAppWorkspaceSidebarPrehydrationStyle();
+    // layout effect removes the temporary desktop prehydration stylesheet.
+    // Mobile prehydration writes root attributes and width variables that React
+    // replaces after ResizeObserver reports the viewport size.
+    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
   }, []);
   const setLocalSidebarState = localSidebarState.setState;
   const mirrorPersistedSidebarState = useCallback(
@@ -247,12 +247,13 @@ function AppWorkspaceShellFrame({
         leftToggleVisibility={chrome?.leftToggleVisibility ?? "desktop"}
         main={mainPane}
         mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
-        mobilePanePeekWidthPx={
-          chrome?.mobilePanePeekWidthPx ?? APP_WORKSPACE_DEFAULT_MOBILE_PEEK_WIDTH_PX
-        }
         panel={chrome?.panel}
         right={rightPane}
         rightToggleVisibility="desktop"
+      />
+      <script
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: appWorkspaceMobilePanePrehydrationScript }}
       />
     </WorkspacePaneRuntimeProvider>
   );
@@ -285,7 +286,6 @@ export function AppWorkspaceRouteChrome({
   left,
   leftToggleVisibility,
   mobileMinResizeBehavior,
-  mobilePanePeekWidthPx,
   panel,
   right,
   shortcutPaneSide,
@@ -319,7 +319,6 @@ export function AppWorkspaceRouteChrome({
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,
-      mobilePanePeekWidthPx,
       panel,
       pathname,
       right,
@@ -331,7 +330,6 @@ export function AppWorkspaceRouteChrome({
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,
-      mobilePanePeekWidthPx,
       panel,
       pathname,
       right,

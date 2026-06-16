@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
@@ -79,6 +79,41 @@ describe("AppSidebarMetaSection", () => {
     return rootElement;
   }
 
+  async function hydrateSidebarMetaSectionFromServerMarkup({
+    clientEntry,
+    serverEntry,
+  }: {
+    clientEntry: string;
+    serverEntry: string;
+  }) {
+    const recoverableErrors: Array<unknown> = [];
+    const container = document.createElement("div");
+    rootElement = container;
+    container.innerHTML = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={[serverEntry]}>
+        <AppSidebarMetaSection linkAlignment="left" />
+      </TestRouterProvider>,
+    );
+    document.body.append(container);
+
+    await act(async () => {
+      root = hydrateRoot(
+        container,
+        <TestRouterProvider initialEntries={[clientEntry]}>
+          <AppSidebarMetaSection linkAlignment="left" />
+        </TestRouterProvider>,
+        {
+          onRecoverableError(error: unknown) {
+            recoverableErrors.push(error);
+          },
+        },
+      );
+      await settleRouteUpdate();
+    });
+
+    return recoverableErrors;
+  }
+
   function readLocationText() {
     return rootElement?.querySelector('[data-testid="router-location"]')?.textContent ?? "";
   }
@@ -127,6 +162,16 @@ describe("AppSidebarMetaSection", () => {
     expect(rootElement?.textContent).not.toContain("?prod-ui");
     expect(rootElement?.textContent).not.toContain(LOCAL_STORAGE_ROUTE);
     expect(rootElement?.textContent).not.toContain("/landing-preview");
+  });
+
+  it("hydrates root SSG markup when the browser URL has landing-only query params", async () => {
+    const recoverableErrors = await hydrateSidebarMetaSectionFromServerMarkup({
+      serverEntry: "/",
+      clientEntry: "/?elev=37.5&rot=113.7",
+    });
+
+    expect(recoverableErrors).toEqual([]);
+    expect(rootElement?.querySelector("#public-landing-search-reset")).not.toBeNull();
   });
 
   it("omits the landing preview path link while keeping preview query shortcuts", async () => {

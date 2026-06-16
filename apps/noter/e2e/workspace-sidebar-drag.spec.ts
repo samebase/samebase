@@ -120,6 +120,14 @@ function getFileViewLayoutShell(page: Page) {
   return page.locator("[data-mobile-pane]").first();
 }
 
+async function expectMobileMergedSide(page: Page, side: "left" | "right" | null) {
+  await expect
+    .poll(async () =>
+      getFileViewLayoutShell(page).getAttribute("data-workspace-layout-v2-mobile-merged-side"),
+    )
+    .toBe(side);
+}
+
 async function readAppWorkspaceSidebarStorage(page: Page) {
   return page.evaluate(
     (storageKey) => window.localStorage.getItem(storageKey),
@@ -447,9 +455,7 @@ test("logo mobile right merge survives reload from localStorage", async ({ page 
   );
 
   await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "right");
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]')).toHaveCount(
-    1,
-  );
+  await expectMobileMergedSide(page, "right");
   await expect
     .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width))
     .toBe(minWidthPx);
@@ -461,9 +467,7 @@ test("logo mobile right merge survives reload from localStorage", async ({ page 
 
   await page.reload({ waitUntil: "networkidle" });
 
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]')).toHaveCount(
-    1,
-  );
+  await expectMobileMergedSide(page, "right");
   await expect
     .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width))
     .toBe(minWidthPx);
@@ -515,7 +519,7 @@ test("logo mobile keeps left merge while resizing the right sidebar", async ({ p
   );
 
   await scrollFileViewCarouselToPane(page, "right");
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]')).toHaveCount(1);
+  await expectMobileMergedSide(page, "left");
 
   const rightPaneWidthBefore = (await getBox(page, "workspace-layout-v2-pane-right")).width;
   await touchDragHandleByPx(
@@ -525,10 +529,7 @@ test("logo mobile keeps left merge while resizing the right sidebar", async ({ p
   );
 
   await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "right");
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]')).toHaveCount(1);
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]')).toHaveCount(
-    0,
-  );
+  await expectMobileMergedSide(page, "left");
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
   await expect
     .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width))
@@ -536,10 +537,7 @@ test("logo mobile keeps left merge while resizing the right sidebar", async ({ p
 
   await touchDragHandleByPx(page, "workspace-layout-v2-right-resize", -96);
 
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]')).toHaveCount(1);
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]')).toHaveCount(
-    0,
-  );
+  await expectMobileMergedSide(page, "left");
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
   await expect
     .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width))
@@ -579,10 +577,7 @@ test("logo mobile hands main to right when left releases and right is minimum", 
   await touchDragHandleByPx(page, "workspace-layout-v2-left-resize", 96);
 
   await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "left");
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="left"]')).toHaveCount(0);
-  await expect(page.locator('[data-workspace-layout-v2-mobile-merged-pane="right"]')).toHaveCount(
-    1,
-  );
+  await expectMobileMergedSide(page, "right");
   await expect.poll(async () => getMobileMainPaneWidthPx(page)).toBe(viewportWidthPx - minWidthPx);
   await expect
     .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-right")).width))
