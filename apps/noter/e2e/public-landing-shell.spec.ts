@@ -632,6 +632,27 @@ async function expectLandingLogoReady(image: Locator) {
     .toBe(true);
 }
 
+async function expectLandingLogoStaticFallbackVisible(page: Page) {
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+
+  await expectLandingLogoReady(landingLogo);
+  await expect(landingLogo).toHaveClass(/opacity-100/);
+  await expect(landingLogo).not.toHaveClass(/opacity-0/);
+  await expect
+    .poll(async () => landingLogo.evaluate((element) => window.getComputedStyle(element).opacity))
+    .toBe("1");
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        () =>
+          document.documentElement.hasAttribute(
+            "data-public-landing-logo-static-fallback-hidden",
+          ) || document.getElementById("noter-public-landing-logo-prehydration") !== null,
+      ),
+    )
+    .toBe(false);
+}
+
 async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toBeVisible();
   await expect(scene).toHaveAttribute("data-state", "ready");
@@ -1607,12 +1628,7 @@ test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) =>
   });
 });
 
-test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({ page }) => {
-  const pageErrors: Error[] = [];
-  page.on("pageerror", (error) => {
-    pageErrors.push(error);
-  });
-
+async function installUnavailableWebGL(page: Page) {
   await page.addInitScript(() => {
     const originalGetContextDescriptor = Object.getOwnPropertyDescriptor(
       HTMLCanvasElement.prototype,
@@ -1631,13 +1647,33 @@ test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", as
       return Reflect.apply(originalGetContext, this, [contextId, ...args]);
     };
   });
+}
 
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+async function expectLandingLogoWebGLUnavailableFallback(page: Page, path: string) {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error);
+  });
 
-  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+  await installUnavailableWebGL(page);
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+
+  await expectLandingLogoStaticFallbackVisible(page);
   await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(0);
   await page.waitForTimeout(200);
   expect(pageErrors).toEqual([]);
+}
+
+test("prod-ui landing logo keeps the default fallback when WebGL is unavailable", async ({
+  page,
+}) => {
+  await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui");
+});
+
+test("prod-ui landing logo reveals the query fallback when WebGL is unavailable", async ({
+  page,
+}) => {
+  await expectLandingLogoWebGLUnavailableFallback(page, "/?prod-ui&rot=180");
 });
 
 test("public landing still renders when localStorage access is denied", async ({ page }) => {

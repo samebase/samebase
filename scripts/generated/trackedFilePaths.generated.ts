@@ -1009,6 +1009,8 @@ export const trackedFilePaths = [
   "apps/noter/src/lib/publicLandingAuthState.test.ts",
   "apps/noter/src/lib/publicLandingAuthState.ts",
   "apps/noter/src/lib/publicLandingLogo.ts",
+  "apps/noter/src/lib/publicLandingLogoPrehydration.test.ts",
+  "apps/noter/src/lib/publicLandingLogoPrehydration.ts",
   "apps/noter/src/lib/pullRequestLabels.ts",
   "apps/noter/src/lib/radixIcons.tsx",
   "apps/noter/src/lib/refreshDebounce.ts",

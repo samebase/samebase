@@ -20,6 +20,7 @@ import {
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
+  PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE,
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
@@ -36,10 +37,12 @@ import {
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
   buildLogoRouteSearch,
+  hasPublicLandingLogoStaticFallbackUnsafeSearch,
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent = typeof import("@/components/logo/NLogoScene").NLogoScene;
 
@@ -151,13 +154,19 @@ export function PublicLandingLogo({
   })}#${logoTheme.cacheKey}:${routeState.gridSize}:${routeState.fractalDepth}:${routeState.distanceScale}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
+  const [isHydratedFallbackVisibilityReady, setIsHydratedFallbackVisibilityReady] = useState(false);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
-  const isSceneInteractive = isSceneReady && !isSvgVisible;
+  const shouldHideQuerySvgFallbackUntilSceneReady =
+    loadInteractiveScene && hasPublicLandingLogoStaticFallbackUnsafeSearch(routeSearch);
+  const isSvgFallbackVisible =
+    !isHydratedFallbackVisibilityReady ||
+    (isSvgVisible && (!shouldHideQuerySvgFallbackUntilSceneReady || didSceneFail));
+  const isSceneInteractive = isSceneReady && !isSvgFallbackVisible;
   const isAutoRotateRequested = autoRotate || routeState.autoRotateEnabled;
   const shouldAnimateFaceColors = routeState.faceColorAnimationEnabled && !prefersReducedMotion;
   const shouldAnimateLeftFaceStripes =
@@ -173,6 +182,20 @@ export function PublicLandingLogo({
       view: latestViewRef.current,
     });
   }, [viewStateKey, viewStatePersistence]);
+
+  useLayoutEffect(() => {
+    // The first hydrated render must keep the SSG opacity class so React does
+    // not leave an unpatched class mismatch on the server-rendered image.
+    setIsHydratedFallbackVisibilityReady(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isHydratedFallbackVisibilityReady) {
+      return;
+    }
+
+    clearPublicLandingLogoStaticFallbackPrehydration();
+  }, [isHydratedFallbackVisibilityReady]);
 
   useEffect(() => {
     const nextView = {
@@ -365,6 +388,7 @@ export function PublicLandingLogo({
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}
       >
         <img
+          {...{ [PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE]: "" }}
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
           src={staticLogoSvgSrc}
           alt={PUBLIC_LANDING_LOGO_ALT}
@@ -373,7 +397,7 @@ export function PublicLandingLogo({
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-150 ease-out motion-reduce:transition-none ${isSvgVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-150 ease-out motion-reduce:transition-none ${isSvgFallbackVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
         />
         {LogoScene && !didSceneFail ? (
           <div
