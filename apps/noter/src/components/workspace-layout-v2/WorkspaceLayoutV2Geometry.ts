@@ -11,7 +11,6 @@ export const WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
 export const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX =
   WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX -
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX;
-export const DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX = 0;
 export const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
@@ -54,19 +53,10 @@ export function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   );
 }
 
-export function getMobilePanePeekWidthPx(configuredPeekWidthPx: number) {
-  return Math.max(0, Math.round(configuredPeekWidthPx));
-}
-
-export function getMobileSidebarMaxWidthPx(args: { peekWidthPx: number; viewportWidthPx: number }) {
-  // Preserve the existing mobile sidebar invariant: even when a route removes
-  // carousel peeks, the active sidebar cannot cover the whole viewport because
-  // the resize grip must stay visible and reachable.
-  const reservedMainPeekWidthPx = Math.max(
-    MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
-    args.peekWidthPx * 2,
-  );
-  return Math.max(1, Math.floor(args.viewportWidthPx - reservedMainPeekWidthPx));
+export function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
+  // The active sidebar cannot cover the whole viewport because the resize grip
+  // must stay visible and reachable.
+  return Math.max(1, Math.floor(viewportWidthPx - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX));
 }
 
 export function getMobileSidebarMinWidthPx(args: {
@@ -74,10 +64,6 @@ export function getMobileSidebarMinWidthPx(args: {
   maxWidthPx: number;
 }) {
   return clampNumber(Math.round(args.configuredMinWidthPx), 1, args.maxWidthPx);
-}
-
-export function getMobilePaneWidthPx(args: { peekWidthPx: number; viewportWidthPx: number }) {
-  return Math.max(1, args.viewportWidthPx - args.peekWidthPx * 2);
 }
 
 export function getMergedMobileMainWidthPx(args: {
@@ -246,7 +232,6 @@ function getMobilePaneScrollOffsets(args: {
   leftWidthPx: number;
   mainWidthPx: number;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
-  peekWidthPx: number;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
@@ -260,7 +245,7 @@ function getMobilePaneScrollOffsets(args: {
     if (pane === "left") {
       return {
         pane,
-        scrollLeftPx: args.peekWidthPx,
+        scrollLeftPx: 0,
       };
     }
 
@@ -279,8 +264,7 @@ function getMobilePaneScrollOffsets(args: {
         0,
         (args.hasLeftPane ? args.leftWidthPx : 0) +
           args.mainWidthPx +
-          args.rightWidthPx +
-          args.peekWidthPx -
+          args.rightWidthPx -
           args.viewportWidthPx,
       ),
     };
@@ -303,7 +287,6 @@ export function getMobilePaneFromScrollLeft(args: {
   leftWidthPx: number;
   mainWidthPx: number;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
-  peekWidthPx: number;
   rightWidthPx: number;
   scrollLeftPx: number;
   viewportWidthPx: number;
@@ -336,7 +319,6 @@ export function isMobilePaneScrollSettled(
           leftWidthPx: args.leftWidthPx,
           mainWidthPx: args.mainWidthPx,
           mergedSurfaceSide: args.mergedSurfaceSide,
-          peekWidthPx: args.peekWidthPx,
           rightWidthPx: args.rightWidthPx,
           viewportWidthPx: args.viewportWidthPx,
         }),

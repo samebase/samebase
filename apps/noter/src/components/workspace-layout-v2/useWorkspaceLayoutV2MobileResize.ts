@@ -9,7 +9,6 @@ import {
   getMobileMergeHandoffSide,
   getMobileMinResizeMergeWidthsPx,
   getMobilePaneScrollLeftPx,
-  getMobilePaneWidthPx,
   shouldCommitMobileMergedSurface,
   type MobilePane,
   type WorkspaceLayoutV2MobileGrip,
@@ -38,7 +37,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   leftWidthPx,
   mobileMinResizeBehavior,
   mobilePane,
-  peekWidthPx,
   rightWidthPx,
   viewportWidthPx,
 }: {
@@ -50,7 +48,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   leftWidthPx: number;
   mobileMinResizeBehavior: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePane: MobilePane;
-  peekWidthPx: number;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
@@ -64,10 +61,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
   const mobileSurfaceRef = useRef<WorkspaceLayoutV2MobileSurface>(activeMobileSurface);
   mobileGripRef.current = mobileGrip;
   mobileSurfaceRef.current = activeMobileSurface;
-  const mobileDefaultPaneWidthPx = getMobilePaneWidthPx({
-    peekWidthPx,
-    viewportWidthPx,
-  });
+  const mobileDefaultPaneWidthPx = Math.max(1, viewportWidthPx);
   const mobileMergedSide = activeMobileSurface.kind === "merged" ? activeMobileSurface.side : null;
   const mobileMergedMainWidthPx =
     activeMobileSurface.kind === "merged" ? activeMobileSurface.mainWidthPx : null;
@@ -227,7 +221,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     if (resizeHandle.side === "left") {
       return clampNumber(
         resizeHandle.positionPx - mobileGripSlideOffsetPx,
-        peekWidthPx,
+        0,
         resizeHandle.positionPx,
       );
     }
@@ -235,7 +229,7 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     return clampNumber(
       resizeHandle.positionPx + mobileGripSlideOffsetPx,
       resizeHandle.positionPx,
-      Math.max(peekWidthPx, viewportWidthPx) - peekWidthPx,
+      viewportWidthPx,
     );
   }
 
@@ -297,7 +291,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
             hasRightPane,
             leftWidthPx: resizeHandle.side === "left" ? resizeHandle.minWidthPx : leftWidthPx,
             mainWidthPx: settledMainWidthPx,
-            peekWidthPx,
             rightWidthPx: resizeHandle.side === "right" ? resizeHandle.minWidthPx : rightWidthPx,
             viewportWidthPx,
             mergedSurfaceSide: resizeHandle.side,
@@ -386,7 +379,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
           leftWidthPx: resizeHandle.side === "left" ? mergeResizeWidths.sideWidthPx : leftWidthPx,
           mainWidthPx: mergeResizeWidths.mainWidthPx,
           mergedSurfaceSide: resizeHandle.side,
-          peekWidthPx,
           rightWidthPx:
             resizeHandle.side === "right" ? mergeResizeWidths.sideWidthPx : rightWidthPx,
           viewportWidthPx,
@@ -448,7 +440,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
         leftWidthPx: nextLeftWidthPx,
         mainWidthPx: currentMergedMainWidthPx,
         mergedSurfaceSide: currentMergedSide,
-        peekWidthPx,
         rightWidthPx: nextRightWidthPx,
         viewportWidthPx,
       });
@@ -463,7 +454,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
       leftWidthPx: resizeHandle.side === "left" ? clampedRawWidthPx : leftWidthPx,
       mainWidthPx: mobileDefaultPaneWidthPx,
       mergedSurfaceSide: null,
-      peekWidthPx,
       rightWidthPx: resizeHandle.side === "right" ? clampedRawWidthPx : rightWidthPx,
       viewportWidthPx,
     };

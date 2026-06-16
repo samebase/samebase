@@ -33,7 +33,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   mainWidthPx,
   mergedSurfaceSide,
   mobilePane,
-  peekWidthPx,
   rightWidthPx,
   setMobilePane,
   viewportWidthPx,
@@ -47,7 +46,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   mainWidthPx: number;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
   mobilePane: MobilePane;
-  peekWidthPx: number;
   rightWidthPx: number;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
   viewportWidthPx: number;
@@ -70,7 +68,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       leftWidthPx,
       mainWidthPx,
       mergedSurfaceSide,
-      peekWidthPx,
       rightWidthPx,
       scrollLeftPx: carouselNode.scrollLeft,
       viewportWidthPx,
@@ -82,7 +79,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       mainWidthPx,
       mergedSurfaceSide,
       pane: nextPane,
-      peekWidthPx,
       rightWidthPx,
       scrollLeftPx: carouselNode.scrollLeft,
       viewportWidthPx,
@@ -141,7 +137,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       leftWidthPx,
       mainWidthPx,
       mergedSurfaceSide,
-      peekWidthPx,
       rightWidthPx,
       viewportWidthPx,
     });
@@ -175,7 +170,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
     mobilePane,
     mainWidthPx,
     mergedSurfaceSide,
-    peekWidthPx,
     rightWidthPx,
     viewportWidthPx,
   ]);
@@ -238,7 +232,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
     leftWidthPx,
     mainWidthPx,
     mergedSurfaceSide,
-    peekWidthPx,
     rightWidthPx,
     viewportWidthPx,
   ]);

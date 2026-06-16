@@ -27,7 +27,7 @@ export type WorkspaceLayoutV2PrehydrationArgs = {
 
 type WorkspaceLayoutV2PrehydrationInlineArgs = WorkspaceLayoutV2PrehydrationArgs & {
   desktopSidebarMinWidthPx: number;
-  mobileMainPeekMinWidthPx: number;
+  mobileMainReachableWidthPx: number;
   mobileMainMinWidthPx: number;
   mobilePaneSettledTolerancePx: number;
   mobileSidebarMinWidthPx: number;
@@ -43,7 +43,7 @@ function getWorkspaceLayoutV2PrehydrationInlineArgs(
   return {
     ...args,
     desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-    mobileMainPeekMinWidthPx: MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
+    mobileMainReachableWidthPx: MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
     mobileMainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
     mobilePaneSettledTolerancePx: MOBILE_PANE_SETTLED_TOLERANCE_PX,
     mobileSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
@@ -190,12 +190,6 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     return Math.min(Math.max(value, min), max);
   }
 
-  function getPixelValue(value: string) {
-    const parsed = Number.parseFloat(value);
-
-    return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
-  }
-
   function getViewportWidth(carouselNode: Element) {
     const width = Math.round(carouselNode.getBoundingClientRect().width);
 
@@ -230,7 +224,6 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     leftWidthPx,
     mainWidthPx,
     mobilePane,
-    peekWidthPx,
     rightWidthPx,
     viewportWidthPx,
   }: {
@@ -238,16 +231,15 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     leftWidthPx: number;
     mainWidthPx: number;
     mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
-    peekWidthPx: number;
     rightWidthPx: number;
     viewportWidthPx: number;
   }) {
-    if (mobilePane === "left") return peekWidthPx;
+    if (mobilePane === "left") return 0;
     if (mobilePane === "main") return hasLeftPane ? leftWidthPx : 0;
 
     return Math.max(
       0,
-      (hasLeftPane ? leftWidthPx : 0) + mainWidthPx + rightWidthPx + peekWidthPx - viewportWidthPx,
+      (hasLeftPane ? leftWidthPx : 0) + mainWidthPx + rightWidthPx - viewportWidthPx,
     );
   }
 
@@ -369,15 +361,10 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       mobilePane: state.mobilePane,
     });
     const viewportWidthPx = getViewportWidth(carouselNode);
-    const computedStyle = window.getComputedStyle(carouselNode);
-    const peekWidthPx = Math.max(
-      getPixelValue(computedStyle.paddingLeft),
-      getPixelValue(computedStyle.paddingRight),
-    );
-    const defaultMainWidthPx = Math.max(1, viewportWidthPx - peekWidthPx * 2);
+    const defaultMainWidthPx = Math.max(1, viewportWidthPx);
     const sidebarMaxWidthPx = Math.max(
       1,
-      Math.floor(viewportWidthPx - Math.max(args.mobileMainPeekMinWidthPx, peekWidthPx * 2)),
+      Math.floor(viewportWidthPx - args.mobileMainReachableWidthPx),
     );
     const leftWidthPx = hasLeftPane
       ? getSidebarWidth(state.leftMobileWidthPx, sidebarMaxWidthPx)
@@ -409,7 +396,6 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       leftWidthPx,
       mainWidthPx,
       mobilePane,
-      peekWidthPx,
       rightWidthPx,
       viewportWidthPx,
     });

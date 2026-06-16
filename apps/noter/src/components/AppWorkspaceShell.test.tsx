@@ -202,11 +202,9 @@ describe("AppWorkspaceShell", () => {
   function appendMobilePrehydrationCarousel({
     includeLeftPane = true,
     includeRightPane = true,
-    peekWidthPx = 0,
   }: {
     includeLeftPane?: boolean;
     includeRightPane?: boolean;
-    peekWidthPx?: number;
   }) {
     const container = document.createElement("div");
     const layoutRoot = document.createElement("div");
@@ -214,8 +212,6 @@ describe("AppWorkspaceShell", () => {
     const frameworkScriptElement = document.createElement("script");
     const scriptElement = document.createElement("script");
     carousel.className = "workspace-layout-v2-responsive-viewport";
-    carousel.style.paddingLeft = `${peekWidthPx}px`;
-    carousel.style.paddingRight = `${peekWidthPx}px`;
     layoutRoot.setAttribute("data-mobile-pane", "main");
     layoutRoot.setAttribute("data-workspace-layout-v2", "responsive");
 

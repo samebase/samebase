@@ -12,11 +12,9 @@ import {
   WorkspaceLayoutV2MainViewportWithPanel,
 } from "./WorkspaceLayoutV2BottomPanel";
 import {
-  DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   getDesktopSidebarMaxWidthPx,
   getDesktopSidebarWidthPx,
-  getMobilePanePeekWidthPx,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
@@ -36,7 +34,6 @@ type WorkspaceLayoutV2Props = {
   left?: ReactElement;
   main: ReactElement;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePanePeekWidthPx?: number;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: ReactElement;
 
@@ -78,7 +75,6 @@ export function WorkspaceLayoutV2({
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
-  mobilePanePeekWidthPx: configuredMobilePanePeekWidthPx = DEFAULT_MOBILE_PANE_PEEK_WIDTH_PX,
   panel,
   right,
   dataTestId,
@@ -110,7 +106,6 @@ export function WorkspaceLayoutV2({
   const hasLeftPane = !!left;
   const hasRightPane = !!right;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
-  const mobilePanePeekWidthPx = getMobilePanePeekWidthPx(configuredMobilePanePeekWidthPx);
   const mobilePane = getAvailableMobilePane({
     hasLeftPane,
     hasRightPane,
@@ -132,10 +127,7 @@ export function WorkspaceLayoutV2({
       })
     : 0;
   const desktopSidebarMaxWidthPx = getDesktopSidebarMaxWidthPx(viewportSize.widthPx);
-  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx({
-    peekWidthPx: mobilePanePeekWidthPx,
-    viewportWidthPx: viewportSize.widthPx,
-  });
+  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportSize.widthPx);
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
     configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     maxWidthPx: mobileSidebarMaxWidthPx,
@@ -164,7 +156,6 @@ export function WorkspaceLayoutV2({
     leftWidthPx: mobileLeftWidthPx,
     mobileMinResizeBehavior,
     mobilePane,
-    peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
@@ -196,7 +187,6 @@ export function WorkspaceLayoutV2({
     mainWidthPx: mobileMainWidthPx,
     mergedSurfaceSide: activeMobileMergedSurfaceSide,
     mobilePane,
-    peekWidthPx: mobilePanePeekWidthPx,
     rightWidthPx: mobileRightWidthPx,
     setMobilePane,
     viewportWidthPx: viewportSize.widthPx,
@@ -318,7 +308,6 @@ export function WorkspaceLayoutV2({
           lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}
           mainContent={mainViewportContent}
           paneWidthPx={mobileMainWidthPx}
-          peekWidthPx={mobilePanePeekWidthPx}
           rightContent={right}
           rightWidthPx={mobileRightWidthPx}
           showLeftPane={hasLeftPane}

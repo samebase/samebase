@@ -18,7 +18,6 @@ const { act } = React;
 
 const VIEWPORT_WIDTH_PX = 390;
 const VIEWPORT_HEIGHT_PX = 844;
-const MOBILE_PANE_PEEK_PX = 24;
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
 const OMIT_HEADER = Symbol("omit-header");
 
@@ -71,7 +70,6 @@ type RenderMobileLayoutArgs = {
   leftToggleVisibility?: "all" | "desktop" | "hidden";
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobilePanePeekWidthPx?: number;
   mobilePane?: WorkspaceSidebarState["mobilePane"];
   rightMobileWidthPx?: number;
   rightToggleVisibility?: "all" | "desktop" | "hidden";
@@ -103,7 +101,6 @@ function renderMobileLayoutContent({
   leftToggleVisibility,
   mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
-  mobilePanePeekWidthPx = MOBILE_PANE_PEEK_PX,
   rightToggleVisibility,
 }: Omit<RenderMobileLayoutArgs, "leftMobileWidthPx" | "mobilePane" | "rightMobileWidthPx">) {
   const mainProps =
@@ -129,7 +126,6 @@ function renderMobileLayoutContent({
       }
       main={mainProps}
       mobileMinResizeBehavior={mobileMinResizeBehavior}
-      mobilePanePeekWidthPx={mobilePanePeekWidthPx}
       right={
         includeRightPane
           ? {
@@ -298,9 +294,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     const carouselNode = rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
 
     expect(carouselNode).not.toBeNull();
-    expect(carouselNode?.scrollLeft).toBe(
-      DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2 - MOBILE_PANE_PEEK_PX,
-    );
+    expect(carouselNode?.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
     expect(
       rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
     ).toBe("right");
@@ -391,7 +385,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBe("right");
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
-    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2 - MOBILE_PANE_PEEK_PX);
+    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
 
     act(() => {
       latestSetRenderedMobilePane?.("main");
@@ -405,7 +399,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBe("main");
   });
 
-  it("lets routes remove carousel peeks while keeping the resize grip reachable", () => {
+  it("keeps the resize grip reachable when a mobile sidebar fills the viewport", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -415,7 +409,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(
         renderMobileLayout({
           mobilePane: "right",
-          mobilePanePeekWidthPx: 0,
           rightMobileWidthPx: VIEWPORT_WIDTH_PX,
         }),
       );
@@ -436,8 +429,6 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       '[data-testid="workspace-layout-v2-right-resize"]',
     );
 
-    expect(carouselNode.style.paddingLeft).toBe("0px");
-    expect(carouselNode.style.paddingRight).toBe("0px");
     expect(carouselNode.scrollLeft).toBe(
       DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX + maxReachableSidebarWidthPx,
     );
@@ -496,7 +487,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBe("left");
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
-    ).toBe(MOBILE_PANE_PEEK_PX);
+    ).toBe(0);
   });
 
   it("omits a stale left mobile pane when a route does not provide a left pane", () => {
@@ -587,7 +578,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expect(leftPane.style.width).toBe("220px");
     expect(leftHandle.getAttribute("aria-valuemin")).toBe("96");
-    expect(leftHandle.getAttribute("aria-valuemax")).toBe("342");
+    expect(leftHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
     expect(
@@ -658,7 +649,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expect(rightPane.style.width).toBe("300px");
     expect(rightHandle.getAttribute("aria-valuemin")).toBe("96");
-    expect(rightHandle.getAttribute("aria-valuemax")).toBe("342");
+    expect(rightHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(rightHandle.getAttribute("aria-valuenow")).toBe("300");
     expect(rightHandle.parentElement?.style.left).toBe("90px");
     expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
@@ -744,7 +735,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       const getMainPane = () =>
         getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
 
-      expect(getMainPane().style.width).toBe("342px");
+      expect(getMainPane().style.width).toBe("390px");
 
       act(() => {
         leftHandle.dispatchEvent(
@@ -755,7 +746,17 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("318px");
+      expect(getMainPane().style.width).toBe("366px");
+      act(() => {
+        leftHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowLeft",
+          }),
+        );
+      });
+
+      expect(getMainPane().style.width).toBe("342px");
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
       ).toBe("left");
@@ -825,7 +826,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       const getMainPane = () =>
         getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
 
-      expect(getMainPane().style.width).toBe("272px");
+      expect(getMainPane().style.width).toBe("320px");
 
       act(() => {
         rightHandle.dispatchEvent(
@@ -836,7 +837,17 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("248px");
+      expect(getMainPane().style.width).toBe("296px");
+      act(() => {
+        rightHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowRight",
+          }),
+        );
+      });
+
+      expect(getMainPane().style.width).toBe("272px");
 
       act(() => {
         vi.advanceTimersByTime(121);
@@ -880,6 +891,14 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       const getMainPane = () =>
         getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
 
+      act(() => {
+        leftHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowLeft",
+          }),
+        );
+      });
       act(() => {
         leftHandle.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -955,7 +974,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
       ).toBe("main");
-      expect(getMainPane().style.width).toBe("342px");
+      expect(getMainPane().style.width).toBe("390px");
       expect(
         rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]'),
       ).toBeNull();

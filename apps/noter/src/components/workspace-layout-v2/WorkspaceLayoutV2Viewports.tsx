@@ -22,7 +22,6 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   leftWidthPx: number;
   lockCarouselScroll: boolean;
   paneWidthPx: number;
-  peekWidthPx: number;
   rightWidthPx: number;
   showLeftPane: boolean;
   showRightPane: boolean;
@@ -39,7 +38,6 @@ export function WorkspaceLayoutV2Viewport({
   lockCarouselScroll,
   mainContent,
   paneWidthPx,
-  peekWidthPx,
   rightContent,
   rightWidthPx,
   showLeftPane,
@@ -48,8 +46,6 @@ export function WorkspaceLayoutV2Viewport({
   const viewportStyle: WorkspaceLayoutV2ViewportStyle = {
     "--workspace-layout-v2-left-desktop-width": `${desktopLeftWidthPx}px`,
     "--workspace-layout-v2-right-desktop-width": `${desktopRightWidthPx}px`,
-    paddingLeft: `${peekWidthPx}px`,
-    paddingRight: `${peekWidthPx}px`,
   };
   const leftPaneWidth = hasMeasuredViewport
     ? `${leftWidthPx}px`

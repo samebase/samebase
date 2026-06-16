@@ -75,49 +75,25 @@ while the raw drag overflow updates carousel scroll. That transforms resize into
 
 ### Independent Pane Constraints
 
-Pane minimum and maximum widths must be independent from visual peek width.
+Pane minimum and maximum widths must be independent from visual carousel affordances.
 
-The mobile peek constant may continue to control how much neighboring pane surface is visible in
-normal carousel mode. It must not be the hidden source of truth for:
+The mobile layout does not expose configurable visual peek gutters. It reserves a small reachable
+main-pane width while a sidebar is active so the resize grip and adjacent main surface remain
+usable. That reachability reserve must not become the hidden source of truth for:
 
 - side-pane minimum width
 - side-pane maximum width
 - main-pane minimum width
 - merged-pane release width
 
-The shell should move toward explicit pane constraints. A narrow first implementation may hard-code
-shell defaults, but the math should be shaped as:
+The shell should keep pane constraints explicit. The math should be shaped as:
 
 ```txt
 resolved side width = clamp(raw side width, side min, side max)
 resolved main width = clamp(raw main width, main min, main max)
 ```
 
-not as derivations from the peek constant.
-
-### Explicit Mobile Peek Width
-
-Mobile carousel peek width is a visual affordance, not a pane sizing invariant. `WorkspaceLayoutV2`
-should expose an explicit shell prop:
-
-```ts
-mobilePanePeekWidthPx?: number;
-```
-
-The default remains `24px` to preserve current routes. Routes that need maximum usable pane width,
-especially pane-heavy routes with both left and right side panes, may pass `0` to remove the visible
-peek.
-
-The resolved peek width should feed only visual carousel geometry:
-
-- the mobile main pane width in unmerged carousel mode
-- mobile side-pane maximum width
-- carousel padding
-- scroll snap offsets
-- mobile resize grip bounds while a grip is dragged past the side-pane edge
-
-It must remain independent from side-pane minimum width, main-pane minimum width, and merged-pane
-release width. A zero peek must be a supported normal configuration, not a special case.
+not as derivations from a visual gutter.
 
 ### Resize Behaviors
 
