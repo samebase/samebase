@@ -887,7 +887,7 @@ export const getUserVaults = query({
     // Get user's vaults
     const vaults = await ctx.db
       .query("vaults")
-      .filter((q) => q.eq(q.field("userId"), userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
     // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
     // gated until a connected vault has branch data.
