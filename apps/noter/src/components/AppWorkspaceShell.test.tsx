@@ -207,6 +207,7 @@ describe("AppWorkspaceShell", () => {
     includeRightPane?: boolean;
   }) {
     const container = document.createElement("div");
+    rootElement = container;
     const layoutRoot = document.createElement("div");
     const carousel = document.createElement("div");
     const frameworkScriptElement = document.createElement("script");
@@ -249,6 +250,7 @@ describe("AppWorkspaceShell", () => {
 
     return {
       carousel,
+      container,
       layoutRoot,
       scriptElement,
     };

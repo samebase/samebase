@@ -218,18 +218,21 @@ for (const scenario of MOBILE_PREHYDRATION_VISUAL_SCENARIOS) {
   test(`mobile workspace prehydration paints ${scenario.id} exactly like hydration`, async ({
     browser,
   }, testInfo: TestInfo) => {
-    const prehydratedPage = await openMobileWorkspacePage({
-      browser,
-      hydrate: false,
-      scenario,
-    });
-    const hydratedPage = await openMobileWorkspacePage({
-      browser,
-      hydrate: true,
-      scenario,
-    });
+    let prehydratedPage: Page | null = null;
+    let hydratedPage: Page | null = null;
 
     try {
+      prehydratedPage = await openMobileWorkspacePage({
+        browser,
+        hydrate: false,
+        scenario,
+      });
+      hydratedPage = await openMobileWorkspacePage({
+        browser,
+        hydrate: true,
+        scenario,
+      });
+
       const prehydratedEdgeX = await getSidebarEdgeX(prehydratedPage, scenario.edgePane);
       const hydratedEdgeX = await getSidebarEdgeX(hydratedPage, scenario.edgePane);
       expect(prehydratedEdgeX).toBe(hydratedEdgeX);
@@ -256,8 +259,8 @@ for (const scenario of MOBILE_PREHYDRATION_VISUAL_SCENARIOS) {
         testInfo,
       });
     } finally {
-      await prehydratedPage.close();
-      await hydratedPage.close();
+      await prehydratedPage?.close();
+      await hydratedPage?.close();
     }
   });
 }
