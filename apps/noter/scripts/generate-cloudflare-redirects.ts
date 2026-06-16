@@ -42,7 +42,7 @@ function isPublicPrerenderPagesModule(value: unknown): value is PublicPrerenderP
   return typeof value["readPublicPrerenderPages"] === "function";
 }
 
-async function loadPublicPrerenderPages() {
+export async function loadPublicPrerenderPages() {
   const server = await createServer({
     appType: "custom",
     configFile: false,
@@ -78,7 +78,7 @@ function assertRedirectPath(label: string, value: string) {
   }
 }
 
-function readHtmlOutputPath(page: PublicPrerenderPage) {
+export function readCloudflarePrerenderHtmlOutputPath(page: PublicPrerenderPage) {
   if (page.path === "/" && !page.prerender.outputPath) {
     throw new Error(
       "The root prerender page must set outputPath because Cloudflare SPA mode owns /index.html.",
@@ -109,7 +109,7 @@ function createRedirectAliases(routePath: string) {
 
 export function createCloudflarePrerenderRedirectsBlock(pages: readonly PublicPrerenderPage[]) {
   const redirectGroups = pages.map((page) => {
-    const outputPath = readHtmlOutputPath(page);
+    const outputPath = readCloudflarePrerenderHtmlOutputPath(page);
     return createRedirectAliases(page.path)
       .map((alias) => `${alias} ${outputPath} 200`)
       .join("\n");
