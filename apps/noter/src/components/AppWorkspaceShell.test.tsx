@@ -10,7 +10,7 @@ import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateMo
 import {
   appWorkspaceMobilePanePrehydrationScript,
   appWorkspaceSidebarPrehydrationScript,
-  clearAppWorkspaceSidebarPrehydrationStyle,
+  clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
@@ -51,8 +51,6 @@ const LOCAL_SIDEBAR_STATE = {
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR =
   "style#noter-app-workspace-sidebar-prehydration";
-const APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_SELECTOR =
-  "style#noter-app-workspace-sidebar-mobile-prehydration";
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR =
   ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
 
@@ -100,7 +98,7 @@ describe("AppWorkspaceShell", () => {
   afterEach(() => {
     useConvexAuthMock.mockReset();
     useQueryMock.mockReset();
-    clearAppWorkspaceSidebarPrehydrationStyle();
+    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
     window.localStorage.clear();
     const mountedRoot = root;
     if (mountedRoot) {
@@ -223,8 +221,9 @@ describe("AppWorkspaceShell", () => {
 
     if (includeLeftPane) {
       const leftPane = document.createElement("div");
-      leftPane.className =
-        "workspace-layout-v2-responsive-left-pane workspace-mobile-pane-separators";
+      leftPane.className = "workspace-layout-v2-responsive-left-pane";
+      leftPane.setAttribute("data-workspace-layout-v2-mobile-pane", "left");
+      leftPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "left");
       leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
       carousel.append(leftPane);
     }
@@ -233,14 +232,17 @@ describe("AppWorkspaceShell", () => {
     const mainPaneSurface = document.createElement("div");
     mainPane.className = "workspace-layout-v2-responsive-main-pane snap-center snap-always";
     mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
+    mainPane.setAttribute("data-workspace-layout-v2-mobile-pane", "main");
     mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
+    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "main");
     mainPane.append(mainPaneSurface);
     carousel.append(mainPane);
 
     if (includeRightPane) {
       const rightPane = document.createElement("div");
-      rightPane.className =
-        "workspace-layout-v2-responsive-right-pane workspace-mobile-pane-separators";
+      rightPane.className = "workspace-layout-v2-responsive-right-pane";
+      rightPane.setAttribute("data-workspace-layout-v2-mobile-pane", "right");
+      rightPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "right");
       rightPane.setAttribute("data-testid", "workspace-layout-v2-pane-right");
       carousel.append(rightPane);
     }
@@ -308,11 +310,6 @@ describe("AppWorkspaceShell", () => {
 
   function getRequiredPrehydrationStyleText() {
     return getRequiredDocumentElement(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)
-      .textContent;
-  }
-
-  function getRequiredMobilePrehydrationStyleText() {
-    return getRequiredDocumentElement(APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_SELECTOR)
       .textContent;
   }
 
@@ -509,7 +506,7 @@ describe("AppWorkspaceShell", () => {
       rightDesktopWidth: "340px",
     });
 
-    clearAppWorkspaceSidebarPrehydrationStyle();
+    clearAppWorkspaceSidebarDesktopPrehydrationStyle();
 
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
   });
@@ -575,36 +572,21 @@ describe("AppWorkspaceShell", () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
     });
 
-    const styleText = getRequiredMobilePrehydrationStyleText();
-    expect(styleText).toContain("@media (max-width: 767px)");
-    expect(styleText).toContain(
-      `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane`,
+    expect(
+      document.querySelector("style#noter-app-workspace-sidebar-mobile-prehydration"),
+    ).toBeNull();
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "260px",
     );
-    expect(styleText).toContain("width: 260px !important;");
-    expect(styleText).toContain("width: 390px !important;");
-    expect(styleText).toContain("width: 340px !important;");
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "390px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "340px",
+    );
     expect(carousel.scrollLeft).toBe(600);
     expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
-    expect(
-      carousel
-        .querySelector('[data-testid="workspace-layout-v2-pane-left"]')
-        ?.classList.contains("workspace-mobile-pane-separators"),
-    ).toBe(true);
-    expect(
-      carousel
-        .querySelector("[data-workspace-layout-v2-mobile-main-pane-surface]")
-        ?.classList.contains("workspace-mobile-pane-separators"),
-    ).toBe(true);
-    expect(
-      carousel
-        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
-        ?.classList.contains("workspace-mobile-pane-separators"),
-    ).toBe(false);
-    expect(
-      carousel
-        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
-        ?.hasAttribute("data-workspace-layout-v2-mobile-merged-pane"),
-    ).toBe(false);
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
     expect(
       carousel
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
@@ -636,26 +618,27 @@ describe("AppWorkspaceShell", () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
     });
 
-    const styleText = getRequiredMobilePrehydrationStyleText();
-    expect(styleText).toContain("width: 260px !important;");
-    expect(styleText).toContain("width: 294px !important;");
-    expect(styleText).toContain("width: 96px !important;");
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "260px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "294px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "96px",
+    );
     expect(carousel.scrollLeft).toBe(260);
     expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
-    expect(
-      carousel
-        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
-        ?.getAttribute("data-workspace-layout-v2-mobile-merged-pane"),
-    ).toBe("right");
-    expect(
-      carousel
-        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
-        ?.classList.contains("snap-none"),
-    ).toBe(true);
+    expect(layoutRoot.getAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe("right");
     expect(
       carousel
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
         ?.classList.contains("snap-center"),
+    ).toBe(true);
+    expect(
+      carousel
+        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
+        ?.classList.contains("snap-none"),
     ).toBe(false);
   });
 
@@ -677,22 +660,23 @@ describe("AppWorkspaceShell", () => {
         version: 2,
       }),
     );
-    const { carousel, scriptElement } = appendMobilePrehydrationCarousel({});
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
 
     withMobileViewportWidth(390, () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
     });
 
-    const styleText = getRequiredMobilePrehydrationStyleText();
-    expect(styleText).toContain("width: 260px !important;");
-    expect(styleText).toContain("width: 390px !important;");
-    expect(styleText).toContain("width: 340px !important;");
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "260px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "390px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "340px",
+    );
     expect(carousel.scrollLeft).toBe(600);
-    expect(
-      carousel
-        .querySelector('[data-testid="workspace-layout-v2-pane-right"]')
-        ?.hasAttribute("data-workspace-layout-v2-mobile-merged-pane"),
-    ).toBe(false);
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
     expect(
       carousel
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")

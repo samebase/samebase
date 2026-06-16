@@ -1,4 +1,4 @@
-import { useRef, type ReactElement } from "react";
+import { useRef, type CSSProperties, type ReactElement } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
 import {
   useWorkspaceLayoutV2Actions,
@@ -41,6 +41,12 @@ type WorkspaceLayoutV2Props = {
   right?: ReactElement;
 
   dataTestId?: string;
+};
+
+type WorkspaceLayoutV2RootStyle = CSSProperties & {
+  "--workspace-layout-v2-left-mobile-width": string;
+  "--workspace-layout-v2-main-mobile-width": string;
+  "--workspace-layout-v2-right-mobile-width": string;
 };
 
 /**
@@ -173,6 +179,13 @@ export function WorkspaceLayoutV2({
   const mobileMainWidthPx = activeMobileSurface
     ? activeMobileSurface.mainWidthPx
     : mobileGripResize.mobileDefaultMainWidthPx;
+  const layoutRootStyle: WorkspaceLayoutV2RootStyle | undefined = hasMeasuredViewport
+    ? {
+        "--workspace-layout-v2-left-mobile-width": `${mobileLeftWidthPx}px`,
+        "--workspace-layout-v2-main-mobile-width": `${mobileMainWidthPx}px`,
+        "--workspace-layout-v2-right-mobile-width": `${mobileRightWidthPx}px`,
+      }
+    : undefined;
   useWorkspaceLayoutV2MobileCarouselController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
@@ -285,7 +298,14 @@ export function WorkspaceLayoutV2({
         ref={viewportRef}
         data-mobile-pane={mobilePane}
         data-workspace-layout-v2="responsive"
+        data-workspace-layout-v2-mobile-merged-side={
+          isMobile && activeMobileMergedSurfaceSide !== null
+            ? activeMobileMergedSurfaceSide
+            : undefined
+        }
         className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
+        style={layoutRootStyle}
+        suppressHydrationWarning
       >
         <WorkspaceLayoutV2Viewport
           activeResizeSide={activeResizeSide}
@@ -297,8 +317,6 @@ export function WorkspaceLayoutV2({
           leftWidthPx={mobileLeftWidthPx}
           lockCarouselScroll={isMobile && mobileGripResize.lockCarouselScroll}
           mainContent={mainViewportContent}
-          mergedSurfaceSide={isMobile ? activeMobileMergedSurfaceSide : null}
-          mobilePane={mobilePane}
           paneWidthPx={mobileMainWidthPx}
           peekWidthPx={mobilePanePeekWidthPx}
           rightContent={right}

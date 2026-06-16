@@ -1,26 +1,12 @@
 import { type CSSProperties, type ReactElement, type RefObject } from "react";
 import { cn } from "@/lib/utils";
-import {
-  type MobilePane,
-  type WorkspaceLayoutV2ActiveResizeSide,
-  type WorkspaceLayoutV2MobileMergedSide,
-} from "./WorkspaceLayoutV2Geometry";
+import { type WorkspaceLayoutV2ActiveResizeSide } from "./WorkspaceLayoutV2Geometry";
 
 type WorkspaceLayoutV2ResolvedPaneContent = {
   leftContent: ReactElement | undefined;
   mainContent: ReactElement;
   rightContent: ReactElement | undefined;
 };
-
-function getMobilePaneSeparatorClass(pane: MobilePane, activePane: MobilePane) {
-  if (pane === activePane) {
-    return "";
-  }
-
-  // Mobile pane ownership can change mid-gesture, but pane geometry must stay
-  // exact. A 1px content-box delta can rewrap landing copy and editor text.
-  return "workspace-mobile-pane-separators";
-}
 
 type WorkspaceLayoutV2ViewportStyle = CSSProperties & {
   "--workspace-layout-v2-left-desktop-width": string;
@@ -35,8 +21,6 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   hasMeasuredViewport: boolean;
   leftWidthPx: number;
   lockCarouselScroll: boolean;
-  mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
-  mobilePane: MobilePane;
   paneWidthPx: number;
   peekWidthPx: number;
   rightWidthPx: number;
@@ -54,8 +38,6 @@ export function WorkspaceLayoutV2Viewport({
   leftWidthPx,
   lockCarouselScroll,
   mainContent,
-  mergedSurfaceSide,
-  mobilePane,
   paneWidthPx,
   peekWidthPx,
   rightContent,
@@ -69,11 +51,15 @@ export function WorkspaceLayoutV2Viewport({
     paddingLeft: `${peekWidthPx}px`,
     paddingRight: `${peekWidthPx}px`,
   };
-  // Before ResizeObserver reports a real viewport width, mobile must paint the
-  // main pane at full width instead of briefly rendering the 1px numeric floor.
-  const leftPaneWidth = hasMeasuredViewport ? `${leftWidthPx}px` : "0px";
-  const mainPaneWidth = hasMeasuredViewport ? `${paneWidthPx}px` : "100vw";
-  const rightPaneWidth = hasMeasuredViewport ? `${rightWidthPx}px` : "0px";
+  const leftPaneWidth = hasMeasuredViewport
+    ? `${leftWidthPx}px`
+    : "var(--workspace-layout-v2-left-mobile-width, 0px)";
+  const mainPaneWidth = hasMeasuredViewport
+    ? `${paneWidthPx}px`
+    : "var(--workspace-layout-v2-main-mobile-width, 100vw)";
+  const rightPaneWidth = hasMeasuredViewport
+    ? `${rightWidthPx}px`
+    : "var(--workspace-layout-v2-right-mobile-width, 0px)";
 
   function renderLeftPane() {
     if (!showLeftPane) {
@@ -82,14 +68,12 @@ export function WorkspaceLayoutV2Viewport({
 
     return (
       <div
-        data-workspace-layout-v2-mobile-merged-pane={
-          mergedSurfaceSide === "left" ? "left" : undefined
-        }
+        data-workspace-layout-v2-mobile-pane="left"
+        data-workspace-layout-v2-mobile-separator-pane="left"
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
           "workspace-layout-v2-responsive-left-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
           "snap-start snap-always",
-          getMobilePaneSeparatorClass("left", mobilePane),
           desktopLeftWidthPx > 0
             ? activeResizeSide === "left"
               ? "md:border-r md:border-primary"
@@ -109,18 +93,17 @@ export function WorkspaceLayoutV2Viewport({
     return (
       <div
         data-workspace-layout-v2-mobile-main-pane
+        data-workspace-layout-v2-mobile-pane="main"
         className={cn(
           "workspace-layout-v2-responsive-main-pane h-full min-h-0 shrink-0",
-          mergedSurfaceSide === null ? "snap-center snap-always" : "snap-none",
+          "snap-center snap-always",
         )}
         style={{ width: mainPaneWidth }}
       >
         <div
           data-workspace-layout-v2-mobile-main-pane-surface
-          className={cn(
-            "box-border h-full min-h-0 overflow-hidden bg-background",
-            getMobilePaneSeparatorClass("main", mobilePane),
-          )}
+          data-workspace-layout-v2-mobile-separator-pane="main"
+          className="box-border h-full min-h-0 overflow-hidden bg-background"
         >
           {mainContent}
         </div>
@@ -135,14 +118,12 @@ export function WorkspaceLayoutV2Viewport({
 
     return (
       <div
-        data-workspace-layout-v2-mobile-merged-pane={
-          mergedSurfaceSide === "right" ? "right" : undefined
-        }
+        data-workspace-layout-v2-mobile-pane="right"
+        data-workspace-layout-v2-mobile-separator-pane="right"
         data-testid="workspace-layout-v2-pane-right"
         className={cn(
           "workspace-layout-v2-responsive-right-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
           "snap-end snap-always",
-          getMobilePaneSeparatorClass("right", mobilePane),
           desktopRightWidthPx > 0
             ? activeResizeSide === "right"
               ? "md:border-l md:border-primary"

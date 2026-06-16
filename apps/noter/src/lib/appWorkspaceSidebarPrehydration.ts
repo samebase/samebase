@@ -2,7 +2,6 @@ import {
   buildWorkspaceLayoutV2DesktopPrehydrationScript,
   buildWorkspaceLayoutV2MobilePanePrehydrationScript,
   clearWorkspaceLayoutV2DesktopPrehydrationStyle,
-  clearWorkspaceLayoutV2PrehydrationStyles,
   type WorkspaceLayoutV2PrehydrationArgs,
   type WorkspaceLayoutV2PrehydrationState,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Prehydration";
@@ -13,12 +12,9 @@ import {
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
   "noter-app-workspace-sidebar-prehydration";
-const APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_ELEMENT_ID =
-  "noter-app-workspace-sidebar-mobile-prehydration";
 
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopStyleElementId: APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID,
-  mobileStyleElementId: APP_WORKSPACE_SIDEBAR_MOBILE_PREHYDRATION_STYLE_ELEMENT_ID,
   storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } satisfies WorkspaceLayoutV2PrehydrationArgs;
@@ -108,10 +104,6 @@ export const appWorkspaceMobilePanePrehydrationScript =
     appWorkspaceSidebarPrehydrationArgs,
     getWorkspaceSidebarState,
   );
-
-export function clearAppWorkspaceSidebarPrehydrationStyle() {
-  clearWorkspaceLayoutV2PrehydrationStyles(appWorkspaceSidebarPrehydrationArgs);
-}
 
 export function clearAppWorkspaceSidebarDesktopPrehydrationStyle() {
   clearWorkspaceLayoutV2DesktopPrehydrationStyle(appWorkspaceSidebarPrehydrationArgs);

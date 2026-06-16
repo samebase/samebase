@@ -21,7 +21,6 @@ export type WorkspaceLayoutV2PrehydrationState = Pick<
 
 export type WorkspaceLayoutV2PrehydrationArgs = {
   desktopStyleElementId: string;
-  mobileStyleElementId: string;
   storageKey: string;
   storageVersion: number;
 };
@@ -158,24 +157,18 @@ workspace layout markup. It runs before TanStack's client scripts, when the
 carousel DOM exists but React has not hydrated it yet.
 
 Desktop prehydration can live in the document head because it only installs CSS
-for future elements. Mobile pane selection changes existing DOM state: it sets
-the temporary pane widths, scrolls the native carousel, and moves the mobile
-separator ownership classes to the pane that localStorage says is active. Those
-operations require the carousel node, so this script must run after the
-workspace layout markup. Static output can include framework scripts between
-the layout root and this script, so the script walks preceding siblings until it
-finds the workspace carousel.
+for future elements. Mobile pane selection must run after the workspace layout
+markup because it scrolls the native carousel that already exists in the SSG
+HTML. Static output can include framework scripts between the layout root and
+this script, so the script walks preceding siblings until it finds the workspace
+carousel.
 
 Mobile merged and unmerged states share the same pane DOM. Merged state changes
-the measured widths, the selected scroll offset, the side-pane marker attribute,
-and the main pane snap class; it does not move nodes before hydration.
-
-The temporary stylesheet corrects the unmeasured mobile widths first. Without
-those rules, assigning scrollLeft can be clamped to 0 because the SSG side panes
-are 0px wide until ResizeObserver reports the viewport size. A one-shot
-MutationObserver removes the mobile stylesheet after React marks the carousel
-measured; if MutationObserver is unavailable, the measured-viewport selector
-guard still prevents the temporary rules from matching after React takes over.
+the measured widths, the selected scroll offset, and one root marker attribute;
+it does not move nodes before hydration. The root owns the mobile width
+variables because React does not write those variables until ResizeObserver has
+measured the viewport. That lets this script seed first-paint geometry without a
+temporary stylesheet or cleanup observer.
 */
 function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
   args: WorkspaceLayoutV2PrehydrationInlineArgs,
@@ -236,7 +229,6 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     hasLeftPane,
     leftWidthPx,
     mainWidthPx,
-    mergedSurfaceSide,
     mobilePane,
     peekWidthPx,
     rightWidthPx,
@@ -245,14 +237,12 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     hasLeftPane: boolean;
     leftWidthPx: number;
     mainWidthPx: number;
-    mergedSurfaceSide: "left" | "right" | null;
     mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
     peekWidthPx: number;
     rightWidthPx: number;
     viewportWidthPx: number;
   }) {
     if (mobilePane === "left") return peekWidthPx;
-    if (mergedSurfaceSide !== null && mobilePane === "main") return 0;
     if (mobilePane === "main") return hasLeftPane ? leftWidthPx : 0;
 
     return Math.max(
@@ -299,132 +289,38 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     };
   }
 
-  function installMobilePrehydrationStyle({
+  function syncMobilePaneRootState({
     leftWidthPx,
+    layoutRoot,
     mainWidthPx,
+    mergedSurfaceSide,
+    mobilePane,
     rightWidthPx,
   }: {
     leftWidthPx: number;
+    layoutRoot: HTMLElement;
     mainWidthPx: number;
-    rightWidthPx: number;
-  }) {
-    const viewportSelector =
-      ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
-    const cssText = `
-@layer utilities {
-  @media (max-width: 767px) {
-    ${viewportSelector} .workspace-layout-v2-responsive-left-pane {
-      width: ${leftWidthPx}px !important;
-    }
-
-    ${viewportSelector} .workspace-layout-v2-responsive-main-pane {
-      width: ${mainWidthPx}px !important;
-    }
-
-    ${viewportSelector} .workspace-layout-v2-responsive-right-pane {
-      width: ${rightWidthPx}px !important;
-    }
-  }
-}
-`;
-
-    const existingStyleElement = document.getElementById(args.mobileStyleElementId);
-    const styleElement = existingStyleElement ?? document.createElement("style");
-    styleElement.id = args.mobileStyleElementId;
-    styleElement.textContent = cssText;
-    if (existingStyleElement === null) {
-      document.head.append(styleElement);
-    }
-  }
-
-  function setPaneSeparatorClass(element: Element | null, active: boolean) {
-    if (!(element instanceof window.HTMLElement)) return;
-
-    element.classList.toggle("workspace-mobile-pane-separators", !active);
-  }
-
-  function setMergedPaneAttribute(
-    element: Element | null,
-    paneSide: "left" | "right",
-    mergedSurfaceSide: "left" | "right" | null,
-  ) {
-    if (!(element instanceof window.HTMLElement)) return;
-
-    if (mergedSurfaceSide === paneSide) {
-      element.setAttribute("data-workspace-layout-v2-mobile-merged-pane", paneSide);
-      return;
-    }
-
-    element.removeAttribute("data-workspace-layout-v2-mobile-merged-pane");
-  }
-
-  function syncMainPaneSnapClass(
-    element: Element | null,
-    mergedSurfaceSide: "left" | "right" | null,
-  ) {
-    if (!(element instanceof window.HTMLElement)) return;
-
-    const isMerged = mergedSurfaceSide !== null;
-    element.classList.toggle("snap-none", isMerged);
-    element.classList.toggle("snap-center", !isMerged);
-    element.classList.toggle("snap-always", !isMerged);
-  }
-
-  function syncMobilePaneDomState({
-    carouselNode,
-    mergedSurfaceSide,
-    mobilePane,
-  }: {
-    carouselNode: Element;
     mergedSurfaceSide: "left" | "right" | null;
     mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
+    rightWidthPx: number;
   }) {
-    const layoutRoot = carouselNode.closest('[data-workspace-layout-v2="responsive"]');
-    if (layoutRoot instanceof window.HTMLElement) {
-      layoutRoot.setAttribute("data-mobile-pane", mobilePane);
+    layoutRoot.setAttribute("data-mobile-pane", mobilePane);
+    if (mergedSurfaceSide === null) {
+      layoutRoot.removeAttribute("data-workspace-layout-v2-mobile-merged-side");
+    } else {
+      layoutRoot.setAttribute("data-workspace-layout-v2-mobile-merged-side", mergedSurfaceSide);
     }
 
-    const leftPane = carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]');
-    const mainPane = carouselNode.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
-    const rightPane = carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
-
-    setMergedPaneAttribute(leftPane, "left", mergedSurfaceSide);
-    syncMainPaneSnapClass(mainPane, mergedSurfaceSide);
-    setMergedPaneAttribute(rightPane, "right", mergedSurfaceSide);
-    setPaneSeparatorClass(leftPane, mobilePane === "left");
-    setPaneSeparatorClass(
-      carouselNode.querySelector("[data-workspace-layout-v2-mobile-main-pane-surface]"),
-      mobilePane === "main",
-    );
-    setPaneSeparatorClass(rightPane, mobilePane === "right");
+    const rootStyle = layoutRoot.style;
+    rootStyle.setProperty("--workspace-layout-v2-left-mobile-width", leftWidthPx + "px");
+    rootStyle.setProperty("--workspace-layout-v2-main-mobile-width", mainWidthPx + "px");
+    rootStyle.setProperty("--workspace-layout-v2-right-mobile-width", rightWidthPx + "px");
   }
 
-  function removeMobilePrehydrationStyleAfterMeasurement(carouselNode: Element) {
-    const removeStyle = () => {
-      document.getElementById(args.mobileStyleElementId)?.remove();
-    };
+  function getWorkspaceLayoutRoot(carouselNode: Element) {
+    const layoutRoot = carouselNode.closest('[data-workspace-layout-v2="responsive"]');
 
-    if (carouselNode.hasAttribute("data-workspace-layout-v2-measured")) {
-      removeStyle();
-      return;
-    }
-
-    if (typeof window.MutationObserver !== "function") {
-      return;
-    }
-
-    const observer = new window.MutationObserver(() => {
-      if (!carouselNode.hasAttribute("data-workspace-layout-v2-measured")) {
-        return;
-      }
-
-      observer.disconnect();
-      removeStyle();
-    });
-    observer.observe(carouselNode, {
-      attributeFilter: ["data-workspace-layout-v2-measured"],
-      attributes: true,
-    });
+    return layoutRoot instanceof window.HTMLElement ? layoutRoot : null;
   }
 
   function findWorkspaceLayoutCarousel(scriptElement: HTMLScriptElement) {
@@ -457,6 +353,8 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
 
     const carouselNode = findWorkspaceLayoutCarousel(scriptElement);
     if (carouselNode === null) return;
+    const layoutRoot = getWorkspaceLayoutRoot(carouselNode);
+    if (layoutRoot === null) return;
 
     const state = getStoredWorkspaceSidebarState();
     if (state === null) return;
@@ -498,27 +396,23 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     });
     const mainWidthPx = mergedSurface === null ? defaultMainWidthPx : mergedSurface.mainWidthPx;
     const mergedSurfaceSide = mergedSurface === null ? null : mergedSurface.side;
-    installMobilePrehydrationStyle({
+    syncMobilePaneRootState({
       leftWidthPx,
+      layoutRoot,
       mainWidthPx,
-      rightWidthPx,
-    });
-    syncMobilePaneDomState({
-      carouselNode,
       mergedSurfaceSide,
       mobilePane,
+      rightWidthPx,
     });
     carouselNode.scrollLeft = getMobilePaneScrollLeftPx({
       hasLeftPane,
       leftWidthPx,
       mainWidthPx,
-      mergedSurfaceSide,
       mobilePane,
       peekWidthPx,
       rightWidthPx,
       viewportWidthPx,
     });
-    removeMobilePrehydrationStyleAfterMeasurement(carouselNode);
   } catch {}
 }
 
@@ -534,11 +428,6 @@ export function buildWorkspaceLayoutV2MobilePanePrehydrationScript(
   readWorkspaceSidebarState: ReadWorkspaceLayoutV2PrehydrationState,
 ) {
   return `(${InlineScript_prehydrateWorkspaceLayoutV2MobilePane.toString()})(${JSON.stringify(getWorkspaceLayoutV2PrehydrationInlineArgs(args))}, ${readWorkspaceSidebarState.toString()});`;
-}
-
-export function clearWorkspaceLayoutV2PrehydrationStyles(args: WorkspaceLayoutV2PrehydrationArgs) {
-  document.getElementById(args.desktopStyleElementId)?.remove();
-  document.getElementById(args.mobileStyleElementId)?.remove();
 }
 
 export function clearWorkspaceLayoutV2DesktopPrehydrationStyle(
