@@ -45,6 +45,34 @@ function isModulePreloadLink(linkTag: string) {
     .includes("modulepreload");
 }
 
+/**
+Strips modulepreload link tags from prerendered public HTML while preserving
+stylesheets and the module entry script that hydrates the page.
+
+@example
+```ts
+stripModulePreloadLinks(
+  '<link rel="modulepreload" href="/assets/index.js"/>' +
+    '<script type="module">import("/assets/index.js");</script>',
+);
+// {
+//   html: '<script type="module">import("/assets/index.js");</script>',
+//   strippedLinkCount: 1,
+// }
+```
+
+@example
+```ts
+stripModulePreloadLinks(
+  '<link href="/assets/index.js" crossorigin rel="modulepreload">' +
+    '<link rel="stylesheet" href="/assets/index.css"/>',
+);
+// {
+//   html: '<link rel="stylesheet" href="/assets/index.css"/>',
+//   strippedLinkCount: 1,
+// }
+```
+*/
 export function stripModulePreloadLinks(html: string) {
   let strippedLinkCount = 0;
   const nextHtml = html.replace(linkTagPattern, (linkTag) => {
@@ -88,6 +116,16 @@ function stripModulePreloads(filePath: string) {
   return result.strippedLinkCount;
 }
 
+/**
+Runs after `vp build` and removes modulepreload hints only from public
+prerendered HTML files. The SPA fallback keeps its modulepreload links.
+
+@example
+```ts
+await stripPublicPrerenderModulePreloads();
+// Logs: Stripped 75 public prerender modulepreload links.
+```
+*/
 export async function stripPublicPrerenderModulePreloads() {
   let strippedLinkCount = 0;
 
