@@ -31,6 +31,7 @@ import {
   DEFAULT_LOGO_OPACITY,
   LOGO_ROUTE_SEARCH_KEYS,
   PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS,
+  hasPublicLandingLogoStaticFallbackUnsafeSearch,
   preserveLogoRouteDevModeSearch,
   validateLogoIsoRouteSearch,
   validateLogoRouteSearch,
@@ -49,6 +50,8 @@ describe("logoRouteSearch", () => {
     expect(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS).toEqual(
       LOGO_ROUTE_SEARCH_KEYS.filter((key) => key !== "zoom"),
     );
+    expect(hasPublicLandingLogoStaticFallbackUnsafeSearch({ rot: 180 })).toBe(true);
+    expect(hasPublicLandingLogoStaticFallbackUnsafeSearch({ zoom: 0.5 })).toBe(false);
   });
 
   it("normalizes logo route search into typed values", () => {

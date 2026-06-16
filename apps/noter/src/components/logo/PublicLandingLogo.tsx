@@ -37,6 +37,7 @@ import {
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
   buildLogoRouteSearch,
+  hasPublicLandingLogoStaticFallbackUnsafeSearch,
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
 } from "@/lib/logoRouteSearch";
@@ -159,7 +160,11 @@ export function PublicLandingLogo({
   const latestViewRef = useRef(view);
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
-  const isSceneInteractive = isSceneReady && !isSvgVisible;
+  const shouldHideQuerySvgFallbackUntilSceneReady =
+    loadInteractiveScene && hasPublicLandingLogoStaticFallbackUnsafeSearch(routeSearch);
+  const isSvgFallbackVisible =
+    isSvgVisible && (!shouldHideQuerySvgFallbackUntilSceneReady || didSceneFail);
+  const isSceneInteractive = isSceneReady && !isSvgFallbackVisible;
   const isAutoRotateRequested = autoRotate || routeState.autoRotateEnabled;
   const shouldAnimateFaceColors = routeState.faceColorAnimationEnabled && !prefersReducedMotion;
   const shouldAnimateLeftFaceStripes =
@@ -380,7 +385,7 @@ export function PublicLandingLogo({
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-150 ease-out motion-reduce:transition-none ${isSvgVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 transition-opacity duration-150 ease-out motion-reduce:transition-none ${isSvgFallbackVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
         />
         {LogoScene && !didSceneFail ? (
           <div

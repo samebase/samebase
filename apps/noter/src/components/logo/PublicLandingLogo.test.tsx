@@ -168,7 +168,7 @@ describe("PublicLandingLogo", () => {
     );
   });
 
-  it("reveals the query-aware static fallback after prehydration suppression", async () => {
+  it("reveals the query-aware static fallback after prehydration suppression when the scene is disabled", async () => {
     window.history.replaceState(null, "", "/?rot=180");
     runPublicLandingLogoPrehydrationScript();
 
@@ -193,6 +193,33 @@ describe("PublicLandingLogo", () => {
 
     const logoImage = getLogoImage(rootElement);
     expect(logoImage.hasAttribute("data-public-landing-logo-static-fallback")).toBe(true);
+    expect(
+      document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
+    ).toBe(false);
+    expect(document.getElementById("noter-public-landing-logo-prehydration")).toBeNull();
+  });
+
+  it("keeps the query-aware static fallback hidden while the interactive scene is pending", async () => {
+    window.history.replaceState(null, "", "/?rot=180");
+    runPublicLandingLogoPrehydrationScript();
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          routeSearch={{ rot: 180 }}
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+      );
+    });
+
+    const logoImage = getLogoImage(rootElement);
+    expect(logoImage.className).toContain("opacity-0");
+    expect(logoImage.className).toContain("pointer-events-none");
     expect(
       document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
     ).toBe(false);

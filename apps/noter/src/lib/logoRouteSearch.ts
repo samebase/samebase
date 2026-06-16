@@ -555,12 +555,21 @@ const PUBLIC_LANDING_LOGO_STATIC_FALLBACK_SAFE_SEARCH_KEYS = [
 /**
 These keys can make the requested public landing logo differ from the static
 SSG fallback before React has read the route search. The prehydration head
-script hides that fallback when any of these keys are present, trading a short
-empty logo slot for avoiding a visibly wrong logo frame.
+script and PublicLandingLogo both use this list: first to hide the SSG fallback
+before paint, then to keep the SVG hidden until the interactive scene is ready
+or rendering fails.
 */
 export const PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS = LOGO_ROUTE_SEARCH_KEYS.filter(
   (key) => !includes(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_SAFE_SEARCH_KEYS, key),
 );
+
+export function hasPublicLandingLogoStaticFallbackUnsafeSearch(search: LogoRouteSearch): boolean {
+  for (const key of PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS) {
+    if (typeof search[key] !== "undefined") return true;
+  }
+
+  return false;
+}
 
 const LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
   RouteSearchSchema_logoIso,
