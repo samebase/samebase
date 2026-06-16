@@ -19,6 +19,12 @@ import {
   LOGO_DISTANCE_SCALE,
   normalizeLogoDistanceScale,
 } from "@/components/logo/logoDistanceScale";
+import {
+  DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
+  normalizeLogoShuffleParallelMoves,
+  readLogoShuffleParallelMoves,
+  type LogoShuffleParallelMoves,
+} from "@/components/logo/logoShuffleAnimation";
 import { LOGO_PREVIEW_ZOOM, normalizeLogoPreviewZoom } from "@/components/logo/logoPreviewZoom";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
@@ -103,12 +109,25 @@ const LOGO_ISOMETRIC_STYLE_VALUES = [
 ] as const satisfies readonly LogoIsometricStyleId[];
 
 const LOGO_GRID_SIZE_VALUE_SUGGESTIONS = [`${LOGO_GRID_SIZE_2}`, `${LOGO_GRID_SIZE_3}`] as const;
+const LOGO_SHUFFLE_PARALLEL_MOVES_VALUE_SUGGESTIONS = [
+  "1",
+  "2",
+  "3",
+] as const satisfies NoterRouteSearchParamValueSuggestions;
 const [FIRST_LOGO_PRESET, ...REMAINING_LOGO_PRESETS] = LOGO_PRESETS;
 const LOGO_VOXEL_STATE_VALUE_SUGGESTIONS = [
   FIRST_LOGO_PRESET.voxelState,
   ...REMAINING_LOGO_PRESETS.map((preset) => preset.voxelState),
 ] satisfies NoterRouteSearchParamValueSuggestions;
 const DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
+export const MIN_LOGO_OPACITY = 0;
+export const MAX_LOGO_OPACITY = 1;
+export const LOGO_OPACITY_STEP = 0.01;
+export const DEFAULT_LOGO_OPACITY = 1;
+
+export function normalizeLogoOpacity(value: number): number {
+  return Math.min(Math.max(value, MIN_LOGO_OPACITY), MAX_LOGO_OPACITY);
+}
 
 function readOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -134,6 +153,11 @@ function readCanonicalVoxelState(value: unknown): string | undefined {
 const logoGridSizeSearchValue = after(routeSearchFiniteNumber, (numericValue) => {
   const gridSize = readLogoGridSize(numericValue);
   return typeof gridSize === "number" ? good(gridSize) : bad("unsupported-grid-size");
+});
+
+const logoShuffleParallelMovesSearchValue = after(routeSearchFiniteNumber, (numericValue) => {
+  const parallelMoves = readLogoShuffleParallelMoves(numericValue);
+  return parallelMoves === null ? bad("unsupported-shuffle-parallel-moves") : good(parallelMoves);
 });
 
 const logoIsometricStyleSearchValue = pure((value) => {
@@ -163,6 +187,22 @@ const canonicalVoxelStateSearchValue = pure((value) => {
 });
 
 const RouteSearchSchema_logo = defineRouteSearchParams({
+  "animate-colors": routeSearchPresenceParam({
+    permission: "public",
+    suggestion: "route",
+  }),
+  "animate-stripes": routeSearchPresenceParam({
+    permission: "public",
+    suggestion: "route",
+  }),
+  "auto-rotate": routeSearchPresenceParam({
+    permission: "public",
+    suggestion: "route",
+  }),
+  "auto-shuffle": routeSearchPresenceParam({
+    permission: "public",
+    suggestion: "route",
+  }),
   axis: routeSearchValueParam(routeSearchStringValue(LOGO_ROTATION_AXIS_MODE_VALUES), {
     permission: "public",
     sampleValue: "screen-vertical",
@@ -241,6 +281,20 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     valueType: "options",
   }),
   light: RouteSearchSchema_rootThemeMode.shape.light,
+  opacity: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeLogoOpacity), {
+    numericDefaultValue: DEFAULT_LOGO_OPACITY,
+    numericRange: {
+      maxValue: MAX_LOGO_OPACITY,
+      minValue: MIN_LOGO_OPACITY,
+      rangeType: "closed",
+    },
+    numericStepValue: LOGO_OPACITY_STEP,
+    permission: "public",
+    sampleValue: "0.5",
+    suggestion: "route",
+    valueSuggestions: ["0", "0.25", "0.5", "0.75", "1"],
+    valueType: "numeric",
+  }),
   primary: RouteSearchSchema_appThemeColor.shape.primary,
   rot: routeSearchValueParam(routeSearchNormalizedFiniteNumber(normalizeRotationDegrees), {
     numericDefaultValue: DEFAULT_ROTATION_DEGREES,
@@ -257,6 +311,14 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
     valueType: "numeric",
   }),
   secondary: RouteSearchSchema_appThemeColor.shape.secondary,
+  shuffleMoves: routeSearchValueParam(logoShuffleParallelMovesSearchValue, {
+    numericDefaultValue: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
+    permission: "public",
+    sampleValue: "2",
+    suggestion: "route",
+    valueSuggestions: LOGO_SHUFFLE_PARALLEL_MOVES_VALUE_SUGGESTIONS,
+    valueType: "numeric-options",
+  }),
   stripeA: routeSearchValueParam(
     routeSearchNormalizedFiniteNumber(normalizeLogoLeftFaceStripeAngleDegrees),
     {
@@ -412,6 +474,10 @@ function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
       ? serializeVoxelState(parsedVoxelState.filledVoxels, gridSize)
       : undefined;
   return {
+    ...(search["animate-colors"] ? { "animate-colors": true as const } : {}),
+    ...(search["animate-stripes"] ? { "animate-stripes": true as const } : {}),
+    ...(search["auto-rotate"] ? { "auto-rotate": true as const } : {}),
+    ...(search["auto-shuffle"] ? { "auto-shuffle": true as const } : {}),
     ...(themeModeSearch.dark ? { dark: true as const } : {}),
     ...(themeModeSearch.light ? { light: true as const } : {}),
     ...readLogoThemeColorSearch(search),
@@ -423,7 +489,9 @@ function readLogoRouteSearchFields(search: LogoRouteSearchFields) {
     ...(search.freeView ? { freeView: true } : {}),
     ...(gridSize !== DEFAULT_LOGO_GRID_SIZE ? { gridSize } : {}),
     ...readLogoLeftFaceStyleSearch(readLogoLeftFaceStyle(search)),
+    ...(typeof search.opacity === "number" ? { opacity: search.opacity } : {}),
     ...(typeof search.rot === "number" ? { rot: search.rot } : {}),
+    ...(typeof search.shuffleMoves === "number" ? { shuffleMoves: search.shuffleMoves } : {}),
     ...(typeof voxelState === "string" ? { vox: voxelState } : {}),
     ...(typeof search.zoom === "number" ? { zoom: search.zoom } : {}),
   };
@@ -442,15 +510,21 @@ export type LogoRouteSearch = ReturnType<typeof readLogoRouteSearchFields>;
 export type LogoIsoRouteSearch = ReturnType<typeof readLogoIsoRouteSearchFields>;
 
 export type LogoRouteSearchBuildState = {
+  autoRotateEnabled: boolean;
+  autoShuffleEnabled: boolean;
   distanceScale: number;
   elevationDegrees: number;
+  faceColorAnimationEnabled: boolean;
   fractalDepth: number;
   gridSize: LogoGridSize;
   isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
+  leftFaceStripeAnimationEnabled: boolean;
   leftFaceStyle: LogoLeftFaceStyle;
+  logoOpacity: number;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
+  shuffleParallelMoves: LogoShuffleParallelMoves;
   themeColors: LogoThemeColors;
   viewSnapEnabled: boolean;
   voxelState: string;
@@ -621,6 +695,8 @@ export function buildLogoRouteSearch(
       : defaultVoxelState;
   const distanceScale = normalizeLogoDistanceScale(args.distanceScale);
   const leftFaceStyle = normalizeLogoLeftFaceStyle(args.leftFaceStyle);
+  const logoOpacity = normalizeLogoOpacity(args.logoOpacity);
+  const shuffleParallelMoves = normalizeLogoShuffleParallelMoves(args.shuffleParallelMoves);
   const zoom = normalizeLogoPreviewZoom(args.zoom);
 
   return {
@@ -628,6 +704,10 @@ export function buildLogoRouteSearch(
     ...buildLogoThemeColorSearch(args.themeColors),
     // Default-valued logo controls use own undefined tombstones so retained
     // root search cannot revive stale logo params after the serializer omits them.
+    "animate-colors": args.faceColorAnimationEnabled ? true : undefined,
+    "animate-stripes": args.leftFaceStripeAnimationEnabled ? true : undefined,
+    "auto-rotate": args.autoRotateEnabled ? true : undefined,
+    "auto-shuffle": args.autoShuffleEnabled ? true : undefined,
     axis: args.rotationAxisMode !== "cube-y" ? args.rotationAxisMode : undefined,
     elev:
       args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
@@ -641,9 +721,14 @@ export function buildLogoRouteSearch(
     freeView: args.viewSnapEnabled ? undefined : true,
     gridSize: gridSize !== DEFAULT_LOGO_GRID_SIZE ? gridSize : undefined,
     ...buildLogoLeftFaceStyleSearch(leftFaceStyle),
+    opacity: logoOpacity !== DEFAULT_LOGO_OPACITY ? Number(logoOpacity.toFixed(2)) : undefined,
     rot:
       args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
         ? Number(args.rotationDegrees.toFixed(1))
+        : undefined,
+    shuffleMoves:
+      shuffleParallelMoves !== DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES
+        ? shuffleParallelMoves
         : undefined,
     vox: voxelState !== defaultVoxelState ? voxelState : undefined,
     zoom: zoom !== LOGO_PREVIEW_ZOOM.defaultValue ? Number(zoom.toFixed(2)) : undefined,

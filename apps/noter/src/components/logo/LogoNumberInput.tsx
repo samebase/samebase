@@ -51,7 +51,10 @@ export function LogoNumberInput({
       return;
     }
 
-    setInputValue(formatValue(normalizedValue));
+    const nextInputValue = formatValue(normalizedValue);
+    setInputValue((currentInputValue) =>
+      currentInputValue === nextInputValue ? currentInputValue : nextInputValue,
+    );
   }, [formatValue, normalizedValue]);
 
   const commitInputValue = (rawInputValue: string) => {

@@ -10,6 +10,7 @@ import {
 import { DEFAULT_LOGO_THEME_COLORS } from "@/components/logo/logoTailwindColors";
 import { LOGO_DISTANCE_SCALE } from "@/components/logo/logoDistanceScale";
 import { LOGO_PREVIEW_ZOOM } from "@/components/logo/logoPreviewZoom";
+import { DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES } from "@/components/logo/logoShuffleAnimation";
 import {
   DEFAULT_LOGO_LEFT_FACE_STYLE,
   LOGO_LEFT_FACE_STRIPE,
@@ -27,6 +28,7 @@ import {
 import {
   buildLogoIsoRouteSearch,
   buildLogoRouteSearch,
+  DEFAULT_LOGO_OPACITY,
   preserveLogoRouteDevModeSearch,
   validateLogoIsoRouteSearch,
   validateLogoRouteSearch,
@@ -37,6 +39,10 @@ describe("logoRouteSearch", () => {
   it("normalizes logo route search into typed values", () => {
     expect(
       validateLogoRouteSearch({
+        "animate-colors": "",
+        "animate-stripes": "",
+        "auto-rotate": "",
+        "auto-shuffle": "false",
         axis: "screen-vertical",
         dev: "",
         depth: "99",
@@ -47,9 +53,11 @@ describe("logoRouteSearch", () => {
         border: "stone-300",
         dark: "",
         leftFace: "striped",
+        opacity: "0.5",
         primary: "emerald-500",
         rot: "721",
         secondary: "amber-500",
+        shuffleMoves: "2",
         stripeA: "120",
         stripeBasis: "horizontal",
         stripeG: "2",
@@ -60,6 +68,10 @@ describe("logoRouteSearch", () => {
         zoom: "2",
       }),
     ).toEqual({
+      "animate-colors": true,
+      "animate-stripes": true,
+      "auto-rotate": true,
+      "auto-shuffle": true,
       axis: "screen-vertical",
       background: "sky-500",
       border: "stone-300",
@@ -70,9 +82,11 @@ describe("logoRouteSearch", () => {
       elev: 32.4,
       freeView: true,
       leftFace: "striped",
+      opacity: 0.5,
       primary: "emerald-500",
       rot: 1,
       secondary: "amber-500",
+      shuffleMoves: 2,
       stripeA: 90,
       stripeBasis: "horizontal",
       stripeG: 1,
@@ -86,6 +100,12 @@ describe("logoRouteSearch", () => {
 
   it("clears default logo state when building route search", () => {
     const search = buildLogoRouteSearch({
+      autoRotateEnabled: false,
+      autoShuffleEnabled: false,
+      faceColorAnimationEnabled: false,
+      leftFaceStripeAnimationEnabled: false,
+      logoOpacity: DEFAULT_LOGO_OPACITY,
+      shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
       distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
       zoom: LOGO_PREVIEW_ZOOM.defaultValue,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -102,6 +122,14 @@ describe("logoRouteSearch", () => {
     });
 
     expect(search).toEqual({});
+    expect("animate-colors" in search).toBe(true);
+    expect(search["animate-colors"]).toBeUndefined();
+    expect("animate-stripes" in search).toBe(true);
+    expect(search["animate-stripes"]).toBeUndefined();
+    expect("auto-rotate" in search).toBe(true);
+    expect(search["auto-rotate"]).toBeUndefined();
+    expect("auto-shuffle" in search).toBe(true);
+    expect(search["auto-shuffle"]).toBeUndefined();
     expect("axis" in search).toBe(true);
     expect(search.axis).toBeUndefined();
     expect("elev" in search).toBe(true);
@@ -118,10 +146,47 @@ describe("logoRouteSearch", () => {
     expect(search.zoom).toBeUndefined();
     expect("leftFace" in search).toBe(true);
     expect(search.leftFace).toBeUndefined();
+    expect("opacity" in search).toBe(true);
+    expect(search.opacity).toBeUndefined();
     expect("rot" in search).toBe(true);
     expect(search.rot).toBeUndefined();
+    expect("shuffleMoves" in search).toBe(true);
+    expect(search.shuffleMoves).toBeUndefined();
     expect("vox" in search).toBe(true);
     expect(search.vox).toBeUndefined();
+  });
+
+  it("preserves non-default logo motion and opacity route state", () => {
+    expect(
+      buildLogoRouteSearch({
+        autoRotateEnabled: true,
+        autoShuffleEnabled: true,
+        faceColorAnimationEnabled: true,
+        leftFaceStripeAnimationEnabled: true,
+        logoOpacity: 0.456,
+        shuffleParallelMoves: 2,
+        distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
+        zoom: LOGO_PREVIEW_ZOOM.defaultValue,
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        fractalDepth: DEFAULT_LOGO_FRACTAL_DEPTH,
+        gridSize: DEFAULT_LOGO_GRID_SIZE,
+        isoCubeSidePixels: LOGO_ISOMETRIC_CUBE_SIDE_PIXELS.defaultValue,
+        isoStyleId: DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+        leftFaceStyle: DEFAULT_LOGO_LEFT_FACE_STYLE,
+        rotationAxisMode: "cube-y",
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+        themeColors: DEFAULT_LOGO_THEME_COLORS,
+        viewSnapEnabled: true,
+        voxelState: DEFAULT_VOXEL_STATE,
+      }),
+    ).toEqual({
+      "animate-colors": true,
+      "animate-stripes": true,
+      "auto-rotate": true,
+      "auto-shuffle": true,
+      opacity: 0.46,
+      shuffleMoves: 2,
+    });
   });
 
   it("keeps iso renderer params on the iso route schema only", () => {
@@ -135,6 +200,12 @@ describe("logoRouteSearch", () => {
 
   it("clears default iso state with tombstones when building iso route search", () => {
     const search = buildLogoIsoRouteSearch({
+      autoRotateEnabled: false,
+      autoShuffleEnabled: false,
+      faceColorAnimationEnabled: false,
+      leftFaceStripeAnimationEnabled: false,
+      logoOpacity: DEFAULT_LOGO_OPACITY,
+      shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
       distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
       zoom: LOGO_PREVIEW_ZOOM.defaultValue,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -160,6 +231,12 @@ describe("logoRouteSearch", () => {
   it("preserves canonical theme mode flags when building route search", () => {
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -179,6 +256,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -219,11 +302,13 @@ describe("logoRouteSearch", () => {
         isoSide: Number.NaN,
         isoStyle: "wireframe",
         leftFace: "dots",
+        opacity: "not-a-number",
         background: null,
         border: 2,
         primary: "not-a-color",
         rot: "not-a-number",
         secondary: 4,
+        shuffleMoves: "4",
         stripeA: "not-a-number",
         stripeBasis: "diagonal",
         stripeG: {},
@@ -263,6 +348,12 @@ describe("logoRouteSearch", () => {
     });
 
     const builtSearch = buildLogoRouteSearch({
+      autoRotateEnabled: false,
+      autoShuffleEnabled: false,
+      faceColorAnimationEnabled: false,
+      leftFaceStripeAnimationEnabled: false,
+      logoOpacity: DEFAULT_LOGO_OPACITY,
+      shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
       distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
       zoom: LOGO_PREVIEW_ZOOM.defaultValue,
       elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -285,6 +376,12 @@ describe("logoRouteSearch", () => {
   it("preserves non-default logo depth when building route search", () => {
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -305,6 +402,12 @@ describe("logoRouteSearch", () => {
   it("caps built logo depth at the route recovery limit", () => {
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -340,6 +443,12 @@ describe("logoRouteSearch", () => {
   it("preserves distance values above the slider range", () => {
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.sliderMax + 1,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -369,6 +478,12 @@ describe("logoRouteSearch", () => {
   it("caps built preview zoom at the current route max", () => {
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: 2,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -397,6 +512,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: 0.555,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -438,6 +559,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -473,6 +600,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -514,6 +647,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
@@ -583,6 +722,12 @@ describe("logoRouteSearch", () => {
 
     expect(
       buildLogoRouteSearch({
+        autoRotateEnabled: false,
+        autoShuffleEnabled: false,
+        faceColorAnimationEnabled: false,
+        leftFaceStripeAnimationEnabled: false,
+        logoOpacity: DEFAULT_LOGO_OPACITY,
+        shuffleParallelMoves: DEFAULT_LOGO_SHUFFLE_PARALLEL_MOVES,
         distanceScale: LOGO_DISTANCE_SCALE.defaultValue,
         zoom: LOGO_PREVIEW_ZOOM.defaultValue,
         elevationDegrees: DEFAULT_ELEVATION_DEGREES,
