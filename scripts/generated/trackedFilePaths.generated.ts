@@ -557,6 +557,7 @@ export const trackedFilePaths = [
   "apps/noter/scripts/predev.ts",
   "apps/noter/scripts/run-vite-dev.ts",
   "apps/noter/scripts/setup.ts",
+  "apps/noter/scripts/strip-public-prerender-modulepreloads.test.ts",
   "apps/noter/scripts/strip-public-prerender-modulepreloads.ts",
   "apps/noter/scripts/sync-site-url.ts",
   "apps/noter/shared/appResourceNames.test.ts",
