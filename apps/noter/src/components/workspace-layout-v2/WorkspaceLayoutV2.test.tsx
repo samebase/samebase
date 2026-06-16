@@ -92,8 +92,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("workspace-layout-v2-responsive-left-pane");
     expect(markup).toContain("workspace-layout-v2-responsive-main-pane");
     expect(markup).toContain("workspace-layout-v2-responsive-right-pane");
-    expect(markup).toContain('style="width:100vw"');
-    expect((markup.match(/style="width:0px"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(markup).toContain('style="width:var(--workspace-layout-v2-left-mobile-width, 0px)"');
+    expect(markup).toContain('style="width:var(--workspace-layout-v2-main-mobile-width, 100vw)"');
+    expect(markup).toContain('style="width:var(--workspace-layout-v2-right-mobile-width, 0px)"');
   });
 
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
