@@ -154,6 +154,7 @@ export function PublicLandingLogo({
   })}#${logoTheme.cacheKey}:${routeState.gridSize}:${routeState.fractalDepth}:${routeState.distanceScale}`;
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
+  const [isHydratedFallbackVisibilityReady, setIsHydratedFallbackVisibilityReady] = useState(false);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
@@ -163,7 +164,8 @@ export function PublicLandingLogo({
   const shouldHideQuerySvgFallbackUntilSceneReady =
     loadInteractiveScene && hasPublicLandingLogoStaticFallbackUnsafeSearch(routeSearch);
   const isSvgFallbackVisible =
-    isSvgVisible && (!shouldHideQuerySvgFallbackUntilSceneReady || didSceneFail);
+    !isHydratedFallbackVisibilityReady ||
+    (isSvgVisible && (!shouldHideQuerySvgFallbackUntilSceneReady || didSceneFail));
   const isSceneInteractive = isSceneReady && !isSvgFallbackVisible;
   const isAutoRotateRequested = autoRotate || routeState.autoRotateEnabled;
   const shouldAnimateFaceColors = routeState.faceColorAnimationEnabled && !prefersReducedMotion;
@@ -182,8 +184,18 @@ export function PublicLandingLogo({
   }, [viewStateKey, viewStatePersistence]);
 
   useLayoutEffect(() => {
+    // The first hydrated render must keep the SSG opacity class so React does
+    // not leave an unpatched class mismatch on the server-rendered image.
+    setIsHydratedFallbackVisibilityReady(true);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isHydratedFallbackVisibilityReady) {
+      return;
+    }
+
     clearPublicLandingLogoStaticFallbackPrehydration();
-  }, [staticLogoSvgSrc]);
+  }, [isHydratedFallbackVisibilityReady, staticLogoSvgSrc]);
 
   useEffect(() => {
     const nextView = {
