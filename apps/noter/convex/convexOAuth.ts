@@ -1,10 +1,11 @@
 import { v } from "convex/values";
-import { httpAction, internalMutation, mutation } from "./_generated/server";
+import { httpAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { mutation } from "./functions";
 import {
   createCodeChallenge,
   OAUTH_STATE_TTL_MS,
@@ -187,15 +188,11 @@ export const storeConvexOauthTokens = internalMutation({
 });
 
 export const getConvexOAuthUrl = mutation({
+  access: "access_provider_connections",
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    return await buildConvexOAuthUrl(ctx, userId);
+    return await buildConvexOAuthUrl(ctx, ctx.viewer.userId);
   },
 });
 
