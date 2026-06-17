@@ -1,39 +1,29 @@
-import { after, bad, good, object, optional, string, sure, type InferGood } from "@samebase/sure";
+import { after, bad, good, object, optional, string, type InferGood } from "@samebase/sure";
 
-const nonBlankAuthTokenStringClaim = after(string, (value) =>
-  value.trim().length > 0 ? good(value) : bad("blank-string"),
-);
+export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
 
-const optionalAuthTokenStringClaim = sure(
-  (value) => {
-    const [isStringClaim, claim] = nonBlankAuthTokenStringClaim(value);
-    return isStringClaim ? good(claim) : good(undefined);
-  },
-  {
-    type: "auth-token-optional-string-claim" as const,
-  },
-);
-
-const authTokenProfileClaimFieldsSchema = object({
-  email: optional(optionalAuthTokenStringClaim),
-  name: optional(optionalAuthTokenStringClaim),
+const authTokenProfileClaimValueSchema = after(string, (value) => {
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return bad("blank-string");
+  }
+  if (trimmedValue.length > AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH) {
+    return bad("too-long-string");
+  }
+  return good(trimmedValue);
 });
 
-type AuthTokenProfileClaimFields = InferGood<typeof authTokenProfileClaimFieldsSchema>;
+const authTokenProfileClaimFieldsSchema = object({
+  email: optional(authTokenProfileClaimValueSchema),
+  name: optional(authTokenProfileClaimValueSchema),
+});
 
 const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (claims) => {
-  const profileClaims: AuthTokenProfileClaimFields = {};
-
-  if (claims.name !== undefined) {
-    profileClaims.name = claims.name;
-  }
-  if (claims.email !== undefined) {
-    profileClaims.email = claims.email;
+  if (claims.name === undefined && claims.email === undefined) {
+    return bad("missing-profile-claims");
   }
 
-  return Object.keys(profileClaims).length > 0
-    ? good(profileClaims)
-    : bad("missing-profile-claims");
+  return good(claims);
 });
 
 export type AuthTokenProfileClaims = InferGood<typeof authTokenProfileClaimsSchema>;
@@ -45,11 +35,15 @@ export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileCl
 
 export function buildAuthTokenProfileCustomClaims(source: unknown): Record<string, string> {
   const profileClaims = readAuthTokenProfileClaims(source);
+  if (profileClaims === null) {
+    return {};
+  }
+
   const claims: Record<string, string> = {};
-  if (profileClaims?.name !== undefined) {
+  if (profileClaims.name !== undefined) {
     claims.name = profileClaims.name;
   }
-  if (profileClaims?.email !== undefined) {
+  if (profileClaims.email !== undefined) {
     claims.email = profileClaims.email;
   }
   return claims;
