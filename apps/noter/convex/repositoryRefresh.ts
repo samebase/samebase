@@ -1003,7 +1003,7 @@ export const enqueueManualRepositoryRefresh = appFunction.mutation({
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
     const userId = ctx.viewer.userId;
-    if (userId === null) {
+    if (!userId) {
       throw new Error("User not authenticated");
     }
 
