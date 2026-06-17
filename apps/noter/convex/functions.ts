@@ -6,6 +6,7 @@ import {
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
+import type { GenericValidator, PropertyValidators } from "convex/values";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -15,9 +16,21 @@ import {
   internalQuery,
   mutation as baseMutation,
   query as baseQuery,
+  type ActionCtx,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import type {
+  ArgsArrayForOptionalValidator,
+  ArgsArrayToObject,
+  DefaultArgsForOptionalValidator,
+  DefaultFunctionArgs,
+  FunctionVisibility,
+  RegisteredAction,
+  RegisteredMutation,
+  RegisteredQuery,
+  ReturnValueForOptionalValidator,
+} from "convex/server";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import schema from "./schema";
 import { hasAppAccess, isAdminUser } from "./userAccess";
@@ -37,6 +50,9 @@ type AppPublicPolicy = {
 type AppAuthenticatedPolicy = {
   access: AuthenticatedAccessKey;
 };
+
+type AppFunctionPolicy = AppPublicPolicy | AppAuthenticatedPolicy;
+type AppFunctionAccess = PublicAccessKey | AuthenticatedAccessKey;
 
 type AnonymousViewerRole = "role_anonymous";
 type AuthenticatedViewerRole = Exclude<ViewerRole, AnonymousViewerRole>;
@@ -64,6 +80,58 @@ export type AuthenticatedAppViewer = AuthenticatedResolvedViewer & {
 };
 
 export type AppViewer = PublicAppViewer | AuthenticatedAppViewer;
+
+type AppViewerForAccess<Access extends AppFunctionAccess> = Access extends PublicAccessKey
+  ? PublicAppViewer
+  : AuthenticatedAppViewer;
+
+type AppFunctionCtx<InputCtx, Access extends AppFunctionAccess> = Omit<InputCtx, "viewer"> & {
+  viewer: AppViewerForAccess<Access>;
+};
+
+type AppFunctionDefinition<
+  InputCtx,
+  Access extends AppFunctionAccess,
+  ArgsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator>,
+  OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator>,
+> = {
+  access: Access;
+  args?: ArgsValidator;
+  returns?: ReturnsValidator;
+  handler: (ctx: AppFunctionCtx<InputCtx, Access>, ...args: OneOrZeroArgs) => ReturnValue;
+};
+
+type AppFunctionRegistration<
+  FuncType extends "query" | "mutation" | "action",
+  Visibility extends FunctionVisibility,
+  Args extends DefaultFunctionArgs,
+  ReturnValue,
+> = {
+  query: RegisteredQuery<Visibility, Args, ReturnValue>;
+  mutation: RegisteredMutation<Visibility, Args, ReturnValue>;
+  action: RegisteredAction<Visibility, Args, ReturnValue>;
+}[FuncType];
+
+type AppFunctionBuilder<FuncType extends "query" | "mutation" | "action", InputCtx> = <
+  const Access extends AppFunctionAccess,
+  ArgsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> =
+    ReturnValueForOptionalValidator<ReturnsValidator>,
+  OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+    DefaultArgsForOptionalValidator<ArgsValidator>,
+>(
+  definition: AppFunctionDefinition<
+    InputCtx,
+    Access,
+    ArgsValidator,
+    ReturnsValidator,
+    ReturnValue,
+    OneOrZeroArgs
+  >,
+) => AppFunctionRegistration<FuncType, "public", ArgsArrayToObject<OneOrZeroArgs>, ReturnValue>;
 
 const vAuthenticatedViewerRole = union(literal("role_member"), literal("role_staff"));
 const vUserDoc = schema.tables.users.validator.extend({
@@ -148,6 +216,13 @@ async function applyAuthenticatedQueryPolicy(ctx: QueryCtx, policy: AppAuthentic
   return { viewer: appViewer };
 }
 
+async function applyQueryPolicy(ctx: QueryCtx, policy: AppFunctionPolicy) {
+  if (policy.access === "access_public") {
+    return await applyPublicQueryPolicy(ctx);
+  }
+  return await applyAuthenticatedQueryPolicy(ctx, policy);
+}
+
 async function applyPublicMutationPolicy(ctx: MutationCtx) {
   const viewer = await resolveViewerFromDb(ctx);
   const appViewer = assertPublicViewerAccess(viewer);
@@ -162,6 +237,13 @@ async function applyAuthenticatedMutationPolicy(ctx: MutationCtx, policy: AppAut
   return { viewer: appViewer };
 }
 
+async function applyMutationPolicy(ctx: MutationCtx, policy: AppFunctionPolicy) {
+  if (policy.access === "access_public") {
+    return await applyPublicMutationPolicy(ctx);
+  }
+  return await applyAuthenticatedMutationPolicy(ctx, policy);
+}
+
 export const resolveViewerForAction = internalQuery({
   args: {},
   returns: vResolvedViewer,
@@ -170,35 +252,35 @@ export const resolveViewerForAction = internalQuery({
   },
 });
 
-export const publicQuery = customQuery(
+const publicQueryBuilder = customQuery(
   baseQuery,
   customCtx(async (ctx, _policy: AppPublicPolicy) => {
     return await applyPublicQueryPolicy(ctx);
   }),
 );
 
-export const query = customQuery(
+const queryBuilder = customQuery(
   baseQuery,
-  customCtx(async (ctx, policy: AppAuthenticatedPolicy) => {
-    return await applyAuthenticatedQueryPolicy(ctx, policy);
+  customCtx(async (ctx, policy: AppFunctionPolicy) => {
+    return await applyQueryPolicy(ctx, policy);
   }),
 );
 
-export const publicMutation = customMutation(
+const publicMutationBuilder = customMutation(
   baseMutation,
   customCtx(async (ctx, _policy: AppPublicPolicy) => {
     return await applyPublicMutationPolicy(ctx);
   }),
 );
 
-export const mutation = customMutation(
+const mutationBuilder = customMutation(
   baseMutation,
-  customCtx(async (ctx, policy: AppAuthenticatedPolicy) => {
-    return await applyAuthenticatedMutationPolicy(ctx, policy);
+  customCtx(async (ctx, policy: AppFunctionPolicy) => {
+    return await applyMutationPolicy(ctx, policy);
   }),
 );
 
-export const publicAction = customAction(
+const publicActionBuilder = customAction(
   baseAction,
   customCtx(async (ctx, _policy: AppPublicPolicy) => {
     const viewer: ResolvedViewer = await ctx.runQuery(
@@ -211,15 +293,39 @@ export const publicAction = customAction(
   }),
 );
 
-export const action = customAction(
+const actionBuilder = customAction(
   baseAction,
-  customCtx(async (ctx, policy: AppAuthenticatedPolicy) => {
+  customCtx(async (ctx, policy: AppFunctionPolicy) => {
     const viewer: ResolvedViewer = await ctx.runQuery(
       internal.functions.resolveViewerForAction,
       {},
     );
-    const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
 
+    if (policy.access === "access_public") {
+      const appViewer = assertPublicViewerAccess(viewer);
+      return { viewer: appViewer };
+    }
+
+    const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
     return { viewer: appViewer };
   }),
 );
+
+export const publicQuery = publicQueryBuilder;
+export const publicMutation = publicMutationBuilder;
+export const publicAction = publicActionBuilder;
+
+export const query: AppFunctionBuilder<"query", QueryCtx> = (definition) => {
+  // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
+  return queryBuilder(definition);
+};
+
+export const mutation: AppFunctionBuilder<"mutation", MutationCtx> = (definition) => {
+  // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
+  return mutationBuilder(definition);
+};
+
+export const action: AppFunctionBuilder<"action", ActionCtx> = (definition) => {
+  // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
+  return actionBuilder(definition);
+};

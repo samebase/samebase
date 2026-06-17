@@ -1,3 +1,4 @@
+import { expectType } from "@noter-md/dependent";
 import { v } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -33,6 +34,8 @@ query({
     userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    expectType<Id<"users">>()(ctx.viewer.userId, true);
+
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
@@ -52,6 +55,8 @@ mutation({
     userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    expectType<Id<"users">>()(ctx.viewer.userId, true);
+
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
@@ -71,6 +76,8 @@ action({
     userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    expectType<Id<"users">>()(ctx.viewer.userId, true);
+
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
@@ -80,7 +87,7 @@ action({
   },
 });
 
-publicQuery({
+query({
   access: "access_public",
   args: {},
   returns: v.object({
@@ -88,6 +95,8 @@ publicQuery({
     userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx) => {
+    expectType<Id<"users"> | null>()(ctx.viewer.userId, true);
+
     // @ts-expect-error Public routes may be anonymous.
     const _userId: Id<"users"> = ctx.viewer.userId;
 
@@ -98,15 +107,23 @@ publicQuery({
   },
 });
 
-query({
-  // @ts-expect-error Authenticated app wrappers cannot expose public access.
+publicQuery({
   access: "access_public",
-  args: {},
-  handler: async () => null,
+  args: { vaultId: v.string() },
+  returns: v.object({
+    vaultId: v.string(),
+    userId: v.union(v.id("users"), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    return {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+    };
+  },
 });
 
 publicQuery({
-  // @ts-expect-error Public wrappers only accept access_public.
+  // @ts-expect-error Public-only compatibility wrappers cannot expose authenticated access.
   access: "access_dashboard",
   args: {},
   handler: async () => null,
