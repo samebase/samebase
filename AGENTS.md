@@ -395,8 +395,11 @@ UI code:
 - Add or update screenshot coverage whenever a patch changes shipped UI.
 - For Playwright baselines, live validation, focused-vs-full acceptance runs, session rules, and
   fixture policy, follow `skills/noter-playwright-live/SKILL.md` and
-  `docs/playwright-visual-testing.md`. The canonical local acceptance command is
-  `pnpm test:visual:linux`.
+  `docs/playwright-visual-testing.md`. `pnpm test:visual:linux` is the canonical local acceptance
+  command for visual/Playwright validation. Do not substitute host-native
+  `pnpm --filter noter test:visual`, Playwright shards, or focused specs for acceptance unless the
+  user explicitly asks for that exact non-canonical command; if a non-canonical visual run was used
+  first, say so and run the Docker/Linux wrapper before reporting visual acceptance.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth wiring, or route shell
   behavior, reproduce and test the real app route first. Do not create fake visual fixtures just to
   show or approve a behavior screenshot; a fixture must mount the exact production component tree
