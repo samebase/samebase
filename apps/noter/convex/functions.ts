@@ -1,3 +1,4 @@
+/* oxlint-disable noter/no-raw-public-convex-function-builders -- adapter boundary that wraps generated public builders with access policy */
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   customAction,

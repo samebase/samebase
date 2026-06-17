@@ -224,6 +224,7 @@ describe("lint config", () => {
       specifier: "eslint-plugin-noter-local",
     });
     expect(oxlintConfig.rules).toMatchObject({
+      "noter/no-raw-public-convex-function-builders": "warn",
       "react-refresh/only-export-components": ["error", { allowConstantExport: true }],
       "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/consistent-type-assertions": ["warn", { assertionStyle: "never" }],
