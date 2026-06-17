@@ -1,9 +1,9 @@
-import { Infer, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
+
+import { mutation, query } from "./functions";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 
-const { id, array, object, string, number, null: vNull } = v;
+const { array, id, number, object, string } = v;
 
 const nodeLayoutValidator = object({
   nodeId: string(),
@@ -11,40 +11,23 @@ const nodeLayoutValidator = object({
   height: number(),
 });
 
-const getNodeLayoutsArgs = object({
-  vaultId: id("vaults"),
-});
-
-const getNodeLayoutsReturns = array(nodeLayoutValidator);
-
-const setNodeLayoutArgs = object({
-  vaultId: id("vaults"),
-  nodeId: string(),
-  width: number(),
-  height: number(),
-});
-
-const setNodeLayoutReturns = vNull();
-
-type GetNodeLayoutsArgs = Infer<typeof getNodeLayoutsArgs>;
-type SetNodeLayoutArgs = Infer<typeof setNodeLayoutArgs>;
-
 export const getNodeLayouts = query({
-  args: getNodeLayoutsArgs,
-  returns: getNodeLayoutsReturns,
-  handler: async (ctx, args: GetNodeLayoutsArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return [];
-    }
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: array(nodeLayoutValidator),
+  handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId || !isLiveConnectedVault(vault)) {
+    if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
       return [];
     }
 
     const layouts = await ctx.db
       .query("agentGraphNodeLayout")
-      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
+      )
       .collect();
 
     return layouts.map((layout) => ({
@@ -56,15 +39,17 @@ export const getNodeLayouts = query({
 });
 
 export const setNodeLayout = mutation({
-  args: setNodeLayoutArgs,
-  returns: setNodeLayoutReturns,
-  handler: async (ctx, args: SetNodeLayoutArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    nodeId: string(),
+    width: number(),
+    height: number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    if (!vault || vault.userId !== ctx.viewer.userId) {
       throw new Error("Vault not found");
     }
     assertConnectedVault(vault);
@@ -72,7 +57,7 @@ export const setNodeLayout = mutation({
     const existing = await ctx.db
       .query("agentGraphNodeLayout")
       .withIndex("by_user_vault_and_node", (q) =>
-        q.eq("userId", userId).eq("vaultId", args.vaultId).eq("nodeId", args.nodeId),
+        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId).eq("nodeId", args.nodeId),
       )
       .first();
 
@@ -84,7 +69,7 @@ export const setNodeLayout = mutation({
       });
     } else {
       await ctx.db.insert("agentGraphNodeLayout", {
-        userId,
+        userId: ctx.viewer.userId,
         vaultId: args.vaultId,
         nodeId: args.nodeId,
         width: args.width,
@@ -92,7 +77,5 @@ export const setNodeLayout = mutation({
         updatedAt: Date.now(),
       });
     }
-
-    return null;
   },
 });
