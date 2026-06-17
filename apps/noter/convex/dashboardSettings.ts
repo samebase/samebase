@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
-import { mutation, query, type MutationCtx } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { type MutationCtx } from "./_generated/server";
+import { mutation, query } from "./functions";
 import type { Id } from "./_generated/dataModel";
 
 const { boolean, literal, null: vNull, object, union } = v;
@@ -47,7 +47,6 @@ const setEditorChatOpenArgs = object({
 });
 const setEditorChatOpenReturns = vNull();
 
-type GetDashboardSettingsArgs = Infer<typeof getDashboardSettingsArgs>;
 type SetAccountPanelOpenArgs = Infer<typeof setAccountPanelOpenArgs>;
 type SetProvidersPanelOpenArgs = Infer<typeof setProvidersPanelOpenArgs>;
 type SetPricingBillingCycleArgs = Infer<typeof setPricingBillingCycleArgs>;
@@ -91,17 +90,13 @@ async function upsertDashboardSettings(
 }
 
 export const getDashboardSettings = query({
+  access: "access_dashboard",
   args: getDashboardSettingsArgs,
   returns: getDashboardSettingsReturns,
-  handler: async (ctx, _args: GetDashboardSettingsArgs): Promise<DashboardSettings> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return getDefaultDashboardSettings();
-    }
-
+  handler: async (ctx): Promise<DashboardSettings> => {
     const existing = await ctx.db
       .query("dashboardSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
       .first();
 
     const rawBillingCycle = existing?.pricingBillingCycle;
@@ -121,15 +116,11 @@ export const getDashboardSettings = query({
 });
 
 export const setAccountPanelOpen = mutation({
+  access: "access_dashboard",
   args: setAccountPanelOpenArgs,
   returns: setAccountPanelOpenReturns,
   handler: async (ctx, args: SetAccountPanelOpenArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, {
+    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       accountPanelOpen: args.isOpen,
     });
 
@@ -138,15 +129,11 @@ export const setAccountPanelOpen = mutation({
 });
 
 export const setProvidersPanelOpen = mutation({
+  access: "access_dashboard",
   args: setProvidersPanelOpenArgs,
   returns: setProvidersPanelOpenReturns,
   handler: async (ctx, args: SetProvidersPanelOpenArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, {
+    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       providersPanelOpen: args.isOpen,
     });
 
@@ -155,15 +142,11 @@ export const setProvidersPanelOpen = mutation({
 });
 
 export const setPricingBillingCycle = mutation({
+  access: "access_dashboard",
   args: setPricingBillingCycleArgs,
   returns: setPricingBillingCycleReturns,
   handler: async (ctx, args: SetPricingBillingCycleArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, {
+    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       pricingBillingCycle: args.billingCycle,
     });
 
@@ -172,15 +155,15 @@ export const setPricingBillingCycle = mutation({
 });
 
 export const setEditorChatOpen = mutation({
+  access: "access_dashboard",
   args: setEditorChatOpenArgs,
   returns: setEditorChatOpenReturns,
   handler: async (ctx, args: SetEditorChatOpenArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, getChatOpenPatch(args.scope, args.isOpen));
+    await upsertDashboardSettings(
+      ctx,
+      ctx.viewer.userId,
+      getChatOpenPatch(args.scope, args.isOpen),
+    );
 
     return null;
   },
