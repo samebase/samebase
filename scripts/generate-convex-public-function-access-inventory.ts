@@ -344,12 +344,15 @@ ${routeLines}
 `;
 }
 
-function toPascalCase(access: AccessKey): string {
-  return access
-    .replace(/^access_/, "")
-    .split("_")
-    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`)
-    .join("");
+function formatAccessRouteObjectEntry(access: AccessKey): string {
+  const routeLines = [...MIGRATION_ACCESS_ASSIGNMENTS[access]]
+    .sort(compareUtf8)
+    .map((route) => `    ${JSON.stringify(route)},`)
+    .join("\n");
+
+  return `  ${access}: [
+${routeLines}
+  ],`;
 }
 
 export function formatConvexPublicFunctionAccessInventorySource(
@@ -359,15 +362,9 @@ export function formatConvexPublicFunctionAccessInventorySource(
 
   const allRoutes = publicFunctions.map((publicFunction) => publicFunction.route);
   const allRoutesSource = formatConstRouteArray("publicConvexFunctionRoutes", allRoutes);
-  const byAccessArrays = ACCESS_KEYS.map((access) =>
-    formatConstRouteArray(
-      `access${toPascalCase(access)}ConvexFunctionRoutes`,
-      [...MIGRATION_ACCESS_ASSIGNMENTS[access]].sort(compareUtf8),
-    ),
-  ).join("\n");
-  const byAccessLines = ACCESS_KEYS.map(
-    (access) => `  ${access}: access${toPascalCase(access)}ConvexFunctionRoutes,`,
-  ).join("\n");
+  const byAccessLines = ACCESS_KEYS.map((access) => formatAccessRouteObjectEntry(access)).join(
+    "\n",
+  );
   const kindLines = publicFunctions
     .map((publicFunction) => `  ${JSON.stringify(publicFunction.route)}: "${publicFunction.kind}",`)
     .join("\n");
@@ -388,7 +385,7 @@ export const publicConvexFunctionKindsByRoute = {
 ${kindLines}
 } as const satisfies Record<PublicConvexFunctionRoute, PublicConvexFunctionKind>;
 
-${byAccessArrays}export const publicConvexFunctionRoutesByAccess = {
+export const publicConvexFunctionRoutesByAccess = {
 ${byAccessLines}
 } as const satisfies Record<AccessKey, readonly PublicConvexFunctionRoute[]>;
 `;
