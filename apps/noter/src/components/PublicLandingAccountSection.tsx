@@ -4,6 +4,10 @@ import {
   VaultDashboardAccountSection,
   VaultDashboardAccountSectionFrame,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
+import {
+  useAppAuthPresentation,
+  type AppAuthPresentationProfile,
+} from "@/lib/appAuthPresentationState";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
@@ -12,8 +16,7 @@ import { applySearchPatch, type SearchPatch } from "@/lib/routeSearchFlags";
 import { readRootRouteSearch, type RootRouteSearch } from "@/lib/rootRouteSearch";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useConvexAuth, useQuery } from "convex/react";
-import { Loader2 } from "lucide-react";
+import { useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -139,28 +142,19 @@ function PublicLandingLoggedOutAccountSection() {
   );
 }
 
-/**
-The loading row keeps the same 24px header height as
-VaultDashboardAccountSectionFrame so auth resolution does not move the public
-sidebar account section.
-*/
 export function PublicLandingAccountLoadingSection() {
   return (
-    <div
-      data-testid={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
-    >
-      <div
-        aria-label="checking login"
-        role="status"
-        className="flex h-6 min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground"
-      >
-        <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin" />
-        <span className="min-w-0 line-clamp-2 text-left [overflow-wrap:anywhere]">
-          checking login
-        </span>
-      </div>
-    </div>
+    <VaultDashboardAccountSection
+      dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
+      displayName="checking login"
+      email="checking login"
+      isSignOutPending={false}
+      open={false}
+      onOpenChange={() => {}}
+      onSignOut={() => {}}
+      providerLabel={null}
+      signOutDisabled
+    />
   );
 }
 
@@ -207,25 +201,75 @@ function PublicLandingResolvedSignedInAccountSection({
   );
 }
 
-function PublicLandingSignedInAccountSection() {
-  const viewer = useQuery(api.users.viewer);
+function PublicLandingPresentedSignedInAccountSection({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
+  const { signOut } = useNoterAuthActions();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const accountDisplayName = profile?.name ?? profile?.email ?? "Account";
+  const accountEmail = profile?.email ?? profile?.name ?? "Signed in";
+
+  return (
+    <VaultDashboardAccountSection
+      dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
+      displayName={accountDisplayName}
+      email={accountEmail}
+      isSignOutPending={isSigningOut}
+      onOpenChange={setAccountOpen}
+      onSignOut={() => {
+        if (isSigningOut) {
+          return;
+        }
+        setIsSigningOut(true);
+        void signOut()
+          .catch((error: unknown) => {
+            console.error("Failed to sign out:", error);
+          })
+          .finally(() => {
+            setIsSigningOut(false);
+          });
+      }}
+      open={accountOpen}
+      providerLabel={null}
+      signOutDisabled={false}
+    />
+  );
+}
+
+function PublicLandingSignedInAccountSection({
+  loadViewer,
+  profile,
+}: {
+  loadViewer: boolean;
+  profile: AppAuthPresentationProfile | null;
+}) {
+  const viewer = useQuery(api.users.viewer, loadViewer ? {} : "skip");
 
   if (viewer === undefined || viewer === null) {
-    return <PublicLandingAccountLoadingSection />;
+    return <PublicLandingPresentedSignedInAccountSection profile={profile} />;
   }
 
   return <PublicLandingResolvedSignedInAccountSection viewer={viewer} />;
 }
 
 export function PublicLandingAccountSection() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
+  const authPresentation = useAppAuthPresentation();
 
-  if (isLoading) {
+  if (authPresentation.kind === "unknown") {
     return <PublicLandingAccountLoadingSection />;
   }
 
-  if (isAuthenticated) {
-    return <PublicLandingSignedInAccountSection />;
+  if (authPresentation.kind === "temporaryAuthenticated") {
+    return (
+      <PublicLandingSignedInAccountSection loadViewer={false} profile={authPresentation.profile} />
+    );
+  }
+
+  if (authPresentation.kind === "confirmedAuthenticated") {
+    return <PublicLandingSignedInAccountSection loadViewer profile={authPresentation.profile} />;
   }
 
   return <PublicLandingLoggedOutAccountSection />;

@@ -41,7 +41,7 @@ export type VaultDashboardProviderRowViewModel = {
 
 export type VaultDashboardAccountSectionProps = {
   dataTestId?: string;
-  displayName: string;
+  displayName: ReactNode;
   email: string;
   isSignOutPending: boolean;
   onOpenChange: (isOpen: boolean) => void;
@@ -77,7 +77,10 @@ export function VaultDashboardAccountSectionFrame({
             size="sm"
             className="h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
           >
-            <span className="min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]">
+            <span
+              data-vault-dashboard-account-section-label
+              className="min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]"
+            >
               {label}
             </span>
             <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 transition-transform" />

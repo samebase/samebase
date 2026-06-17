@@ -3,11 +3,9 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import { AUTH_FLAG_STORAGE_KEY, AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
-
-const AUTH_FLAG_KEY = "noter_was_authenticated";
-const AUTH_PROVIDER_KEY = "noter_auth_provider";
 
 type AuthProvider = "google" | "password";
 const POPUP_WATCH_INTERVAL_MS = 500;
@@ -59,20 +57,20 @@ const isAuthPopupRedirectTo = guard<unknown, string>((value) => {
 });
 
 export function clearAuthFlag() {
-  localStorage.removeItem(AUTH_FLAG_KEY);
-  localStorage.removeItem(AUTH_PROVIDER_KEY);
+  localStorage.removeItem(AUTH_FLAG_STORAGE_KEY);
+  localStorage.removeItem(AUTH_PROVIDER_STORAGE_KEY);
 }
 
 function clearAuthProvider() {
-  localStorage.removeItem(AUTH_PROVIDER_KEY);
+  localStorage.removeItem(AUTH_PROVIDER_STORAGE_KEY);
 }
 
 export function setAuthFlag() {
-  localStorage.setItem(AUTH_FLAG_KEY, "1");
+  localStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
 }
 
 export function setAuthProvider(provider: AuthProvider) {
-  localStorage.setItem(AUTH_PROVIDER_KEY, provider);
+  localStorage.setItem(AUTH_PROVIDER_STORAGE_KEY, provider);
 }
 
 /**
