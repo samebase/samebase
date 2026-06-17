@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 
-import { appFunction } from "./functions";
+import { action, mutation, query } from "./functions";
 
-appFunction.query({
+query({
   access: "access_dashboard",
   rateLimit: { mode: "check", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.string() },
@@ -19,7 +19,7 @@ appFunction.query({
   },
 });
 
-appFunction.mutation({
+mutation({
   access: "access_app_refresh",
   rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.string() },
@@ -35,7 +35,7 @@ appFunction.mutation({
   },
 });
 
-appFunction.action({
+action({
   access: "access_app_refresh",
   rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.string() },
@@ -52,12 +52,12 @@ appFunction.action({
 });
 
 // @ts-expect-error Access policy is mandatory for app mutations.
-appFunction.mutation({
+mutation({
   args: {},
   handler: async () => null,
 });
 
-appFunction.query({
+query({
   access: "access_dashboard",
   // @ts-expect-error Queries can check rate limits, but they cannot consume them.
   rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
@@ -65,7 +65,7 @@ appFunction.query({
   handler: async () => null,
 });
 
-appFunction.mutation({
+mutation({
   access: "access_app_refresh",
   // @ts-expect-error Mutations must use a configured rate-limit name.
   rateLimit: { mode: "consume", name: "notConfigured", target: "viewer" },
@@ -73,7 +73,7 @@ appFunction.mutation({
   handler: async () => null,
 });
 
-describe("app function wrapper", () => {
+describe("access function wrapper", () => {
   it("keeps access and rate-limit policy checks on the real wrapper", () => {
     expect(true).toBe(true);
   });

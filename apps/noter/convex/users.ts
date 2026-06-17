@@ -1,8 +1,14 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { action, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
+import {
+  action as rawAction,
+  internalQuery,
+  mutation as rawMutation,
+  query as rawQuery,
+  type ActionCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
-import { appFunction } from "./functions";
+import { query } from "./functions";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readString } from "./jsonUtils";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
@@ -240,7 +246,7 @@ async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
 
 // Public
 
-export const viewer = query({
+export const viewer = rawQuery({
   args: {},
   returns: v.union(
     v.object({
@@ -286,7 +292,7 @@ export const viewer = query({
   },
 });
 
-export const getViewerAuthProviders = query({
+export const getViewerAuthProviders = rawQuery({
   args: {},
   returns: authProviderSummaryValidator,
   handler: async (ctx): Promise<AuthProviderSummary> => {
@@ -336,7 +342,7 @@ function compareAuthProviderAccountSummary(
   return second._id.localeCompare(first._id);
 }
 
-export const isCurrentUserApproved = query({
+export const isCurrentUserApproved = rawQuery({
   args: {},
   returns: boolean(),
   handler: async (ctx) => {
@@ -357,7 +363,7 @@ export const isCurrentUserApproved = query({
   },
 });
 
-export const isCurrentUserAdmin = query({
+export const isCurrentUserAdmin = rawQuery({
   args: {},
   returns: boolean(),
   handler: async (ctx) => {
@@ -374,7 +380,7 @@ export const isCurrentUserAdmin = query({
   },
 });
 
-export const getGithubConnectionStatus = appFunction.query({
+export const getGithubConnectionStatus = query({
   access: "access_public",
   args: {},
   returns: v.object({
@@ -400,7 +406,7 @@ export const getGithubConnectionStatus = appFunction.query({
   },
 });
 
-export const disconnectGithub = mutation({
+export const disconnectGithub = rawMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
@@ -417,7 +423,7 @@ export const disconnectGithub = mutation({
   },
 });
 
-export const getConvexConnectionStatus = query({
+export const getConvexConnectionStatus = rawQuery({
   args: {},
   returns: v.object({
     connected: boolean(),
@@ -444,7 +450,7 @@ export const getConvexConnectionStatus = query({
   },
 });
 
-export const disconnectConvex = mutation({
+export const disconnectConvex = rawMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
@@ -460,7 +466,7 @@ export const disconnectConvex = mutation({
   },
 });
 
-export const getCloudflareConnectionStatus = query({
+export const getCloudflareConnectionStatus = rawQuery({
   args: {},
   returns: cloudflareConnectionStatusValidator,
   handler: async (ctx) => {
@@ -652,7 +658,7 @@ async function runCloudflareMcpTokenRefresh(args: {
   }
 }
 
-export const refreshCloudflareMcpTokenIfNeeded = action({
+export const refreshCloudflareMcpTokenIfNeeded = rawAction({
   args: {
     trigger: optional(cloudflareAutoRefreshTriggerValidator),
     force: optional(boolean()),
@@ -667,7 +673,7 @@ export const refreshCloudflareMcpTokenIfNeeded = action({
   },
 });
 
-export const checkCloudflareMcpTokenHealth = action({
+export const checkCloudflareMcpTokenHealth = rawAction({
   args: {},
   returns: cloudflareConnectionStatusValidator,
   handler: async (ctx): Promise<CloudflareConnectionStatus> => {
@@ -679,7 +685,7 @@ export const checkCloudflareMcpTokenHealth = action({
   },
 });
 
-export const disconnectCloudflare = mutation({
+export const disconnectCloudflare = rawMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
@@ -705,7 +711,7 @@ const convexApiKeyConnectionResultValidator = v.object({
 });
 type ConvexApiKeyConnectionResult = Infer<typeof convexApiKeyConnectionResultValidator>;
 
-export const connectGithubWithApiKey = action({
+export const connectGithubWithApiKey = rawAction({
   args: {
     token: v.string(),
   },
@@ -732,7 +738,7 @@ export const connectGithubWithApiKey = action({
   },
 });
 
-export const connectConvexWithApiKey = action({
+export const connectConvexWithApiKey = rawAction({
   args: {
     token: v.string(),
   },

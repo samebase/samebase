@@ -207,14 +207,14 @@ authenticated waitlist accounts long term, update or replace spec 018 before imp
 
 ### Backend enforcement: app function wrappers
 
-New module `apps/noter/convex/functions.ts` exports one app-owned function facade:
-`appFunction.query`, `appFunction.mutation`, and `appFunction.action`. Every exported public Convex
-query, mutation, and action must use this facade and declare exactly one policy object. The policy
-contains the access key and any standard app-level controls such as rate limiting, so call sites do
-not stack multiple nested wrappers. The access key is part of the definition and greppable:
+New module `apps/noter/convex/functions.ts` exports app-owned `query`, `mutation`, and `action`
+builders. Every exported public Convex query, mutation, and action must use these builders and
+declare exactly one policy object. The policy contains the access key and any standard app-level
+controls such as rate limiting, so call sites do not stack multiple nested wrappers. The access key
+is part of the definition and greppable:
 
 ```ts
-export const enqueueManualRepositoryRefresh = appFunction.mutation({
+export const enqueueManualRepositoryRefresh = mutation({
   access: "access_app_refresh",
   rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.id("vaults") },
@@ -400,7 +400,7 @@ Each phase is independently shippable; commits split per concern (backend model,
 spec/test updates).
 
 **Phase 1 — vocabulary + backend enforcement (closes the approval gap).** Shared access module;
-`getViewerRole(ctx)`; `users.currentViewerRole`; `appFunction.query/mutation/action`; install and
+`getViewerRole(ctx)`; `users.currentViewerRole`; app-owned `query`/`mutation`/`action`; install and
 configure `@convex-dev/rate-limiter`; lint rule; migrate all 139 public functions so every exported
 public query, mutation, and action declares an access key. While the current post-login waitlist
 implementation exists, authenticated-but-unapproved callers lose access to everything beyond the

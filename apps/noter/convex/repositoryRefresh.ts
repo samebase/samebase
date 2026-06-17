@@ -4,8 +4,13 @@ import { Infer, v } from "convex/values";
 
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalAction, internalMutation, mutation, type MutationCtx } from "./_generated/server";
-import { appFunction } from "./functions";
+import {
+  internalAction,
+  internalMutation,
+  mutation as rawMutation,
+  type MutationCtx,
+} from "./_generated/server";
+import { mutation } from "./functions";
 import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
 import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { toErrorMessage } from "./jsonUtils";
@@ -948,7 +953,7 @@ export const runRepositoryRefreshRequest = internalAction({
  * selection and internal continuation so React never batches, loops, sends
  * vault ids, or persists browser event mechanics.
  */
-export const enqueueDashboardRepositoryRefresh = mutation({
+export const enqueueDashboardRepositoryRefresh = rawMutation({
   args: object({}),
   returns: vNull(),
   handler: async (ctx): Promise<null> => {
@@ -990,7 +995,7 @@ export const enqueueDashboardRepositoryRefreshPage = internalMutation({
  * The shared helper still verifies ownership/deletion state before creating or
  * upgrading queue state.
  */
-export const enqueueManualRepositoryRefresh = appFunction.mutation({
+export const enqueueManualRepositoryRefresh = mutation({
   access: "access_app_refresh",
   rateLimit: {
     mode: "consume",

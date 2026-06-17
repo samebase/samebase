@@ -11,10 +11,10 @@ import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
-  action,
+  action as baseAction,
   internalQuery,
-  mutation,
-  query,
+  mutation as baseMutation,
+  query as baseQuery,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
@@ -171,37 +171,37 @@ export const resolveViewerForAction = internalQuery({
   },
 });
 
-export const appFunction = {
-  query: customQuery(
-    query,
-    customCtx(async (ctx, policy: AppQueryPolicy) => {
-      return await applyQueryPolicy(ctx, policy);
-    }),
-  ),
-  mutation: customMutation(
-    mutation,
-    customCtx(async (ctx, policy: AppWritePolicy) => {
-      return await applyMutationPolicy(ctx, policy);
-    }),
-  ),
-  action: customAction(
-    action,
-    customCtx(async (ctx, policy: AppWritePolicy) => {
-      const viewer: ResolvedViewer = await ctx.runQuery(
-        internal.functions.resolveViewerForAction,
-        {},
-      );
-      const appViewer = assertViewerAccess(policy.access, viewer);
+export const query = customQuery(
+  baseQuery,
+  customCtx(async (ctx, policy: AppQueryPolicy) => {
+    return await applyQueryPolicy(ctx, policy);
+  }),
+);
 
-      if (policy.rateLimit) {
-        await rateLimiter.limit(ctx, policy.rateLimit.name, {
-          key: getRateLimitKey(policy.rateLimit.target, viewer),
-          count: policy.rateLimit.count,
-          throws: true,
-        });
-      }
+export const mutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx, policy: AppWritePolicy) => {
+    return await applyMutationPolicy(ctx, policy);
+  }),
+);
 
-      return { viewer: appViewer };
-    }),
-  ),
-};
+export const action = customAction(
+  baseAction,
+  customCtx(async (ctx, policy: AppWritePolicy) => {
+    const viewer: ResolvedViewer = await ctx.runQuery(
+      internal.functions.resolveViewerForAction,
+      {},
+    );
+    const appViewer = assertViewerAccess(policy.access, viewer);
+
+    if (policy.rateLimit) {
+      await rateLimiter.limit(ctx, policy.rateLimit.name, {
+        key: getRateLimitKey(policy.rateLimit.target, viewer),
+        count: policy.rateLimit.count,
+        throws: true,
+      });
+    }
+
+    return { viewer: appViewer };
+  }),
+);
