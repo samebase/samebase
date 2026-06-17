@@ -1,29 +1,51 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { mutation, query } from "./functions";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
-/**
- * Get folder expansion states for a specific vault and user
- */
-export const getFolderExpansionStates = query({
+const { boolean, id, object, string } = v;
+
+type FolderExpansionAccessCtx = Pick<QueryCtx | MutationCtx, "db">;
+
+async function canAccessFolderExpansionVault(
+  ctx: FolderExpansionAccessCtx,
   args: {
-    vaultId: v.id("vaults"),
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+  },
+) {
+  const vault = await ctx.db.get(args.vaultId);
+  return vault?.userId === args.userId;
+}
+
+// MARK: Public
+
+export const getFolderExpansionStates = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
   },
   returns: v.array(
-    v.object({
-      folderPath: v.string(),
-      isExpanded: v.boolean(),
+    object({
+      folderPath: string(),
+      isExpanded: boolean(),
     }),
   ),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    if (
+      !(await canAccessFolderExpansionVault(ctx, {
+        vaultId: args.vaultId,
+        userId: ctx.viewer.userId,
+      }))
+    ) {
       return [];
     }
 
     const expansionStates = await ctx.db
       .query("folderExpansionState")
-      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
+      )
       .collect();
 
     return expansionStates.map((state) => ({
@@ -33,73 +55,74 @@ export const getFolderExpansionStates = query({
   },
 });
 
-/**
- * Set folder expansion state for a specific folder
- */
 export const setFolderExpansionState = mutation({
+  access: "access_files_read",
   args: {
-    vaultId: v.id("vaults"),
-    folderPath: v.string(),
-    isExpanded: v.boolean(),
+    vaultId: id("vaults"),
+    folderPath: string(),
+    isExpanded: boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
+    if (
+      !(await canAccessFolderExpansionVault(ctx, {
+        vaultId: args.vaultId,
+        userId: ctx.viewer.userId,
+      }))
+    ) {
+      throw new Error("Unauthorized");
     }
 
-    // Check if state already exists
     const existingState = await ctx.db
       .query("folderExpansionState")
       .withIndex("by_user_vault_and_path", (q) =>
-        q.eq("userId", userId).eq("vaultId", args.vaultId).eq("folderPath", args.folderPath),
+        q
+          .eq("userId", ctx.viewer.userId)
+          .eq("vaultId", args.vaultId)
+          .eq("folderPath", args.folderPath),
       )
       .first();
 
     if (existingState) {
-      // Update existing state
       await ctx.db.patch(existingState._id, {
         isExpanded: args.isExpanded,
       });
     } else {
-      // Create new state
       await ctx.db.insert("folderExpansionState", {
-        userId,
+        userId: ctx.viewer.userId,
         vaultId: args.vaultId,
         folderPath: args.folderPath,
         isExpanded: args.isExpanded,
       });
     }
-
-    return null;
   },
 });
 
-/**
- * Clear all folder expansion states for a vault (useful for reset)
- */
 export const clearFolderExpansionStates = mutation({
+  access: "access_files_read",
   args: {
-    vaultId: v.id("vaults"),
+    vaultId: id("vaults"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
+    if (
+      !(await canAccessFolderExpansionVault(ctx, {
+        vaultId: args.vaultId,
+        userId: ctx.viewer.userId,
+      }))
+    ) {
+      throw new Error("Unauthorized");
     }
 
     const expansionStates = await ctx.db
       .query("folderExpansionState")
-      .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", ctx.viewer.userId).eq("vaultId", args.vaultId),
+      )
       .collect();
 
-    // Delete all states for this user and vault
     for (const state of expansionStates) {
       await ctx.db.delete(state._id);
     }
-
-    return null;
   },
 });
