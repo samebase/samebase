@@ -7,7 +7,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "../shared/repoName";
-import { isAdminUser } from "./users";
+import { isAdminUser } from "./userAccess";
 import type {
   AppProvisioningEventLevel,
   AppProvisioningRunState,

@@ -3,8 +3,9 @@ import {
   type NoterRouteAvailability,
   type NoterRouteEnvironment,
 } from "@/lib/routeAvailability";
+import { canAccess, type AccessKey, type ViewerRole } from "../../shared/accessModel";
 
-export type NoterRoutePermission = "public" | "admin";
+export type NoterRouteAccess = AccessKey;
 
 export type NoterRouteSearchParamNumericRange =
   | {
@@ -69,7 +70,7 @@ export type NoterRouteSearchParamSemantics =
 
 export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
   key: Key;
-  permission: NoterRoutePermission;
+  access: NoterRouteAccess;
 } & NoterRouteSearchParamSemantics;
 
 export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
@@ -79,44 +80,43 @@ export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = 
 
 export type NoterRouteStaticData = {
   availableEnvironments?: NoterRouteAvailability;
-  permission: NoterRoutePermission;
+  access: NoterRouteAccess;
 
   /**
   Query keys this route's own search schema accepts, beyond the root-owned keys
   every path accepts. Absent means the route accepts only root-owned keys.
 
   Acceptance is structural (schema membership) and viewer-independent; the
-  per-param `permission` gates editor exposure, never key acceptance.
+  per-param `access` gates editor exposure, never key acceptance.
   */
   acceptedSearchKeys?: readonly string[];
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
 
-export type NoterRoutePermissionViewer = {
-  isAdmin: boolean;
+export type NoterRouteAccessViewer = {
+  role: ViewerRole;
 };
 
-export function canAccessNoterRoutePermission(
-  permission: NoterRoutePermission,
-  viewer: NoterRoutePermissionViewer,
+export function canAccessNoterRouteAccess(
+  access: NoterRouteAccess,
+  viewer: NoterRouteAccessViewer,
 ): boolean {
-  switch (permission) {
-    case "public":
-      return true;
-    case "admin":
-      return viewer.isAdmin;
-  }
+  return canAccess(access, viewer.role);
+}
 
-  return permission satisfies never;
+export function readNoterRouteAccessViewerFromAdminStatus(
+  isAdmin: boolean,
+): NoterRouteAccessViewer {
+  return { role: isAdmin ? "role_staff" : "role_anonymous" };
 }
 
 export function canAccessNoterRouteStaticData(
   staticData: NoterRouteStaticData,
-  viewer: NoterRoutePermissionViewer,
+  viewer: NoterRouteAccessViewer,
   routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
-    canAccessNoterRoutePermission(staticData.permission, viewer) &&
+    canAccessNoterRouteAccess(staticData.access, viewer) &&
     canAccessNoterRouteAvailability(staticData.availableEnvironments, routeEnvironment)
   );
 }

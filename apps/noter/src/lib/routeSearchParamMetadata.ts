@@ -11,7 +11,7 @@ import {
   type Sure,
 } from "@samebase/sure";
 import {
-  type NoterRoutePermission,
+  type NoterRouteAccess,
   type NoterRouteSearchParamSemantics,
   type NoterRouteSearchParamValueSemantics,
   type NoterRouteSearchParamValueSuggestions,
@@ -21,7 +21,7 @@ import {
 type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
 
 type RouteSearchParamMetadataBase = {
-  permission: NoterRoutePermission;
+  access: NoterRouteAccess;
 
   /**
   Controls how the route URL editor exposes this param.
@@ -156,7 +156,7 @@ export function readRouteSearchParamMetadata<const Shape extends RouteSearchPara
 
 /**
 The query keys a route's search schema accepts, independent of suggestion
-surface or viewer permission. Hidden and manual params are accepted keys even
+surface or viewer access. Hidden and manual params are accepted keys even
 though the route URL editor never suggests them.
 */
 export function readRouteSearchAcceptedKeys<const Shape extends RouteSearchParamShape>(

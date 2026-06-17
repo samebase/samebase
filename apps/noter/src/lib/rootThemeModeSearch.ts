@@ -10,11 +10,11 @@ export type RootThemeModeSearchPatch = SearchPatch<RootThemeModeSearch>;
 
 export const RouteSearchSchema_rootThemeMode = defineRouteSearchParams({
   dark: routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     suggestion: "hidden",
   }),
   light: routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     suggestion: "hidden",
   }),
 });

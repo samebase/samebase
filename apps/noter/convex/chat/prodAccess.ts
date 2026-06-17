@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { getConnectionByUserAndKind } from "../providerConnections";
-import { isAdminUser } from "../users";
+import { isAdminUser } from "../userAccess";
 import { assertConnectedVault } from "../vault/state";
 
 type ProdReadAccessArgs = {

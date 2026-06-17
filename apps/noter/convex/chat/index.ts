@@ -4,7 +4,7 @@ import { paginationOptsValidator } from "convex/server";
 import { components, internal } from "../_generated/api";
 import { getUserId } from "../common";
 import { getConnectionByUserAndKind } from "../providerConnections";
-import { isAdminUser } from "../users";
+import { isAdminUser } from "../userAccess";
 import {
   listMessages,
   saveMessage,
