@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
-import { mutation, query, type QueryCtx } from "../_generated/server";
+import { type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { getUserId } from "../common";
+import { mutation, query } from "../functions";
 import { vAppProvisioningRunStep, vPullRequestLabel } from "../schema";
 import { vTreeRefreshFailureKind } from "./model";
 import {
@@ -15,9 +15,8 @@ import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
-import { vVaultResourceLinksState, type VaultResourceLinksState } from "./resourceLinksStateModel";
+import { vVaultResourceLinksState } from "./resourceLinksStateModel";
 
-const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const cloudflarePreviewMetadataFields = {
   cloudflareBranchPreviewUrl: optional(string()),
@@ -528,7 +527,6 @@ const vaultBranchFiltersValidator = object({
   includeNoLabel: optional(boolean()),
   branchesExpanded: optional(boolean()),
 });
-type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
 
 /**
  * Dashboard URLs fail closed when provider metadata is partial. Trim before
@@ -612,14 +610,14 @@ export function buildConvexPreviewDeploymentDashboardUrl(args: {
 // MARK: Public
 
 export const getUserVaultBranchFilters = query({
+  access: "access_dashboard",
   args: {},
   returns: array(vaultBranchFiltersValidator),
   handler: async (ctx) => {
-    const userId = await getUserId(ctx);
     return (
       await ctx.db
         .query("vaultBranchFilters")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
     ).map((vaultBranchFilter) => ({
       vaultId: vaultBranchFilter.vaultId,
@@ -632,14 +630,14 @@ export const getUserVaultBranchFilters = query({
 });
 
 export const getUserVaultResourceLinksState = query({
+  access: "access_dashboard",
   args: {},
   returns: array(vVaultResourceLinksState),
-  handler: async (ctx): Promise<VaultResourceLinksState[]> => {
-    const userId = await getUserId(ctx);
+  handler: async (ctx) => {
     const states = (
       await ctx.db
         .query("vaultResourceLinksState")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
         .collect()
     ).map((state) => ({
       resourceLinksOpen: state.resourceLinksOpen,
@@ -651,10 +649,11 @@ export const getUserVaultResourceLinksState = query({
 });
 
 export const setVaultResourceLinksOpen = mutation({
+  access: "access_dashboard",
   args: vVaultResourceLinksState,
-  returns: nullValidator,
-  handler: async (ctx, args: VaultResourceLinksState) => {
-    const userId = await getUserId(ctx);
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
@@ -674,7 +673,7 @@ export const setVaultResourceLinksOpen = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, nextState);
-      return null;
+      return;
     }
 
     await ctx.db.insert("vaultResourceLinksState", {
@@ -682,15 +681,15 @@ export const setVaultResourceLinksOpen = mutation({
       vaultId: args.vaultId,
       ...nextState,
     });
-    return null;
   },
 });
 
 export const setVaultBranchFilters = mutation({
+  access: "access_dashboard",
   args: vaultBranchFiltersValidator,
-  returns: nullValidator,
-  handler: async (ctx, args: VaultBranchFilters) => {
-    const userId = await getUserId(ctx);
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
@@ -713,7 +712,7 @@ export const setVaultBranchFilters = mutation({
       if (existing) {
         await ctx.db.delete(existing._id);
       }
-      return null;
+      return;
     }
 
     if (existing) {
@@ -733,19 +732,18 @@ export const setVaultBranchFilters = mutation({
         branchesExpanded: args.branchesExpanded === true,
       });
     }
-
-    return null;
   },
 });
 
 export const createVaultAppRoot = mutation({
+  access: "access_repo_connect",
   args: {
     vaultId: id("vaults"),
     appRoot: string(),
   },
-  returns: nullValidator,
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== userId) {
       throw new Error("Vault not found.");
@@ -798,8 +796,6 @@ export const createVaultAppRoot = mutation({
       appRoot,
       createdAt: Date.now(),
     });
-
-    return null;
   },
 });
 
@@ -879,15 +875,14 @@ type UserVaultResult = Infer<typeof getUserVaultsResult>[number];
 
 // Get user's vaults with optional file staging stats
 export const getUserVaults = query({
+  access: "access_dashboard",
   args: {},
   returns: getUserVaultsResult,
-  handler: async (ctx, _args) => {
-    const userId = await getUserId(ctx);
-
+  handler: async (ctx) => {
     // Get user's vaults
     const vaults = await ctx.db
       .query("vaults")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", ctx.viewer.userId))
       .collect();
     // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
     // gated until a connected vault has branch data.
@@ -1122,6 +1117,7 @@ export const getUserVaults = query({
 });
 
 export const getVaultInfrastructure = query({
+  access: "access_dashboard",
   args: {
     vaultId: v.id("vaults"),
   },
@@ -1155,9 +1151,8 @@ export const getVaultInfrastructure = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    if (!vault || vault.userId !== ctx.viewer.userId) {
       return null;
     }
     if (!isLiveConnectedVault(vault)) {
