@@ -6,6 +6,7 @@
 - Owner: Noter platform
 - Date: 2026-06-12
 - Related specs:
+  - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
@@ -139,9 +140,10 @@ Naming rules locked in by this RFC:
 - Role strings (`role_*`) and access keys (`access_*`) are disjoint literal types; neither side ever
   reuses the other's words ("public" is a requirement, "anonymous" is a role — nobody "is" public).
 - `scope` stays reserved for OAuth delegation (MCP). `plan`/`feature` stay reserved for billing.
-- A waitlisted (authenticated, unapproved) user resolves to `role_anonymous` for access purposes:
-  they hold only `access_public`. The UI distinguishes them from signed-out users via Convex Auth
-  state, not via a fourth role.
+- Non-allowlisted users denied during auth callback never get a viewer role. During the current
+  post-login waitlist implementation only, an authenticated but unapproved user resolves to
+  `role_anonymous` for access purposes: they hold only `access_public`. The UI distinguishes that
+  temporary state from signed-out users via Convex Auth state, not via a fourth role.
 
 ### Role resolution (server-side)
 
@@ -149,11 +151,24 @@ Naming rules locked in by this RFC:
   including the GitHub-connection lookup currently copy-pasted at the inline admin sites,
   centralized into one `getViewerRole(ctx)` helper.
 - `role_member`: authenticated and `users.isApproved === true`.
-- `role_anonymous`: everyone else (signed out, or signed in but unapproved).
+- `role_anonymous`: signed out. During the current post-login waitlist implementation only, signed
+  in but unapproved also resolves to `role_anonymous` until the pre-login allowlist boundary from
+  `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md` is enforced.
 
 One new public query `users.currentViewerRole` returns the `ViewerRole` literal and replaces
 `isCurrentUserAdmin` + `isCurrentUserApproved` consumers over time (delete-first; `ApprovalGate`
 becomes `<Authenticated>` + `role === "role_anonymous"` → waitlist screen).
+
+### Auth allowlist compatibility
+
+This RFC does not supersede `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`. The accepted
+target remains: non-allowlisted users are denied during auth callback, no `users` row is inserted,
+and no authenticated session is issued. In that target state, waitlisted candidates interact with
+public routes and public Convex functions only; they do not resolve a server-side viewer role.
+
+The `role_anonymous` fallback for authenticated but unapproved users exists to close the current
+post-login gating gap while that implementation still exists. If the product chooses to keep
+authenticated waitlist accounts long term, update or replace spec 018 before implementing that path.
 
 ### Backend enforcement: access wrappers
 
@@ -280,11 +295,13 @@ spec/test updates).
 
 **Phase 1 — vocabulary + backend enforcement (closes the approval gap).** Shared access module;
 `getViewerRole(ctx)`; `users.currentViewerRole`; `accessQuery/Mutation/Action` wrappers; lint rule;
-migrate all 139 public functions (mechanical, behavior-preserving except:
+migrate all 139 public functions. While the current post-login waitlist implementation exists,
 authenticated-but-unapproved callers lose access to everything beyond the `access_public` set — that
-is the point). Sub-split by area for review: auth/public → dashboard → files → machines → admin/chat
-→ mixed. Convex tests gain role fixtures (`t.withIdentity` + seeded approved/unapproved users);
-state-axis enumeration test for `GRANTS` (e.g. "every key a member holds, staff holds").
+is the point. If spec 018's auth-callback denial is enforced first, those tests move to the auth
+callback boundary instead. Sub-split by area for review: auth/public → dashboard → files → machines
+→ admin/chat → mixed. Convex tests gain role fixtures (`t.withIdentity` + seeded approved/unapproved
+users while transition compatibility exists); state-axis enumeration test for `GRANTS` (e.g. "every
+key a member holds, staff holds").
 
 **Phase 2 — frontend rename + runtime gate.** Union/field rename (`permission` → `access`, 29
 routes + 9 search files + metadata map + tests); viewer role wiring; `RouteAccessOutlet`; suggestion
@@ -292,9 +309,12 @@ filter rework (`rootRouteSearch.ts:164-170`); prerender filter update; fixture r
 updates where shipped UI changes (waitlist/404 paths).
 
 **Phase 3 — member enablement.** Wire the waitlist join form to `waitlist.joinWaitlist` (today it
-has zero callers — required for real onboarding); approve the first cohort by flipping
-`users.isApproved`; verify the member journey end to end (sign in → waitlist → approval → `/home` →
-connect repo → monitor; create app behind Pro). No code beyond the join form — membership is data.
+has zero callers — required for real onboarding). Before first cohort launch, choose the accepted
+signup boundary: implement spec 018 by approving candidates before sign-in, or explicitly replace
+spec 018 with an authenticated waitlist-account contract. For the spec 018 path, approve the first
+cohort before sign-in, then verify the member journey end to end (sign in → `/home` → connect repo →
+monitor; create app behind Pro). No code beyond the join form and chosen signup boundary —
+membership is data.
 
 **Phase 4 — MCP scoped consent (separate spec).** Checkbox consent with partial grants, scope↔key
 intersection live on every request, step-up via `insufficient_scope`, grant management/editing on a
@@ -321,7 +341,9 @@ settings page.
 ## Resolved Decisions
 
 1. Subject and requirement sides use disjoint prefixed vocabularies (`role_*` / `access_*`).
-2. "Member" = authenticated + approved; waitlisted users resolve to `role_anonymous` for access.
+2. "Member" = authenticated + approved; non-allowlisted users are denied before role resolution per
+   spec 018. During the current post-login waitlist transition, authenticated unapproved users
+   resolve to `role_anonymous` for access.
 3. Staff determination stays the hardcoded list; no persisted role field in this rollout.
 4. Wrappers over per-handler assert calls: enforcement must be structural and fail-closed.
 5. Billing never enters the grants table; the Pro gate on app creation is untouched.
