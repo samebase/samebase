@@ -28,6 +28,8 @@ export const ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_provider_connections",
     "access_repo_connect",
     "access_app_refresh",
+    "access_files_read",
+    "access_files_write",
   ],
   role_staff: ACCESS_KEYS,
 };

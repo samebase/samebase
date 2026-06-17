@@ -1,12 +1,7 @@
 import { v, type Infer } from "convex/values";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-  type MutationCtx,
-} from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { mutation, query } from "./functions";
 import { getUserId } from "./common";
 import type { GithubTree } from "./schema";
 import {
@@ -389,17 +384,17 @@ async function assertVaultAllowsStagingWrites(
 // MARK: Public
 
 export const generateUploadUrl = mutation({
+  access: "access_files_write",
   args: {
     vaultId: vaultIdValidator,
   },
   returns: uploadUrlResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
     if (
       !canAccessVaultStaging({
         vaultOwnerId: vault?.userId,
-        requesterUserId: userId,
+        requesterUserId: ctx.viewer.userId,
       })
     ) {
       throw new Error("Unauthorized");
@@ -410,18 +405,18 @@ export const generateUploadUrl = mutation({
 });
 
 export const deletePendingUploadBlob = mutation({
+  access: "access_files_write",
   args: {
     vaultId: vaultIdValidator,
     storageId: storageIdValidator,
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
     if (
       !canAccessVaultStaging({
         vaultOwnerId: vault?.userId,
-        requesterUserId: userId,
+        requesterUserId: ctx.viewer.userId,
       })
     ) {
       throw new Error("Unauthorized");
@@ -450,9 +445,20 @@ export const deletePendingUploadBlob = mutation({
 });
 
 export const getByNewPath = query({
+  access: "access_files_read",
   args: getByNewPathArgsValidator,
   returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: ctx.viewer.userId,
+      })
+    ) {
+      return null;
+    }
+
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_branch_and_path", (q) =>
@@ -479,15 +485,15 @@ export const getByNewPathInternal = internalQuery({
 
 // List all files currently in staging for a vault
 export const listStagedFiles = query({
+  access: "access_files_read",
   args: listStagedFilesArgsValidator,
   returns: stagedFileListValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
     if (
       !canAccessVaultStaging({
         vaultOwnerId: vault?.userId,
-        requesterUserId: userId,
+        requesterUserId: ctx.viewer.userId,
       })
     ) {
       return [];
@@ -504,17 +510,17 @@ export const listStagedFiles = query({
 });
 
 export const listStagedFilesBranchSummaries = query({
+  access: "access_files_read",
   args: {
     vaultId: vaultIdValidator,
   },
   returns: stagedFilesBranchSummaryListValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
     if (
       !canAccessVaultStaging({
         vaultOwnerId: vault?.userId,
-        requesterUserId: userId,
+        requesterUserId: ctx.viewer.userId,
       })
     ) {
       return [];
@@ -834,13 +840,26 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
 
 // Clear staging for a specific file (used after successful commit)
 export const clearAllStaging = mutation({
+  access: "access_files_write",
   args: {
     vaultId: vaultIdValidator,
     branch: optional(branchValidator),
     skipTreeUpdate: optional(boolean()),
   },
   returns: nullResultValidator,
-  handler: clearAllStagingImpl,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: ctx.viewer.userId,
+      })
+    ) {
+      throw new Error("Unauthorized");
+    }
+
+    return await clearAllStagingImpl(ctx, args);
+  },
 });
 
 // Delete collaborative updates in batches to stay under the 4096 read limit.
@@ -951,11 +970,20 @@ export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
 
 // Mark a file for deletion in staging
 export const markFileForDeletion = mutation({
+  access: "access_files_write",
   args: deletionArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
-    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: ctx.viewer.userId,
+      })
+    ) {
+      throw new Error("Unauthorized");
+    }
+    assertConnectedVault(vault);
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -971,7 +999,7 @@ export const markFileForDeletion = mutation({
       await ctx.db.patch(existingStaging._id, {
         fileDeleted: true,
         lastEditTime: currentTimestamp,
-        lastEditUserId: userId,
+        lastEditUserId: ctx.viewer.userId,
         branch: args.branch,
       });
     } else {
@@ -979,7 +1007,7 @@ export const markFileForDeletion = mutation({
 
       // Create new staging record for deletion
       await ctx.db.insert("fileStaging", {
-        ownerId: userId,
+        ownerId: ctx.viewer.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
         initialFilePath: args.filePath,
@@ -993,7 +1021,7 @@ export const markFileForDeletion = mutation({
         stagedBlobSha: snapshotSeed.stagedBlobSha,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
-        lastEditUserId: userId,
+        lastEditUserId: ctx.viewer.userId,
         branch: args.branch,
         version: 0,
       });
@@ -1005,16 +1033,23 @@ export const markFileForDeletion = mutation({
 
 // Create a new file in staging (instead of immediately committing to GitHub)
 export const createFileInStaging = mutation({
+  access: "access_files_write",
   args: createFileArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
-
     const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
     if (!vault) {
       throw new Error("Vault not found");
+    }
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault.userId,
+        requesterUserId: ctx.viewer.userId,
+      })
+    ) {
+      throw new Error("Unauthorized");
     }
     assertConnectedVault(vault);
 
@@ -1059,7 +1094,7 @@ export const createFileInStaging = mutation({
 
     // Create new staging record for a new file (parentCommitSha is null)
     await ctx.db.insert("fileStaging", {
-      ownerId: userId,
+      ownerId: ctx.viewer.userId,
       vaultId: args.vaultId,
       filePath: args.filePath,
       initialFilePath: args.filePath,
@@ -1069,7 +1104,7 @@ export const createFileInStaging = mutation({
       initialContent: "", // New files have no initial content
       parentCommitSha: null, // New files have no parent commit
       lastEditTime: currentTimestamp,
-      lastEditUserId: userId,
+      lastEditUserId: ctx.viewer.userId,
       branch: args.branch,
       version: 0,
     });
@@ -1079,11 +1114,20 @@ export const createFileInStaging = mutation({
 });
 
 export const revertDeletedFileInStaging = mutation({
+  access: "access_files_write",
   args: revertDeletedFileArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
-    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: ctx.viewer.userId,
+      })
+    ) {
+      throw new Error("Unauthorized");
+    }
+    assertConnectedVault(vault);
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1096,7 +1140,7 @@ export const revertDeletedFileInStaging = mutation({
       throw new Error("Deleted staged file not found");
     }
 
-    if (existingStaging.ownerId !== userId) {
+    if (existingStaging.ownerId !== ctx.viewer.userId) {
       throw new Error("Unauthorized");
     }
 
@@ -1112,7 +1156,7 @@ export const revertDeletedFileInStaging = mutation({
     await ctx.db.patch(existingStaging._id, {
       fileDeleted: restoredFile.fileDeleted,
       lastEditTime: Date.now(),
-      lastEditUserId: userId,
+      lastEditUserId: ctx.viewer.userId,
       branch: args.branch,
     });
 
@@ -1121,20 +1165,29 @@ export const revertDeletedFileInStaging = mutation({
 });
 
 export const updateStagedFileContent = mutation({
+  access: "access_files_write",
   args: updateStagedFileContentArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const existingStaging = await ctx.db.get(args.stagingId);
 
     if (!existingStaging) {
       throw new Error("Staged file not found");
     }
 
-    if (existingStaging.ownerId !== userId) {
+    if (existingStaging.ownerId !== ctx.viewer.userId) {
       throw new Error("Unauthorized");
     }
-    await assertVaultAllowsStagingWrites(ctx, existingStaging.vaultId);
+    const vault = await ctx.db.get(existingStaging.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: ctx.viewer.userId,
+      })
+    ) {
+      throw new Error("Unauthorized");
+    }
+    assertConnectedVault(vault);
 
     if (existingStaging.fileDeleted) {
       throw new Error("Cannot update content for a deleted staged file.");
@@ -1154,7 +1207,7 @@ export const updateStagedFileContent = mutation({
       branch: existingStaging.branch,
       expectedVersion: args.expectedVersion,
       newContent: args.content,
-      userId,
+      userId: ctx.viewer.userId,
     });
 
     const updatedStaging = await ctx.db.get(existingStaging._id);
