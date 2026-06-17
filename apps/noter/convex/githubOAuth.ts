@@ -1,9 +1,10 @@
 import { v } from "convex/values";
-import { httpAction, internalMutation, mutation } from "./_generated/server";
+import { httpAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import { GITHUB_OAUTH_POPUP_NAME, isSafeGithubOAuthReturnToPath } from "../shared/githubOAuth";
 import { CODESPACES_ENABLED } from "../shared/featureFlags";
@@ -150,16 +151,13 @@ export const storeGithubOauthConnection = internalMutation({
 });
 
 export const getGithubOAuthUrl = mutation({
+  access: "access_provider_connections",
   args: {
     returnToPath: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-    return await buildGithubOAuthUrl(ctx, userId, args.returnToPath);
+    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
   },
 });
 
