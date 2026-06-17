@@ -175,8 +175,9 @@ Capability split locked in by this RFC:
 | `access_admin`                | Internal operator, debug, research, prod-read, test, and unreleased surfaces.                                                          |
 
 Route-level access should gate the shell a user can enter. Button-level affordances and backend
-functions still use the more specific key. For example, `/add` can render for a member who has
-`access_repo_connect`, while the "create managed app" mutation still requires `access_app_create`.
+functions still use the more specific key. For example, `/connect-repo` can render for a member who
+has `access_repo_connect`, while `/new-app` and the "create managed app" mutation require
+`access_app_create`.
 
 ### Role resolution (server-side)
 
@@ -335,7 +336,8 @@ then, public Noter functions would keep app wrappers as the enforcement boundary
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `access_public`       | `/`, `/logo`, `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                                                                                                                                                    |
 | `access_dashboard`    | `/home`, `/pricing`                                                                                                                                                                                                                                                                                                   |
-| `access_repo_connect` | `/add` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`, and managed provisioning actions depend on `access_app_create`                                                                                                                     |
+| `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                                                                                            |
+| `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                                                                                      |
 | `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                                                                                                 |
 | `access_files_write`  | File edit/staging/commit actions inside `/vault/$`; no separate route required at MVP                                                                                                                                                                                                                                 |
 | `access_machines`     | `/machines`, `/machines/connect`                                                                                                                                                                                                                                                                                      |
@@ -440,9 +442,9 @@ settings page.
    as the wrapper module so unmigrated raw builders fail CI from day one.
 4. **Action wrappers add one internal query round-trip** for role resolution. Acceptable: actions
    are already provider-bound; queries/mutations resolve the role with two indexed reads.
-5. **Over-classifying `/add`.** The route contains repo connect, provider connection, and managed
-   app creation controls. Mitigation: gate the route shell by the lowest useful access
-   (`access_repo_connect`) and enforce stricter keys in backend actions.
+5. **Setup route split drift.** Repo import lives at `/connect-repo`, while managed app creation
+   lives at `/new-app`. Mitigation: keep route metadata aligned with the split
+   (`access_repo_connect` vs. `access_app_create`) and enforce the same keys in backend actions.
 6. **Per-page `AuthenticatedAppRoutePage` overlap with `RouteAccessOutlet`** during Phase 2: keep
    both briefly, delete the per-page wrapper as routes are confirmed gated (delete-first; no
    long-lived dual system).
