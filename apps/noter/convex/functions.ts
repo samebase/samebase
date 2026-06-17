@@ -6,7 +6,6 @@ import {
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
-import type { GenericValidator, PropertyValidators } from "convex/values";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -20,17 +19,6 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
-import type {
-  ArgsArrayForOptionalValidator,
-  ArgsArrayToObject,
-  DefaultArgsForOptionalValidator,
-  DefaultFunctionArgs,
-  FunctionVisibility,
-  RegisteredAction,
-  RegisteredMutation,
-  RegisteredQuery,
-  ReturnValueForOptionalValidator,
-} from "convex/server";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import schema from "./schema";
 import { hasAppAccess, isAdminUser } from "./userAccess";
@@ -40,20 +28,16 @@ import {
   type PublicAccessKey,
   type ViewerRole,
 } from "../shared/accessModel";
+import type {
+  AppAuthenticatedPolicy,
+  AppFunctionBuilder,
+  AppFunctionPolicy,
+  AppPublicPolicy,
+} from "../shared/convexFunctionPolicyTypes";
 
 const { id, literal, null: vNull, number, object, union } = v;
 
-type AppPublicPolicy = {
-  access: PublicAccessKey;
-};
-
-type AppAuthenticatedPolicy = {
-  access: AuthenticatedAccessKey;
-};
-
-type AppFunctionPolicy = AppPublicPolicy | AppAuthenticatedPolicy;
-type AppFunctionAccess = PublicAccessKey | AuthenticatedAccessKey;
-
+// Viewer model exposed through ctx.viewer on app-owned Convex builders.
 type AnonymousViewerRole = "role_anonymous";
 type AuthenticatedViewerRole = Exclude<ViewerRole, AnonymousViewerRole>;
 
@@ -81,58 +65,7 @@ export type AuthenticatedAppViewer = AuthenticatedResolvedViewer & {
 
 export type AppViewer = PublicAppViewer | AuthenticatedAppViewer;
 
-type AppViewerForAccess<Access extends AppFunctionAccess> = Access extends PublicAccessKey
-  ? PublicAppViewer
-  : AuthenticatedAppViewer;
-
-type AppFunctionCtx<InputCtx, Access extends AppFunctionAccess> = Omit<InputCtx, "viewer"> & {
-  viewer: AppViewerForAccess<Access>;
-};
-
-type AppFunctionDefinition<
-  InputCtx,
-  Access extends AppFunctionAccess,
-  ArgsValidator extends PropertyValidators | GenericValidator | void,
-  ReturnsValidator extends PropertyValidators | GenericValidator | void,
-  ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator>,
-  OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator>,
-> = {
-  access: Access;
-  args?: ArgsValidator;
-  returns?: ReturnsValidator;
-  handler: (ctx: AppFunctionCtx<InputCtx, Access>, ...args: OneOrZeroArgs) => ReturnValue;
-};
-
-type AppFunctionRegistration<
-  FuncType extends "query" | "mutation" | "action",
-  Visibility extends FunctionVisibility,
-  Args extends DefaultFunctionArgs,
-  ReturnValue,
-> = {
-  query: RegisteredQuery<Visibility, Args, ReturnValue>;
-  mutation: RegisteredMutation<Visibility, Args, ReturnValue>;
-  action: RegisteredAction<Visibility, Args, ReturnValue>;
-}[FuncType];
-
-type AppFunctionBuilder<FuncType extends "query" | "mutation" | "action", InputCtx> = <
-  const Access extends AppFunctionAccess,
-  ArgsValidator extends PropertyValidators | GenericValidator | void,
-  ReturnsValidator extends PropertyValidators | GenericValidator | void,
-  ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> =
-    ReturnValueForOptionalValidator<ReturnsValidator>,
-  OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
-    DefaultArgsForOptionalValidator<ArgsValidator>,
->(
-  definition: AppFunctionDefinition<
-    InputCtx,
-    Access,
-    ArgsValidator,
-    ReturnsValidator,
-    ReturnValue,
-    OneOrZeroArgs
-  >,
-) => AppFunctionRegistration<FuncType, "public", ArgsArrayToObject<OneOrZeroArgs>, ReturnValue>;
-
+// Validator mirror for the action runtime hop through resolveViewerForAction.
 const vAuthenticatedViewerRole = union(literal("role_member"), literal("role_staff"));
 const vUserDoc = schema.tables.users.validator.extend({
   _id: id("users"),
@@ -153,6 +86,7 @@ const vAuthenticatedResolvedViewer = object({
 
 const vResolvedViewer = union(vAnonymousResolvedViewer, vAuthenticatedResolvedViewer);
 
+// Runtime policy: resolve the current viewer and enforce access keys.
 async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<ResolvedViewer> {
   const userId = await getAuthUserId(ctx);
   if (userId === null) {
@@ -252,6 +186,7 @@ export const resolveViewerForAction = internalQuery({
   },
 });
 
+// Builder exports: keep the raw Convex builders private behind app access policy.
 const publicQueryBuilder = customQuery(
   baseQuery,
   customCtx(async (ctx, _policy: AppPublicPolicy) => {
@@ -315,17 +250,32 @@ export const publicQuery = publicQueryBuilder;
 export const publicMutation = publicMutationBuilder;
 export const publicAction = publicActionBuilder;
 
-export const query: AppFunctionBuilder<"query", QueryCtx> = (definition) => {
+export const query: AppFunctionBuilder<
+  "query",
+  QueryCtx,
+  PublicAppViewer,
+  AuthenticatedAppViewer
+> = (definition) => {
   // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
   return queryBuilder(definition);
 };
 
-export const mutation: AppFunctionBuilder<"mutation", MutationCtx> = (definition) => {
+export const mutation: AppFunctionBuilder<
+  "mutation",
+  MutationCtx,
+  PublicAppViewer,
+  AuthenticatedAppViewer
+> = (definition) => {
   // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
   return mutationBuilder(definition);
 };
 
-export const action: AppFunctionBuilder<"action", ActionCtx> = (definition) => {
+export const action: AppFunctionBuilder<
+  "action",
+  ActionCtx,
+  PublicAppViewer,
+  AuthenticatedAppViewer
+> = (definition) => {
   // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
   return actionBuilder(definition);
 };

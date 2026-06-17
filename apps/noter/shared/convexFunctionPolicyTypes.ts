@@ -1,0 +1,102 @@
+import type {
+  ArgsArrayForOptionalValidator,
+  ArgsArrayToObject,
+  DefaultArgsForOptionalValidator,
+  DefaultFunctionArgs,
+  FunctionVisibility,
+  RegisteredAction,
+  RegisteredMutation,
+  RegisteredQuery,
+  ReturnValueForOptionalValidator,
+} from "convex/server";
+import type { GenericValidator, PropertyValidators } from "convex/values";
+
+import type { AuthenticatedAccessKey, PublicAccessKey } from "./accessModel";
+
+/*
+Runtime access decisions stay in functions.ts. This file only describes the
+type-level facade that makes a function definition's literal access policy
+control the viewer type received by its handler.
+*/
+
+export type AppPublicPolicy = {
+  access: PublicAccessKey;
+};
+
+export type AppAuthenticatedPolicy = {
+  access: AuthenticatedAccessKey;
+};
+
+export type AppFunctionPolicy = AppPublicPolicy | AppAuthenticatedPolicy;
+type AppFunctionAccess = PublicAccessKey | AuthenticatedAccessKey;
+
+type AppViewerForAccess<
+  Access extends AppFunctionAccess,
+  PublicViewer,
+  AuthenticatedViewer,
+> = Access extends PublicAccessKey ? PublicViewer : AuthenticatedViewer;
+
+type AppFunctionCtx<
+  InputCtx,
+  Access extends AppFunctionAccess,
+  PublicViewer,
+  AuthenticatedViewer,
+> = Omit<InputCtx, "viewer"> & {
+  viewer: AppViewerForAccess<Access, PublicViewer, AuthenticatedViewer>;
+};
+
+type AppFunctionDefinition<
+  InputCtx,
+  Access extends AppFunctionAccess,
+  PublicViewer,
+  AuthenticatedViewer,
+  ArgsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator>,
+  OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator>,
+> = {
+  access: Access;
+  args?: ArgsValidator;
+  returns?: ReturnsValidator;
+  handler: (
+    ctx: AppFunctionCtx<InputCtx, Access, PublicViewer, AuthenticatedViewer>,
+    ...args: OneOrZeroArgs
+  ) => ReturnValue;
+};
+
+type AppFunctionRegistration<
+  FuncType extends "query" | "mutation" | "action",
+  Visibility extends FunctionVisibility,
+  Args extends DefaultFunctionArgs,
+  ReturnValue,
+> = {
+  query: RegisteredQuery<Visibility, Args, ReturnValue>;
+  mutation: RegisteredMutation<Visibility, Args, ReturnValue>;
+  action: RegisteredAction<Visibility, Args, ReturnValue>;
+}[FuncType];
+
+export type AppFunctionBuilder<
+  FuncType extends "query" | "mutation" | "action",
+  InputCtx,
+  PublicViewer,
+  AuthenticatedViewer,
+> = <
+  const Access extends AppFunctionAccess,
+  ArgsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnsValidator extends PropertyValidators | GenericValidator | void,
+  ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> =
+    ReturnValueForOptionalValidator<ReturnsValidator>,
+  OneOrZeroArgs extends ArgsArrayForOptionalValidator<ArgsValidator> =
+    DefaultArgsForOptionalValidator<ArgsValidator>,
+>(
+  definition: AppFunctionDefinition<
+    InputCtx,
+    Access,
+    PublicViewer,
+    AuthenticatedViewer,
+    ArgsValidator,
+    ReturnsValidator,
+    ReturnValue,
+    OneOrZeroArgs
+  >,
+) => AppFunctionRegistration<FuncType, "public", ArgsArrayToObject<OneOrZeroArgs>, ReturnValue>;
