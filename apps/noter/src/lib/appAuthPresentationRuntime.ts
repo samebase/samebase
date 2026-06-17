@@ -48,6 +48,7 @@ export type AppAuthPresentationRuntimeLocalHint =
 export function Inlineable_createAppAuthPresentationRuntime(
   host: AppAuthPresentationRuntimeHost = {},
 ) {
+  const authTokenProfileClaimMaxLength = 256;
   const convexAuthJwtStorageKeyPrefix = "__convexAuthJWT";
   const convexAuthRefreshTokenStorageKeyPrefix = "__convexAuthRefreshToken";
 
@@ -85,21 +86,45 @@ export function Inlineable_createAppAuthPresentationRuntime(
     return value;
   }
 
-  function readStringClaim(source: object, key: string) {
-    const value = readProperty(source, key);
-    return typeof value === "string" && value.trim().length > 0 ? value : null;
+  function readProfileClaim(source: object, key: string) {
+    const descriptor = Object.getOwnPropertyDescriptor(source, key);
+    if (descriptor === undefined) {
+      return { kind: "absent" };
+    }
+    if (!("value" in descriptor)) {
+      return { kind: "invalid" };
+    }
+
+    const value: unknown = descriptor.value;
+    if (typeof value !== "string") {
+      return { kind: "invalid" };
+    }
+
+    const trimmedValue = value.trim();
+    if (trimmedValue.length === 0 || trimmedValue.length > authTokenProfileClaimMaxLength) {
+      return { kind: "invalid" };
+    }
+
+    return {
+      kind: "present",
+      value: trimmedValue,
+    };
   }
 
   function readProfileClaims(source: object): AuthTokenProfileClaims | null {
     const profileClaims: AuthTokenProfileClaims = {};
-    const name = readStringClaim(source, "name");
-    const email = readStringClaim(source, "email");
+    const name = readProfileClaim(source, "name");
+    const email = readProfileClaim(source, "email");
 
-    if (name !== null) {
-      profileClaims.name = name;
+    if (name.kind === "invalid" || email.kind === "invalid") {
+      return null;
     }
-    if (email !== null) {
-      profileClaims.email = email;
+
+    if (name.kind === "present") {
+      profileClaims.name = name.value;
+    }
+    if (email.kind === "present") {
+      profileClaims.email = email.value;
     }
 
     return Object.keys(profileClaims).length > 0 ? profileClaims : null;

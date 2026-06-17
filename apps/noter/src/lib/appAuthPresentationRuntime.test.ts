@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
-import { readAuthTokenProfileClaims } from "../../shared/authTokenClaims";
+import {
+  AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
+  readAuthTokenProfileClaims,
+} from "../../shared/authTokenClaims";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 
@@ -87,7 +90,17 @@ describe("app auth presentation runtime", () => {
         name: "Nicu",
       },
       {
+        email: "  nicu@noter.md  ",
+        exp: 4100000000,
+        name: "  Nicu  ",
+      },
+      {
         email: " ",
+        exp: 4100000000,
+        name: "Nicu",
+      },
+      {
+        email: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
         exp: 4100000000,
         name: "Nicu",
       },
