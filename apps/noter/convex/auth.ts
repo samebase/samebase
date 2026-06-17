@@ -2,6 +2,7 @@ import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { guard } from "@noter-md/dependent/main";
+import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -178,6 +179,13 @@ if ((googleClientId === null) !== (googleClientSecret === null)) {
 }
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
+  jwt: {
+    customClaims: async (ctx, { userId }) => {
+      // Convex Auth types this callback with AnyDataModel, so validate before reading claims.
+      const user: unknown = await ctx.db.get("users", userId);
+      return buildAuthTokenProfileCustomClaims(user);
+    },
+  },
   providers: [
     ...(passwordAuthEnabled
       ? [
