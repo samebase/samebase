@@ -17,6 +17,12 @@ import type { AuthenticatedAccessKey, PublicAccessKey } from "./accessModel";
 Runtime access decisions stay in functions.ts. This file only describes the
 type-level facade that makes a function definition's literal access policy
 control the viewer type received by its handler.
+
+Future middleware research starts here:
+- Convex custom functions: https://stack.convex.dev/custom-functions
+- Helper source: https://github.com/get-convex/convex-helpers/blob/main/packages/convex-helpers/server/customFunctions.ts
+- TanStack Start middleware: https://tanstack.com/start/v0/docs/framework/react/guide/middleware
+- TanStack Router context: https://tanstack.com/router/v1/docs/guide/router-context
 */
 
 export type AppAuthenticatedPolicy = {
