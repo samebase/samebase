@@ -25,8 +25,8 @@ test("public account checking login fixture", async ({ page }) => {
 
   const fixture = page.getByTestId("public-account-checking-login-visual-fixture");
   const loadingAccountSection = fixture.getByTestId("public-landing-account-section");
-  await expect(loadingAccountSection.getByRole("status", { name: "checking login" })).toBeVisible();
-  await expect(fixture.locator(".animate-spin")).toHaveCount(1);
+  await expect(loadingAccountSection.getByRole("button", { name: "checking login" })).toBeVisible();
+  await expect(fixture.locator(".animate-spin")).toHaveCount(0);
   await expect(fixture).toHaveScreenshot(
     "public-account-checking-login.png",
     strictScreenshotOptions,

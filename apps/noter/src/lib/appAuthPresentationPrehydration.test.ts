@@ -18,6 +18,7 @@ const TEST_ARGS = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
+  ignoredPathnames: [],
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "noter-app-auth-presentation-prehydration",
 } satisfies AppAuthPresentationPrehydrationArgs;
@@ -210,6 +211,20 @@ describe("appAuthPresentationPrehydration", () => {
     expect(
       document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
     ).toContain('content: "not logged in";');
+  });
+
+  it("does not prehydrate ignored paths", () => {
+    window.history.replaceState({}, "", "/visual-fixture?mode=public-account-checking-login");
+
+    runAppAuthPresentationPrehydrationScript({
+      ...TEST_ARGS,
+      ignoredPathnames: ["/visual-fixture"],
+    });
+
+    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      false,
+    );
+    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("keeps checking login while a refresh token may restore the session", () => {
