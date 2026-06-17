@@ -5,6 +5,7 @@ import { Infer, v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, mutation, type MutationCtx } from "./_generated/server";
+import { appFunction } from "./functions";
 import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
 import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { toErrorMessage } from "./jsonUtils";
@@ -989,14 +990,20 @@ export const enqueueDashboardRepositoryRefreshPage = internalMutation({
  * The shared helper still verifies ownership/deletion state before creating or
  * upgrading queue state.
  */
-export const enqueueManualRepositoryRefresh = mutation({
+export const enqueueManualRepositoryRefresh = appFunction.mutation({
+  access: "access_app_refresh",
+  rateLimit: {
+    mode: "consume",
+    name: "manualRepositoryRefresh",
+    target: "viewer",
+  },
   args: object({
     vaultId: id("vaults"),
   }),
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+    const userId = ctx.viewer.userId;
+    if (userId === null) {
       throw new Error("User not authenticated");
     }
 

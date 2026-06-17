@@ -57,7 +57,8 @@ functions today. Backend enforcement becomes structural via access-key function 
 1. Per-vault sharing / multi-user vaults (future; per-resource ownership checks remain the second
    authorization dimension and are untouched).
 2. A persisted `users.role` field or admin UI for role management (staff stays the hardcoded
-   `ADMIN_USERNAMES`/`ADMIN_EMAILS` lists until a second staff member exists).
+   `ADMIN_USERNAMES`/`ADMIN_EMAILS` lists in `apps/noter/convex/userAccess.ts` until a second staff
+   member exists).
 3. Per-resource `resource:action` permission keys for the web app. The key set is product
    capabilities, not individual vault IDs, branch IDs, or OAuth scopes.
 4. The MCP checkbox-consent implementation itself (Phase 4 outline here; details in its own spec).
@@ -74,12 +75,13 @@ functions today. Backend enforcement becomes structural via access-key function 
   `AuthenticatedAppRoutePage` → `<Authenticated>` + `ApprovalGate` pair
   (`apps/noter/src/components/ApprovalGate.tsx:8`). Route `permission` values are metadata, not
   locks.
-- Backend: no wrapper factories. ~85 `getUserId(ctx)` (`apps/noter/convex/common.ts:4-10`, throws
-  when unauthenticated) + ~62 raw `getAuthUserId(ctx)` call sites across 139 public functions. Admin
-  is defined once (`isAdminUser`, `apps/noter/convex/users.ts:95-106`) but enforced inline at only 4
-  sites (`chat/prodAccess.ts:37`, `chat/index.ts:461,515`,
-  `appProvisioningWorkflowActions.ts:273-280` — the last with the Pro-billing fallback for
-  non-admins).
+- Backend baseline: ~85 `getUserId(ctx)` (`apps/noter/convex/common.ts:4-10`, throws when
+  unauthenticated) + ~62 raw `getAuthUserId(ctx)` call sites across 139 public functions. This
+  branch now contains the first app-owned wrapper spike in `apps/noter/convex/functions.ts`, while
+  the wider function inventory is still raw. Admin is defined once (`isAdminUser`,
+  `apps/noter/convex/userAccess.ts`) but enforced inline at only 4 sites (`chat/prodAccess.ts:37`,
+  `chat/index.ts:461,515`, `appProvisioningWorkflowActions.ts:273-280` — the last with the
+  Pro-billing fallback for non-admins).
 - `users.isApproved` (`apps/noter/convex/schema.ts:288`) is read by exactly one backend function
   (`users.isCurrentUserApproved`, `users.ts:365-379`) consumed by `ApprovalGate`. No mutation/query
   checks it before doing work. `devAuth.ts:210-211` seeds `isApproved: true` for local/preview
@@ -180,9 +182,9 @@ functions still use the more specific key. For example, `/add` can render for a 
 
 ### Role resolution (server-side)
 
-- `role_staff`: `isAdminUser(githubUsername, email)` — unchanged hardcoded lists (`users.ts:25-26`),
-  including the GitHub-connection lookup currently copy-pasted at the inline admin sites,
-  centralized into one `getViewerRole(ctx)` helper.
+- `role_staff`: `isAdminUser(githubUsername, email)` — unchanged hardcoded lists
+  (`apps/noter/convex/userAccess.ts`), including the GitHub-connection lookup currently copy-pasted
+  at the inline admin sites, centralized into one `getViewerRole(ctx)` helper.
 - `role_member`: authenticated and `users.isApproved === true`.
 - `role_anonymous`: signed out. During the current post-login waitlist implementation only, signed
   in but unapproved also resolves to `role_anonymous` until the pre-login allowlist boundary from
@@ -212,12 +214,12 @@ contains the access key and any standard app-level controls such as rate limitin
 not stack multiple nested wrappers. The access key is part of the definition and greppable:
 
 ```ts
-export const getUserVaults = appFunction.query({
-  access: "access_dashboard",
-  rateLimit: { mode: "check", name: "appRefresh", target: "viewer" },
-  args: {},
-  returns: vVaultSummaryList,
-  handler: async (ctx) => {
+export const enqueueManualRepositoryRefresh = appFunction.mutation({
+  access: "access_app_refresh",
+  rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
+  args: { vaultId: v.id("vaults") },
+  returns: vEnqueueRepositoryRefreshResult,
+  handler: async (ctx, args) => {
     /* unchanged body; ownership filters stay */
   },
 });
@@ -262,14 +264,23 @@ dashboard 14, files 26, machines 27, mcp 3, admin 15, auth/public 18, mixed 35 �
   behavior.
 - `access_admin` for anything unreleased, operator-only, or unclear.
 
-`apps/noter/convex/accessWrapperPrototype.test.ts` is a type-checked spike for this API shape. It
-uses `convex-helpers/server/customFunctions` to prove:
+`apps/noter/convex/functions.ts` is the working spike for this API shape. It uses
+`convex-helpers/server/customFunctions` plus the real `@convex-dev/rate-limiter` component, and
+`apps/noter/convex/functions.test.ts` proves:
 
 - Missing `access` fails typecheck.
 - Rate-limit names come from a central literal inventory.
 - Query functions cannot use consuming rate-limit policies.
 - Mutation/action handlers receive typed `ctx.viewer` while preserving normal Convex args and return
   validators.
+
+The first end-to-end migrations are intentionally representative rather than broad:
+
+- `users.getGithubConnectionStatus` uses `access_public` and keeps the existing graceful
+  `{ connected: false }` behavior for anonymous or unapproved callers.
+- `repositoryRefresh.enqueueManualRepositoryRefresh` uses `access_app_refresh` and consumes the
+  `manualRepositoryRefresh` rate limit through the registered component. Existing React
+  `useMutation(api.repositoryRefresh.enqueueManualRepositoryRefresh)` call sites stay unchanged.
 
 The spike also exposed one implementation constraint: `customFunctions` policy input receives the
 static function policy, not the handler's validated args. That is fine for viewer/global rate
