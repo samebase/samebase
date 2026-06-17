@@ -218,32 +218,22 @@ const actionBuilder = customAction(
   }),
 );
 
-export const query: AppFunctionBuilder<
-  "query",
-  QueryCtx,
-  PublicAppViewer,
-  AuthenticatedAppViewer
-> = (definition) => {
-  // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
-  return queryBuilder(definition);
-};
+// @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
+export const query: AppFunctionBuilder<"query", QueryCtx, PublicAppViewer, AuthenticatedAppViewer> =
+  queryBuilder;
 
+// @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
 export const mutation: AppFunctionBuilder<
   "mutation",
   MutationCtx,
   PublicAppViewer,
   AuthenticatedAppViewer
-> = (definition) => {
-  // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
-  return mutationBuilder(definition);
-};
+> = mutationBuilder;
 
+// @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
 export const action: AppFunctionBuilder<
   "action",
   ActionCtx,
   PublicAppViewer,
   AuthenticatedAppViewer
-> = (definition) => {
-  // @ts-expect-error Convex helpers expose one union ctx; this facade narrows it from definition.access.
-  return actionBuilder(definition);
-};
+> = actionBuilder;
