@@ -22,6 +22,8 @@ function readWorkspaceSidebarState(storedState: WorkspaceSidebarState): Workspac
 }
 
 export const getWorkspaceSidebarState = query({
+  // TODO: Move this back to access_dashboard once public shell routes skip the
+  // query before login and fall back to client defaults instead.
   access: "access_public",
   args: object({
     workspaceKey: vWorkspaceSidebarStateKey,
