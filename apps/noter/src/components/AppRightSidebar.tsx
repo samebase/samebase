@@ -1,6 +1,9 @@
 import { isInIframe, useNoterAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
+import {
+  PublicLandingAccountLoadingSection,
+  PublicLandingAccountSection,
+} from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { useApiKeyConnectDialog, type ApiKeyProvider } from "@/components/ApiKeyConnectDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -333,18 +336,16 @@ function AppRightSidebarSignedInAccountSection({
   profile: AppAuthPresentationProfile | null;
   user: AppRightSidebarViewer | null | undefined;
 }) {
-  const accountEmail =
-    user?.email ?? user?.githubUsername ?? profile?.email ?? profile?.name ?? "Signed in";
+  const accountEmail = user?.email ?? user?.githubUsername ?? profile?.email ?? profile?.name;
   const accountDisplayName =
-    user?.name ??
-    user?.email ??
-    user?.githubUsername ??
-    profile?.name ??
-    profile?.email ??
-    "Account";
+    user?.name ?? user?.email ?? user?.githubUsername ?? profile?.name ?? profile?.email;
   const accountProviderLabel = authProviders?.primaryProvider
     ? formatAuthProviderLabel(authProviders.primaryProvider)
     : null;
+
+  if (accountDisplayName === undefined || accountEmail === undefined) {
+    return <PublicLandingAccountLoadingSection />;
+  }
 
   return (
     <VaultDashboardAccountSection
@@ -360,11 +361,7 @@ function AppRightSidebarSignedInAccountSection({
   );
 }
 
-function GenericSignedInAccountSection({
-  profile,
-}: {
-  profile: AppAuthPresentationProfile | null;
-}) {
+function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentationProfile }) {
   const { signOut } = useNoterAuthActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const handleSignOut = () => {
@@ -402,7 +399,7 @@ function GenericSignedInAccountSection({
 function TemporaryAuthenticatedAppRightSidebarContent({
   profile,
 }: {
-  profile: AppAuthPresentationProfile | null;
+  profile: AppAuthPresentationProfile;
 }) {
   return (
     <VaultDashboardSidebarContent>

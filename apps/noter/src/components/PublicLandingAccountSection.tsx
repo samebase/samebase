@@ -171,8 +171,12 @@ function PublicLandingResolvedSignedInAccountSection({
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
     return formatAuthProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
-  const accountEmail = viewer.email ?? viewer.githubUsername ?? viewer.name ?? "Signed in";
-  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername ?? "Account";
+  const accountEmail = viewer.email ?? viewer.githubUsername ?? viewer.name;
+  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername;
+
+  if (accountDisplayName === undefined || accountEmail === undefined) {
+    return <PublicLandingAccountLoadingSection />;
+  }
 
   return (
     <VaultDashboardAccountSection
@@ -204,13 +208,17 @@ function PublicLandingResolvedSignedInAccountSection({
 function PublicLandingPresentedSignedInAccountSection({
   profile,
 }: {
-  profile: AppAuthPresentationProfile | null;
+  profile: AppAuthPresentationProfile;
 }) {
   const { signOut } = useNoterAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const accountDisplayName = profile?.name ?? profile?.email ?? "Account";
-  const accountEmail = profile?.email ?? profile?.name ?? "Signed in";
+  const accountDisplayName = profile.name ?? profile.email;
+  const accountEmail = profile.email ?? profile.name;
+
+  if (accountDisplayName === undefined || accountEmail === undefined) {
+    return <PublicLandingAccountLoadingSection />;
+  }
 
   return (
     <VaultDashboardAccountSection
@@ -249,7 +257,11 @@ function PublicLandingSignedInAccountSection({
   const viewer = useQuery(api.users.viewer, loadViewer ? {} : "skip");
 
   if (viewer === undefined || viewer === null) {
-    return <PublicLandingPresentedSignedInAccountSection profile={profile} />;
+    return profile === null ? (
+      <PublicLandingAccountLoadingSection />
+    ) : (
+      <PublicLandingPresentedSignedInAccountSection profile={profile} />
+    );
   }
 
   return <PublicLandingResolvedSignedInAccountSection viewer={viewer} />;

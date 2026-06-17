@@ -7,6 +7,8 @@ import { clearAppAuthPresentationPrehydration } from "@/lib/appAuthPresentationP
 import { useConvexAuth } from "convex/react";
 import { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
+type LocalAuthHintState = { kind: "unread" } | ReturnType<typeof readLocalAppAuthPresentationHint>;
+
 export function AppAuthPresentationProvider({
   children,
   storageNamespace,
@@ -15,9 +17,7 @@ export function AppAuthPresentationProvider({
   storageNamespace: string;
 }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const [localAuthHint, setLocalAuthHint] = useState<
-    ReturnType<typeof readLocalAppAuthPresentationHint>
-  >({ kind: "pending" });
+  const [localAuthHint, setLocalAuthHint] = useState<LocalAuthHintState>({ kind: "unread" });
 
   useLayoutEffect(() => {
     setLocalAuthHint(readLocalAppAuthPresentationHint(storageNamespace));
@@ -25,6 +25,10 @@ export function AppAuthPresentationProvider({
 
   const presentationState = useMemo((): AppAuthPresentationState => {
     if (isAuthenticated) {
+      if (localAuthHint.kind === "unread") {
+        return { kind: "unknown" };
+      }
+
       return {
         kind: "confirmedAuthenticated",
         profile: localAuthHint.kind === "present" ? localAuthHint.profile : null,

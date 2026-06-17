@@ -183,7 +183,7 @@ describe("appAuthPresentationPrehydration", () => {
     ).toContain('content: "Nicu";');
   });
 
-  it("uses the account fallback for a valid JWT without profile claims", () => {
+  it("uses signed-out presentation for a JWT without profile claims", () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
       createJwt({
@@ -198,7 +198,7 @@ describe("appAuthPresentationPrehydration", () => {
     );
     expect(
       document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "Account";');
+    ).toContain('content: "not logged in";');
   });
 
   it("visually replaces the checking login account label with signed-out presentation without local auth material", () => {

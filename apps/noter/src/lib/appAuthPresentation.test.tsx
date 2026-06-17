@@ -116,12 +116,15 @@ describe("app auth presentation", () => {
     expect(await renderPresentationProviderAfterEffects()).toBe("<span>signedOut</span>");
   });
 
-  it("treats a future local JWT as a temporary auth hint after hydration while Convex loads", async () => {
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
+  it("treats a profiled future local JWT as a temporary auth hint after hydration while Convex loads", async () => {
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
-      profile: null,
+      profile: {
+        email: "nicu@noter.md",
+        name: "Nicu",
+      },
     });
     expect(renderPresentationProvider()).toBe("<span>unknown</span>");
     expect(await renderPresentationProviderAfterEffects()).toBe(
@@ -167,13 +170,14 @@ describe("app auth presentation", () => {
     });
   });
 
-  it("accepts a decodable local JWT without exp as not obviously expired", () => {
+  it("rejects decodable local JWTs without profile claims", () => {
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
+
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
+
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), NO_EXP_JWT);
 
-    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
-      kind: "present",
-      profile: null,
-    });
+    expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
   });
 
   it("rejects expired and malformed local JWTs without a refresh token", () => {
@@ -213,12 +217,15 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "pending" });
   });
 
-  it("lets confirmed Convex auth override the local hint", () => {
+  it("waits for the local hint before rendering confirmed Convex auth", async () => {
     authState.isAuthenticated = true;
     authState.isLoading = false;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    expect(renderPresentationProvider()).toBe("<span>confirmedAuthenticated</span>");
+    expect(renderPresentationProvider()).toBe("<span>unknown</span>");
+    expect(await renderPresentationProviderAfterEffects()).toBe(
+      "<span>confirmedAuthenticated</span>",
+    );
   });
 
   it("lets confirmed Convex sign-out override the local hint", () => {

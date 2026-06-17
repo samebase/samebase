@@ -27,7 +27,7 @@ export type AppAuthPresentationRuntimeLocalHint =
   | {
       kind: "present";
       label: string;
-      profile: AuthTokenProfileClaims | null;
+      profile: AuthTokenProfileClaims;
     }
   | { kind: "signedOut" };
 
@@ -163,13 +163,26 @@ export function Inlineable_createAppAuthPresentationRuntime(
     return tokenExpiresAt === null || tokenExpiresAt > (host.now ?? Date.now)();
   }
 
-  function readJwtPresentationLabel(token: string) {
+  function readProfileLabel(profile: AuthTokenProfileClaims) {
+    return profile.name ?? profile.email ?? null;
+  }
+
+  function readJwtPresentationProfile(token: string) {
     const payload = readJwtPayload(token);
-    if (payload.kind === "invalid" || !isTokenExpiresCurrent(payload.tokenExpiresAt)) {
+    if (
+      payload.kind === "invalid" ||
+      !isTokenExpiresCurrent(payload.tokenExpiresAt) ||
+      payload.profile === null
+    ) {
       return null;
     }
 
-    return payload.profile?.name ?? payload.profile?.email ?? "Account";
+    return readProfileLabel(payload.profile) === null ? null : payload.profile;
+  }
+
+  function readJwtPresentationLabel(token: string) {
+    const profile = readJwtPresentationProfile(token);
+    return profile === null ? null : readProfileLabel(profile);
   }
 
   function hasActiveAuthFlow(search: string) {
@@ -194,12 +207,17 @@ export function Inlineable_createAppAuthPresentationRuntime(
       const refreshToken = storage.getItem(convexAuthRefreshTokenStorageKey(storageNamespace));
 
       if (token) {
-        const tokenPayload = readJwtPayload(token);
-        if (tokenPayload.kind === "valid" && isTokenExpiresCurrent(tokenPayload.tokenExpiresAt)) {
+        const profile = readJwtPresentationProfile(token);
+        if (profile !== null) {
+          const label = readProfileLabel(profile);
+          if (label === null) {
+            return { kind: "signedOut" };
+          }
+
           return {
             kind: "present",
-            label: tokenPayload.profile?.name ?? tokenPayload.profile?.email ?? "Account",
-            profile: tokenPayload.profile,
+            label,
+            profile,
           };
         }
       }

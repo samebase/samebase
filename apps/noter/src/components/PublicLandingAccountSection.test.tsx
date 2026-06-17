@@ -225,15 +225,17 @@ describe("PublicLandingAccountSection", () => {
     expect(queryState.index).toBe(0);
   });
 
-  it("shows the signed-in account fallback while the signed-in viewer loads", () => {
+  it("keeps checking login while the signed-in viewer loads without a local profile", async () => {
     authState.isAuthenticated = true;
     queryState.results = [undefined];
 
     const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("Account");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("not logged in");
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
   it("keeps local JWT profile claims after hydration while the signed-in viewer loads", async () => {
@@ -244,13 +246,14 @@ describe("PublicLandingAccountSection", () => {
     const markup = renderLandingAccountSection("/");
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("Account");
+    expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("shows the signed-in account name after the viewer loads", () => {
+  it("shows the signed-in account name after the viewer loads", async () => {
     authState.isAuthenticated = true;
     queryState.results = [
       {
@@ -267,15 +270,15 @@ describe("PublicLandingAccountSection", () => {
       },
     ];
 
-    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("Nicu");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Account");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("keeps the account fallback after an empty signed-in viewer loads", () => {
+  it("keeps checking login after an empty signed-in viewer loads", async () => {
     authState.isAuthenticated = true;
     queryState.results = [
       {
@@ -286,11 +289,11 @@ describe("PublicLandingAccountSection", () => {
       },
     ];
 
-    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("Account");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
   it("shows the logged-out account summary collapsed by default", () => {

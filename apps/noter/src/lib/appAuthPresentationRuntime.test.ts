@@ -54,6 +54,13 @@ describe("app auth presentation runtime", () => {
         }),
       ),
     ).toBe(null);
+    expect(
+      runtime.readJwtPresentationLabel(
+        createJwt({
+          exp: 4100000000,
+        }),
+      ),
+    ).toBe(null);
   });
 
   it("reads the local auth presentation hint from storage and search", () => {
@@ -78,6 +85,26 @@ describe("app auth presentation runtime", () => {
       profile: {
         email: "nicu@noter.md",
       },
+    });
+  });
+
+  it("does not present a JWT without profile claims", () => {
+    const runtime = createRuntime();
+    const jwt = createJwt({
+      exp: 4100000000,
+    });
+    const entries = new Map([[runtime.convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), jwt]]);
+
+    expect(
+      runtime.readLocalAppAuthPresentationHint({
+        search: "",
+        storage: {
+          getItem: (key) => entries.get(key) ?? null,
+        },
+        storageNamespace: TEST_STORAGE_NAMESPACE,
+      }),
+    ).toEqual({
+      kind: "signedOut",
     });
   });
 

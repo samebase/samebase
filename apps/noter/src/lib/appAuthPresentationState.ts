@@ -7,7 +7,7 @@ type LocalAppAuthPresentationHint =
   | { kind: "pending" }
   | {
       kind: "present";
-      profile: AppAuthPresentationProfile | null;
+      profile: AppAuthPresentationProfile;
     }
   | { kind: "signedOut" };
 
@@ -15,7 +15,7 @@ export type AppAuthPresentationState =
   | { kind: "unknown" }
   | {
       kind: "temporaryAuthenticated";
-      profile: AppAuthPresentationProfile | null;
+      profile: AppAuthPresentationProfile;
     }
   | { kind: "confirmedAuthenticated"; profile: AppAuthPresentationProfile | null }
   | { kind: "signedOut" };

@@ -66,7 +66,8 @@ vi.mock("@/lib/usePageMetadata", () => ({
 }));
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
-const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
+const PROFILE_JWT =
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -144,7 +145,7 @@ describe("AuthenticatedAppRoutePage", () => {
 
   it("renders the temporary auth shell after hydration instead of route children or the sign-in form", async () => {
     authState.isLoading = true;
-    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     const markup = renderAuthenticatedRoutePage();
     const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();

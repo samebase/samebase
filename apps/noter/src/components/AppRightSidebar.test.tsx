@@ -67,7 +67,10 @@ vi.mock("convex/react", async (importOriginal) => {
     useConvexAuth: () => authState,
     useMutation: createAsyncHandler,
     useQuery: () => {
-      const result = queryState.results[queryState.index];
+      const result =
+        queryState.results.length === 0
+          ? undefined
+          : queryState.results[queryState.index % queryState.results.length];
       queryState.index += 1;
       return result;
     },
@@ -164,7 +167,7 @@ describe("AppRightSidebarContent", () => {
     queryState.results = [];
   });
 
-  it("shows a signed-in account row after hydration during temporary auth without provider controls", async () => {
+  it("does not treat a profileless JWT as temporary auth", async () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
@@ -173,10 +176,10 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Account");
+    expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
-    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Account");
   });
 
   it("shows the public signed-out account row without provider controls", () => {
@@ -243,26 +246,24 @@ describe("AppRightSidebarContent", () => {
 
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(providersIndex).toBeGreaterThan(accountIndex);
-    expect(markup).toContain("Account");
+    expect(markup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
   });
 
-  it("keeps a signed-in account slot above providers while the authenticated viewer loads", () => {
-    const markup = renderRightSidebar([]);
-    const accountIndex = markup.indexOf("Account");
-    const providersIndex = markup.indexOf("Providers");
+  it("keeps a checking-login account slot above providers while the authenticated viewer loads", async () => {
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
+    const accountIndex = hydratedMarkup.indexOf("checking login");
+    const providersIndex = hydratedMarkup.indexOf("Providers");
 
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(providersIndex).toBeGreaterThan(accountIndex);
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("renders the account section after the authenticated viewer loads", () => {
-    const markup = renderRightSidebar([
-      undefined,
-      undefined,
-      undefined,
+  it("renders the account section after the authenticated viewer loads", async () => {
+    const loadedQueryResults = [
       {
         _id: "user_123",
         name: "Nicu",
@@ -271,18 +272,11 @@ describe("AppRightSidebarContent", () => {
         hasConvexConnection: false,
         hasGithubConnection: false,
       },
-      {
-        providers: ["password"],
-        primaryProvider: "password",
-      },
-      {
-        accountPanelOpen: false,
-        providersPanelOpen: false,
-      },
-    ]);
+    ];
+    const hydratedMarkup = await renderRightSidebarAfterEffects(loadedQueryResults);
 
-    expect(markup).toContain("Nicu");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 });
