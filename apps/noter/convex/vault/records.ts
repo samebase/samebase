@@ -3,11 +3,10 @@ import type { Doc, Id } from "../_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
-  query,
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
-import { getUserId } from "../common";
+import { query } from "../functions";
 import {
   buildVaultCloudflareBuildConfigForAppRoot,
   parseRepositoryFullName,
@@ -25,21 +24,20 @@ import { countActiveRemoteBranches, resolveVaultBranchSelection } from "./branch
 import { getLastRepositoryMetadataRefreshAt } from "../../shared/treeRefresh";
 
 const nullValidator = v.null();
-const { boolean, id, object, string } = v;
+const { boolean, id, object, optional, string } = v;
 
 type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
 
 // Get a specific vault by repository full name for a user
 export const getVaultByRepository = query({
+  access: "access_files_read",
   args: {
-    repositoryFullName: v.string(),
-    branch: v.optional(v.string()),
+    repositoryFullName: string(),
+    branch: optional(string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
-
     return await getVaultByRepositoryHelper(ctx, {
-      userId,
+      userId: ctx.viewer.userId,
       repositoryFullName: args.repositoryFullName,
       branch: args.branch,
     });

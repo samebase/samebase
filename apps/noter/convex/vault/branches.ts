@@ -1,14 +1,9 @@
 import { v, type Infer } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-  type MutationCtx,
-} from "../_generated/server";
+import { internalMutation, internalQuery, mutation, type MutationCtx } from "../_generated/server";
 import { getUserId } from "../common";
+import { query } from "../functions";
 import { vPullRequestLabel, type PullRequestLabel } from "../schema";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
@@ -278,6 +273,7 @@ async function pruneDeletedUpstreamBranchesForVault(
 }
 
 export const getVaultRemoteBranches = query({
+  access: "access_files_read",
   args: {
     vaultId: id("vaults"),
   },
@@ -302,9 +298,8 @@ export const getVaultRemoteBranches = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId || !isLiveConnectedVault(vault)) {
+    if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
       return [];
     }
 

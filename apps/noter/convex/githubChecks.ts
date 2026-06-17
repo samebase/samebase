@@ -1,9 +1,8 @@
 "use node";
 
-import { action } from "./_generated/server";
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { getUserId } from "./common";
+import { action } from "./functions";
 import { Octokit } from "@octokit/rest";
 import { describeRepositoryTreeRefreshFailure } from "./github";
 import { isRecord } from "./jsonUtils";
@@ -183,6 +182,7 @@ function isRateLimitError(
 }
 
 export const getCommitStatus = action({
+  access: "access_files_read",
   args: {
     owner: string(),
     repo: string(),
@@ -190,10 +190,9 @@ export const getCommitStatus = action({
   },
   returns: commitStatusResultValidator,
   handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: `${owner}/${repo}`,
-      userId,
+      userId: ctx.viewer.userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -211,7 +210,7 @@ export const getCommitStatus = action({
     }
 
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
+      userId: ctx.viewer.userId,
       kind: "github",
     });
     if (githubConnection?.kind !== "github") {
