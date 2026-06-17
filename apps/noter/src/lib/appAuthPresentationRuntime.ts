@@ -48,6 +48,7 @@ export type AppAuthPresentationRuntimeLocalHint =
 export function Inlineable_createAppAuthPresentationRuntime(
   host: AppAuthPresentationRuntimeHost = {},
 ) {
+  // Mirrors AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH; appAuthPresentationRuntime.test.ts guards drift.
   const authTokenProfileClaimMaxLength = 256;
   const convexAuthJwtStorageKeyPrefix = "__convexAuthJWT";
   const convexAuthRefreshTokenStorageKeyPrefix = "__convexAuthRefreshToken";
@@ -167,7 +168,7 @@ export function Inlineable_createAppAuthPresentationRuntime(
     return profile.name ?? profile.email ?? null;
   }
 
-  function readJwtPresentationProfile(token: string) {
+  function readJwtPresentation(token: string) {
     const payload = readJwtPayload(token);
     if (
       payload.kind === "invalid" ||
@@ -177,12 +178,20 @@ export function Inlineable_createAppAuthPresentationRuntime(
       return null;
     }
 
-    return readProfileLabel(payload.profile) === null ? null : payload.profile;
+    const label = readProfileLabel(payload.profile);
+    if (label === null) {
+      return null;
+    }
+
+    return {
+      label,
+      profile: payload.profile,
+    };
   }
 
   function readJwtPresentationLabel(token: string) {
-    const profile = readJwtPresentationProfile(token);
-    return profile === null ? null : readProfileLabel(profile);
+    const presentation = readJwtPresentation(token);
+    return presentation === null ? null : presentation.label;
   }
 
   function hasActiveAuthFlow(search: string) {
@@ -207,17 +216,12 @@ export function Inlineable_createAppAuthPresentationRuntime(
       const refreshToken = storage.getItem(convexAuthRefreshTokenStorageKey(storageNamespace));
 
       if (token) {
-        const profile = readJwtPresentationProfile(token);
-        if (profile !== null) {
-          const label = readProfileLabel(profile);
-          if (label === null) {
-            return { kind: "signedOut" };
-          }
-
+        const presentation = readJwtPresentation(token);
+        if (presentation !== null) {
           return {
             kind: "present",
-            label,
-            profile,
+            label: presentation.label,
+            profile: presentation.profile,
           };
         }
       }

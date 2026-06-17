@@ -19,6 +19,7 @@ export function AppAuthPresentationProvider({
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [localAuthHint, setLocalAuthHint] = useState<LocalAuthHintState>({ kind: "unread" });
 
+  // The local JWT hint has to land before paint so hydration preserves the head prehydration label.
   useLayoutEffect(() => {
     setLocalAuthHint(readLocalAppAuthPresentationHint(storageNamespace));
   }, [storageNamespace]);
@@ -53,6 +54,7 @@ export function AppAuthPresentationProvider({
     return { kind: "unknown" };
   }, [isAuthenticated, isLoading, localAuthHint]);
 
+  // React owns the account label after the first resolved presentation state, so the head CSS must go.
   useLayoutEffect(() => {
     if (presentationState.kind === "unknown") {
       return;

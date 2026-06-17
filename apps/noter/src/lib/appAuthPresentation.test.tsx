@@ -11,6 +11,7 @@ import {
   readLocalAppAuthPresentationHint,
   useAppAuthPresentation,
 } from "@/lib/appAuthPresentationState";
+import { clearAppAuthPresentationPrehydration } from "@/lib/appAuthPresentationPrehydration";
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: false,
@@ -99,6 +100,7 @@ describe("app auth presentation", () => {
       value: createTestStorage(),
     });
     window.history.replaceState({}, "", "/");
+    clearAppAuthPresentationPrehydration();
   });
 
   it("uses the same namespaced JWT key shape as Convex Auth", () => {
@@ -130,6 +132,28 @@ describe("app auth presentation", () => {
     expect(await renderPresentationProviderAfterEffects()).toBe(
       "<span>temporaryAuthenticated</span>",
     );
+  });
+
+  it("clears the head prehydration marker and style after the auth hint resolves", async () => {
+    document.documentElement.setAttribute("data-app-auth-presentation-prehydrated", "");
+    const styleElement = document.createElement("style");
+    styleElement.id = "noter-app-auth-presentation-prehydration";
+    document.head.append(styleElement);
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      true,
+    );
+    expect(document.getElementById("noter-app-auth-presentation-prehydration")).not.toBeNull();
+
+    expect(await renderPresentationProviderAfterEffects()).toBe(
+      "<span>temporaryAuthenticated</span>",
+    );
+
+    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      false,
+    );
+    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("keeps auth presentation pending while only the refresh token can restore the session", async () => {
