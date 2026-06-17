@@ -61,7 +61,6 @@
     "@convex-dev/agent": "^0.6.1",
     "@convex-dev/auth": "^0.0.92",
     "@convex-dev/eslint-plugin": "2.0.0",
-    "@convex-dev/rate-limiter": "^0.3.2",
     "@convex-dev/react-query": "^0.1.0",
     "@convex-dev/workflow": "^0.3.12",
     "@convex-dev/workpool": "^0.4.6",

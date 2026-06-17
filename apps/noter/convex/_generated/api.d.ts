@@ -262,7 +262,6 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
-  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
   workflow: import("@convex-dev/workflow/_generated/component.js").ComponentApi<"workflow">;
   repositoryRefreshWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"repositoryRefreshWorkpool">;
 };

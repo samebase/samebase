@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 
 import agentTest from "@convex-dev/agent/test";
-import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import workflowTest from "@convex-dev/workflow/test";
 import workpoolTest from "@convex-dev/workpool/test";
 import { convexTest } from "convex-test";
@@ -24,7 +23,6 @@ const modules = import.meta.glob([
 export function makeConvexTest() {
   const t = convexTest(schema, modules);
   agentTest.register(t);
-  rateLimiterTest.register(t);
   workflowTest.register(t);
   workpoolTest.register(t, "repositoryRefreshWorkpool");
   return t;

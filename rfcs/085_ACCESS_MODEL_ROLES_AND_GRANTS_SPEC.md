@@ -209,14 +209,13 @@ authenticated waitlist accounts long term, update or replace spec 018 before imp
 
 New module `apps/noter/convex/functions.ts` exports app-owned `query`, `mutation`, and `action`
 builders. Every exported public Convex query, mutation, and action must use these builders and
-declare exactly one policy object. The policy contains the access key and any standard app-level
-controls such as rate limiting, so call sites do not stack multiple nested wrappers. The access key
-is part of the definition and greppable:
+declare exactly one policy object. The policy contains the access key and can absorb future standard
+app-level controls without stacking multiple nested wrappers. The access key is part of the
+definition and greppable:
 
 ```ts
 export const enqueueManualRepositoryRefresh = mutation({
   access: "access_app_refresh",
-  rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.id("vaults") },
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (ctx, args) => {
@@ -229,10 +228,9 @@ export const enqueueManualRepositoryRefresh = mutation({
   via one internal query since they lack `ctx.db`), throws a uniform "Access denied" when
   `!canAccess(access, role)`, and passes a typed `ctx.viewer` to the handler so most bodies drop
   their own `getUserId` preamble.
-- Rate limits are named in one central `RATE_LIMITS` inventory. Query policies can only use
-  `{ mode: "check" }`, because queries cannot transactionally consume rate-limit state. Mutation and
-  action policies can use `{ mode: "consume" }`, backed by `@convex-dev/rate-limiter` through
-  `ctx.runMutation` from actions and direct mutation calls from mutations.
+- Rate limiting is intentionally not active in Phase 1. The `@convex-dev/rate-limiter` research
+  showed it can fit inside these custom builders later, but this rollout keeps business function
+  declarations focused on `access` only.
 - `access_public` functions skip no code path — `canAccess("access_public", role_anonymous)` is
   true, so personalization-friendly functions (`users.viewer`, `users.currentViewerRole`,
   `billing.getViewerBillingStatus`, `users.getGithubConnectionStatus`, `waitlist.joinWaitlist`,
@@ -265,28 +263,26 @@ dashboard 14, files 26, machines 27, mcp 3, admin 15, auth/public 18, mixed 35 �
 - `access_admin` for anything unreleased, operator-only, or unclear.
 
 `apps/noter/convex/functions.ts` is the working spike for this API shape. It uses
-`convex-helpers/server/customFunctions` plus the real `@convex-dev/rate-limiter` component, and
-`apps/noter/convex/functions.test.ts` proves:
+`convex-helpers/server/customFunctions`, and `apps/noter/convex/functions.test.ts` proves:
 
 - Missing `access` fails typecheck.
-- Rate-limit names come from a central literal inventory.
-- Query functions cannot use consuming rate-limit policies.
+- Unknown access keys fail typecheck.
 - Mutation/action handlers receive typed `ctx.viewer` while preserving normal Convex args and return
   validators.
 
 The first end-to-end migrations are intentionally representative rather than broad:
 
-- `users.getGithubConnectionStatus` uses `access_public` and keeps the existing graceful
-  `{ connected: false }` behavior for anonymous or unapproved callers.
-- `repositoryRefresh.enqueueManualRepositoryRefresh` uses `access_app_refresh` and consumes the
-  `manualRepositoryRefresh` rate limit through the registered component. Existing React
+- `deploymentProfile.getPublicDeploymentAuthPolicy` uses `access_public`, keeping the public landing
+  auth controls on the same generated `api.deploymentProfile.getPublicDeploymentAuthPolicy`
+  reference.
+- `repositoryRefresh.enqueueDashboardRepositoryRefresh` and
+  `repositoryRefresh.enqueueManualRepositoryRefresh` use `access_app_refresh`. Existing React
   `useMutation(api.repositoryRefresh.enqueueManualRepositoryRefresh)` call sites stay unchanged.
 
-The spike also exposed one implementation constraint: `customFunctions` policy input receives the
-static function policy, not the handler's validated args. That is fine for viewer/global rate
-limits, which cover the first rollout. If a future limit key must derive from ordinary function
-args, use a small hand-rolled wrapper for that function kind or call a focused rate-limit helper
-inside the handler after access has passed.
+The rate-limit research also exposed one implementation constraint: `customFunctions` policy input
+receives the static function policy, not the handler's validated args. That is fine for future
+viewer/global limits. If a future limit key must derive from ordinary function args, call a focused
+rate-limit helper inside the handler after access has passed.
 
 ### Convex component research
 
@@ -400,14 +396,14 @@ Each phase is independently shippable; commits split per concern (backend model,
 spec/test updates).
 
 **Phase 1 — vocabulary + backend enforcement (closes the approval gap).** Shared access module;
-`getViewerRole(ctx)`; `users.currentViewerRole`; app-owned `query`/`mutation`/`action`; install and
-configure `@convex-dev/rate-limiter`; lint rule; migrate all 139 public functions so every exported
-public query, mutation, and action declares an access key. While the current post-login waitlist
-implementation exists, authenticated-but-unapproved callers lose access to everything beyond the
-`access_public` set — that is the point. If spec 018's auth-callback denial is enforced first, those
-tests move to the auth callback boundary instead. Sub-split by area for review: auth/public →
-dashboard → provider connections → repo connect/app create/app refresh → files read/write → machines
-→ admin/chat → mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixtures
+`getViewerRole(ctx)`; `users.currentViewerRole`; app-owned `query`/`mutation`/`action`; lint rule;
+migrate all 139 public functions so every exported public query, mutation, and action declares an
+access key. While the current post-login waitlist implementation exists,
+authenticated-but-unapproved callers lose access to everything beyond the `access_public` set — that
+is the point. If spec 018's auth-callback denial is enforced first, those tests move to the auth
+callback boundary instead. Sub-split by area for review: auth/public → dashboard → provider
+connections → repo connect/app create/app refresh → files read/write → machines → admin/chat →
+mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixtures
 (`t.withIdentity` + seeded approved/unapproved users while transition compatibility exists);
 state-axis enumeration test for `GRANTS` (e.g. "every key a member holds, staff holds").
 

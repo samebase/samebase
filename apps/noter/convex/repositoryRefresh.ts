@@ -1,15 +1,9 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { Workpool, vOnCompleteArgs } from "@convex-dev/workpool";
 import { Infer, v } from "convex/values";
 
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import {
-  internalAction,
-  internalMutation,
-  mutation as rawMutation,
-  type MutationCtx,
-} from "./_generated/server";
+import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import { mutation } from "./functions";
 import { MAX_DASHBOARD_REFRESH_DEMAND_VAULTS } from "../shared/repositoryRefresh";
 import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
@@ -953,11 +947,12 @@ export const runRepositoryRefreshRequest = internalAction({
  * selection and internal continuation so React never batches, loops, sends
  * vault ids, or persists browser event mechanics.
  */
-export const enqueueDashboardRepositoryRefresh = rawMutation({
+export const enqueueDashboardRepositoryRefresh = mutation({
+  access: "access_app_refresh",
   args: object({}),
   returns: vNull(),
   handler: async (ctx): Promise<null> => {
-    const userId = await getAuthUserId(ctx);
+    const userId = ctx.viewer.userId;
     if (!userId) {
       throw new Error("User not authenticated");
     }
@@ -997,11 +992,6 @@ export const enqueueDashboardRepositoryRefreshPage = internalMutation({
  */
 export const enqueueManualRepositoryRefresh = mutation({
   access: "access_app_refresh",
-  rateLimit: {
-    mode: "consume",
-    name: "manualRepositoryRefresh",
-    target: "viewer",
-  },
   args: object({
     vaultId: id("vaults"),
   }),

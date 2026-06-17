@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { isRateLimitError } from "@convex-dev/rate-limiter";
 
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -407,31 +406,6 @@ describe("repository refresh demand ingest", () => {
       reason: "vault_not_connected",
     });
     await expect(listRefreshRequests(t)).resolves.toHaveLength(0);
-  });
-
-  it("rate limits manual demand per viewer", async () => {
-    const { asUser, ids } = await createConnectedVault();
-
-    await asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
-      vaultId: ids.vaultId,
-    });
-    await asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
-      vaultId: ids.vaultId,
-    });
-    await asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
-      vaultId: ids.vaultId,
-    });
-
-    let rejection: unknown = null;
-    try {
-      await asUser.mutation(api.repositoryRefresh.enqueueManualRepositoryRefresh, {
-        vaultId: ids.vaultId,
-      });
-    } catch (error) {
-      rejection = error;
-    }
-
-    expect(isRateLimitError(rejection)).toBe(true);
   });
 
   it("reuses running demand unchanged", async () => {

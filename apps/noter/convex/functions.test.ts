@@ -5,7 +5,6 @@ import { action, mutation, query } from "./functions";
 
 query({
   access: "access_dashboard",
-  rateLimit: { mode: "check", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.string() },
   returns: v.object({
     vaultId: v.string(),
@@ -21,7 +20,6 @@ query({
 
 mutation({
   access: "access_app_refresh",
-  rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.string() },
   returns: v.object({
     vaultId: v.string(),
@@ -37,7 +35,6 @@ mutation({
 
 action({
   access: "access_app_refresh",
-  rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
   args: { vaultId: v.string() },
   returns: v.object({
     vaultId: v.string(),
@@ -58,23 +55,14 @@ mutation({
 });
 
 query({
-  access: "access_dashboard",
-  // @ts-expect-error Queries can check rate limits, but they cannot consume them.
-  rateLimit: { mode: "consume", name: "manualRepositoryRefresh", target: "viewer" },
-  args: {},
-  handler: async () => null,
-});
-
-mutation({
-  access: "access_app_refresh",
-  // @ts-expect-error Mutations must use a configured rate-limit name.
-  rateLimit: { mode: "consume", name: "notConfigured", target: "viewer" },
+  // @ts-expect-error Public functions must use a configured access key.
+  access: "access_not_configured",
   args: {},
   handler: async () => null,
 });
 
 describe("access function wrapper", () => {
-  it("keeps access and rate-limit policy checks on the real wrapper", () => {
+  it("keeps access policy checks on the real wrapper", () => {
     expect(true).toBe(true);
   });
 });

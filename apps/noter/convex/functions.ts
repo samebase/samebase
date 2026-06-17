@@ -1,5 +1,4 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { MINUTE, RateLimiter, type RateLimitConfig } from "@convex-dev/rate-limiter";
 import {
   customAction,
   customCtx,
@@ -8,7 +7,7 @@ import {
 } from "convex-helpers/server/customFunctions";
 import { v } from "convex/values";
 
-import { components, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   action as baseAction,
@@ -24,40 +23,12 @@ import { canAccess, type AccessKey, type ViewerRole } from "../shared/accessMode
 
 const { id, literal, null: vNull, object, union } = v;
 
-const RATE_LIMITS = {
-  manualRepositoryRefresh: {
-    kind: "token bucket",
-    rate: 10,
-    period: MINUTE,
-    capacity: 3,
-  },
-} satisfies Record<string, RateLimitConfig>;
-
-type RateLimitName = keyof typeof RATE_LIMITS;
-type RateLimitTarget = "global" | "viewer";
-
-type QueryRateLimitPolicy = {
-  mode: "check";
-  name: RateLimitName;
-  target: RateLimitTarget;
-  count?: number;
-};
-
-type ConsumingRateLimitPolicy = {
-  mode: "consume";
-  name: RateLimitName;
-  target: RateLimitTarget;
-  count?: number;
-};
-
 type AppQueryPolicy = {
   access: AccessKey;
-  rateLimit?: QueryRateLimitPolicy;
 };
 
 type AppWritePolicy = {
   access: AccessKey;
-  rateLimit?: ConsumingRateLimitPolicy;
 };
 
 type ResolvedViewer = {
@@ -75,8 +46,6 @@ const vResolvedViewer = object({
   role: vViewerRole,
   userId: union(id("users"), vNull()),
 });
-
-const rateLimiter = new RateLimiter(components.rateLimiter, RATE_LIMITS);
 
 async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<ResolvedViewer> {
   const userId = await getAuthUserId(ctx);
@@ -117,33 +86,9 @@ function assertViewerAccess(requiredAccess: AccessKey, viewer: ResolvedViewer): 
   return { ...viewer, requiredAccess };
 }
 
-function getRateLimitKey(target: RateLimitTarget, viewer: ResolvedViewer): string | undefined {
-  switch (target) {
-    case "global":
-      return undefined;
-    case "viewer":
-      if (viewer.userId === null) {
-        throw new Error("User not authenticated");
-      }
-      return viewer.userId;
-    default: {
-      target satisfies never;
-      return undefined;
-    }
-  }
-}
-
 async function applyQueryPolicy(ctx: QueryCtx, policy: AppQueryPolicy) {
   const viewer = await resolveViewerFromDb(ctx);
   const appViewer = assertViewerAccess(policy.access, viewer);
-
-  if (policy.rateLimit) {
-    await rateLimiter.check(ctx, policy.rateLimit.name, {
-      key: getRateLimitKey(policy.rateLimit.target, viewer),
-      count: policy.rateLimit.count,
-      throws: true,
-    });
-  }
 
   return { viewer: appViewer };
 }
@@ -151,14 +96,6 @@ async function applyQueryPolicy(ctx: QueryCtx, policy: AppQueryPolicy) {
 async function applyMutationPolicy(ctx: MutationCtx, policy: AppWritePolicy) {
   const viewer = await resolveViewerFromDb(ctx);
   const appViewer = assertViewerAccess(policy.access, viewer);
-
-  if (policy.rateLimit) {
-    await rateLimiter.limit(ctx, policy.rateLimit.name, {
-      key: getRateLimitKey(policy.rateLimit.target, viewer),
-      count: policy.rateLimit.count,
-      throws: true,
-    });
-  }
 
   return { viewer: appViewer };
 }
@@ -193,14 +130,6 @@ export const action = customAction(
       {},
     );
     const appViewer = assertViewerAccess(policy.access, viewer);
-
-    if (policy.rateLimit) {
-      await rateLimiter.limit(ctx, policy.rateLimit.name, {
-        key: getRateLimitKey(policy.rateLimit.target, viewer),
-        count: policy.rateLimit.count,
-        throws: true,
-      });
-    }
 
     return { viewer: appViewer };
   }),
