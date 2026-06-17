@@ -2,6 +2,25 @@ import { v } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 
 import { action, mutation, query } from "./functions";
+import { ACCESS_KEYS, canAccess, type AccessKey, type ViewerRole } from "../shared/accessModel";
+
+const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
+  role_anonymous: ["access_public"],
+  role_member: [
+    "access_public",
+    "access_dashboard",
+    "access_provider_connections",
+    "access_repo_connect",
+    "access_app_refresh",
+  ],
+  role_staff: ACCESS_KEYS,
+};
+
+const VIEWER_ROLES = [
+  "role_anonymous",
+  "role_member",
+  "role_staff",
+] satisfies readonly ViewerRole[];
 
 query({
   access: "access_dashboard",
@@ -62,7 +81,13 @@ query({
 });
 
 describe("access function wrapper", () => {
-  it("keeps access policy checks on the real wrapper", () => {
-    expect(true).toBe(true);
+  it("matches the phase 1 grant matrix", () => {
+    for (const role of VIEWER_ROLES) {
+      for (const access of ACCESS_KEYS) {
+        expect(canAccess(access, role), `${role} ${access}`).toBe(
+          EXPECTED_PHASE_1_GRANTS[role].includes(access),
+        );
+      }
+    }
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { hasAppAccess, isAdminUser } from "./users";
+import { hasAppAccess, isAdminUser } from "./userAccess";
 
 describe("isAdminUser", () => {
   it("matches admin emails case-insensitively", () => {

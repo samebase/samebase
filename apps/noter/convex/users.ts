@@ -21,8 +21,6 @@ import {
 } from "../shared/cloudflareTokenRefresh";
 import { hasAppAccess, isAdminUser } from "./userAccess";
 
-export { hasAppAccess, isAdminUser } from "./userAccess";
-
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;

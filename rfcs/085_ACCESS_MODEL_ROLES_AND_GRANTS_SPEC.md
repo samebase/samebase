@@ -235,10 +235,11 @@ export const enqueueManualRepositoryRefresh = mutation({
   true, so personalization-friendly functions (`users.viewer`, `users.currentViewerRole`,
   `billing.getViewerBillingStatus`, `users.getGithubConnectionStatus`, `waitlist.joinWaitlist`,
   `deploymentProfile`) register as `access_public` and keep their graceful null/false returns.
-- Enforcement is structural: an ESLint `no-restricted-imports` rule bans `query`/`mutation`/`action`
-  imports from `_generated/server` outside `convex/functions.ts` and test files (`internalQuery`
-  etc. stay free). Choosing `access_public` becomes the loud, deliberate act; forgetting a gate
-  becomes impossible. This flips today's fail-open default (any authenticated user) to fail-closed.
+- Enforcement becomes structural once the migration lint lands: an ESLint `no-restricted-imports`
+  rule bans `query`/`mutation`/`action` imports from `_generated/server` outside
+  `convex/functions.ts` and test files (`internalQuery` etc. stay free). Choosing `access_public`
+  becomes the loud, deliberate act; forgetting a gate becomes impossible. This flips today's
+  fail-open default (any authenticated user) to fail-closed.
 - Migration starts conservative: any exported public function whose correct capability is unclear
   becomes `access_admin` first, then moves to the narrower capability in follow-up commits backed by
   route/function evidence. Raw `query`/`mutation`/`action` exports are not an allowed "temporary"
@@ -267,6 +268,7 @@ dashboard 14, files 26, machines 27, mcp 3, admin 15, auth/public 18, mixed 35 â
 
 - Missing `access` fails typecheck.
 - Unknown access keys fail typecheck.
+- The phase 1 grant matrix stays aligned with the member/staff split.
 - Mutation/action handlers receive typed `ctx.viewer` while preserving normal Convex args and return
   validators.
 
