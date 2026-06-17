@@ -23,29 +23,6 @@ const vDashboardSettings = object({
   globalChatOpen: boolean(),
 });
 
-const getDashboardSettingsArgs = object({});
-
-const setProvidersPanelOpenArgs = object({
-  isOpen: boolean(),
-});
-
-const setAccountPanelOpenArgs = object({
-  isOpen: boolean(),
-});
-
-const setPricingBillingCycleArgs = object({
-  billingCycle: vBillingCycle,
-});
-
-const setEditorChatOpenArgs = object({
-  isOpen: boolean(),
-  scope: vChatOpenScope,
-});
-
-type SetAccountPanelOpenArgs = Infer<typeof setAccountPanelOpenArgs>;
-type SetProvidersPanelOpenArgs = Infer<typeof setProvidersPanelOpenArgs>;
-type SetPricingBillingCycleArgs = Infer<typeof setPricingBillingCycleArgs>;
-type SetEditorChatOpenArgs = Infer<typeof setEditorChatOpenArgs>;
 type DashboardSettings = Infer<typeof vDashboardSettings>;
 
 function getDefaultDashboardSettings(): DashboardSettings {
@@ -86,9 +63,9 @@ async function upsertDashboardSettings(
 
 export const getDashboardSettings = query({
   access: "access_dashboard",
-  args: getDashboardSettingsArgs,
+  args: {},
   returns: vDashboardSettings,
-  handler: async (ctx): Promise<DashboardSettings> => {
+  handler: async (ctx) => {
     const existing = await ctx.db
       .query("dashboardSettings")
       .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
@@ -112,9 +89,11 @@ export const getDashboardSettings = query({
 
 export const setAccountPanelOpen = mutation({
   access: "access_dashboard",
-  args: setAccountPanelOpenArgs,
+  args: {
+    isOpen: boolean(),
+  },
   returns: v.null(),
-  handler: async (ctx, args: SetAccountPanelOpenArgs) => {
+  handler: async (ctx, args) => {
     await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       accountPanelOpen: args.isOpen,
     });
@@ -123,9 +102,11 @@ export const setAccountPanelOpen = mutation({
 
 export const setProvidersPanelOpen = mutation({
   access: "access_dashboard",
-  args: setProvidersPanelOpenArgs,
+  args: {
+    isOpen: boolean(),
+  },
   returns: v.null(),
-  handler: async (ctx, args: SetProvidersPanelOpenArgs) => {
+  handler: async (ctx, args) => {
     await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       providersPanelOpen: args.isOpen,
     });
@@ -134,9 +115,11 @@ export const setProvidersPanelOpen = mutation({
 
 export const setPricingBillingCycle = mutation({
   access: "access_dashboard",
-  args: setPricingBillingCycleArgs,
+  args: {
+    billingCycle: vBillingCycle,
+  },
   returns: v.null(),
-  handler: async (ctx, args: SetPricingBillingCycleArgs) => {
+  handler: async (ctx, args) => {
     await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       pricingBillingCycle: args.billingCycle,
     });
@@ -145,9 +128,12 @@ export const setPricingBillingCycle = mutation({
 
 export const setEditorChatOpen = mutation({
   access: "access_dashboard",
-  args: setEditorChatOpenArgs,
+  args: {
+    isOpen: boolean(),
+    scope: vChatOpenScope,
+  },
   returns: v.null(),
-  handler: async (ctx, args: SetEditorChatOpenArgs) => {
+  handler: async (ctx, args) => {
     await upsertDashboardSettings(
       ctx,
       ctx.viewer.userId,
