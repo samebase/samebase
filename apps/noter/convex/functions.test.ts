@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 
-import { action, mutation, query } from "./functions";
+import type { Id } from "./_generated/dataModel";
+import { action, mutation, publicQuery, query } from "./functions";
 import { ACCESS_KEYS, canAccess, type AccessKey, type ViewerRole } from "../shared/accessModel";
 
 const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
@@ -28,11 +29,15 @@ query({
   returns: v.object({
     vaultId: v.string(),
     access: v.string(),
+    userId: v.id("users"),
+    userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
 });
@@ -43,11 +48,15 @@ mutation({
   returns: v.object({
     vaultId: v.string(),
     access: v.string(),
+    userId: v.id("users"),
+    userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
 });
@@ -58,13 +67,49 @@ action({
   returns: v.object({
     vaultId: v.string(),
     access: v.string(),
+    userId: v.id("users"),
+    userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
+});
+
+publicQuery({
+  access: "access_public",
+  args: {},
+  returns: v.object({
+    userId: v.union(v.id("users"), v.null()),
+    userEmail: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx) => {
+    // @ts-expect-error Public routes may be anonymous.
+    const _userId: Id<"users"> = ctx.viewer.userId;
+
+    return {
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user?.email ?? null,
+    };
+  },
+});
+
+query({
+  // @ts-expect-error Authenticated app wrappers cannot expose public access.
+  access: "access_public",
+  args: {},
+  handler: async () => null,
+});
+
+publicQuery({
+  // @ts-expect-error Public wrappers only accept access_public.
+  access: "access_dashboard",
+  args: {},
+  handler: async () => null,
 });
 
 // @ts-expect-error Access policy is mandatory for app mutations.

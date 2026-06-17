@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 import { notEmpty } from "@noter-md/dependent/main";
-import { query } from "./functions";
+import { publicQuery } from "./functions";
 import { readOptionalEnv } from "./oauthUtils";
 
 const { literal, object, union } = v;
@@ -211,7 +211,7 @@ export function assertPasswordAuthFlowAllowed(
   }
 }
 
-export const getPublicDeploymentAuthPolicy = query({
+export const getPublicDeploymentAuthPolicy = publicQuery({
   access: "access_public",
   args: {},
   returns: vPublicDeploymentAuthPolicy,

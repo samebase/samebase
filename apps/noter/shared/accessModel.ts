@@ -13,6 +13,8 @@ export const ACCESS_KEYS = [
 ] as const;
 
 export type AccessKey = (typeof ACCESS_KEYS)[number];
+export type PublicAccessKey = "access_public";
+export type AuthenticatedAccessKey = Exclude<AccessKey, PublicAccessKey>;
 
 export const VIEWER_ROLES = ["role_anonymous", "role_member", "role_staff"] as const;
 

@@ -9,7 +9,7 @@ import {
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   action as baseAction,
   internalQuery,
@@ -19,44 +19,81 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { getConnectionByUserAndKind } from "./providerConnections";
+import schema from "./schema";
 import { hasAppAccess, isAdminUser } from "./userAccess";
-import { canAccess, type AccessKey, type ViewerRole } from "../shared/accessModel";
+import {
+  canAccess,
+  type AuthenticatedAccessKey,
+  type PublicAccessKey,
+  type ViewerRole,
+} from "../shared/accessModel";
 
-const { id, literal, null: vNull, object, union } = v;
+const { id, literal, null: vNull, number, object, union } = v;
 
-type AppQueryPolicy = {
-  access: AccessKey;
+type AppPublicPolicy = {
+  access: PublicAccessKey;
 };
 
-type AppWritePolicy = {
-  access: AccessKey;
+type AppAuthenticatedPolicy = {
+  access: AuthenticatedAccessKey;
 };
 
-type ResolvedViewer = {
-  role: ViewerRole;
+type AnonymousViewerRole = "role_anonymous";
+type AuthenticatedViewerRole = Exclude<ViewerRole, AnonymousViewerRole>;
+
+type AnonymousResolvedViewer = {
+  role: AnonymousViewerRole;
   userId: Id<"users"> | null;
+  user: Doc<"users"> | null;
 };
 
-export type AppViewer = ResolvedViewer & {
-  requiredAccess: AccessKey;
+type AuthenticatedResolvedViewer = {
+  role: AuthenticatedViewerRole;
+  userId: Id<"users">;
+  user: Doc<"users">;
 };
 
-const vViewerRole = union(literal("role_anonymous"), literal("role_member"), literal("role_staff"));
+type ResolvedViewer = AnonymousResolvedViewer | AuthenticatedResolvedViewer;
 
-const vResolvedViewer = object({
-  role: vViewerRole,
-  userId: union(id("users"), vNull()),
+export type PublicAppViewer = ResolvedViewer & {
+  requiredAccess: PublicAccessKey;
+};
+
+export type AuthenticatedAppViewer = AuthenticatedResolvedViewer & {
+  requiredAccess: AuthenticatedAccessKey;
+};
+
+export type AppViewer = PublicAppViewer | AuthenticatedAppViewer;
+
+const vAuthenticatedViewerRole = union(literal("role_member"), literal("role_staff"));
+const vUserDoc = schema.tables.users.validator.extend({
+  _id: id("users"),
+  _creationTime: number(),
 });
+
+const vAnonymousResolvedViewer = object({
+  role: literal("role_anonymous"),
+  userId: union(id("users"), vNull()),
+  user: union(vUserDoc, vNull()),
+});
+
+const vAuthenticatedResolvedViewer = object({
+  role: vAuthenticatedViewerRole,
+  userId: id("users"),
+  user: vUserDoc,
+});
+
+const vResolvedViewer = union(vAnonymousResolvedViewer, vAuthenticatedResolvedViewer);
 
 async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<ResolvedViewer> {
   const userId = await getAuthUserId(ctx);
   if (userId === null) {
-    return { role: "role_anonymous", userId };
+    return { role: "role_anonymous", userId, user: null };
   }
 
   const user = await ctx.db.get(userId);
   if (!user) {
-    return { role: "role_anonymous", userId };
+    return { role: "role_anonymous", userId, user: null };
   }
 
   const githubConnection = await getConnectionByUserAndKind(ctx.db, userId, "github");
@@ -64,7 +101,7 @@ async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<Resolve
     githubConnection?.kind === "github" ? githubConnection.username : undefined;
 
   if (isAdminUser(githubUsername, user.email)) {
-    return { role: "role_staff", userId };
+    return { role: "role_staff", userId, user };
   }
 
   if (
@@ -74,29 +111,53 @@ async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<Resolve
       isApproved: user.isApproved,
     })
   ) {
-    return { role: "role_member", userId };
+    return { role: "role_member", userId, user };
   }
 
-  return { role: "role_anonymous", userId };
+  return { role: "role_anonymous", userId, user };
 }
 
-function assertViewerAccess(requiredAccess: AccessKey, viewer: ResolvedViewer): AppViewer {
-  if (!canAccess(requiredAccess, viewer.role)) {
+function assertPublicViewerAccess(viewer: ResolvedViewer): PublicAppViewer {
+  if (!canAccess("access_public", viewer.role)) {
+    throw new Error("Access denied");
+  }
+  return { ...viewer, requiredAccess: "access_public" };
+}
+
+function assertAuthenticatedViewerAccess(
+  requiredAccess: AuthenticatedAccessKey,
+  viewer: ResolvedViewer,
+): AuthenticatedAppViewer {
+  if (viewer.role === "role_anonymous" || !canAccess(requiredAccess, viewer.role)) {
     throw new Error("Access denied");
   }
   return { ...viewer, requiredAccess };
 }
 
-async function applyQueryPolicy(ctx: QueryCtx, policy: AppQueryPolicy) {
+async function applyPublicQueryPolicy(ctx: QueryCtx) {
   const viewer = await resolveViewerFromDb(ctx);
-  const appViewer = assertViewerAccess(policy.access, viewer);
+  const appViewer = assertPublicViewerAccess(viewer);
 
   return { viewer: appViewer };
 }
 
-async function applyMutationPolicy(ctx: MutationCtx, policy: AppWritePolicy) {
+async function applyAuthenticatedQueryPolicy(ctx: QueryCtx, policy: AppAuthenticatedPolicy) {
   const viewer = await resolveViewerFromDb(ctx);
-  const appViewer = assertViewerAccess(policy.access, viewer);
+  const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
+
+  return { viewer: appViewer };
+}
+
+async function applyPublicMutationPolicy(ctx: MutationCtx) {
+  const viewer = await resolveViewerFromDb(ctx);
+  const appViewer = assertPublicViewerAccess(viewer);
+
+  return { viewer: appViewer };
+}
+
+async function applyAuthenticatedMutationPolicy(ctx: MutationCtx, policy: AppAuthenticatedPolicy) {
+  const viewer = await resolveViewerFromDb(ctx);
+  const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
 
   return { viewer: appViewer };
 }
@@ -109,28 +170,55 @@ export const resolveViewerForAction = internalQuery({
   },
 });
 
+export const publicQuery = customQuery(
+  baseQuery,
+  customCtx(async (ctx, _policy: AppPublicPolicy) => {
+    return await applyPublicQueryPolicy(ctx);
+  }),
+);
+
 export const query = customQuery(
   baseQuery,
-  customCtx(async (ctx, policy: AppQueryPolicy) => {
-    return await applyQueryPolicy(ctx, policy);
+  customCtx(async (ctx, policy: AppAuthenticatedPolicy) => {
+    return await applyAuthenticatedQueryPolicy(ctx, policy);
+  }),
+);
+
+export const publicMutation = customMutation(
+  baseMutation,
+  customCtx(async (ctx, _policy: AppPublicPolicy) => {
+    return await applyPublicMutationPolicy(ctx);
   }),
 );
 
 export const mutation = customMutation(
   baseMutation,
-  customCtx(async (ctx, policy: AppWritePolicy) => {
-    return await applyMutationPolicy(ctx, policy);
+  customCtx(async (ctx, policy: AppAuthenticatedPolicy) => {
+    return await applyAuthenticatedMutationPolicy(ctx, policy);
+  }),
+);
+
+export const publicAction = customAction(
+  baseAction,
+  customCtx(async (ctx, _policy: AppPublicPolicy) => {
+    const viewer: ResolvedViewer = await ctx.runQuery(
+      internal.functions.resolveViewerForAction,
+      {},
+    );
+    const appViewer = assertPublicViewerAccess(viewer);
+
+    return { viewer: appViewer };
   }),
 );
 
 export const action = customAction(
   baseAction,
-  customCtx(async (ctx, policy: AppWritePolicy) => {
+  customCtx(async (ctx, policy: AppAuthenticatedPolicy) => {
     const viewer: ResolvedViewer = await ctx.runQuery(
       internal.functions.resolveViewerForAction,
       {},
     );
-    const appViewer = assertViewerAccess(policy.access, viewer);
+    const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
 
     return { viewer: appViewer };
   }),
