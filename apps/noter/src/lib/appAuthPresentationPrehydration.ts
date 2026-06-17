@@ -10,6 +10,7 @@ export type AppAuthPresentationPrehydrationArgs = {
   accountSectionTestId: string;
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
+  ignoredPathnames: readonly string[];
   rootAttribute: string;
   styleElementId: string;
 };
@@ -18,6 +19,7 @@ const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   browserConvexProxyPath: noterBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
+  ignoredPathnames: ["/visual-fixture"],
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
@@ -101,6 +103,8 @@ html[${args.rootAttribute}] ${accountLabelSelector}::after {
   }
 
   try {
+    if (args.ignoredPathnames.includes(window.location.pathname)) return;
+
     const convexUrl = readBrowserConvexUrl();
     if (convexUrl === null) return;
 
