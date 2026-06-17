@@ -137,6 +137,13 @@ function renderRightSidebar(queryResults: unknown[]) {
 }
 
 async function renderRightSidebarAfterEffects(queryResults: unknown[]) {
+  const mounted = await mountRightSidebarAfterEffects(queryResults);
+  const markup = mounted.rootElement.innerHTML;
+  await mounted.unmount();
+  return markup;
+}
+
+async function mountRightSidebarAfterEffects(queryResults: unknown[]) {
   prepareRightSidebar(queryResults);
   const rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -146,12 +153,25 @@ async function renderRightSidebarAfterEffects(queryResults: unknown[]) {
     root.render(createRightSidebarElement());
   });
 
-  const markup = rootElement.innerHTML;
-  await act(async () => {
-    root.unmount();
-  });
-  rootElement.remove();
-  return markup;
+  return {
+    rootElement,
+    async unmount() {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    },
+  };
+}
+
+function findButtonByText(rootElement: HTMLElement, text: string) {
+  for (const button of rootElement.querySelectorAll("button")) {
+    if (button.textContent.includes(text)) {
+      return button;
+    }
+  }
+
+  return null;
 }
 
 describe("AppRightSidebarContent", () => {
@@ -234,6 +254,30 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
+  });
+
+  it("allows the temporary signed-in account row to open", async () => {
+    authState.isAuthenticated = false;
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const mounted = await mountRightSidebarAfterEffects([]);
+    try {
+      const accountButton = findButtonByText(mounted.rootElement, "Nicu");
+      if (accountButton === null) {
+        throw new Error("Missing temporary signed-in account button.");
+      }
+
+      expect(accountButton.getAttribute("aria-expanded")).toBe("false");
+
+      await act(async () => {
+        accountButton.click();
+      });
+
+      expect(accountButton.getAttribute("aria-expanded")).toBe("true");
+    } finally {
+      await mounted.unmount();
+    }
   });
 
   it("keeps local JWT profile claims after hydration while the authenticated viewer loads", async () => {

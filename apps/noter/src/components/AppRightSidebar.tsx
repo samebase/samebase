@@ -363,6 +363,7 @@ function AppRightSidebarSignedInAccountSection({
 
 function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentationProfile }) {
   const { signOut } = useNoterAuthActions();
+  const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -387,9 +388,9 @@ function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentati
     <AppRightSidebarSignedInAccountSection
       authProviders={undefined}
       isSignOutPending={isSigningOut}
-      onOpenChange={() => {}}
+      onOpenChange={setAccountOpen}
       onSignOut={handleSignOut}
-      open={false}
+      open={accountOpen}
       profile={profile}
       user={undefined}
     />
