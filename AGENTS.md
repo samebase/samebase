@@ -98,6 +98,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   vars, names), give one exact recommendation instead of alternatives.
 - Expect voice-to-text mistakes. Interpret likely transcription errors before asking for
   clarification.
+- Treat Noter as a one-user product until told otherwise. Prefer strict current-state contracts,
+  deleting or rejecting incompatible old data over backwards-compatible code paths when that reduces
+  complexity.
 - Commit meaningful checkpoints instead of letting large local diffs accumulate, and push after
   commits so work is not stranded only in the local worktree.
 - When a change touches many files or multiple concerns, consider splitting it into two or three
