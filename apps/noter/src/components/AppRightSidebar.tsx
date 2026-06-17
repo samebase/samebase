@@ -23,6 +23,10 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useNow } from "@/hooks/useNow";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
+import {
+  useAppAuthPresentation,
+  type AppAuthPresentationProfile,
+} from "@/lib/appAuthPresentationState";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
@@ -31,7 +35,7 @@ import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebou
 import { isRecord } from "@noter-md/dependent";
 import { Link, useLocation } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { useAction, useConvexAuth, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { useEffect, useRef, useState, type MutableRefObject, type ReactElement } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -58,6 +62,8 @@ type ProviderRuntimeConfig = {
   popupRef: MutableRefObject<Window | null>;
 };
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
+type AppRightSidebarAuthProviders = (typeof api.users.getViewerAuthProviders)["_returnType"];
+type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
@@ -313,7 +319,104 @@ function PublicAppRightSidebarContent() {
   );
 }
 
-function AuthenticatedAppRightSidebarContent() {
+function AppRightSidebarSignedInAccountSection({
+  authProviders,
+  isSignOutPending,
+  onOpenChange,
+  onSignOut,
+  open,
+  profile,
+  user,
+}: {
+  authProviders: AppRightSidebarAuthProviders | undefined;
+  isSignOutPending: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  onSignOut: () => void;
+  open: boolean;
+  profile: AppAuthPresentationProfile | null;
+  user: AppRightSidebarViewer | null | undefined;
+}) {
+  const accountEmail = user?.email ?? user?.githubUsername ?? profile?.email ?? profile?.name;
+  const accountDisplayName =
+    user?.name ?? user?.email ?? user?.githubUsername ?? profile?.name ?? profile?.email;
+  const accountProviderLabel = authProviders?.primaryProvider
+    ? formatAuthProviderLabel(authProviders.primaryProvider)
+    : null;
+
+  if (accountDisplayName === undefined || accountEmail === undefined) {
+    return <PublicLandingAccountLoadingSection />;
+  }
+
+  return (
+    <VaultDashboardAccountSection
+      displayName={accountDisplayName}
+      email={accountEmail}
+      isSignOutPending={isSignOutPending}
+      onOpenChange={onOpenChange}
+      onSignOut={onSignOut}
+      open={open}
+      providerLabel={accountProviderLabel}
+      signOutDisabled={false}
+    />
+  );
+}
+
+function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentationProfile }) {
+  const { signOut } = useNoterAuthActions();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const handleSignOut = () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+    void signOut()
+      .catch((error: unknown) => {
+        toast({
+          description: error instanceof Error ? error.message : "Please try again.",
+          title: "Could not sign out",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setIsSigningOut(false);
+      });
+  };
+
+  return (
+    <AppRightSidebarSignedInAccountSection
+      authProviders={undefined}
+      isSignOutPending={isSigningOut}
+      onOpenChange={setAccountOpen}
+      onSignOut={handleSignOut}
+      open={accountOpen}
+      profile={profile}
+      user={undefined}
+    />
+  );
+}
+
+function TemporaryAuthenticatedAppRightSidebarContent({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile;
+}) {
+  return (
+    <VaultDashboardSidebarContent>
+      <GenericSignedInAccountSection profile={profile} />
+      <div className="mt-auto">
+        <AppSidebarMetaSection linkAlignment="left" />
+      </div>
+    </VaultDashboardSidebarContent>
+  );
+}
+
+function AuthenticatedAppRightSidebarContent({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
   const location = useLocation();
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
@@ -505,11 +608,6 @@ function AuthenticatedAppRightSidebarContent() {
         : "Not connected",
     },
   };
-  const accountEmail = user?.email ?? user?.githubUsername ?? user?.name ?? "Signed in";
-  const accountDisplayName = user?.name ?? user?.email ?? user?.githubUsername ?? "Account";
-  const accountProviderLabel = authProviders?.primaryProvider
-    ? formatAuthProviderLabel(authProviders.primaryProvider)
-    : null;
   const resolvedProvidersPanelOpen = dashboardSettings?.providersPanelOpen ?? false;
   const resolvedAccountPanelOpen = dashboardSettings?.accountPanelOpen ?? false;
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
@@ -765,24 +863,23 @@ function AuthenticatedAppRightSidebarContent() {
 
   return (
     <VaultDashboardSidebarContent>
-      {user ? (
-        <VaultDashboardAccountSection
-          displayName={accountDisplayName}
-          email={accountEmail}
-          isSignOutPending={isSigningOut}
-          onOpenChange={(isOpen) => {
-            void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
-              console.error("Failed to persist account panel state:", error);
-            });
-          }}
-          onSignOut={handleSignOut}
-          open={resolvedAccountPanelOpen}
-          providerLabel={accountProviderLabel}
-          signOutDisabled={false}
-        />
-      ) : (
-        <PublicLandingAccountLoadingSection />
-      )}
+      <AppRightSidebarSignedInAccountSection
+        authProviders={user ? authProviders : undefined}
+        isSignOutPending={isSigningOut}
+        onOpenChange={(isOpen) => {
+          if (!user) {
+            return;
+          }
+
+          void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
+            console.error("Failed to persist account panel state:", error);
+          });
+        }}
+        onSignOut={handleSignOut}
+        open={user ? resolvedAccountPanelOpen : false}
+        profile={profile}
+        user={user}
+      />
       <VaultDashboardProvidersSection
         onOpenChange={(isOpen) => {
           void setProvidersPanelOpen({ isOpen }).catch((error: unknown) => {
@@ -848,10 +945,14 @@ function AuthenticatedAppRightSidebarContent() {
 }
 
 export function AppRightSidebarContent() {
-  const { isAuthenticated } = useConvexAuth();
+  const authPresentation = useAppAuthPresentation();
 
-  if (isAuthenticated) {
-    return <AuthenticatedAppRightSidebarContent />;
+  if (authPresentation.kind === "confirmedAuthenticated") {
+    return <AuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+  }
+
+  if (authPresentation.kind === "temporaryAuthenticated") {
+    return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 
   return <PublicAppRightSidebarContent />;

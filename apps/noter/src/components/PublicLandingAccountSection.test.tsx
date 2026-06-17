@@ -1,7 +1,15 @@
+// @vitest-environment jsdom
+
+import { act, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
+import {
+  convexAuthJwtStorageKey,
+  convexAuthRefreshTokenStorageKey,
+} from "@/lib/appAuthPresentationState";
 import { readRootRouteSearch, type RootRouteSearch } from "@/lib/rootRouteSearch";
-import { type ReactNode } from "react";
 import { PublicLandingAccountSection } from "./PublicLandingAccountSection";
 
 const routeState = vi.hoisted<{ pathname: string; search: RootRouteSearch }>(() => ({
@@ -16,6 +24,34 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   index: 0,
   results: [],
 }));
+const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
+const PROFILE_JWT =
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+
+function createTestStorage(): Storage {
+  const entries = new Map<string, string>();
+
+  return {
+    clear() {
+      entries.clear();
+    },
+    getItem(key) {
+      return entries.get(String(key)) ?? null;
+    },
+    key(index) {
+      return Array.from(entries.keys())[index] ?? null;
+    },
+    get length() {
+      return entries.size;
+    },
+    removeItem(key) {
+      entries.delete(String(key));
+    },
+    setItem(key, value) {
+      entries.set(String(key), String(value));
+    },
+  };
+}
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -23,7 +59,11 @@ vi.mock("convex/react", async (importOriginal) => {
   return {
     ...actual,
     useConvexAuth: () => authState,
-    useQuery: () => {
+    useQuery: (_query: unknown, args: unknown) => {
+      if (args === "skip") {
+        return undefined;
+      }
+
       const result = queryState.results[queryState.index];
       queryState.index += 1;
       return result;
@@ -90,48 +130,130 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   };
 });
 
-function renderLandingAccountSection(initialEntry: string) {
+function prepareLandingAccountSection(initialEntry: string) {
   const [pathname, search = ""] = initialEntry.split("?");
   routeState.pathname = pathname || "/";
   routeState.search = readRootRouteSearch(search.length > 0 ? `?${search}` : "");
   queryState.index = 0;
+}
 
-  return renderToStaticMarkup(<PublicLandingAccountSection />);
+function createLandingAccountSectionElement() {
+  return (
+    <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
+      <PublicLandingAccountSection />
+    </AppAuthPresentationProvider>
+  );
+}
+
+function renderLandingAccountSection(initialEntry: string) {
+  prepareLandingAccountSection(initialEntry);
+
+  return renderToStaticMarkup(createLandingAccountSectionElement());
+}
+
+async function renderLandingAccountSectionAfterEffects(initialEntry: string) {
+  prepareLandingAccountSection(initialEntry);
+  const rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  const root = createRoot(rootElement);
+
+  await act(async () => {
+    root.render(createLandingAccountSectionElement());
+  });
+
+  const markup = rootElement.innerHTML;
+  await act(async () => {
+    root.unmount();
+  });
+  rootElement.remove();
+  return markup;
 }
 
 describe("PublicLandingAccountSection", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createTestStorage(),
+    });
     queryState.index = 0;
     queryState.results = [];
   });
 
-  it("shows the checking login summary while auth state loads", () => {
+  it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {
     authState.isLoading = true;
 
     const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(markup).toContain("animate-spin");
-    expect(markup).not.toContain("not logged in");
-    expect(markup).not.toContain("?sign-in");
-    expect(markup).not.toContain("?create-account");
+    expect(markup).toContain("data-vault-dashboard-account-section-label");
+    expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("?sign-in");
+    expect(hydratedMarkup).not.toContain("?create-account");
   });
 
-  it("shows the checking login summary while the signed-in viewer loads", () => {
+  it("uses local JWT profile claims after hydration while auth state loads", async () => {
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
+
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(queryState.index).toBe(0);
+  });
+
+  it("keeps checking login while a refresh token may restore the session", async () => {
+    authState.isLoading = true;
+    window.localStorage.setItem(
+      convexAuthRefreshTokenStorageKey(TEST_STORAGE_NAMESPACE),
+      "refresh-token",
+    );
+
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
+
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("not logged in");
+    expect(queryState.index).toBe(0);
+  });
+
+  it("keeps checking login while the signed-in viewer loads without a local profile", async () => {
     authState.isAuthenticated = true;
     queryState.results = [undefined];
 
     const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(markup).toContain("animate-spin");
-    expect(markup).not.toContain("Account");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("shows the signed-in account name after the viewer loads", () => {
+  it("keeps local JWT profile claims after hydration while the signed-in viewer loads", async () => {
+    authState.isAuthenticated = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+    queryState.results = [undefined];
+
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
+
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
+  });
+
+  it("shows the signed-in account name after the viewer loads", async () => {
     authState.isAuthenticated = true;
     queryState.results = [
       {
@@ -148,15 +270,15 @@ describe("PublicLandingAccountSection", () => {
       },
     ];
 
-    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("Nicu");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Account");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("keeps the account fallback after an empty signed-in viewer loads", () => {
+  it("keeps checking login after an empty signed-in viewer loads", async () => {
     authState.isAuthenticated = true;
     queryState.results = [
       {
@@ -167,11 +289,11 @@ describe("PublicLandingAccountSection", () => {
       },
     ];
 
-    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("Account");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
   it("shows the logged-out account summary collapsed by default", () => {

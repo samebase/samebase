@@ -10,6 +10,7 @@ import { QueryDevtools } from "@/lib/providers/query-devtools";
 import { useRootRouteSearch } from "@/lib/rootRouteSearch";
 import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
+import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
 
 const posthogApiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
 const POSTHOG_INIT_DELAY_MS = 10_000;
@@ -77,11 +78,14 @@ function AppRouterRoot() {
 
 export function AppRootClient() {
   const router = useRouter();
+  const convexClient = router.options.context.convexQueryClient.convexClient;
 
   return (
-    <ConvexAuthProvider client={router.options.context.convexQueryClient.convexClient}>
-      <AppRouterRoot />
-      <QueryDevtools />
+    <ConvexAuthProvider client={convexClient}>
+      <AppAuthPresentationProvider storageNamespace={convexClient.url}>
+        <AppRouterRoot />
+        <QueryDevtools />
+      </AppAuthPresentationProvider>
     </ConvexAuthProvider>
   );
 }
