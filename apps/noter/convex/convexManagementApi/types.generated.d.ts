@@ -707,6 +707,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/teams/{team_id}/list_audit_log_events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List audit log events
+     * @description List a team's audit log events within a time range, with optional filters.
+     */
+    get: operations["list audit log events"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/teams/{team_id}/invite_team_member": {
     parameters: {
       query?: never;
@@ -925,6 +945,124 @@ export interface components {
     AccessTokenId: number;
     /** @description Encrypted admin key */
     AdminKey: string;
+    /** @description The identity that executed an audit log action. */
+    AuditLogActor:
+      | {
+          /** @enum {string} */
+          kind: "system";
+        }
+      | {
+          /** @enum {string} */
+          kind: "member";
+          /** @description Member ID */
+          member_id: components["schemas"]["MemberId"];
+        }
+      | {
+          /** @enum {string} */
+          kind: "token";
+          member_id?: null | components["schemas"]["MemberId"];
+          /**
+           * @description Token ID. `0` for legacy audit log rows created before token IDs
+           *     were recorded.
+           */
+          token_id: components["schemas"]["AccessTokenId"];
+        }
+      | {
+          /** @description Client ID of the OAuth application */
+          client_id: string;
+          /** @enum {string} */
+          kind: "app";
+        };
+    AuditLogEventResponse: {
+      /** @enum {string} */
+      action:
+        | "team:join"
+        | "team:create"
+        | "team:update"
+        | "team:delete"
+        | "project:create"
+        | "project:transfer"
+        | "project:receive"
+        | "project:update"
+        | "project:delete"
+        | "defaultEnvironmentVariable:create"
+        | "defaultEnvironmentVariable:update"
+        | "defaultEnvironmentVariable:delete"
+        | "deployment:create"
+        | "deployment:delete"
+        | "member:invite"
+        | "member:cancelInvitation"
+        | "member:remove"
+        | "member:updateRole"
+        | "project:updateMemberRole"
+        | "billing:paymentMethod:update"
+        | "billing:contact:update"
+        | "billing:address:update"
+        | "billing:subscription:create"
+        | "billing:subscription:resume"
+        | "billing:subscription:cancel"
+        | "billing:subscription:changePlan"
+        | "team:token:create"
+        | "team:token:update"
+        | "team:token:delete"
+        | "team:token:view"
+        | "project:token:create"
+        | "project:token:update"
+        | "project:token:delete"
+        | "project:token:view"
+        | "deployment:token:create"
+        | "deployment:token:update"
+        | "deployment:token:delete"
+        | "deployment:token:view"
+        | "deployment:customDomain:create"
+        | "deployment:customDomain:delete"
+        | "deployment:backups:create"
+        | "deployment:backups:import"
+        | "deployment:backups:configurePeriodic"
+        | "deployment:backups:disablePeriodic"
+        | "deployment:backups:delete"
+        | "team:disableExceedingSpendingLimits"
+        | "billing:spendingLimit:update"
+        | "team:applyReferralCode"
+        | "oauthApplication:create"
+        | "oauthApplication:update"
+        | "oauthApplication:delete"
+        | "oauthApplication:verify"
+        | "oauthApplication:generateClientSecret"
+        | "integration:workos:team:create"
+        | "integration:workos:environment:create"
+        | "integration:workos:environment:delete"
+        | "integration:workos:environment:retrieveCredentials"
+        | "integration:workos:team:disconnect"
+        | "integration:workos:team:inviteMember"
+        | "integration:workos:projectEnvironment:create"
+        | "integration:workos:projectEnvironment:delete"
+        | "integration:workos:projectEnvironment:retrieveCredentials"
+        | "sso:enable"
+        | "sso:disable"
+        | "sso:update"
+        | "deployment:transfer"
+        | "deployment:receive"
+        | "deployment:update"
+        | "customRole:create"
+        | "customRole:update"
+        | "customRole:delete";
+      /** @description The identity that executed the action */
+      actor: components["schemas"]["AuditLogActor"];
+      /** @description IP address of the client that performed the action, if known. */
+      clientIp?: string | null;
+      /** @description User agent of the client that performed the action, if known. */
+      clientUserAgent?: string | null;
+      /**
+       * Format: int64
+       * @description Time the event was created, in milliseconds since epoch.
+       */
+      createTime: number;
+      /** @description Additional JSON metadata about the audit log event */
+      metadata: components["schemas"]["Value"];
+      /** @description Team ID */
+      teamId: components["schemas"]["TeamId"];
+    };
     CancelInvitationArgs: {
       email: string;
     };
@@ -1059,6 +1197,10 @@ export interface components {
      *     project, or the default cloud dev deployment for the member in the project.
      */
     IsDefaultDeployment: boolean;
+    ListAuditLogEventsResponse: {
+      items: components["schemas"]["AuditLogEventResponse"][];
+      pagination: components["schemas"]["PaginationMetadata"];
+    };
     ListCustomRolesResponse: {
       items: components["schemas"]["CustomRoleResponse"][];
       pagination: components["schemas"]["PaginationMetadata"];
@@ -1075,11 +1217,6 @@ export interface components {
     ListTeamAccessTokensResponse: {
       /** @description The team access tokens created by the authenticated member. */
       items: components["schemas"]["TeamAccessTokenResponse"][];
-      /**
-       * @description Pagination metadata. This endpoint does not currently paginate, so it
-       *     always reports no further pages; the field is present for
-       *     forwards-compatibility.
-       */
       pagination: components["schemas"]["PaginationMetadata"];
     };
     ManagedBy:
@@ -1765,6 +1902,7 @@ export interface components {
       memberId: components["schemas"]["MemberId"];
       role?: null | components["schemas"]["Role"];
     };
+    Value: unknown;
   };
   responses: never;
   parameters: never;
@@ -1774,6 +1912,8 @@ export interface components {
 }
 export type AccessTokenId = components["schemas"]["AccessTokenId"];
 export type AdminKey = components["schemas"]["AdminKey"];
+export type AuditLogActor = components["schemas"]["AuditLogActor"];
+export type AuditLogEventResponse = components["schemas"]["AuditLogEventResponse"];
 export type CancelInvitationArgs = components["schemas"]["CancelInvitationArgs"];
 export type CreateCustomRoleArgs = components["schemas"]["CreateCustomRoleArgs"];
 export type CreateDeploymentType = components["schemas"]["CreateDeploymentType"];
@@ -1801,6 +1941,7 @@ export type DeploymentType = components["schemas"]["DeploymentType"];
 export type DeviceName = components["schemas"]["DeviceName"];
 export type InvitationResponse = components["schemas"]["InvitationResponse"];
 export type IsDefaultDeployment = components["schemas"]["IsDefaultDeployment"];
+export type ListAuditLogEventsResponse = components["schemas"]["ListAuditLogEventsResponse"];
 export type ListCustomRolesResponse = components["schemas"]["ListCustomRolesResponse"];
 export type ListDeploymentClassesResponse = components["schemas"]["ListDeploymentClassesResponse"];
 export type ListDeploymentRegionsResponse = components["schemas"]["ListDeploymentRegionsResponse"];
@@ -1872,6 +2013,7 @@ export type UpdateCustomRoleArgs = components["schemas"]["UpdateCustomRoleArgs"]
 export type UpdateDefaultEnvironmentVariablesArgs =
   components["schemas"]["UpdateDefaultEnvironmentVariablesArgs"];
 export type UpdateTeamMemberRoleArgs = components["schemas"]["UpdateTeamMemberRoleArgs"];
+export type Value = components["schemas"]["Value"];
 export type $defs = Record<string, never>;
 export interface operations {
   "create project": {
@@ -2526,7 +2668,12 @@ export interface operations {
   };
   "list team access tokens": {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Cursor for pagination */
+        cursor?: string;
+        /** @description Maximum number of tokens to return (default 10, max 100) */
+        limit?: number;
+      };
       header?: never;
       path: {
         /** @description Team ID */
@@ -2742,6 +2889,111 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  "list audit log events": {
+    parameters: {
+      query: {
+        /** @description Start of the time range, in milliseconds since epoch. */
+        from: number;
+        /** @description End of the time range, in milliseconds since epoch. */
+        to: number;
+        /** @description Only return events performed by this member. */
+        memberId?: null | components["schemas"]["MemberId"];
+        action?:
+          | "team:join"
+          | "team:create"
+          | "team:update"
+          | "team:delete"
+          | "project:create"
+          | "project:transfer"
+          | "project:receive"
+          | "project:update"
+          | "project:delete"
+          | "defaultEnvironmentVariable:create"
+          | "defaultEnvironmentVariable:update"
+          | "defaultEnvironmentVariable:delete"
+          | "deployment:create"
+          | "deployment:delete"
+          | "member:invite"
+          | "member:cancelInvitation"
+          | "member:remove"
+          | "member:updateRole"
+          | "project:updateMemberRole"
+          | "billing:paymentMethod:update"
+          | "billing:contact:update"
+          | "billing:address:update"
+          | "billing:subscription:create"
+          | "billing:subscription:resume"
+          | "billing:subscription:cancel"
+          | "billing:subscription:changePlan"
+          | "team:token:create"
+          | "team:token:update"
+          | "team:token:delete"
+          | "team:token:view"
+          | "project:token:create"
+          | "project:token:update"
+          | "project:token:delete"
+          | "project:token:view"
+          | "deployment:token:create"
+          | "deployment:token:update"
+          | "deployment:token:delete"
+          | "deployment:token:view"
+          | "deployment:customDomain:create"
+          | "deployment:customDomain:delete"
+          | "deployment:backups:create"
+          | "deployment:backups:import"
+          | "deployment:backups:configurePeriodic"
+          | "deployment:backups:disablePeriodic"
+          | "deployment:backups:delete"
+          | "team:disableExceedingSpendingLimits"
+          | "billing:spendingLimit:update"
+          | "team:applyReferralCode"
+          | "oauthApplication:create"
+          | "oauthApplication:update"
+          | "oauthApplication:delete"
+          | "oauthApplication:verify"
+          | "oauthApplication:generateClientSecret"
+          | "integration:workos:team:create"
+          | "integration:workos:environment:create"
+          | "integration:workos:environment:delete"
+          | "integration:workos:environment:retrieveCredentials"
+          | "integration:workos:team:disconnect"
+          | "integration:workos:team:inviteMember"
+          | "integration:workos:projectEnvironment:create"
+          | "integration:workos:projectEnvironment:delete"
+          | "integration:workos:projectEnvironment:retrieveCredentials"
+          | "sso:enable"
+          | "sso:disable"
+          | "sso:update"
+          | "deployment:transfer"
+          | "deployment:receive"
+          | "deployment:update"
+          | "customRole:create"
+          | "customRole:update"
+          | "customRole:delete";
+        /** @description Maximum number of events to return (1-100, defaults to 15). */
+        limit?: number | null;
+        /** @description Cursor from a previous response to fetch the next page. */
+        cursor?: string | null;
+      };
+      header?: never;
+      path: {
+        /** @description Team ID */
+        team_id: components["schemas"]["TeamId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ListAuditLogEventsResponse"];
+        };
       };
     };
   };
