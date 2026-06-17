@@ -55,6 +55,27 @@ declaring one.
   guarantees (the length-preserving `map`/`atLeast`/`exactly` in `packages/dependent/src/main.ts`,
   the OpenAPI clients in `apps/noter/convex/*Api/client.ts`); they are forbidden as a costume for
   types the code cannot earn.
+
+  A local annotation can launder the same gap when the expression is already `any`. For example,
+  Convex Auth currently types the `jwt.customClaims` callback with `GenericQueryCtx<AnyDataModel>`,
+  so `ctx.db.get("users", userId)` does not carry Noter's generated `Doc<"users">` type. Do not
+  write:
+
+  ```ts
+  // BAD: the annotation hides that the library boundary erased the schema.
+  const user: Doc<"users"> | null = await ctx.db.get("users", userId);
+  ```
+
+  Instead, make the erased boundary explicit and earn every field read:
+
+  ```ts
+  const user: unknown = await ctx.db.get("users", userId);
+  return buildAuthTokenProfileCustomClaims(user); // validates before reading fields
+  ```
+
+  If the boundary can be wrapped in a truly typed API, do that once with a concrete runtime proof.
+  Otherwise prefer `unknown` plus validation over a comforting local annotation.
+
 - When a real TS limitation keeps muddying business code, absorb the technicality in a tiny shared
   wrapper with an honest outer signature and the `@ts-expect-error` contained inside — `includes()`,
   `keys()`, `entries()`, `fromEntries()`, `pick()` in `@noter-md/dependent` are the canonical
