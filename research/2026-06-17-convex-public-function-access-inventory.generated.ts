@@ -310,6 +310,7 @@ export const publicConvexFunctionRoutesByAccess = {
     "users:isCurrentUserApproved",
     "users:viewer",
     "waitlist:joinWaitlist",
+    "workspaceSidebarState:getWorkspaceSidebarState",
   ],
   access_dashboard: [
     "appProvisioningEvents:listForVault",
@@ -325,7 +326,6 @@ export const publicConvexFunctionRoutesByAccess = {
     "vault/dashboard:setVaultBranchFilters",
     "vault/dashboard:setVaultResourceLinksOpen",
     "vault/deletion/events:listForVault",
-    "workspaceSidebarState:getWorkspaceSidebarState",
     "workspaceSidebarState:setWorkspaceSidebarState",
   ],
   access_provider_connections: [

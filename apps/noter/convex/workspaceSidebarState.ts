@@ -22,16 +22,21 @@ function readWorkspaceSidebarState(storedState: WorkspaceSidebarState): Workspac
 }
 
 export const getWorkspaceSidebarState = query({
-  access: "access_dashboard",
+  access: "access_public",
   args: object({
     workspaceKey: vWorkspaceSidebarStateKey,
   }),
   returns: union(v.null(), vWorkspaceSidebarState),
   handler: async (ctx, args): Promise<WorkspaceSidebarState | null> => {
+    const userId = ctx.viewer.userId;
+    if (userId === null) {
+      return null;
+    }
+
     const existing = await ctx.db
       .query("workspaceSidebarState")
       .withIndex("by_user_and_workspace_key", (q) =>
-        q.eq("userId", ctx.viewer.userId).eq("workspaceKey", args.workspaceKey),
+        q.eq("userId", userId).eq("workspaceKey", args.workspaceKey),
       )
       .first();
 
