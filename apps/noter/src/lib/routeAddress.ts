@@ -13,9 +13,10 @@ import {
   validateRootRouteSearch,
 } from "@/lib/rootRouteSearch";
 import {
-  canAccessNoterRoutePermission,
+  canAccessNoterRouteAccess,
   canAccessNoterRouteStaticData,
-  type NoterRoutePermissionViewer,
+  readNoterRouteAccessViewerFromAdminStatus,
+  type NoterRouteAccessViewer,
   type NoterRouteSearchParamSuggestion,
   type NoterRouteSearchParamValueSuggestion,
   type NoterRouteStaticData,
@@ -41,7 +42,7 @@ type RouteAddressRouteUpdateDraftInput = {
   draftRouteAddress: string;
   origin: string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRoutePermissionViewer;
+  viewer: NoterRouteAccessViewer;
 };
 
 type RouteAddressSearchParamSuggestionsInput = RouteAddressRouteUpdateDraftInput & {
@@ -195,7 +196,7 @@ function readRouteAddressSearchParamSuggestions(
   const uniqueValues: NoterRouteSearchParamSuggestion[] = [];
 
   for (const value of searchParamSuggestions) {
-    if (!canAccessNoterRoutePermission(value.permission, args.viewer) || keys.has(value.key)) {
+    if (!canAccessNoterRouteAccess(value.access, args.viewer) || keys.has(value.key)) {
       continue;
     }
 
@@ -248,7 +249,7 @@ function readMatchingRouteSearchParamSuggestions(args: {
   path: string;
   routeEnvironment: NoterRouteEnvironment;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRoutePermissionViewer;
+  viewer: NoterRouteAccessViewer;
 }): readonly NoterRouteSearchParamSuggestion[] {
   const matches = entries(args.routesByPath)
     .filter(
@@ -272,7 +273,7 @@ function readMatchingRouteSearchParamSuggestions(args: {
 function isUserFacingAccessibleRoute(
   path: string,
   staticData: NoterRouteStaticData,
-  viewer: NoterRoutePermissionViewer,
+  viewer: NoterRouteAccessViewer,
   routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (
@@ -388,7 +389,7 @@ export function readRouteAddressReadiness(args: RouteAddressReadinessInput): Rou
     draftRouteAddress: args.draftRouteAddress,
     origin: args.origin,
     routesByPath: args.routesByPath,
-    viewer: { isAdmin: args.viewerIsAdmin },
+    viewer: readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
   });
   const readyRouteAddress = normalizeRouteUrlEditorHref({
     currentHref: args.currentRouteAddress,
@@ -409,7 +410,7 @@ export function readRouteAddressReadiness(args: RouteAddressReadinessInput): Rou
       draftHref: readyRouteAddress,
       origin: args.origin,
       routesByPath: args.routesByPath,
-      viewer: { isAdmin: args.viewerIsAdmin },
+      viewer: readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
     })
   ) {
     return {

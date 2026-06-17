@@ -37,7 +37,7 @@ export function readPublicPrerenderPages() {
   return entries(NOTER_ROUTE_ACCESS_METADATA_BY_PATH)
     .filter(
       ([routePath, routeAccessMetadata]) =>
-        routeAccessMetadata.permission === "public" &&
+        routeAccessMetadata.access === "access_public" &&
         isConcreteRoutePath(routePath) &&
         isProductionAvailable(routeAccessMetadata.availableEnvironments),
     )

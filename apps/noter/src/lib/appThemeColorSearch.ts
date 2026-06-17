@@ -57,7 +57,7 @@ const LOGO_COLOR_THEME_MODES = ["light", "dark"] as const satisfies readonly Log
 const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = TAILWIND_COLOR_TOKEN_SUGGESTIONS;
 
 const logoThemeColorValueParamOptions = {
-  permission: "public",
+  access: "access_public",
   sampleValue: "emerald-500",
   suggestion: "hidden",
   valueCompletion: "tailwind-color-token",

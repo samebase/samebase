@@ -9,8 +9,8 @@ import {
 const ORIGIN = "http://localhost:5174";
 const DEPLOYED_ORIGIN = "https://preview.noter.md";
 const routesByPath = getRouter().routesByPath;
-const adminViewer = { isAdmin: true };
-const publicViewer = { isAdmin: false };
+const adminViewer = { role: "role_staff" } as const;
+const publicViewer = { role: "role_anonymous" } as const;
 const localEnvironment = "local";
 const prodUiEnvironment = "production";
 const deployedEnvironment = "preview";

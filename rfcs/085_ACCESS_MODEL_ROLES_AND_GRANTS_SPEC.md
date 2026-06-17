@@ -20,7 +20,7 @@ Replace the two-value route permission union (`"public" | "admin"`) with a two-s
 that prepares the app for external users:
 
 1. **Viewer roles** (what a caller is): `role_anonymous | role_member | role_staff`.
-2. **Access keys** (what a route, query, mutation, or action demands):
+2. **Access keys** (what a route, search param, query, mutation, action, or MCP grant demands):
    `access_public | access_dashboard | access_provider_connections | access_repo_connect | access_app_create | access_app_refresh | access_files_read | access_files_write | access_machines | access_mcp | access_admin`.
 3. **Grants** (which roles satisfy which keys): one table, additive-only, with one `canAccess`
    decision function shared by frontend and backend.
@@ -42,7 +42,7 @@ functions today. Backend enforcement becomes structural via access-key function 
 ## Goals
 
 1. One shared vocabulary and one decision chokepoint (`canAccess`) for routes, search params, every
-   exported public Convex function, and (later) MCP grants.
+   exported public Convex function, and MCP grants.
 2. Server-side enforcement that fails closed and cannot be forgotten per function: public Convex
    queries, mutations, and actions must be wrapped with an explicit access key.
 3. Member MVP limited to safe account/repo/app-status capabilities, with the path to app creation,
@@ -65,16 +65,15 @@ functions today. Backend enforcement becomes structural via access-key function 
 
 ## Current State (verified)
 
-- Route permissions: `NoterRoutePermission = "public" | "admin"` at
-  `apps/noter/src/lib/routePermissions.ts:7`; 29 routes in
-  `apps/noter/src/routeAccessMetadata.ts:12-42` (5 public, 24 admin); ~67 search-param suggestions
-  across 9 `apps/noter/src/lib/*RouteSearch.ts` files carry `permission` values.
-- The only frontend decision function, `canAccessNoterRoutePermission`
-  (`routePermissions.ts:90-102`), gates URL-editor suggestions only. Navigation is gated by
-  availability (`apps/noter/src/routes/root.tsx:86-89`) and by the per-page
+- Previous route permissions used `NoterRoutePermission = "public" | "admin"`. This branch's
+  frontend spike replaces route and search-param metadata with `access: AccessKey`; the URL editor
+  still adapts the existing `isCurrentUserAdmin` query into `role_staff | role_anonymous` until a
+  real `users.currentViewerRole` query lands.
+- The only frontend access decision function gates URL-editor suggestions and path readiness only.
+  Navigation is gated by availability (`apps/noter/src/routes/root.tsx:86-89`) and by the per-page
   `AuthenticatedAppRoutePage` → `<Authenticated>` + `ApprovalGate` pair
-  (`apps/noter/src/components/ApprovalGate.tsx:8`). Route `permission` values are metadata, not
-  locks.
+  (`apps/noter/src/components/ApprovalGate.tsx:8`). Route `access` values are metadata, not locks,
+  until the runtime route gate lands.
 - Backend baseline: ~85 `getUserId(ctx)` (`apps/noter/convex/common.ts:4-10`, throws when
   unauthenticated) + ~62 raw `getAuthUserId(ctx)` call sites across 139 public functions. This
   branch now contains the first app-owned wrapper spike in `apps/noter/convex/functions.ts`, while
@@ -99,9 +98,7 @@ functions today. Backend enforcement becomes structural via access-key function 
   (`apps/noter/convex/mcp/http.ts:676-685`). Consent is all-or-nothing
   (`apps/noter/src/components/McpConsentRoutePage.tsx:89-145`); grants/tokens store one flat scope
   string (`schema.ts:889`, `schema.ts:910`). No scope is intersected with the user's own access.
-- Build-time: `dev/publicPrerenderPages.ts:40` filters `permission === "public"`; silent hazard at
-  `apps/noter/src/lib/rootRouteSearch.ts:164-170` where suggestions are split by `=== "admin"` /
-  `=== "public"` equality (a third value would vanish from both lists).
+- Build-time: `dev/publicPrerenderPages.ts:40` now filters `access === "access_public"`.
 
 ## Design
 
@@ -154,7 +151,8 @@ Naming rules locked in by this RFC:
 
 - Role strings (`role_*`) and access keys (`access_*`) are disjoint literal types; neither side ever
   reuses the other's words ("public" is a requirement, "anonymous" is a role — nobody "is" public).
-- `scope` stays reserved for OAuth delegation (MCP). `plan`/`feature` stay reserved for billing.
+- OAuth still calls delegated permissions `scope` at the protocol boundary, but Noter-owned MCP
+  scope values use the same `AccessKey` literals. `plan`/`feature` stay reserved for billing.
 - Non-allowlisted users denied during auth callback never get a viewer role. During the current
   post-login waitlist implementation only, an authenticated but unapproved user resolves to
   `role_anonymous` for access purposes: they hold only `access_public`. The UI distinguishes that
@@ -313,6 +311,8 @@ then, public Noter functions would keep app wrappers as the enforcement boundary
 - `NoterRoutePermission` is replaced by `AccessKey`; the staticData field renames `permission` →
   `access` across the 29 route files and `routeAccessMetadata.ts` (mechanical; the field name now
   reads as a requirement).
+- Search-param metadata uses the same `access: AccessKey` field. Some access keys do not make sense
+  for a particular frontend surface, but the union is intentionally shared rather than mirrored.
 - Viewer model `{ isAdmin: boolean }` is replaced by the `ViewerRole` from
   `users.currentViewerRole`; `canAccessNoterRoutePermission` becomes a call into the shared
   `canAccess`.
@@ -366,10 +366,12 @@ landing-preview params → `access_admin`.
 
 ### MCP direction (Phase 4, own spec)
 
-The existing MCP scopes stay the delegation vocabulary; access keys are the user-privilege
-vocabulary. The bridge is a static mapping, enforced by intersection:
+MCP uses the same `AccessKey` vocabulary for Noter-owned grants. OAuth request/response fields still
+spell this as `scope`, but the scope values are access-key literals such as `access_files_read`, not
+a second `files.read` vocabulary. Existing MCP v1 scope strings become compatibility aliases during
+migration:
 
-| MCP scope                        | Required access key  |
+| Legacy MCP scope                 | Access-key scope     |
 | -------------------------------- | -------------------- |
 | `vaults.read`                    | `access_dashboard`   |
 | `files.read`                     | `access_files_read`  |
@@ -378,17 +380,17 @@ vocabulary. The bridge is a static mapping, enforced by intersection:
 
 Constraints this RFC locks in so Phases 1–3 do not paint MCP into a corner:
 
-1. An MCP grant may never exceed the granting user's own access: consent renders only scopes whose
-   required key the user holds, and every MCP request re-intersects the token's scopes with the
-   user's **current** keys (revoking a member's `access_files_write` instantly cuts off
-   write-capable agents).
+1. An MCP grant may never exceed the granting user's own access: consent renders only access-key
+   scopes the user holds, and every MCP request re-intersects the token's scopes with the user's
+   **current** keys (revoking a member's `access_files_write` instantly cuts off write-capable
+   agents).
 2. Consent becomes checkbox-per-scope with partial grants (`granted ⊆ requested`), following the
    Cloudflare consent page / `workers-oauth-provider` pattern and the MCP 2025-11-25 draft's scope
    selection + `insufficient_scope` step-up flow. The flat `scope` strings on
    `mcpAuthRequests`/`mcpAuthorizationCodes`/`mcpGrants`/`mcpAccessTokens` already encode a granted
    subset; grant matching moves from string equality to subset logic.
-3. `scopes_supported` advertises the minimal useful set (excludes `prod.read.propose`) so generic
-   clients that request everything do not ask for staff powers by default.
+3. `scopes_supported` advertises the minimal useful access-key scope set (excludes `access_admin`)
+   so generic clients that request everything do not ask for staff powers by default.
 4. The `/oauth/mcp/consent` route key relaxes from staff-only to member-reachable in the same change
    that grants members any MCP scope — until then `access_mcp` is granted to staff only.
 
@@ -409,10 +411,10 @@ mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixture
 (`t.withIdentity` + seeded approved/unapproved users while transition compatibility exists);
 state-axis enumeration test for `GRANTS` (e.g. "every key a member holds, staff holds").
 
-**Phase 2 — frontend rename + runtime gate.** Union/field rename (`permission` → `access`, 29
-routes + 9 search files + metadata map + tests); viewer role wiring; `RouteAccessOutlet`; suggestion
-filter rework (`rootRouteSearch.ts:164-170`); prerender filter update; fixture renames; screenshot
-updates where shipped UI changes (waitlist/404 paths).
+**Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`) and
+search-param classification started in this spike. The remaining frontend work is viewer role
+wiring; `RouteAccessOutlet`; replacing the temporary `isAdmin` adapter; and screenshot updates where
+shipped UI changes (waitlist/404 paths).
 
 **Phase 3 — member enablement.** Wire the waitlist join form to `waitlist.joinWaitlist` (today it
 has zero callers — required for real onboarding). Before first cohort launch, choose the accepted
@@ -423,8 +425,8 @@ provider → connect/import repo → refresh/monitor; managed app creation still
 `access_app_create` plus the Pro gate). No code beyond the join form and chosen signup boundary —
 membership is data.
 
-**Phase 4 — MCP scoped consent (separate spec).** Checkbox consent with partial grants, scope↔key
-intersection live on every request, step-up via `insufficient_scope`, grant management/editing on a
+**Phase 4 — MCP scoped consent (separate spec).** Checkbox consent with partial access-key grants,
+live intersection on every request, step-up via `insufficient_scope`, grant management/editing on a
 settings page.
 
 ## Risks
@@ -459,13 +461,14 @@ settings page.
    fail-closed without nested wrapper stacks.
 5. Every exported public Convex query, mutation, and action must declare exactly one access key;
    unclear functions start as `access_admin`.
-6. Rate limiting belongs in the same app function policy object: queries may only check limits;
-   mutations and actions may consume them.
+6. Future rate limiting can fit inside the same app function wrapper, but Phase 1 declarations stay
+   focused on `access`.
 7. Provider connection, repo connect, app creation, app refresh, file read, and file write are
    distinct capabilities.
 8. Billing never enters the grants table; the Pro gate on app creation is untouched.
 9. Checkout requires approval (`access_dashboard`).
-10. MCP scopes remain the delegation vocabulary, bridged to access keys by intersection.
+10. MCP uses the same `AccessKey` literals for delegated Noter grants; OAuth calls them scopes at
+    the protocol boundary.
 
 ## Open Questions
 

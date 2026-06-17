@@ -10,7 +10,7 @@ import {
 
 const RouteSearchSchema_codexResearch = defineRouteSearchParams({
   threadId: routeSearchValueParam(routeSearchNonEmptyString, {
-    permission: "admin",
+    access: "access_admin",
     sampleValue: "sample-thread",
     suggestion: "route",
     valueType: "freeform",

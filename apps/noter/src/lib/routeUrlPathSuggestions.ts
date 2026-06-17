@@ -7,7 +7,7 @@ import {
 import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
 import {
   canAccessNoterRouteStaticData,
-  type NoterRoutePermissionViewer,
+  type NoterRouteAccessViewer,
   type NoterRouteStaticData,
 } from "@/lib/routePermissions";
 import { entries } from "@noter-md/dependent/object";
@@ -17,7 +17,7 @@ type RouteUrlPathSuggestionsInput = {
   draftHref: string;
   origin: string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRoutePermissionViewer;
+  viewer: NoterRouteAccessViewer;
 };
 
 /**
@@ -26,7 +26,7 @@ type RouteUrlPathSuggestionsInput = {
  */
 export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
-  viewer: NoterRoutePermissionViewer,
+  viewer: NoterRouteAccessViewer,
   routeEnvironment: NoterRouteEnvironment,
 ) {
   return entries(routesByPath)
@@ -106,7 +106,7 @@ export function isRouteUrlPathReadyForNavigation({
 function isRouteUrlPathSuggestion(
   path: string,
   staticData: NoterRouteStaticData,
-  viewer: NoterRoutePermissionViewer,
+  viewer: NoterRouteAccessViewer,
   routeEnvironment: NoterRouteEnvironment,
 ): boolean {
   return (

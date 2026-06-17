@@ -19,22 +19,22 @@ import { literal } from "@samebase/sure";
 
 const RouteSearchSchema_fileView = defineRouteSearchParams({
   compare: routeSearchPresenceParam({
-    permission: "admin",
+    access: "access_files_read",
     suggestion: "route",
   }),
   diff: routeSearchPresenceParam({
-    permission: "admin",
+    access: "access_files_read",
     suggestion: "route",
   }),
   mobileLineNumbers: routeSearchValueParam(literal("1"), {
-    permission: "admin",
+    access: "access_files_read",
     sampleValue: "1",
     suggestion: "route",
     valueSuggestions: ["1"],
     valueType: "options",
   }),
   review: routeSearchPresenceParam({
-    permission: "admin",
+    access: "access_files_read",
     suggestion: "route",
   }),
 });

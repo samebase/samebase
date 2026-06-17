@@ -16,19 +16,19 @@ const pathname = "/visual-fixture";
 
 const RouteSearchSchema_visualFixture = defineRouteSearchParams({
   elevation: routeSearchValueParam(routeSearchFiniteNumber, {
-    permission: "public",
+    access: "access_public",
     sampleValue: "45",
     suggestion: "hidden",
     valueType: "freeform",
   }),
   mode: routeSearchValueParam(routeSearchString, {
-    permission: "public",
+    access: "access_public",
     sampleValue: "route-url-editor",
     suggestion: "route",
     valueType: "freeform",
   }),
   rotation: routeSearchValueParam(routeSearchFiniteNumber, {
-    permission: "public",
+    access: "access_public",
     sampleValue: "90",
     suggestion: "hidden",
     valueType: "freeform",

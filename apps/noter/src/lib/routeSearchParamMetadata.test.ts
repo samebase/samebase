@@ -15,7 +15,7 @@ import {
 describe("routeSearchParamMetadata", () => {
   it("parses route search fields directly from param specs", () => {
     routeSearchValueParam(literal("google"), {
-      permission: "public",
+      access: "access_public",
       sampleValue: "google",
       suggestion: "route",
       // @ts-expect-error Value suggestions must keep at least one option.
@@ -23,21 +23,21 @@ describe("routeSearchParamMetadata", () => {
       valueType: "options",
     });
     routeSearchValueParam(literal("google"), {
-      permission: "public",
+      access: "access_public",
       suggestion: "route",
       valueType: "manual",
       // @ts-expect-error Manual value params cannot define numeric defaults.
       numericDefaultValue: 1,
     });
     routeSearchValueParam(literal("google"), {
-      permission: "public",
+      access: "access_public",
       // @ts-expect-error Manual value params cannot define sample values.
       sampleValue: "google",
       suggestion: "route",
       valueType: "manual",
     });
     routeSearchValueParam(literal("google"), {
-      permission: "public",
+      access: "access_public",
       suggestion: "route",
       valueType: "manual",
       // @ts-expect-error Manual value params cannot define suggestions.
@@ -50,7 +50,7 @@ describe("routeSearchParamMetadata", () => {
         minValue: 1,
         rangeType: "min",
       },
-      permission: "public",
+      access: "access_public",
       sampleValue: "2",
       suggestion: "route",
       valueType: "numeric",
@@ -58,7 +58,7 @@ describe("routeSearchParamMetadata", () => {
 
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
-        permission: "public",
+        access: "access_public",
         sampleValue: "google",
         suggestion: "route",
         valueSuggestions: ["google"],
@@ -71,14 +71,14 @@ describe("routeSearchParamMetadata", () => {
           rangeType: "min",
         },
         numericStepValue: 1,
-        permission: "public",
+        access: "access_public",
         sampleValue: "2",
         suggestion: "route",
         valueSuggestions: null,
         valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
-        permission: "public",
+        access: "access_public",
         suggestion: "global",
       }),
     });
@@ -103,7 +103,7 @@ describe("routeSearchParamMetadata", () => {
   it("derives metadata, suggestions, and presence keys from the same specs", () => {
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
-        permission: "public",
+        access: "access_public",
         sampleValue: "google",
         suggestion: "route",
         valueSuggestions: ["google"],
@@ -116,14 +116,14 @@ describe("routeSearchParamMetadata", () => {
           rangeType: "min",
         },
         numericStepValue: 1,
-        permission: "public",
+        access: "access_public",
         sampleValue: "2",
         suggestion: "route",
         valueSuggestions: null,
         valueType: "numeric",
       }),
       dev: routeSearchPresenceParam({
-        permission: "public",
+        access: "access_public",
         suggestion: "global",
       }),
     });
@@ -134,7 +134,7 @@ describe("routeSearchParamMetadata", () => {
     expect(readRouteSearchParamSuggestions(metadata, "route")).toEqual([
       {
         key: "auth",
-        permission: "public",
+        access: "access_public",
         sampleValue: "google",
         searchParamKind: "value",
         valueSuggestions: ["google"],
@@ -148,7 +148,7 @@ describe("routeSearchParamMetadata", () => {
           rangeType: "min",
         },
         numericStepValue: 1,
-        permission: "public",
+        access: "access_public",
         sampleValue: "2",
         searchParamKind: "value",
         valueSuggestions: null,
@@ -158,7 +158,7 @@ describe("routeSearchParamMetadata", () => {
     expect(readRouteSearchParamSuggestions(metadata, "global")).toEqual([
       {
         key: "dev",
-        permission: "public",
+        access: "access_public",
         searchParamKind: "presence",
       },
     ]);
@@ -167,7 +167,7 @@ describe("routeSearchParamMetadata", () => {
   it("keeps manual value params out of route URL suggestions", () => {
     const searchParams = defineRouteSearchParams({
       auth: routeSearchValueParam(literal("google"), {
-        permission: "public",
+        access: "access_public",
         suggestion: "route",
         valueType: "manual",
       }),
@@ -176,7 +176,7 @@ describe("routeSearchParamMetadata", () => {
     const metadata = readRouteSearchParamMetadata(searchParams);
 
     expect(metadata.auth).toEqual({
-      permission: "public",
+      access: "access_public",
       suggestion: "route",
       searchParamKind: "value",
       valueType: "manual",
@@ -184,7 +184,7 @@ describe("routeSearchParamMetadata", () => {
     expect(readRouteSearchParamSuggestions(metadata, "route")).toEqual([
       {
         key: "auth",
-        permission: "public",
+        access: "access_public",
         searchParamKind: "value",
         valueType: "manual",
       },

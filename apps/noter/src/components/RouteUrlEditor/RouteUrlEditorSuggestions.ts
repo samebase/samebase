@@ -1,7 +1,8 @@
 import { entries } from "@noter-md/dependent/object";
 import {
-  canAccessNoterRoutePermission,
+  canAccessNoterRouteAccess,
   canAccessNoterRouteStaticData,
+  readNoterRouteAccessViewerFromAdminStatus,
   type NoterRouteSearchParamSuggestion,
   type NoterRouteSearchParamValueSuggestion,
 } from "@/lib/routePermissions";
@@ -275,9 +276,10 @@ function readSearchParams(
 
   for (const searchParamSuggestion of searchParamSuggestions) {
     if (
-      !canAccessNoterRoutePermission(searchParamSuggestion.permission, {
-        isAdmin: viewerIsAdmin,
-      })
+      !canAccessNoterRouteAccess(
+        searchParamSuggestion.access,
+        readNoterRouteAccessViewerFromAdminStatus(viewerIsAdmin),
+      )
     ) {
       continue;
     }
@@ -550,7 +552,7 @@ function readRouteHashKeys(args: {
       routePath === parsedRouteAddress.path &&
       canAccessNoterRouteStaticData(
         route.options.staticData,
-        { isAdmin: args.viewerIsAdmin },
+        readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
         routeEnvironment,
       ),
   );
@@ -615,7 +617,7 @@ function readPathRows(args: {
 
   return readRouteUrlPathSuggestions(
     args.routesByPath,
-    { isAdmin: args.viewerIsAdmin },
+    readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
     readRouteUrlPathSuggestionEnvironment({
       currentHref: args.routeAddress,
       draftHref: args.routeAddress,

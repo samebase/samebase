@@ -32,70 +32,70 @@ export const DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM = "app-root";
 
 const RouteSearchSchema_root = defineRouteSearchParams({
   [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: routeSearchPresenceParam({
-    permission: "admin",
+    access: "access_repo_connect",
     suggestion: "route",
   }),
   "add-cloudflare": routeSearchPresenceParam({
-    permission: "admin",
+    access: "access_provider_connections",
     suggestion: "hidden",
   }),
   "add-convex": routeSearchPresenceParam({
-    permission: "admin",
+    access: "access_provider_connections",
     suggestion: "hidden",
   }),
   "auth-return": routeSearchValueParam(routeSearchStringValue(["dashboard"]), {
-    permission: "public",
+    access: "access_public",
     sampleValue: "dashboard",
     suggestion: "hidden",
     valueSuggestions: ["dashboard"],
     valueType: "options",
   }),
   auth: routeSearchValueParam(routeSearchStringValue(["google"]), {
-    permission: "public",
+    access: "access_public",
     // Previewing auth=google starts OAuth; require typing/selecting the value explicitly.
     suggestion: "route",
     valueType: "manual",
   }),
   "create-account": routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     suggestion: "route",
   }),
   [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: routeSearchValueParam(routeSearchNonEmptyString, {
-    permission: "admin",
+    access: "access_repo_connect",
     sampleValue: "apps/noter",
     suggestion: "hidden",
     valueType: "freeform",
   }),
   delete: routeSearchPresenceParam({
-    permission: "admin",
+    access: "access_dashboard",
     suggestion: "route",
   }),
   devtools: routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     // React Query Devtools mounts dev-only UI; keep it typeable but out of
     // hover/keyboard suggestions so previewing a row cannot remount the app.
     suggestion: "hidden",
   }),
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]: routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     suggestion: "hidden",
   }),
   "prod-ui": routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     suggestion: "global",
   }),
   [SEARCH_RESET_QUERY_PARAM]: routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     suggestion: "global",
   }),
   signup: routeSearchValueParam(routeSearchStringValue(["google"]), {
-    permission: "public",
+    access: "access_public",
     // signup=google is an auth-return marker, not a route option to preview.
     suggestion: "route",
     valueType: "manual",
   }),
   "sign-in": routeSearchPresenceParam({
-    permission: "public",
+    access: "access_public",
     suggestion: "route",
   }),
 });
@@ -164,11 +164,11 @@ export const ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestio
 );
 
 export const DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS.filter(
-  (suggestion) => suggestion.permission === "admin",
+  (suggestion) => suggestion.access !== "access_public",
 );
 
 export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS.filter(
-  (suggestion) => suggestion.permission === "public",
+  (suggestion) => suggestion.access === "access_public",
 );
 
 export function isRootRouteOwnedSearchKey(key: string): boolean {
