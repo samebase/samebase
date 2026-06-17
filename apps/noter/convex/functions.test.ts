@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { Id } from "./_generated/dataModel";
-import { action, mutation, publicQuery, query } from "./functions";
+import { action, mutation, query } from "./functions";
 import { ACCESS_KEYS, canAccess, type AccessKey, type ViewerRole } from "../shared/accessModel";
 
 const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
@@ -105,28 +105,6 @@ query({
       userEmail: ctx.viewer.user?.email ?? null,
     };
   },
-});
-
-publicQuery({
-  access: "access_public",
-  args: { vaultId: v.string() },
-  returns: v.object({
-    vaultId: v.string(),
-    userId: v.union(v.id("users"), v.null()),
-  }),
-  handler: async (ctx, args) => {
-    return {
-      vaultId: args.vaultId,
-      userId: ctx.viewer.userId,
-    };
-  },
-});
-
-publicQuery({
-  // @ts-expect-error Public-only compatibility wrappers cannot expose authenticated access.
-  access: "access_dashboard",
-  args: {},
-  handler: async () => null,
 });
 
 // @ts-expect-error Access policy is mandatory for app mutations.

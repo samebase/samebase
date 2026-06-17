@@ -19,15 +19,11 @@ type-level facade that makes a function definition's literal access policy
 control the viewer type received by its handler.
 */
 
-export type AppPublicPolicy = {
-  access: PublicAccessKey;
-};
-
 export type AppAuthenticatedPolicy = {
   access: AuthenticatedAccessKey;
 };
 
-export type AppFunctionPolicy = AppPublicPolicy | AppAuthenticatedPolicy;
+export type AppFunctionPolicy = { access: PublicAccessKey } | AppAuthenticatedPolicy;
 type AppFunctionAccess = PublicAccessKey | AuthenticatedAccessKey;
 
 type AppViewerForAccess<

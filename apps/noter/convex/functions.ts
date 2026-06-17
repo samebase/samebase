@@ -32,7 +32,6 @@ import type {
   AppAuthenticatedPolicy,
   AppFunctionBuilder,
   AppFunctionPolicy,
-  AppPublicPolicy,
 } from "../shared/convexFunctionPolicyTypes";
 
 const { id, literal, null: vNull, number, object, union } = v;
@@ -187,13 +186,6 @@ export const resolveViewerForAction = internalQuery({
 });
 
 // Builder exports: keep the raw Convex builders private behind app access policy.
-const publicQueryBuilder = customQuery(
-  baseQuery,
-  customCtx(async (ctx, _policy: AppPublicPolicy) => {
-    return await applyPublicQueryPolicy(ctx);
-  }),
-);
-
 const queryBuilder = customQuery(
   baseQuery,
   customCtx(async (ctx, policy: AppFunctionPolicy) => {
@@ -201,30 +193,10 @@ const queryBuilder = customQuery(
   }),
 );
 
-const publicMutationBuilder = customMutation(
-  baseMutation,
-  customCtx(async (ctx, _policy: AppPublicPolicy) => {
-    return await applyPublicMutationPolicy(ctx);
-  }),
-);
-
 const mutationBuilder = customMutation(
   baseMutation,
   customCtx(async (ctx, policy: AppFunctionPolicy) => {
     return await applyMutationPolicy(ctx, policy);
-  }),
-);
-
-const publicActionBuilder = customAction(
-  baseAction,
-  customCtx(async (ctx, _policy: AppPublicPolicy) => {
-    const viewer: ResolvedViewer = await ctx.runQuery(
-      internal.functions.resolveViewerForAction,
-      {},
-    );
-    const appViewer = assertPublicViewerAccess(viewer);
-
-    return { viewer: appViewer };
   }),
 );
 
@@ -245,10 +217,6 @@ const actionBuilder = customAction(
     return { viewer: appViewer };
   }),
 );
-
-export const publicQuery = publicQueryBuilder;
-export const publicMutation = publicMutationBuilder;
-export const publicAction = publicActionBuilder;
 
 export const query: AppFunctionBuilder<
   "query",

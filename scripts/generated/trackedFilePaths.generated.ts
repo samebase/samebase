@@ -574,6 +574,7 @@ export const trackedFilePaths = [
   "apps/noter/shared/connectedMachineOrdering.ts",
   "apps/noter/shared/connectedMachinePresence.test.ts",
   "apps/noter/shared/connectedMachinePresence.ts",
+  "apps/noter/shared/convexFunctionPolicyTypes.ts",
   "apps/noter/shared/featureFlags.ts",
   "apps/noter/shared/githubOAuth.ts",
   "apps/noter/shared/mcpOAuth.ts",
