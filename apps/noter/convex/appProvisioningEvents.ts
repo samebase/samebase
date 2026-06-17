@@ -70,9 +70,8 @@ export const listForVault = query({
   },
   returns: array(provisioningEventResult),
   handler: async (ctx, args): Promise<ProvisioningEventResult[]> => {
-    const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    if (!vault || vault.userId !== ctx.viewer.userId) {
       return [];
     }
 
