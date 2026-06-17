@@ -71,6 +71,9 @@ export const convexManagementResponseValidators: {
     "/teams/{team_id}/list_members": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["list team members"]>
     >;
+    "/teams/{team_id}/list_audit_log_events": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["list audit log events"]>
+    >;
     "/teams/{team_id}/list_pending_invites": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["list pending team invites"]>
     >;
