@@ -71,6 +71,13 @@ Index:
 
 Create `apps/noter/convex/billing.ts`:
 
+Access status:
+
+- The target billing API is member-facing after approval, but the access-wrapper rollout keeps these
+  public billing functions under `access_admin` until the Polar checkout/portal flow is ready for
+  members. Enabling billing for members is an explicit follow-up: lower the public billing functions
+  to `access_dashboard` and verify `/pricing` end to end.
+
 Queries
 
 - `getViewerBillingStatus`: returns viewer billing summary (plan/status).
