@@ -317,6 +317,14 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("New App");
   });
 
+  it("keeps provider controls hidden when viewer access has not returned access keys", async () => {
+    const hydratedMarkup = await renderRightSidebarAfterEffects([{}]);
+
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("New App");
+  });
+
   it("renders the account section after the authenticated viewer loads", async () => {
     const loadedQueryResults = [
       {

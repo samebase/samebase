@@ -64,7 +64,6 @@ type ProviderRuntimeConfig = {
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 type AppRightSidebarAuthProviders = (typeof api.users.getViewerAuthProviders)["_returnType"];
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
-type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
@@ -112,11 +111,17 @@ function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | "device_au
   return "Unknown";
 }
 
-function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | undefined) {
-  return (
-    viewerAccess?.accessKeys.some((accessKey) => accessKey === "access_provider_connections") ===
-    true
-  );
+function hasProviderSidebarAccess(viewerAccess: unknown) {
+  if (!isRecord(viewerAccess)) {
+    return false;
+  }
+
+  const { accessKeys } = viewerAccess;
+  if (!Array.isArray(accessKeys)) {
+    return false;
+  }
+
+  return accessKeys.some((accessKey) => accessKey === "access_provider_connections");
 }
 
 function getRedirectOrigin(oauthUrl: string): string | null {
