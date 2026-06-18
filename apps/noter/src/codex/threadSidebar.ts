@@ -1,5 +1,5 @@
 import { notEmpty } from "@noter-md/dependent";
-import { type CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import { type CodexAppServerThread } from "@/codex/appServerResearch";
 
 export type CodexThreadSidebarThread = {
   id: string;

@@ -79,7 +79,7 @@ The message renderer change must not flatten those activity groups into message 
 - `apps/noter/src/components/MachinesWorkspaceView.tsx`
 - `apps/noter/src/components/MachinesWorkspaceThreadPane.tsx`
 - `apps/noter/src/components/ProsemarkReadOnly.tsx`
-- `apps/noter/src/lib/codexThreadTimeline.ts`
+- `apps/noter/src/codex/threadTimeline.ts`
 - `apps/noter/e2e/machines-workspace-visual.spec.ts`
 
 ## Relationship To Earlier Research

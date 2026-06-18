@@ -60,11 +60,11 @@ import {
 import {
   CodexThreadBrowserVisualFixture,
   type CodexThreadBrowserVisualMode,
-} from "@/components/CodexThreadBrowserVisualFixture";
+} from "@/components/codex/CodexThreadBrowserVisualFixture";
 import {
   CodexAppServerResearchVisualFixture,
   type CodexAppServerResearchVisualMode,
-} from "@/components/CodexAppServerResearchVisualFixture";
+} from "@/components/codex/CodexAppServerResearchVisualFixture";
 import { MachinesWorkspaceVisualFixture } from "@/components/MachinesWorkspaceVisualFixture";
 import {
   WorkspaceLayoutV2VisualFixture,
@@ -73,7 +73,7 @@ import {
 import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
-} from "@/components/CodexThreadHistoryVisualFixture";
+} from "@/components/codex/CodexThreadHistoryVisualFixture";
 import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,

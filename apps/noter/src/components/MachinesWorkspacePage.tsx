@@ -7,7 +7,7 @@ import {
   type CodexAppServerThread,
   type CodexAppServerThreadDetailResponse,
   type CodexAppServerThreadsResponse,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 import {
   startedDraftConversationThreadMatches,
   type MachinesWorkspaceProjectConversationSelection,

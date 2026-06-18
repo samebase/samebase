@@ -7,7 +7,7 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,
-} from "@/lib/codexThreadSidebar";
+} from "@/codex/threadSidebar";
 import {
   readMachinesWorkspaceConversationEnvLabel,
   type MachinesWorkspaceConversationEnvMode,
@@ -18,7 +18,7 @@ import {
   type MachinesWorkspaceSidebarInventory,
   type MachinesWorkspaceSidebarSection,
 } from "@/lib/machinesWorkspaceSidebar";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import type { CodexAppServerThread } from "@/codex/appServerResearch";
 import { cn } from "@/lib/utils";
 import { MachinesWorkspaceThreadPane } from "@/components/MachinesWorkspaceThreadPane";
 import {

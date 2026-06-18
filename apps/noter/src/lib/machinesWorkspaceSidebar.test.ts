@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import type { CodexAppServerThread } from "@/codex/appServerResearch";
 import { buildMachinesWorkspaceSidebarSections } from "@/lib/machinesWorkspaceSidebar";
 
 const PROJECT_ROOT = "/Users/fixture/dev/noter";

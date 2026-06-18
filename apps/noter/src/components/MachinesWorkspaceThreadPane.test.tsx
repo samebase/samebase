@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import type { CodexAppServerThread } from "@/codex/appServerResearch";
 
 vi.mock("@/components/ChatInput", () => ({
   ChatInput: ({ placeholder, value }: { placeholder?: string; value?: string }) => (

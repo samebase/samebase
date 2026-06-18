@@ -4,7 +4,7 @@ import {
   CodexAppServerRequestError,
   normalizeCodexAppServerEvent,
   requestCodexAppServerJson,
-} from "./codexAppServerResearch";
+} from "./appServerResearch";
 
 describe("normalizeCodexAppServerEvent", () => {
   it("maps runtime readiness into a stable category", () => {

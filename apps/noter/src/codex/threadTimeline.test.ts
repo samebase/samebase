@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import type { CodexAppServerThread } from "@/codex/appServerResearch";
 import {
   deriveCodexThreadTimelineEntries,
   readCodexThreadItemDisplayText,
-} from "@/lib/codexThreadTimeline";
+} from "@/codex/threadTimeline";
 
 const BASE_THREAD: CodexAppServerThread = {
   agentNickname: null,

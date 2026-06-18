@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
+import { CodexAppServerThreadHistoryItemCard } from "@/components/codex/CodexAppServerThreadHistoryItemCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,11 +9,11 @@ import {
   codexThreadPathIsArchived,
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 import {
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,
-} from "@/lib/codexThreadSidebar";
+} from "@/codex/threadSidebar";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";

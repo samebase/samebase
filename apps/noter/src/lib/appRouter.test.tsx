@@ -161,13 +161,13 @@ vi.mock("@/components/logo/LogoTransitionTransformsLabPage", () => ({
   ),
 }));
 
-vi.mock("@/components/CodexAppServerResearchPage", () => ({
+vi.mock("@/components/codex/CodexAppServerResearchPage", () => ({
   CodexAppServerResearchPage: () => (
     <div data-testid="codex-research-page">Codex research page</div>
   ),
 }));
 
-vi.mock("@/components/CodexAppServerThreadBrowserResearchPage", () => ({
+vi.mock("@/components/codex/CodexAppServerThreadBrowserResearchPage", () => ({
   CodexAppServerThreadBrowserResearchPage: () => (
     <div data-testid="codex-thread-browser-page">Codex thread browser page</div>
   ),

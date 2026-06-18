@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CodexAppServerThreadBrowserResearchPage } from "@/components/CodexAppServerThreadBrowserResearchPage";
-import { CODEX_APP_SERVER_THREAD_BROWSER_ROUTE } from "@/lib/codexAppServerResearch";
+import { CodexAppServerThreadBrowserResearchPage } from "@/components/codex/CodexAppServerThreadBrowserResearchPage";
+import { CODEX_APP_SERVER_THREAD_BROWSER_ROUTE } from "@/codex/appServerResearch";
 import {
   CODEX_RESEARCH_ROUTE_SEARCH_STATIC_DATA,
   validateCodexResearchRouteSearch,
