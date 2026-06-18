@@ -19,6 +19,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { vAccessKey, vViewerRole } from "./accessModelValidators";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import schema from "./schema";
 import { hasAppAccess, isAdminUser } from "./userAccess";
@@ -67,21 +68,6 @@ export type AuthenticatedAppViewer = UserResolvedViewer & {
 
 export type AppViewer = PublicAppViewer | AuthenticatedAppViewer;
 
-// Validator mirror for the action runtime hop through resolveViewerForAction.
-const vViewerRole = union(literal("role_anonymous"), literal("role_member"), literal("role_staff"));
-const vAccessKey = union(
-  literal("access_public"),
-  literal("access_dashboard"),
-  literal("access_provider_connections"),
-  literal("access_repo_connect"),
-  literal("access_app_create"),
-  literal("access_app_refresh"),
-  literal("access_files_read"),
-  literal("access_files_write"),
-  literal("access_machines"),
-  literal("access_mcp"),
-  literal("access_admin"),
-);
 const vUserDoc = schema.tables.users.validator.extend({
   _id: id("users"),
   _creationTime: number(),

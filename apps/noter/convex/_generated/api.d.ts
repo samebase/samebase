@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as accessModelValidators from "../accessModelValidators.js";
 import type * as agent_graph from "../agent/graph.js";
 import type * as agent_replaceInFile from "../agent/replaceInFile.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
@@ -124,6 +125,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accessModelValidators: typeof accessModelValidators;
   "agent/graph": typeof agent_graph;
   "agent/replaceInFile": typeof agent_replaceInFile;
   "agent/systemPrompt": typeof agent_systemPrompt;

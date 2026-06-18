@@ -3,6 +3,7 @@ import { internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
+import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { action, mutation, query } from "./functions";
 import { isRecord, readString } from "./jsonUtils";
@@ -43,25 +44,6 @@ const providerAuthMethodValidator = union(
   literal("mcp_oauth"),
   literal("api_key"),
 );
-const accessKeyValidator = union(
-  literal("access_public"),
-  literal("access_dashboard"),
-  literal("access_provider_connections"),
-  literal("access_repo_connect"),
-  literal("access_app_create"),
-  literal("access_app_refresh"),
-  literal("access_files_read"),
-  literal("access_files_write"),
-  literal("access_machines"),
-  literal("access_mcp"),
-  literal("access_admin"),
-);
-const viewerAccessValidator = object({
-  accessKeys: array(accessKeyValidator),
-});
-const viewerRoleValidator = object({
-  role: union(literal("role_anonymous"), literal("role_member"), literal("role_staff")),
-});
 const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
   accountId: optional(string()),
@@ -354,7 +336,7 @@ function compareAuthProviderAccountSummary(
 export const currentViewerAccess = query({
   access: "access_public",
   args: {},
-  returns: viewerAccessValidator,
+  returns: vViewerAccess,
   handler: async (ctx) => {
     return { accessKeys: [...ctx.viewer.accessKeys] };
   },
@@ -363,7 +345,7 @@ export const currentViewerAccess = query({
 export const currentViewerRole = query({
   access: "access_public",
   args: {},
-  returns: viewerRoleValidator,
+  returns: vViewerRoleResult,
   handler: async (ctx) => {
     return { role: ctx.viewer.role };
   },
