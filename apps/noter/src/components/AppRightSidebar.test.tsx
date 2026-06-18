@@ -326,6 +326,8 @@ describe("AppRightSidebarContent", () => {
   });
 
   it("renders the account section after the authenticated viewer loads", async () => {
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
     const loadedQueryResults = [
       {
         accessKeys: ["access_public", "access_provider_connections"],
