@@ -4,12 +4,13 @@ import {
   canAccessNoterRouteMatchesAvailability,
   readBrowserNoterRouteEnvironment,
 } from "@/lib/routeAvailability";
+import type { ReactNode } from "react";
 
-export function RouteAvailabilityOutlet() {
+export function RouteAvailabilityOutlet({ children }: { children?: ReactNode }) {
   const routeEnvironment = readBrowserNoterRouteEnvironment();
   const routeAvailable = useMatches({
     select: (matches) => canAccessNoterRouteMatchesAvailability(matches, routeEnvironment),
   });
 
-  return routeAvailable ? <Outlet /> : <NotFoundRoutePage />;
+  return routeAvailable ? (children ?? <Outlet />) : <NotFoundRoutePage />;
 }
