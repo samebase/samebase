@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "./appWorkspaceSidebarPreferences";
+import {
+  AUTH_FLAG_STORAGE_KEY,
+  AUTH_PROVIDER_STORAGE_KEY,
+  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
+} from "./authStorageKeys";
 import {
   notifyBrowserLocalStorageChanged,
   readLocalStorageSnapshot,
@@ -66,6 +72,26 @@ describe("readLocalStorageSnapshot", () => {
         {
           key: "empty",
           value: "",
+        },
+      ],
+    });
+  });
+
+  it("omits app auth and runtime storage keys", () => {
+    storage.setItem("__convexAuthJWT_http12700114134", "jwt");
+    storage.setItem("__convexAuthRefreshToken_http12700114134", "refresh");
+    storage.setItem(APP_WORKSPACE_SIDEBAR_STORAGE_KEY, "{}");
+    storage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
+    storage.setItem(AUTH_PROVIDER_STORAGE_KEY, "google");
+    storage.setItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY, "local_worktree_seed");
+    storage.setItem("noter.visible", "kept");
+
+    expect(readLocalStorageSnapshot(storage)).toEqual({
+      kind: "available",
+      entries: [
+        {
+          key: "noter.visible",
+          value: "kept",
         },
       ],
     });

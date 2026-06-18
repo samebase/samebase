@@ -17,6 +17,7 @@ import {
   readRouteAddressReadiness,
   type RouteAddressReadiness,
 } from "@/lib/routeAddress";
+import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
 import { openRouteAddressQuerySlot } from "@/lib/routeAddressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
@@ -988,8 +989,11 @@ export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEdit
   const router = useRouter();
   const location = useLocation();
 
-  const viewerIsAdmin = useQuery(api.users.isCurrentUserAdmin);
-  const viewerCanSeeAdminRoutes = viewerIsAdmin === true;
+  const viewerAccess = useQuery(api.users.currentViewerAccess);
+  const routeAccessViewer = useMemo<NoterRouteAccessViewer>(
+    () => ({ accessKeys: viewerAccess?.accessKeys ?? ["access_public"] }),
+    [viewerAccess],
+  );
 
   const origin = useMemo(readIsomorphicOrigin, []);
   const prefix = useMemo(() => `${origin}/`, [origin]);
@@ -1224,9 +1228,9 @@ reload, so an unapplied suggestion preview does not become durable.
           return canonicalRouteAddress ?? builtLocation.href;
         },
         routesByPath: router.routesByPath,
-        viewerIsAdmin: viewerCanSeeAdminRoutes,
+        viewer: routeAccessViewer,
       }),
-    [committedRouteAddress, origin, router, viewerCanSeeAdminRoutes],
+    [committedRouteAddress, origin, routeAccessViewer, router],
   );
 
   const handleDisplayInputFocus = useCallback(
@@ -1509,7 +1513,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
         routeAddress: suggestionsRouteAddress,
         routesByPath: router.routesByPath,
         selection: suggestionSelection,
-        viewerIsAdmin: viewerCanSeeAdminRoutes,
+        viewer: routeAccessViewer,
       }),
     [
       router.routesByPath,
@@ -1518,7 +1522,7 @@ next suggestions come from the path/query boundary. Prefix-protection still uses
       state.prefix,
       suggestionSelection,
       suggestionsRouteAddress,
-      viewerCanSeeAdminRoutes,
+      routeAccessViewer,
     ],
   );
 

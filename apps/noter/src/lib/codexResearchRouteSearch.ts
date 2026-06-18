@@ -1,9 +1,8 @@
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
-  readRouteSearchAcceptedKeys,
-  readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
+  readRouteSearchStaticData,
   routeSearchNonEmptyString,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
@@ -23,13 +22,8 @@ const codexResearchRouteSearchParamMetadata = readRouteSearchParamMetadata(
   RouteSearchSchema_codexResearch,
 );
 
-export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+export const CODEX_RESEARCH_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   codexResearchRouteSearchParamMetadata,
-  "route",
-);
-
-export const CODEX_RESEARCH_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
-  RouteSearchSchema_codexResearch,
 );
 
 export function validateCodexResearchRouteSearch(

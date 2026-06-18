@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter landing/onboarding
-- Last updated: 2026-05-28
+- Last updated: 2026-06-18
 - Related files:
   - `apps/noter/src/routes/landing-preview.tsx`
   - `apps/noter/src/components/LandingMarkdownPreviewPage.tsx`
@@ -28,15 +28,14 @@ the subset Noter currently supports.
 
 ### Access And Layout
 
-The product intent is admin-only access. The app does not yet have the permission primitive needed
-to enforce admins separately from authenticated users, so the current temporary implementation must
-stay behind the authenticated app route boundary. Operators can reach the preview through the URL
-editor's route suggestions, but authenticated sidebar chrome must not add a separate
-`/landing-preview` path link. Public unauthenticated navigation must not expose preview links.
-Unauthenticated users should see the normal sign-in flow.
+The product intent is admin-only access. Route metadata must classify `/landing-preview` as
+`access_admin`, and the URL editor may expose it only to viewers whose effective access list
+contains that key. The root runtime route-access gate is the authorization boundary for this route;
+authenticated access alone is not sufficient.
 
-When admin permissions exist, `/landing-preview` must be narrowed to admins before any broader
-internal rollout. Do not treat logged-in access as the final authorization model for this route.
+Authenticated sidebar chrome must not add a separate `/landing-preview` path link. Public
+unauthenticated navigation must not expose preview links. Unauthenticated users should see the
+normal sign-in flow.
 
 The preview must render through the same `PublicLayoutShell` sidebar chrome as the public landing
 page. That shell owns the `WorkspaceLayoutV2` frame and the right public sidebar, so the preview
@@ -99,7 +98,7 @@ tags require tests that show both the allowed behavior and rejected unsafe attri
 Changes to this route should update or add:
 
 - renderer tests for newly supported Markdown or HTML constructs
-- route coverage proving `/landing-preview` stays an explicit authenticated route
+- route coverage proving `/landing-preview` stays an explicit admin-only route
 - visual coverage for the WorkspaceLayoutV2 preview surface
 
 When mirrored media or README structure changes, update the visual snapshot so the PR shows what the

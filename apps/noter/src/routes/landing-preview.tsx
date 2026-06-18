@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
 import {
-  LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_KEYS,
-  LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
   resolveLandingMarkdownPreviewLanguage,
   validateLandingMarkdownPreviewRouteSearch,
 } from "@/lib/landingMarkdownPreview";
@@ -22,8 +21,7 @@ function LandingPreviewRouteComponent() {
 export const Route = createFileRoute("/landing-preview")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    acceptedSearchKeys: LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_KEYS,
-    searchParamSuggestions: LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    ...LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
   },
   component: LandingPreviewRouteComponent,
   validateSearch: validateLandingMarkdownPreviewRouteSearch,

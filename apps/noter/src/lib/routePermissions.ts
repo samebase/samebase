@@ -3,7 +3,7 @@ import {
   type NoterRouteAvailability,
   type NoterRouteEnvironment,
 } from "@/lib/routeAvailability";
-import { canAccess, type AccessKey, type ViewerRole } from "../../shared/accessModel";
+import type { AccessKey } from "../../shared/accessModel";
 
 export type NoterRouteAccess = AccessKey;
 
@@ -68,10 +68,13 @@ export type NoterRouteSearchParamSemantics =
       searchParamKind: "value";
     });
 
-export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
+export type NoterRouteSearchParamAccess<Key extends string = string> = {
   key: Key;
   access: NoterRouteAccess;
-} & NoterRouteSearchParamSemantics;
+};
+
+export type NoterRouteSearchParamSuggestion<Key extends string = string> =
+  NoterRouteSearchParamAccess<Key> & NoterRouteSearchParamSemantics;
 
 export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
   NoterRouteSearchParamSuggestion<Key>,
@@ -81,33 +84,43 @@ export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = 
 export type NoterRouteStaticData = {
   availableEnvironments?: NoterRouteAvailability;
   access: NoterRouteAccess;
+  pathSuggestion?: "hidden";
 
   /**
   Query keys this route's own search schema accepts, beyond the root-owned keys
   every path accepts. Absent means the route accepts only root-owned keys.
 
   Acceptance is structural (schema membership) and viewer-independent; the
-  per-param `access` gates editor exposure, never key acceptance.
+  per-param `access` gates editor exposure and direct URL cleanup, never key
+  acceptance.
   */
   acceptedSearchKeys?: readonly string[];
+  searchParamAccess?: readonly NoterRouteSearchParamAccess[];
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
 
 export type NoterRouteAccessViewer = {
-  role: ViewerRole;
+  accessKeys: readonly AccessKey[];
+};
+
+type NoterRouteAccessMatch = {
+  staticData: {
+    access: NoterRouteAccess;
+  };
 };
 
 export function canAccessNoterRouteAccess(
   access: NoterRouteAccess,
   viewer: NoterRouteAccessViewer,
 ): boolean {
-  return canAccess(access, viewer.role);
+  return viewer.accessKeys.includes(access);
 }
 
-export function readNoterRouteAccessViewerFromAdminStatus(
-  isAdmin: boolean,
-): NoterRouteAccessViewer {
-  return { role: isAdmin ? "role_staff" : "role_anonymous" };
+export function canAccessNoterRouteMatchesAccess(
+  matches: readonly NoterRouteAccessMatch[],
+  viewer: NoterRouteAccessViewer,
+): boolean {
+  return matches.every((match) => canAccessNoterRouteAccess(match.staticData.access, viewer));
 }
 
 export function canAccessNoterRouteStaticData(

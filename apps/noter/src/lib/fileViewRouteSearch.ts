@@ -7,10 +7,9 @@ import {
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
-  readRouteSearchAcceptedKeys,
-  readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
+  readRouteSearchStaticData,
   routeSearchPresenceParam,
   routeSearchValueParam,
 } from "@/lib/routeSearchParamMetadata";
@@ -48,12 +47,9 @@ const FILE_VIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   fileViewRouteSearchParamMetadata,
 );
 
-export const FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+export const FILE_VIEW_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   fileViewRouteSearchParamMetadata,
-  "route",
 );
-
-export const FILE_VIEW_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_fileView);
 
 export function validateFileViewRouteSearch(search: Record<string, unknown>): FileViewRouteSearch {
   return RouteSearchSchema_fileView.parse(

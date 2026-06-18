@@ -29,6 +29,7 @@ cd /src
 tar \
   --exclude=.git \
   --exclude=.tmp \
+  --exclude=.playwright-cli \
   --exclude=.turbo \
   --exclude=.vite \
   --exclude=.env \

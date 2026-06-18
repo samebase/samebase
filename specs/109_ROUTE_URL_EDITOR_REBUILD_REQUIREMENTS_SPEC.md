@@ -93,7 +93,7 @@ Examples:
 
 ### R4: Path readiness comes from the real route registry
 
-Path-changing previews use registered route paths and viewer permissions.
+Path-changing previews use registered route paths and the viewer's effective access keys.
 
 Static paths must be exact before navigation. Dynamic and catch-all paths must have enough concrete
 segments to load.

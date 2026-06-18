@@ -12,6 +12,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "../src/lib/landingMarkdownPreview";
 import { buildPathWithTanStackSearch } from "../src/lib/tanstackSearchParams";
+import { signInIfNeeded } from "./liveHelpers";
 
 const landingPreviewMarkdown = readFileSync(
   new URL("../src/content/landing-preview.md", import.meta.url),
@@ -61,8 +62,14 @@ async function hideLandingPreviewVideosForScreenshot(page: Page) {
   });
 }
 
+async function signInForLandingPreviewRoute(page: Page): Promise<void> {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page);
+}
+
 test("landing markdown preview route renders markdown in workspace chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInForLandingPreviewRoute(page);
 
   await page.goto("/landing-preview?dev", {
     waitUntil: "domcontentloaded",
@@ -166,6 +173,7 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
   page,
 }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
+  await signInForLandingPreviewRoute(page);
   await page.goto(
     "/landing-preview?dev&left&dark#9-create-an-app-in-a-single-step-using-noter-md",
     {

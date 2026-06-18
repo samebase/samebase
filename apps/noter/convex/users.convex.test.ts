@@ -8,7 +8,12 @@ describe("users Convex contract", () => {
     const t = makeConvexTest();
 
     await expect(t.query(api.users.viewer)).resolves.toBeNull();
-    await expect(t.query(api.users.isCurrentUserApproved)).resolves.toBe(false);
+    await expect(t.query(api.users.currentViewerAccess)).resolves.toEqual({
+      accessKeys: ["access_public"],
+    });
+    await expect(t.query(api.users.currentViewerRole)).resolves.toEqual({
+      role: "role_anonymous",
+    });
     await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
   });
 
@@ -49,7 +54,20 @@ describe("users Convex contract", () => {
       hasConvexConnection: false,
       hasCloudflareConnection: false,
     });
-    await expect(asUser.query(api.users.isCurrentUserApproved)).resolves.toBe(true);
+    await expect(asUser.query(api.users.currentViewerAccess)).resolves.toEqual({
+      accessKeys: [
+        "access_public",
+        "access_dashboard",
+        "access_provider_connections",
+        "access_repo_connect",
+        "access_app_refresh",
+        "access_files_read",
+        "access_files_write",
+      ],
+    });
+    await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({
+      role: "role_member",
+    });
   });
 
   it("keeps public viewer state for unapproved users and denies provider access", async () => {
@@ -95,7 +113,12 @@ describe("users Convex contract", () => {
       hasConvexConnection: false,
       hasCloudflareConnection: false,
     });
-    await expect(asViewer.query(api.users.isCurrentUserApproved)).resolves.toBe(false);
+    await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
+      accessKeys: ["access_public"],
+    });
+    await expect(asViewer.query(api.users.currentViewerRole)).resolves.toEqual({
+      role: "role_anonymous",
+    });
     await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
       "Access denied",
     );

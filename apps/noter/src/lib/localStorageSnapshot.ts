@@ -1,3 +1,10 @@
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import {
+  AUTH_FLAG_STORAGE_KEY,
+  AUTH_PROVIDER_STORAGE_KEY,
+  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
+} from "@/lib/authStorageKeys";
+
 export type LocalStorageEntry = {
   key: string;
   value: string;
@@ -16,6 +23,13 @@ export type LocalStorageSnapshot =
 type ReadableLocalStorage = Pick<Storage, "getItem" | "key" | "length">;
 
 const BROWSER_LOCAL_STORAGE_CHANGE_EVENT = "noter:local-storage-change";
+const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
+const INTERNAL_LOCAL_STORAGE_KEYS = new Set([
+  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+  AUTH_FLAG_STORAGE_KEY,
+  AUTH_PROVIDER_STORAGE_KEY,
+  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
+]);
 
 function compareStorageKeys(left: string, right: string): number {
   if (left < right) {
@@ -33,9 +47,13 @@ function readStorageErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "localStorage could not be read.";
 }
 
+function isVisibleLocalStorageKey(key: string): boolean {
+  return !key.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX) && !INTERNAL_LOCAL_STORAGE_KEYS.has(key);
+}
+
 /**
- * Captures raw localStorage strings in a stable order without parsing,
- * truncating, or normalizing the stored values.
+ * Captures user-authored localStorage strings in a stable order without
+ * parsing, truncating, or normalizing the stored values.
  */
 export function readLocalStorageSnapshot(storage: ReadableLocalStorage): LocalStorageSnapshot {
   try {
@@ -43,7 +61,7 @@ export function readLocalStorageSnapshot(storage: ReadableLocalStorage): LocalSt
 
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index);
-      if (key !== null) {
+      if (key !== null && isVisibleLocalStorageKey(key)) {
         keys.push(key);
       }
     }

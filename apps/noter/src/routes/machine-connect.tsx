@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { MachineConnectPage } from "@/components/MachineConnectPage";
 import {
-  MACHINE_CONNECT_ROUTE_SEARCH_KEYS,
-  MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  MACHINE_CONNECT_ROUTE_SEARCH_STATIC_DATA,
   validateMachineConnectRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
 import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
@@ -25,8 +24,7 @@ function MachineConnectRouteComponent() {
 export const Route = createFileRoute("/machines/connect")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    acceptedSearchKeys: MACHINE_CONNECT_ROUTE_SEARCH_KEYS,
-    searchParamSuggestions: MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    ...MACHINE_CONNECT_ROUTE_SEARCH_STATIC_DATA,
   },
   component: MachineConnectRouteComponent,
   validateSearch: validateMachineConnectRouteSearch,

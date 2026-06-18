@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/app shell
-- Last updated: 2026-06-10
+- Last updated: 2026-06-18
 - Depends on:
   - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
   - `apps/noter/src/components/RouteUrlEditor/useRouteEditorVm.ts`
@@ -21,8 +21,8 @@ The route URL editor is a progressive URL builder. Search-param suggestions can 
 values so users understand the effect of a parameter before choosing it, but those examples are not
 always committed values.
 
-Static route-search metadata owns param semantics: key, presence/value kind, permissions, and a
-discriminated value type with only the fields valid for that type. The URL editor owns interaction
+Static route-search metadata owns param semantics: key, presence/value kind, access requirement, and
+a discriminated value type with only the fields valid for that type. The URL editor owns interaction
 grammar: whether selecting a rendered row commits a URL fragment or opens the next editable slot.
 
 ## Contract

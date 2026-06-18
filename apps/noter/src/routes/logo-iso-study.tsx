@@ -3,6 +3,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { LogoSingleCubeStudyPage } from "@/components/logo/LogoSingleCubeStudyPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
+  LOGO_ROUTE_SEARCH_PARAM_ACCESS,
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateLogoRouteSearch,
 } from "@/lib/logoRouteSearch";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/logo/single-cube")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
+    searchParamAccess: LOGO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: LogoIsoStudyRouteComponent,

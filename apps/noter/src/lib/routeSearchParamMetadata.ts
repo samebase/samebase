@@ -13,6 +13,7 @@ import {
 import {
   type NoterRouteAccess,
   type NoterRouteSearchParamSemantics,
+  type NoterRouteSearchParamAccess,
   type NoterRouteSearchParamValueSemantics,
   type NoterRouteSearchParamValueSuggestions,
   type NoterRouteSearchParamSuggestion,
@@ -187,6 +188,31 @@ export function readRouteSearchParamSuggestions<
   }
 
   return suggestions;
+}
+
+export function readRouteSearchParamAccess<
+  const Metadata extends Readonly<Record<string, RouteSearchParamMetadata>>,
+>(metadata: Metadata): readonly NoterRouteSearchParamAccess<keyof Metadata & string>[] {
+  const accessEntries: NoterRouteSearchParamAccess<keyof Metadata & string>[] = [];
+
+  for (const [key, paramMetadata] of entries(metadata)) {
+    accessEntries.push({
+      key,
+      access: paramMetadata.access,
+    });
+  }
+
+  return accessEntries;
+}
+
+export function readRouteSearchStaticData<
+  const Metadata extends Readonly<Record<string, RouteSearchParamMetadata>>,
+>(metadata: Metadata) {
+  return {
+    acceptedSearchKeys: keys(metadata),
+    searchParamAccess: readRouteSearchParamAccess(metadata),
+    searchParamSuggestions: readRouteSearchParamSuggestions(metadata, "route"),
+  };
 }
 
 export function readRouteSearchPresenceKeys<

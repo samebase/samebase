@@ -3,6 +3,7 @@ import { internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
+import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { action, mutation, query } from "./functions";
 import { isRecord, readString } from "./jsonUtils";
@@ -332,21 +333,21 @@ function compareAuthProviderAccountSummary(
   return second._id.localeCompare(first._id);
 }
 
-export const isCurrentUserApproved = query({
+export const currentViewerAccess = query({
   access: "access_public",
   args: {},
-  returns: boolean(),
+  returns: vViewerAccess,
   handler: async (ctx) => {
-    return ctx.viewer.role !== "role_anonymous";
+    return { accessKeys: [...ctx.viewer.accessKeys] };
   },
 });
 
-export const isCurrentUserAdmin = query({
+export const currentViewerRole = query({
   access: "access_public",
   args: {},
-  returns: boolean(),
+  returns: vViewerRoleResult,
   handler: async (ctx) => {
-    return ctx.viewer.role === "role_staff";
+    return { role: ctx.viewer.role };
   },
 });
 

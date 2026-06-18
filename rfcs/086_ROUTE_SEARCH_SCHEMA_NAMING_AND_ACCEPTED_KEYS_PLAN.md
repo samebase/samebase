@@ -71,10 +71,12 @@ Slice 1 renamed all twelve existing schema constants (they previously used camel
 
 ## Accepted Keys Contract
 
-Every route schema derives its accepted keys once:
+Every route schema derives one route search `staticData` fragment:
 
 ```ts
-export const MACHINES_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_machines);
+export const MACHINES_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  machinesRouteSearchParamMetadata,
+);
 ```
 
 and declares them on the route:
@@ -82,8 +84,7 @@ and declares them on the route:
 ```ts
 staticData: {
   ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-  acceptedSearchKeys: MACHINES_ROUTE_SEARCH_KEYS,
-  searchParamSuggestions: MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  ...MACHINES_ROUTE_SEARCH_STATIC_DATA,
 },
 ```
 

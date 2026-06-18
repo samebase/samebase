@@ -14,6 +14,7 @@ import {
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
+  readRouteSearchParamAccess,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
@@ -152,6 +153,10 @@ const DASHBOARD_MODAL_SEARCH_KEYS = [
   "add-convex",
   "delete",
 ] as const satisfies readonly (keyof RootRouteSearchBase)[];
+
+export const ROOT_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  rootRouteSearchParamMetadata,
+);
 
 export const ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   rootRouteSearchParamMetadata,

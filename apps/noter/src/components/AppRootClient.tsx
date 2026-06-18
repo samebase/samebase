@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect } from "react";
 import "@xyflow/react/dist/style.css";
 import { AppWorkspaceShell } from "@/components/AppWorkspaceShell";
+import { RouteAccessOutlet } from "@/components/RouteAccessOutlet";
 import { RouteAvailabilityOutlet } from "@/components/RouteAvailabilityOutlet";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
@@ -69,7 +70,9 @@ function AppRouterRoot() {
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>
       <AppWorkspaceShell>
-        <RouteAvailabilityOutlet />
+        <RouteAvailabilityOutlet>
+          <RouteAccessOutlet />
+        </RouteAvailabilityOutlet>
       </AppWorkspaceShell>
       <RouterGestureDebugOverlay />
     </OptionalThemeProvider>

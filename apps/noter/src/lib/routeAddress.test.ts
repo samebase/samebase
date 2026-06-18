@@ -1,20 +1,28 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import { readRouteAddressReadiness } from "./routeAddress";
+import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const routesByPath = getRouter().routesByPath;
+const staffViewer = {
+  accessKeys: ROLE_ACCESS_GRANTS.role_staff,
+} as const satisfies NoterRouteAccessViewer;
+const memberViewer = {
+  accessKeys: ROLE_ACCESS_GRANTS.role_member,
+} as const satisfies NoterRouteAccessViewer;
 
 function readRouteAddressReadinessForTest(args: {
   currentRouteAddress?: string;
   draftRouteAddress: string;
-  viewerIsAdmin?: boolean;
+  viewer?: NoterRouteAccessViewer;
 }) {
   return readRouteAddressReadiness({
     currentRouteAddress: args.currentRouteAddress ?? "/privacy",
     draftRouteAddress: args.draftRouteAddress,
     origin: "http://localhost:5174",
     routesByPath,
-    viewerIsAdmin: args.viewerIsAdmin ?? true,
+    viewer: args.viewer ?? staffViewer,
   });
 }
 
@@ -98,6 +106,28 @@ describe("readRouteAddressReadiness", () => {
     ).toEqual({
       kind: "readyExact",
       routeAddress: "/logo",
+    });
+  });
+
+  it("applies member route grants to path readiness", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        draftRouteAddress: "/home",
+        viewer: memberViewer,
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/home",
+    });
+
+    expect(
+      readRouteAddressReadinessForTest({
+        draftRouteAddress: "/machines",
+        viewer: memberViewer,
+      }),
+    ).toEqual({
+      kind: "local",
+      reason: "pathNotReady",
     });
   });
 

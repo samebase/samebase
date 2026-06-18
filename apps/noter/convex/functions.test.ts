@@ -4,7 +4,13 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./functions";
-import { ACCESS_KEYS, canAccess, type AccessKey, type ViewerRole } from "../shared/accessModel";
+import {
+  ACCESS_KEYS,
+  canAccess,
+  readAccessKeysForRole,
+  type AccessKey,
+  type ViewerRole,
+} from "../shared/accessModel";
 
 const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
@@ -125,8 +131,10 @@ query({
 describe("access function wrapper", () => {
   it("matches the phase 1 grant matrix", () => {
     for (const role of VIEWER_ROLES) {
+      const accessKeys = readAccessKeysForRole(role);
+      expect(accessKeys, role).toEqual(EXPECTED_PHASE_1_GRANTS[role]);
       for (const access of ACCESS_KEYS) {
-        expect(canAccess(access, role), `${role} ${access}`).toBe(
+        expect(canAccess(access, accessKeys), `${role} ${access}`).toBe(
           EXPECTED_PHASE_1_GRANTS[role].includes(access),
         );
       }

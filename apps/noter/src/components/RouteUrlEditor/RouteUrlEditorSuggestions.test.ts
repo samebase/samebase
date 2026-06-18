@@ -4,9 +4,17 @@ import {
   readCurrentRouteUrlEditorSuggestionIndex,
   readSuggestions,
 } from "./RouteUrlEditorSuggestions";
+import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 
 const prefix = "http://localhost:5174/";
 const routesByPath = getRouter().routesByPath;
+const staffViewer = {
+  accessKeys: ROLE_ACCESS_GRANTS.role_staff,
+} as const satisfies NoterRouteAccessViewer;
+const memberViewer = {
+  accessKeys: ROLE_ACCESS_GRANTS.role_member,
+} as const satisfies NoterRouteAccessViewer;
 
 function cursorAfter(routeTextBeforeCursor: string) {
   const position = prefix.length + routeTextBeforeCursor.length - 1;
@@ -21,7 +29,7 @@ function readValues(args: {
   pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
-  viewerIsAdmin?: boolean;
+  viewer?: NoterRouteAccessViewer;
 }): readonly string[] {
   return readRows(args).map((suggestion) => suggestion.value);
 }
@@ -31,7 +39,7 @@ function readRows(args: {
   pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
-  viewerIsAdmin?: boolean;
+  viewer?: NoterRouteAccessViewer;
 }) {
   return readSuggestions({
     currentRouteAddress: args.currentRouteAddress ?? args.routeAddress,
@@ -43,7 +51,7 @@ function readRows(args: {
       typeof args.routeTextBeforeCursor === "string"
         ? cursorAfter(args.routeTextBeforeCursor)
         : null,
-    viewerIsAdmin: args.viewerIsAdmin ?? true,
+    viewer: args.viewer ?? staffViewer,
   });
 }
 
@@ -52,7 +60,7 @@ function readCurrentSuggestionValue(args: {
   pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
-  viewerIsAdmin?: boolean;
+  viewer?: NoterRouteAccessViewer;
 }): string | null {
   const suggestions = readRows(args);
   const suggestionIndex = readCurrentRouteUrlEditorSuggestionIndex({
@@ -279,6 +287,35 @@ describe("readSuggestions", () => {
 
     expect(values).toContain("?dev");
     expect(values).not.toContain("?devtools");
+  });
+
+  it("uses member access for route and query suggestions", () => {
+    const pathValues = readValues({
+      routeAddress: "/h",
+      routeTextBeforeCursor: "/h",
+      viewer: memberViewer,
+    });
+    const dashboardValues = readValues({
+      routeAddress: "/home?",
+      routeTextBeforeCursor: "/home?",
+      viewer: memberViewer,
+    });
+    const memberMachineValues = readValues({
+      routeAddress: "/machines?",
+      routeTextBeforeCursor: "/machines?",
+      viewer: memberViewer,
+    });
+    const staffMachineValues = readValues({
+      routeAddress: "/machines?",
+      routeTextBeforeCursor: "/machines?",
+      viewer: staffViewer,
+    });
+
+    expect(pathValues).toContain("/home");
+    expect(pathValues).not.toContain("/machines");
+    expect(dashboardValues).toContain("?delete");
+    expect(memberMachineValues).not.toContain("?machineId=sample-machine");
+    expect(staffMachineValues).toContain("?machineId=sample-machine");
   });
 
   it("uses the next-param prefix for later query tokens", () => {
@@ -525,7 +562,7 @@ describe("readSuggestions", () => {
     const rows = readRows({
       routeAddress: "/machines/connect#top",
       routeTextBeforeCursor: "/machines/connect#t",
-      viewerIsAdmin: true,
+      viewer: staffViewer,
     });
 
     expect(rows.map((row) => row.value)).toEqual(["#connected-machines"]);

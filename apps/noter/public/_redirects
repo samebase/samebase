@@ -14,6 +14,10 @@
 /logo/ /logo/index.html 200
 /logo/index.html /logo/index.html 200
 
+/oauth/mcp/consent /oauth/mcp/consent/index.html 200
+/oauth/mcp/consent/ /oauth/mcp/consent/index.html 200
+/oauth/mcp/consent/index.html /oauth/mcp/consent/index.html 200
+
 /privacy /privacy/index.html 200
 /privacy/ /privacy/index.html 200
 /privacy/index.html /privacy/index.html 200

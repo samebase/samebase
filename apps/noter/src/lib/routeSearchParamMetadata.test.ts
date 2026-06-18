@@ -6,6 +6,7 @@ import {
   readRouteSearchParamMetadata,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
+  readRouteSearchStaticData,
   routeSearchFiniteNumber,
   routeSearchPresenceParam,
   routeSearchValueParam,
@@ -162,6 +163,47 @@ describe("routeSearchParamMetadata", () => {
         searchParamKind: "presence",
       },
     ]);
+    expect(readRouteSearchStaticData(metadata)).toEqual({
+      acceptedSearchKeys: ["auth", "depth", "dev"],
+      searchParamAccess: [
+        {
+          key: "auth",
+          access: "access_public",
+        },
+        {
+          key: "depth",
+          access: "access_public",
+        },
+        {
+          key: "dev",
+          access: "access_public",
+        },
+      ],
+      searchParamSuggestions: [
+        {
+          key: "auth",
+          access: "access_public",
+          sampleValue: "google",
+          searchParamKind: "value",
+          valueSuggestions: ["google"],
+          valueType: "options",
+        },
+        {
+          key: "depth",
+          numericDefaultValue: 1,
+          numericRange: {
+            minValue: 1,
+            rangeType: "min",
+          },
+          numericStepValue: 1,
+          access: "access_public",
+          sampleValue: "2",
+          searchParamKind: "value",
+          valueSuggestions: null,
+          valueType: "numeric",
+        },
+      ],
+    });
   });
 
   it("keeps manual value params out of route URL suggestions", () => {

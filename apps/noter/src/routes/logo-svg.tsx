@@ -3,6 +3,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { LogoStaticSvgPage } from "@/components/logo/LogoStaticSvgPage";
 import {
   LOGO_ROUTE_SEARCH_KEYS,
+  LOGO_ROUTE_SEARCH_PARAM_ACCESS,
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
 } from "@/lib/logoRouteSearch";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/logo/svg")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
+    searchParamAccess: LOGO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("svg"),
   },
   component: LogoSvgRouteComponent,

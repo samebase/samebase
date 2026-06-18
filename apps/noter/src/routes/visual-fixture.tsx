@@ -2,9 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
-  readRouteSearchAcceptedKeys,
-  readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
+  readRouteSearchStaticData,
   routeSearchFiniteNumber,
   routeSearchString,
   routeSearchValueParam,
@@ -41,12 +40,9 @@ const visualFixtureRouteSearchParamMetadata = readRouteSearchParamMetadata(
   RouteSearchSchema_visualFixture,
 );
 
-const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions(
+const visualFixtureRouteSearchStaticData = readRouteSearchStaticData(
   visualFixtureRouteSearchParamMetadata,
-  "route",
 );
-
-const visualFixtureRouteSearchKeys = readRouteSearchAcceptedKeys(RouteSearchSchema_visualFixture);
 
 function validateVisualFixtureRouteSearch(
   search: Record<string, unknown>,
@@ -63,8 +59,7 @@ function VisualFixtureRouteComponent() {
 export const Route = createFileRoute("/visual-fixture")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    acceptedSearchKeys: visualFixtureRouteSearchKeys,
-    searchParamSuggestions: visualFixtureRouteSearchParamSuggestions,
+    ...visualFixtureRouteSearchStaticData,
   },
   component: VisualFixtureRouteComponent,
   validateSearch: validateVisualFixtureRouteSearch,

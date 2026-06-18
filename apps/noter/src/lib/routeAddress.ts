@@ -15,7 +15,6 @@ import {
 import {
   canAccessNoterRouteAccess,
   canAccessNoterRouteStaticData,
-  readNoterRouteAccessViewerFromAdminStatus,
   type NoterRouteAccessViewer,
   type NoterRouteSearchParamSuggestion,
   type NoterRouteSearchParamValueSuggestion,
@@ -34,7 +33,7 @@ type RouteAddressReadinessInput = {
   origin: string;
   readCanonicalRouteAddress?: (routeAddress: string) => string;
   routesByPath: AppRouter["routesByPath"];
-  viewerIsAdmin: boolean;
+  viewer: NoterRouteAccessViewer;
 };
 
 type RouteAddressRouteUpdateDraftInput = {
@@ -389,7 +388,7 @@ export function readRouteAddressReadiness(args: RouteAddressReadinessInput): Rou
     draftRouteAddress: args.draftRouteAddress,
     origin: args.origin,
     routesByPath: args.routesByPath,
-    viewer: readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
+    viewer: args.viewer,
   });
   const readyRouteAddress = normalizeRouteUrlEditorHref({
     currentHref: args.currentRouteAddress,
@@ -410,7 +409,7 @@ export function readRouteAddressReadiness(args: RouteAddressReadinessInput): Rou
       draftHref: readyRouteAddress,
       origin: args.origin,
       routesByPath: args.routesByPath,
-      viewer: readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
+      viewer: args.viewer,
     })
   ) {
     return {
