@@ -1,13 +1,13 @@
 "use node";
 
 import { createHash } from "node:crypto";
-import { action, internalAction, type ActionCtx } from "./_generated/server";
+import { internalAction, type ActionCtx } from "./_generated/server";
 import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { notEmpty } from "@noter-md/dependent/main";
-import { getUserId } from "./common";
+import { action } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import type { GithubTree } from "./schema";
 import { guessMime, INLINE_TEXT_MAX, isTextBuffer, withRetry } from "./gitOperationsActions";
@@ -1835,6 +1835,7 @@ async function getPullRequestCompareFiles(args: {
 
 // Rename a file in staging (updates the filePath while keeping initialFilePath)
 export const renameFileInStaging = action({
+  access: "access_files_write",
   args: {
     vaultId: v.id("vaults"),
     originalPath: v.string(),
@@ -1847,15 +1848,16 @@ export const renameFileInStaging = action({
   ): Promise<{
     content: string;
   }> => {
-    await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const branch =
       args.branch ??
       (() => {
         throw new Error("Branch is required to rename a staged file");
       })();
 
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      vaultId: args.vaultId,
+      userId,
     });
 
     if (!vault) {
@@ -1889,6 +1891,7 @@ export const renameFileInStaging = action({
  * Will call GitHub and populate the fileStaging table
  */
 export const getFileForEditing = action({
+  access: "access_files_read",
   args: {
     repositoryFullName: v.string(),
     originalFilePath: v.string(),
@@ -1896,7 +1899,7 @@ export const getFileForEditing = action({
   },
 
   handler: async (ctx, args): Promise<EditableFileState> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
@@ -2082,6 +2085,7 @@ export const getFileForEditing = action({
  * existing target path, and an omitted branch falls back to the repo default.
  */
 export const stageUploadedMedia = action({
+  access: "access_files_write",
   args: {
     repositoryFullName: string(),
     filePath: string(),
@@ -2095,7 +2099,7 @@ export const stageUploadedMedia = action({
       throw new Error("Only image uploads are supported right now.");
     }
 
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -2146,13 +2150,14 @@ export const stageUploadedMedia = action({
 
 // Commit staged file to GitHub
 export const commitStaging = action({
+  access: "access_files_write",
   args: {
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     // Get the vault information while we have auth context
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
@@ -2176,13 +2181,14 @@ export const commitStaging = action({
 });
 
 export const createDraftPullRequest = action({
+  access: "access_files_write",
   args: {
     repositoryFullName: string(),
     branch: optional(string()),
   },
   returns: draftPullRequestResult,
   handler: async (ctx, args): Promise<DraftPullRequestResult> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -2339,13 +2345,14 @@ export const createDraftPullRequest = action({
 });
 
 export const createDraftPullRequestFromDefaultBranch = action({
+  access: "access_files_write",
   args: {
     repositoryFullName: string(),
     branch: optional(string()),
   },
   returns: defaultBranchDraftPullRequestResult,
   handler: async (ctx, args): Promise<DefaultBranchDraftPullRequestResult> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -2551,15 +2558,17 @@ export const createDraftPullRequestFromDefaultBranch = action({
 // Staged files with real edits are rebased onto GitHub; conflicts get markers.
 // Unchanged staging records are cleaned up.
 export const pullFromGitHub = action({
+  access: "access_files_write",
   args: {
     vaultId: v.id("vaults"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      vaultId: args.vaultId,
+      userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -2624,8 +2633,9 @@ export const pullFromGitHubInternal = internalAction({
   handler: async (ctx, args) => {
     const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
 
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      vaultId: args.vaultId,
+      userId: args.userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -2865,6 +2875,7 @@ export const pullFromGitHubInternal = internalAction({
 // Batch-fetch file contents (read-only, no staging records).
 // Used by the Monaco editor to load project files for TypeScript import resolution.
 export const batchReadFiles = action({
+  access: "access_files_read",
   args: {
     vaultId: v.id("vaults"),
     branch: v.optional(v.string()),
@@ -2872,11 +2883,12 @@ export const batchReadFiles = action({
   },
   returns: v.array(v.object({ path: v.string(), content: v.string() })),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      vaultId: args.vaultId,
+      userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -3030,6 +3042,7 @@ export const batchReadFiles = action({
 });
 
 export const getCommitPreview = action({
+  access: "access_files_read",
   args: {
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
@@ -3037,7 +3050,7 @@ export const getCommitPreview = action({
   },
   returns: commitPreviewResult,
   handler: async (ctx, args): Promise<CommitPreviewResult> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const includePatch = args.includePatch ?? true;
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
@@ -3090,6 +3103,7 @@ export const getCommitPreview = action({
 });
 
 export const getBranchComparePreview = action({
+  access: "access_files_read",
   args: {
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
@@ -3097,7 +3111,7 @@ export const getBranchComparePreview = action({
   },
   returns: branchComparePreviewResult,
   handler: async (ctx, args): Promise<BranchComparePreviewResult> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const includePatch = args.includePatch ?? true;
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
@@ -3249,6 +3263,7 @@ export const getBranchComparePreview = action({
 });
 
 export const restoreComparedDeletedFileToStaging = action({
+  access: "access_files_write",
   args: {
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
@@ -3257,7 +3272,7 @@ export const restoreComparedDeletedFileToStaging = action({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -3338,13 +3353,14 @@ export const restoreComparedDeletedFileToStaging = action({
 });
 
 export const getRebaseConflictPreview = action({
+  access: "access_files_read",
   args: {
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
   },
   returns: rebaseConflictPreviewResult,
   handler: async (ctx, args): Promise<RebaseConflictPreviewResult> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -3396,13 +3412,14 @@ export const getRebaseConflictPreview = action({
 });
 
 export const getRebaseConflictBundle = action({
+  access: "access_files_read",
   args: {
     repositoryFullName: v.string(),
     branch: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
