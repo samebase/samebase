@@ -5,24 +5,38 @@ import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
+import { getFunctionName } from "convex/server";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { api } from "../../convex/_generated/api";
 import { AppRightSidebarContent } from "./AppRightSidebar";
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: true,
   isLoading: false,
 }));
-const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
+const queryState = vi.hoisted<{
+  blockedQueryNames: Set<string>;
+  index: number;
+  results: unknown[];
+  seenQueryNames: string[];
+}>(() => ({
+  blockedQueryNames: new Set(),
   index: 0,
   results: [],
+  seenQueryNames: [],
 }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
   "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+const PROVIDER_STATUS_QUERY_NAMES = new Set([
+  getFunctionName(api.users.getGithubConnectionStatus),
+  getFunctionName(api.users.getConvexConnectionStatus),
+  getFunctionName(api.users.getCloudflareConnectionStatus),
+]);
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -66,9 +80,15 @@ vi.mock("convex/react", async (importOriginal) => {
     useAction: createAsyncHandler,
     useConvexAuth: () => authState,
     useMutation: createAsyncHandler,
-    useQuery: (_query: unknown, args: unknown) => {
+    useQuery: (query: Parameters<typeof actual.useQuery>[0], args: unknown) => {
       if (args === "skip") {
         return undefined;
+      }
+
+      const queryName = getFunctionName(query);
+      queryState.seenQueryNames.push(queryName);
+      if (queryState.blockedQueryNames.has(queryName)) {
+        throw new Error(`Unexpected provider status query: ${queryName}`);
       }
 
       const result =
@@ -124,6 +144,17 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 function prepareRightSidebar(queryResults: unknown[]) {
   queryState.index = 0;
   queryState.results = queryResults;
+  queryState.seenQueryNames = [];
+}
+
+function blockProviderStatusQueries() {
+  queryState.blockedQueryNames = new Set(PROVIDER_STATUS_QUERY_NAMES);
+}
+
+function expectProviderStatusQueriesNotSeen() {
+  for (const queryName of PROVIDER_STATUS_QUERY_NAMES) {
+    expect(queryState.seenQueryNames).not.toContain(queryName);
+  }
 }
 
 function createRightSidebarElement() {
@@ -189,6 +220,8 @@ describe("AppRightSidebarContent", () => {
     window.history.replaceState({}, "", "/home");
     queryState.index = 0;
     queryState.results = [];
+    queryState.blockedQueryNames = new Set();
+    queryState.seenQueryNames = [];
   });
 
   it("does not treat a profileless JWT as temporary auth", async () => {
@@ -299,30 +332,51 @@ describe("AppRightSidebarContent", () => {
   });
 
   it("keeps provider controls hidden while authenticated app access loads", async () => {
+    blockProviderStatusQueries();
+
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");
     expect(hydratedMarkup).not.toContain("Providers");
+    expectProviderStatusQueriesNotSeen();
   });
 
-  it("keeps provider controls hidden for confirmed waitlisted users", async () => {
+  it("loads the account row without provider controls for confirmed waitlisted users", async () => {
+    blockProviderStatusQueries();
+
     const hydratedMarkup = await renderRightSidebarAfterEffects([
       { role: "role_waitlisted", accessKeys: ["access_public"] },
+      {
+        _id: "user_waitlisted",
+        name: "Waitlisted User",
+        email: "waitlisted@example.com",
+        hasCloudflareConnection: false,
+        hasConvexConnection: false,
+        hasGithubConnection: false,
+      },
+      {
+        providers: [],
+      },
     ]);
 
-    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).toContain("Waitlisted User");
+    expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
     expect(hydratedMarkup).not.toContain("New App");
+    expectProviderStatusQueriesNotSeen();
   });
 
   it("keeps provider controls hidden when viewer access has not returned access keys", async () => {
+    blockProviderStatusQueries();
+
     const hydratedMarkup = await renderRightSidebarAfterEffects([{}]);
 
     expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
     expect(hydratedMarkup).not.toContain("New App");
+    expectProviderStatusQueriesNotSeen();
   });
 
   it("renders the account section after the authenticated viewer loads", async () => {

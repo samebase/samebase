@@ -375,9 +375,13 @@ function AppRightSidebarSignedInAccountSection({
 }
 
 function GenericSignedInAccountSection({
+  authProviders,
   profile,
+  user,
 }: {
+  authProviders?: AppRightSidebarAuthProviders;
   profile: AppAuthPresentationProfile | null;
+  user?: AppRightSidebarViewer | null;
 }) {
   const { signOut } = useNoterAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -403,13 +407,13 @@ function GenericSignedInAccountSection({
 
   return (
     <AppRightSidebarSignedInAccountSection
-      authProviders={undefined}
+      authProviders={authProviders}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
       onSignOut={handleSignOut}
       open={accountOpen}
       profile={profile}
-      user={undefined}
+      user={user}
     />
   );
 }
@@ -422,6 +426,24 @@ function TemporaryAuthenticatedAppRightSidebarContent({
   return (
     <VaultDashboardSidebarContent>
       <GenericSignedInAccountSection profile={profile} />
+      <div className="mt-auto">
+        <AppSidebarMetaSection linkAlignment="left" />
+      </div>
+    </VaultDashboardSidebarContent>
+  );
+}
+
+function AccountOnlyAuthenticatedAppRightSidebarContent({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
+  const user = useConvexQuery(api.users.viewer);
+  const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
+
+  return (
+    <VaultDashboardSidebarContent>
+      <GenericSignedInAccountSection authProviders={authProviders} profile={profile} user={user} />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -970,7 +992,11 @@ export function AppRightSidebarContent() {
 
   if (authPresentation.kind === "confirmedAuthenticated") {
     if (!hasProviderSidebarAccess(viewerAccess)) {
-      return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+      if (viewerAccess === undefined) {
+        return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+      }
+
+      return <AccountOnlyAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
     }
 
     return <AuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
