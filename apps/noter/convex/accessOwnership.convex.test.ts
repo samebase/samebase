@@ -17,7 +17,7 @@ function asIdentity(t: ConvexTest, userId: Id<"users">) {
 
 function seedEmail(args: { role: SeedViewerRole; user: "owner" | "other" }): string {
   if (args.role === "staff") {
-    return args.user === "owner" ? "nicu@noter.md" : "nicu.dev@gmail.com";
+    return args.user === "owner" ? "nicu@noter.md" : "nicuchiciuc@gmail.com";
   }
 
   return args.user === "owner" ? "owner.member@example.test" : "other.member@example.test";
