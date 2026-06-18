@@ -1,10 +1,11 @@
-# Access Model: Viewer Roles, Access Keys, and Grants (Member MVP)
+# Access Model: Access Keys, Role Bundles, and Grants (Member MVP)
 
 ## Document Control
 
 - Status: Proposed
 - Owner: Noter platform
 - Date: 2026-06-12
+- Last updated: 2026-06-18
 - Related specs:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
@@ -12,22 +13,31 @@
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
   - `rfcs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md`
   - `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`
+  - `research/2026-06-18-workos-authorization-model.md`
   - `docs/code-guardrails.md`
 
 ## Summary
 
-Replace the two-value route permission union (`"public" | "admin"`) with a two-sided access model
-that prepares the app for external users:
+Replace the two-value route permission union (`"public" | "admin"`) with an access-first model that
+prepares the app for external users:
 
-1. **Viewer roles** (what a caller is): `role_anonymous | role_member | role_staff`.
-2. **Access keys** (what a route, search param, query, mutation, action, or MCP grant demands):
+1. **Access keys** (the checkable primitive; what a route, search param, query, mutation, action, or
+   MCP grant demands):
    `access_public | access_dashboard | access_provider_connections | access_repo_connect | access_app_create | access_app_refresh | access_files_read | access_files_write | access_machines | access_mcp | access_admin`.
-3. **Grants** (which roles satisfy which keys): one table, additive-only, with one `canAccess`
-   decision function shared by frontend and backend.
+2. **Viewer role bundles** (coarse default grant sources):
+   `role_anonymous | role_member | role_staff`.
+3. **Grants** (which bundles satisfy which keys): one table, additive-only. Backend code can still
+   resolve a role bundle and call `canAccess`; frontend and other UI consumers should receive the
+   projected effective access-key set and check keys directly.
 
 The two sides deliberately use different prefixed vocabularies so role strings and requirement
 strings can never be confused in code, logs, or stored documents, and so the access-key set can grow
 (more product areas, finer keys) without inventing new roles.
+
+Access keys are the durable authorization vocabulary. Roles are not equal peers in the product
+model; they are a convenient way to assemble default access bundles until Noter needs customer
+custom roles, per-user overrides, or delegated resource-specific grants. Code outside role
+resolution, role management, audit, or admin/debug surfaces should prefer `access_*` checks.
 
 Member MVP: `role_member` holds `access_public`, `access_dashboard`, `access_provider_connections`,
 `access_repo_connect`, `access_app_refresh`, `access_files_read`, and `access_files_write`. Members
@@ -42,14 +52,15 @@ functions today. Backend enforcement becomes structural via access-key function 
 
 ## Goals
 
-1. One shared vocabulary and one decision chokepoint (`canAccess`) for routes, search params, every
-   exported public Convex function, and MCP grants.
+1. One shared vocabulary and one access-key check shape for routes, search params, every exported
+   public Convex function, and MCP grants. Role-to-access projection happens at the boundary; the
+   resulting checks ask whether a viewer has the required `access_*` key.
 2. Server-side enforcement that fails closed and cannot be forgotten per function: public Convex
    queries, mutations, and actions must be wrapped with an explicit access key.
 3. Member MVP limited to safe account/repo/app-status capabilities, with the path to app creation,
    files, machines, and MCP being grant edits plus targeted reclassification, not a redesign.
-4. Keep billing (plan/add-ons) an orthogonal axis: role gates who may call; plan gates what paid
-   features do (the existing Pro gate on app creation stays).
+4. Keep billing (plan/add-ons) an orthogonal axis: access keys gate who may call; plan gates what
+   paid features do (the existing Pro gate on app creation stays).
 5. Keep MCP delegation compatible: existing MCP scopes become a delegated subset of the user's own
    access, with a Cloudflare-style checkbox consent planned in a follow-up spec.
 
@@ -67,9 +78,10 @@ functions today. Backend enforcement becomes structural via access-key function 
 ## Current State (verified)
 
 - Previous route permissions used `NoterRoutePermission = "public" | "admin"`. This branch's
-  frontend spike replaces route and search-param metadata with `access: AccessKey`; the URL editor
-  still adapts the existing `isCurrentUserAdmin` query into `role_staff | role_anonymous` until a
-  real `users.currentViewerRole` query lands.
+  frontend work replaces route and search-param metadata with `access: AccessKey`. The URL editor
+  reads `users.currentViewerAccess` and filters route/search suggestions plus path readiness against
+  the effective `accessKeys` list. It no longer adapts `isCurrentUserAdmin` into a synthetic
+  frontend role, and route UI does not need `users.currentViewerRole`.
 - The only frontend access decision function gates URL-editor suggestions and path readiness only.
   Navigation is gated by availability (`apps/noter/src/routes/root.tsx:86-89`) and by the per-page
   `AuthenticatedAppRoutePage` → `<Authenticated>` + `ApprovalGate` pair
@@ -130,7 +142,7 @@ export type AccessKey = (typeof ACCESS_KEYS)[number];
 For each viewer role, the access keys it satisfies. Additive-only; staff holds
 every key, so new keys are staff-reachable the moment they exist.
 */
-const GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
+export const ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
   role_member: [
     "access_public",
@@ -145,7 +157,7 @@ const GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
 };
 
 export function canAccess(required: AccessKey, viewer: ViewerRole): boolean {
-  return GRANTS[viewer].includes(required);
+  return ACCESS_GRANTS[viewer].includes(required);
 }
 ```
 
@@ -153,6 +165,9 @@ Naming rules locked in by this RFC:
 
 - Role strings (`role_*`) and access keys (`access_*`) are disjoint literal types; neither side ever
   reuses the other's words ("public" is a requirement, "anonymous" is a role — nobody "is" public).
+- Application authorization checks consume access keys. Do not pass `role_*` values through UI
+  components or app-level affordance helpers unless the code is explicitly rendering role
+  management, role audit, or an admin/debug explanation.
 - OAuth still calls delegated permissions `scope` at the protocol boundary, but Noter-owned MCP
   scope values use the same `AccessKey` literals. `plan`/`feature` stay reserved for billing.
 - Non-allowlisted users denied during auth callback never get a viewer role. During the current
@@ -181,7 +196,7 @@ functions still use the more specific key. For example, `/connect-repo` can rend
 has `access_repo_connect`, while `/new-app` and the "create managed app" mutation require
 `access_app_create`.
 
-### Role resolution (server-side)
+### Role resolution and access projection (server-side)
 
 - `role_staff`: `isAdminUser(githubUsername, email)` — unchanged hardcoded lists
   (`apps/noter/convex/userAccess.ts`), including the GitHub-connection lookup currently copy-pasted
@@ -191,9 +206,13 @@ has `access_repo_connect`, while `/new-app` and the "create managed app" mutatio
   in but unapproved also resolves to `role_anonymous` until the pre-login allowlist boundary from
   `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md` is enforced.
 
-One new public query `users.currentViewerRole` returns the `ViewerRole` literal and replaces
-`isCurrentUserAdmin` + `isCurrentUserApproved` consumers over time (delete-first; `ApprovalGate`
-becomes `<Authenticated>` + `role === "role_anonymous"` → waitlist screen).
+The public UI-facing query is `users.currentViewerAccess`, returning `{ accessKeys }`. It projects
+the resolved server-side role bundle into the effective access list and replaces boolean access
+queries over time. `users.isCurrentUserAdmin` was deleted once the URL editor and runtime route gate
+moved to access keys; `users.isCurrentUserApproved` remains only for `ApprovalGate` until that
+waitlist surface moves to `currentViewerAccess`. `users.currentViewerRole` is not the general
+route/UI authorization contract; if a future caller truly needs the literal role, keep that API
+scoped to role management, audit, or admin/debug explanation surfaces.
 
 ### Auth allowlist compatibility
 
@@ -234,7 +253,7 @@ export const enqueueManualRepositoryRefresh = mutation({
   declarations focused on `access` only.
 - `access_public` functions skip no code path — `canAccess("access_public", role_anonymous)` is
   true, so unauthenticated-friendly functions (Convex Auth helpers, `users.viewer`,
-  `users.getViewerAuthProviders`, `users.isCurrentUserAdmin`, `users.isCurrentUserApproved`,
+  `users.getViewerAuthProviders`, `users.currentViewerAccess`, `users.isCurrentUserApproved`,
   `waitlist.joinWaitlist`, `workspaceSidebarState.getWorkspaceSidebarState`, and
   `deploymentProfile.getPublicDeploymentAuthPolicy`) keep their graceful null/false returns.
 - Enforcement becomes structural once the migration lint lands: the repo-local Oxlint rule
@@ -306,6 +325,31 @@ A future component becomes worth considering only if access grows reusable persi
 grant audit logs, per-user override tables, entitlement caches, or cross-app policy management. Even
 then, public Noter functions would keep app wrappers as the enforcement boundary.
 
+### WorkOS alignment
+
+WorkOS' current RBAC/FGA model validates the access-first split. WorkOS AuthKit embeds
+organization-scoped permissions in session tokens for cheap app checks, while WorkOS FGA uses roles
+as assignment bundles on organization memberships and resources. That means Noter's
+`users.currentViewerAccess` shape is closer to WorkOS' session-permissions surface than a
+`users.currentViewerRole` API would be.
+
+If Noter adopts WorkOS later, `access_*` remains the app capability vocabulary. Role bundles can map
+to WorkOS environment roles, custom roles, or IdP group role assignments. Per-vault or per-resource
+sharing should become a separate resource-scoped permission layer only after Noter has an explicit
+organization/resource model to map to WorkOS organization memberships and authorization resources.
+Do not rename the current coarse route keys to WorkOS-style `resource:action` slugs until that
+resource model exists; add a mapping or split the coarse route capability from resource permission
+in that adoption spec.
+
+For naming, keep `access_*` for Noter's coarse app capability layer. It describes whether a viewer
+can enter a product surface or call a broad function family. Reserve `permission` for either
+provider/vendor vocabulary or a future resource-scoped layer with explicit subjects, resources, and
+actions. If WorkOS FGA becomes the source of truth later, introduce a mapping boundary such as
+`access_files_read -> vault:read` or split the model into `access_*` app capabilities plus
+resource-scoped permission slugs. Do not rename the current `AccessKey` type to `PermissionKey`
+until the resource model exists; that would make broad route capabilities look more precise than
+they are.
+
 ### Frontend: route metadata, runtime gate, suggestions
 
 - `NoterRoutePermission` is replaced by `AccessKey`; the staticData field renames `permission` →
@@ -313,19 +357,20 @@ then, public Noter functions would keep app wrappers as the enforcement boundary
   reads as a requirement).
 - Search-param metadata uses the same `access: AccessKey` field. Some access keys do not make sense
   for a particular frontend surface, but the union is intentionally shared rather than mirrored.
-- Viewer model `{ isAdmin: boolean }` is replaced by the `ViewerRole` from
-  `users.currentViewerRole`; `canAccessNoterRoutePermission` becomes a call into the shared
-  `canAccess`.
+- Viewer model `{ isAdmin: boolean }` is replaced by `{ accessKeys }` from
+  `users.currentViewerAccess`; `canAccessNoterRoutePermission` becomes
+  `canAccessNoterRouteAccess(access, viewer)`. Frontend route/search decisions do not need the
+  viewer's role literal after the access list has been projected.
 - New runtime gate: a `RouteAccessOutlet` in the root route (mirroring `RouteAvailabilityOutlet`)
-  reads the matched route's `staticData.access` and the reactive viewer role. `access_public`
+  reads the matched route's `staticData.access` and the reactive viewer access list. `access_public`
   renders immediately (prerendered pages never wait on the query); anything else renders the auth
-  redirect / waitlist screen for `role_anonymous` and `notFound` for an authenticated role lacking
-  the key (consistent with availability handling). This subsumes per-page
-  `AuthenticatedAppRoutePage` placement over time.
+  redirect / waitlist screen for a signed-out or unapproved viewer and `notFound` for an
+  authenticated viewer lacking the key (consistent with availability handling). This subsumes
+  per-page `AuthenticatedAppRoutePage` placement over time.
 - Suggestion plumbing: the `=== "admin"` / `=== "public"` equality filters at
-  `rootRouteSearch.ts:164-170` become grant-based (`canAccess(suggestion.access, role)`), removing
-  the silent-drop hazard. Test fixtures `adminViewer`/`publicViewer` become
-  `staffViewer`/`memberViewer`/`anonymousViewer`.
+  `rootRouteSearch.ts:164-170` become access-list checks
+  (`canAccessNoterRouteAccess(suggestion.access, viewer)`), removing the silent-drop hazard. Test
+  fixtures `adminViewer`/`publicViewer` become `staffViewer`/`memberViewer`/`anonymousViewer`.
 - Prerender: `publicPrerenderPages.ts` filter becomes `access === "access_public"`; behavior for
   non-public keys is unchanged (not prerendered).
 
@@ -355,7 +400,7 @@ reclassify alongside their routes: dashboard/billing params (`delete`, `checkout
 
 ### Billing stays orthogonal
 
-- Role gates reachability; plan gates paid capability. `createRepository` (Noter-managed
+- Access keys gate reachability; plan gates paid capability. `createRepository` (Noter-managed
   provisioning) keeps the existing gate: staff bypass, everyone else needs
   `billingPlan === "pro" && billingStatus === "active"`
   (`appProvisioningWorkflowActions.ts:273-280`) after passing `access_app_create`. Members on the
@@ -412,12 +457,13 @@ callback boundary instead. Sub-split by area for review: auth/public → dashboa
 connections → repo connect/app create/app refresh → files read/write → machines → admin/chat →
 mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixtures
 (`t.withIdentity` + seeded approved/unapproved users while transition compatibility exists);
-state-axis enumeration test for `GRANTS` (e.g. "every key a member holds, staff holds").
+state-axis enumeration test for `ACCESS_GRANTS` (e.g. "every key a member holds, staff holds").
 
-**Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`) and
-search-param classification started in this spike. The remaining frontend work is viewer role
-wiring; `RouteAccessOutlet`; replacing the temporary `isAdmin` adapter; and screenshot updates where
-shipped UI changes (waitlist/404 paths).
+**Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`),
+search-param classification, and URL-editor `currentViewerAccess` wiring started in this spike. The
+remaining frontend work is `RouteAccessOutlet`, deletion of the remaining boolean access queries
+after their callers move to access keys, and screenshot updates where shipped UI changes
+(waitlist/404 paths).
 
 **Phase 3 — member enablement.** Wire the waitlist join form to `waitlist.joinWaitlist` (today it
 has zero callers — required for real onboarding). Before first cohort launch, choose the accepted
@@ -456,22 +502,27 @@ settings page.
 
 ## Resolved Decisions
 
-1. Subject and requirement sides use disjoint prefixed vocabularies (`role_*` / `access_*`).
-2. "Member" = authenticated + approved; non-allowlisted users are denied before role resolution per
+1. Access keys are the operational primitive. Role strings are coarse bundle sources, not a second
+   authorization axis for ordinary app checks.
+2. Subject and requirement sides use disjoint prefixed vocabularies (`role_*` / `access_*`).
+3. "Member" = authenticated + approved; non-allowlisted users are denied before role resolution per
    spec 018. During the current post-login waitlist transition, authenticated unapproved users
    resolve to `role_anonymous` for access.
-3. Staff determination stays the hardcoded list; no persisted role field in this rollout.
-4. One app-owned function facade over per-handler assert calls: enforcement must be structural and
+4. Staff determination stays the hardcoded list; no persisted role field in this rollout.
+5. UI consumers use `users.currentViewerAccess` and check `access_*` keys.
+   `users.isCurrentUserAdmin` has been deleted. `users.isCurrentUserApproved` is the remaining
+   deprecated boolean transition API while `ApprovalGate` still owns the waitlist surface.
+6. One app-owned function facade over per-handler assert calls: enforcement must be structural and
    fail-closed without nested wrapper stacks.
-5. Every exported public Convex query, mutation, and action must declare exactly one access key;
+7. Every exported public Convex query, mutation, and action must declare exactly one access key;
    unclear functions start as `access_admin`.
-6. Future rate limiting can fit inside the same app function wrapper, but Phase 1 declarations stay
+8. Future rate limiting can fit inside the same app function wrapper, but Phase 1 declarations stay
    focused on `access`.
-7. Provider connection, repo connect, app creation, app refresh, file read, and file write are
+9. Provider connection, repo connect, app creation, app refresh, file read, and file write are
    distinct capabilities.
-8. Billing never enters the grants table; the Pro gate on app creation is untouched.
-9. Checkout requires approval (`access_dashboard`).
-10. MCP uses the same `AccessKey` literals for delegated Noter grants; OAuth calls them scopes at
+10. Billing never enters the grants table; the Pro gate on app creation is untouched.
+11. Checkout requires approval (`access_dashboard`).
+12. MCP uses the same `AccessKey` literals for delegated Noter grants; OAuth calls them scopes at
     the protocol boundary.
 
 ## Open Questions
@@ -500,3 +551,9 @@ settings page.
 - Google granular consent (checkbox-per-scope, partial grant handling):
   https://developers.google.com/identity/protocols/oauth2/resources/granular-permissions
 - Tailscale grants (additive-only mapping vocabulary): https://tailscale.com/kb/1324/grants
+- WorkOS authorization research for Noter: `research/2026-06-18-workos-authorization-model.md`
+- WorkOS RBAC and AuthKit permissions docs: https://workos.com/docs/rbac/integration and
+  https://workos.com/docs/authkit/roles-and-permissions
+- WorkOS FGA overview, AuthKit integration, and access checks API: https://workos.com/docs/fga,
+  https://workos.com/docs/fga/authkit-integration, and
+  https://workos.com/docs/reference/fga/access-check
