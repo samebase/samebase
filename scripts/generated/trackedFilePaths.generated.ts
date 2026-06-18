@@ -619,6 +619,7 @@ export const trackedFilePaths = [
   "apps/noter/src/components/AppSidebarMetaSection.tsx",
   "apps/noter/src/components/AppWorkspaceShell.test.tsx",
   "apps/noter/src/components/AppWorkspaceShell.tsx",
+  "apps/noter/src/components/ApprovalGate.test.tsx",
   "apps/noter/src/components/ApprovalGate.tsx",
   "apps/noter/src/components/AuthenticatedAppRoutePage.test.tsx",
   "apps/noter/src/components/AuthenticatedAppRoutePage.tsx",
