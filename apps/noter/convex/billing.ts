@@ -1,9 +1,8 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 import { notEmpty } from "@noter-md/dependent/main";
-import { action, internalMutation, query } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { getUserId } from "./common";
+import { action, query } from "./functions";
 import { resolveDeploymentProfile } from "./deploymentProfile";
 import { randomToken, readRequiredEnv } from "./oauthUtils";
 import { isRecord, readString, toErrorMessage } from "./jsonUtils";
@@ -173,18 +172,11 @@ async function fetchPolarJson(args: {
 }
 
 export const getViewerBillingStatus = query({
+  access: "access_admin",
   args: {},
   returns: union(vViewerBillingStatus, nullValue()),
   handler: async (ctx): Promise<ViewerBillingStatus | null> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      return null;
-    }
+    const user = ctx.viewer.user;
 
     return {
       provider: user.billingProvider,
@@ -255,6 +247,7 @@ export const applyPolarCustomerState = internalMutation({
 });
 
 export const createPolarCheckoutSession = action({
+  access: "access_admin",
   args: object({
     interval: vBillingCycle,
     successUrl: string(),
@@ -262,7 +255,7 @@ export const createPolarCheckoutSession = action({
   }),
   returns: vPolarCheckoutSession,
   handler: async (ctx, args): Promise<{ url: string }> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const currentUser = await ctx.runQuery(internal.users.getById, { userId });
     if (!currentUser) {
       throw new Error("User not found.");
@@ -322,12 +315,13 @@ export const createPolarCheckoutSession = action({
 });
 
 export const createPolarCustomerPortalSession = action({
+  access: "access_admin",
   args: object({
     returnUrl: string(),
   }),
   returns: vPolarPortalSession,
   handler: async (ctx, args): Promise<{ url: string }> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const server = inferPolarServer();
 
     const { returnUrl } = validateReturnUrlPair({
@@ -431,12 +425,13 @@ export function deriveBillingFromCustomerState(args: {
 }
 
 export const syncViewerBillingFromPolar = action({
+  access: "access_admin",
   args: object({
     externalCustomerId: optional(string()),
   }),
   returns: union(boolean(), nullValue()),
   handler: async (ctx, args): Promise<boolean | null> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const server = inferPolarServer();
 
     const customer = await ctx.runMutation(internal.billing.ensurePolarExternalCustomerId, {
