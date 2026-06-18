@@ -5,7 +5,7 @@ import {
   readRouteSearchStaticData,
   routeSearchStringValue,
   routeSearchValueParam,
-} from "@/lib/routeSearchParamMetadata";
+} from "@/routing/searchParamMetadata";
 
 const pricingCheckoutValues = ["success", "cancel"] as const;
 

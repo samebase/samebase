@@ -3,7 +3,7 @@ import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import {
   canAccessNoterRouteMatchesAvailability,
   readBrowserNoterRouteEnvironment,
-} from "@/lib/routeAvailability";
+} from "@/routing/availability";
 import type { ReactNode } from "react";
 
 export function RouteAvailabilityOutlet({ children }: { children: ReactNode }) {

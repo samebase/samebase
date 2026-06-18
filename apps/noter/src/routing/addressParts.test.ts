@@ -7,7 +7,7 @@ import {
   replaceRouteAddressPathAndOpenQuerySlot,
   replaceRouteAddressSearchToken,
   replaceRouteAddressSearchValue,
-} from "./routeAddressParts";
+} from "./addressParts";
 
 describe("parseRouteAddress", () => {
   it("parses a route address without query params", () => {

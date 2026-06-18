@@ -84,7 +84,7 @@ import {
   useRootRouteSearch,
 } from "@/routeSearch/root";
 import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
-import { applySearchPatch } from "@/lib/routeSearchFlags";
+import { applySearchPatch } from "@/routing/searchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   getDefaultVaultBranchFilters,

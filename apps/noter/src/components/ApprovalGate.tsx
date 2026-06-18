@@ -1,6 +1,6 @@
 import { useNoterAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
-import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+import type { NoterRouteAccessViewer } from "@/routing/permissions";
 import { useQuery } from "convex/react";
 import { createContext, useContext, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";

@@ -1,5 +1,5 @@
 import { includes } from "@noter-md/dependent";
-import { ROUTE_SEARCH_PRESENCE_FLAG_KEYS } from "@/lib/routeSearchFlags";
+import { ROUTE_SEARCH_PRESENCE_FLAG_KEYS } from "@/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 
 type PlainSearchRecord = Record<string, unknown>;

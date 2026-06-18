@@ -3,7 +3,7 @@ import {
   applySearchPatch,
   formatRouteSearchPresenceFlagLinkLabel,
   normalizeRouteSearchPresenceFlags,
-} from "@/lib/routeSearchFlags";
+} from "@/routing/searchFlags";
 
 describe("routeSearchFlags", () => {
   it("formats cursor-stable labels for links that toggle presence flags", () => {

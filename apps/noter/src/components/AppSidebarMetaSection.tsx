@@ -15,7 +15,7 @@ import {
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
-import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/lib/routeSearchFlags";
+import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
 import { readRootRouteSearch } from "@/routeSearch/root";
 import { noterBuildConfig } from "@/lib/noterBuildConfig";
 import { Link, useLocation } from "@tanstack/react-router";

@@ -58,7 +58,7 @@ import {
 import {
   type NoterRouteSearchParamSuggestion,
   type NoterRouteSearchParamValueSuggestions,
-} from "@/lib/routePermissions";
+} from "@/routing/permissions";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
@@ -80,7 +80,7 @@ import {
 } from "@/components/logo/logoVoxelState";
 import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
 import { DEFAULT_LOGO_PRESET_ID, LOGO_PRESETS, getLogoPreset } from "@/components/logo/logoPresets";
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
@@ -95,7 +95,7 @@ import {
   routeSearchValueParam,
   type RouteSearchParamMetadata,
   type RouteSearchParamMetadataByKey,
-} from "@/lib/routeSearchParamMetadata";
+} from "@/routing/searchParamMetadata";
 import { after, bad, good, pure } from "@samebase/sure";
 
 const LOGO_ROTATION_AXIS_MODE_VALUES = [

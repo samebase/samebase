@@ -7,8 +7,8 @@ import {
   routeSearchPresenceParam,
   routeSearchStringValue,
   routeSearchValueParam,
-} from "@/lib/routeSearchParamMetadata";
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+} from "@/routing/searchParamMetadata";
+import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 
 export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
 

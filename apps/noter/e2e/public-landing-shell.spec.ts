@@ -21,7 +21,7 @@ import {
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
 } from "../src/lib/publicLandingLogo";
-import { formatRouteSearchPresenceFlagLinkLabel } from "../src/lib/routeSearchFlags";
+import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 

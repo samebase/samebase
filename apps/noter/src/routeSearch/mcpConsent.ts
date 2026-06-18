@@ -1,4 +1,4 @@
-import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
+import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
@@ -8,7 +8,7 @@ import {
   routeSearchNonEmptyString,
   routeSearchPresenceParam,
   routeSearchValueParam,
-} from "@/lib/routeSearchParamMetadata";
+} from "@/routing/searchParamMetadata";
 
 const RouteSearchSchema_mcpConsent = defineRouteSearchParams({
   mcp_consent_request: routeSearchValueParam(routeSearchNonEmptyString, {

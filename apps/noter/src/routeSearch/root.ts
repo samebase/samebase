@@ -10,7 +10,7 @@ import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
   type SearchPatch,
-} from "@/lib/routeSearchFlags";
+} from "@/routing/searchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
@@ -23,7 +23,7 @@ import {
   routeSearchStringValue,
   routeSearchValueParam,
   type RouteSearchParamMetadataByKey,
-} from "@/lib/routeSearchParamMetadata";
+} from "@/routing/searchParamMetadata";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { FORCE_PROD_UI_QUERY_PARAM, isProdUiModeEnabled } from "@/lib/prodUiMode";

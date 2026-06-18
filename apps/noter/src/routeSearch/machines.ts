@@ -5,7 +5,7 @@ import {
   readRouteSearchStaticData,
   routeSearchNonEmptyString,
   routeSearchValueParam,
-} from "@/lib/routeSearchParamMetadata";
+} from "@/routing/searchParamMetadata";
 
 const RouteSearchSchema_machines = defineRouteSearchParams({
   machineId: routeSearchValueParam(routeSearchNonEmptyString, {

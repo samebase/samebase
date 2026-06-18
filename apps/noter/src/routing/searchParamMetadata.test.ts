@@ -11,7 +11,7 @@ import {
   routeSearchPresenceParam,
   routeSearchValueParam,
   type InferRouteSearch,
-} from "@/lib/routeSearchParamMetadata";
+} from "@/routing/searchParamMetadata";
 
 describe("routeSearchParamMetadata", () => {
   it("parses route search fields directly from param specs", () => {

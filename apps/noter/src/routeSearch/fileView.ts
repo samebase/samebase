@@ -3,7 +3,7 @@ import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
   type SearchPatch,
-} from "@/lib/routeSearchFlags";
+} from "@/routing/searchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
@@ -12,7 +12,7 @@ import {
   readRouteSearchStaticData,
   routeSearchPresenceParam,
   routeSearchValueParam,
-} from "@/lib/routeSearchParamMetadata";
+} from "@/routing/searchParamMetadata";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { literal } from "@samebase/sure";
 

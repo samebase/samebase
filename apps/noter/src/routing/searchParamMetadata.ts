@@ -17,7 +17,7 @@ import {
   type NoterRouteSearchParamValueSemantics,
   type NoterRouteSearchParamValueSuggestions,
   type NoterRouteSearchParamSuggestion,
-} from "@/lib/routePermissions";
+} from "@/routing/permissions";
 
 type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
 

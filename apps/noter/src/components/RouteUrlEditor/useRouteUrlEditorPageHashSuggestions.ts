@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES,
   readRouteUrlEditorDocumentHashSuggestionKeys,
-} from "@/lib/routeUrlEditorHashSuggestions";
+} from "@/routing/urlEditorHashSuggestions";
 
 const routeUrlEditorPageHashSuggestionSelector =
   ROUTE_URL_EDITOR_DOCUMENT_HASH_SUGGESTION_ATTRIBUTES.map((attribute) => `[${attribute}]`).join(

@@ -3,13 +3,13 @@ import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
 import {
   readNoterRouteEnvironmentForOrigin,
   type NoterRouteEnvironment,
-} from "@/lib/routeAvailability";
-import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+} from "@/routing/availability";
+import { normalizeRouteUrlEditorHref } from "@/routing/urlEditor";
 import {
   canAccessNoterRouteStaticData,
   type NoterRouteAccessViewer,
   type NoterRouteStaticData,
-} from "@/lib/routePermissions";
+} from "@/routing/permissions";
 import { entries } from "@noter-md/dependent/object";
 
 type RouteUrlPathSuggestionsInput = {

@@ -13,7 +13,7 @@ import { AppRootClient } from "@/components/AppRootClient";
 import {
   canAccessNoterRouteMatchesAvailability,
   readNoterRouteEnvironmentForRouteGuard,
-} from "@/lib/routeAvailability";
+} from "@/routing/availability";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   clearConflictingRootThemeModeSearch,

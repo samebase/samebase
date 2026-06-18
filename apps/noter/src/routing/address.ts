@@ -1,10 +1,10 @@
 import { entries } from "@noter-md/dependent/object";
 import type { AppRouter } from "@/router";
-import { normalizeRouteUrlEditorHref } from "@/lib/routeUrlEditor";
+import { normalizeRouteUrlEditorHref } from "@/routing/urlEditor";
 import {
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestionEnvironment,
-} from "@/lib/routeUrlPathSuggestions";
+} from "@/routing/urlPathSuggestions";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
@@ -19,13 +19,13 @@ import {
   type NoterRouteSearchParamSuggestion,
   type NoterRouteSearchParamValueSuggestion,
   type NoterRouteStaticData,
-} from "@/lib/routePermissions";
+} from "@/routing/permissions";
 import {
   parseRouteAddress,
   readRouteAddressSearchTokenText,
   type RouteAddressSearchToken,
-} from "@/lib/routeAddressParts";
-import { type NoterRouteEnvironment } from "@/lib/routeAvailability";
+} from "@/routing/addressParts";
+import { type NoterRouteEnvironment } from "@/routing/availability";
 
 type RouteAddressReadinessInput = {
   currentRouteAddress: string;

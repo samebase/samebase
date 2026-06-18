@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+import type { NoterRouteAccessViewer } from "@/routing/permissions";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ApprovalGate, ApprovalGateViewerAccessProvider } from "./ApprovalGate";
 

@@ -1,5 +1,5 @@
 import { bad, good, pure } from "@samebase/sure";
-import { defineRouteSearchParams, routeSearchValueParam } from "@/lib/routeSearchParamMetadata";
+import { defineRouteSearchParams, routeSearchValueParam } from "@/routing/searchParamMetadata";
 import {
   APP_THEME_COLOR_KEYS,
   DEFAULT_APP_THEME_COLORS,
