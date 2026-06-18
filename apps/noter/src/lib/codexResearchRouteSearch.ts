@@ -2,6 +2,7 @@ import {
   defineRouteSearchParams,
   type InferRouteSearch,
   readRouteSearchAcceptedKeys,
+  readRouteSearchParamAccess,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
   routeSearchNonEmptyString,
@@ -26,6 +27,10 @@ const codexResearchRouteSearchParamMetadata = readRouteSearchParamMetadata(
 export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   codexResearchRouteSearchParamMetadata,
   "route",
+);
+
+export const CODEX_RESEARCH_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  codexResearchRouteSearchParamMetadata,
 );
 
 export const CODEX_RESEARCH_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(

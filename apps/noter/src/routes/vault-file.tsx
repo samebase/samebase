@@ -3,6 +3,7 @@ import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import {
   FILE_VIEW_ROUTE_SEARCH_KEYS,
+  FILE_VIEW_ROUTE_SEARCH_PARAM_ACCESS,
   FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/vault/$")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: FILE_VIEW_ROUTE_SEARCH_KEYS,
+    searchParamAccess: FILE_VIEW_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: FileViewRouteComponent,

@@ -84,6 +84,7 @@ import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
+  readRouteSearchParamAccess,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
@@ -548,6 +549,10 @@ export const LOGO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
 
 export const LOGO_ROUTE_SEARCH_KEYS = keys(LOGO_ROUTE_SEARCH_PARAM_METADATA);
 
+export const LOGO_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  LOGO_ROUTE_SEARCH_PARAM_METADATA,
+);
+
 const PUBLIC_LANDING_LOGO_STATIC_FALLBACK_SAFE_SEARCH_KEYS = [
   "zoom",
 ] as const satisfies readonly (typeof LOGO_ROUTE_SEARCH_KEYS)[number][];
@@ -576,6 +581,10 @@ const LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA = readRouteSearchParamMetadata(
 ) satisfies RouteSearchParamMetadataByKey<LogoIsoRouteSearch>;
 
 export const LOGO_ISO_ROUTE_SEARCH_KEYS = keys(LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA);
+
+export const LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA,
+);
 
 const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,

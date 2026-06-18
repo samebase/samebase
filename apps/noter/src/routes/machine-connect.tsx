@@ -3,6 +3,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { MachineConnectPage } from "@/components/MachineConnectPage";
 import {
   MACHINE_CONNECT_ROUTE_SEARCH_KEYS,
+  MACHINE_CONNECT_ROUTE_SEARCH_PARAM_ACCESS,
   MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateMachineConnectRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/machines/connect")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: MACHINE_CONNECT_ROUTE_SEARCH_KEYS,
+    searchParamAccess: MACHINE_CONNECT_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: MachineConnectRouteComponent,

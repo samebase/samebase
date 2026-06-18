@@ -356,6 +356,8 @@ they are.
   reads as a requirement).
 - Search-param metadata uses the same `access: AccessKey` field. Some access keys do not make sense
   for a particular frontend surface, but the union is intentionally shared rather than mirrored.
+  Route-owned schemas derive both editor suggestions and complete `searchParamAccess` lists from the
+  same metadata so hidden/manual params keep access cleanup without being suggested.
 - Viewer model `{ isAdmin: boolean }` is replaced by `{ accessKeys }` from
   `users.currentViewerAccess`; `canAccessNoterRoutePermission` becomes
   `canAccessNoterRouteAccess(access, viewer)`. Frontend route/search decisions do not need the
@@ -367,8 +369,8 @@ they are.
   authenticated viewer lacking the key (consistent with availability handling). This subsumes
   per-page `AuthenticatedAppRoutePage` placement over time. Public routes still skip the viewer
   access query unless the current URL contains a known non-public search param. Once viewer access
-  loads, the shell replaces the URL with unauthorized params removed before rendering the route
-  outlet.
+  loads, the shell uses root search access plus matched route `searchParamAccess` to replace the URL
+  with unauthorized params removed before rendering the route outlet.
 - Suggestion plumbing: the `=== "admin"` / `=== "public"` equality filters at
   `rootRouteSearch.ts:164-170` become access-list checks
   (`canAccessNoterRouteAccess(suggestion.access, viewer)`), removing the silent-drop hazard. Test

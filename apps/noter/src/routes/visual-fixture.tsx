@@ -3,6 +3,7 @@ import {
   defineRouteSearchParams,
   type InferRouteSearch,
   readRouteSearchAcceptedKeys,
+  readRouteSearchParamAccess,
   readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
   routeSearchFiniteNumber,
@@ -46,6 +47,10 @@ const visualFixtureRouteSearchParamSuggestions = readRouteSearchParamSuggestions
   "route",
 );
 
+const visualFixtureRouteSearchParamAccess = readRouteSearchParamAccess(
+  visualFixtureRouteSearchParamMetadata,
+);
+
 const visualFixtureRouteSearchKeys = readRouteSearchAcceptedKeys(RouteSearchSchema_visualFixture);
 
 function validateVisualFixtureRouteSearch(
@@ -64,6 +69,7 @@ export const Route = createFileRoute("/visual-fixture")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: visualFixtureRouteSearchKeys,
+    searchParamAccess: visualFixtureRouteSearchParamAccess,
     searchParamSuggestions: visualFixtureRouteSearchParamSuggestions,
   },
   component: VisualFixtureRouteComponent,

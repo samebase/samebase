@@ -3,6 +3,7 @@ import { CodexAppServerResearchPage } from "@/components/CodexAppServerResearchP
 import { CODEX_APP_SERVER_RESEARCH_ROUTE } from "@/lib/codexAppServerResearch";
 import {
   CODEX_RESEARCH_ROUTE_SEARCH_KEYS,
+  CODEX_RESEARCH_ROUTE_SEARCH_PARAM_ACCESS,
   CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateCodexResearchRouteSearch,
 } from "@/lib/codexResearchRouteSearch";
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/research/codex-app-server")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: CODEX_RESEARCH_ROUTE_SEARCH_KEYS,
+    searchParamAccess: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: CODEX_RESEARCH_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: CodexResearchRouteComponent,

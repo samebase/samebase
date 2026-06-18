@@ -75,6 +75,9 @@ Every route schema derives its accepted keys once:
 
 ```ts
 export const MACHINES_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_machines);
+export const MACHINES_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  machinesRouteSearchParamMetadata,
+);
 ```
 
 and declares them on the route:
@@ -83,6 +86,7 @@ and declares them on the route:
 staticData: {
   ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   acceptedSearchKeys: MACHINES_ROUTE_SEARCH_KEYS,
+  searchParamAccess: MACHINES_ROUTE_SEARCH_PARAM_ACCESS,
   searchParamSuggestions: MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS,
 },
 ```

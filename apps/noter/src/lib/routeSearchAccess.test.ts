@@ -36,6 +36,27 @@ describe("routeSearchAccess", () => {
     ).toBe(true);
   });
 
+  it("requires viewer access for hidden route-owned search params", () => {
+    expect(
+      routeSearchNeedsViewerAccess({
+        matches: [
+          {
+            staticData: {
+              access: "access_public",
+              searchParamAccess: [
+                {
+                  access: "access_admin",
+                  key: "staffOnly",
+                },
+              ],
+            },
+          },
+        ],
+        searchStr: "?staffOnly&prod-ui",
+      }),
+    ).toBe(true);
+  });
+
   it("removes unauthorized root search params and keeps allowed params", () => {
     expect(
       readRouteSearchAccessCanonicalRouteAddress({
@@ -64,7 +85,7 @@ describe("routeSearchAccess", () => {
     ).toBeNull();
   });
 
-  it("removes unauthorized route-owned search params", () => {
+  it("removes unauthorized route-owned search params that are hidden from suggestions", () => {
     expect(
       readRouteSearchAccessCanonicalRouteAddress({
         location: {
@@ -76,11 +97,10 @@ describe("routeSearchAccess", () => {
           {
             staticData: {
               access: "access_public",
-              searchParamSuggestions: [
+              searchParamAccess: [
                 {
                   access: "access_admin",
                   key: "staffOnly",
-                  searchParamKind: "presence",
                 },
               ],
             },

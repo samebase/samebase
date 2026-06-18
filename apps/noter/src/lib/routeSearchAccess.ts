@@ -5,13 +5,12 @@ import {
   type NoterRouteAccess,
   type NoterRouteAccessViewer,
   type NoterRouteSearchParamAccess,
-  type NoterRouteSearchParamSuggestion,
 } from "@/lib/routePermissions";
 
 type NoterRouteSearchAccessMatch = {
   staticData: {
     access: NoterRouteAccess;
-    searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
+    searchParamAccess?: readonly NoterRouteSearchParamAccess[];
   };
 };
 
@@ -33,7 +32,7 @@ function readRouteSearchParamAccess(args: {
   for (const match of args.matches) {
     const routeSearchAccess = readMatchingSearchParamAccess(
       args.key,
-      match.staticData.searchParamSuggestions ?? [],
+      match.staticData.searchParamAccess ?? [],
     );
     if (routeSearchAccess !== null) {
       return routeSearchAccess;

@@ -3,6 +3,7 @@ import {
   defineRouteSearchParams,
   type InferRouteSearch,
   readRouteSearchAcceptedKeys,
+  readRouteSearchParamAccess,
   readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
@@ -34,6 +35,10 @@ export const MCP_CONSENT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSu
   "route",
 );
 
+export const MCP_CONSENT_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  mcpConsentRouteSearchParamMetadata,
+);
+
 export const MCP_CONSENT_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
   RouteSearchSchema_mcpConsent,
 );
@@ -61,6 +66,10 @@ const pricingRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearch
 export const PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   pricingRouteSearchParamMetadata,
   "route",
+);
+
+export const PRICING_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  pricingRouteSearchParamMetadata,
 );
 
 export const PRICING_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_pricing);
@@ -103,6 +112,10 @@ export const MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchPar
   "route",
 );
 
+export const MACHINE_CONNECT_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  machineConnectRouteSearchParamMetadata,
+);
+
 export const MACHINE_CONNECT_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
   RouteSearchSchema_machineConnect,
 );
@@ -137,6 +150,10 @@ const machinesRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearc
 export const MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
   machinesRouteSearchParamMetadata,
   "route",
+);
+
+export const MACHINES_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+  machinesRouteSearchParamMetadata,
 );
 
 export const MACHINES_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_machines);

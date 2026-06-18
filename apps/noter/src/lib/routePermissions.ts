@@ -94,6 +94,7 @@ export type NoterRouteStaticData = {
   acceptance.
   */
   acceptedSearchKeys?: readonly string[];
+  searchParamAccess?: readonly NoterRouteSearchParamAccess[];
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
 };
 

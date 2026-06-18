@@ -3,6 +3,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import { LogoPreviewPage } from "@/components/logo/LogoPreviewPage";
 import {
   LOGO_ISO_ROUTE_SEARCH_KEYS,
+  LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS,
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoIsoRouteSearch,
 } from "@/lib/logoRouteSearch";
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/logo/iso")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ISO_ROUTE_SEARCH_KEYS,
+    searchParamAccess: LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("iso"),
   },
   component: LogoIsoRouteComponent,
