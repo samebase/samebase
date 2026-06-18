@@ -2,7 +2,7 @@ import { entries } from "@noter-md/dependent/object";
 import {
   canAccessNoterRouteAccess,
   canAccessNoterRouteStaticData,
-  readNoterRouteAccessViewerFromAdminStatus,
+  type NoterRouteAccessViewer,
   type NoterRouteSearchParamSuggestion,
   type NoterRouteSearchParamValueSuggestion,
 } from "@/lib/routePermissions";
@@ -265,7 +265,7 @@ filtering.
 */
 function readSearchParams(
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[],
-  viewerIsAdmin: boolean,
+  viewer: NoterRouteAccessViewer,
 ): NoterRouteSearchParamSuggestion[] {
   const searchParamSuggestions = [
     ...routeSearchParamSuggestions,
@@ -275,12 +275,7 @@ function readSearchParams(
   const uniqueSuggestions: NoterRouteSearchParamSuggestion[] = [];
 
   for (const searchParamSuggestion of searchParamSuggestions) {
-    if (
-      !canAccessNoterRouteAccess(
-        searchParamSuggestion.access,
-        readNoterRouteAccessViewerFromAdminStatus(viewerIsAdmin),
-      )
-    ) {
+    if (!canAccessNoterRouteAccess(searchParamSuggestion.access, viewer)) {
       continue;
     }
 
@@ -322,7 +317,7 @@ function readSearchRows(args: {
   routeAddress: string;
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
   searchKeyToken: RouteAddressSearchToken;
-  viewerIsAdmin: boolean;
+  viewer: NoterRouteAccessViewer;
 }): Suggestion[] {
   const suggestions: Suggestion[] = [];
   const existingKeys = readRouteAddressSearchKeysOutsideToken(
@@ -332,7 +327,7 @@ function readSearchRows(args: {
 
   for (const searchParamSuggestion of readSearchParams(
     args.routeSearchParamSuggestions,
-    args.viewerIsAdmin,
+    args.viewer,
   )) {
     if (existingKeys.has(searchParamSuggestion.key)) {
       continue;
@@ -406,11 +401,11 @@ function readValueRows(args: {
   routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
   token: Extract<RouteAddressSearchToken, { kind: "value" }>;
   valuePrefix: string;
-  viewerIsAdmin: boolean;
+  viewer: NoterRouteAccessViewer;
 }): Suggestion[] {
   const searchParamSuggestion = readSearchParams(
     args.routeSearchParamSuggestions,
-    args.viewerIsAdmin,
+    args.viewer,
   ).find((suggestion) => suggestion.key === args.token.key);
   if (!searchParamSuggestion) {
     return [];
@@ -539,7 +534,7 @@ function readRouteHashKeys(args: {
   origin: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
-  viewerIsAdmin: boolean;
+  viewer: NoterRouteAccessViewer;
 }): readonly string[] {
   const parsedRouteAddress = parseRouteAddress(args.routeAddress);
   const routeEnvironment = readRouteUrlPathSuggestionEnvironment({
@@ -550,11 +545,7 @@ function readRouteHashKeys(args: {
   const routeEntry = entries(args.routesByPath).find(
     ([routePath, route]) =>
       routePath === parsedRouteAddress.path &&
-      canAccessNoterRouteStaticData(
-        route.options.staticData,
-        readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
-        routeEnvironment,
-      ),
+      canAccessNoterRouteStaticData(route.options.staticData, args.viewer, routeEnvironment),
   );
 
   return typeof routeEntry === "undefined"
@@ -569,7 +560,7 @@ function readHashRows(args: {
   prefix: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
-  viewerIsAdmin: boolean;
+  viewer: NoterRouteAccessViewer;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
   const routeAddressParts = parseRouteAddress(args.routeAddress);
@@ -582,7 +573,7 @@ function readHashRows(args: {
       origin,
       routeAddress: args.routeAddress,
       routesByPath: args.routesByPath,
-      viewerIsAdmin: args.viewerIsAdmin,
+      viewer: args.viewer,
     }),
     ...pageHashKeys,
   ]);
@@ -611,13 +602,13 @@ function readPathRows(args: {
   prefix: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
-  viewerIsAdmin: boolean;
+  viewer: NoterRouteAccessViewer;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
 
   return readRouteUrlPathSuggestions(
     args.routesByPath,
-    readNoterRouteAccessViewerFromAdminStatus(args.viewerIsAdmin),
+    args.viewer,
     readRouteUrlPathSuggestionEnvironment({
       currentHref: args.routeAddress,
       draftHref: args.routeAddress,
@@ -660,7 +651,7 @@ export function readSuggestions(args: {
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
   selection: Selection | null;
-  viewerIsAdmin: boolean;
+  viewer: NoterRouteAccessViewer;
 }): Suggestion[] {
   const routeAddressParts = parseRouteAddress(args.routeAddress);
 
@@ -687,7 +678,7 @@ export function readSuggestions(args: {
       prefix: args.prefix,
       routeAddress: args.routeAddress,
       routesByPath: args.routesByPath,
-      viewerIsAdmin: args.viewerIsAdmin,
+      viewer: args.viewer,
     });
   }
 
@@ -702,7 +693,7 @@ export function readSuggestions(args: {
       routeAddress: args.routeAddress,
       routeSearchParamSuggestions,
       searchKeyToken: cursorContext.token,
-      viewerIsAdmin: args.viewerIsAdmin,
+      viewer: args.viewer,
     });
   }
 
@@ -711,6 +702,6 @@ export function readSuggestions(args: {
     routeSearchParamSuggestions,
     token: cursorContext.token,
     valuePrefix: cursorContext.valuePrefix,
-    viewerIsAdmin: args.viewerIsAdmin,
+    viewer: args.viewer,
   });
 }

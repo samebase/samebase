@@ -5,19 +5,28 @@ import {
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
+import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+import { ACCESS_GRANTS } from "../../shared/accessModel";
 
 const ORIGIN = "http://localhost:5174";
 const DEPLOYED_ORIGIN = "https://preview.noter.md";
 const routesByPath = getRouter().routesByPath;
-const adminViewer = { role: "role_staff" } as const;
-const publicViewer = { role: "role_anonymous" } as const;
+const staffViewer = {
+  accessKeys: ACCESS_GRANTS.role_staff,
+} as const satisfies NoterRouteAccessViewer;
+const memberViewer = {
+  accessKeys: ACCESS_GRANTS.role_member,
+} as const satisfies NoterRouteAccessViewer;
+const anonymousViewer = {
+  accessKeys: ACCESS_GRANTS.role_anonymous,
+} as const satisfies NoterRouteAccessViewer;
 const localEnvironment = "local";
 const prodUiEnvironment = "production";
 const deployedEnvironment = "preview";
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, localEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment);
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/home");
@@ -49,8 +58,12 @@ describe("readRouteUrlPathSuggestions", () => {
     );
   });
 
-  it("filters admin route paths for public viewers", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, publicViewer, localEnvironment);
+  it("filters staff-only route paths for anonymous viewers", () => {
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      anonymousViewer,
+      localEnvironment,
+    );
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
@@ -69,8 +82,23 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/vault/$");
   });
 
+  it("exposes member route paths from access grants", () => {
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, memberViewer, localEnvironment);
+
+    expect(suggestions).toContain("/");
+    expect(suggestions).toContain("/connect-repo");
+    expect(suggestions).toContain("/home");
+    expect(suggestions).toContain("/pricing");
+    expect(suggestions).toContain("/vault/$");
+    expect(suggestions).not.toContain("/indexDB");
+    expect(suggestions).not.toContain("/localStorage");
+    expect(suggestions).not.toContain("/machines");
+    expect(suggestions).not.toContain("/new-app");
+    expect(suggestions).not.toContain("/oauth/mcp/consent");
+  });
+
   it("hides local-only route paths from the prod UI environment", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, prodUiEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, prodUiEnvironment);
 
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/test");
@@ -78,7 +106,7 @@ describe("readRouteUrlPathSuggestions", () => {
   });
 
   it("hides local-only route paths outside local route environments", () => {
-    const suggestions = readRouteUrlPathSuggestions(routesByPath, adminViewer, deployedEnvironment);
+    const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, deployedEnvironment);
 
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
@@ -93,7 +121,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "/logo/t",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toEqual(["/logo/transition", "/logo/transition/transforms"]);
   });
@@ -105,7 +133,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: `${ORIGIN}/machines/c`,
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toEqual(["/machines/connect"]);
   });
@@ -117,7 +145,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "?prod-ui",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toEqual(["/logo/iso"]);
 
@@ -127,7 +155,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "#thread",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toEqual(["/research/codex-app-server/browser"]);
   });
@@ -139,7 +167,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "/vault/octo/repo/codespace/main/ch",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toEqual(["/vault/$", "/vault/$owner/$repo/codespace/$branch/chat"]);
   });
@@ -151,7 +179,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "/vault/octo/repo/main/src/App.tsx",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toEqual(["/vault/$"]);
   });
@@ -163,9 +191,9 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "  ",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
-    ).toEqual(readRouteUrlPathSuggestions(routesByPath, adminViewer, localEnvironment));
+    ).toEqual(readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment));
 
     expect(
       filterRouteUrlPathSuggestions({
@@ -173,7 +201,7 @@ describe("filterRouteUrlPathSuggestions", () => {
         draftHref: "https://example.com/logo",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toEqual([]);
   });
@@ -184,7 +212,7 @@ describe("filterRouteUrlPathSuggestions", () => {
       draftHref: "  ",
       origin: ORIGIN,
       routesByPath,
-      viewer: adminViewer,
+      viewer: staffViewer,
     });
 
     expect(suggestions).toContain("/logo");
@@ -197,7 +225,7 @@ describe("filterRouteUrlPathSuggestions", () => {
       draftHref: "/vis",
       origin: DEPLOYED_ORIGIN,
       routesByPath,
-      viewer: adminViewer,
+      viewer: staffViewer,
     });
 
     expect(suggestions).toEqual([]);
@@ -209,7 +237,7 @@ describe("filterRouteUrlPathSuggestions", () => {
       draftHref: "/test",
       origin: DEPLOYED_ORIGIN,
       routesByPath,
-      viewer: adminViewer,
+      viewer: staffViewer,
     });
 
     expect(suggestions).toEqual([]);
@@ -224,7 +252,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/logo?from=route-url-editor",
         origin: ORIGIN,
         routesByPath,
-        viewer: publicViewer,
+        viewer: anonymousViewer,
       }),
     ).toBe(true);
 
@@ -234,7 +262,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/lo",
         origin: ORIGIN,
         routesByPath,
-        viewer: publicViewer,
+        viewer: anonymousViewer,
       }),
     ).toBe(false);
 
@@ -244,7 +272,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/logo/",
         origin: ORIGIN,
         routesByPath,
-        viewer: publicViewer,
+        viewer: anonymousViewer,
       }),
     ).toBe(true);
 
@@ -254,7 +282,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/logo/iso",
         origin: ORIGIN,
         routesByPath,
-        viewer: publicViewer,
+        viewer: anonymousViewer,
       }),
     ).toBe(false);
   });
@@ -266,7 +294,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/vault/octo/repo/codespace/main/chat",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -276,7 +304,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/vault/octo",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -286,7 +314,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/vault/",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(false);
   });
@@ -298,7 +326,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/logo/iso?from=route-url-editor",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -308,7 +336,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/indexDB",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -318,7 +346,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/localStorage",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -328,7 +356,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/terms/",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -338,7 +366,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/logo/iso/",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -348,7 +376,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/localStorage/",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -358,7 +386,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/home",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -368,7 +396,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/visual-fixture",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
 
@@ -378,7 +406,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/home",
         origin: ORIGIN,
         routesByPath,
-        viewer: publicViewer,
+        viewer: anonymousViewer,
       }),
     ).toBe(false);
 
@@ -388,7 +416,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/indexDB",
         origin: ORIGIN,
         routesByPath,
-        viewer: publicViewer,
+        viewer: anonymousViewer,
       }),
     ).toBe(false);
 
@@ -398,7 +426,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/localStorage",
         origin: ORIGIN,
         routesByPath,
-        viewer: publicViewer,
+        viewer: anonymousViewer,
       }),
     ).toBe(false);
 
@@ -408,7 +436,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         draftHref: "/logo",
         origin: ORIGIN,
         routesByPath,
-        viewer: adminViewer,
+        viewer: staffViewer,
       }),
     ).toBe(true);
   });

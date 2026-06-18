@@ -3,7 +3,7 @@ import {
   type NoterRouteAvailability,
   type NoterRouteEnvironment,
 } from "@/lib/routeAvailability";
-import { canAccess, type AccessKey, type ViewerRole } from "../../shared/accessModel";
+import type { AccessKey } from "../../shared/accessModel";
 
 export type NoterRouteAccess = AccessKey;
 
@@ -94,20 +94,27 @@ export type NoterRouteStaticData = {
 };
 
 export type NoterRouteAccessViewer = {
-  role: ViewerRole;
+  accessKeys: readonly AccessKey[];
+};
+
+type NoterRouteAccessMatch = {
+  staticData: {
+    access: NoterRouteAccess;
+  };
 };
 
 export function canAccessNoterRouteAccess(
   access: NoterRouteAccess,
   viewer: NoterRouteAccessViewer,
 ): boolean {
-  return canAccess(access, viewer.role);
+  return viewer.accessKeys.includes(access);
 }
 
-export function readNoterRouteAccessViewerFromAdminStatus(
-  isAdmin: boolean,
-): NoterRouteAccessViewer {
-  return { role: isAdmin ? "role_staff" : "role_anonymous" };
+export function canAccessNoterRouteMatchesAccess(
+  matches: readonly NoterRouteAccessMatch[],
+  viewer: NoterRouteAccessViewer,
+): boolean {
+  return matches.every((match) => canAccessNoterRouteAccess(match.staticData.access, viewer));
 }
 
 export function canAccessNoterRouteStaticData(
