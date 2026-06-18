@@ -9,9 +9,7 @@ describe("users Convex contract", () => {
 
     await expect(t.query(api.users.viewer)).resolves.toBeNull();
     await expect(t.query(api.users.isCurrentUserApproved)).resolves.toBe(false);
-    await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError(
-      "User not authenticated",
-    );
+    await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
   });
 
   it("loads viewer connection state from authenticated database rows", async () => {
@@ -54,7 +52,7 @@ describe("users Convex contract", () => {
     await expect(asUser.query(api.users.isCurrentUserApproved)).resolves.toBe(true);
   });
 
-  it("keeps provider connection state scoped to the authenticated user", async () => {
+  it("keeps public viewer state for unapproved users and denies provider access", async () => {
     const t = makeConvexTest();
     const ownerId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -97,11 +95,13 @@ describe("users Convex contract", () => {
       hasConvexConnection: false,
       hasCloudflareConnection: false,
     });
-    await expect(asViewer.query(api.users.getGithubConnectionStatus)).resolves.toEqual({
-      connected: false,
-    });
     await expect(asViewer.query(api.users.isCurrentUserApproved)).resolves.toBe(false);
-    await expect(asViewer.mutation(api.users.disconnectGithub)).resolves.toBeNull();
+    await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
+      "Access denied",
+    );
+    await expect(asViewer.mutation(api.users.disconnectGithub)).rejects.toThrowError(
+      "Access denied",
+    );
 
     const ownerConnectionAfterViewerDisconnect = await t.run(async (ctx) => {
       return await ctx.db

@@ -1,11 +1,11 @@
 "use node";
 
-import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { getUserId } from "./common";
+import { internalAction, type ActionCtx } from "./_generated/server";
 import { Infer, v } from "convex/values";
 import { guard } from "@noter-md/dependent/main";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
+import { action } from "./functions";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord, toErrorMessage } from "./jsonUtils";
 import {
@@ -750,12 +750,12 @@ export async function listGitHubRepositories(args: {
 }
 
 export const listRepositoriesPreview = action({
+  access: "access_repo_connect",
   args: {},
   returns: githubRepositoryPreviewResult,
   handler: async (ctx): Promise<GitHubRepositoryPreviewResult> => {
-    const userId = await getUserId(ctx);
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
+      userId: ctx.viewer.userId,
       kind: "github",
     });
     if (githubConnection?.kind !== "github") {
@@ -769,12 +769,12 @@ export const listRepositoriesPreview = action({
 
 // List the current user's GitHub repositories
 export const listRepositories = action({
+  access: "access_repo_connect",
   args: {},
   returns: array(githubRepositoryListItem),
   handler: async (ctx): Promise<GitHubRepositoryList> => {
-    const userId = await getUserId(ctx);
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
+      userId: ctx.viewer.userId,
       kind: "github",
     });
     if (githubConnection?.kind !== "github") {
@@ -1882,6 +1882,7 @@ function getRepositoryMediaErrorStatus(error: unknown): number | null {
 }
 
 export const getRepositoryFileContent = action({
+  access: "access_files_read",
   args: {
     repositoryFullName: string(),
     filePath: string(),
@@ -1890,15 +1891,7 @@ export const getRepositoryFileContent = action({
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
     const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
-    const userId = await getUserId(ctx);
-
-    const currentUser = await ctx.runQuery(internal.users.getById, {
-      userId,
-    });
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
+    const userId = ctx.viewer.userId;
 
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -1976,6 +1969,7 @@ export const getRepositoryFileContent = action({
 });
 
 export const getRepositoryMediaAsset = action({
+  access: "access_files_read",
   args: {
     repositoryFullName: string(),
     filePath: string(),
@@ -1990,7 +1984,7 @@ export const getRepositoryMediaAsset = action({
     }
 
     const requestedBranch = normalizeOptionalRepositoryBranch(args.branch);
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -2368,6 +2362,7 @@ async function refreshRepositoryTreeForUserHelper(
  * and GitHub metadata-depth choices are not trusted from React.
  */
 export const refreshRepositoryTree = action({
+  access: "access_app_refresh",
   args: {
     vaultId: id("vaults"),
     branch: string(),
@@ -2375,7 +2370,7 @@ export const refreshRepositoryTree = action({
   },
   returns: refreshRepositoryTreeResult,
   handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       userId,
       vaultId: args.vaultId,

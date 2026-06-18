@@ -1,10 +1,10 @@
 "use node";
 
-import { action, type ActionCtx } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { getUserId } from "./common";
+import { action } from "./functions";
 import type { ToolContext } from "./agent/tools";
 import { runAgentGraph } from "./agent/graph";
 import { saveMessage } from "@convex-dev/agent";
@@ -150,10 +150,11 @@ async function loadAgentPrompt(args: {
 }
 
 export const sendAgentMessage = action({
+  access: "access_admin",
   args: sendAgentMessageArgs,
   returns: sendAgentMessageReturns,
   handler: async (ctx, args: SendAgentMessageArgs) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     console.log("agentGraph:sendAgentMessage:start", {
       vaultId: args.vaultId,
       agentPath: args.agentPath,

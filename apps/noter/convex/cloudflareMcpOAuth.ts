@@ -1,10 +1,11 @@
 import { Infer, v } from "convex/values";
-import { action, httpAction, internalAction, internalMutation } from "./_generated/server";
+import { httpAction, internalAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { action } from "./functions";
 import {
   createCodeChallenge,
   OAUTH_STATE_TTL_MS,
@@ -546,14 +547,11 @@ export const resolveConnectionForUser = internalAction({
 });
 
 export const getCloudflareMcpOAuthUrl = action({
+  access: "access_provider_connections",
   args: {},
   returns: getCloudflareMcpOAuthUrlResultValidator,
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-    return await buildCloudflareMcpOAuthUrl(ctx, userId);
+    return await buildCloudflareMcpOAuthUrl(ctx, ctx.viewer.userId);
   },
 });
 

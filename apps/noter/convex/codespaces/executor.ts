@@ -1,9 +1,10 @@
 "use node";
 
-import { action, type ActionCtx } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
+import { action } from "../functions";
 import { isRecord, readBoolean, readNumber, readString } from "../jsonUtils";
 import { starterTemplateManifest } from "../starterSeedManifest.generated";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
@@ -62,6 +63,7 @@ function getBundledCodespaceAgentAsset(path: string): string {
  * Execute a command in the Codespace
  */
 export const executeCommand = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     command: v.string(),
@@ -76,7 +78,7 @@ export const executeCommand = action({
       codespaceId: args.codespaceId,
     });
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== ctx.viewer.userId) {
       throw new Error("Codespace not found");
     }
 
@@ -118,6 +120,7 @@ const writeFileToCodespaceResult = v.object({
  * Write a file to the Codespace
  */
 export const writeFileToCodespace = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     filePath: v.string(),
@@ -130,7 +133,7 @@ export const writeFileToCodespace = action({
       codespaceId: args.codespaceId,
     });
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== ctx.viewer.userId) {
       throw new Error("Codespace not found");
     }
 
@@ -171,6 +174,7 @@ const readFileFromCodespaceResult = v.object({
   filePath: v.string(),
 });
 export const readFileFromCodespace = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     filePath: v.string(),
@@ -182,7 +186,7 @@ export const readFileFromCodespace = action({
       codespaceId: args.codespaceId,
     });
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== ctx.viewer.userId) {
       throw new Error("Codespace not found");
     }
 
@@ -227,6 +231,7 @@ const listFilesResult = v.object({
   dirPath: v.string(),
 });
 export const listFiles = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     dirPath: v.optional(v.string()),
@@ -238,7 +243,7 @@ export const listFiles = action({
       codespaceId: args.codespaceId,
     });
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== ctx.viewer.userId) {
       throw new Error("Codespace not found");
     }
 
@@ -278,6 +283,7 @@ const deleteFileResult = v.object({
   filePath: v.string(),
 });
 export const deleteFile = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     filePath: v.string(),
@@ -290,7 +296,7 @@ export const deleteFile = action({
       codespaceId: args.codespaceId,
     });
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== ctx.viewer.userId) {
       throw new Error("Codespace not found");
     }
 
@@ -335,6 +341,7 @@ const getFileStatResult = v.object({
   createdAt: v.string(),
 });
 export const getFileStat = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     filePath: v.string(),
@@ -346,7 +353,7 @@ export const getFileStat = action({
       codespaceId: args.codespaceId,
     });
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== ctx.viewer.userId) {
       throw new Error("Codespace not found");
     }
 
@@ -386,6 +393,7 @@ const checkAgentHealthResult = v.object({
   timestamp: v.optional(v.number()),
 });
 export const checkAgentHealth = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
   },
@@ -396,7 +404,7 @@ export const checkAgentHealth = action({
       codespaceId: args.codespaceId,
     });
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== ctx.viewer.userId) {
       return { healthy: false };
     }
 
@@ -488,6 +496,7 @@ const codexEventsResult = v.object({
 async function getActiveRunningCodespace(
   ctx: ActionCtx,
   codespaceId: Id<"codespaces">,
+  userId: Id<"users">,
 ): Promise<{
   agentUrl: string;
   agentToken: string;
@@ -497,7 +506,7 @@ async function getActiveRunningCodespace(
     codespaceId,
   });
 
-  if (!codespace) {
+  if (!codespace || codespace.userId !== userId) {
     throw new Error("Codespace not found");
   }
   const agentUrl = codespace.agentUrl;
@@ -1394,12 +1403,13 @@ async function fetchCodexStatusFromAgent(args: {
  * Get Codex app-server runtime status for a Codespace
  */
 export const getCodexStatus = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
   },
   returns: codexStatusResult,
   handler: async (ctx, args): Promise<Infer<typeof codexStatusResult>> => {
-    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId, ctx.viewer.userId);
     return await fetchCodexStatusFromAgent({
       agentUrl: codespace.agentUrl,
       agentToken: codespace.agentToken,
@@ -1411,13 +1421,14 @@ export const getCodexStatus = action({
  * Ensure Codex app-server runtime is running for this Codespace
  */
 export const ensureCodexRuntime = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     forceRestart: v.optional(v.boolean()),
   },
   returns: codexStatusResult,
   handler: async (ctx, args): Promise<Infer<typeof codexStatusResult>> => {
-    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId, ctx.viewer.userId);
     await syncBundledCodespaceAgent(codespace);
     const response = await fetch(`${codespace.agentUrl}/codex/runtime/ensure`, {
       method: "POST",
@@ -1446,6 +1457,7 @@ export const ensureCodexRuntime = action({
  * Start a Codex thread in the Codespace runtime
  */
 export const startCodexThread = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     model: v.optional(v.string()),
@@ -1454,7 +1466,7 @@ export const startCodexThread = action({
   },
   returns: startCodexThreadResult,
   handler: async (ctx, args): Promise<Infer<typeof startCodexThreadResult>> => {
-    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId, ctx.viewer.userId);
     await syncBundledCodespaceAgent(codespace);
     const response = await fetch(`${codespace.agentUrl}/codex/thread/start`, {
       method: "POST",
@@ -1495,6 +1507,7 @@ export const startCodexThread = action({
  * Start a Codex turn in the Codespace runtime
  */
 export const startCodexTurn = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     threadId: v.string(),
@@ -1504,7 +1517,7 @@ export const startCodexTurn = action({
   },
   returns: startCodexTurnResult,
   handler: async (ctx, args): Promise<Infer<typeof startCodexTurnResult>> => {
-    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId, ctx.viewer.userId);
     await syncBundledCodespaceAgent(codespace);
     const response = await fetch(`${codespace.agentUrl}/codex/turn/start`, {
       method: "POST",
@@ -1545,13 +1558,14 @@ export const startCodexTurn = action({
  * Poll Codex runtime events buffered by the Codespace agent
  */
 export const getCodexEvents = action({
+  access: "access_machines",
   args: {
     codespaceId: v.id("codespaces"),
     since: v.optional(v.number()),
   },
   returns: codexEventsResult,
   handler: async (ctx, args): Promise<Infer<typeof codexEventsResult>> => {
-    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    const codespace = await getActiveRunningCodespace(ctx, args.codespaceId, ctx.viewer.userId);
     const since = args.since ?? 0;
     const response = await fetch(
       `${codespace.agentUrl}/codex/events?since=${encodeURIComponent(since)}`,

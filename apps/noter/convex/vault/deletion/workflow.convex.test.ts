@@ -65,7 +65,7 @@ describe("vault deletion workflow", () => {
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
-        email: "ada@example.com",
+        email: "nicu@noter.md",
         isApproved: true,
       });
       const vaultId = await ctx.db.insert("vaults", {
@@ -751,7 +751,7 @@ describe("vault deletion workflow", () => {
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
-        email: "ada@example.com",
+        email: "nicu@noter.md",
         isApproved: true,
       });
       const vaultId = await ctx.db.insert("vaults", {

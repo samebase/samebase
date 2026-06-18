@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
+import { query } from "./functions";
 import { vAppProvisioningEventLevel, vAppProvisioningStep } from "./schema";
-import { getUserId } from "./common";
 
 const { array, id, number, object, string } = v;
 const MAX_PROVISIONING_EVENTS = 80;
@@ -64,14 +64,14 @@ export const append = internalMutation({
 });
 
 export const listForVault = query({
+  access: "access_dashboard",
   args: {
     vaultId: id("vaults"),
   },
   returns: array(provisioningEventResult),
   handler: async (ctx, args): Promise<ProvisioningEventResult[]> => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    if (!vault || vault.userId !== ctx.viewer.userId) {
       return [];
     }
 

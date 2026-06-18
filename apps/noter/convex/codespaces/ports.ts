@@ -1,9 +1,9 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { action, type ActionCtx } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { getUserId } from "../common";
+import { action } from "../functions";
 import type { Id } from "../_generated/dataModel";
 import { isRecord, readString } from "../jsonUtils";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
@@ -432,23 +432,21 @@ async function ensureTunnelPortVisibilityWithRetry(args: {
  * tunnels management token, then applies ACL updates via the Dev Tunnels API.
  */
 export const ensureCodespacePortsVisibility = action({
+  access: "access_machines",
   args: { codespaceId: v.id("codespaces") },
   returns: ensureCodespacePortsVisibilityResult,
   handler: async (ctx, args): Promise<Infer<typeof ensureCodespacePortsVisibilityResult>> => {
     assertCodespacesEnabled();
     const ensuredAt = Date.now();
-    let userId: Id<"users">;
+    const userId = ctx.viewer.userId;
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
+    if (!codespace || codespace.userId !== userId) {
+      throw new Error("Codespace not found");
+    }
 
     try {
-      userId = await getUserId(ctx);
-
-      const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
-        codespaceId: args.codespaceId,
-      });
-      if (!codespace || codespace.userId !== userId) {
-        throw new Error("Codespace not found");
-      }
-
       if (codespace.state !== "running") {
         throw new Error(`Codespace is not running (current state: ${codespace.state})`);
       }

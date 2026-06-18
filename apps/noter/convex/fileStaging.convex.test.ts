@@ -57,7 +57,7 @@ describe("fileStaging.listStagedFiles access control", () => {
         vaultId: ids.vaultId,
         branch: "main",
       }),
-    ).rejects.toThrowError("User not authenticated");
+    ).rejects.toThrowError("Access denied");
   });
 
   it("returns an empty list to authenticated non-owners", async () => {
@@ -88,5 +88,37 @@ describe("fileStaging.listStagedFiles access control", () => {
         branch: "main",
       },
     ]);
+  });
+});
+
+describe("fileStaging.getByNewPath access control", () => {
+  it("returns null to authenticated non-owners", async () => {
+    const { ids, t } = await seedVaultWithStagedFile();
+
+    const asOther = asIdentity(t, ids.otherUserId);
+    await expect(
+      asOther.query(api.fileStaging.getByNewPath, {
+        vaultId: ids.vaultId,
+        branch: "main",
+        newPath: "notes/todo.md",
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("returns the staged file to the vault owner", async () => {
+    const { ids, t } = await seedVaultWithStagedFile();
+
+    const asOwner = asIdentity(t, ids.ownerId);
+    await expect(
+      asOwner.query(api.fileStaging.getByNewPath, {
+        vaultId: ids.vaultId,
+        branch: "main",
+        newPath: "notes/todo.md",
+      }),
+    ).resolves.toMatchObject({
+      vaultId: ids.vaultId,
+      filePath: "notes/todo.md",
+      branch: "main",
+    });
   });
 });

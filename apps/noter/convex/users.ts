@@ -1,8 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { action, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
+import { internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
+import { action, mutation, query } from "./functions";
 import { isRecord, readString } from "./jsonUtils";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
@@ -19,7 +21,6 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS,
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
 } from "../shared/cloudflareTokenRefresh";
-import { hasAppAccess, isAdminUser } from "./userAccess";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
@@ -30,7 +31,6 @@ const authProviderSummaryValidator = object({
   providers: array(string()),
   primaryProvider: optional(string()),
 });
-type AuthProviderSummary = Infer<typeof authProviderSummaryValidator>;
 
 type AuthProviderAccountSummary = {
   _creationTime: number;
@@ -238,6 +238,7 @@ async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
 // Public
 
 export const viewer = query({
+  access: "access_public",
   args: {},
   returns: v.union(
     v.object({
@@ -253,12 +254,9 @@ export const viewer = query({
     v.null(),
   ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
-    const user = await ctx.db.get(userId);
-    if (!user) {
+    const userId = ctx.viewer.userId;
+    const user = ctx.viewer.user;
+    if (userId === null || !user) {
       return null;
     }
 
@@ -284,10 +282,11 @@ export const viewer = query({
 });
 
 export const getViewerAuthProviders = query({
+  access: "access_public",
   args: {},
   returns: authProviderSummaryValidator,
-  handler: async (ctx): Promise<AuthProviderSummary> => {
-    const userId = await getAuthUserId(ctx);
+  handler: async (ctx) => {
+    const userId = ctx.viewer.userId;
     if (userId === null) {
       return { providers: [] };
     }
@@ -334,44 +333,25 @@ function compareAuthProviderAccountSummary(
 }
 
 export const isCurrentUserApproved = query({
+  access: "access_public",
   args: {},
   returns: boolean(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return false;
-    const user = await ctx.db.get(userId);
-    if (!user) return false;
-
-    const githubConnection = await getConnectionByUserAndKind(ctx.db, userId, "github");
-    const githubUsername =
-      githubConnection?.kind === "github" ? githubConnection.username : undefined;
-
-    return hasAppAccess({
-      githubUsername,
-      email: user.email,
-      isApproved: user.isApproved,
-    });
+    return ctx.viewer.role !== "role_anonymous";
   },
 });
 
 export const isCurrentUserAdmin = query({
+  access: "access_public",
   args: {},
   returns: boolean(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return false;
-    const user = await ctx.db.get(userId);
-    if (!user) return false;
-
-    const githubConnection = await getConnectionByUserAndKind(ctx.db, userId, "github");
-    const githubUsername =
-      githubConnection?.kind === "github" ? githubConnection.username : undefined;
-
-    return isAdminUser(githubUsername, user.email);
+    return ctx.viewer.role === "role_staff";
   },
 });
 
 export const getGithubConnectionStatus = query({
+  access: "access_provider_connections",
   args: {},
   returns: v.object({
     connected: boolean(),
@@ -379,11 +359,7 @@ export const getGithubConnectionStatus = query({
     authMethod: v.optional(providerAuthMethodValidator),
   }),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return { connected: false };
-    }
-    const connection = await getConnectionByUserAndKind(ctx.db, userId, "github");
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
     if (connection?.kind !== "github") {
       return { connected: false };
     }
@@ -397,23 +373,19 @@ export const getGithubConnectionStatus = query({
 });
 
 export const disconnectGithub = mutation({
+  access: "access_provider_connections",
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
-    const connection = await getConnectionByUserAndKind(ctx.db, userId, "github");
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
     if (connection) {
       await ctx.db.delete(connection._id);
     }
-    return null;
   },
 });
 
 export const getConvexConnectionStatus = query({
+  access: "access_provider_connections",
   args: {},
   returns: v.object({
     connected: boolean(),
@@ -422,11 +394,7 @@ export const getConvexConnectionStatus = query({
     authMethod: v.optional(providerAuthMethodValidator),
   }),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return { connected: false };
-    }
-    const connection = await getConnectionByUserAndKind(ctx.db, userId, "convex");
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "convex");
     if (connection?.kind !== "convex") {
       return { connected: false };
     }
@@ -441,30 +409,23 @@ export const getConvexConnectionStatus = query({
 });
 
 export const disconnectConvex = mutation({
+  access: "access_provider_connections",
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-    const connection = await getConnectionByUserAndKind(ctx.db, userId, "convex");
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "convex");
     if (connection) {
       await ctx.db.delete(connection._id);
     }
-    return null;
   },
 });
 
 export const getCloudflareConnectionStatus = query({
+  access: "access_provider_connections",
   args: {},
   returns: cloudflareConnectionStatusValidator,
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return { connected: false };
-    }
-    const connection = await getConnectionByUserAndKind(ctx.db, userId, "cloudflare");
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "cloudflare");
     if (connection?.kind !== "cloudflare") {
       return { connected: false };
     }
@@ -484,16 +445,12 @@ type CloudflareAutoRefreshTrigger = Infer<typeof cloudflareAutoRefreshTriggerVal
 
 async function runCloudflareMcpTokenRefresh(args: {
   ctx: ActionCtx;
+  userId: Id<"users">;
   trigger: CloudflareAutoRefreshTrigger;
   force?: boolean;
 }): Promise<CloudflareConnectionStatus> {
-  const userId = await getAuthUserId(args.ctx);
-  if (userId === null) {
-    throw new Error("User not authenticated");
-  }
-
   const connection = await args.ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-    userId,
+    userId: args.userId,
     kind: "cloudflare",
   });
   if (connection?.kind !== "cloudflare") {
@@ -539,7 +496,7 @@ async function runCloudflareMcpTokenRefresh(args: {
   const claim = await args.ctx.runMutation(
     internal.providerConnections.claimCloudflareTokenRefresh,
     {
-      userId,
+      userId: args.userId,
       force: forceRefresh,
       debounceMs,
     },
@@ -548,7 +505,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     const refreshedConnection = await args.ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
       {
-        userId,
+        userId: args.userId,
         kind: "cloudflare",
       },
     );
@@ -579,7 +536,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     const resolvedConnection = await args.ctx.runAction(
       internal.cloudflareMcpOAuth.resolveConnectionForUser,
       {
-        userId,
+        userId: args.userId,
         forceRefresh: true,
       },
     );
@@ -605,7 +562,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     const refreshedConnection = await args.ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
       {
-        userId,
+        userId: args.userId,
         kind: "cloudflare",
       },
     );
@@ -642,21 +599,23 @@ async function runCloudflareMcpTokenRefresh(args: {
     throw error;
   } finally {
     await args.ctx.runMutation(internal.providerConnections.releaseCloudflareTokenRefresh, {
-      userId,
+      userId: args.userId,
       recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
     });
   }
 }
 
 export const refreshCloudflareMcpTokenIfNeeded = action({
+  access: "access_provider_connections",
   args: {
     trigger: optional(cloudflareAutoRefreshTriggerValidator),
     force: optional(boolean()),
   },
   returns: cloudflareConnectionStatusValidator,
-  handler: async (ctx, args): Promise<CloudflareConnectionStatus> => {
+  handler: async (ctx, args) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
+      userId: ctx.viewer.userId,
       trigger: args.trigger ?? "manual",
       force: args.force,
     });
@@ -664,11 +623,13 @@ export const refreshCloudflareMcpTokenIfNeeded = action({
 });
 
 export const checkCloudflareMcpTokenHealth = action({
+  access: "access_provider_connections",
   args: {},
   returns: cloudflareConnectionStatusValidator,
-  handler: async (ctx): Promise<CloudflareConnectionStatus> => {
+  handler: async (ctx) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
+      userId: ctx.viewer.userId,
       trigger: "manual",
       force: true,
     });
@@ -676,47 +637,37 @@ export const checkCloudflareMcpTokenHealth = action({
 });
 
 export const disconnectCloudflare = mutation({
+  access: "access_provider_connections",
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-    const connection = await getConnectionByUserAndKind(ctx.db, userId, "cloudflare");
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "cloudflare");
     if (connection) {
       await ctx.db.delete(connection._id);
     }
-    return null;
   },
 });
 
 const githubApiKeyConnectionResultValidator = v.object({
   username: v.string(),
 });
-type GithubApiKeyConnectionResult = Infer<typeof githubApiKeyConnectionResultValidator>;
 
 const convexApiKeyConnectionResultValidator = v.object({
   teamId: v.string(),
 });
-type ConvexApiKeyConnectionResult = Infer<typeof convexApiKeyConnectionResultValidator>;
 
 export const connectGithubWithApiKey = action({
+  access: "access_provider_connections",
   args: {
     token: v.string(),
   },
   returns: githubApiKeyConnectionResultValidator,
-  handler: async (ctx, args): Promise<GithubApiKeyConnectionResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
+  handler: async (ctx, args) => {
     const token = normalizeApiToken(args.token);
     const identity = await fetchGithubIdentity(token);
 
     await ctx.runMutation(internal.providerConnections.upsertGithub, {
-      userId,
+      userId: ctx.viewer.userId,
       auth: {
         method: "api_key",
         credential: token,
@@ -729,21 +680,17 @@ export const connectGithubWithApiKey = action({
 });
 
 export const connectConvexWithApiKey = action({
+  access: "access_provider_connections",
   args: {
     token: v.string(),
   },
   returns: convexApiKeyConnectionResultValidator,
-  handler: async (ctx, args): Promise<ConvexApiKeyConnectionResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
+  handler: async (ctx, args) => {
     const token = normalizeApiToken(args.token);
     const details = await fetchConvexApiKeyTeamDetails(token);
 
     await ctx.runMutation(internal.providerConnections.upsertConvex, {
-      userId,
+      userId: ctx.viewer.userId,
       auth: {
         method: "api_key",
         credential: token,

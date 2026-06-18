@@ -1,9 +1,9 @@
 import { Infer, v } from "convex/values";
-import { mutation, query, type MutationCtx } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { type MutationCtx } from "./_generated/server";
+import { mutation, query } from "./functions";
 import type { Id } from "./_generated/dataModel";
 
-const { boolean, literal, null: vNull, object, union } = v;
+const { boolean, literal, object, union } = v;
 
 const vBillingCycle = union(literal("monthly"), literal("annual"));
 export type BillingCycle = Infer<typeof vBillingCycle>;
@@ -15,7 +15,6 @@ const DEFAULT_PRICING_BILLING_CYCLE: BillingCycle = "monthly";
 const vDashboardSettings = object({
   accountPanelOpen: boolean(),
   providersPanelOpen: boolean(),
-  // TODO: Why is this necessary? (probably remove it)
   pricingBillingCycle: vBillingCycle,
   // Vault/editor routes own the repository-scoped dock.
   editorChatOpen: boolean(),
@@ -23,35 +22,6 @@ const vDashboardSettings = object({
   globalChatOpen: boolean(),
 });
 
-const getDashboardSettingsArgs = object({});
-const getDashboardSettingsReturns = vDashboardSettings;
-
-const setProvidersPanelOpenArgs = object({
-  isOpen: boolean(),
-});
-const setProvidersPanelOpenReturns = vNull();
-
-const setAccountPanelOpenArgs = object({
-  isOpen: boolean(),
-});
-const setAccountPanelOpenReturns = vNull();
-
-const setPricingBillingCycleArgs = object({
-  billingCycle: vBillingCycle,
-});
-const setPricingBillingCycleReturns = vNull();
-
-const setEditorChatOpenArgs = object({
-  isOpen: boolean(),
-  scope: vChatOpenScope,
-});
-const setEditorChatOpenReturns = vNull();
-
-type GetDashboardSettingsArgs = Infer<typeof getDashboardSettingsArgs>;
-type SetAccountPanelOpenArgs = Infer<typeof setAccountPanelOpenArgs>;
-type SetProvidersPanelOpenArgs = Infer<typeof setProvidersPanelOpenArgs>;
-type SetPricingBillingCycleArgs = Infer<typeof setPricingBillingCycleArgs>;
-type SetEditorChatOpenArgs = Infer<typeof setEditorChatOpenArgs>;
 type DashboardSettings = Infer<typeof vDashboardSettings>;
 
 function getDefaultDashboardSettings(): DashboardSettings {
@@ -91,17 +61,13 @@ async function upsertDashboardSettings(
 }
 
 export const getDashboardSettings = query({
-  args: getDashboardSettingsArgs,
-  returns: getDashboardSettingsReturns,
-  handler: async (ctx, _args: GetDashboardSettingsArgs): Promise<DashboardSettings> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return getDefaultDashboardSettings();
-    }
-
+  access: "access_dashboard",
+  args: {},
+  returns: vDashboardSettings,
+  handler: async (ctx) => {
     const existing = await ctx.db
       .query("dashboardSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", ctx.viewer.userId))
       .first();
 
     const rawBillingCycle = existing?.pricingBillingCycle;
@@ -121,67 +87,56 @@ export const getDashboardSettings = query({
 });
 
 export const setAccountPanelOpen = mutation({
-  args: setAccountPanelOpenArgs,
-  returns: setAccountPanelOpenReturns,
-  handler: async (ctx, args: SetAccountPanelOpenArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, {
+  access: "access_dashboard",
+  args: {
+    isOpen: boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       accountPanelOpen: args.isOpen,
     });
-
-    return null;
   },
 });
 
 export const setProvidersPanelOpen = mutation({
-  args: setProvidersPanelOpenArgs,
-  returns: setProvidersPanelOpenReturns,
-  handler: async (ctx, args: SetProvidersPanelOpenArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, {
+  access: "access_dashboard",
+  args: {
+    isOpen: boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       providersPanelOpen: args.isOpen,
     });
-
-    return null;
   },
 });
 
 export const setPricingBillingCycle = mutation({
-  args: setPricingBillingCycleArgs,
-  returns: setPricingBillingCycleReturns,
-  handler: async (ctx, args: SetPricingBillingCycleArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, {
+  access: "access_dashboard",
+  args: {
+    billingCycle: vBillingCycle,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
       pricingBillingCycle: args.billingCycle,
     });
-
-    return null;
   },
 });
 
 export const setEditorChatOpen = mutation({
-  args: setEditorChatOpenArgs,
-  returns: setEditorChatOpenReturns,
-  handler: async (ctx, args: SetEditorChatOpenArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    await upsertDashboardSettings(ctx, userId, getChatOpenPatch(args.scope, args.isOpen));
-
-    return null;
+  access: "access_dashboard",
+  args: {
+    isOpen: boolean(),
+    scope: vChatOpenScope,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await upsertDashboardSettings(
+      ctx,
+      ctx.viewer.userId,
+      getChatOpenPatch(args.scope, args.isOpen),
+    );
   },
 });

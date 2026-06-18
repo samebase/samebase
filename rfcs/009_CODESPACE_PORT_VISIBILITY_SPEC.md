@@ -11,9 +11,10 @@
   - `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
 - Related code:
-  - `apps/noter/convex/codespaces.ts`
-  - `apps/noter/convex/vaultCodespaceIntegration.ts`
-  - `apps/noter/convex/codespacesExecutor.ts`
+  - `apps/noter/convex/codespaces/index.ts`
+  - `apps/noter/convex/codespaces/ports.ts`
+  - `apps/noter/convex/codespaces/vaultIntegration.ts`
+  - `apps/noter/convex/codespaces/executor.ts`
   - `apps/noter/convex/schema.ts`
   - `.devcontainer/devcontainer.json`
   - `.codespace-agent/server.ts`
@@ -174,7 +175,7 @@ If read-back fails due to eventual consistency, retry with backoff.
 
 ### New Convex Action
 
-Add action in `apps/noter/convex/codespaces.ts` (or a new module `codespacesPorts.ts`):
+Add action in `apps/noter/convex/codespaces/ports.ts`:
 
 - `ensureCodespacePortsVisibility({ codespaceId }) -> { ensured: boolean, results: { port: number, desired: "public" | "private", applied: boolean, reason?: string }[] }`
 
@@ -185,8 +186,8 @@ Inputs:
 
 Behavior:
 
-1. Validate codespace exists and belongs to the caller (same `getUserId` semantics as other
-   actions).
+1. Require the public function `access_machines` gate, then validate the codespace exists and
+   `codespaces.userId === ctx.viewer.userId`.
 2. Fetch the stored GitHub OAuth access token for `codespaces.userId`.
 3. Call GitHub API (Step 1) and validate response shape.
 4. Respect `runtime_constraints.allowed_port_privacy_settings`.
@@ -202,11 +203,11 @@ Retry policy:
 
 ### Invocation Points
 
-1. `apps/noter/convex/codespaces.ts:createCodespace`
+1. `apps/noter/convex/codespaces/index.ts:createCodespace`
    - After `pollCodespaceState` / `getCodespaceWithRetry`, call `ensureCodespacePortsVisibility`.
-2. `apps/noter/convex/codespaces.ts:startCodespace`
+2. `apps/noter/convex/codespaces/index.ts:startCodespace`
    - After state becomes `running`, call `ensureCodespacePortsVisibility`.
-3. `apps/noter/convex/vaultCodespaceIntegration.ts:ensureCodespaceReady`
+3. `apps/noter/convex/codespaces/vaultIntegration.ts:ensureCodespaceReady`
    - For chat-only mode, treat “agent reachable” as part of readiness:
      - ensure port visibility
      - check agent health

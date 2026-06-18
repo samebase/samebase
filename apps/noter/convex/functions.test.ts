@@ -1,6 +1,8 @@
+import { expectType } from "@noter-md/dependent";
 import { v } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 
+import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./functions";
 import { ACCESS_KEYS, canAccess, type AccessKey, type ViewerRole } from "../shared/accessModel";
 
@@ -12,6 +14,8 @@ const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_provider_connections",
     "access_repo_connect",
     "access_app_refresh",
+    "access_files_read",
+    "access_files_write",
   ],
   role_staff: ACCESS_KEYS,
 };
@@ -28,11 +32,17 @@ query({
   returns: v.object({
     vaultId: v.string(),
     access: v.string(),
+    userId: v.id("users"),
+    userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    expectType<Id<"users">>()(ctx.viewer.userId, true);
+
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
 });
@@ -43,11 +53,17 @@ mutation({
   returns: v.object({
     vaultId: v.string(),
     access: v.string(),
+    userId: v.id("users"),
+    userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    expectType<Id<"users">>()(ctx.viewer.userId, true);
+
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user.email ?? null,
     };
   },
 });
@@ -58,11 +74,37 @@ action({
   returns: v.object({
     vaultId: v.string(),
     access: v.string(),
+    userId: v.id("users"),
+    userEmail: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
+    expectType<Id<"users">>()(ctx.viewer.userId, true);
+
     return {
       vaultId: args.vaultId,
       access: ctx.viewer.requiredAccess,
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user.email ?? null,
+    };
+  },
+});
+
+query({
+  access: "access_public",
+  args: {},
+  returns: v.object({
+    userId: v.union(v.id("users"), v.null()),
+    userEmail: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx) => {
+    expectType<Id<"users"> | null>()(ctx.viewer.userId, true);
+
+    // @ts-expect-error Public routes may be anonymous.
+    const _userId: Id<"users"> = ctx.viewer.userId;
+
+    return {
+      userId: ctx.viewer.userId,
+      userEmail: ctx.viewer.user?.email ?? null,
     };
   },
 });

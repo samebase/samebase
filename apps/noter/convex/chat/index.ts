@@ -1,10 +1,8 @@
-import { query, mutation, internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { components, internal } from "../_generated/api";
-import { getUserId } from "../common";
-import { getConnectionByUserAndKind } from "../providerConnections";
-import { isAdminUser } from "../userAccess";
+import { mutation, query } from "../functions";
 import {
   listMessages,
   saveMessage,
@@ -47,6 +45,7 @@ const {
 } = v;
 
 export const createThread = mutation({
+  access: "access_admin",
   args: {
     vaultId: optional(id("vaults")),
     repositoryFullName: optional(string()),
@@ -55,7 +54,7 @@ export const createThread = mutation({
   },
   returns: string(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     if (args.vaultId) {
       const vault = await ctx.db.get(args.vaultId);
@@ -100,6 +99,7 @@ export const createThread = mutation({
 });
 
 export const getThreadForVault = query({
+  access: "access_admin",
   args: { vaultId: id("vaults") },
   returns: union(
     object({
@@ -109,7 +109,7 @@ export const getThreadForVault = query({
     vNull(),
   ),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await ctx.db
       .query("agentThreadContext")
       .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
@@ -120,6 +120,7 @@ export const getThreadForVault = query({
 });
 
 export const getThreadContext = query({
+  access: "access_admin",
   args: { threadId: string() },
   returns: union(
     object({
@@ -135,7 +136,7 @@ export const getThreadContext = query({
     vNull(),
   ),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
     return {
@@ -152,10 +153,11 @@ export const getThreadContext = query({
 });
 
 export const deleteThread = mutation({
+  access: "access_admin",
   args: { threadId: string() },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
@@ -178,6 +180,7 @@ export const deleteThread = mutation({
 });
 
 export const sendMessage = mutation({
+  access: "access_admin",
   args: {
     threadId: string(),
     content: string(),
@@ -187,7 +190,7 @@ export const sendMessage = mutation({
   },
   returns: string(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
@@ -215,13 +218,14 @@ export const sendMessage = mutation({
 });
 
 export const updateThreadDraft = mutation({
+  access: "access_admin",
   args: {
     threadId: string(),
     draftMessage: string(),
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
@@ -259,6 +263,7 @@ const listThreadMessagesReturnValidator = object({
 });
 
 export const listThreadMessages = query({
+  access: "access_admin",
   args: {
     threadId: string(),
     paginationOpts: paginationOptsValidator,
@@ -266,7 +271,7 @@ export const listThreadMessages = query({
   },
   returns: listThreadMessagesReturnValidator,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
@@ -312,6 +317,7 @@ export const listThreadMessages = query({
 });
 
 export const proposeProdRead = mutation({
+  access: "access_admin",
   args: {
     threadId: string(),
     vaultId: optional(id("vaults")),
@@ -326,7 +332,7 @@ export const proposeProdRead = mutation({
     requestId: id("aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
@@ -436,6 +442,7 @@ export const proposeProdReadInternal = internalMutation({
 });
 
 export const rejectProdRead = mutation({
+  access: "access_admin",
   args: {
     requestId: id("aiProdAccessRequests"),
     threadId: string(),
@@ -443,23 +450,13 @@ export const rejectProdRead = mutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
     const request = await ctx.db.get(args.requestId);
     if (!request || request.threadId !== args.threadId) {
       throw new Error("Request not found");
-    }
-
-    const user = await ctx.db.get(userId);
-    const githubConnection = user
-      ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
-      : null;
-    const githubUsername =
-      githubConnection?.kind === "github" ? githubConnection.username : undefined;
-    if (!user || !isAdminUser(githubUsername, user.email)) {
-      throw new Error("Only admin users can reject production reads");
     }
 
     if (request.status !== "proposed" && request.status !== "approved") {
@@ -495,6 +492,7 @@ export const rejectProdRead = mutation({
 });
 
 export const confirmProdRead = mutation({
+  access: "access_admin",
   args: {
     requestId: id("aiProdAccessRequests"),
     threadId: string(),
@@ -502,19 +500,9 @@ export const confirmProdRead = mutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
-
-    const user = await ctx.db.get(userId);
-    const githubConnection = user
-      ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
-      : null;
-    const githubUsername =
-      githubConnection?.kind === "github" ? githubConnection.username : undefined;
-    if (!user || !isAdminUser(githubUsername, user.email)) {
-      throw new Error("Only admin users can approve production reads");
-    }
 
     const request = await ctx.db.get(args.requestId);
     if (!request || request.threadId !== args.threadId) {
@@ -593,13 +581,14 @@ export const confirmProdRead = mutation({
 });
 
 export const confirmCommit = mutation({
+  access: "access_admin",
   args: {
     threadId: string(),
     messageId: string(),
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
     if (!thread.vaultId) {

@@ -1,27 +1,12 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
-import { Infer, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { mutation, query } from "./functions";
 import {
   vWorkspaceSidebarStateKey,
   vWorkspaceSidebarState,
   type WorkspaceSidebarState,
 } from "./workspaceSidebarStateModel";
 
-const { null: vNull, object, union } = v;
-
-const getWorkspaceSidebarStateArgs = object({
-  workspaceKey: vWorkspaceSidebarStateKey,
-});
-const getWorkspaceSidebarStateReturns = union(vNull(), vWorkspaceSidebarState);
-
-const setWorkspaceSidebarStateArgs = object({
-  state: vWorkspaceSidebarState,
-  workspaceKey: vWorkspaceSidebarStateKey,
-});
-const setWorkspaceSidebarStateReturns = vNull();
-
-type GetWorkspaceSidebarStateArgs = Infer<typeof getWorkspaceSidebarStateArgs>;
-type SetWorkspaceSidebarStateArgs = Infer<typeof setWorkspaceSidebarStateArgs>;
+const { object, union } = v;
 
 function readWorkspaceSidebarState(storedState: WorkspaceSidebarState): WorkspaceSidebarState {
   return {
@@ -37,14 +22,16 @@ function readWorkspaceSidebarState(storedState: WorkspaceSidebarState): Workspac
 }
 
 export const getWorkspaceSidebarState = query({
-  args: getWorkspaceSidebarStateArgs,
-  returns: getWorkspaceSidebarStateReturns,
-  handler: async (
-    ctx,
-    args: GetWorkspaceSidebarStateArgs,
-  ): Promise<WorkspaceSidebarState | null> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
+  // TODO: Move this back to access_dashboard once public shell routes skip the
+  // query before login and fall back to client defaults instead.
+  access: "access_public",
+  args: object({
+    workspaceKey: vWorkspaceSidebarStateKey,
+  }),
+  returns: union(v.null(), vWorkspaceSidebarState),
+  handler: async (ctx, args): Promise<WorkspaceSidebarState | null> => {
+    const userId = ctx.viewer.userId;
+    if (userId === null) {
       return null;
     }
 
@@ -64,18 +51,17 @@ export const getWorkspaceSidebarState = query({
 });
 
 export const setWorkspaceSidebarState = mutation({
-  args: setWorkspaceSidebarStateArgs,
-  returns: setWorkspaceSidebarStateReturns,
-  handler: async (ctx, args: SetWorkspaceSidebarStateArgs) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
+  access: "access_dashboard",
+  args: object({
+    state: vWorkspaceSidebarState,
+    workspaceKey: vWorkspaceSidebarStateKey,
+  }),
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("workspaceSidebarState")
       .withIndex("by_user_and_workspace_key", (q) =>
-        q.eq("userId", userId).eq("workspaceKey", args.workspaceKey),
+        q.eq("userId", ctx.viewer.userId).eq("workspaceKey", args.workspaceKey),
       )
       .first();
     const nextState = {
@@ -85,14 +71,13 @@ export const setWorkspaceSidebarState = mutation({
 
     if (existing !== null) {
       await ctx.db.patch(existing._id, nextState);
-      return null;
+      return;
     }
 
     await ctx.db.insert("workspaceSidebarState", {
-      userId,
+      userId: ctx.viewer.userId,
       workspaceKey: args.workspaceKey,
       ...nextState,
     });
-    return null;
   },
 });

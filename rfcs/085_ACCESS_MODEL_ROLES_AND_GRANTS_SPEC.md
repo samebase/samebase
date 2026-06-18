@@ -30,10 +30,11 @@ strings can never be confused in code, logs, or stored documents, and so the acc
 (more product areas, finer keys) without inventing new roles.
 
 Member MVP: `role_member` holds `access_public`, `access_dashboard`, `access_provider_connections`,
-`access_repo_connect`, and `access_app_refresh`. Members can sign in, connect provider accounts,
-connect/import their own repositories, and monitor/resync app state. New managed app provisioning,
-file editing, machines, MCP, and admin surfaces stay staff-only until deliberately opened. Enabling
-more later is a grant edit plus route/function reclassification, not a redesign.
+`access_repo_connect`, `access_app_refresh`, `access_files_read`, and `access_files_write`. Members
+can sign in, connect provider accounts, connect/import their own repositories, monitor/resync app
+state, and use owned file surfaces behind per-vault ownership checks. New managed app provisioning,
+machines, MCP, and admin surfaces stay staff-only until deliberately opened. Enabling more later is
+a grant edit plus route/function reclassification, not a redesign.
 
 This RFC also closes a real security gap: `users.isApproved` is currently enforced only by the
 client-side `ApprovalGate`; every authenticated-but-waitlisted user can call all ~139 public Convex
@@ -74,13 +75,12 @@ functions today. Backend enforcement becomes structural via access-key function 
   `AuthenticatedAppRoutePage` → `<Authenticated>` + `ApprovalGate` pair
   (`apps/noter/src/components/ApprovalGate.tsx:8`). Route `access` values are metadata, not locks,
   until the runtime route gate lands.
-- Backend baseline: ~85 `getUserId(ctx)` (`apps/noter/convex/common.ts:4-10`, throws when
-  unauthenticated) + ~62 raw `getAuthUserId(ctx)` call sites across 139 public functions. This
-  branch now contains the first app-owned wrapper spike in `apps/noter/convex/functions.ts`, while
-  the wider function inventory is still raw. Admin is defined once (`isAdminUser`,
-  `apps/noter/convex/userAccess.ts`) but enforced inline at only 4 sites (`chat/prodAccess.ts:37`,
-  `chat/index.ts:461,515`, `appProvisioningWorkflowActions.ts:273-280` — the last with the
-  Pro-billing fallback for non-admins).
+- Backend enforcement for exported public queries, mutations, and actions now goes through the
+  app-owned builders in `apps/noter/convex/functions.ts`. Public handlers use `ctx.viewer.userId`
+  instead of a per-handler auth preamble; remaining direct `getAuthUserId` calls live at wrapper,
+  HTTP, OAuth, and internal boundaries where the access facade is not the caller surface. Admin is
+  still defined once (`isAdminUser`, `apps/noter/convex/userAccess.ts`), and public admin-only
+  surfaces declare `access_admin`.
 - `users.isApproved` (`apps/noter/convex/schema.ts:288`) is read by exactly one backend function
   (`users.isCurrentUserApproved`, `users.ts:365-379`) consumed by `ApprovalGate`. No mutation/query
   checks it before doing work. `devAuth.ts:210-211` seeds `isApproved: true` for local/preview
@@ -138,6 +138,8 @@ const GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_provider_connections",
     "access_repo_connect",
     "access_app_refresh",
+    "access_files_read",
+    "access_files_write",
   ],
   role_staff: [...ACCESS_KEYS],
 };
@@ -226,17 +228,19 @@ export const enqueueManualRepositoryRefresh = mutation({
 - The wrapper resolves the viewer role once (users doc + GitHub connection lookup; actions resolve
   via one internal query since they lack `ctx.db`), throws a uniform "Access denied" when
   `!canAccess(access, role)`, and passes a typed `ctx.viewer` to the handler so most bodies drop
-  their own `getUserId` preamble.
+  their own auth preamble.
 - Rate limiting is intentionally not active in Phase 1. The `@convex-dev/rate-limiter` research
   showed it can fit inside these custom builders later, but this rollout keeps business function
   declarations focused on `access` only.
 - `access_public` functions skip no code path — `canAccess("access_public", role_anonymous)` is
-  true, so personalization-friendly functions (`users.viewer`, `users.currentViewerRole`,
-  `billing.getViewerBillingStatus`, `users.getGithubConnectionStatus`, `waitlist.joinWaitlist`,
-  `deploymentProfile`) register as `access_public` and keep their graceful null/false returns.
-- Enforcement becomes structural once the migration lint lands: an ESLint `no-restricted-imports`
-  rule bans `query`/`mutation`/`action` imports from `_generated/server` outside
-  `convex/functions.ts` and test files (`internalQuery` etc. stay free). Choosing `access_public`
+  true, so unauthenticated-friendly functions (Convex Auth helpers, `users.viewer`,
+  `users.getViewerAuthProviders`, `users.isCurrentUserAdmin`, `users.isCurrentUserApproved`,
+  `waitlist.joinWaitlist`, `workspaceSidebarState.getWorkspaceSidebarState`, and
+  `deploymentProfile.getPublicDeploymentAuthPolicy`) keep their graceful null/false returns.
+- Enforcement becomes structural once the migration lint lands: the repo-local Oxlint rule
+  `noter/no-raw-public-convex-function-builders` bans `query`/`mutation`/`action` imports from
+  `_generated/server`. `convex/functions.ts` carries the required file-local disable because it is
+  the adapter boundary; the rule does not encode permanent exemptions. Choosing `access_public`
   becomes the loud, deliberate act; forgetting a gate becomes impossible. This flips today's
   fail-open default (any authenticated user) to fail-closed.
 - Migration starts conservative: any exported public function whose correct capability is unclear
@@ -250,9 +254,9 @@ export const enqueueManualRepositoryRefresh = mutation({
   `validateCreateAppConnections` is **not** an access check and stays exactly where it is (billing
   axis, see below).
 
-Function-area assignment (139 public functions; inventory from the implementation research):
-dashboard 14, files 26, machines 27, mcp 3, admin 15, auth/public 18, mixed 35 — the mixed group
-(vault actions, github, oauth flows) is assigned during migration, defaulting to:
+Function-area assignment is represented directly by each public function's `access` field. The
+temporary generated inventory and hand-maintained assignment map were deleted before merge so the
+wrapper policy remains the only source of truth. The broad assignment rules are:
 
 - `access_provider_connections` for GitHub/Convex/Cloudflare OAuth and API-key connection functions.
 - `access_repo_connect` for importing or linking an existing GitHub repository into Noter.
@@ -262,7 +266,7 @@ dashboard 14, files 26, machines 27, mcp 3, admin 15, auth/public 18, mixed 35 �
   behavior.
 - `access_admin` for anything unreleased, operator-only, or unclear.
 
-`apps/noter/convex/functions.ts` is the working spike for this API shape. It uses
+`apps/noter/convex/functions.ts` is the implemented facade for this API shape. It uses
 `convex-helpers/server/customFunctions`, and `apps/noter/convex/functions.test.ts` proves:
 
 - Missing `access` fails typecheck.
@@ -271,14 +275,9 @@ dashboard 14, files 26, machines 27, mcp 3, admin 15, auth/public 18, mixed 35 �
 - Mutation/action handlers receive typed `ctx.viewer` while preserving normal Convex args and return
   validators.
 
-The first end-to-end migrations are intentionally representative rather than broad:
-
-- `deploymentProfile.getPublicDeploymentAuthPolicy` uses `access_public`, keeping the public landing
-  auth controls on the same generated `api.deploymentProfile.getPublicDeploymentAuthPolicy`
-  reference.
-- `repositoryRefresh.enqueueDashboardRepositoryRefresh` and
-  `repositoryRefresh.enqueueManualRepositoryRefresh` use `access_app_refresh`. Existing React
-  `useMutation(api.repositoryRefresh.enqueueManualRepositoryRefresh)` call sites stay unchanged.
+The route/function migration is complete for exported public query/mutation/action functions in the
+app Convex tree. Convex Auth generated helpers remain public outside the app facade and are treated
+as `access_public`.
 
 The rate-limit research also exposed one implementation constraint: `customFunctions` policy input
 receives the static function policy, not the handler's validated args. That is fine for future
@@ -344,15 +343,15 @@ then, public Noter functions would keep app wrappers as the enforcement boundary
 | `access_mcp`          | `/oauth/mcp/consent`                                                                                                                                                                                                                                                                                                  |
 | `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/research/codex-app-server`, `/research/codex-app-server/browser`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
 
-With MVP grants, members reach public, dashboard, provider-connection, repo-connect, and app-refresh
-capabilities; staff reach everything. The ~40 admin-marked search params reclassify alongside their
-routes: dashboard/billing params (`delete`, `checkout`) → `access_dashboard`; provider-connection
-params (`add-cloudflare`, `add-convex`) → `access_provider_connections`; repo/app setup params
-(`add-app-root`, `app-root`, `new-app`) → `access_repo_connect` unless the triggered backend action
-is managed provisioning, which requires `access_app_create`; file-view params (`compare`, `diff`,
-`review`, `mobileLineNumbers`) → `access_files_read`; file edit/staging params →
-`access_files_write`; machines/MCP params → `access_machines` / `access_mcp`; dev toggles and
-landing-preview params → `access_admin`.
+With MVP grants, members reach public, dashboard, provider-connection, repo-connect, app-refresh,
+file-read, and file-write capabilities; staff reach everything. The ~40 admin-marked search params
+reclassify alongside their routes: dashboard/billing params (`delete`, `checkout`) →
+`access_dashboard`; provider-connection params (`add-cloudflare`, `add-convex`) →
+`access_provider_connections`; repo/app setup params (`add-app-root`, `app-root`, `new-app`) →
+`access_repo_connect` unless the triggered backend action is managed provisioning, which requires
+`access_app_create`; file-view params (`compare`, `diff`, `review`, `mobileLineNumbers`) →
+`access_files_read`; file edit/staging params → `access_files_write`; machines/MCP params →
+`access_machines` / `access_mcp`; dev toggles and landing-preview params → `access_admin`.
 
 ### Billing stays orthogonal
 
@@ -362,8 +361,11 @@ landing-preview params → `access_admin`.
   (`appProvisioningWorkflowActions.ts:273-280`) after passing `access_app_create`. Members on the
   free plan can still `connectRepository` (BYO infra — verified unbilled and ungated today) after
   passing `access_repo_connect`.
-- `/pricing`, `createPolarCheckoutSession`, `createPolarCustomerPortalSession` are
-  `access_dashboard`: waitlisted users cannot pay before approval.
+- The target billing posture is member-facing `access_dashboard`, but this migration keeps
+  `billing.getViewerBillingStatus`, `billing.createPolarCheckoutSession`,
+  `billing.createPolarCustomerPortalSession`, and `billing.syncViewerBillingFromPolar` under
+  `access_admin` until the Polar rollout is ready. `/pricing` route metadata remains
+  `access_dashboard`; lowering the billing functions is the explicit enablement step.
 - No `pro` role and no `access_pro` key — plan checks never enter the GRANTS table.
 
 ### MCP direction (Phase 4, own spec)
@@ -402,9 +404,8 @@ Each phase is independently shippable; commits split per concern (backend model,
 spec/test updates).
 
 **Phase 1 — vocabulary + backend enforcement (closes the approval gap).** Shared access module;
-`getViewerRole(ctx)`; `users.currentViewerRole`; app-owned `query`/`mutation`/`action`; lint rule;
-migrate all 139 public functions so every exported public query, mutation, and action declares an
-access key. While the current post-login waitlist implementation exists,
+app-owned `query`/`mutation`/`action`; lint rule; migrate every exported public query, mutation, and
+action onto an explicit access key. While the current post-login waitlist implementation exists,
 authenticated-but-unapproved callers lose access to everything beyond the `access_public` set — that
 is the point. If spec 018's auth-callback denial is enforced first, those tests move to the auth
 callback boundary instead. Sub-split by area for review: auth/public → dashboard → provider
@@ -438,8 +439,9 @@ settings page.
    convex tests assert each stays reachable for an unapproved identity.
 2. **`isApproved` is optional in schema.** `undefined` must read as not-approved (truthiness check,
    per guardrails); no backfill needed because the check fails closed.
-3. **Wrapper migration drift.** 139 functions across many files; the lint rule lands in the same PR
-   as the wrapper module so unmigrated raw builders fail CI from day one.
+3. **Wrapper migration drift.** Public Convex functions span many files; the lint rule lands in the
+   same PR as the wrapper module so unmigrated raw builders fail CI from day one. The wrapper
+   `access` field is the source of truth; no permanent parallel manifest is maintained.
 4. **Action wrappers add one internal query round-trip** for role resolution. Acceptable: actions
    are already provider-bound; queries/mutations resolve the role with two indexed reads.
 5. **Setup route split drift.** Repo import lives at `/connect-repo`, while managed app creation
@@ -476,9 +478,7 @@ settings page.
 
 1. Should `/pricing` eventually become `access_public` as a marketing page? (Metadata edit when
    decided; `access_dashboard` for MVP.)
-2. Does the first member cohort get `access_files_read` on their own vaults soon after MVP? If so,
-   the per-vault sharing/ownership model should get its own spec before the grant flips.
-3. Phase 4 timing relative to member onboarding (member MCP demand may pull it forward).
+2. Phase 4 timing relative to member onboarding (member MCP demand may pull it forward).
 
 ## References
 

@@ -1,11 +1,10 @@
-import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
-import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
-import { getUserId } from "./common";
-
 import { ChangeSet, Text } from "@codemirror/state";
+import { v } from "convex/values";
+
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation, query } from "./functions";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import {
   STALE_BASE_VERSION_ERROR_CODE,
@@ -16,6 +15,35 @@ import {
 // Older updates are pruned since the content is already applied to staging.
 const MAX_UPDATES_TO_KEEP = 200;
 const CLEANUP_BATCH_SIZE = 500;
+const { array, boolean, id, number, object, string } = v;
+
+type CollaborativeAccessCtx = Pick<QueryCtx | MutationCtx, "db">;
+
+type PullUpdateResult = {
+  clientID: string;
+  changes: string;
+  version: number;
+  userId: Id<"users">;
+};
+
+type PushUpdatesResult = {
+  success: boolean;
+  newVersion: number;
+};
+
+async function getLiveCollaborativeVault(
+  ctx: CollaborativeAccessCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+  },
+) {
+  const vault = await ctx.db.get(args.vaultId);
+  if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+    return null;
+  }
+  return vault;
+}
 
 async function assertVaultAllowsCollaborativeWrites(
   ctx: Pick<MutationCtx, "db">,
@@ -25,26 +53,27 @@ async function assertVaultAllowsCollaborativeWrites(
   assertConnectedVault(vault);
 }
 
-/**
- * Get a document for collaborative editing - similar to the authority's getDocument
- * Returns the current document content and version
- */
+// MARK: Public
+
 export const getDocument = query({
+  access: "access_files_read",
   args: {
-    vaultId: v.id("vaults"),
-    branch: v.string(),
-    filePath: v.string(),
+    vaultId: id("vaults"),
+    branch: string(),
+    filePath: string(),
   },
-  returns: v.object({
-    version: v.number(),
-    content: v.string(),
-    exists: v.boolean(),
+  returns: object({
+    version: number(),
+    content: string(),
+    exists: boolean(),
   }),
   handler: async (ctx, args) => {
     console.log("getDocument:", args.filePath);
-    const userId = await getAuthUserId(ctx);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!userId || !vault || vault.userId !== userId || !isLiveConnectedVault(vault)) {
+    const vault = await getLiveCollaborativeVault(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+    });
+    if (!vault) {
       return {
         version: 0,
         content: "",
@@ -79,33 +108,26 @@ export const getDocument = query({
   },
 });
 
-/**
- * Pull updates since a given version - similar to the authority's pullUpdates
- * Returns all updates that happened after the given version
- */
 export const pullUpdates = query({
+  access: "access_files_read",
   args: {
-    repositoryFullName: v.string(),
-    branch: v.string(),
-    filePath: v.string(),
-    version: v.number(),
+    repositoryFullName: string(),
+    branch: string(),
+    filePath: string(),
+    version: number(),
   },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<
-    {
-      clientID: string;
-      changes: string;
-      version: number;
-      userId: Id<"users">;
-    }[]
-  > => {
-    const userId = await getUserId(ctx);
-
+  returns: array(
+    object({
+      clientID: string(),
+      changes: string(),
+      version: number(),
+      userId: id("users"),
+    }),
+  ),
+  handler: async (ctx, args): Promise<PullUpdateResult[]> => {
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      userId,
+      userId: ctx.viewer.userId,
     });
 
     if (!vault) {
@@ -132,33 +154,28 @@ export const pullUpdates = query({
   },
 });
 
-/**
- * Push updates to the server - similar to the authority's pushUpdates
- * Handles operational transformation and conflict resolution
- */
 export const pushUpdates = mutation({
+  access: "access_files_write",
   args: {
-    repositoryFullName: v.string(),
-    branch: v.string(),
-    filePath: v.string(),
-    version: v.number(), // Client's current version
-    updates: v.array(
-      v.object({
-        clientId: v.string(),
-        changes: v.string(), // Serialized ChangeSet
+    repositoryFullName: string(),
+    branch: string(),
+    filePath: string(),
+    version: number(),
+    updates: array(
+      object({
+        clientId: string(),
+        changes: string(),
       }),
     ),
   },
-  returns: v.object({
-    success: v.boolean(),
-    newVersion: v.number(),
+  returns: object({
+    success: boolean(),
+    newVersion: number(),
   }),
-  handler: async (ctx, args): Promise<{ success: boolean; newVersion: number }> => {
-    const userId = await getUserId(ctx);
-
+  handler: async (ctx, args): Promise<PushUpdatesResult> => {
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      userId,
+      userId: ctx.viewer.userId,
     });
 
     if (!vault) {
@@ -205,7 +222,7 @@ export const pushUpdates = mutation({
         version: currentVersion,
         clientId: update.clientId,
         changes: update.changes,
-        userId,
+        userId: ctx.viewer.userId,
         timestamp,
       });
 
@@ -224,7 +241,7 @@ export const pushUpdates = mutation({
       content: updatedContent,
       version: currentVersion,
       lastEditTime: timestamp,
-      lastEditUserId: userId,
+      lastEditUserId: ctx.viewer.userId,
     });
 
     // Periodically prune old collaborative updates to prevent unbounded growth.
@@ -245,18 +262,20 @@ export const pushUpdates = mutation({
   },
 });
 
+// MARK: Internal
+
 /**
  * Push a full-content replacement through the collaborative editing stream.
  * Used by the AI agent to make edits that appear in real-time for open editors.
  */
 export const pushContentUpdate = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    branch: v.string(),
-    expectedVersion: v.number(),
-    newContent: v.string(),
-    userId: v.id("users"),
+    vaultId: id("vaults"),
+    filePath: string(),
+    branch: string(),
+    expectedVersion: number(),
+    newContent: string(),
+    userId: id("users"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -340,12 +359,12 @@ export const pushContentUpdate = internalMutation({
  */
 export const pushSerializedChangeSetUpdate = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    branch: v.string(),
-    expectedVersion: v.number(),
-    serializedChangeSet: v.string(),
-    userId: v.id("users"),
+    vaultId: id("vaults"),
+    filePath: string(),
+    branch: string(),
+    expectedVersion: number(),
+    serializedChangeSet: string(),
+    userId: id("users"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -428,10 +447,10 @@ export const pushSerializedChangeSetUpdate = internalMutation({
  */
 export const pruneOldUpdates = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
-    branch: v.string(),
-    filePath: v.string(),
-    currentVersion: v.number(),
+    vaultId: id("vaults"),
+    branch: string(),
+    filePath: string(),
+    currentVersion: number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -468,22 +487,28 @@ export const pruneOldUpdates = internalMutation({
   },
 });
 
-/**
- * Get all users currently editing a file (for awareness features)
- */
 export const getActiveEditors = query({
+  access: "access_files_read",
   args: {
-    vaultId: v.id("vaults"),
-    branch: v.string(),
-    filePath: v.string(),
+    vaultId: id("vaults"),
+    branch: string(),
+    filePath: string(),
   },
-  returns: v.array(
-    v.object({
-      userId: v.id("users"),
-      lastActive: v.number(),
+  returns: array(
+    object({
+      userId: id("users"),
+      lastActive: number(),
     }),
   ),
   handler: async (ctx, args) => {
+    const vault = await getLiveCollaborativeVault(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+    });
+    if (!vault) {
+      return [];
+    }
+
     // Get recent updates (within last 30 seconds) to determine active editors.
     // Use .order("desc") and .take() to avoid scanning the entire update history.
     const recentUpdates = await ctx.db

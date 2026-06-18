@@ -1,7 +1,7 @@
 "use node";
 
 import { Octokit } from "@octokit/rest";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import type { ResolvedToolContext, ToolExecutionOutput } from "./types";
 import {
   buildReplaceInFilePlan,
@@ -242,7 +242,7 @@ async function loadStagedFileByNewPath(args: {
 }): Promise<StagedFile | null> {
   const vault = requireVault(args.context);
   const branch = requireBranch(args.context);
-  return args.context.ctx.runQuery(api.fileStaging.getByNewPath, {
+  return args.context.ctx.runQuery(internal.fileStaging.getByNewPathInternal, {
     vaultId: vault._id,
     branch,
     newPath: args.path,

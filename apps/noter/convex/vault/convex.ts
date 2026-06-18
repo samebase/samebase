@@ -1,8 +1,8 @@
 import { Infer, v } from "convex/values";
-import { action, internalAction, type ActionCtx } from "../_generated/server";
+import { internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { getUserId } from "../common";
+import { action } from "../functions";
 import {
   isConvexCloudDeployment,
   requestConvexManagementApi,
@@ -389,16 +389,18 @@ async function recordConvexDeployment(
 }
 
 export const listProjects = action({
+  access: "access_app_create",
   args: {},
   returns: array(convexProjectResult),
   handler: async (ctx): Promise<ConvexProjectResult[]> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const connection = await resolveConvexConnection(ctx, userId);
     return await listProjectsForConnection(connection);
   },
 });
 
 export const connectExistingProject = action({
+  access: "access_app_create",
   args: {
     vaultId: id("vaults"),
     appRoot: string(),
@@ -406,7 +408,7 @@ export const connectExistingProject = action({
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const projectId = args.projectId.trim();
     if (!projectId) {
@@ -438,6 +440,7 @@ export const connectExistingProject = action({
 });
 
 export const createProject = action({
+  access: "access_app_create",
   args: {
     vaultId: id("vaults"),
     appRoot: string(),
@@ -450,7 +453,7 @@ export const createProject = action({
       throw new Error(validation.message);
     }
 
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     await ctx.runQuery(internal.vault.convexMutations.requireConvexDeploymentConnectionVault, {
       vaultId: args.vaultId,

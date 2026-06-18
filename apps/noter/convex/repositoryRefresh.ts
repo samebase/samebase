@@ -952,13 +952,8 @@ export const enqueueDashboardRepositoryRefresh = mutation({
   args: object({}),
   returns: vNull(),
   handler: async (ctx): Promise<null> => {
-    const userId = ctx.viewer.userId;
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
     await enqueueDashboardRepositoryRefreshPageForUser(ctx, {
-      userId,
+      userId: ctx.viewer.userId,
       cursor: null,
     });
     return null;
@@ -997,13 +992,8 @@ export const enqueueManualRepositoryRefresh = mutation({
   }),
   returns: vEnqueueRepositoryRefreshResult,
   handler: async (ctx, args): Promise<EnqueueRepositoryRefreshResult> => {
-    const userId = ctx.viewer.userId;
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
     return await enqueueAndScheduleRepositoryRefresh(ctx, {
-      userId,
+      userId: ctx.viewer.userId,
       vaultId: args.vaultId,
       demand: {
         scope: "repository",
