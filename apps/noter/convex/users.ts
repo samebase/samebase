@@ -21,6 +21,7 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS,
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
 } from "../shared/cloudflareTokenRefresh";
+import { ACCESS_GRANTS, type AccessKey } from "../shared/accessModel";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
@@ -43,6 +44,22 @@ const providerAuthMethodValidator = union(
   literal("mcp_oauth"),
   literal("api_key"),
 );
+const accessKeyValidator = union(
+  literal("access_public"),
+  literal("access_dashboard"),
+  literal("access_provider_connections"),
+  literal("access_repo_connect"),
+  literal("access_app_create"),
+  literal("access_app_refresh"),
+  literal("access_files_read"),
+  literal("access_files_write"),
+  literal("access_machines"),
+  literal("access_mcp"),
+  literal("access_admin"),
+);
+const viewerAccessValidator = object({
+  accessKeys: array(accessKeyValidator),
+});
 const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
   accountId: optional(string()),
@@ -332,21 +349,25 @@ function compareAuthProviderAccountSummary(
   return second._id.localeCompare(first._id);
 }
 
+export const currentViewerAccess = query({
+  access: "access_public",
+  args: {},
+  returns: viewerAccessValidator,
+  handler: async (ctx) => {
+    const accessKeys: AccessKey[] = [...ACCESS_GRANTS[ctx.viewer.role]];
+    return { accessKeys };
+  },
+});
+
+/**
+@deprecated Use currentViewerAccess so callers can make access-key decisions.
+*/
 export const isCurrentUserApproved = query({
   access: "access_public",
   args: {},
   returns: boolean(),
   handler: async (ctx) => {
     return ctx.viewer.role !== "role_anonymous";
-  },
-});
-
-export const isCurrentUserAdmin = query({
-  access: "access_public",
-  args: {},
-  returns: boolean(),
-  handler: async (ctx) => {
-    return ctx.viewer.role === "role_staff";
   },
 });
 
