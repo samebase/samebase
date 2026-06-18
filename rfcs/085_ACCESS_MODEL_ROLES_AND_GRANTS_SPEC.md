@@ -117,6 +117,9 @@ became structural via access-key function wrappers.
 One module defines both unions, the grants table, and the decision function; frontend and Convex
 import the same file (Convex bundles imports from outside `convex/`):
 
+The shared access model is the only runtime source of truth for role and access-key literals. Convex
+validators derive from these arrays instead of restating them.
+
 ```ts
 export const VIEWER_ROLES = [
   "role_anonymous",
