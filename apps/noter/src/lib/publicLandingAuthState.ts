@@ -1,9 +1,12 @@
 import { guard } from "@noter-md/dependent";
-import { AUTH_FLAG_STORAGE_KEY, AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
+import {
+  AUTH_FLAG_STORAGE_KEY,
+  AUTH_PROVIDER_STORAGE_KEY,
+  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
+} from "@/lib/authStorageKeys";
 import { type RootRouteSearch } from "@/lib/rootRouteSearch";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
-const PASSWORD_AUTH_MODE_KEY = "noter_public_landing_password_auth_mode";
 export type PasswordAuthSurface = "hidden" | "local_worktree" | "preview";
 
 function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
@@ -27,7 +30,10 @@ const isStoredPasswordAuthMode = guard<string | null, PublicPasswordAuthMode>((v
 );
 
 function readStoredPasswordAuthMode(): PublicPasswordAuthMode | null {
-  const storedValue = withLocalStorage((storage) => storage.getItem(PASSWORD_AUTH_MODE_KEY), null);
+  const storedValue = withLocalStorage(
+    (storage) => storage.getItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY),
+    null,
+  );
   return isStoredPasswordAuthMode(storedValue) ? storedValue : null;
 }
 
@@ -35,7 +41,7 @@ export function rememberPublicLandingPasswordAuthMode(
   passwordAuthMode: PublicPasswordAuthMode,
 ): void {
   withLocalStorage((storage) => {
-    storage.setItem(PASSWORD_AUTH_MODE_KEY, passwordAuthMode);
+    storage.setItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY, passwordAuthMode);
   }, undefined);
 }
 
