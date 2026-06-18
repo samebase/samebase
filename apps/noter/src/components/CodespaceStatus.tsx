@@ -67,12 +67,6 @@ const STATE_STYLES: Record<string, { icon: typeof Activity; color: string; label
     label: "Failed",
   },
 };
-const DEFAULT_STATE_STYLE = {
-  icon: Activity,
-  color: "text-muted-foreground",
-  label: "Unknown",
-} as const;
-
 export function CodespaceStatus({
   vaultId,
   repositoryFullName,
@@ -139,7 +133,7 @@ export function CodespaceStatus({
     );
   }
 
-  const stateStyle = STATE_STYLES[codespace.state] ?? DEFAULT_STATE_STYLE;
+  const stateStyle = STATE_STYLES[codespace.state];
   const Icon = stateStyle.icon;
 
   const isHealthy = codespace.agentHealthy ?? false;
