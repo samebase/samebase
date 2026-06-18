@@ -11,7 +11,6 @@ describe("users Convex contract", () => {
     await expect(t.query(api.users.currentViewerAccess)).resolves.toEqual({
       accessKeys: ["access_public"],
     });
-    await expect(t.query(api.users.isCurrentUserApproved)).resolves.toBe(false);
     await expect(t.mutation(api.users.disconnectGithub)).rejects.toThrowError("Access denied");
   });
 
@@ -63,7 +62,6 @@ describe("users Convex contract", () => {
         "access_files_write",
       ],
     });
-    await expect(asUser.query(api.users.isCurrentUserApproved)).resolves.toBe(true);
   });
 
   it("keeps public viewer state for unapproved users and denies provider access", async () => {
@@ -112,7 +110,6 @@ describe("users Convex contract", () => {
     await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
       accessKeys: ["access_public"],
     });
-    await expect(asViewer.query(api.users.isCurrentUserApproved)).resolves.toBe(false);
     await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
       "Access denied",
     );

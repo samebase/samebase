@@ -1,19 +1,41 @@
 import { useNoterAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
+import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
 import { useQuery } from "convex/react";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 
+const ApprovalGateViewerAccessContext = createContext<NoterRouteAccessViewer | null>(null);
+
+export function ApprovalGateViewerAccessProvider({
+  children,
+  viewerAccess,
+}: {
+  children: ReactNode;
+  viewerAccess: NoterRouteAccessViewer;
+}) {
+  return (
+    <ApprovalGateViewerAccessContext.Provider value={viewerAccess}>
+      {children}
+    </ApprovalGateViewerAccessContext.Provider>
+  );
+}
+
 export function ApprovalGate({ children }: { children: ReactNode }) {
-  const isApproved = useQuery(api.users.isCurrentUserApproved);
+  const viewerAccessContext = useContext(ApprovalGateViewerAccessContext);
+  const queriedViewerAccess = useQuery(
+    api.users.currentViewerAccess,
+    viewerAccessContext === null ? {} : "skip",
+  );
+  const viewerAccess = viewerAccessContext ?? queriedViewerAccess;
   const { signOut } = useNoterAuthActions();
 
   // Avoid flashing gated content before approval state is known.
-  if (isApproved === undefined) {
+  if (viewerAccess === undefined) {
     return null;
   }
 
-  if (!isApproved) {
+  if (!viewerAccess.accessKeys.some((accessKey) => accessKey !== "access_public")) {
     return (
       <div className="container my-auto">
         <div className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center">

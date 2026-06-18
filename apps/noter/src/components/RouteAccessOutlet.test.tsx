@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
+import { act, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { NoterRouteAccess, NoterRouteSearchParamSuggestion } from "@/lib/routePermissions";
 import { RouteAccessOutlet } from "./RouteAccessOutlet";
@@ -47,7 +48,10 @@ const locationState = vi.hoisted(
 
 const routerState = vi.hoisted(
   (): {
-    navigateCalls: string[];
+    navigateCalls: Array<{
+      href: string;
+      replace: boolean;
+    }>;
   } => ({
     navigateCalls: [],
   }),
@@ -62,8 +66,8 @@ vi.mock("@tanstack/react-router", () => ({
     select?: (matches: typeof routeMatchState.matches) => unknown;
   } = {}) => (select ? select(routeMatchState.matches) : routeMatchState.matches),
   useRouter: () => ({
-    navigate: ({ href }: { href: string }) => {
-      routerState.navigateCalls.push(href);
+    navigate: ({ href, replace }: { href: string; replace: boolean }) => {
+      routerState.navigateCalls.push({ href, replace });
     },
   }),
 }));
@@ -84,6 +88,23 @@ vi.mock("@/components/AuthenticatedAppRoutePage", () => ({
 vi.mock("@/components/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
 }));
+
+async function renderRouteAccessOutletAfterEffects() {
+  const rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  const root = createRoot(rootElement);
+
+  await act(async () => {
+    root.render(<RouteAccessOutlet />);
+  });
+
+  const markup = rootElement.innerHTML;
+  await act(async () => {
+    root.unmount();
+  });
+  rootElement.remove();
+  return markup;
+}
 
 describe("RouteAccessOutlet", () => {
   beforeEach(() => {
@@ -120,6 +141,23 @@ describe("RouteAccessOutlet", () => {
 
     expect(markup).toBe("");
     expect(viewerAccessState.queryCalls).toBe(1);
+  });
+
+  it("replaces unauthorized search params once and renders the canonical URL", async () => {
+    locationState.searchStr = "?delete&prod-ui";
+
+    const strippedMarkup = await renderRouteAccessOutletAfterEffects();
+
+    expect(strippedMarkup).toBe("");
+    expect(routerState.navigateCalls).toEqual([{ href: "/?prod-ui", replace: true }]);
+
+    routerState.navigateCalls = [];
+    locationState.searchStr = "?prod-ui";
+
+    const canonicalMarkup = await renderRouteAccessOutletAfterEffects();
+
+    expect(canonicalMarkup).toContain("Route outlet");
+    expect(routerState.navigateCalls).toEqual([]);
   });
 
   it("renders public routes with restricted search params when the viewer has access", () => {

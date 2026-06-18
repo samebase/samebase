@@ -92,9 +92,9 @@ functions today. Backend enforcement becomes structural via access-key function 
   HTTP, OAuth, and internal boundaries where the access facade is not the caller surface. Admin is
   still defined once (`isAdminUser`, `apps/noter/convex/userAccess.ts`), and public admin-only
   surfaces declare `access_admin`.
-- `users.isApproved` (`apps/noter/convex/schema.ts:288`) is read by exactly one backend function
-  (`users.isCurrentUserApproved`, `users.ts:365-379`) consumed by `ApprovalGate`. No mutation/query
-  checks it before doing work. `devAuth.ts:210-211` seeds `isApproved: true` for local/preview
+- `users.isApproved` (`apps/noter/convex/schema.ts:288`) feeds backend viewer-role resolution.
+  `ApprovalGate` consumes `users.currentViewerAccess` and treats any non-public access key as an
+  approved app-shell viewer. `devAuth.ts:210-211` seeds `isApproved: true` for local/preview
   accounts.
 - `waitlist.joinWaitlist` (`apps/noter/convex/waitlist.ts:18-39`) exists but has zero frontend
   callers; `ApprovalGate` renders static copy.
@@ -207,11 +207,10 @@ has `access_repo_connect`, while `/new-app` and the "create managed app" mutatio
 
 The public UI-facing query is `users.currentViewerAccess`, returning `{ accessKeys }`. It projects
 the resolved server-side role bundle into the effective access list and replaces boolean access
-queries over time. `users.isCurrentUserAdmin` was deleted once the URL editor and runtime route gate
-moved to access keys; `users.isCurrentUserApproved` remains only for `ApprovalGate` until that
-waitlist surface moves to `currentViewerAccess`. `users.currentViewerRole` is not the general
-route/UI authorization contract; if a future caller truly needs the literal role, keep that API
-scoped to role management, audit, or admin/debug explanation surfaces.
+queries. `users.isCurrentUserAdmin` and `users.isCurrentUserApproved` have been deleted.
+`users.currentViewerRole` is not the general route/UI authorization contract; if a future caller
+truly needs the literal role, keep that API scoped to role management, audit, or admin/debug
+explanation surfaces.
 
 ### Auth allowlist compatibility
 
@@ -252,8 +251,8 @@ export const enqueueManualRepositoryRefresh = mutation({
   declarations focused on `access` only.
 - `access_public` functions skip no code path — `canAccess("access_public", role_anonymous)` is
   true, so unauthenticated-friendly functions (Convex Auth helpers, `users.viewer`,
-  `users.getViewerAuthProviders`, `users.currentViewerAccess`, `users.isCurrentUserApproved`,
-  `waitlist.joinWaitlist`, `workspaceSidebarState.getWorkspaceSidebarState`, and
+  `users.getViewerAuthProviders`, `users.currentViewerAccess`, `waitlist.joinWaitlist`,
+  `workspaceSidebarState.getWorkspaceSidebarState`, and
   `deploymentProfile.getPublicDeploymentAuthPolicy`) keep their graceful null/false returns.
 - Enforcement becomes structural once the migration lint lands: the repo-local Oxlint rule
   `noter/no-raw-public-convex-function-builders` bans `query`/`mutation`/`action` imports from
@@ -514,8 +513,7 @@ settings page.
    resolve to `role_anonymous` for access.
 4. Staff determination stays the hardcoded list; no persisted role field in this rollout.
 5. UI consumers use `users.currentViewerAccess` and check `access_*` keys.
-   `users.isCurrentUserAdmin` has been deleted. `users.isCurrentUserApproved` is the remaining
-   deprecated boolean transition API while `ApprovalGate` still owns the waitlist surface.
+   `users.isCurrentUserAdmin` and `users.isCurrentUserApproved` have been deleted.
 6. One app-owned function facade over per-handler assert calls: enforcement must be structural and
    fail-closed without nested wrapper stacks.
 7. Every exported public Convex query, mutation, and action must declare exactly one access key;

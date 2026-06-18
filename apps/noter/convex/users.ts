@@ -359,18 +359,6 @@ export const currentViewerAccess = query({
   },
 });
 
-/**
-@deprecated Use currentViewerAccess so callers can make access-key decisions.
-*/
-export const isCurrentUserApproved = query({
-  access: "access_public",
-  args: {},
-  returns: boolean(),
-  handler: async (ctx) => {
-    return ctx.viewer.role !== "role_anonymous";
-  },
-});
-
 export const getGithubConnectionStatus = query({
   access: "access_provider_connections",
   args: {},

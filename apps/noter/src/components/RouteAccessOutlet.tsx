@@ -1,3 +1,4 @@
+import { ApprovalGateViewerAccessProvider } from "@/components/ApprovalGate";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import {
@@ -47,6 +48,8 @@ function AuthenticatedRouteAccessOutlet({
           viewer: viewerAccess,
         });
 
+  // URL cleanup depends on viewer access, so the redirect runs after the
+  // subscription resolves; the replaced URL recomputes to null and stops.
   useEffect(() => {
     if (canonicalRouteAddress === null) {
       return;
@@ -62,10 +65,16 @@ function AuthenticatedRouteAccessOutlet({
     return null;
   }
 
-  return canAccessNoterRouteMatchesAccess(matches, viewerAccess) ? (
+  const routeContent = canAccessNoterRouteMatchesAccess(matches, viewerAccess) ? (
     <Outlet />
   ) : (
     <RouteAccessDeniedPage />
+  );
+
+  return (
+    <ApprovalGateViewerAccessProvider viewerAccess={viewerAccess}>
+      {routeContent}
+    </ApprovalGateViewerAccessProvider>
   );
 }
 
