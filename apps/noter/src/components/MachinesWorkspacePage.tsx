@@ -933,7 +933,8 @@ export function MachinesWorkspacePage() {
   }
 
   const machineInventories: MachinesWorkspaceSidebarInventory[] = machines.map((machine) => {
-    const inventory = machineThreadInventories[machine.machineId];
+    const inventory =
+      machineThreadInventories[machine.machineId] ?? EMPTY_MACHINE_THREAD_INVENTORY_STATE;
     return {
       hasLoadedThreadInventory: inventory.hasLoadedThreadInventory,
       machineDisplayName: machine.displayName,

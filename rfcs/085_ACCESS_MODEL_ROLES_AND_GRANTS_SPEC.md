@@ -404,7 +404,9 @@ reclassify alongside their routes: dashboard/billing params (`delete`, `checkout
 `access_app_create`; file-view params (`compare`, `diff`, `review`, `mobileLineNumbers`) →
 `access_files_read`; file edit/staging params → `access_files_write`; machine params →
 `access_machines`; MCP OAuth entry params (`mcp_consent_request`, `mcp_login_required`) → hidden
-`access_public`; dev toggles and landing-preview params → `access_admin`.
+`access_public`; public presentation toggles such as logo/landing `dev`, `prod-ui`, and devtools
+visibility remain `access_public`; operator-only debug params and landing-preview params →
+`access_admin`.
 
 ### Billing stays orthogonal
 
