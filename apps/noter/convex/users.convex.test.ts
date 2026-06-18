@@ -150,6 +150,38 @@ describe("users Convex contract", () => {
     });
   });
 
+  it("keeps an approved member as member when they connect the staff GitHub username", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        name: "Member",
+        email: "nicu.dev@gmail.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId: insertedUserId,
+        auth: {
+          method: "api_key",
+          credential: "test-github-api-key",
+        },
+        username: "nicu-chiciuc",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      return insertedUserId;
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({
+      role: "role_member",
+    });
+  });
+
   it("reports whether the Cloudflare connection still needs account selection", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
