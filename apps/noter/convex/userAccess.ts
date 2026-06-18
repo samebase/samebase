@@ -1,13 +1,6 @@
-const ADMIN_USERNAMES = ["nicu-chiciuc"];
-const ADMIN_EMAILS = new Set(["nicu.dev@gmail.com", "nicuchiciuc@gmail.com", "nicu@noter.md"]);
+const ADMIN_EMAILS = new Set(["nicuchiciuc@gmail.com", "nicu@noter.md"]);
 
-export function isAdminUser(
-  githubUsername: string | null | undefined,
-  email?: string | null,
-): boolean {
-  if (githubUsername && ADMIN_USERNAMES.includes(githubUsername)) {
-    return true;
-  }
+export function isAdminUser(email?: string | null): boolean {
   if (!email) {
     return false;
   }
@@ -19,12 +12,11 @@ export function isAdminUser(
  * `users.isApproved` field instead of editing a code-side email allowlist.
  */
 export function hasAppAccess(args: {
-  githubUsername: string | null | undefined;
   email?: string | null;
   isApproved?: boolean | null | undefined;
 }): boolean {
   if (args.isApproved === true) {
     return true;
   }
-  return isAdminUser(args.githubUsername, args.email);
+  return isAdminUser(args.email);
 }

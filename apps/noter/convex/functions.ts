@@ -20,7 +20,6 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { vAccessKey, vViewerRole } from "./accessModelValidators";
-import { getConnectionByUserAndKind } from "./providerConnections";
 import schema from "./schema";
 import { hasAppAccess, isAdminUser } from "./userAccess";
 import {
@@ -128,17 +127,12 @@ async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<Resolve
     return resolveSignedOutViewer(userId);
   }
 
-  const githubConnection = await getConnectionByUserAndKind(ctx.db, userId, "github");
-  const githubUsername =
-    githubConnection?.kind === "github" ? githubConnection.username : undefined;
-
-  if (isAdminUser(githubUsername, user.email)) {
+  if (isAdminUser(user.email)) {
     return resolveUserViewer({ role: "role_staff", userId, user });
   }
 
   if (
     hasAppAccess({
-      githubUsername,
       email: user.email,
       isApproved: user.isApproved,
     })

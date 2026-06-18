@@ -69,8 +69,7 @@ became structural via access-key function wrappers.
 1. Per-vault sharing / multi-user vaults (future; per-resource ownership checks remain the second
    authorization dimension and are untouched).
 2. A persisted `users.role` field or admin UI for role management (staff stays the hardcoded
-   `ADMIN_USERNAMES`/`ADMIN_EMAILS` lists in `apps/noter/convex/userAccess.ts` until a second staff
-   member exists).
+   `ADMIN_EMAILS` list in `apps/noter/convex/userAccess.ts` until a second staff member exists).
 3. Per-resource `resource:action` permission keys for the web app. The key set is product
    capabilities, not individual vault IDs, branch IDs, or OAuth scopes.
 4. The MCP checkbox-consent implementation itself (Phase 4 outline here; details in its own spec).
@@ -201,9 +200,8 @@ has `access_repo_connect`, while `/new-app` and the "create managed app" mutatio
 
 ### Role resolution and access projection (server-side)
 
-- `role_staff`: `isAdminUser(githubUsername, email)` — unchanged hardcoded lists
-  (`apps/noter/convex/userAccess.ts`), including the GitHub-connection lookup currently copy-pasted
-  at the inline admin sites, centralized into one `getViewerRole(ctx)` helper.
+- `role_staff`: `isAdminUser(email)` — hardcoded staff emails (`apps/noter/convex/userAccess.ts`),
+  centralized into one `getViewerRole(ctx)` helper.
 - `role_member`: authenticated and `users.isApproved === true`.
 - `role_anonymous`: signed out. During the current post-login waitlist implementation only, signed
   in but unapproved also resolves to `role_anonymous` until the pre-login allowlist boundary from
@@ -520,7 +518,7 @@ settings page.
 3. "Member" = authenticated + approved; non-allowlisted users are denied before role resolution per
    spec 018. During the current post-login waitlist transition, authenticated unapproved users
    resolve to `role_anonymous` for access.
-4. Staff determination stays the hardcoded list; no persisted role field in this rollout.
+4. Staff determination stays the hardcoded email list; no persisted role field in this rollout.
 5. Authorization consumers use `users.currentViewerAccess` and check `access_*` keys. Role consumers
    may use `users.currentViewerRole` only for role visibility, not permission decisions.
    `users.isCurrentUserAdmin` and `users.isCurrentUserApproved` have been deleted.

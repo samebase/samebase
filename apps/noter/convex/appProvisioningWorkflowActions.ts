@@ -270,7 +270,7 @@ export const validateCreateAppConnections = internalAction({
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
     }
 
-    const isAdmin = isAdminUser(githubConnection.username, currentUser.email);
+    const isAdmin = isAdminUser(currentUser.email);
     if (!isAdmin) {
       const plan = currentUser.billingPlan ?? "free";
       const status = currentUser.billingStatus ?? "inactive";
