@@ -1,7 +1,7 @@
 import { Infer, v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
-import { action, internalMutation, internalQuery, query } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
+import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
 import { applyMcpDenyErrorParamsToRedirectUrl } from "../../shared/mcpOAuth";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "../schema";
@@ -322,17 +322,13 @@ export const createAuthRequest = internalMutation({
 });
 
 export const getAuthorizationRequestForCurrentUser = query({
+  access: "access_mcp",
   args: getAuthorizationRequestForCurrentUserArgsValidator,
   returns: getAuthorizationRequestForCurrentUserResultValidator,
   handler: async (
     ctx,
     args: GetAuthorizationRequestForCurrentUserArgs,
   ): Promise<GetAuthorizationRequestForCurrentUserResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
-
     const authRequest = await ctx.db
       .query("mcpAuthRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
@@ -340,7 +336,7 @@ export const getAuthorizationRequestForCurrentUser = query({
     if (!authRequest) {
       return null;
     }
-    if (authRequest.userId && authRequest.userId !== userId) {
+    if (authRequest.userId && authRequest.userId !== ctx.viewer.userId) {
       return null;
     }
 
@@ -637,17 +633,13 @@ export const denyAuthorizationRequest = internalMutation({
 });
 
 export const completeAuthorizationRequestForCurrentUser = action({
+  access: "access_mcp",
   args: completeAuthorizationRequestArgsValidator,
   returns: completeAuthorizationRequestResultValidator,
   handler: async (
     ctx,
     args: CompleteAuthorizationRequestArgs,
   ): Promise<CompleteAuthorizationRequestResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
     const now = Date.now();
     const authorizationCode = createAuthorizationCodeValue();
     const authorizationCodeHash = await sha256Hex(authorizationCode);
@@ -656,7 +648,7 @@ export const completeAuthorizationRequestForCurrentUser = action({
       internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
       {
         requestId: args.requestId,
-        userId,
+        userId: ctx.viewer.userId,
         codeHash: authorizationCodeHash,
         codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
         allowLoopbackHttpRedirectUris:
@@ -679,21 +671,17 @@ export const completeAuthorizationRequestForCurrentUser = action({
 });
 
 export const denyAuthorizationRequestForCurrentUser = action({
+  access: "access_mcp",
   args: denyAuthorizationRequestForCurrentUserArgsValidator,
   returns: denyAuthorizationRequestForCurrentUserResultValidator,
   handler: async (
     ctx,
     args: DenyAuthorizationRequestForCurrentUserArgs,
   ): Promise<DenyAuthorizationRequestForCurrentUserResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
     const now = Date.now();
     const denyResult = await ctx.runMutation(internal.mcp.oauth.denyAuthorizationRequest, {
       requestId: args.requestId,
-      userId,
+      userId: ctx.viewer.userId,
       now,
     });
     if (!denyResult.ok) {
