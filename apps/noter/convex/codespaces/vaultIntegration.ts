@@ -1,10 +1,10 @@
 "use node";
 
-import { action, type ActionCtx } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { Infer, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
-import { getUserId } from "../common";
+import { action } from "../functions";
 import type { Id } from "../_generated/dataModel";
 import { assertConnectedVault } from "../vault/state";
 import { toErrorMessage } from "../jsonUtils";
@@ -29,6 +29,7 @@ const createVaultWithCodespaceResult = v.object({
   codespaceId: v.id("codespaces"),
 });
 export const createVaultWithCodespace = action({
+  access: "access_machines",
   args: {
     repoOwner: v.string(),
     repoName: v.string(),
@@ -37,7 +38,7 @@ export const createVaultWithCodespace = action({
   returns: createVaultWithCodespaceResult,
   handler: async (ctx, args): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     assertCodespacesEnabled();
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const { vaultId, runId } = await ctx.runMutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -193,11 +194,12 @@ const rebuildCodespaceIfStaleResult = v.object({
   reason: v.optional(v.string()),
 });
 export const rebuildCodespaceIfStale = action({
+  access: "access_machines",
   args: { vaultId: v.id("vaults") },
   returns: rebuildCodespaceIfStaleResult,
   handler: async (ctx, args): Promise<Infer<typeof rebuildCodespaceIfStaleResult>> => {
     assertCodespacesEnabled();
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     // Get vault and active codespace
     const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
@@ -273,11 +275,12 @@ const ensureCodespaceReadyResult = v.object({
   ready: v.boolean(),
 });
 export const ensureCodespaceReady = action({
+  access: "access_machines",
   args: { vaultId: v.id("vaults") },
   returns: ensureCodespaceReadyResult,
   handler: async (ctx, args): Promise<Infer<typeof ensureCodespaceReadyResult>> => {
     assertCodespacesEnabled();
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
       vaultId: args.vaultId,
     });

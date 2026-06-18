@@ -1,5 +1,5 @@
-import { internalMutation, mutation } from "./_generated/server";
-import { getUserId } from "./common";
+import { internalMutation } from "./_generated/server";
+import { mutation } from "./functions";
 import {
   vIntrospectMachineControlTokenArgs,
   vIssueMachineControlTokenArgs,
@@ -17,10 +17,11 @@ import { resolveConnectedMachineStatus } from "../shared/connectedMachinePresenc
  * machine credential with the browser.
  */
 export const issueMachineControlToken = mutation({
+  access: "access_machines",
   args: vIssueMachineControlTokenArgs,
   returns: vIssueMachineControlTokenReturns,
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const machine = await ctx.db
       .query("connectedMachines")
       .withIndex("by_user_machine_id", (q) =>

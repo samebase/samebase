@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 import { resolveMachineRegistrationState } from "../shared/connectedMachinePresence";
 import {
@@ -6,7 +5,8 @@ import {
   readConnectedMachineSidebarOrder,
 } from "../shared/connectedMachineOrdering";
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
+import { mutation, query } from "./functions";
 import {
   vApproveMachineRegistrationRequestReturns,
   vConnectedMachineView,
@@ -23,7 +23,6 @@ import {
   type ValidateMachineCredentialResult,
   vValidateMachineCredentialResult,
 } from "./connectedMachineModel";
-import { getUserId } from "./common";
 
 const { array, null: vNull, object, string } = v;
 type ConnectedMachineStoredRow = Doc<"connectedMachines">;
@@ -111,14 +110,11 @@ function buildMachineRegistrationBrowserView(args: {
 }
 
 export const listConnectedMachines = query({
+  access: "access_machines",
   args: listConnectedMachinesArgs,
   returns: listConnectedMachinesReturns,
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return [];
-    }
-
+    const userId = ctx.viewer.userId;
     const rows = await ctx.db
       .query("connectedMachines")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -133,6 +129,7 @@ export const listConnectedMachines = query({
 });
 
 export const getMachineRegistrationRequestForBrowser = query({
+  access: "access_machines",
   args: getMachineRegistrationRequestForBrowserArgs,
   returns: vMachineRegistrationBrowserView,
   handler: async (
@@ -140,12 +137,7 @@ export const getMachineRegistrationRequestForBrowser = query({
     args: GetMachineRegistrationRequestForBrowserArgs,
   ): Promise<MachineRegistrationBrowserView> => {
     const now = Date.now();
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return {
-        kind: "sign_in_required",
-      };
-    }
+    const userId = ctx.viewer.userId;
 
     const request = await ctx.db
       .query("machineRegistrationRequests")
@@ -171,10 +163,11 @@ export const getMachineRegistrationRequestForBrowser = query({
 });
 
 export const approveMachineRegistrationRequest = mutation({
+  access: "access_machines",
   args: approveMachineRegistrationRequestArgs,
   returns: vApproveMachineRegistrationRequestReturns,
   handler: async (ctx, args: ApproveMachineRegistrationRequestArgs) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const now = Date.now();
     const request = await ctx.db
       .query("machineRegistrationRequests")

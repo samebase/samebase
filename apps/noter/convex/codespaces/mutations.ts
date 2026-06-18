@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
 import { vCodespaceState } from "./model";
-import { getUserId } from "../common";
+import { query } from "../functions";
 import { assertConnectedVault, isLiveConnectedVault } from "../vault/state";
 import { CODESPACES_ENABLED } from "../../shared/featureFlags";
 
@@ -203,6 +203,7 @@ export const updatePortsVisibilityStatus = internalMutation({
  * Get active Codespace for a vault (public query)
  */
 export const getActiveCodespace = query({
+  access: "access_machines",
   args: { vaultId: v.id("vaults") },
   returns: v.union(
     v.object({
@@ -233,7 +234,7 @@ export const getActiveCodespace = query({
       return null;
     }
 
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
 
     if (!vault?.activeCodespaceId || vault.userId !== userId || !isLiveConnectedVault(vault)) {
@@ -300,6 +301,7 @@ export const listConnectedCodespacesForVault = internalQuery({
 });
 
 export const getConnectedCodespacesCount = query({
+  access: "access_machines",
   args: { vaultId: v.id("vaults") },
   returns: v.number(),
   handler: async (ctx, args) => {
@@ -307,7 +309,7 @@ export const getConnectedCodespacesCount = query({
       return 0;
     }
 
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== userId) {
       return 0;

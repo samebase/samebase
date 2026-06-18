@@ -2,11 +2,11 @@
 
 import { Infer, v } from "convex/values";
 import { guard } from "@noter-md/dependent/main";
-import { action, type ActionCtx } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
-import { getUserId } from "../common";
+import { action } from "../functions";
 import { Id } from "../_generated/dataModel";
 import { resolveDeploymentProfile } from "../deploymentProfile";
 import { assertConnectedVault } from "../vault/state";
@@ -50,6 +50,7 @@ function inferCodespaceDisplayEnvLabel(): "prod" | "dev" {
  * Create a new GitHub Codespace for a vault
  */
 export const createCodespace = action({
+  access: "access_machines",
   args: {
     vaultId: v.id("vaults"),
     branch: v.string(),
@@ -66,7 +67,7 @@ export const createCodespace = action({
       branch: args.branch,
       commitSha: args.commitSha,
     });
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     // Get vault details
     const vault = await ctx.runQuery(internal.codespaces.mutations.getVault, {
@@ -242,11 +243,12 @@ const getCodespaceConnectionResult = v.object({
  * Get connection details for a Codespace
  */
 export const getCodespaceConnection = action({
+  access: "access_machines",
   args: { codespaceId: v.id("codespaces") },
   returns: getCodespaceConnectionResult,
   handler: async (ctx, args): Promise<Infer<typeof getCodespaceConnectionResult>> => {
     assertCodespacesEnabled();
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
@@ -276,11 +278,12 @@ export const getCodespaceConnection = action({
  * Start a stopped Codespace
  */
 export const startCodespace = action({
+  access: "access_machines",
   args: { codespaceId: v.id("codespaces") },
   returns: v.null(),
   handler: async (ctx, args) => {
     assertCodespacesEnabled();
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
       codespaceId: args.codespaceId,
@@ -346,11 +349,12 @@ export const startCodespace = action({
  * Stop a running Codespace
  */
 export const stopCodespace = action({
+  access: "access_machines",
   args: { codespaceId: v.id("codespaces") },
   returns: v.null(),
   handler: async (ctx, args) => {
     assertCodespacesEnabled();
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
       codespaceId: args.codespaceId,
@@ -390,11 +394,12 @@ export const stopCodespace = action({
  * Delete a Codespace
  */
 export const deleteCodespace = action({
+  access: "access_machines",
   args: { codespaceId: v.id("codespaces") },
   returns: v.null(),
   handler: async (ctx, args) => {
     assertCodespacesEnabled();
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
 
     const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
       codespaceId: args.codespaceId,
