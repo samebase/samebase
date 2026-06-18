@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./functions";
 import {
   ACCESS_KEYS,
+  VIEWER_ROLES,
   canAccess,
   readAccessKeysForRole,
   type AccessKey,
@@ -14,6 +15,7 @@ import {
 
 const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
+  role_waitlisted: ["access_public"],
   role_member: [
     "access_public",
     "access_dashboard",
@@ -25,12 +27,6 @@ const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   ],
   role_staff: ACCESS_KEYS,
 };
-
-const VIEWER_ROLES = [
-  "role_anonymous",
-  "role_member",
-  "role_staff",
-] satisfies readonly ViewerRole[];
 
 query({
   access: "access_dashboard",

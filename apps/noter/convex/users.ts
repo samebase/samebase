@@ -338,7 +338,10 @@ export const currentViewerAccess = query({
   args: {},
   returns: vViewerAccess,
   handler: async (ctx) => {
-    return { accessKeys: [...ctx.viewer.accessKeys] };
+    return {
+      role: ctx.viewer.role,
+      accessKeys: [...ctx.viewer.accessKeys],
+    };
   },
 });
 

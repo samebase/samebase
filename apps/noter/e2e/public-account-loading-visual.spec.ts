@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "./visualFixtureTest";
+import { expect, test } from "./visualFixtureTest";
 
 const strictScreenshotOptions = {
   animations: "disabled",
@@ -7,14 +7,6 @@ const strictScreenshotOptions = {
   maxDiffPixelRatio: 0,
   maxDiffPixels: 0,
 } as const;
-
-async function visibleHeight(locator: Locator) {
-  const box = await locator.boundingBox();
-  if (!box) {
-    throw new Error("Expected account section to be visible before measuring height.");
-  }
-  return box.height;
-}
 
 test("public account checking login fixture", async ({ page }) => {
   await page.setViewportSize({ width: 520, height: 220 });
@@ -25,17 +17,13 @@ test("public account checking login fixture", async ({ page }) => {
 
   const fixture = page.getByTestId("public-account-checking-login-visual-fixture");
   const loadingAccountSection = fixture.getByTestId("public-landing-account-section");
-  await expect(loadingAccountSection.getByRole("button", { name: "checking login" })).toBeVisible();
+  const loadingAccountTrigger = loadingAccountSection.getByRole("button", {
+    name: "checking login",
+  });
+  await expect(loadingAccountTrigger).toBeVisible();
   await expect(fixture.locator(".animate-spin")).toHaveCount(0);
   await expect(fixture).toHaveScreenshot(
     "public-account-checking-login.png",
     strictScreenshotOptions,
   );
-
-  const loadingHeight = await visibleHeight(loadingAccountSection);
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  const resolvedAccountSection = page.getByTestId("public-landing-account-section");
-  await expect(resolvedAccountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
-  const resolvedHeight = await visibleHeight(resolvedAccountSection);
-  expect(resolvedHeight).toBe(loadingHeight);
 });

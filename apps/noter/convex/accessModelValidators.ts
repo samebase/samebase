@@ -7,6 +7,7 @@ export const vAccessKey = union(...ACCESS_KEYS.map((accessKey) => literal(access
 export const vViewerRole = union(...VIEWER_ROLES.map((role) => literal(role)));
 
 export const vViewerAccess = object({
+  role: vViewerRole,
   accessKeys: array(vAccessKey),
 });
 

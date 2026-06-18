@@ -5,7 +5,7 @@
 - Status: Proposed
 - Owner: Noter platform
 - Date: 2026-06-12
-- Last updated: 2026-06-18
+- Last updated: 2026-06-19
 - Related specs:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
@@ -25,7 +25,7 @@ prepares the app for external users:
    MCP grant demands):
    `access_public | access_dashboard | access_provider_connections | access_repo_connect | access_app_create | access_app_refresh | access_files_read | access_files_write | access_machines | access_mcp | access_admin`.
 2. **Viewer role bundles** (coarse default grant sources):
-   `role_anonymous | role_member | role_staff`.
+   `role_anonymous | role_waitlisted | role_member | role_staff`.
 3. **Grants** (which bundles satisfy which keys): one table, additive-only. Backend code resolves a
    role bundle into an effective access-key set before enforcement; frontend and other UI consumers
    receive that projected set and check keys directly.
@@ -92,9 +92,9 @@ became structural via access-key function wrappers.
   still defined once (`isAdminUser`, `apps/noter/convex/userAccess.ts`), and public admin-only
   surfaces declare `access_admin`.
 - `users.isApproved` (`apps/noter/convex/schema.ts:288`) feeds backend viewer-role resolution.
-  `ApprovalGate` consumes `users.currentViewerAccess` and treats any non-public access key as an
-  approved app-shell viewer. `devAuth.ts:210-211` seeds `isApproved: true` for local/preview
-  accounts.
+  `users.currentViewerAccess` returns the derived role plus access keys, so `ApprovalGate` can
+  render `role_waitlisted` directly while route authorization still checks access keys.
+  `devAuth.ts:210-211` seeds `isApproved: true` for local/preview accounts.
 - `waitlist.joinWaitlist` (`apps/noter/convex/waitlist.ts:18-39`) exists but has zero frontend
   callers; `ApprovalGate` renders static copy.
 - `/vault/$` (`apps/noter/src/routes/vault-file.tsx:29-36`) always renders `FileView` (file
@@ -117,8 +117,16 @@ became structural via access-key function wrappers.
 One module defines both unions, the grants table, and the decision function; frontend and Convex
 import the same file (Convex bundles imports from outside `convex/`):
 
+The shared access model is the only runtime source of truth for role and access-key literals. Convex
+validators derive from these arrays instead of restating them.
+
 ```ts
-export const VIEWER_ROLES = ["role_anonymous", "role_member", "role_staff"] as const;
+export const VIEWER_ROLES = [
+  "role_anonymous",
+  "role_waitlisted",
+  "role_member",
+  "role_staff",
+] as const;
 export type ViewerRole = (typeof VIEWER_ROLES)[number];
 
 export const ACCESS_KEYS = [
@@ -142,6 +150,7 @@ every key, so new keys are staff-reachable the moment they exist.
 */
 export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
+  role_waitlisted: ["access_public"],
   role_member: [
     "access_public",
     "access_dashboard",
@@ -172,10 +181,9 @@ Naming rules locked in by this RFC:
   management, role audit, or an admin/debug explanation.
 - OAuth still calls delegated permissions `scope` at the protocol boundary, but Noter-owned MCP
   scope values use the same `AccessKey` literals. `plan`/`feature` stay reserved for billing.
-- Non-allowlisted users denied during auth callback never get a viewer role. During the current
-  post-login waitlist implementation only, an authenticated but unapproved user resolves to
-  `role_anonymous` for access purposes: they hold only `access_public`. The UI distinguishes that
-  temporary state from signed-out users via Convex Auth state, not via a fourth role.
+- `role_anonymous` is reserved for signed-out viewers. Authenticated users whose account exists but
+  is not approved resolve to `role_waitlisted`: they hold only `access_public`, and UI surfaces that
+  need account state can render the waitlist branch without inferring it from an access-key set.
 
 Capability split locked in by this RFC:
 
@@ -203,27 +211,23 @@ has `access_repo_connect`, while `/new-app` and the "create managed app" mutatio
 - `role_staff`: `isAdminUser(email)` — hardcoded staff emails (`apps/noter/convex/userAccess.ts`),
   centralized into one `getViewerRole(ctx)` helper.
 - `role_member`: authenticated and `users.isApproved === true`.
-- `role_anonymous`: signed out. During the current post-login waitlist implementation only, signed
-  in but unapproved also resolves to `role_anonymous` until the pre-login allowlist boundary from
-  `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md` is enforced.
+- `role_waitlisted`: authenticated, user row exists, and `users.isApproved !== true`.
+- `role_anonymous`: signed out.
 
-The public authorization query is `users.currentViewerAccess`, returning `{ accessKeys }`. It
+The public authorization query is `users.currentViewerAccess`, returning `{ role, accessKeys }`. It
 projects the resolved server-side role bundle into the effective access list and replaces boolean
-access queries. `users.isCurrentUserAdmin` and `users.isCurrentUserApproved` have been deleted.
-`users.currentViewerRole` exists for role visibility, but it is not the route/UI authorization
-contract; keep role consumers scoped to role management, audit, display, or admin/debug explanation
-surfaces.
+access queries. Route authorization consumers must check `accessKeys`; UI surfaces that need to
+explain account state may read `role`. `users.isCurrentUserAdmin` and `users.isCurrentUserApproved`
+have been deleted. `users.currentViewerRole` exists for role visibility, but it is not the route/UI
+authorization contract; keep role consumers scoped to role management, audit, display, or
+admin/debug explanation surfaces.
 
 ### Auth allowlist compatibility
 
-This RFC does not supersede `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`. The accepted
-target remains: non-allowlisted users are denied during auth callback, no `users` row is inserted,
-and no authenticated session is issued. In that target state, waitlisted candidates interact with
-public routes and public Convex functions only; they do not resolve a server-side viewer role.
-
-The `role_anonymous` fallback for authenticated but unapproved users exists to close the current
-post-login gating gap while that implementation still exists. If the product chooses to keep
-authenticated waitlist accounts long term, update or replace spec 018 before implementing that path.
+`specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md` now records the revised approval boundary:
+Noter may keep authenticated waitlisted accounts, but those accounts resolve to `role_waitlisted`
+and project only `access_public`. Approving the account is a data change to `users.isApproved`,
+which changes the derived role to `role_member`.
 
 ### Backend enforcement: app function wrappers
 
@@ -251,8 +255,8 @@ export const enqueueManualRepositoryRefresh = mutation({
 - Rate limiting is intentionally not active in Phase 1. The `@convex-dev/rate-limiter` research
   showed it can fit inside these custom builders later, but this rollout keeps business function
   declarations focused on `access` only.
-- `access_public` functions skip no code path — `role_anonymous` projects to `access_public`, so
-  unauthenticated-friendly functions (Convex Auth helpers, `users.viewer`,
+- `access_public` functions skip no code path — `role_anonymous` and `role_waitlisted` project to
+  `access_public`, so unauthenticated-friendly functions (Convex Auth helpers, `users.viewer`,
   `users.getViewerAuthProviders`, `users.currentViewerAccess`, `waitlist.joinWaitlist`,
   `workspaceSidebarState.getWorkspaceSidebarState`, and
   `deploymentProfile.getPublicDeploymentAuthPolicy`) keep their graceful null/false returns.
@@ -359,19 +363,19 @@ they are.
   for a particular frontend surface, but the union is intentionally shared rather than mirrored.
   Route-owned schemas derive both editor suggestions and complete `searchParamAccess` lists from the
   same metadata so hidden/manual params keep access cleanup without being suggested.
-- Viewer model `{ isAdmin: boolean }` is replaced by `{ accessKeys }` from
+- Viewer model `{ isAdmin: boolean }` is replaced by `{ role, accessKeys }` from
   `users.currentViewerAccess`; `canAccessNoterRoutePermission` becomes
   `canAccessNoterRouteAccess(access, viewer)`. Frontend route/search decisions do not need the
   viewer's role literal after the access list has been projected.
 - New runtime gate: a `RouteAccessOutlet` in the root route (mirroring `RouteAvailabilityOutlet`)
   reads the matched route's `staticData.access` and the reactive viewer access list. `access_public`
   renders immediately (prerendered pages never wait on the query); anything else renders the auth
-  redirect / waitlist screen for a signed-out or unapproved viewer and `notFound` for an
-  authenticated viewer lacking the key (consistent with availability handling). This subsumes
-  per-page `AuthenticatedAppRoutePage` placement over time. Public routes still skip the viewer
-  access query unless the current URL contains a known non-public search param. Once viewer access
-  loads, the shell uses root search access plus matched route `searchParamAccess` to replace the URL
-  with unauthorized params removed before rendering the route outlet.
+  redirect / waitlist screen for a signed-out or waitlisted viewer and `notFound` for an
+  authenticated approved viewer lacking the key (consistent with availability handling). This
+  subsumes per-page `AuthenticatedAppRoutePage` placement over time. Public routes still skip the
+  viewer access query unless the current URL contains a known non-public search param. Once viewer
+  access loads, the shell uses root search access plus matched route `searchParamAccess` to replace
+  the URL with unauthorized params removed before rendering the route outlet.
 - Suggestion plumbing: the `=== "admin"` / `=== "public"` equality filters at
   `rootRouteSearch.ts:164-170` become access-list checks
   (`canAccessNoterRouteAccess(suggestion.access, viewer)`), removing the silent-drop hazard. Test
@@ -460,14 +464,13 @@ spec/test updates).
 
 **Phase 1 — vocabulary + backend enforcement (closes the approval gap).** Shared access module;
 app-owned `query`/`mutation`/`action`; lint rule; migrate every exported public query, mutation, and
-action onto an explicit access key. While the current post-login waitlist implementation exists,
-authenticated-but-unapproved callers lose access to everything beyond the `access_public` set — that
-is the point. If spec 018's auth-callback denial is enforced first, those tests move to the auth
-callback boundary instead. Sub-split by area for review: auth/public → dashboard → provider
-connections → repo connect/app create/app refresh → files read/write → machines → admin/chat →
-mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixtures
-(`t.withIdentity` + seeded approved/unapproved users while transition compatibility exists);
-state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every key a member holds, staff holds").
+action onto an explicit access key. Authenticated-but-unapproved callers resolve to
+`role_waitlisted` and lose access to everything beyond the `access_public` set — that is the point.
+Sub-split by area for review: auth/public → dashboard → provider connections → repo connect/app
+create/app refresh → files read/write → machines → admin/chat → mixed. Anything unclear starts as
+`access_admin`. Convex tests gain role fixtures (`t.withIdentity` + seeded approved/unapproved
+users); state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every key a member holds, staff
+holds").
 
 **Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`),
 search-param classification, URL-editor `currentViewerAccess` wiring, `RouteAccessOutlet`, and
@@ -476,13 +479,12 @@ the remaining boolean access queries after their callers move to access keys, an
 where shipped UI changes (waitlist/404 paths).
 
 **Phase 3 — member enablement.** Wire the waitlist join form to `waitlist.joinWaitlist` (today it
-has zero callers — required for real onboarding). Before first cohort launch, choose the accepted
-signup boundary: implement spec 018 by approving candidates before sign-in, or explicitly replace
-spec 018 with an authenticated waitlist-account contract. For the spec 018 path, approve the first
-cohort before sign-in, then verify the member journey end to end (sign in → `/home` → connect
-provider → connect/import repo → refresh/monitor; managed app creation still requires
-`access_app_create` plus the Pro gate). No code beyond the join form and chosen signup boundary —
-membership is data.
+has zero callers — required for real onboarding). The accepted signup boundary is authenticated
+waitlist accounts: unapproved sign-ins may create or reuse a user row, resolve to `role_waitlisted`,
+and stay limited to public access until `users.isApproved` becomes true. Verify the member journey
+end to end after approval (sign in → `/home` → connect provider → connect/import repo →
+refresh/monitor; managed app creation still requires `access_app_create` plus the Pro gate). No code
+beyond the join form and chosen signup boundary — membership is data.
 
 **Phase 4 — MCP scoped consent (separate spec).** Checkbox consent with partial access-key grants,
 live intersection on every request, step-up via `insufficient_scope`, grant management/editing on a
@@ -490,9 +492,9 @@ settings page.
 
 ## Risks
 
-1. **Unapproved-user regressions (Phase 1).** Some `getAuthUserId` call sites intentionally serve
-   unauthenticated/unapproved viewers. Mitigation: the explicit `access_public` function list above;
-   convex tests assert each stays reachable for an unapproved identity.
+1. **Waitlisted-user regressions (Phase 1).** Some `getAuthUserId` call sites intentionally serve
+   unauthenticated/waitlisted viewers. Mitigation: the explicit `access_public` function list above;
+   convex tests assert each stays reachable for a waitlisted identity.
 2. **`isApproved` is optional in schema.** `undefined` must read as not-approved (truthiness check,
    per guardrails); no backfill needed because the check fails closed.
 3. **Wrapper migration drift.** Public Convex functions span many files; the lint rule lands in the
@@ -515,13 +517,13 @@ settings page.
 1. Access keys are the operational primitive. Role strings are coarse bundle sources, not a second
    authorization axis for ordinary app checks.
 2. Subject and requirement sides use disjoint prefixed vocabularies (`role_*` / `access_*`).
-3. "Member" = authenticated + approved; non-allowlisted users are denied before role resolution per
-   spec 018. During the current post-login waitlist transition, authenticated unapproved users
-   resolve to `role_anonymous` for access.
+3. "Member" = authenticated + approved. Authenticated unapproved users resolve to `role_waitlisted`,
+   which projects only `access_public`.
 4. Staff determination stays the hardcoded email list; no persisted role field in this rollout.
-5. Authorization consumers use `users.currentViewerAccess` and check `access_*` keys. Role consumers
-   may use `users.currentViewerRole` only for role visibility, not permission decisions.
-   `users.isCurrentUserAdmin` and `users.isCurrentUserApproved` have been deleted.
+5. Authorization consumers use `users.currentViewerAccess.accessKeys` and check `access_*` keys.
+   Role consumers may use the access query's `role` or `users.currentViewerRole` only for role
+   visibility, not permission decisions. `users.isCurrentUserAdmin` and
+   `users.isCurrentUserApproved` have been deleted.
 6. One app-owned function facade over per-handler assert calls: enforcement must be structural and
    fail-closed without nested wrapper stacks.
 7. Every exported public Convex query, mutation, and action must declare exactly one access key;

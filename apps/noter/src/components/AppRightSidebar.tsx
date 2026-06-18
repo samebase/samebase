@@ -63,6 +63,7 @@ type ProviderRuntimeConfig = {
 };
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 type AppRightSidebarAuthProviders = (typeof api.users.getViewerAuthProviders)["_returnType"];
+type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 
@@ -109,6 +110,10 @@ function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | "device_au
   if (method === "oauth") return "OAuth";
   if (method === "mcp_oauth") return "OAuth";
   return "Unknown";
+}
+
+function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | undefined) {
+  return viewerAccess?.accessKeys.includes("access_provider_connections") ?? false;
 }
 
 function getRedirectOrigin(oauthUrl: string): string | null {
@@ -361,7 +366,15 @@ function AppRightSidebarSignedInAccountSection({
   );
 }
 
-function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentationProfile }) {
+function GenericSignedInAccountSection({
+  authProviders,
+  profile,
+  user,
+}: {
+  authProviders?: AppRightSidebarAuthProviders;
+  profile: AppAuthPresentationProfile | null;
+  user?: AppRightSidebarViewer | null;
+}) {
   const { signOut } = useNoterAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -386,13 +399,13 @@ function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentati
 
   return (
     <AppRightSidebarSignedInAccountSection
-      authProviders={undefined}
+      authProviders={authProviders}
       isSignOutPending={isSigningOut}
       onOpenChange={setAccountOpen}
       onSignOut={handleSignOut}
       open={accountOpen}
       profile={profile}
-      user={undefined}
+      user={user}
     />
   );
 }
@@ -400,11 +413,29 @@ function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentati
 function TemporaryAuthenticatedAppRightSidebarContent({
   profile,
 }: {
-  profile: AppAuthPresentationProfile;
+  profile: AppAuthPresentationProfile | null;
 }) {
   return (
     <VaultDashboardSidebarContent>
       <GenericSignedInAccountSection profile={profile} />
+      <div className="mt-auto">
+        <AppSidebarMetaSection linkAlignment="left" />
+      </div>
+    </VaultDashboardSidebarContent>
+  );
+}
+
+function AccountOnlyAuthenticatedAppRightSidebarContent({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
+  const user = useConvexQuery(api.users.viewer);
+  const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
+
+  return (
+    <VaultDashboardSidebarContent>
+      <GenericSignedInAccountSection authProviders={authProviders} profile={profile} user={user} />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -946,8 +977,20 @@ function AuthenticatedAppRightSidebarContent({
 
 export function AppRightSidebarContent() {
   const authPresentation = useAppAuthPresentation();
+  const viewerAccess = useConvexQuery(
+    api.users.currentViewerAccess,
+    authPresentation.kind === "confirmedAuthenticated" ? {} : "skip",
+  );
 
   if (authPresentation.kind === "confirmedAuthenticated") {
+    if (!hasProviderSidebarAccess(viewerAccess)) {
+      if (viewerAccess === undefined) {
+        return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+      }
+
+      return <AccountOnlyAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+    }
+
     return <AuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 

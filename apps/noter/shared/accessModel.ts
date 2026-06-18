@@ -16,12 +16,18 @@ export type AccessKey = (typeof ACCESS_KEYS)[number];
 export type PublicAccessKey = "access_public";
 export type AuthenticatedAccessKey = Exclude<AccessKey, PublicAccessKey>;
 
-export const VIEWER_ROLES = ["role_anonymous", "role_member", "role_staff"] as const;
+export const VIEWER_ROLES = [
+  "role_anonymous",
+  "role_waitlisted",
+  "role_member",
+  "role_staff",
+] as const;
 
 export type ViewerRole = (typeof VIEWER_ROLES)[number];
 
 export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
+  role_waitlisted: ["access_public"],
   role_member: [
     "access_public",
     "access_dashboard",
