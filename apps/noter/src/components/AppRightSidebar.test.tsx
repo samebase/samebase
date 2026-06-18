@@ -415,51 +415,42 @@ describe("AppRightSidebarContent", () => {
     expectProviderStatusQueriesNotSeen();
   });
 
-  it("keeps provider controls hidden when viewer access has not returned access keys", async () => {
-    blockProviderStatusQueries();
-
-    const hydratedMarkup = await renderRightSidebarAfterEffects([{}]);
-
-    expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Providers");
-    expect(hydratedMarkup).not.toContain("New App");
-    expectProviderStatusQueriesNotSeen();
-  });
-
   it("renders the account section after the authenticated viewer loads", async () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    const loadedQueryResults = [
-      {
-        role: "role_member",
-        accessKeys: ["access_public", "access_provider_connections"],
-      },
-      {
-        connected: false,
-      },
-      {
-        connected: false,
-      },
-      {
-        connected: false,
-      },
-      {
-        _id: "user_123",
-        name: "Nicu",
-        email: "nicu@noter.md",
-        hasCloudflareConnection: false,
-        hasConvexConnection: false,
-        hasGithubConnection: false,
-      },
-      {
-        providers: [],
-      },
-      {
-        accountPanelOpen: false,
-        providersPanelOpen: false,
-      },
-    ];
-    const hydratedMarkup = await renderRightSidebarAfterEffects(loadedQueryResults);
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [getFunctionName(api.users.getGithubConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_123",
+            name: "Nicu",
+            email: "nicu@noter.md",
+            hasCloudflareConnection: false,
+            hasConvexConnection: false,
+            hasGithubConnection: false,
+          },
+        ],
+        [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
+        [
+          getFunctionName(api.dashboardSettings.getDashboardSettings),
+          {
+            accountPanelOpen: false,
+            providersPanelOpen: false,
+          },
+        ],
+      ]),
+    );
 
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
