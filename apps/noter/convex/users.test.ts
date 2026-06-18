@@ -4,11 +4,11 @@ import { hasAppAccess, isAdminUser } from "./userAccess";
 
 describe("isAdminUser", () => {
   it("matches admin emails case-insensitively", () => {
-    expect(isAdminUser(undefined, "NICU@NOTER.MD")).toBe(true);
+    expect(isAdminUser("NICU@NOTER.MD")).toBe(true);
   });
 
-  it("matches admin GitHub usernames", () => {
-    expect(isAdminUser("nicu-chiciuc")).toBe(true);
+  it("does not give staff access to the member test account by email", () => {
+    expect(isAdminUser("nicu.dev@gmail.com")).toBe(false);
   });
 });
 
@@ -16,7 +16,6 @@ describe("hasAppAccess", () => {
   it("allows explicitly approved users", () => {
     expect(
       hasAppAccess({
-        githubUsername: undefined,
         email: "noter.guest@gmail.com",
         isApproved: true,
       }),
@@ -26,7 +25,6 @@ describe("hasAppAccess", () => {
   it("allows admins without a stored approval flag", () => {
     expect(
       hasAppAccess({
-        githubUsername: undefined,
         email: "nicu@noter.md",
       }),
     ).toBe(true);
@@ -35,7 +33,6 @@ describe("hasAppAccess", () => {
   it("blocks unapproved non-admin users", () => {
     expect(
       hasAppAccess({
-        githubUsername: undefined,
         email: "noter.guest@gmail.com",
       }),
     ).toBe(false);

@@ -1,6 +1,5 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { getConnectionByUserAndKind } from "../providerConnections";
 import { isAdminUser } from "../userAccess";
 import { assertConnectedVault } from "../vault/state";
 
@@ -28,13 +27,8 @@ export async function assertProdReadAccess(
   args: ProdReadAccessArgs,
 ): Promise<ProdReadAccessContext> {
   const user = await ctx.db.get(args.requesterUserId);
-  const githubConnection = user
-    ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
-    : null;
-  const githubUsername =
-    githubConnection?.kind === "github" ? githubConnection.username : undefined;
 
-  if (!user || !isAdminUser(githubUsername, user.email)) {
+  if (!user || !isAdminUser(user.email)) {
     throw new Error("Only admin users can request production reads");
   }
 
