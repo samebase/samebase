@@ -54,7 +54,7 @@ export default defineConfig({
     ],
     rules: {
       "noter/no-hand-written-type-predicate": "error",
-      "noter/no-raw-public-convex-function-builders": "warn",
+      "noter/no-raw-public-convex-function-builders": "error",
       "react-refresh/only-export-components": [
         "error",
         {
