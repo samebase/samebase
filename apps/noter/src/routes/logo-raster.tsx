@@ -6,7 +6,7 @@ import {
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoRouteSearchForRenderer,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/logo/raster";

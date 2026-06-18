@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   buildCodexResearchRouteSearch,
   validateCodexResearchRouteSearch,
-} from "@/lib/codexResearchRouteSearch";
+} from "@/routeSearch/codexResearch";
 
 describe("codexResearchRouteSearch", () => {
   it("trims the selected thread id when validating route search", () => {

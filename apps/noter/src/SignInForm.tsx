@@ -6,7 +6,7 @@ import {
   PUBLIC_LANDING_COPY_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "@/lib/publicLanding";
-import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 

@@ -23,7 +23,7 @@ import {
   RETAINED_ROOT_SEARCH_KEYS,
   readCanonicalRouteAddressForRootSearch,
   validateRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+} from "@/routeSearch/root";
 import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { api } from "../../../convex/_generated/api";

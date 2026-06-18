@@ -10,7 +10,7 @@ import {
   shouldRenderPublicLandingWithoutAuthGate,
   shouldShowGoogleAuthForPathname,
 } from "./publicLandingAuthState";
-import { validateRootRouteSearch } from "./rootRouteSearch";
+import { validateRootRouteSearch } from "@/routeSearch/root";
 
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 

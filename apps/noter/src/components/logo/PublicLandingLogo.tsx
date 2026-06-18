@@ -40,7 +40,7 @@ import {
   hasPublicLandingLogoStaticFallbackUnsafeSearch,
   preserveLogoRouteDevModeSearch,
   type LogoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { clearPublicLandingLogoStaticFallbackPrehydration } from "@/lib/publicLandingLogoPrehydration";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 

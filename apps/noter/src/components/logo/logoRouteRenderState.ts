@@ -44,7 +44,7 @@ import {
   normalizeLogoOpacity,
   type LogoIsoRouteSearch,
   type LogoRouteSearchBuildState,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 
 export type LogoRouteRenderMode = Exclude<LogoDepthRenderer, "svg">;

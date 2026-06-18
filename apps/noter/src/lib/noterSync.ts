@@ -1,5 +1,5 @@
 import { linkOptions } from "@tanstack/react-router";
-import { buildMachinesRouteSearch } from "./authenticatedRouteSearch";
+import { buildMachinesRouteSearch } from "@/routeSearch/machines";
 import { stringifyTanStackSearch } from "./tanstackSearchParams";
 
 export const MACHINES_ROUTE = "/machines";

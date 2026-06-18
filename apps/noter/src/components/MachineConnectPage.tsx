@@ -15,7 +15,7 @@ import {
   buildPublishedNoterSyncConnectCommand,
   buildPublishedNoterSyncRunCommand,
 } from "@/lib/noterSync";
-import { type MachineConnectRouteSearch } from "@/lib/authenticatedRouteSearch";
+import { type MachineConnectRouteSearch } from "@/routeSearch/machineConnect";
 import {
   resolveAuthoritativeNow,
   resolveConnectedMachineStatus,

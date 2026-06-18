@@ -4,7 +4,7 @@ import {
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
   validateLogoRouteSearch,
   type LogoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { MOBILE_SIDEBAR_DEBUG_QUERY_PARAM } from "@/lib/mobileSidebarGestureDebug";
 import {
   applySearchPatch,

@@ -9,7 +9,7 @@ import {
   PublicLandingPasswordAuthControls,
 } from "@/components/PublicLandingAuthControls";
 import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
-import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { type RootRouteSearch } from "@/routeSearch/root";
 import { type PublicDeploymentAuthPolicy } from "../convex/deploymentProfile";
 
 const { navigateMock, signInWithPasswordMock } = vi.hoisted(() => ({
@@ -33,7 +33,7 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
-vi.mock("@/lib/rootRouteSearch", () => ({
+vi.mock("@/routeSearch/root", () => ({
   readRootRouteSearch: () => componentState.search,
   useRootRouteSearch: () => componentState.search,
 }));

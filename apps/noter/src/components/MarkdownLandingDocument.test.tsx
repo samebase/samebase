@@ -6,7 +6,7 @@ import { useLocation } from "@tanstack/react-router";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
-import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/lib/landingMarkdownPreview";
+import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/routeSearch/landingPreview";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;

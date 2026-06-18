@@ -16,7 +16,7 @@ import {
   type CodexAppServerThreadDetailResponse,
   type CodexAppServerThreadsResponse,
 } from "@/lib/codexAppServerResearch";
-import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
+import { buildCodexResearchRouteSearch } from "@/routeSearch/codexResearch";
 import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";

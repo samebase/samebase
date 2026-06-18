@@ -36,7 +36,7 @@ import {
   validateLogoIsoRouteSearch,
   validateLogoRouteSearch,
   validateLogoRouteSearchForRenderer,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 
 describe("logoRouteSearch", () => {
   it("classifies logo search keys that make the SSG landing fallback unsafe", () => {

@@ -1,4 +1,4 @@
-import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS } from "@/lib/logoRouteSearch";
+import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS } from "@/routeSearch/logo";
 import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "@/lib/publicLandingLogo";
 
 const PUBLIC_LANDING_LOGO_PREHYDRATION_STYLE_ELEMENT_ID = "noter-public-landing-logo-prehydration";

@@ -11,12 +11,12 @@ import {
   LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
-} from "@/lib/landingMarkdownPreview";
+} from "@/routeSearch/landingPreview";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/lib/routeSearchFlags";
-import { readRootRouteSearch } from "@/lib/rootRouteSearch";
+import { readRootRouteSearch } from "@/routeSearch/root";
 import { noterBuildConfig } from "@/lib/noterBuildConfig";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";

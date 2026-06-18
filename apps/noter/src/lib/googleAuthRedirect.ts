@@ -1,4 +1,4 @@
-import { type RootRouteSearch } from "./rootRouteSearch";
+import { type RootRouteSearch } from "@/routeSearch/root";
 
 type GoogleRedirectOptions = {
   authReturn?: "dashboard";

@@ -4,7 +4,7 @@ import { CODEX_APP_SERVER_THREAD_BROWSER_ROUTE } from "@/lib/codexAppServerResea
 import {
   CODEX_RESEARCH_ROUTE_SEARCH_STATIC_DATA,
   validateCodexResearchRouteSearch,
-} from "@/lib/codexResearchRouteSearch";
+} from "@/routeSearch/codexResearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 

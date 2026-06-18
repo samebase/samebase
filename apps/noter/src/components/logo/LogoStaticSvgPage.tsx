@@ -10,7 +10,7 @@ import {
 } from "@/components/logo/logoVoxelState";
 import { Button } from "@/components/ui/button";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { Link } from "@tanstack/react-router";
 
 export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearch }) {

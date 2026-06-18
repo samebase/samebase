@@ -17,7 +17,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
   type LandingMarkdownPreviewLanguage,
-} from "@/lib/landingMarkdownPreview";
+} from "@/routeSearch/landingPreview";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
 import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";

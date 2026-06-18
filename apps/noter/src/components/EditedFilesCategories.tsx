@@ -9,7 +9,7 @@ import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
+} from "@/routeSearch/fileView";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import type { Id } from "../../convex/_generated/dataModel";

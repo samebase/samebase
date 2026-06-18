@@ -4,7 +4,7 @@ import { PricingPage } from "@/components/PricingPage";
 import {
   PRICING_ROUTE_SEARCH_STATIC_DATA,
   validatePricingRouteSearch,
-} from "@/lib/authenticatedRouteSearch";
+} from "@/routeSearch/pricing";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/pricing";

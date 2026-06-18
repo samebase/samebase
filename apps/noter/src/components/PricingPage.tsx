@@ -1,5 +1,5 @@
 import { Link, getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
-import { buildPricingRouteSearch, type PricingRouteSearch } from "@/lib/authenticatedRouteSearch";
+import { buildPricingRouteSearch, type PricingRouteSearch } from "@/routeSearch/pricing";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";

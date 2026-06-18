@@ -4,7 +4,7 @@ import { MachineConnectPage } from "@/components/MachineConnectPage";
 import {
   MACHINE_CONNECT_ROUTE_SEARCH_STATIC_DATA,
   validateMachineConnectRouteSearch,
-} from "@/lib/authenticatedRouteSearch";
+} from "@/routeSearch/machineConnect";
 import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 

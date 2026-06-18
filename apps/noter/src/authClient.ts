@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { AUTH_FLAG_STORAGE_KEY, AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
-import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { type RootRouteSearch } from "@/routeSearch/root";
 
 type AuthProvider = "google" | "password";
 const POPUP_WATCH_INTERVAL_MS = 500;

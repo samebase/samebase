@@ -4,7 +4,7 @@ import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import { landingPageMarkdown } from "@/lib/landingCopy";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { useRootRouteSearch } from "@/routeSearch/root";
 import { useMemo } from "react";
 
 export function RootIndexRoutePage() {

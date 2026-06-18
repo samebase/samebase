@@ -121,7 +121,7 @@ import {
   preserveLogoRouteDevModeSearch,
   LOGO_OPACITY_STEP,
   type LogoIsoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { useAnimationFrameLoop } from "@/lib/useAnimationFrameLoop";
 import { usePacedCommittedState } from "@/lib/usePacedCommittedState";

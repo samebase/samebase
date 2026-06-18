@@ -6,7 +6,7 @@ import {
   readRootRouteSearch,
   replaceRootLogoRouteSearch,
   validateRootRouteSearch,
-} from "./rootRouteSearch";
+} from "./root";
 
 describe("rootRouteSearch", () => {
   it("drops conflicting dashboard modal flags while keeping independent root search", () => {

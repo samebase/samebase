@@ -42,7 +42,7 @@ import {
   normalizeElevationDegrees,
   normalizeRotationDegrees,
 } from "@/components/logo/logoVoxelState";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 

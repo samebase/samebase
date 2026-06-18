@@ -3,7 +3,7 @@ import { McpConsentRoutePage } from "@/components/McpConsentRoutePage";
 import {
   MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA,
   validateMcpConsentRouteSearch,
-} from "@/lib/authenticatedRouteSearch";
+} from "@/routeSearch/mcpConsent";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/oauth/mcp/consent";
