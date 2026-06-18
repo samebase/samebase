@@ -21,7 +21,6 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS,
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
 } from "../shared/cloudflareTokenRefresh";
-import { ACCESS_GRANTS, type AccessKey } from "../shared/accessModel";
 
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
@@ -59,6 +58,9 @@ const accessKeyValidator = union(
 );
 const viewerAccessValidator = object({
   accessKeys: array(accessKeyValidator),
+});
+const viewerRoleValidator = object({
+  role: union(literal("role_anonymous"), literal("role_member"), literal("role_staff")),
 });
 const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
@@ -354,8 +356,16 @@ export const currentViewerAccess = query({
   args: {},
   returns: viewerAccessValidator,
   handler: async (ctx) => {
-    const accessKeys: AccessKey[] = [...ACCESS_GRANTS[ctx.viewer.role]];
-    return { accessKeys };
+    return { accessKeys: [...ctx.viewer.accessKeys] };
+  },
+});
+
+export const currentViewerRole = query({
+  access: "access_public",
+  args: {},
+  returns: viewerRoleValidator,
+  handler: async (ctx) => {
+    return { role: ctx.viewer.role };
   },
 });
 

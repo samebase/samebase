@@ -24,6 +24,8 @@ import schema from "./schema";
 import { hasAppAccess, isAdminUser } from "./userAccess";
 import {
   canAccess,
+  readAccessKeysForRole,
+  type AccessKey,
   type AuthenticatedAccessKey,
   type PublicAccessKey,
   type ViewerRole,
@@ -38,63 +40,106 @@ const { id, literal, null: vNull, number, object, union } = v;
 
 // Viewer model exposed through ctx.viewer on app-owned Convex builders.
 type AnonymousViewerRole = "role_anonymous";
-type AuthenticatedViewerRole = Exclude<ViewerRole, AnonymousViewerRole>;
 
-type AnonymousResolvedViewer = {
+type SignedOutResolvedViewer = {
   role: AnonymousViewerRole;
+  accessKeys: AccessKey[];
   userId: Id<"users"> | null;
-  user: Doc<"users"> | null;
+  user: null;
 };
 
-type AuthenticatedResolvedViewer = {
-  role: AuthenticatedViewerRole;
+type UserResolvedViewer = {
+  role: ViewerRole;
+  accessKeys: AccessKey[];
   userId: Id<"users">;
   user: Doc<"users">;
 };
 
-type ResolvedViewer = AnonymousResolvedViewer | AuthenticatedResolvedViewer;
+type ResolvedViewer = SignedOutResolvedViewer | UserResolvedViewer;
 
 export type PublicAppViewer = ResolvedViewer & {
   requiredAccess: PublicAccessKey;
 };
 
-export type AuthenticatedAppViewer = AuthenticatedResolvedViewer & {
+export type AuthenticatedAppViewer = UserResolvedViewer & {
   requiredAccess: AuthenticatedAccessKey;
 };
 
 export type AppViewer = PublicAppViewer | AuthenticatedAppViewer;
 
 // Validator mirror for the action runtime hop through resolveViewerForAction.
-const vAuthenticatedViewerRole = union(literal("role_member"), literal("role_staff"));
+const vViewerRole = union(literal("role_anonymous"), literal("role_member"), literal("role_staff"));
+const vAccessKey = union(
+  literal("access_public"),
+  literal("access_dashboard"),
+  literal("access_provider_connections"),
+  literal("access_repo_connect"),
+  literal("access_app_create"),
+  literal("access_app_refresh"),
+  literal("access_files_read"),
+  literal("access_files_write"),
+  literal("access_machines"),
+  literal("access_mcp"),
+  literal("access_admin"),
+);
 const vUserDoc = schema.tables.users.validator.extend({
   _id: id("users"),
   _creationTime: number(),
 });
 
-const vAnonymousResolvedViewer = object({
+const vSignedOutResolvedViewer = object({
   role: literal("role_anonymous"),
+  accessKeys: v.array(vAccessKey),
   userId: union(id("users"), vNull()),
-  user: union(vUserDoc, vNull()),
+  user: vNull(),
 });
 
-const vAuthenticatedResolvedViewer = object({
-  role: vAuthenticatedViewerRole,
+const vUserResolvedViewer = object({
+  role: vViewerRole,
+  accessKeys: v.array(vAccessKey),
   userId: id("users"),
   user: vUserDoc,
 });
 
-const vResolvedViewer = union(vAnonymousResolvedViewer, vAuthenticatedResolvedViewer);
+const vResolvedViewer = union(vSignedOutResolvedViewer, vUserResolvedViewer);
+
+function readViewerAccessKeys(role: ViewerRole): AccessKey[] {
+  return [...readAccessKeysForRole(role)];
+}
+
+function resolveSignedOutViewer(userId: Id<"users"> | null): SignedOutResolvedViewer {
+  const role = "role_anonymous";
+  return {
+    role,
+    accessKeys: readViewerAccessKeys(role),
+    userId,
+    user: null,
+  };
+}
+
+function resolveUserViewer(args: {
+  role: ViewerRole;
+  userId: Id<"users">;
+  user: Doc<"users">;
+}): UserResolvedViewer {
+  return {
+    role: args.role,
+    accessKeys: readViewerAccessKeys(args.role),
+    userId: args.userId,
+    user: args.user,
+  };
+}
 
 // Runtime policy: resolve the current viewer and enforce access keys.
 async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<ResolvedViewer> {
   const userId = await getAuthUserId(ctx);
   if (userId === null) {
-    return { role: "role_anonymous", userId, user: null };
+    return resolveSignedOutViewer(userId);
   }
 
   const user = await ctx.db.get(userId);
   if (!user) {
-    return { role: "role_anonymous", userId, user: null };
+    return resolveSignedOutViewer(userId);
   }
 
   const githubConnection = await getConnectionByUserAndKind(ctx.db, userId, "github");
@@ -102,7 +147,7 @@ async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<Resolve
     githubConnection?.kind === "github" ? githubConnection.username : undefined;
 
   if (isAdminUser(githubUsername, user.email)) {
-    return { role: "role_staff", userId, user };
+    return resolveUserViewer({ role: "role_staff", userId, user });
   }
 
   if (
@@ -112,14 +157,14 @@ async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<Resolve
       isApproved: user.isApproved,
     })
   ) {
-    return { role: "role_member", userId, user };
+    return resolveUserViewer({ role: "role_member", userId, user });
   }
 
-  return { role: "role_anonymous", userId, user };
+  return resolveUserViewer({ role: "role_anonymous", userId, user });
 }
 
 function assertPublicViewerAccess(viewer: ResolvedViewer): PublicAppViewer {
-  if (!canAccess("access_public", viewer.role)) {
+  if (!canAccess("access_public", viewer.accessKeys)) {
     throw new Error("Access denied");
   }
   return { ...viewer, requiredAccess: "access_public" };
@@ -129,7 +174,7 @@ function assertAuthenticatedViewerAccess(
   requiredAccess: AuthenticatedAccessKey,
   viewer: ResolvedViewer,
 ): AuthenticatedAppViewer {
-  if (viewer.role === "role_anonymous" || !canAccess(requiredAccess, viewer.role)) {
+  if (viewer.user === null || !canAccess(requiredAccess, viewer.accessKeys)) {
     throw new Error("Access denied");
   }
   return { ...viewer, requiredAccess };

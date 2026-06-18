@@ -6,19 +6,19 @@ import {
   readRouteUrlPathSuggestions,
 } from "./routeUrlPathSuggestions";
 import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
-import { ACCESS_GRANTS } from "../../shared/accessModel";
+import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const ORIGIN = "http://localhost:5174";
 const DEPLOYED_ORIGIN = "https://preview.noter.md";
 const routesByPath = getRouter().routesByPath;
 const staffViewer = {
-  accessKeys: ACCESS_GRANTS.role_staff,
+  accessKeys: ROLE_ACCESS_GRANTS.role_staff,
 } as const satisfies NoterRouteAccessViewer;
 const memberViewer = {
-  accessKeys: ACCESS_GRANTS.role_member,
+  accessKeys: ROLE_ACCESS_GRANTS.role_member,
 } as const satisfies NoterRouteAccessViewer;
 const anonymousViewer = {
-  accessKeys: ACCESS_GRANTS.role_anonymous,
+  accessKeys: ROLE_ACCESS_GRANTS.role_anonymous,
 } as const satisfies NoterRouteAccessViewer;
 const localEnvironment = "local";
 const prodUiEnvironment = "production";

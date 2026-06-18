@@ -2,14 +2,14 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
 import { readRouteAddressReadiness } from "./routeAddress";
 import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
-import { ACCESS_GRANTS } from "../../shared/accessModel";
+import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const routesByPath = getRouter().routesByPath;
 const staffViewer = {
-  accessKeys: ACCESS_GRANTS.role_staff,
+  accessKeys: ROLE_ACCESS_GRANTS.role_staff,
 } as const satisfies NoterRouteAccessViewer;
 const memberViewer = {
-  accessKeys: ACCESS_GRANTS.role_member,
+  accessKeys: ROLE_ACCESS_GRANTS.role_member,
 } as const satisfies NoterRouteAccessViewer;
 
 function readRouteAddressReadinessForTest(args: {

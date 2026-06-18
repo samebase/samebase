@@ -20,7 +20,7 @@ export const VIEWER_ROLES = ["role_anonymous", "role_member", "role_staff"] as c
 
 export type ViewerRole = (typeof VIEWER_ROLES)[number];
 
-export const ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
+export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
   role_member: [
     "access_public",
@@ -34,6 +34,10 @@ export const ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_staff: ACCESS_KEYS,
 };
 
-export function canAccess(access: AccessKey, role: ViewerRole): boolean {
-  return ACCESS_GRANTS[role].includes(access);
+export function readAccessKeysForRole(role: ViewerRole): readonly AccessKey[] {
+  return ROLE_ACCESS_GRANTS[role];
+}
+
+export function canAccess(access: AccessKey, accessKeys: readonly AccessKey[]): boolean {
+  return accessKeys.includes(access);
 }
