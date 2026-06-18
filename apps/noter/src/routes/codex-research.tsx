@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CodexAppServerResearchPage } from "@/components/CodexAppServerResearchPage";
+import { CodexAppServerResearchPage } from "@/components/codex/CodexAppServerResearchPage";
 import { CODEX_APP_SERVER_RESEARCH_ROUTE } from "@/codex/appServerResearch";
 import {
   CODEX_RESEARCH_ROUTE_SEARCH_STATIC_DATA,

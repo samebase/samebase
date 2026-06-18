@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
+import { CodexAppServerThreadHistoryItemCard } from "@/components/codex/CodexAppServerThreadHistoryItemCard";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,8 @@ import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
-import { api } from "../../convex/_generated/api";
+import { resolveConnectedMachineStatus } from "../../../shared/connectedMachinePresence";
+import { api } from "../../../convex/_generated/api";
 
 type RuntimeFormState = {
   cwd: string;

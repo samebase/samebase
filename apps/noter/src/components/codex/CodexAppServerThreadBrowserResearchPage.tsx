@@ -3,7 +3,7 @@ import {
   type CodexThreadBrowserDetailState,
   type CodexThreadBrowserGroup,
   type CodexThreadBrowserMode,
-} from "@/components/CodexThreadBrowserView";
+} from "@/components/codex/CodexThreadBrowserView";
 import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,

@@ -1,4 +1,4 @@
-import { CodexThreadBrowserView } from "@/components/CodexThreadBrowserView";
+import { CodexThreadBrowserView } from "@/components/codex/CodexThreadBrowserView";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,

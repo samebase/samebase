@@ -1,5 +1,5 @@
 import { ConnectedMachineHeartbeatLogSection } from "@/components/ConnectedMachineHeartbeatLog";
-import { CodexAppServerSelectedThreadCard } from "@/components/CodexAppServerResearchPage";
+import { CodexAppServerSelectedThreadCard } from "@/components/codex/CodexAppServerResearchPage";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
