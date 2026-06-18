@@ -1,9 +1,8 @@
 import { v, type Infer } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, mutation, type MutationCtx } from "../_generated/server";
-import { getUserId } from "../common";
-import { query } from "../functions";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { mutation, query } from "../functions";
 import { vPullRequestLabel, type PullRequestLabel } from "../schema";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
@@ -803,11 +802,11 @@ export const claimTreeRefresh = internalMutation({
 
 // Optimistically start tree refresh (for immediate UI feedback)
 export const startTreeRefreshOptimistic = mutation({
+  access: "access_app_refresh",
   args: { vaultId: v.id("vaults") },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
-    if (!vault || vault.userId !== userId) {
+    if (!vault || vault.userId !== ctx.viewer.userId) {
       throw new Error("Vault not found");
     }
     if (isVaultDeletingOrDeleteFailed(vault)) return;
