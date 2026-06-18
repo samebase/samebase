@@ -386,7 +386,10 @@ describe("AppRightSidebarContent", () => {
       new Map([
         [
           getFunctionName(api.users.currentViewerAccess),
-          { role: "role_waitlisted", accessKeys: ["access_public"] },
+          {
+            role: "role_waitlisted",
+            accessKeys: ["access_public", "access_user_preferences"],
+          },
         ],
         [
           getFunctionName(api.users.viewer),

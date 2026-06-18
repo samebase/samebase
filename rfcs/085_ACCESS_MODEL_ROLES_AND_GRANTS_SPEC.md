@@ -23,7 +23,7 @@ prepares the app for external users:
 
 1. **Access keys** (the checkable primitive; what a route, search param, query, mutation, action, or
    MCP grant demands):
-   `access_public | access_dashboard | access_provider_connections | access_repo_connect | access_app_create | access_app_refresh | access_files_read | access_files_write | access_machines | access_mcp | access_admin`.
+   `access_public | access_user_preferences | access_dashboard | access_provider_connections | access_repo_connect | access_app_create | access_app_refresh | access_files_read | access_files_write | access_machines | access_mcp | access_admin`.
 2. **Viewer role bundles** (coarse default grant sources):
    `role_anonymous | role_waitlisted | role_member | role_staff`.
 3. **Grants** (which bundles satisfy which keys): one table, additive-only. Backend code resolves a
@@ -39,12 +39,13 @@ model; they are a convenient way to assemble default access bundles until Noter 
 custom roles, per-user overrides, or delegated resource-specific grants. Code outside role
 resolution, role management, audit, or admin/debug surfaces should prefer `access_*` checks.
 
-Member MVP: `role_member` holds `access_public`, `access_dashboard`, `access_provider_connections`,
-`access_repo_connect`, `access_app_refresh`, `access_files_read`, and `access_files_write`. Members
-can sign in, connect provider accounts, connect/import their own repositories, monitor/resync app
-state, and use owned file surfaces behind per-vault ownership checks. New managed app provisioning,
-machines, MCP, and admin surfaces stay staff-only until deliberately opened. Enabling more later is
-a grant edit plus route/function reclassification, not a redesign.
+Member MVP: `role_member` holds `access_public`, `access_user_preferences`, `access_dashboard`,
+`access_provider_connections`, `access_repo_connect`, `access_app_refresh`, `access_files_read`, and
+`access_files_write`. Members can sign in, persist signed-in app-shell preferences, connect provider
+accounts, connect/import their own repositories, monitor/resync app state, and use owned file
+surfaces behind per-vault ownership checks. New managed app provisioning, machines, MCP, and admin
+surfaces stay staff-only until deliberately opened. Enabling more later is a grant edit plus
+route/function reclassification, not a redesign.
 
 This RFC also closes the approval enforcement gap that existed before the backend wrapper rollout:
 `users.isApproved` was enforced only by the client-side `ApprovalGate`, so backend enforcement
@@ -131,6 +132,7 @@ export type ViewerRole = (typeof VIEWER_ROLES)[number];
 
 export const ACCESS_KEYS = [
   "access_public",
+  "access_user_preferences",
   "access_dashboard",
   "access_provider_connections",
   "access_repo_connect",
@@ -150,9 +152,10 @@ every key, so new keys are staff-reachable the moment they exist.
 */
 export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
-  role_waitlisted: ["access_public"],
+  role_waitlisted: ["access_public", "access_user_preferences"],
   role_member: [
     "access_public",
+    "access_user_preferences",
     "access_dashboard",
     "access_provider_connections",
     "access_repo_connect",
@@ -182,14 +185,16 @@ Naming rules locked in by this RFC:
 - OAuth still calls delegated permissions `scope` at the protocol boundary, but Noter-owned MCP
   scope values use the same `AccessKey` literals. `plan`/`feature` stay reserved for billing.
 - `role_anonymous` is reserved for signed-out viewers. Authenticated users whose account exists but
-  is not approved resolve to `role_waitlisted`: they hold only `access_public`, and UI surfaces that
-  need account state can render the waitlist branch without inferring it from an access-key set.
+  is not approved resolve to `role_waitlisted`: they hold `access_public` plus
+  `access_user_preferences`, and UI surfaces that need account state can render the waitlist branch
+  without inferring it from an access-key set.
 
 Capability split locked in by this RFC:
 
 | Access key                    | Product capability                                                                                                                     |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `access_public`               | Public routes and unauthenticated-friendly helpers.                                                                                    |
+| `access_user_preferences`     | Signed-in public app-shell preferences, such as workspace sidebar pane and geometry state.                                             |
 | `access_dashboard`            | Signed-in app shell, own app/vault lists, billing status, and low-risk dashboard reads.                                                |
 | `access_provider_connections` | Connect, list, refresh, and remove provider credentials or OAuth/API-key connections for the current viewer.                           |
 | `access_repo_connect`         | Import/link an existing repository into Noter using the viewer's provider connection.                                                  |
@@ -226,8 +231,8 @@ admin/debug explanation surfaces.
 
 `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md` now records the revised approval boundary:
 Noter may keep authenticated waitlisted accounts, but those accounts resolve to `role_waitlisted`
-and project only `access_public`. Approving the account is a data change to `users.isApproved`,
-which changes the derived role to `role_member`.
+and project only `access_public` plus `access_user_preferences`. Approving the account is a data
+change to `users.isApproved`, which changes the derived role to `role_member`.
 
 ### Backend enforcement: app function wrappers
 
@@ -260,6 +265,10 @@ export const enqueueManualRepositoryRefresh = mutation({
   `users.getViewerAuthProviders`, `users.currentViewerAccess`, `waitlist.joinWaitlist`,
   `workspaceSidebarState.getWorkspaceSidebarState`, and
   `deploymentProfile.getPublicDeploymentAuthPolicy`) keep their graceful null/false returns.
+- `access_user_preferences` covers signed-in app-shell preference writes that must work before
+  approval but must not create anonymous database rows.
+  `workspaceSidebarState.setWorkspaceSidebarState` uses this key so waitlisted users can leave the
+  right sidebar on public routes.
 - Enforcement becomes structural once the migration lint lands: the repo-local Oxlint rule
   `noter/no-raw-public-convex-function-builders` bans `query`/`mutation`/`action` imports from
   `_generated/server`. `convex/functions.ts` carries the required file-local disable because it is
@@ -465,12 +474,12 @@ spec/test updates).
 **Phase 1 — vocabulary + backend enforcement (closes the approval gap).** Shared access module;
 app-owned `query`/`mutation`/`action`; lint rule; migrate every exported public query, mutation, and
 action onto an explicit access key. Authenticated-but-unapproved callers resolve to
-`role_waitlisted` and lose access to everything beyond the `access_public` set — that is the point.
-Sub-split by area for review: auth/public → dashboard → provider connections → repo connect/app
-create/app refresh → files read/write → machines → admin/chat → mixed. Anything unclear starts as
-`access_admin`. Convex tests gain role fixtures (`t.withIdentity` + seeded approved/unapproved
-users); state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every key a member holds, staff
-holds").
+`role_waitlisted` and lose access to everything beyond public reads and signed-in shell preferences
+— that is the point. Sub-split by area for review: auth/public → dashboard → provider connections →
+repo connect/app create/app refresh → files read/write → machines → admin/chat → mixed. Anything
+unclear starts as `access_admin`. Convex tests gain role fixtures (`t.withIdentity` + seeded
+approved/unapproved users); state-axis enumeration test for `ROLE_ACCESS_GRANTS` (e.g. "every key a
+member holds, staff holds").
 
 **Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`),
 search-param classification, URL-editor `currentViewerAccess` wiring, `RouteAccessOutlet`, and
@@ -493,8 +502,9 @@ settings page.
 ## Risks
 
 1. **Waitlisted-user regressions (Phase 1).** Some `getAuthUserId` call sites intentionally serve
-   unauthenticated/waitlisted viewers. Mitigation: the explicit `access_public` function list above;
-   convex tests assert each stays reachable for a waitlisted identity.
+   unauthenticated/waitlisted viewers. Mitigation: the explicit `access_public` function list above,
+   plus `access_user_preferences` for signed-in preference writes; convex tests assert each intended
+   waitlisted surface stays reachable.
 2. **`isApproved` is optional in schema.** `undefined` must read as not-approved (truthiness check,
    per guardrails); no backfill needed because the check fails closed.
 3. **Wrapper migration drift.** Public Convex functions span many files; the lint rule lands in the
@@ -518,7 +528,7 @@ settings page.
    authorization axis for ordinary app checks.
 2. Subject and requirement sides use disjoint prefixed vocabularies (`role_*` / `access_*`).
 3. "Member" = authenticated + approved. Authenticated unapproved users resolve to `role_waitlisted`,
-   which projects only `access_public`.
+   which projects only `access_public` plus `access_user_preferences`.
 4. Staff determination stays the hardcoded email list; no persisted role field in this rollout.
 5. Authorization consumers use `users.currentViewerAccess.accessKeys` and check `access_*` keys.
    Role consumers may use the access query's `role` or `users.currentViewerRole` only for role
