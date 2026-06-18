@@ -1366,7 +1366,6 @@ export const trackedFilePaths = [
   "research/onboarding-video-package-prototype-2026-04-21.md",
   "research/onboarding-video-tooling-2026-03-19.md",
   "research/onboarding-video-window-treatment-options-2026-04-21.md",
-  "research/tmp-convex-access-wrapper-cleanups.ts",
   "research/windows-native-connected-machine-walkthrough-2026-04-01.md",
   "rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md",
   "rfcs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md",

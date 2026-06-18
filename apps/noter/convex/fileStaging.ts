@@ -115,6 +115,7 @@ const duplicateBranchStagingArgsValidator = {
   sourceBranch: branchValidator,
   targetBranch: branchValidator,
   stagedFiles: stagedFileSnapshotListValidator,
+  userId: userIdValidator,
 };
 const clearMatchingStagingSnapshotArgsValidator = {
   vaultId: vaultIdValidator,
@@ -418,20 +419,6 @@ async function readDeletionSnapshotSeed(
   });
 }
 
-/**
- * Gate staging writes behind the live connected-vault invariant.
- *
- * This throws through assertConnectedVault when the vault is missing,
- * disconnected, deleting, or delete_failed, so staging mutations do not drift
- * from the rest of the vault write gates.
- */
-async function assertVaultAllowsStagingWrites(
-  ctx: MutationCtx,
-  vaultId: Infer<typeof vaultIdValidator>,
-): Promise<void> {
-  assertConnectedVault(await ctx.db.get(vaultId));
-}
-
 // MARK: Public
 
 export const generateUploadUrl = mutation({
@@ -594,7 +581,10 @@ export const duplicateBranchStaging = internalMutation({
   args: duplicateBranchStagingArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+    await assertConnectedVaultForStagingWrite(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    });
 
     if (args.sourceBranch === args.targetBranch) {
       throw new Error("Source and target branches must differ.");
@@ -1305,7 +1295,10 @@ export const internalMarkFileForDeletion = internalMutation({
   args: internalDeletionArgsValidator,
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+    await assertConnectedVaultForStagingWrite(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    });
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1354,13 +1347,10 @@ export const saveBinaryUploadToStaging = internalMutation({
   args: saveBinaryUploadToStagingArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
+    await assertConnectedVaultForStagingWrite(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
     });
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-    assertConnectedVault(vault);
 
     const currentTimestamp = Date.now();
     const existingStagingByPath = await ctx.db
@@ -1610,10 +1600,14 @@ export const reconcileStagingWithTree = internalMutation({
   args: {
     vaultId: vaultIdValidator,
     instructions: array(reconcileInstructionValidator),
+    userId: userIdValidator,
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+    await assertConnectedVaultForStagingWrite(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    });
 
     const cleanupCutoffTimestamp = Date.now() + 1;
     for (const instruction of args.instructions) {

@@ -26,16 +26,6 @@ export const getVault = internalQuery({
 });
 
 /**
- * Internal: Get user by ID
- */
-export const getUser = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.userId);
-  },
-});
-
-/**
  * Internal mutation: Create Codespace record in database
  */
 export const createCodespaceRecord = internalMutation({

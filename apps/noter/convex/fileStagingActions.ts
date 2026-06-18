@@ -2416,6 +2416,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
         sourceBranch: defaultBranch,
         targetBranch,
         stagedFiles,
+        userId,
       });
     } catch (error) {
       await cleanupTemporaryDraftBranch({
@@ -2841,6 +2842,7 @@ export const pullFromGitHubInternal = internalAction({
       await ctx.runMutation(internal.fileStaging.reconcileStagingWithTree, {
         vaultId: args.vaultId,
         instructions,
+        userId: args.userId,
       });
     }
 

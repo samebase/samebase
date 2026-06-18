@@ -3,8 +3,6 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { components, internal } from "../_generated/api";
 import { mutation, query } from "../functions";
-import { getConnectionByUserAndKind } from "../providerConnections";
-import { isAdminUser } from "../userAccess";
 import {
   listMessages,
   saveMessage,
@@ -461,16 +459,6 @@ export const rejectProdRead = mutation({
       throw new Error("Request not found");
     }
 
-    const user = await ctx.db.get(userId);
-    const githubConnection = user
-      ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
-      : null;
-    const githubUsername =
-      githubConnection?.kind === "github" ? githubConnection.username : undefined;
-    if (!user || !isAdminUser(githubUsername, user.email)) {
-      throw new Error("Only admin users can reject production reads");
-    }
-
     if (request.status !== "proposed" && request.status !== "approved") {
       return null;
     }
@@ -515,16 +503,6 @@ export const confirmProdRead = mutation({
     const userId = ctx.viewer.userId;
     const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
-
-    const user = await ctx.db.get(userId);
-    const githubConnection = user
-      ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
-      : null;
-    const githubUsername =
-      githubConnection?.kind === "github" ? githubConnection.username : undefined;
-    if (!user || !isAdminUser(githubUsername, user.email)) {
-      throw new Error("Only admin users can approve production reads");
-    }
 
     const request = await ctx.db.get(args.requestId);
     if (!request || request.threadId !== args.threadId) {

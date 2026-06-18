@@ -15,7 +15,6 @@ const DEFAULT_PRICING_BILLING_CYCLE: BillingCycle = "monthly";
 const vDashboardSettings = object({
   accountPanelOpen: boolean(),
   providersPanelOpen: boolean(),
-  // TODO: Why is this necessary? (probably remove it)
   pricingBillingCycle: vBillingCycle,
   // Vault/editor routes own the repository-scoped dock.
   editorChatOpen: boolean(),
