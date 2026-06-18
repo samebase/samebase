@@ -66,7 +66,11 @@ vi.mock("convex/react", async (importOriginal) => {
     useAction: createAsyncHandler,
     useConvexAuth: () => authState,
     useMutation: createAsyncHandler,
-    useQuery: () => {
+    useQuery: (_query: unknown, args: unknown) => {
+      if (args === "skip") {
+        return undefined;
+      }
+
       const result =
         queryState.results.length === 0
           ? undefined
@@ -280,34 +284,53 @@ describe("AppRightSidebarContent", () => {
     }
   });
 
-  it("keeps local JWT profile claims after hydration while the authenticated viewer loads", async () => {
+  it("keeps local JWT profile claims after hydration while authenticated app access loads", async () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     const markup = renderRightSidebar([]);
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
     const accountIndex = hydratedMarkup.indexOf("Nicu");
-    const providersIndex = hydratedMarkup.indexOf("Providers");
 
     expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(providersIndex).toBeGreaterThan(accountIndex);
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("Providers");
   });
 
-  it("keeps a checking-login account slot above providers while the authenticated viewer loads", async () => {
+  it("keeps provider controls hidden while authenticated app access loads", async () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-    const accountIndex = hydratedMarkup.indexOf("checking login");
-    const providersIndex = hydratedMarkup.indexOf("Providers");
 
-    expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(providersIndex).toBeGreaterThan(accountIndex);
+    expect(hydratedMarkup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("Providers");
+  });
+
+  it("keeps provider controls hidden for confirmed waitlisted users", async () => {
+    const hydratedMarkup = await renderRightSidebarAfterEffects([
+      { accessKeys: ["access_public"] },
+    ]);
+
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("New App");
   });
 
   it("renders the account section after the authenticated viewer loads", async () => {
     const loadedQueryResults = [
+      {
+        accessKeys: ["access_public", "access_provider_connections"],
+      },
+      {
+        connected: false,
+      },
+      {
+        connected: false,
+      },
+      {
+        connected: false,
+      },
       {
         _id: "user_123",
         name: "Nicu",
@@ -315,6 +338,13 @@ describe("AppRightSidebarContent", () => {
         hasCloudflareConnection: false,
         hasConvexConnection: false,
         hasGithubConnection: false,
+      },
+      {
+        providers: [],
+      },
+      {
+        accountPanelOpen: false,
+        providersPanelOpen: false,
       },
     ];
     const hydratedMarkup = await renderRightSidebarAfterEffects(loadedQueryResults);

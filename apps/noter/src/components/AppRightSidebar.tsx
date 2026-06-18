@@ -64,6 +64,7 @@ type ProviderRuntimeConfig = {
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 type AppRightSidebarAuthProviders = (typeof api.users.getViewerAuthProviders)["_returnType"];
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
+type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
@@ -109,6 +110,13 @@ function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | "device_au
   if (method === "oauth") return "OAuth";
   if (method === "mcp_oauth") return "OAuth";
   return "Unknown";
+}
+
+function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | undefined) {
+  return (
+    viewerAccess?.accessKeys.some((accessKey) => accessKey === "access_provider_connections") ===
+    true
+  );
 }
 
 function getRedirectOrigin(oauthUrl: string): string | null {
@@ -361,7 +369,11 @@ function AppRightSidebarSignedInAccountSection({
   );
 }
 
-function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentationProfile }) {
+function GenericSignedInAccountSection({
+  profile,
+}: {
+  profile: AppAuthPresentationProfile | null;
+}) {
   const { signOut } = useNoterAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -400,7 +412,7 @@ function GenericSignedInAccountSection({ profile }: { profile: AppAuthPresentati
 function TemporaryAuthenticatedAppRightSidebarContent({
   profile,
 }: {
-  profile: AppAuthPresentationProfile;
+  profile: AppAuthPresentationProfile | null;
 }) {
   return (
     <VaultDashboardSidebarContent>
@@ -946,8 +958,16 @@ function AuthenticatedAppRightSidebarContent({
 
 export function AppRightSidebarContent() {
   const authPresentation = useAppAuthPresentation();
+  const viewerAccess = useConvexQuery(
+    api.users.currentViewerAccess,
+    authPresentation.kind === "confirmedAuthenticated" ? {} : "skip",
+  );
 
   if (authPresentation.kind === "confirmedAuthenticated") {
+    if (!hasProviderSidebarAccess(viewerAccess)) {
+      return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+    }
+
     return <AuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 
