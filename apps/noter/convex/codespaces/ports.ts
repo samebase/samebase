@@ -439,15 +439,14 @@ export const ensureCodespacePortsVisibility = action({
     assertCodespacesEnabled();
     const ensuredAt = Date.now();
     const userId = ctx.viewer.userId;
+    const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
+      codespaceId: args.codespaceId,
+    });
+    if (!codespace || codespace.userId !== userId) {
+      throw new Error("Codespace not found");
+    }
 
     try {
-      const codespace = await ctx.runQuery(internal.codespaces.mutations.getCodespace, {
-        codespaceId: args.codespaceId,
-      });
-      if (!codespace || codespace.userId !== userId) {
-        throw new Error("Codespace not found");
-      }
-
       if (codespace.state !== "running") {
         throw new Error(`Codespace is not running (current state: ${codespace.state})`);
       }
