@@ -2,11 +2,9 @@ import { normalizeRouteSearchPresenceFlags } from "@/lib/routeSearchFlags";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
-  readRouteSearchAcceptedKeys,
-  readRouteSearchParamAccess,
-  readRouteSearchParamSuggestions,
   readRouteSearchPresenceKeys,
   readRouteSearchParamMetadata,
+  readRouteSearchStaticData,
   routeSearchNonEmptyString,
   routeSearchPresenceParam,
   routeSearchStringValue,
@@ -30,17 +28,8 @@ const mcpConsentRouteSearchParamMetadata = readRouteSearchParamMetadata(
   RouteSearchSchema_mcpConsent,
 );
 
-export const MCP_CONSENT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+export const MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   mcpConsentRouteSearchParamMetadata,
-  "route",
-);
-
-export const MCP_CONSENT_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
-  mcpConsentRouteSearchParamMetadata,
-);
-
-export const MCP_CONSENT_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
-  RouteSearchSchema_mcpConsent,
 );
 
 export function validateMcpConsentRouteSearch(
@@ -63,16 +52,9 @@ export type PricingRouteSearch = InferRouteSearch<typeof RouteSearchSchema_prici
 
 const pricingRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_pricing);
 
-export const PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  pricingRouteSearchParamMetadata,
-  "route",
-);
-
-export const PRICING_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+export const PRICING_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   pricingRouteSearchParamMetadata,
 );
-
-export const PRICING_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_pricing);
 
 export function validatePricingRouteSearch(search: Record<string, unknown>): PricingRouteSearch {
   return RouteSearchSchema_pricing.parse(search);
@@ -107,17 +89,8 @@ const MACHINE_CONNECT_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   machineConnectRouteSearchParamMetadata,
 );
 
-export const MACHINE_CONNECT_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
+export const MACHINE_CONNECT_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   machineConnectRouteSearchParamMetadata,
-  "route",
-);
-
-export const MACHINE_CONNECT_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
-  machineConnectRouteSearchParamMetadata,
-);
-
-export const MACHINE_CONNECT_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
-  RouteSearchSchema_machineConnect,
 );
 
 export function validateMachineConnectRouteSearch(
@@ -147,16 +120,9 @@ export type MachinesRouteSearch = InferRouteSearch<typeof RouteSearchSchema_mach
 
 const machinesRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_machines);
 
-export const MACHINES_ROUTE_SEARCH_PARAM_SUGGESTIONS = readRouteSearchParamSuggestions(
-  machinesRouteSearchParamMetadata,
-  "route",
-);
-
-export const MACHINES_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+export const MACHINES_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   machinesRouteSearchParamMetadata,
 );
-
-export const MACHINES_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(RouteSearchSchema_machines);
 
 export function validateMachinesRouteSearch(search: Record<string, unknown>): MachinesRouteSearch {
   return RouteSearchSchema_machines.parse(search);

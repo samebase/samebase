@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { PricingPage } from "@/components/PricingPage";
 import {
-  PRICING_ROUTE_SEARCH_KEYS,
-  PRICING_ROUTE_SEARCH_PARAM_ACCESS,
-  PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  PRICING_ROUTE_SEARCH_STATIC_DATA,
   validatePricingRouteSearch,
 } from "@/lib/authenticatedRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
@@ -22,9 +20,7 @@ function PricingRouteComponent() {
 export const Route = createFileRoute("/pricing")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    acceptedSearchKeys: PRICING_ROUTE_SEARCH_KEYS,
-    searchParamAccess: PRICING_ROUTE_SEARCH_PARAM_ACCESS,
-    searchParamSuggestions: PRICING_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    ...PRICING_ROUTE_SEARCH_STATIC_DATA,
   },
   component: PricingRouteComponent,
   validateSearch: validatePricingRouteSearch,

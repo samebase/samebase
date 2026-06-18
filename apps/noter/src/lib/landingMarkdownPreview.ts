@@ -1,11 +1,9 @@
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
-  readRouteSearchAcceptedKeys,
-  readRouteSearchParamAccess,
-  readRouteSearchParamSuggestions,
   readRouteSearchParamMetadata,
   readRouteSearchPresenceKeys,
+  readRouteSearchStaticData,
   routeSearchPresenceParam,
   routeSearchStringValue,
   routeSearchValueParam,
@@ -59,15 +57,8 @@ const LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKey
   landingMarkdownPreviewRouteSearchParamMetadata,
 );
 
-export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS =
-  readRouteSearchParamSuggestions(landingMarkdownPreviewRouteSearchParamMetadata, "route");
-
-export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_PARAM_ACCESS = readRouteSearchParamAccess(
+export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   landingMarkdownPreviewRouteSearchParamMetadata,
-);
-
-export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_KEYS = readRouteSearchAcceptedKeys(
-  RouteSearchSchema_landingMarkdownPreview,
 );
 
 export function validateLandingMarkdownPreviewRouteSearch(

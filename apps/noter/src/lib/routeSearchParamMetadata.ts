@@ -205,6 +205,16 @@ export function readRouteSearchParamAccess<
   return accessEntries;
 }
 
+export function readRouteSearchStaticData<
+  const Metadata extends Readonly<Record<string, RouteSearchParamMetadata>>,
+>(metadata: Metadata) {
+  return {
+    acceptedSearchKeys: keys(metadata),
+    searchParamAccess: readRouteSearchParamAccess(metadata),
+    searchParamSuggestions: readRouteSearchParamSuggestions(metadata, "route"),
+  };
+}
+
 export function readRouteSearchPresenceKeys<
   const Metadata extends Readonly<Record<string, RouteSearchParamMetadata>>,
 >(metadata: Metadata): readonly (keyof Metadata & string)[] {

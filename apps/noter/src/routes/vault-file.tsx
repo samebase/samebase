@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import {
-  FILE_VIEW_ROUTE_SEARCH_KEYS,
-  FILE_VIEW_ROUTE_SEARCH_PARAM_ACCESS,
-  FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+  FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,
   validateFileViewRouteSearch,
 } from "@/lib/fileViewRouteSearch";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
@@ -31,9 +29,7 @@ function FileViewRouteComponent() {
 export const Route = createFileRoute("/vault/$")({
   staticData: {
     ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    acceptedSearchKeys: FILE_VIEW_ROUTE_SEARCH_KEYS,
-    searchParamAccess: FILE_VIEW_ROUTE_SEARCH_PARAM_ACCESS,
-    searchParamSuggestions: FILE_VIEW_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    ...FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,
   },
   component: FileViewRouteComponent,
   validateSearch: validateFileViewRouteSearch,
