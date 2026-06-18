@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../../../convex/_generated/dataModel";
+import { ACCESS_GRANTS } from "../../../shared/accessModel";
 import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
@@ -163,7 +164,7 @@ describe("VaultDashboardBody", () => {
   let scrolledElements: Element[] = [];
 
   beforeEach(() => {
-    useQueryMock.mockReturnValue(true);
+    useQueryMock.mockReturnValue({ accessKeys: ACCESS_GRANTS.role_staff });
     scrolledElements = [];
     Object.defineProperty(Element.prototype, "scrollIntoView", {
       configurable: true,
