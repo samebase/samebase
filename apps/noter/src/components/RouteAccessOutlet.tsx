@@ -4,8 +4,13 @@ import {
   canAccessNoterRouteMatchesAccess,
   type NoterRouteAccessViewer,
 } from "@/lib/routePermissions";
-import { Outlet, useMatches } from "@tanstack/react-router";
+import {
+  readRouteSearchAccessCanonicalRouteAddress,
+  routeSearchNeedsViewerAccess,
+} from "@/lib/routeSearchAccess";
+import { Outlet, useLocation, useMatches, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
+import { useEffect } from "react";
 import { api } from "../../convex/_generated/api";
 
 const publicRouteAccessViewer = {
@@ -20,11 +25,40 @@ function RouteAccessDeniedPage() {
   );
 }
 
-function AuthenticatedRouteAccessOutlet() {
+function AuthenticatedRouteAccessOutlet({
+  location,
+  matches,
+}: {
+  location: {
+    hash: string;
+    pathname: string;
+    searchStr: string;
+  };
+  matches: ReturnType<typeof useMatches>;
+}) {
   const viewerAccess = useQuery(api.users.currentViewerAccess);
-  const matches = useMatches();
+  const router = useRouter();
+  const canonicalRouteAddress =
+    viewerAccess === undefined
+      ? null
+      : readRouteSearchAccessCanonicalRouteAddress({
+          location,
+          matches,
+          viewer: viewerAccess,
+        });
 
-  if (viewerAccess === undefined) {
+  useEffect(() => {
+    if (canonicalRouteAddress === null) {
+      return;
+    }
+
+    void router.navigate({
+      href: canonicalRouteAddress,
+      replace: true,
+    });
+  }, [canonicalRouteAddress, router]);
+
+  if (viewerAccess === undefined || canonicalRouteAddress !== null) {
     return null;
   }
 
@@ -36,9 +70,17 @@ function AuthenticatedRouteAccessOutlet() {
 }
 
 export function RouteAccessOutlet() {
-  const routeIsPublic = useMatches({
-    select: (matches) => canAccessNoterRouteMatchesAccess(matches, publicRouteAccessViewer),
+  const location = useLocation();
+  const matches = useMatches();
+  const routeIsPublic = canAccessNoterRouteMatchesAccess(matches, publicRouteAccessViewer);
+  const searchNeedsViewerAccess = routeSearchNeedsViewerAccess({
+    matches,
+    searchStr: location.searchStr,
   });
 
-  return routeIsPublic ? <Outlet /> : <AuthenticatedRouteAccessOutlet />;
+  return routeIsPublic && !searchNeedsViewerAccess ? (
+    <Outlet />
+  ) : (
+    <AuthenticatedRouteAccessOutlet location={location} matches={matches} />
+  );
 }

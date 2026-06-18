@@ -68,10 +68,13 @@ export type NoterRouteSearchParamSemantics =
       searchParamKind: "value";
     });
 
-export type NoterRouteSearchParamSuggestion<Key extends string = string> = {
+export type NoterRouteSearchParamAccess<Key extends string = string> = {
   key: Key;
   access: NoterRouteAccess;
-} & NoterRouteSearchParamSemantics;
+};
+
+export type NoterRouteSearchParamSuggestion<Key extends string = string> =
+  NoterRouteSearchParamAccess<Key> & NoterRouteSearchParamSemantics;
 
 export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
   NoterRouteSearchParamSuggestion<Key>,
@@ -87,7 +90,8 @@ export type NoterRouteStaticData = {
   every path accepts. Absent means the route accepts only root-owned keys.
 
   Acceptance is structural (schema membership) and viewer-independent; the
-  per-param `access` gates editor exposure, never key acceptance.
+  per-param `access` gates editor exposure and direct URL cleanup, never key
+  acceptance.
   */
   acceptedSearchKeys?: readonly string[];
   searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];

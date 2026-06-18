@@ -82,11 +82,10 @@ functions today. Backend enforcement becomes structural via access-key function 
   reads `users.currentViewerAccess` and filters route/search suggestions plus path readiness against
   the effective `accessKeys` list. It no longer adapts `isCurrentUserAdmin` into a synthetic
   frontend role, and route UI does not need `users.currentViewerRole`.
-- The only frontend access decision function gates URL-editor suggestions and path readiness only.
-  Navigation is gated by availability (`apps/noter/src/routes/root.tsx:86-89`) and by the per-page
-  `AuthenticatedAppRoutePage` → `<Authenticated>` + `ApprovalGate` pair
-  (`apps/noter/src/components/ApprovalGate.tsx:8`). Route `access` values are metadata, not locks,
-  until the runtime route gate lands.
+- `RouteAccessOutlet` enforces matched route `access` metadata in the root app shell and removes
+  direct-URL search params whose metadata requires an access key the current viewer does not hold.
+  Per-page `AuthenticatedAppRoutePage` → `<Authenticated>` + `ApprovalGate` remains in place during
+  the shell migration (`apps/noter/src/components/ApprovalGate.tsx:8`).
 - Backend enforcement for exported public queries, mutations, and actions now goes through the
   app-owned builders in `apps/noter/convex/functions.ts`. Public handlers use `ctx.viewer.userId`
   instead of a per-handler auth preamble; remaining direct `getAuthUserId` calls live at wrapper,
@@ -366,7 +365,10 @@ they are.
   renders immediately (prerendered pages never wait on the query); anything else renders the auth
   redirect / waitlist screen for a signed-out or unapproved viewer and `notFound` for an
   authenticated viewer lacking the key (consistent with availability handling). This subsumes
-  per-page `AuthenticatedAppRoutePage` placement over time.
+  per-page `AuthenticatedAppRoutePage` placement over time. Public routes still skip the viewer
+  access query unless the current URL contains a known non-public search param. Once viewer access
+  loads, the shell replaces the URL with unauthorized params removed before rendering the route
+  outlet.
 - Suggestion plumbing: the `=== "admin"` / `=== "public"` equality filters at
   `rootRouteSearch.ts:164-170` become access-list checks
   (`canAccessNoterRouteAccess(suggestion.access, viewer)`), removing the silent-drop hazard. Test
@@ -460,10 +462,10 @@ mixed. Anything unclear starts as `access_admin`. Convex tests gain role fixture
 state-axis enumeration test for `ACCESS_GRANTS` (e.g. "every key a member holds, staff holds").
 
 **Phase 2 — frontend runtime gate.** The metadata field rename (`permission` → `access`),
-search-param classification, and URL-editor `currentViewerAccess` wiring started in this spike. The
-remaining frontend work is `RouteAccessOutlet`, deletion of the remaining boolean access queries
-after their callers move to access keys, and screenshot updates where shipped UI changes
-(waitlist/404 paths).
+search-param classification, URL-editor `currentViewerAccess` wiring, `RouteAccessOutlet`, and
+direct-URL search-param cleanup started in this spike. The remaining frontend work is deletion of
+the remaining boolean access queries after their callers move to access keys, and screenshot updates
+where shipped UI changes (waitlist/404 paths).
 
 **Phase 3 — member enablement.** Wire the waitlist join form to `waitlist.joinWaitlist` (today it
 has zero callers — required for real onboarding). Before first cohort launch, choose the accepted

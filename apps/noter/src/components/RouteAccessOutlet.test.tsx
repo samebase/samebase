@@ -3,13 +3,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type { NoterRouteAccess, NoterRouteSearchParamSuggestion } from "@/lib/routePermissions";
 import { RouteAccessOutlet } from "./RouteAccessOutlet";
 
 const routeMatchState = vi.hoisted(
   (): {
     matches: Array<{
       staticData: {
-        access: string;
+        access: NoterRouteAccess;
+        searchParamSuggestions?: NoterRouteSearchParamSuggestion[];
       };
     }>;
   } => ({
@@ -31,13 +33,39 @@ const viewerAccessState = vi.hoisted(
   }),
 );
 
+const locationState = vi.hoisted(
+  (): {
+    hash: string;
+    pathname: string;
+    searchStr: string;
+  } => ({
+    hash: "",
+    pathname: "/",
+    searchStr: "",
+  }),
+);
+
+const routerState = vi.hoisted(
+  (): {
+    navigateCalls: string[];
+  } => ({
+    navigateCalls: [],
+  }),
+);
+
 vi.mock("@tanstack/react-router", () => ({
   Outlet: () => <div data-testid="route-outlet">Route outlet</div>,
+  useLocation: () => locationState,
   useMatches: ({
     select,
   }: {
     select?: (matches: typeof routeMatchState.matches) => unknown;
   } = {}) => (select ? select(routeMatchState.matches) : routeMatchState.matches),
+  useRouter: () => ({
+    navigate: ({ href }: { href: string }) => {
+      routerState.navigateCalls.push(href);
+    },
+  }),
 }));
 
 vi.mock("convex/react", () => ({
@@ -60,6 +88,10 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
 describe("RouteAccessOutlet", () => {
   beforeEach(() => {
     routeMatchState.matches = [{ staticData: { access: "access_public" } }];
+    locationState.hash = "";
+    locationState.pathname = "/";
+    locationState.searchStr = "";
+    routerState.navigateCalls = [];
     viewerAccessState.queryCalls = 0;
     viewerAccessState.result = { accessKeys: ["access_public"] };
   });
@@ -70,6 +102,36 @@ describe("RouteAccessOutlet", () => {
     expect(markup).toContain("Route outlet");
     expect(markup).not.toContain("authenticated-route-page");
     expect(viewerAccessState.queryCalls).toBe(0);
+  });
+
+  it("renders public routes with public search params without reading viewer access", () => {
+    locationState.searchStr = "?prod-ui";
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(viewerAccessState.queryCalls).toBe(0);
+  });
+
+  it("waits for cleanup when a public route has an unauthorized search param", () => {
+    locationState.searchStr = "?delete&prod-ui";
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toBe("");
+    expect(viewerAccessState.queryCalls).toBe(1);
+  });
+
+  it("renders public routes with restricted search params when the viewer has access", () => {
+    locationState.searchStr = "?delete&prod-ui";
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_dashboard"],
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(viewerAccessState.queryCalls).toBe(1);
   });
 
   it("renders dashboard routes when the viewer has dashboard access", () => {
