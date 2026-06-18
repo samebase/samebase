@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { PITCH_DECK_SURFACE_TEST_ID } from "../src/components/PitchDeckPage";
+import { signInIfNeeded } from "./liveHelpers";
 
 const pitchDeckScreenshotOptions = {
   animations: "disabled",
@@ -11,7 +12,13 @@ const pitchDeckScreenshotOptions = {
   maxDiffPixelRatio: 0.12,
 } as const;
 
+async function signInForPitchRoute(page: Page): Promise<void> {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page);
+}
+
 test("/pitch stays visually stable", async ({ page }) => {
+  await signInForPitchRoute(page);
   await page.goto("/pitch", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "One route. Two print presets. Zero slide framework.",
@@ -39,6 +46,7 @@ const printRoutes = [
 
 for (const printRoute of printRoutes) {
   test(`${printRoute.route} stays visually stable`, async ({ page }) => {
+    await signInForPitchRoute(page);
     await page.goto(printRoute.route, { waitUntil: "networkidle" });
 
     await expect(page.getByTestId(PITCH_DECK_SURFACE_TEST_ID)).toHaveScreenshot(

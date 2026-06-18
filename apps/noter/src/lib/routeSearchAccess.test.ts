@@ -3,6 +3,7 @@ import {
   readRouteSearchAccessCanonicalRouteAddress,
   routeSearchNeedsViewerAccess,
 } from "./routeSearchAccess";
+import { MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA } from "./authenticatedRouteSearch";
 
 const publicViewer = { accessKeys: ["access_public"] } as const;
 const dashboardViewer = {
@@ -81,6 +82,35 @@ describe("routeSearchAccess", () => {
         },
         matches: publicMatches,
         viewer: dashboardViewer,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps public MCP consent entry params for signed-out viewers", () => {
+    const matches = [
+      {
+        staticData: {
+          access: "access_public",
+          ...MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA,
+        },
+      },
+    ] as const;
+
+    expect(
+      routeSearchNeedsViewerAccess({
+        matches,
+        searchStr: "?mcp_consent_request=mcpar_test&mcp_login_required=1",
+      }),
+    ).toBe(false);
+    expect(
+      readRouteSearchAccessCanonicalRouteAddress({
+        location: {
+          hash: "",
+          pathname: "/oauth/mcp/consent",
+          searchStr: "?mcp_consent_request=mcpar_test&mcp_login_required=1",
+        },
+        matches,
+        viewer: publicViewer,
       }),
     ).toBeNull();
   });

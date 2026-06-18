@@ -1,7 +1,10 @@
 import type { NoterRouteStaticData } from "./lib/routePermissions";
 import type { FileRoutesByFullPath } from "./routeTree.gen";
 
-type NoterRouteAccessMetadata = Pick<NoterRouteStaticData, "access" | "availableEnvironments">;
+type NoterRouteMetadata = Pick<
+  NoterRouteStaticData,
+  "access" | "availableEnvironments" | "pathSuggestion"
+>;
 
 /**
  * Config-time consumers need route access policy without importing route
@@ -27,7 +30,7 @@ const noterRouteAccessMetadataByPath = {
   "/machines": { access: "access_machines" },
   "/machines/connect": { access: "access_machines" },
   "/new-app": { access: "access_app_create" },
-  "/oauth/mcp/consent": { access: "access_mcp" },
+  "/oauth/mcp/consent": { access: "access_public", pathSuggestion: "hidden" },
   "/pitch": { access: "access_admin" },
   "/pitch/print": { access: "access_admin" },
   "/pitch/print/mobile": { access: "access_admin" },
@@ -40,9 +43,9 @@ const noterRouteAccessMetadataByPath = {
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo/codespace/$branch/chat": { access: "access_machines" },
   "/visual-fixture": { availableEnvironments: ["local"], access: "access_public" },
-} as const satisfies Record<keyof FileRoutesByFullPath, NoterRouteAccessMetadata>;
+} as const satisfies Record<keyof FileRoutesByFullPath, NoterRouteMetadata>;
 
 export const NOTER_ROUTE_ACCESS_METADATA_BY_PATH: Record<
   keyof FileRoutesByFullPath,
-  NoterRouteAccessMetadata
+  NoterRouteMetadata
 > = noterRouteAccessMetadataByPath;

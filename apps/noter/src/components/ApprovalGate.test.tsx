@@ -52,7 +52,7 @@ describe("ApprovalGate", () => {
 
     const markup = renderApprovalGate();
 
-    expect(markup).toContain("You're on the waitlist");
+    expect(markup).toContain("waitlist");
     expect(markup).not.toContain("Route child");
   });
 
@@ -62,7 +62,7 @@ describe("ApprovalGate", () => {
     const markup = renderApprovalGate();
 
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("You're on the waitlist");
+    expect(markup).not.toContain("waitlist");
   });
 
   it("uses provided route access without starting a duplicate query", () => {

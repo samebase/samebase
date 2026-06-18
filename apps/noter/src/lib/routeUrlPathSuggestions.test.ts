@@ -38,6 +38,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/home");
+    expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
     expect(suggestions).toEqual(
       [...suggestions].sort((left, right) => {

@@ -111,6 +111,7 @@ function isRouteUrlPathSuggestion(
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
+    staticData.pathSuggestion !== "hidden" &&
     canAccessNoterRouteStaticData(staticData, viewer, routeEnvironment)
   );
 }

@@ -16,6 +16,7 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
   "diff",
   "freeView",
   "light",
+  "mcp_login_required",
   "openedByCli",
   "prod-ui",
   "reset",

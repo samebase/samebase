@@ -84,6 +84,7 @@ export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = 
 export type NoterRouteStaticData = {
   availableEnvironments?: NoterRouteAvailability;
   access: NoterRouteAccess;
+  pathSuggestion?: "hidden";
 
   /**
   Query keys this route's own search schema accepts, beyond the root-owned keys

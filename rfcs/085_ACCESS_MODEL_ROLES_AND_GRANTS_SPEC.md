@@ -385,14 +385,14 @@ they are.
 
 | Access key            | Routes                                                                                                                                                                                                                                                                                                                |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `access_public`       | `/`, `/logo`, `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                                                                                                                                                    |
+| `access_public`       | `/`, `/logo`, `/oauth/mcp/consent` (hidden from route path suggestions), `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                                                                                         |
 | `access_dashboard`    | `/home`, `/pricing`                                                                                                                                                                                                                                                                                                   |
 | `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                                                                                            |
 | `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                                                                                      |
 | `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                                                                                                 |
 | `access_files_write`  | File edit/staging/commit actions inside `/vault/$`; no separate route required at MVP                                                                                                                                                                                                                                 |
 | `access_machines`     | `/machines`, `/machines/connect`                                                                                                                                                                                                                                                                                      |
-| `access_mcp`          | `/oauth/mcp/consent`                                                                                                                                                                                                                                                                                                  |
+| `access_mcp`          | MCP-facing backend entry points and token-granted tool scopes; the consent URL itself is a public OAuth entrypoint so signed-out users can keep the request ID through sign-in                                                                                                                                        |
 | `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/research/codex-app-server`, `/research/codex-app-server/browser`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
 
 With MVP grants, members reach public, dashboard, provider-connection, repo-connect, app-refresh,
@@ -402,8 +402,9 @@ reclassify alongside their routes: dashboard/billing params (`delete`, `checkout
 `access_provider_connections`; repo/app setup params (`add-app-root`, `app-root`, `new-app`) →
 `access_repo_connect` unless the triggered backend action is managed provisioning, which requires
 `access_app_create`; file-view params (`compare`, `diff`, `review`, `mobileLineNumbers`) →
-`access_files_read`; file edit/staging params → `access_files_write`; machines/MCP params →
-`access_machines` / `access_mcp`; dev toggles and landing-preview params → `access_admin`.
+`access_files_read`; file edit/staging params → `access_files_write`; machine params →
+`access_machines`; MCP OAuth entry params (`mcp_consent_request`, `mcp_login_required`) → hidden
+`access_public`; dev toggles and landing-preview params → `access_admin`.
 
 ### Billing stays orthogonal
 
@@ -447,8 +448,10 @@ Constraints this RFC locks in so Phases 1–3 do not paint MCP into a corner:
    subset; grant matching moves from string equality to subset logic.
 3. `scopes_supported` advertises the minimal useful access-key scope set (excludes `access_admin`)
    so generic clients that request everything do not ask for staff powers by default.
-4. The `/oauth/mcp/consent` route key relaxes from staff-only to member-reachable in the same change
-   that grants members any MCP scope — until then `access_mcp` is granted to staff only.
+4. The `/oauth/mcp/consent` route stays publicly reachable as an OAuth entrypoint so unauthenticated
+   users can see the MCP-specific sign-in surface and keep the request ID through login. The consent
+   actions, request reads, and MCP tool scopes stay gated by `access_mcp` and the user's current
+   access keys.
 
 ## Rollout Phases
 
@@ -503,9 +506,9 @@ settings page.
 6. **Per-page `AuthenticatedAppRoutePage` overlap with `RouteAccessOutlet`** during Phase 2: keep
    both briefly, delete the per-page wrapper as routes are confirmed gated (delete-first; no
    long-lived dual system).
-7. **MCP consent route over-gating.** `access_mcp` staff-only until member MCP ships; an approved
-   member hitting a consent link sees 404 rather than a broken consent flow. Documented behavior
-   until Phase 4.
+7. **MCP consent route discovery.** The consent URL is public for OAuth entry, but it is hidden from
+   route-path suggestions. Protected request reads/actions remain behind `access_mcp`, so public
+   reachability does not grant MCP capability.
 
 ## Resolved Decisions
 
