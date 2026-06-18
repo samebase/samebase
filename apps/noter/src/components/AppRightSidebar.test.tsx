@@ -21,11 +21,13 @@ const queryState = vi.hoisted<{
   blockedQueryNames: Set<string>;
   index: number;
   results: unknown[];
+  resultsByQueryName: Map<string, unknown>;
   seenQueryNames: string[];
 }>(() => ({
   blockedQueryNames: new Set(),
   index: 0,
   results: [],
+  resultsByQueryName: new Map(),
   seenQueryNames: [],
 }));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
@@ -90,6 +92,9 @@ vi.mock("convex/react", async (importOriginal) => {
       if (queryState.blockedQueryNames.has(queryName)) {
         throw new Error(`Unexpected provider status query: ${queryName}`);
       }
+      if (queryState.resultsByQueryName.has(queryName)) {
+        return queryState.resultsByQueryName.get(queryName);
+      }
 
       const result =
         queryState.results.length === 0
@@ -144,6 +149,14 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 function prepareRightSidebar(queryResults: unknown[]) {
   queryState.index = 0;
   queryState.results = queryResults;
+  queryState.resultsByQueryName = new Map();
+  queryState.seenQueryNames = [];
+}
+
+function prepareRightSidebarNamed(queryResults: ReadonlyMap<string, unknown>) {
+  queryState.index = 0;
+  queryState.results = [];
+  queryState.resultsByQueryName = new Map(queryResults);
   queryState.seenQueryNames = [];
 }
 
@@ -176,6 +189,28 @@ async function renderRightSidebarAfterEffects(queryResults: unknown[]) {
   const markup = mounted.rootElement.innerHTML;
   await mounted.unmount();
   return markup;
+}
+
+async function renderRightSidebarAfterEffectsWithNamedQueries(
+  queryResults: ReadonlyMap<string, unknown>,
+) {
+  prepareRightSidebarNamed(queryResults);
+  const rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  const root = createRoot(rootElement);
+
+  try {
+    await act(async () => {
+      root.render(createRightSidebarElement());
+    });
+
+    return rootElement.innerHTML;
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    rootElement.remove();
+  }
 }
 
 async function mountRightSidebarAfterEffects(queryResults: unknown[]) {
@@ -220,6 +255,7 @@ describe("AppRightSidebarContent", () => {
     window.history.replaceState({}, "", "/home");
     queryState.index = 0;
     queryState.results = [];
+    queryState.resultsByQueryName = new Map();
     queryState.blockedQueryNames = new Set();
     queryState.seenQueryNames = [];
   });
@@ -346,20 +382,31 @@ describe("AppRightSidebarContent", () => {
   it("loads the account row without provider controls for confirmed waitlisted users", async () => {
     blockProviderStatusQueries();
 
-    const hydratedMarkup = await renderRightSidebarAfterEffects([
-      { role: "role_waitlisted", accessKeys: ["access_public"] },
-      {
-        _id: "user_waitlisted",
-        name: "Waitlisted User",
-        email: "waitlisted@example.com",
-        hasCloudflareConnection: false,
-        hasConvexConnection: false,
-        hasGithubConnection: false,
-      },
-      {
-        providers: [],
-      },
-    ]);
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          { role: "role_waitlisted", accessKeys: ["access_public"] },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_waitlisted",
+            name: "Waitlisted User",
+            email: "waitlisted@example.com",
+            hasCloudflareConnection: false,
+            hasConvexConnection: false,
+            hasGithubConnection: false,
+          },
+        ],
+        [
+          getFunctionName(api.users.getViewerAuthProviders),
+          {
+            providers: [],
+          },
+        ],
+      ]),
+    );
 
     expect(hydratedMarkup).toContain("Waitlisted User");
     expect(hydratedMarkup).not.toContain("checking login");
