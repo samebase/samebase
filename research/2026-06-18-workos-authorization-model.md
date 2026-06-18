@@ -81,9 +81,9 @@ Keep `access_*` as the product authorization vocabulary and treat `role_*` as a 
 is compatible with WorkOS because WorkOS itself exposes effective permissions in sessions for
 org-wide checks and uses roles to assign those permissions.
 
-Do not add `users.currentViewerRole` for route/search UI. The stable query should be
-`users.currentViewerAccess`. If role exposure is needed later, scope it to admin, role management,
-or audit surfaces.
+Do not use `users.currentViewerRole` for route/search authorization. The stable authorization query
+should be `users.currentViewerAccess`. Role exposure is still valid for admin, role management,
+display, or audit surfaces.
 
 Do not rename current route keys to WorkOS-style `{resource_type}:{action}` slugs yet. WorkOS
 recommends that pattern for FGA resource permissions, but Noter's current `access_*` values are
