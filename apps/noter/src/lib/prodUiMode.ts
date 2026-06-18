@@ -1,5 +1,5 @@
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "./tanstackSearchParams";
-import { applySearchPatch } from "@/lib/routeSearchFlags";
+import { applySearchPatch } from "@/routing/searchFlags";
 import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
 export const FORCE_PROD_UI_QUERY_PARAM = "prod-ui";

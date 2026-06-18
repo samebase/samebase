@@ -7,7 +7,7 @@ import {
   readNoterRouteEnvironmentForOrigin,
   readNoterRouteEnvironmentForRouteGuard,
   resolveNoterRouteEnvironment,
-} from "./routeAvailability";
+} from "./availability";
 
 afterEach(() => {
   vi.unstubAllEnvs();

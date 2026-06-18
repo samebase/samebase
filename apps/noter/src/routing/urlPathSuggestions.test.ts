@@ -4,8 +4,8 @@ import {
   filterRouteUrlPathSuggestions,
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
-} from "./routeUrlPathSuggestions";
-import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+} from "./urlPathSuggestions";
+import type { NoterRouteAccessViewer } from "@/routing/permissions";
 import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const ORIGIN = "http://localhost:5174";

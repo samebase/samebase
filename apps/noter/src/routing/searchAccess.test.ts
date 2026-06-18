@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   readRouteSearchAccessCanonicalRouteAddress,
   routeSearchNeedsViewerAccess,
-} from "./routeSearchAccess";
+} from "./searchAccess";
 import { MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA } from "@/routeSearch/mcpConsent";
 
 const publicViewer = { accessKeys: ["access_public"] } as const;

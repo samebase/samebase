@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getRouter } from "@/router";
-import { readRouteAddressReadiness } from "./routeAddress";
-import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+import { readRouteAddressReadiness } from "./address";
+import type { NoterRouteAccessViewer } from "@/routing/permissions";
 import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const routesByPath = getRouter().routesByPath;

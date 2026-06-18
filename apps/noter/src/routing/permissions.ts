@@ -2,7 +2,7 @@ import {
   canAccessNoterRouteAvailability,
   type NoterRouteAvailability,
   type NoterRouteEnvironment,
-} from "@/lib/routeAvailability";
+} from "@/routing/availability";
 import type { AccessKey } from "../../shared/accessModel";
 
 export type NoterRouteAccess = AccessKey;

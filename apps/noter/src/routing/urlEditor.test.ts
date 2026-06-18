@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { normalizeRouteUrlEditorHref } from "./routeUrlEditor";
+import { normalizeRouteUrlEditorHref } from "./urlEditor";
 
 const ORIGIN = "https://noter.local";
 

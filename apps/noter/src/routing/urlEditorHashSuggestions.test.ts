@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vite-plus/test";
-import { readRouteUrlEditorDocumentHashSuggestionKeys } from "./routeUrlEditorHashSuggestions";
+import { readRouteUrlEditorDocumentHashSuggestionKeys } from "./urlEditorHashSuggestions";
 
 describe("readRouteUrlEditorDocumentHashSuggestionKeys", () => {
   it("reads existing landing and dashboard hash ids in document order", () => {

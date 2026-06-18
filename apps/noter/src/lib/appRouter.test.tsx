@@ -195,7 +195,7 @@ vi.mock("@/lib/rootHead", () => ({
 }));
 
 import { createAppRouter } from "../router";
-import { applySearchPatch } from "./routeSearchFlags";
+import { applySearchPatch } from "@/routing/searchFlags";
 import { buildPathWithTanStackSearch, stringifyTanStackSearch } from "./tanstackSearchParams";
 
 const { act } = React;

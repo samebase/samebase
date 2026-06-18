@@ -5,7 +5,7 @@ import {
   type NoterRouteAccess,
   type NoterRouteAccessViewer,
   type NoterRouteSearchParamAccess,
-} from "@/lib/routePermissions";
+} from "@/routing/permissions";
 
 type NoterRouteSearchAccessMatch = {
   staticData: {

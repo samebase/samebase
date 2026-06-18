@@ -4,11 +4,11 @@ import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
 import {
   canAccessNoterRouteMatchesAccess,
   type NoterRouteAccessViewer,
-} from "@/lib/routePermissions";
+} from "@/routing/permissions";
 import {
   readRouteSearchAccessCanonicalRouteAddress,
   routeSearchNeedsViewerAccess,
-} from "@/lib/routeSearchAccess";
+} from "@/routing/searchAccess";
 import { Outlet, useLocation, useMatches, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";

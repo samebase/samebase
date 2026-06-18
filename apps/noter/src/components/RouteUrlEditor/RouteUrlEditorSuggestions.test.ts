@@ -4,7 +4,7 @@ import {
   readCurrentRouteUrlEditorSuggestionIndex,
   readSuggestions,
 } from "./RouteUrlEditorSuggestions";
-import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
+import type { NoterRouteAccessViewer } from "@/routing/permissions";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 
 const prefix = "http://localhost:5174/";

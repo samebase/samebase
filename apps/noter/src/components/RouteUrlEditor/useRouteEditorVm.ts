@@ -16,9 +16,9 @@ import {
   readMatchingRouteAcceptedSearchKeys,
   readRouteAddressReadiness,
   type RouteAddressReadiness,
-} from "@/lib/routeAddress";
-import type { NoterRouteAccessViewer } from "@/lib/routePermissions";
-import { openRouteAddressQuerySlot } from "@/lib/routeAddressParts";
+} from "@/routing/address";
+import type { NoterRouteAccessViewer } from "@/routing/permissions";
+import { openRouteAddressQuerySlot } from "@/routing/addressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   readCanonicalRouteAddressForRootSearch,

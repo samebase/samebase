@@ -1,4 +1,4 @@
-import type { NoterRouteStaticData } from "./lib/routePermissions";
+import type { NoterRouteStaticData } from "./routing/permissions";
 import type { FileRoutesByFullPath } from "./routeTree.gen";
 
 type NoterRouteMetadata = Pick<

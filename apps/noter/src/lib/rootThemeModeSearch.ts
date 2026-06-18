@@ -1,5 +1,5 @@
-import { normalizeRouteSearchPresenceFlags, type SearchPatch } from "@/lib/routeSearchFlags";
-import { defineRouteSearchParams, routeSearchPresenceParam } from "@/lib/routeSearchParamMetadata";
+import { normalizeRouteSearchPresenceFlags, type SearchPatch } from "@/routing/searchFlags";
+import { defineRouteSearchParams, routeSearchPresenceParam } from "@/routing/searchParamMetadata";
 
 export const ROOT_THEME_MODE_SEARCH_KEYS = ["light", "dark"] as const;
 export type RootThemeModeSearchKey = (typeof ROOT_THEME_MODE_SEARCH_KEYS)[number];

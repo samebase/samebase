@@ -5,7 +5,7 @@ import {
   type NoterRouteAccessViewer,
   type NoterRouteSearchParamSuggestion,
   type NoterRouteSearchParamValueSuggestion,
-} from "@/lib/routePermissions";
+} from "@/routing/permissions";
 import {
   hasRouteAddressNonEmptySearchTokenAfter,
   isRouteAddressFinalSearchToken,
@@ -18,11 +18,11 @@ import {
   replaceRouteAddressSearchToken,
   replaceRouteAddressSearchValue,
   type RouteAddressSearchToken,
-} from "@/lib/routeAddressParts";
+} from "@/routing/addressParts";
 import {
   readRouteUrlPathSuggestionEnvironment,
   readRouteUrlPathSuggestions,
-} from "@/lib/routeUrlPathSuggestions";
+} from "@/routing/urlPathSuggestions";
 import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import type { AppRouter } from "@/router";
 

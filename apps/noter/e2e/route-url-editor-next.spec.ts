@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { openRouteAddressQuerySlot } from "../src/lib/routeAddressParts";
+import { openRouteAddressQuerySlot } from "../src/routing/addressParts";
 
 async function openRouteUrlEditor(page: Page, route = "/privacy"): Promise<Locator> {
   await page.goto(route, {
