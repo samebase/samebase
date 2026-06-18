@@ -1,76 +1,55 @@
-# Auth Allowlist Pre-Login Enforcement Specification
+# Auth Approval Boundary Specification
 
 ## Document Control
 
 - Status: Implemented
 - Owner: Noter auth/backend
-- Last updated: 2026-02-19
+- Last updated: 2026-06-19
+- Related specs:
+  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
 
 ## Summary
 
-The current auth flow allows users to complete OAuth, create/update a local user record, and
-establish a session before Noter blocks access with a waitlist screen.
+Noter keeps signup approval in `users.isApproved`. A signed-in user whose account exists but is not
+approved is a waitlisted account, not an anonymous viewer and not a member. Backend viewer
+resolution derives `role_waitlisted` for that state and projects only `access_public`.
 
-This spec changes the policy to reject unauthorized users during auth callback handling, before
-account creation and before session establishment.
+Approving a user is a data change: set `users.isApproved` to `true`. The next viewer resolution
+derives `role_member` unless the user's email is staff, in which case staff resolution wins.
 
-## Problem Statement
+## Historical Context
 
-Current behavior is post-login gating:
+This file originally targeted pre-login allowlist enforcement: deny unauthorized OAuth callbacks,
+avoid creating a `users` row, and avoid issuing an authenticated session. The member rollout chose a
+different current product boundary so operators can test and approve real signed-in accounts through
+standard data state instead of editing code-side email allowlists.
 
-1. OAuth succeeds.
-2. `createOrUpdateUser` writes/updates a user in `users`.
-3. UI checks approval and renders "You're on the waitlist" for non-approved users.
-
-Relevant files:
-
-- `apps/noter/convex/auth.ts`
-- `apps/noter/convex/users.ts`
-- `apps/noter/src/App.tsx`
-
-Implications:
-
-- Non-allowlisted users can still create local accounts.
-- Session cookies/tokens can still be issued before UI blocks access.
-- Relying on Google-side "allow/test users" is not sufficient for product-level signup control.
-
-## Goals
-
-- Enforce allowlist at auth callback time on the backend.
-- Prevent non-allowlisted users from creating local user records.
-- Prevent non-allowlisted users from getting an authenticated app session.
-- Treat empty allowlist as closed signup (`deny all`), not open signup.
-
-## Non-Goals
-
-- Reworking waitlist marketing copy/UX.
-- Replacing provider OAuth configuration.
-- Building a full admin invite management UI in this change.
+The pre-login-denial model is no longer the active contract for member onboarding. If Noter later
+returns to callback-time denial, that change needs a new rollout spec because it would remove the
+authenticated waitlisted-account state defined here.
 
 ## Required Behavior
 
-1. Authorization decision must be made server-side in auth callbacks.
-2. If user identity is not allowlisted, auth flow returns an authorization error.
-3. No `users` row is inserted for denied sign-ins.
-4. Existing users who are no longer allowlisted must be denied on next sign-in.
-5. Empty allowlist denies all new sign-ins (except explicit emergency/admin bypasses, if
-   configured).
+1. Signed-out viewers resolve to `role_anonymous`.
+2. Signed-in users with `users.isApproved !== true` resolve to `role_waitlisted`.
+3. `role_waitlisted` grants only `access_public`.
+4. Signed-in users with `users.isApproved === true` resolve to `role_member`, unless staff email
+   resolution applies.
+5. Staff email resolution resolves to `role_staff` independently of `users.isApproved`.
+6. App authorization checks use access keys, not `users.isApproved` directly.
+7. UI surfaces that need to explain account state may read the derived role from
+   `users.currentViewerAccess.role` or `users.currentViewerRole`.
 
-Allowlist source:
+## Non-Goals
 
-- Hardcoded `ALLOWED_EMAILS` constant in `apps/noter/convex/users.ts` (case-insensitive match via
-  lowercasing input email).
-
-## Rollout Notes
-
-- Existing already-approved users may remain in the database; this is expected.
-- Enforcement applies to new authentication attempts after deployment.
-- If emergency access is needed, explicitly add the email to allowlist before sign-in.
+- Persisting `users.role`.
+- Building a full admin invite management UI.
+- Reworking waitlist marketing copy or waitlist submission behavior.
 
 ## Acceptance Criteria
 
-- [ ] Non-allowlisted OAuth account cannot complete sign-in to an authenticated app session.
-- [ ] Non-allowlisted OAuth account does not create a `users` record.
-- [ ] Allowlisted account can sign in normally.
-- [ ] Empty allowlist blocks all sign-ins by default.
-- [ ] Frontend waitlist page is no longer the primary security gate.
+- [x] Signed-out viewers resolve to `role_anonymous` and `access_public`.
+- [x] Unapproved signed-in users resolve to `role_waitlisted` and `access_public`.
+- [x] Approved signed-in users resolve to `role_member` and member access keys.
+- [x] Staff emails resolve to `role_staff`.
+- [x] Provider/dashboard/file functions deny waitlisted users through access-key checks.

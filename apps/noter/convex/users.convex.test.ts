@@ -9,6 +9,7 @@ describe("users Convex contract", () => {
 
     await expect(t.query(api.users.viewer)).resolves.toBeNull();
     await expect(t.query(api.users.currentViewerAccess)).resolves.toEqual({
+      role: "role_anonymous",
       accessKeys: ["access_public"],
     });
     await expect(t.query(api.users.currentViewerRole)).resolves.toEqual({
@@ -55,6 +56,7 @@ describe("users Convex contract", () => {
       hasCloudflareConnection: false,
     });
     await expect(asUser.query(api.users.currentViewerAccess)).resolves.toEqual({
+      role: "role_member",
       accessKeys: [
         "access_public",
         "access_dashboard",
@@ -70,7 +72,7 @@ describe("users Convex contract", () => {
     });
   });
 
-  it("keeps public viewer state for unapproved users and denies provider access", async () => {
+  it("keeps waitlisted users on public access and denies provider access", async () => {
     const t = makeConvexTest();
     const ownerId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -114,10 +116,11 @@ describe("users Convex contract", () => {
       hasCloudflareConnection: false,
     });
     await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
+      role: "role_waitlisted",
       accessKeys: ["access_public"],
     });
     await expect(asViewer.query(api.users.currentViewerRole)).resolves.toEqual({
-      role: "role_anonymous",
+      role: "role_waitlisted",
     });
     await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
       "Access denied",

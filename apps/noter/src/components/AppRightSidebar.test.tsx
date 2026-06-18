@@ -309,7 +309,7 @@ describe("AppRightSidebarContent", () => {
 
   it("keeps provider controls hidden for confirmed waitlisted users", async () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([
-      { accessKeys: ["access_public"] },
+      { role: "role_waitlisted", accessKeys: ["access_public"] },
     ]);
 
     expect(hydratedMarkup).toContain("checking login");
@@ -330,6 +330,7 @@ describe("AppRightSidebarContent", () => {
 
     const loadedQueryResults = [
       {
+        role: "role_member",
         accessKeys: ["access_public", "access_provider_connections"],
       },
       {

@@ -1,12 +1,17 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { NoterRouteAccessViewer } from "@/routing/permissions";
+import type { ViewerRole } from "../../shared/accessModel";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ApprovalGate, ApprovalGateViewerAccessProvider } from "./ApprovalGate";
 
 const viewerAccessState = vi.hoisted(
   (): {
     queryCalls: number;
-    result: NoterRouteAccessViewer | undefined;
+    result:
+      | (NoterRouteAccessViewer & {
+          role?: ViewerRole;
+        })
+      | undefined;
   } => ({
     queryCalls: 0,
     result: undefined,
@@ -47,8 +52,11 @@ describe("ApprovalGate", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
-  it("renders the waitlist state for viewers with only public access", () => {
-    viewerAccessState.result = { accessKeys: ["access_public"] };
+  it("renders the waitlist state for waitlisted viewers", () => {
+    viewerAccessState.result = {
+      role: "role_waitlisted",
+      accessKeys: ["access_public"],
+    };
 
     const markup = renderApprovalGate();
 
@@ -57,7 +65,10 @@ describe("ApprovalGate", () => {
   });
 
   it("renders children for viewers with any non-public access", () => {
-    viewerAccessState.result = { accessKeys: ["access_public", "access_mcp"] };
+    viewerAccessState.result = {
+      role: "role_member",
+      accessKeys: ["access_public", "access_mcp"],
+    };
 
     const markup = renderApprovalGate();
 
