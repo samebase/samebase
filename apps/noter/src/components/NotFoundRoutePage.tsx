@@ -4,7 +4,7 @@ import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { resolveNotFoundPageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { useRootRouteSearch } from "@/routeSearch/root";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Link, useLocation } from "@tanstack/react-router";
 

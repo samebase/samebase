@@ -85,7 +85,7 @@ import {
   mergeFileViewRouteSearch,
   type FileViewRouteSearchPatch,
   useFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
+} from "@/routeSearch/fileView";
 import { encodeGitHubPath } from "@/lib/githubUrls";
 import {
   type BranchComparePreview,

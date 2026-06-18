@@ -13,7 +13,7 @@ import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { applySearchPatch, type SearchPatch } from "@/lib/routeSearchFlags";
-import { readRootRouteSearch, type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";

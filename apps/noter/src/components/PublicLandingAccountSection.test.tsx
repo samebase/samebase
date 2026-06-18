@@ -9,7 +9,7 @@ import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
-import { readRootRouteSearch, type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
 import { PublicLandingAccountSection } from "./PublicLandingAccountSection";
 
 const routeState = vi.hoisted<{ pathname: string; search: RootRouteSearch }>(() => ({
@@ -82,8 +82,8 @@ vi.mock("@/authClient", () => ({
   }),
 }));
 
-vi.mock("@/lib/rootRouteSearch", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/rootRouteSearch")>();
+vi.mock("@/routeSearch/root", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/routeSearch/root")>();
 
   return {
     ...actual,

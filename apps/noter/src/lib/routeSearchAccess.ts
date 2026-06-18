@@ -1,4 +1,4 @@
-import { ROOT_ROUTE_SEARCH_PARAM_ACCESS } from "@/lib/rootRouteSearch";
+import { ROOT_ROUTE_SEARCH_PARAM_ACCESS } from "@/routeSearch/root";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
   canAccessNoterRouteAccess,

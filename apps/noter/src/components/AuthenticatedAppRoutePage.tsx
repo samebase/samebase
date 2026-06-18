@@ -4,7 +4,7 @@ import { useLocation } from "@tanstack/react-router";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { useRootRouteSearch } from "@/routeSearch/root";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import {
   isAppPresentationAuthenticated,

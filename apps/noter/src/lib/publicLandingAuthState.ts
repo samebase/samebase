@@ -4,7 +4,7 @@ import {
   AUTH_PROVIDER_STORAGE_KEY,
   PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
 } from "@/lib/authStorageKeys";
-import { type RootRouteSearch } from "@/lib/rootRouteSearch";
+import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
 export type PasswordAuthSurface = "hidden" | "local_worktree" | "preview";

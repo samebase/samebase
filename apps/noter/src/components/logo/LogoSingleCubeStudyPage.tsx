@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   SINGLE_CUBE_STUDY_CANVAS_SIZE,
   SINGLE_CUBE_STUDY_SAMPLE_ANGLES,

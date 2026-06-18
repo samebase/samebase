@@ -39,7 +39,7 @@ import {
   getDefaultVaultBranchFilters,
   type VaultBranchFilters,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
-import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
+import { validateRootRouteSearch } from "@/routeSearch/root";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =

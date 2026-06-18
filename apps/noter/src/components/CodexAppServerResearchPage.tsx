@@ -24,7 +24,7 @@ import {
   type CodexAppServerThreadsResponse,
   type CodexAppServerResearchEvent,
 } from "@/lib/codexAppServerResearch";
-import { buildCodexResearchRouteSearch } from "@/lib/codexResearchRouteSearch";
+import { buildCodexResearchRouteSearch } from "@/routeSearch/codexResearch";
 import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
 import { useNow } from "@/hooks/useNow";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";

@@ -11,7 +11,7 @@ import {
   clearConflictingRootThemeModeSearch,
   isRootRouteOwnedSearchKey,
   validateRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+} from "@/routeSearch/root";
 import {
   canAccessNoterRouteAccess,
   canAccessNoterRouteStaticData,

@@ -4,7 +4,7 @@ import {
   LOGO_ROUTE_SEARCH_KEYS,
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { LogoTransitionTransformsLabPage } from "@/components/logo/LogoTransitionTransformsLabPage";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 

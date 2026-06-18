@@ -3,7 +3,7 @@ import {
   readRouteSearchAccessCanonicalRouteAddress,
   routeSearchNeedsViewerAccess,
 } from "./routeSearchAccess";
-import { MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA } from "./authenticatedRouteSearch";
+import { MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA } from "@/routeSearch/mcpConsent";
 
 const publicViewer = { accessKeys: ["access_public"] } as const;
 const dashboardViewer = {

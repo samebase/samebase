@@ -20,7 +20,7 @@ import {
   readCanonicalRouteAddressForRootSearch,
   type RootRouteSearch,
   validateRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+} from "@/routeSearch/root";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
 import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";

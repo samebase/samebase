@@ -4,7 +4,7 @@ import {
 } from "./codexAppServerResearch";
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
-import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./landingMarkdownPreview";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./noterSync";
 

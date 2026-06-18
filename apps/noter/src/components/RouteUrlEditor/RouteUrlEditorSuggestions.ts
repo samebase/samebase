@@ -23,7 +23,7 @@ import {
   readRouteUrlPathSuggestionEnvironment,
   readRouteUrlPathSuggestions,
 } from "@/lib/routeUrlPathSuggestions";
-import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/lib/rootRouteSearch";
+import { ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import type { AppRouter } from "@/router";
 
 type Selection = {

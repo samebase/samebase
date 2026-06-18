@@ -10,7 +10,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROUTE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
-} from "../src/lib/landingMarkdownPreview";
+} from "../src/routeSearch/landingPreview";
 import { buildPathWithTanStackSearch } from "../src/lib/tanstackSearchParams";
 import { signInIfNeeded } from "./liveHelpers";
 

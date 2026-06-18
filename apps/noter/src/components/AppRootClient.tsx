@@ -8,7 +8,7 @@ import { RouteAvailabilityOutlet } from "@/components/RouteAvailabilityOutlet";
 import { RouterGestureDebugOverlay } from "@/components/RouterGestureDebugOverlay";
 import { syncDocumentThemeColorSearch } from "@/lib/appThemeColorSearch";
 import { QueryDevtools } from "@/lib/providers/query-devtools";
-import { useRootRouteSearch } from "@/lib/rootRouteSearch";
+import { useRootRouteSearch } from "@/routeSearch/root";
 import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";

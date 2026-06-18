@@ -53,7 +53,7 @@ vi.mock("@/components/ApprovalGate", () => ({
   ),
 }));
 
-vi.mock("@/lib/rootRouteSearch", () => ({
+vi.mock("@/routeSearch/root", () => ({
   useRootRouteSearch: () => ({}),
 }));
 

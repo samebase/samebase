@@ -4,7 +4,7 @@ import {
   buildFileViewRouteSearch,
   mergeFileViewRouteSearch,
   validateFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
+} from "@/routeSearch/fileView";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 
 describe("fileViewRouteSearch", () => {

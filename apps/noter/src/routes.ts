@@ -6,7 +6,7 @@ import {
 import { CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
-import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./lib/landingMarkdownPreview";
+import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { NEW_APP_ROUTE } from "./lib/newAppRoute";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/noterSync";

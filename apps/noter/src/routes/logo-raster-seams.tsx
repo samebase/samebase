@@ -5,7 +5,7 @@ import {
   LOGO_ROUTE_SEARCH_PARAM_ACCESS,
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   validateLogoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 

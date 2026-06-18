@@ -4,7 +4,7 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
   resolveLandingMarkdownPreviewLanguage,
   validateLandingMarkdownPreviewRouteSearch,
-} from "@/lib/landingMarkdownPreview";
+} from "@/routeSearch/landingPreview";
 import { LANDING_MARKDOWN_PREVIEW_PAGE_METADATA } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";

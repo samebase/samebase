@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import type { Id } from "../../../convex/_generated/dataModel";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
-import { validateRootRouteSearch } from "@/lib/rootRouteSearch";
+import { validateRootRouteSearch } from "@/routeSearch/root";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { useLocation } from "@tanstack/react-router";

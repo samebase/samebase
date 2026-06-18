@@ -41,7 +41,7 @@ import {
   type ReactNode,
 } from "react";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/lib/fileViewRouteSearch";
+import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch/fileView";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
   Dialog,
@@ -75,14 +75,14 @@ import {
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
 import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
-import { type LogoRouteSearch } from "@/lib/logoRouteSearch";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
   DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM,
   replaceRootLogoRouteSearch,
   type RootRouteSearch,
   useRootRouteSearch,
-} from "@/lib/rootRouteSearch";
+} from "@/routeSearch/root";
 import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/lib/routeSearchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";

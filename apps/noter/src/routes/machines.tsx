@@ -4,7 +4,7 @@ import { MachinesWorkspacePage } from "@/components/MachinesWorkspacePage";
 import {
   MACHINES_ROUTE_SEARCH_STATIC_DATA,
   validateMachinesRouteSearch,
-} from "@/lib/authenticatedRouteSearch";
+} from "@/routeSearch/machines";
 import { MACHINES_ROUTE } from "@/lib/noterSync";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 

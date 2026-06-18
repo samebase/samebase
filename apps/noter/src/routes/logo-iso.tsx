@@ -6,7 +6,7 @@ import {
   LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS,
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoIsoRouteSearch,
-} from "@/lib/logoRouteSearch";
+} from "@/routeSearch/logo";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/logo/iso";

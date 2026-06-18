@@ -4,7 +4,7 @@ import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePag
 import {
   FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,
   validateFileViewRouteSearch,
-} from "@/lib/fileViewRouteSearch";
+} from "@/routeSearch/fileView";
 import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/vault/$";

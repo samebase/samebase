@@ -16,7 +16,7 @@ import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import type { MachinesWorkspaceSidebarInventory } from "@/lib/machinesWorkspaceSidebar";
 import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildMachinesRouteSearch } from "@/lib/authenticatedRouteSearch";
+import { buildMachinesRouteSearch } from "@/routeSearch/machines";
 import { getRouteApi } from "@tanstack/react-router";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";

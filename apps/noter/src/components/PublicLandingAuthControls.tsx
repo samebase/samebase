@@ -19,7 +19,7 @@ import {
   isProdUiModeEnabled,
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
-import { readRootRouteSearch } from "@/lib/rootRouteSearch";
+import { readRootRouteSearch } from "@/routeSearch/root";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
