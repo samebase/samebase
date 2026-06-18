@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
@@ -390,6 +390,47 @@ describe("public Convex route ownership checks", () => {
         filePath: "notes/plan.md",
         content: "owner content",
         version: 3,
+      },
+    ]);
+  });
+
+  it("blocks internal staging mutations from writing with another user's id", async () => {
+    const { ids, t } = await seedOwnedResources();
+
+    await expect(
+      t.mutation(internal.fileStaging.saveToStaging, {
+        vaultId: ids.vaultId,
+        initialFilePath: "notes/internal.md",
+        content: "other content",
+        initialContent: "initial content",
+        parentCommitSha: "abc123",
+        branch: "main",
+        userId: ids.otherUserId,
+      }),
+    ).rejects.toThrow("Unauthorized");
+    await expect(
+      t.mutation(internal.fileStaging.rename, {
+        vaultId: ids.vaultId,
+        initialFilePath: "notes/plan.md",
+        branch: "main",
+        newPath: "notes/other.md",
+        userId: ids.otherUserId,
+      }),
+    ).rejects.toThrow("Unauthorized");
+
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("fileStaging")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect();
+      }),
+    ).resolves.toMatchObject([
+      {
+        _id: ids.stagingId,
+        ownerId: ids.ownerId,
+        filePath: "notes/plan.md",
+        content: "owner content",
       },
     ]);
   });

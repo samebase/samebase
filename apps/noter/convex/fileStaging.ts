@@ -8,7 +8,6 @@ import {
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
-import { getUserId } from "./common";
 import type { GithubTree } from "./schema";
 import {
   hasStagedFileChanges,
@@ -156,7 +155,7 @@ const saveToStagingArgsValidator = {
   initialContent: contentValidator,
   parentCommitSha: nullableStringValidator,
   branch: branchValidator,
-  userId: optional(userIdValidator),
+  userId: userIdValidator,
 };
 const saveBinaryUploadToStagingArgsValidator = {
   vaultId: vaultIdValidator,
@@ -183,6 +182,7 @@ const renameArgsValidator = {
   initialFilePath: filePathValidator,
   branch: branchValidator,
   newPath: filePathValidator,
+  userId: userIdValidator,
 };
 
 const getByOriginalPathArgsValidator = {
@@ -1225,8 +1225,10 @@ export const saveToStaging = internalMutation({
   args: saveToStagingArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args) => {
-    const userId = args.userId ?? (await getUserId(ctx));
-    await assertVaultAllowsStagingWrites(ctx, args.vaultId);
+    await assertConnectedVaultForStagingWrite(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    });
 
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -1257,13 +1259,13 @@ export const saveToStaging = internalMutation({
         kind: "text",
         content: args.content,
         lastEditTime: currentTimestamp,
-        lastEditUserId: userId,
+        lastEditUserId: args.userId,
         branch: args.branch,
       });
     } else {
       // Create new staging record
       await ctx.db.insert("fileStaging", {
-        ownerId: userId,
+        ownerId: args.userId,
         vaultId: args.vaultId,
         filePath: args.initialFilePath,
         initialFilePath: args.initialFilePath,
@@ -1273,7 +1275,7 @@ export const saveToStaging = internalMutation({
         initialContent: args.initialContent,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
-        lastEditUserId: userId,
+        lastEditUserId: args.userId,
         branch: args.branch,
         version: 0,
       });
@@ -1502,16 +1504,10 @@ export const rename = internalMutation({
   args: renameArgsValidator,
   returns: stagedFileValidator,
   handler: async (ctx, args): Promise<StagedFile> => {
-    await getUserId(ctx);
-
-    const vault = await ctx.runQuery(internal.vault.records.getById, {
-      id: args.vaultId,
+    await assertConnectedVaultForStagingWrite(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
     });
-
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-    assertConnectedVault(vault);
 
     const file = await ctx.db
       .query("fileStaging")
@@ -1525,6 +1521,9 @@ export const rename = internalMutation({
 
     if (!file) {
       throw new Error("File not found");
+    }
+    if (file.ownerId !== args.userId) {
+      throw new Error("Unauthorized");
     }
 
     if (file.filePath === args.newPath) {

@@ -1878,6 +1878,7 @@ export const renameFileInStaging = action({
       initialFilePath: args.originalPath,
       branch,
       newPath: args.newPath,
+      userId,
     });
 
     return {
@@ -1991,6 +1992,7 @@ export const getFileForEditing = action({
           content: cachedBlob.text,
           initialContent: cachedBlob.text,
           parentCommitSha: fileSha,
+          userId,
         });
 
         return readEditableFileState(stagedFile);
@@ -2068,6 +2070,7 @@ export const getFileForEditing = action({
         content: savedBlob.text,
         initialContent: savedBlob.text,
         parentCommitSha: fileSha,
+        userId,
       });
 
       return readEditableFileState(stagedFile);
