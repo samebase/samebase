@@ -124,6 +124,7 @@ export const trackedFilePaths = [
   "apps/noter/convex/_generated/dataModel.d.ts",
   "apps/noter/convex/_generated/server.d.ts",
   "apps/noter/convex/_generated/server.js",
+  "apps/noter/convex/accessOwnership.convex.test.ts",
   "apps/noter/convex/agent/graph.ts",
   "apps/noter/convex/agent/replaceInFile.test.ts",
   "apps/noter/convex/agent/replaceInFile.ts",

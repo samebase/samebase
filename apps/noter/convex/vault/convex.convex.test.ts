@@ -17,7 +17,7 @@ async function createConvexConnectedUser() {
   const userId = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
-      email: "ada@example.com",
+      email: "nicu@noter.md",
       isApproved: true,
     });
     await ctx.db.insert("providerConnections", {

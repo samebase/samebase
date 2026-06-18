@@ -1,12 +1,12 @@
 "use node";
 
 import { v, type Infer } from "convex/values";
-import { action, type ActionCtx } from "../_generated/server";
+import { type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { RequestError } from "@octokit/request-error";
-import { getUserId } from "../common";
+import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isNoterManagedVault } from "./state";
@@ -631,10 +631,11 @@ async function resolveGithubConnectionUsername(
 }
 
 export const listRepositoryOwners = action({
+  access: "access_repo_connect",
   args: {},
   returns: array(githubRepositoryOwnerOption),
   handler: async (ctx): Promise<GitHubRepositoryOwnerOption[]> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
       userId,
       kind: "github",
@@ -655,6 +656,7 @@ export const listRepositoryOwners = action({
 });
 
 export const connectRepository = action({
+  access: "access_repo_connect",
   args: {
     repositoryFullName: v.string(),
   },
@@ -669,7 +671,7 @@ export const connectRepository = action({
     vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
   }> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
     const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
       userId,
@@ -700,6 +702,7 @@ export const connectRepository = action({
 });
 
 export const createRepository = action({
+  access: "access_app_create",
   args: {
     name: v.string(),
     owner: string(),
@@ -716,7 +719,7 @@ export const createRepository = action({
     ctx,
     args,
   ): Promise<{ vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> }> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const repoName = toSafeRepoName(args.name);
     if (!repoName) {
       throw new Error("Repository name is required.");
@@ -802,6 +805,7 @@ export const createRepository = action({
 });
 
 export const checkCreateRepositoryResourceNames = action({
+  access: "access_app_create",
   args: {
     githubRepositoryOwner: string(),
     githubRepositoryName: string(),
@@ -814,7 +818,7 @@ export const checkCreateRepositoryResourceNames = action({
     cloudflare: appResourceNameAvailability,
   }),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     return await checkCreateResourceNameAvailabilityForUser(ctx, {
       userId,
       githubRepositoryOwner: args.githubRepositoryOwner,
@@ -826,12 +830,13 @@ export const checkCreateRepositoryResourceNames = action({
 });
 
 export const retryInfrastructureProvisioning = action({
+  access: "access_app_create",
   args: {
     vaultId: v.id("vaults"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getById, {
       id: args.vaultId,
     });
@@ -857,6 +862,7 @@ export const retryInfrastructureProvisioning = action({
 });
 
 export const deleteVault = action({
+  access: "access_admin",
   args: {
     vaultId: v.id("vaults"),
     removeCodespaces: v.optional(v.boolean()),
@@ -868,7 +874,7 @@ export const deleteVault = action({
     deletionRunId: v.id("vaultDeletionRuns"),
   }),
   handler: async (ctx, args): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const result: { deletionRunId: Id<"vaultDeletionRuns"> } = await ctx.runMutation(
       internal.vault.deletion.runs.createInitialRun,
       {
@@ -894,6 +900,7 @@ export const deleteVault = action({
 });
 
 export const retryDeleteVault = action({
+  access: "access_admin",
   args: {
     runId: v.id("vaultDeletionRuns"),
   },
@@ -901,7 +908,7 @@ export const retryDeleteVault = action({
     deletionRunId: v.id("vaultDeletionRuns"),
   }),
   handler: async (ctx, args): Promise<{ deletionRunId: Id<"vaultDeletionRuns"> }> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const result: { deletionRunId: Id<"vaultDeletionRuns"> } = await ctx.runMutation(
       internal.vault.deletion.runs.createRetryRun,
       {

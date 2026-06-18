@@ -1,10 +1,10 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { action, internalAction, type ActionCtx } from "../_generated/server";
+import { internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { getUserId } from "../common";
+import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
 import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
@@ -182,22 +182,24 @@ async function isCloudflareWorkerConnectionRunActive(
 }
 
 export const listAccounts = action({
+  access: "access_app_create",
   args: {},
   returns: array(cloudflareAccountResult),
   handler: async (ctx): Promise<CloudflareAccountResult[]> => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const connection = await resolveCloudflareConnection(ctx, userId);
     return await listAccountsForConnection(connection.token);
   },
 });
 
 export const selectDefaultAccount = action({
+  access: "access_app_create",
   args: {
     accountId: string(),
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const connection = await resolveCloudflareConnection(ctx, userId);
     const account = await resolveAccount(ctx, {
       token: connection.token,
@@ -215,12 +217,13 @@ export const selectDefaultAccount = action({
 });
 
 export const listWorkers = action({
+  access: "access_app_create",
   args: {
     accountId: string(),
   },
   returns: array(cloudflareWorkerResult),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const connection = await resolveCloudflareConnection(ctx, userId);
     const account = await resolveAccount(ctx, {
       token: connection.token,
@@ -235,6 +238,7 @@ export const listWorkers = action({
 });
 
 export const connectExistingWorker = action({
+  access: "access_app_create",
   args: {
     vaultId: id("vaults"),
     appRoot: string(),
@@ -243,7 +247,7 @@ export const connectExistingWorker = action({
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     const accountId = args.accountId.trim();
     const workerName = args.workerName.trim();
     if (!accountId) {
@@ -278,6 +282,7 @@ export const connectExistingWorker = action({
 });
 
 export const createWorker = action({
+  access: "access_app_create",
   args: {
     vaultId: id("vaults"),
     appRoot: string(),
@@ -296,7 +301,7 @@ export const createWorker = action({
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
 
-    const userId = await getUserId(ctx);
+    const userId = ctx.viewer.userId;
     await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
       vaultId: args.vaultId,
       userId,
