@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Plugin, ViteDevServer } from "vite";
 import { isRecord } from "@noter-md/dependent/main";
 
-import { CODEX_APP_SERVER_RESEARCH_API_BASE } from "../src/lib/codexAppServerResearch";
+import { CODEX_APP_SERVER_RESEARCH_API_BASE } from "../src/codex/appServerResearch";
 
 type MiddlewareNext = (error?: Error) => void;
 

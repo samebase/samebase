@@ -15,9 +15,9 @@ import {
   type CodexAppServerThread,
   type CodexAppServerThreadDetailResponse,
   type CodexAppServerThreadsResponse,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 import { buildCodexResearchRouteSearch } from "@/routeSearch/codexResearch";
-import { dedupeCodexThreadsById } from "@/lib/codexThreadSidebar";
+import { dedupeCodexThreadsById } from "@/codex/threadSidebar";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

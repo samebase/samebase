@@ -3,7 +3,7 @@ import { MachinesWorkspaceView } from "@/components/MachinesWorkspaceView";
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 import type { MachinesWorkspaceProjectConversationSelection } from "@/lib/machinesWorkspaceConversation";
 
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;

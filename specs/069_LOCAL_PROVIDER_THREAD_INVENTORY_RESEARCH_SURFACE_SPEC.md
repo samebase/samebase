@@ -82,7 +82,7 @@ Today:
 ## Source of Truth Files
 
 - `apps/noter/dev/codexAppServerResearchBridge.ts`
-- `apps/noter/src/lib/codexAppServerResearch.ts`
+- `apps/noter/src/codex/appServerResearch.ts`
 - `apps/noter/src/components/CodexAppServerResearchPage.tsx`
 - `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
 - `apps/noter/src/components/CodexThreadBrowserView.tsx`

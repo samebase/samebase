@@ -3,7 +3,7 @@ import type {
   CodexAppServerThread,
   CodexAppServerThreadItem,
   CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 
 export type CodexThreadTimelineMessageEntry = {
   kind: "message";

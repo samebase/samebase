@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { ExpandableClampToggleButton } from "@/components/ExpandableClampText";
 import { useExpandableClampText } from "@/hooks/useExpandableClampText";
-import { type CodexAppServerThreadItem } from "@/lib/codexAppServerResearch";
+import { type CodexAppServerThreadItem } from "@/codex/appServerResearch";
 import { notEmpty } from "@noter-md/dependent";
 import { clsx } from "clsx";
 

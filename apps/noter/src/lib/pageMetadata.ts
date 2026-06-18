@@ -1,7 +1,7 @@
 import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
-} from "./codexAppServerResearch";
+} from "@/codex/appServerResearch";
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";

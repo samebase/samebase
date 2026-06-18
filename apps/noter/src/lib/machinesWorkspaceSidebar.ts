@@ -1,9 +1,9 @@
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import type { CodexAppServerThread } from "@/codex/appServerResearch";
 import {
   buildCodexThreadSidebarViewModel,
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,
-} from "@/lib/codexThreadSidebar";
+} from "@/codex/threadSidebar";
 
 export type MachinesWorkspaceSidebarInventory = {
   hasLoadedThreadInventory: boolean;

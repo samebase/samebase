@@ -2,7 +2,7 @@ import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
 import {
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
-} from "./lib/codexAppServerResearch";
+} from "./codex/appServerResearch";
 import { CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";

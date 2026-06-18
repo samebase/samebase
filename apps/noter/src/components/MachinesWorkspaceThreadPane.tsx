@@ -1,6 +1,6 @@
 import { ChatInput } from "@/components/ChatInput";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import type { CodexAppServerThread } from "@/codex/appServerResearch";
 import {
   readMachinesWorkspaceConversationStartCopy,
   type MachinesWorkspaceConversationEnvMode,
@@ -8,7 +8,7 @@ import {
 import {
   deriveCodexThreadTimelineEntries,
   type CodexThreadTimelineWorkEntry,
-} from "@/lib/codexThreadTimeline";
+} from "@/codex/threadTimeline";
 import { cn } from "@/lib/utils";
 import { Bot, CircleAlert, Eye, Loader2, Search, SquarePen, Terminal, Wrench } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";

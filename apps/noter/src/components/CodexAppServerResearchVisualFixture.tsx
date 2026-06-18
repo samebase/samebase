@@ -3,7 +3,7 @@ import { CodexAppServerSelectedThreadCard } from "@/components/CodexAppServerRes
 import {
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 
 export type CodexAppServerResearchVisualMode = "codex-app-server-research";
 

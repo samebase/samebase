@@ -1,8 +1,8 @@
 import {
   buildCodexThreadSidebarViewModel,
   type CodexThreadSidebarViewModel,
-} from "@/lib/codexThreadSidebar";
-import type { CodexAppServerThread } from "@/lib/codexAppServerResearch";
+} from "@/codex/threadSidebar";
+import type { CodexAppServerThread } from "@/codex/appServerResearch";
 import { useMemo } from "react";
 
 export function useCodexThreadSidebarViewModel(args: {

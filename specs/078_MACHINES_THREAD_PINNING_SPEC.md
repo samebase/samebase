@@ -179,7 +179,7 @@ Primary files expected to change:
 
 1. `packages/sync/noter.ts`
 2. `apps/noter/public/noter.ts`
-3. `apps/noter/src/lib/codexAppServerResearch.ts`
+3. `apps/noter/src/codex/appServerResearch.ts`
 4. `apps/noter/src/components/MachinesWorkspacePage.tsx`
 5. `apps/noter/src/components/MachinesWorkspaceView.tsx`
 6. `apps/noter/src/components/MachinesWorkspaceVisualFixture.tsx`

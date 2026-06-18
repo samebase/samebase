@@ -23,7 +23,7 @@ import {
   type CodexAppServerThreadListSortKey,
   type CodexAppServerThreadsResponse,
   type CodexAppServerResearchEvent,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 import { buildCodexResearchRouteSearch } from "@/routeSearch/codexResearch";
 import { useConnectedMachineHeartbeatLog } from "@/lib/connectedMachineHeartbeatLog";
 import { useNow } from "@/hooks/useNow";

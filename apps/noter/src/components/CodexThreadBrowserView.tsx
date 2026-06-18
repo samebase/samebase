@@ -9,11 +9,11 @@ import {
   codexThreadPathIsArchived,
   type CodexAppServerThread,
   type CodexAppServerThreadTurn,
-} from "@/lib/codexAppServerResearch";
+} from "@/codex/appServerResearch";
 import {
   type CodexThreadSidebarProject,
   type CodexThreadSidebarThread,
-} from "@/lib/codexThreadSidebar";
+} from "@/codex/threadSidebar";
 import { clsx } from "clsx";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
