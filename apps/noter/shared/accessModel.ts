@@ -1,5 +1,6 @@
 export const ACCESS_KEYS = [
   "access_public",
+  "access_user_preferences",
   "access_dashboard",
   "access_provider_connections",
   "access_repo_connect",
@@ -27,9 +28,10 @@ export type ViewerRole = (typeof VIEWER_ROLES)[number];
 
 export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
-  role_waitlisted: ["access_public"],
+  role_waitlisted: ["access_public", "access_user_preferences"],
   role_member: [
     "access_public",
+    "access_user_preferences",
     "access_dashboard",
     "access_provider_connections",
     "access_repo_connect",

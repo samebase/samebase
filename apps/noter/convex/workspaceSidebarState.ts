@@ -51,7 +51,7 @@ export const getWorkspaceSidebarState = query({
 });
 
 export const setWorkspaceSidebarState = mutation({
-  access: "access_dashboard",
+  access: "access_user_preferences",
   args: object({
     state: vWorkspaceSidebarState,
     workspaceKey: vWorkspaceSidebarStateKey,

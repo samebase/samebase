@@ -59,6 +59,7 @@ describe("users Convex contract", () => {
       role: "role_member",
       accessKeys: [
         "access_public",
+        "access_user_preferences",
         "access_dashboard",
         "access_provider_connections",
         "access_repo_connect",
@@ -72,7 +73,7 @@ describe("users Convex contract", () => {
     });
   });
 
-  it("keeps waitlisted users on public access and denies provider access", async () => {
+  it("keeps waitlisted users on public shell access and denies provider access", async () => {
     const t = makeConvexTest();
     const ownerId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -117,7 +118,7 @@ describe("users Convex contract", () => {
     });
     await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
       role: "role_waitlisted",
-      accessKeys: ["access_public"],
+      accessKeys: ["access_public", "access_user_preferences"],
     });
     await expect(asViewer.query(api.users.currentViewerRole)).resolves.toEqual({
       role: "role_waitlisted",

@@ -55,7 +55,7 @@ describe("ApprovalGate", () => {
   it("renders the waitlist state for waitlisted viewers", () => {
     viewerAccessState.result = {
       role: "role_waitlisted",
-      accessKeys: ["access_public"],
+      accessKeys: ["access_public", "access_user_preferences"],
     };
 
     const markup = renderApprovalGate();
