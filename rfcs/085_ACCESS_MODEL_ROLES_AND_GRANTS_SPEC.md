@@ -61,9 +61,10 @@ became structural via access-key function wrappers.
    queries, mutations, and actions must be wrapped with an explicit access key.
 3. Member MVP includes account/repo/app-creation/app-status capabilities, with the path to files,
    machines, and MCP being grant edits plus targeted reclassification, not a redesign.
-4. Keep billing (plan/add-ons) an orthogonal axis: access keys gate who may call; current member app
-   creation is not gated by billing state. Future quotas, credits, or plan enforcement need their
-   own rollout contract.
+4. Keep billing (plan/add-ons) outside this access model: access keys gate who may call; current
+   member app creation is not gated by billing state. Existing billing specs are plumbing notes, not
+   enforceable product decisions. Future quotas, credits, or plan enforcement need their own
+   accepted rollout contract.
 5. Keep MCP delegation compatible: existing MCP scopes become a delegated subset of the user's own
    access, with a Cloudflare-style checkbox consent planned in a follow-up spec.
 
@@ -425,14 +426,16 @@ visibility remain `access_public`; operator-only debug params and landing-previe
 
 - Access keys gate reachability. During the current member rollout, approved members may create
   Noter-managed apps after `access_app_create` and provider-readiness checks pass, regardless of
-  Polar billing state. Future app-creation guardrails need an explicit quota, credit, rate-limit, or
-  plan-enforcement rollout.
+  Polar billing state. Billing fields, `free`/`pro` labels, checkout state, and past billing specs
+  are not authorization inputs. Future app-creation guardrails need an explicit quota, credit,
+  rate-limit, or plan-enforcement rollout.
 - Members can still `connectRepository` (BYO infra) after passing `access_repo_connect`.
-- The target billing posture is member-facing `access_dashboard`, but this migration keeps
+- The target billing posture is still undecided. This migration keeps
   `billing.getViewerBillingStatus`, `billing.createPolarCheckoutSession`,
   `billing.createPolarCustomerPortalSession`, and `billing.syncViewerBillingFromPolar` under
-  `access_admin` until the Polar rollout is ready. `/pricing` route metadata remains
-  `access_dashboard`; lowering the billing functions is the explicit enablement step.
+  `access_admin` until a future billing decision says which member-facing surfaces should ship.
+  `/pricing` route metadata remains `access_dashboard` so the route shell can exist without making
+  billing an authorization boundary.
 - No `pro` role and no `access_pro` key — plan checks never enter the GRANTS table.
 
 ### MCP direction (Phase 4, own spec)

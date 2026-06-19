@@ -1,5 +1,12 @@
 # 033 Polar Billing Spec
 
+## Current Status
+
+This spec records experimental Polar plumbing that exists in the app. It is not an enforceable
+product billing decision. Until a future accepted billing spec says otherwise, billing fields,
+`free`/`pro` labels, checkout, portal, and webhook state are descriptive only and must not block
+member app creation or retries.
+
 ## Goal
 
 Implement Polar billing so that:
@@ -7,16 +14,17 @@ Implement Polar billing so that:
 - Billing state, checkout, portal, and webhooks can be exercised without blocking member onboarding.
 - Approved members can create Noter-managed vaults regardless of current billing state while the
   early app-creation flow is being validated.
-- Entitlement is webhook-driven (never trust client redirects as the authority).
+- Billing state is webhook-driven (never trust client redirects as the authority).
 
-This spec is focused on a minimal, production-ready subscription flow, with a clear path to
-guardrails, credits, and metering later.
+This spec is focused on a minimal billing plumbing spike. Guardrails, credits, metering, plan names,
+and any enforcement boundary require a separate future decision.
 
 ## Non-Goals (V1)
 
-- Usage-based billing / credits enforcement (later phase).
+- Usage-based billing / credits enforcement.
 - Team plan / seat-based billing.
 - Public pricing page (keep authenticated-only for now).
+- Any app-creation limit based on billing state.
 
 ## Polar Model (What We Use)
 
@@ -24,7 +32,7 @@ guardrails, credits, and metering later.
 - `external_customer_id`: a stable Noter-generated identifier, stored on the user record, used to
   reconcile Polar state back to the Convex user.
 - Webhooks: signature-validated inbound events; we treat customer state as the source of truth for
-  entitlements.
+  billing state.
 - Customer Portal Sessions: server-side creation returns a customer portal URL.
 
 ## Environment Strategy
@@ -47,7 +55,7 @@ Set these in each Convex deployment (dev and prod):
 
 For now, keep product IDs in code as constants (later we can move to DB).
 
-We support:
+The current experimental labels are:
 
 - Pro monthly product ID
 - Pro annual product ID (optional; can be left empty and treated as disabled)
@@ -57,7 +65,7 @@ We support:
 Extend `users` with billing fields:
 
 - `billingProvider`: `"polar"` (optional)
-- `billingPlan`: `"free" | "pro"` (optional; default is effectively free)
+- `billingPlan`: `"free" | "pro"` (optional; experimental label only)
 - `billingStatus`: `"inactive" | "active" | "past_due" | "canceled" | "unknown"`
 - `billingUpdatedAt`: number (ms since epoch)
 - `billingCurrentPeriodEndAt`: optional number (ms since epoch)
@@ -80,7 +88,8 @@ Access status:
 
 Queries
 
-- `getViewerBillingStatus`: returns viewer billing summary (plan/status).
+- `getViewerBillingStatus`: returns viewer billing summary (plan/status). This status is not an app
+  creation gate.
 
 Actions
 
@@ -115,7 +124,7 @@ Create `apps/noter/convex/polarWebhooks.ts` + route it in `apps/noter/convex/htt
 - Validate signature using Polar SDK helper (`validateEvent`) against `POLAR_WEBHOOK_SECRET`.
 - From the validated event, extract the `external_customer_id` (via customer).
 - Fetch canonical state: `GET /v1/customers/external/{external_id}/state`
-- Derive entitlement:
+- Derive billing state:
   - Pro is active if any `active_subscriptions[].product_id` matches the Pro product(s) for the
     current environment.
 - Persist billing fields via `applyPolarCustomerState`.
@@ -128,13 +137,14 @@ Idempotency strategy:
 
 ## Feature Gating
 
-Do not gate `vaultActions.createRepository` on Polar entitlement in the current member rollout:
+Do not gate `vaultActions.createRepository` on Polar billing state in the current member rollout:
 
 - Approved members may create Noter-managed vaults without paying during the current onboarding
   validation phase.
-- Billing fields remain available for checkout/status experiments and future enforcement design.
-- Future app-creation guardrails belong in a separate rollout that defines quota, rate limit,
-  credit, or plan semantics explicitly.
+- Billing fields remain available for checkout/status experiments.
+- Future app-creation guardrails belong in a separate accepted rollout that defines quota, rate
+  limit, credit, or plan semantics explicitly.
+- Until that rollout exists, billing specs and billing fields are not authorization inputs.
 
 Do not gate `vaultActions.connectRepository` (free tier flow).
 
@@ -154,7 +164,7 @@ Update `apps/noter/src/components/PricingPage.tsx`:
 
 - Dev deployment uses Polar sandbox base URL.
 - Clicking Pro CTA redirects to Polar checkout.
-- Completing checkout triggers webhook -> user becomes Pro in Convex.
+- Completing checkout triggers webhook -> the user's billing state is updated in Convex.
 - `createRepository` succeeds for approved members with connected providers, regardless of billing
   state.
 - Customer portal link opens and returns to `/pricing`.

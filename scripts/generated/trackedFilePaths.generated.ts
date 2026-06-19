@@ -138,6 +138,7 @@ export const trackedFilePaths = [
   "apps/noter/convex/appProvisioningRuns.ts",
   "apps/noter/convex/appProvisioningWorkflow.test.ts",
   "apps/noter/convex/appProvisioningWorkflow.ts",
+  "apps/noter/convex/appProvisioningWorkflowActions.convex.test.ts",
   "apps/noter/convex/appProvisioningWorkflowActions.ts",
   "apps/noter/convex/auth.config.ts",
   "apps/noter/convex/auth.ts",
