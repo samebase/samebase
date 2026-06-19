@@ -15,6 +15,8 @@ export type AjvStandaloneValidateFunction<T> = {
   errors: AjvStandaloneValidationError[] | null;
 };
 
+export type ConvexManagementResponseDecimalPath = readonly string[];
+
 export const convexManagementResponseValidators: {
   GET: {
     "/teams/{team_id}/list_projects": AjvStandaloneValidateFunction<
@@ -127,5 +129,58 @@ export const convexManagementResponseValidators: {
     >;
     "/teams/{team_id}/delete_custom_role": null;
     "/teams/{team_id}/update_team_member_role": null;
+  };
+};
+
+export const convexManagementResponseDecimalPaths: {
+  GET: {
+    "/teams/{team_id}/list_projects": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/list_deployments": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/deployment": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id_or_slug}/projects/{project_slug}/deployment": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id_or_slug}/projects/{project_slug}": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_deployment_classes": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_deployment_regions": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_deployments": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_local_deployments": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/list_deploy_keys": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/list_preview_deploy_keys": readonly ConvexManagementResponseDecimalPath[];
+    "/list_personal_access_tokens": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_access_tokens": readonly ConvexManagementResponseDecimalPath[];
+    "/token_details": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/custom_domains": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_members": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_audit_log_events": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_pending_invites": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/list_default_environment_variables": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/list_custom_roles": readonly ConvexManagementResponseDecimalPath[];
+  };
+
+  POST: {
+    "/teams/{team_id}/create_project": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/delete": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/create_deployment": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/delete": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/transfer": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/create_deploy_key": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/delete_deploy_key": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/create_preview_deploy_key": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/delete_preview_deploy_key": readonly ConvexManagementResponseDecimalPath[];
+    "/create_personal_access_token": readonly ConvexManagementResponseDecimalPath[];
+    "/delete_personal_access_token": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/delete_access_token": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/create_custom_domain": readonly ConvexManagementResponseDecimalPath[];
+    "/deployments/{deployment_name}/delete_custom_domain": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/create_team": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/create_access_token": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/invite_team_member": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/cancel_team_member_invite": readonly ConvexManagementResponseDecimalPath[];
+    "/projects/{project_id}/update_default_environment_variables": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/create_custom_role": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/update_custom_role": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/delete_custom_role": readonly ConvexManagementResponseDecimalPath[];
+    "/teams/{team_id}/update_team_member_role": readonly ConvexManagementResponseDecimalPath[];
   };
 };

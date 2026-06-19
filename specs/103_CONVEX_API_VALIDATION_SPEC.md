@@ -45,9 +45,10 @@ Generator and validator checks:
   response validation.
 - The OpenAPI `int64` format can be represented as a JSON number or string, but JavaScript cannot
   safely represent every `int64` as a `number`. Convex provider IDs are opaque to Noter, so
-  `ProjectId`, `TeamId`, `DeploymentId`, and `MemberId` must be preserved as decimal strings at the
-  app boundary. Non-ID numeric fields, such as timestamps, remain numbers and must fail closed if
-  Convex returns a value outside JavaScript's safe numeric range.
+  `AccessTokenId`, `CustomRoleId`, `ProjectId`, `TeamId`, `DeploymentId`, and `MemberId` must be
+  preserved as decimal strings at the app boundary. Non-ID numeric fields, such as timestamps,
+  remain numbers and must fail closed if Convex returns a value outside JavaScript's safe numeric
+  range.
 
 ## Decision
 
@@ -70,10 +71,14 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
    allowed method for that path, and typed `params.path` / `params.query` objects derived from the
    generated `paths` interface. `openapi-fetch` is responsible for path/query serialization; feature
    callsites must not build interpolated Management API URLs.
-6. Parse successful Convex Management API JSON responses as text with a lossless JSON parser before
-   validation. ID-shaped fields are normalized to decimal strings before AJV runs so feature code
-   never receives truncated provider IDs. Non-ID numeric fields are converted to JavaScript numbers
-   only when the conversion is safe.
+6. Generate per-endpoint decimal ID response paths from the same OpenAPI response schemas used for
+   AJV validation. Parse successful Convex Management API JSON responses as text with a lossless
+   JSON parser before validation, normalize only those generated schema paths to decimal strings,
+   and convert all other numeric fields to JavaScript numbers only when the conversion is safe.
+   Property names alone are not authoritative; arbitrary metadata fields named `id` or `teamId`
+   remain normal numbers unless their schema path resolves to a Convex ID schema. If a future
+   OpenAPI response schema uses the same structural path as both a Convex ID and a non-ID number,
+   generation fails instead of guessing at runtime.
 7. Validate `/oauth/token` with a small local Zod schema because it is outside the Management API
    spec and has no OpenAPI document in this integration. Its response contract is exactly the
    documented `{ access_token, token_type: "bearer" }` shape; extra fields are logged by field name

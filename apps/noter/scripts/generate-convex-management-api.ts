@@ -44,7 +44,13 @@ const generatedFormatPaths = [
   noterAppFilePath("convex/convexManagementApi/validators.generated.js"),
   noterAppFilePath("convex/convexManagementApi/validators.generated.d.ts"),
 ];
+
+/**
+Convex publishes these identifiers as int64 schemas, but Noter treats provider
+IDs as opaque decimal strings so large values cannot lose precision in JS.
+*/
 const convexManagementDecimalIdSchemaNames = [
+  "AccessTokenId",
   "CustomRoleId",
   "DeploymentId",
   "MemberId",
@@ -54,8 +60,18 @@ const convexManagementDecimalIdSchemaNames = [
 const convexManagementDecimalIdSchemaRefs = new Set(
   convexManagementDecimalIdSchemaNames.map((schemaName) => `#/components/schemas/${schemaName}`),
 );
+
 const convexManagementOperationMethods = ["get", "post"] as const;
+
 type ConvexManagementOperationMethod = (typeof convexManagementOperationMethods)[number];
+
+type ConvexManagementResponseNumberPathKind = "decimalId" | "safeNumber";
+
+type ConvexManagementResponseNumberPath = {
+  kind: ConvexManagementResponseNumberPathKind;
+  path: string[];
+};
+
 type ConvexManagementResponseValidatorEntry = {
   method: ConvexManagementOperationMethod;
   path: string;
@@ -63,6 +79,7 @@ type ConvexManagementResponseValidatorEntry = {
   exportName: string | null;
   schema: AnySchema | null;
   schemaId: string | null;
+  decimalPaths: string[][];
 };
 
 // openapi-fetch gives callsites compile-time path/body/response types, but it
@@ -191,11 +208,231 @@ function collectConvexManagementResponseValidatorEntries(
         exportName,
         schema: combineJsonResponseSchemas(schemas),
         schemaId,
+        decimalPaths: collectConvexManagementDecimalPaths({
+          document,
+          method,
+          path,
+          schemas,
+        }),
       });
     }
   }
 
   return entries;
+}
+
+function collectConvexManagementDecimalPaths(args: {
+  document: OpenAPI3;
+  method: ConvexManagementOperationMethod;
+  path: string;
+  schemas: AnySchema[];
+}): string[][] {
+  const numberPaths = new Map<string, ConvexManagementResponseNumberPath>();
+  const endpointLabel = `${args.method.toUpperCase()} ${args.path}`;
+  for (const schema of args.schemas) {
+    collectConvexManagementDecimalPathsForSchema({
+      document: args.document,
+      endpointLabel,
+      numberPaths,
+      path: [],
+      schema,
+      seenRefs: new Set(),
+    });
+  }
+  return Array.from(numberPaths.values())
+    .filter((numberPath) => numberPath.kind === "decimalId")
+    .map((numberPath) => numberPath.path)
+    .sort(compareConvexManagementDecimalPaths);
+}
+
+function collectConvexManagementDecimalPathsForSchema(args: {
+  document: OpenAPI3;
+  endpointLabel: string;
+  numberPaths: Map<string, ConvexManagementResponseNumberPath>;
+  path: string[];
+  schema: unknown;
+  seenRefs: Set<string>;
+}): void {
+  if (!isRecord(args.schema)) {
+    return;
+  }
+
+  const ref = args.schema["$ref"];
+  if (typeof ref === "string") {
+    if (convexManagementDecimalIdSchemaRefs.has(readConvexManagementLocalRef(ref))) {
+      addConvexManagementResponseNumberPath({
+        ...args,
+        kind: "decimalId",
+      });
+      return;
+    }
+
+    if (args.seenRefs.has(ref)) {
+      return;
+    }
+    const resolvedSchema = readConvexManagementOpenApiRef(args.document, ref);
+    const nextSeenRefs = new Set(args.seenRefs);
+    nextSeenRefs.add(ref);
+    collectConvexManagementDecimalPathsForSchema({
+      ...args,
+      schema: resolvedSchema,
+      seenRefs: nextSeenRefs,
+    });
+    return;
+  }
+
+  if (isConvexManagementNumericSchema(args.schema)) {
+    addConvexManagementResponseNumberPath({
+      ...args,
+      kind: "safeNumber",
+    });
+  }
+
+  const arrayItems = args.schema.items;
+  if (arrayItems !== undefined) {
+    collectConvexManagementDecimalPathsForSchema({
+      ...args,
+      path: [...args.path, "*"],
+      schema: arrayItems,
+    });
+  }
+
+  const properties = args.schema.properties;
+  if (isRecord(properties)) {
+    for (const [propertyName, propertySchema] of Object.entries(properties)) {
+      collectConvexManagementDecimalPathsForSchema({
+        ...args,
+        path: [...args.path, propertyName],
+        schema: propertySchema,
+      });
+    }
+  }
+
+  for (const key of ["oneOf", "anyOf", "allOf"]) {
+    const schemas = args.schema[key];
+    if (!Array.isArray(schemas)) {
+      continue;
+    }
+    for (const schema of schemas) {
+      collectConvexManagementDecimalPathsForSchema({
+        ...args,
+        schema,
+      });
+    }
+  }
+
+  const additionalProperties = args.schema.additionalProperties;
+  if (isRecord(additionalProperties)) {
+    collectConvexManagementDecimalPathsForSchema({
+      ...args,
+      path: [...args.path, "*"],
+      schema: additionalProperties,
+    });
+  }
+}
+
+function addConvexManagementResponseNumberPath(args: {
+  endpointLabel: string;
+  kind: ConvexManagementResponseNumberPathKind;
+  numberPaths: Map<string, ConvexManagementResponseNumberPath>;
+  path: string[];
+}): void {
+  const key = formatConvexManagementDecimalPathKey(args.path);
+  const existing = args.numberPaths.get(key);
+  if (existing !== undefined && existing.kind !== args.kind) {
+    throw new Error(
+      `${args.endpointLabel} response schema uses ${formatConvexManagementDecimalPath(args.path)} as both ${formatConvexManagementResponseNumberPathKind(existing.kind)} and ${formatConvexManagementResponseNumberPathKind(args.kind)}.`,
+    );
+  }
+  if (existing === undefined) {
+    args.numberPaths.set(key, {
+      kind: args.kind,
+      path: args.path,
+    });
+  }
+}
+
+function isConvexManagementNumericSchema(schema: Record<string, unknown>): boolean {
+  const type = schema.type;
+  if (type === "integer" || type === "number") {
+    return true;
+  }
+  return Array.isArray(type) && type.some((item) => item === "integer" || item === "number");
+}
+
+function readConvexManagementLocalRef(ref: string): string {
+  const localRefPrefix = "#/";
+  const documentRefPrefix = `${convexManagementOpenApiSchemaId}#/`;
+  if (ref.startsWith(localRefPrefix)) {
+    return ref;
+  }
+  if (ref.startsWith(documentRefPrefix)) {
+    return `#/${ref.slice(documentRefPrefix.length)}`;
+  }
+  return ref;
+}
+
+function readConvexManagementOpenApiRef(document: OpenAPI3, ref: string): unknown {
+  const localRef = readConvexManagementLocalRef(ref);
+  if (!localRef.startsWith("#/")) {
+    throw new Error(`Unsupported Convex Management OpenAPI ref ${ref}.`);
+  }
+
+  const segments = localRef.slice(2).split("/").map(unescapeJsonPointerSegment);
+  let value: unknown = document;
+  for (const segment of segments) {
+    if (Array.isArray(value)) {
+      const index = Number(segment);
+      if (!Number.isInteger(index) || index < 0 || index >= value.length) {
+        throw new Error(`Could not resolve Convex Management OpenAPI ref ${ref}.`);
+      }
+      value = value[index];
+      continue;
+    }
+    if (!isRecord(value)) {
+      throw new Error(`Could not resolve Convex Management OpenAPI ref ${ref}.`);
+    }
+    const nextValue = value[segment];
+    if (nextValue === undefined) {
+      throw new Error(`Could not resolve Convex Management OpenAPI ref ${ref}.`);
+    }
+    value = nextValue;
+  }
+  return value;
+}
+
+function unescapeJsonPointerSegment(segment: string): string {
+  return segment.replaceAll("~1", "/").replaceAll("~0", "~");
+}
+
+function formatConvexManagementDecimalPathKey(path: readonly string[]): string {
+  return path.join("\u0000");
+}
+
+function formatConvexManagementDecimalPath(path: readonly string[]): string {
+  if (path.length === 0) {
+    return "the root response";
+  }
+  return `/${path.join("/")}`;
+}
+
+function formatConvexManagementResponseNumberPathKind(
+  kind: ConvexManagementResponseNumberPathKind,
+): string {
+  switch (kind) {
+    case "decimalId":
+      return "a decimal ID";
+    case "safeNumber":
+      return "a JavaScript-safe number";
+  }
+  kind satisfies never;
+  return kind;
+}
+
+function compareConvexManagementDecimalPaths(left: readonly string[], right: readonly string[]) {
+  return formatConvexManagementDecimalPathKey(left).localeCompare(
+    formatConvexManagementDecimalPathKey(right),
+  );
 }
 
 function readSuccessJsonResponseSchemas(args: {
@@ -318,6 +555,11 @@ function formatConvexManagementResponseValidatorsJs(
 ${formatConvexManagementResponseValidatorMethodJs(entries, "get")}
 ${formatConvexManagementResponseValidatorMethodJs(entries, "post")}
 };
+
+export const convexManagementResponseDecimalPaths = {
+${formatConvexManagementResponseDecimalPathMethodJs(entries, "get")}
+${formatConvexManagementResponseDecimalPathMethodJs(entries, "post")}
+};
 `;
 }
 
@@ -338,12 +580,33 @@ ${validatorEntries}
 `;
 }
 
+function formatConvexManagementResponseDecimalPathMethodJs(
+  entries: ConvexManagementResponseValidatorEntry[],
+  method: ConvexManagementOperationMethod,
+): string {
+  const methodEntries = entries.filter((entry) => entry.method === method);
+  let pathEntries = "";
+  for (const entry of methodEntries) {
+    pathEntries = `${pathEntries}    ${JSON.stringify(entry.path)}: ${JSON.stringify(entry.decimalPaths)},
+`;
+  }
+  return `  ${method.toUpperCase()}: {
+${pathEntries}
+  },
+`;
+}
+
 function formatConvexManagementResponseValidatorsDts(
   entries: ConvexManagementResponseValidatorEntry[],
 ): string {
   return `export const convexManagementResponseValidators: {
 ${formatConvexManagementResponseValidatorMethodDts(entries, "get")}
 ${formatConvexManagementResponseValidatorMethodDts(entries, "post")}
+};
+
+export const convexManagementResponseDecimalPaths: {
+${formatConvexManagementResponseDecimalPathMethodDts(entries, "get")}
+${formatConvexManagementResponseDecimalPathMethodDts(entries, "post")}
 };
 `;
 }
@@ -364,6 +627,22 @@ function formatConvexManagementResponseValidatorMethodDts(
   }
   return `  ${method.toUpperCase()}: {
 ${validatorEntries}
+  };
+`;
+}
+
+function formatConvexManagementResponseDecimalPathMethodDts(
+  entries: ConvexManagementResponseValidatorEntry[],
+  method: ConvexManagementOperationMethod,
+): string {
+  const methodEntries = entries.filter((entry) => entry.method === method);
+  let pathEntries = "";
+  for (const entry of methodEntries) {
+    pathEntries = `${pathEntries}    ${JSON.stringify(entry.path)}: readonly ConvexManagementResponseDecimalPath[];
+`;
+  }
+  return `  ${method.toUpperCase()}: {
+${pathEntries}
   };
 `;
 }
@@ -433,6 +712,8 @@ export type AjvStandaloneValidateFunction<T> = {
   (payload: unknown): payload is T;
   errors: AjvStandaloneValidationError[] | null;
 };
+
+export type ConvexManagementResponseDecimalPath = readonly string[];
 
 ${formatConvexManagementResponseValidatorsDts(responseValidatorEntries)}`,
 );
