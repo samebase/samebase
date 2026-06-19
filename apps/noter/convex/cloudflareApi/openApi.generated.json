@@ -1195,6 +1195,96 @@
         "x-api-token-group": ["Workers CI Write"]
       }
     },
+    "/accounts/{account_id}/builds/workers": {
+      "post": {
+        "description": "Create a new build configuration for a Worker script, linking it to a git repository with CI/CD triggers.",
+        "operationId": "createWorkerBuild",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/builds_AccountId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "git_repository": {
+                  "branch": "main",
+                  "provider_account_id": "cloudflare",
+                  "provider_account_name": "Cloudflare",
+                  "provider_type": "github",
+                  "repo_id": "workers-sdk",
+                  "repo_name": "workers-sdk"
+                },
+                "production_settings": {
+                  "build_caching_enabled": true,
+                  "build_command": "npm run build",
+                  "build_token_uuid": "your-build-token-uuid",
+                  "deploy_command": "npx wrangler deploy",
+                  "environment_variables": {},
+                  "path_excludes": ["*.md"],
+                  "path_includes": ["*"],
+                  "root_directory": "/"
+                },
+                "script_tag": "my-worker"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/builds_CreateWorkerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/builds_APIResponse"
+                    },
+                    {
+                      "properties": {
+                        "result": {
+                          "$ref": "#/components/schemas/builds_WorkerResponse"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Worker build configuration created successfully"
+          },
+          "400": {
+            "$ref": "#/components/responses/builds_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/builds_NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/builds_Conflict"
+          }
+        },
+        "security": [
+          {
+            "api_token": []
+          },
+          {
+            "api_email": [],
+            "api_key": []
+          }
+        ],
+        "summary": "Create worker build configuration",
+        "tags": ["Workers"],
+        "x-api-token-group": ["Workers CI Write"]
+      }
+    },
     "/accounts/{account_id}/builds/workers/{external_script_id}/builds": {
       "get": {
         "description": "Get all builds for a specific worker script with pagination",
@@ -1617,6 +1707,190 @@
         ],
         "summary": "Update deploy hook",
         "tags": ["Deploy Hooks"],
+        "x-api-token-group": ["Workers CI Write"]
+      }
+    },
+    "/accounts/{account_id}/builds/workers/{script_tag}": {
+      "delete": {
+        "description": "Delete the build configuration for a Worker script.",
+        "operationId": "deleteWorkerBuild",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/builds_AccountId"
+          },
+          {
+            "$ref": "#/components/parameters/builds_ScriptTag"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/builds_APIResponse"
+                    },
+                    {
+                      "properties": {
+                        "result": {
+                          "example": "ok",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Worker build configuration deleted successfully."
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/builds_NotFound"
+          }
+        },
+        "security": [
+          {
+            "api_token": []
+          },
+          {
+            "api_email": [],
+            "api_key": []
+          }
+        ],
+        "summary": "Delete worker build configuration",
+        "tags": ["Workers"],
+        "x-api-token-group": ["Workers CI Write"]
+      },
+      "get": {
+        "description": "Retrieve the build configuration for a specific Worker script, including git repository details and production settings.",
+        "operationId": "getWorkerBuild",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/builds_AccountId"
+          },
+          {
+            "$ref": "#/components/parameters/builds_ScriptTag"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/builds_APIResponse"
+                    },
+                    {
+                      "properties": {
+                        "result": {
+                          "$ref": "#/components/schemas/builds_WorkerResponse"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Worker build configuration retrieved successfully"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/builds_NotFound"
+          }
+        },
+        "security": [
+          {
+            "api_token": []
+          },
+          {
+            "api_email": [],
+            "api_key": []
+          }
+        ],
+        "summary": "Get worker build configuration",
+        "tags": ["Workers"],
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+      },
+      "patch": {
+        "description": "Update the build configuration for a Worker script. Supports partial updates to git repository settings and production build settings.",
+        "operationId": "updateWorkerBuild",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/builds_AccountId"
+          },
+          {
+            "$ref": "#/components/parameters/builds_ScriptTag"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "production_settings": {
+                  "build_command": "npm run build:production",
+                  "deploy_command": "npx wrangler deploy --env production"
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/builds_UpdateWorkerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/builds_APIResponse"
+                    },
+                    {
+                      "properties": {
+                        "result": {
+                          "$ref": "#/components/schemas/builds_WorkerResponse"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Worker build configuration updated successfully"
+          },
+          "400": {
+            "$ref": "#/components/responses/builds_BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/builds_Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/builds_NotFound"
+          }
+        },
+        "security": [
+          {
+            "api_token": []
+          },
+          {
+            "api_email": [],
+            "api_key": []
+          }
+        ],
+        "summary": "Update worker build configuration",
+        "tags": ["Workers"],
         "x-api-token-group": ["Workers CI Write"]
       }
     },
@@ -11981,6 +12255,7 @@
     "/accounts/{account_id}/workers/scripts/{script_name}/tails": {
       "get": {
         "description": "Get list of tails currently deployed on a Worker.",
+        "operationId": "worker-tail-logs-list-tails",
         "parameters": [
           {
             "in": "path",
@@ -12045,8 +12320,7 @@
         ],
         "summary": "List Tails",
         "tags": ["Worker Tail Logs"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"],
-        "operationId": "noter get /accounts/{account_id}/workers/scripts/{script_name}/tails"
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"]
       },
       "post": {
         "description": "Starts a tail that receives logs and exception from a Worker.",
@@ -12346,7 +12620,7 @@
             "name": "script_name",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/workers_schemas-script_name"
+              "$ref": "#/components/schemas/workers_script_name-2"
             }
           },
           {
@@ -12435,7 +12709,7 @@
             "name": "script_name",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/workers_schemas-script_name"
+              "$ref": "#/components/schemas/workers_script_name-2"
             }
           },
           {
@@ -12512,7 +12786,7 @@
             "name": "script_name",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/workers_schemas-script_name"
+              "$ref": "#/components/schemas/workers_script_name-2"
             }
           },
           {
@@ -12966,7 +13240,7 @@
                     {
                       "properties": {
                         "result": {
-                          "$ref": "#/components/schemas/workers_schemas-subdomain"
+                          "$ref": "#/components/schemas/workers_subdomain-2"
                         }
                       },
                       "required": ["result"],
@@ -13019,7 +13293,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/workers_schemas-subdomain"
+                "$ref": "#/components/schemas/workers_subdomain-2"
               }
             }
           },
@@ -13037,7 +13311,7 @@
                     {
                       "properties": {
                         "result": {
-                          "$ref": "#/components/schemas/workers_schemas-subdomain"
+                          "$ref": "#/components/schemas/workers_subdomain-2"
                         }
                       },
                       "required": ["result"],
@@ -14591,10 +14865,10 @@
       "iam_api-response-common": {
         "properties": {
           "errors": {
-            "$ref": "#/components/schemas/iam_schemas-messages"
+            "$ref": "#/components/schemas/iam_messages-2"
           },
           "messages": {
-            "$ref": "#/components/schemas/iam_schemas-messages"
+            "$ref": "#/components/schemas/iam_messages-2"
           },
           "success": {
             "description": "Whether the API call was successful.",
@@ -14606,7 +14880,7 @@
         "required": ["success", "errors", "messages"],
         "type": "object"
       },
-      "iam_schemas-messages": {
+      "iam_messages-2": {
         "example": [],
         "items": {
           "properties": {
@@ -14743,7 +15017,7 @@
           "errors": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/iam_schemas-messages"
+                "$ref": "#/components/schemas/iam_messages-2"
               }
             ],
             "example": [
@@ -14757,7 +15031,7 @@
           "messages": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/iam_schemas-messages"
+                "$ref": "#/components/schemas/iam_messages-2"
               }
             ],
             "example": []
@@ -15121,7 +15395,7 @@
         "type": "string"
       },
       "builds_SCMProviderType": {
-        "enum": ["github"],
+        "enum": ["github", "gitlab", "gitlab_internal"],
         "example": "github",
         "type": "string"
       },
@@ -15808,6 +16082,242 @@
         "example": "NODE_ENV",
         "type": "string"
       },
+      "builds_CreateWorkerRequest": {
+        "description": "Request body for creating a Worker build configuration.",
+        "properties": {
+          "git_repository": {
+            "$ref": "#/components/schemas/builds_CreateWorkerGitRepositoryInput"
+          },
+          "production_settings": {
+            "$ref": "#/components/schemas/builds_CreateWorkerBuildSettingsInput"
+          },
+          "script_tag": {
+            "$ref": "#/components/schemas/builds_external_script_id"
+          }
+        },
+        "required": ["script_tag", "git_repository", "production_settings"],
+        "type": "object"
+      },
+      "builds_CreateWorkerGitRepositoryInput": {
+        "discriminator": {
+          "mapping": {
+            "github": "#/components/schemas/builds_CreateWorkerGitRepositoryFunfettiInput",
+            "gitlab": "#/components/schemas/builds_CreateWorkerGitRepositoryFunfettiInput",
+            "gitlab_internal": "#/components/schemas/builds_CreateWorkerGitRepositoryGrantInput"
+          },
+          "propertyName": "provider_type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/builds_CreateWorkerGitRepositoryFunfettiInput"
+          },
+          {
+            "$ref": "#/components/schemas/builds_CreateWorkerGitRepositoryGrantInput"
+          }
+        ]
+      },
+      "builds_CreateWorkerGitRepositoryFunfettiInput": {
+        "description": "GitHub or GitLab repository input for creating a Worker build configuration",
+        "properties": {
+          "branch": {
+            "description": "Git branch to watch for builds",
+            "example": "main",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider_account_id": {
+            "$ref": "#/components/schemas/builds_provider_account_id"
+          },
+          "provider_account_name": {
+            "$ref": "#/components/schemas/builds_provider_account_name"
+          },
+          "provider_type": {
+            "enum": ["github", "gitlab"],
+            "example": "github",
+            "type": "string"
+          },
+          "repo_id": {
+            "$ref": "#/components/schemas/builds_repo_id"
+          },
+          "repo_name": {
+            "$ref": "#/components/schemas/builds_repo_name"
+          }
+        },
+        "required": [
+          "repo_id",
+          "repo_name",
+          "provider_type",
+          "provider_account_id",
+          "provider_account_name",
+          "branch"
+        ],
+        "type": "object"
+      },
+      "builds_CreateWorkerGitRepositoryGrantInput": {
+        "description": "Internal GitLab repository input for creating a Worker build configuration",
+        "properties": {
+          "branch": {
+            "description": "Git branch to watch for builds",
+            "example": "main",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "grant_id": {
+            "description": "Grant ID required when provider_type is gitlab_internal",
+            "example": "grant-123",
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider_account_id": {
+            "$ref": "#/components/schemas/builds_provider_account_id"
+          },
+          "provider_account_name": {
+            "$ref": "#/components/schemas/builds_provider_account_name"
+          },
+          "provider_type": {
+            "enum": ["gitlab_internal"],
+            "example": "gitlab_internal",
+            "type": "string"
+          },
+          "repo_id": {
+            "$ref": "#/components/schemas/builds_repo_id"
+          },
+          "repo_name": {
+            "$ref": "#/components/schemas/builds_repo_name"
+          }
+        },
+        "required": [
+          "repo_id",
+          "repo_name",
+          "provider_type",
+          "provider_account_id",
+          "provider_account_name",
+          "branch",
+          "grant_id"
+        ],
+        "type": "object"
+      },
+      "builds_CreateWorkerBuildSettingsInput": {
+        "description": "Build and deploy settings when creating a Worker build configuration",
+        "properties": {
+          "build_caching_enabled": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/builds_build_caching_enabled"
+              }
+            ],
+            "default": true
+          },
+          "build_command": {
+            "$ref": "#/components/schemas/builds_build_command"
+          },
+          "build_token_uuid": {
+            "$ref": "#/components/schemas/builds_build_token_uuid"
+          },
+          "deploy_command": {
+            "$ref": "#/components/schemas/builds_deploy_command"
+          },
+          "environment_variables": {
+            "$ref": "#/components/schemas/builds_EnvironmentVariablesRequest"
+          },
+          "path_excludes": {
+            "$ref": "#/components/schemas/builds_path_excludes"
+          },
+          "path_includes": {
+            "$ref": "#/components/schemas/builds_path_includes"
+          },
+          "root_directory": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/builds_root_directory"
+              }
+            ],
+            "default": "/"
+          }
+        },
+        "required": ["build_command", "deploy_command", "build_token_uuid"],
+        "type": "object"
+      },
+      "builds_WorkerResponse": {
+        "description": "Worker build configuration including git repository linkage and production settings",
+        "properties": {
+          "git_repository": {
+            "$ref": "#/components/schemas/builds_WorkerGitRepository"
+          },
+          "production_settings": {
+            "$ref": "#/components/schemas/builds_WorkerBuildSettings"
+          },
+          "script_tag": {
+            "$ref": "#/components/schemas/builds_external_script_id"
+          }
+        },
+        "type": "object"
+      },
+      "builds_WorkerGitRepository": {
+        "description": "Git repository details linked to a Worker script build configuration",
+        "properties": {
+          "branch": {
+            "description": "Git branch to watch for builds",
+            "example": "main",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "grant_id": {
+            "description": "Internal grant ID for GitLab internal integrations",
+            "nullable": true,
+            "type": "string"
+          },
+          "provider_account_id": {
+            "$ref": "#/components/schemas/builds_provider_account_id"
+          },
+          "provider_account_name": {
+            "$ref": "#/components/schemas/builds_provider_account_name"
+          },
+          "provider_type": {
+            "$ref": "#/components/schemas/builds_SCMProviderType"
+          },
+          "repo_id": {
+            "$ref": "#/components/schemas/builds_repo_id"
+          },
+          "repo_name": {
+            "$ref": "#/components/schemas/builds_repo_name"
+          }
+        },
+        "type": "object"
+      },
+      "builds_WorkerBuildSettings": {
+        "description": "Build and deploy settings for a Worker script environment",
+        "properties": {
+          "build_caching_enabled": {
+            "$ref": "#/components/schemas/builds_build_caching_enabled"
+          },
+          "build_command": {
+            "$ref": "#/components/schemas/builds_build_command"
+          },
+          "build_token_uuid": {
+            "$ref": "#/components/schemas/builds_build_token_uuid"
+          },
+          "deploy_command": {
+            "$ref": "#/components/schemas/builds_deploy_command"
+          },
+          "environment_variables": {
+            "$ref": "#/components/schemas/builds_EnvironmentVariablesResponse"
+          },
+          "path_excludes": {
+            "$ref": "#/components/schemas/builds_path_excludes"
+          },
+          "path_includes": {
+            "$ref": "#/components/schemas/builds_path_includes"
+          },
+          "root_directory": {
+            "$ref": "#/components/schemas/builds_root_directory"
+          }
+        },
+        "type": "object"
+      },
       "builds_script_name": {
         "description": "Human-readable name of the worker.",
         "example": "my-worker",
@@ -15888,6 +16398,75 @@
           },
           "modified_on": {
             "$ref": "#/components/schemas/builds_modified_on"
+          }
+        },
+        "type": "object"
+      },
+      "builds_UpdateWorkerRequest": {
+        "description": "Request body for updating a Worker build configuration. At least one field must be provided.",
+        "minProperties": 1,
+        "properties": {
+          "git_repository": {
+            "description": "Git repository settings to update",
+            "minProperties": 1,
+            "properties": {
+              "branch": {
+                "description": "New git branch to watch for builds",
+                "example": "main",
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "production_settings": {
+            "$ref": "#/components/schemas/builds_UpdateWorkerBuildSettingsInput"
+          }
+        },
+        "type": "object"
+      },
+      "builds_UpdateWorkerBuildSettingsInput": {
+        "description": "Partial build settings for updating a Worker build configuration",
+        "minProperties": 1,
+        "properties": {
+          "build_caching_enabled": {
+            "$ref": "#/components/schemas/builds_build_caching_enabled"
+          },
+          "build_command": {
+            "$ref": "#/components/schemas/builds_build_command"
+          },
+          "build_token_uuid": {
+            "$ref": "#/components/schemas/builds_build_token_uuid"
+          },
+          "deploy_command": {
+            "$ref": "#/components/schemas/builds_deploy_command"
+          },
+          "environment_variables": {
+            "additionalProperties": {
+              "nullable": true,
+              "properties": {
+                "is_secret": {
+                  "$ref": "#/components/schemas/builds_is_secret"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": ["is_secret", "value"],
+              "type": "object"
+            },
+            "description": "Environment variable updates. Set the variable entry to null to delete it.",
+            "type": "object"
+          },
+          "path_excludes": {
+            "$ref": "#/components/schemas/builds_path_excludes"
+          },
+          "path_includes": {
+            "$ref": "#/components/schemas/builds_path_includes"
+          },
+          "root_directory": {
+            "$ref": "#/components/schemas/builds_root_directory"
           }
         },
         "type": "object"
@@ -20645,7 +21224,7 @@
         },
         "type": "object"
       },
-      "workers_schemas-script_name": {
+      "workers_script_name-2": {
         "description": "Name of the script.",
         "example": "this-is_my_script-01",
         "pattern": "^[a-z0-9_][a-z0-9-_]*$",
@@ -21012,7 +21591,7 @@
         "type": "string",
         "x-auditable": true
       },
-      "workers_schemas-subdomain": {
+      "workers_subdomain-2": {
         "properties": {
           "subdomain": {
             "example": "my-subdomain",
@@ -21973,6 +22552,15 @@
         "schema": {
           "$ref": "#/components/schemas/builds_deploy_hook_uuid"
         }
+      },
+      "builds_ScriptTag": {
+        "description": "The Worker script tag (external script ID)",
+        "in": "path",
+        "name": "script_tag",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/builds_external_script_id"
+        }
       }
     },
     "responses": {
@@ -22033,6 +22621,27 @@
           }
         },
         "description": "Invalid request"
+      },
+      "builds_Unauthorized": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": 12005,
+                  "message": "Missing token from authorization header"
+                }
+              ],
+              "messages": [],
+              "result": null,
+              "success": false
+            },
+            "schema": {
+              "$ref": "#/components/schemas/builds_ErrorResponse"
+            }
+          }
+        },
+        "description": "Authentication required"
       },
       "builds_Conflict": {
         "content": {

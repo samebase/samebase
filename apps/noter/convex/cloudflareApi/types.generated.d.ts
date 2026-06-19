@@ -416,6 +416,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/accounts/{account_id}/builds/workers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create worker build configuration
+     * @description Create a new build configuration for a Worker script, linking it to a git repository with CI/CD triggers.
+     */
+    post: operations["createWorkerBuild"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/accounts/{account_id}/builds/workers/{external_script_id}/builds": {
     parameters: {
       query?: never;
@@ -506,6 +526,34 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/accounts/{account_id}/builds/workers/{script_tag}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get worker build configuration
+     * @description Retrieve the build configuration for a specific Worker script, including git repository details and production settings.
+     */
+    get: operations["getWorkerBuild"];
+    put?: never;
+    post?: never;
+    /**
+     * Delete worker build configuration
+     * @description Delete the build configuration for a Worker script.
+     */
+    delete: operations["deleteWorkerBuild"];
+    options?: never;
+    head?: never;
+    /**
+     * Update worker build configuration
+     * @description Update the build configuration for a Worker script. Supports partial updates to git repository settings and production build settings.
+     */
+    patch: operations["updateWorkerBuild"];
     trace?: never;
   };
   "/accounts/{account_id}/workers/account-settings": {
@@ -1635,7 +1683,7 @@ export interface paths {
      * List Tails
      * @description Get list of tails currently deployed on a Worker.
      */
-    get: operations["noter get /accounts/{account_id}/workers/scripts/{script_name}/tails"];
+    get: operations["worker-tail-logs-list-tails"];
     put?: never;
     /**
      * Start Tail
@@ -1968,8 +2016,8 @@ export interface components {
       result_info?: components["schemas"]["iam_result_info"];
     };
     "iam_api-response-common": {
-      errors: components["schemas"]["iam_schemas-messages"];
-      messages: components["schemas"]["iam_schemas-messages"];
+      errors: components["schemas"]["iam_messages-2"];
+      messages: components["schemas"]["iam_messages-2"];
       /**
        * @description Whether the API call was successful.
        * @example true
@@ -1978,7 +2026,7 @@ export interface components {
       success: true;
     };
     /** @example [] */
-    "iam_schemas-messages": {
+    "iam_messages-2": {
       code: number;
       documentation_url?: string;
       message: string;
@@ -2063,9 +2111,9 @@ export interface components {
        *       }
        *     ]
        */
-      errors: components["schemas"]["iam_schemas-messages"];
+      errors: components["schemas"]["iam_messages-2"];
       /** @example [] */
-      messages: components["schemas"]["iam_schemas-messages"];
+      messages: components["schemas"]["iam_messages-2"];
       /** @enum {object|null} */
       result: never | null;
       /**
@@ -2238,7 +2286,7 @@ export interface components {
      * @example github
      * @enum {string}
      */
-    builds_SCMProviderType: "github";
+    builds_SCMProviderType: "github" | "gitlab" | "gitlab_internal";
     /** @example workers-sdk */
     builds_repo_name: string;
     /**
@@ -2555,6 +2603,99 @@ export interface components {
      * @example NODE_ENV
      */
     builds_environment_variable_key: string;
+    /** @description Request body for creating a Worker build configuration. */
+    builds_CreateWorkerRequest: {
+      git_repository: components["schemas"]["builds_CreateWorkerGitRepositoryInput"];
+      production_settings: components["schemas"]["builds_CreateWorkerBuildSettingsInput"];
+      script_tag: components["schemas"]["builds_external_script_id"];
+    };
+    builds_CreateWorkerGitRepositoryInput:
+      | components["schemas"]["builds_CreateWorkerGitRepositoryFunfettiInput"]
+      | components["schemas"]["builds_CreateWorkerGitRepositoryGrantInput"];
+    /** @description GitHub or GitLab repository input for creating a Worker build configuration */
+    builds_CreateWorkerGitRepositoryFunfettiInput: {
+      /**
+       * @description Git branch to watch for builds
+       * @example main
+       */
+      branch: string;
+      provider_account_id: components["schemas"]["builds_provider_account_id"];
+      provider_account_name: components["schemas"]["builds_provider_account_name"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      provider_type: "github" | "gitlab";
+      repo_id: components["schemas"]["builds_repo_id"];
+      repo_name: components["schemas"]["builds_repo_name"];
+    };
+    /** @description Internal GitLab repository input for creating a Worker build configuration */
+    builds_CreateWorkerGitRepositoryGrantInput: {
+      /**
+       * @description Git branch to watch for builds
+       * @example main
+       */
+      branch: string;
+      /**
+       * @description Grant ID required when provider_type is gitlab_internal
+       * @example grant-123
+       */
+      grant_id: string;
+      provider_account_id: components["schemas"]["builds_provider_account_id"];
+      provider_account_name: components["schemas"]["builds_provider_account_name"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      provider_type: "gitlab_internal";
+      repo_id: components["schemas"]["builds_repo_id"];
+      repo_name: components["schemas"]["builds_repo_name"];
+    };
+    /** @description Build and deploy settings when creating a Worker build configuration */
+    builds_CreateWorkerBuildSettingsInput: {
+      /** @default true */
+      build_caching_enabled: components["schemas"]["builds_build_caching_enabled"];
+      build_command: components["schemas"]["builds_build_command"];
+      build_token_uuid: components["schemas"]["builds_build_token_uuid"];
+      deploy_command: components["schemas"]["builds_deploy_command"];
+      environment_variables?: components["schemas"]["builds_EnvironmentVariablesRequest"];
+      path_excludes?: components["schemas"]["builds_path_excludes"];
+      path_includes?: components["schemas"]["builds_path_includes"];
+      /** @default / */
+      root_directory: components["schemas"]["builds_root_directory"];
+    };
+    /** @description Worker build configuration including git repository linkage and production settings */
+    builds_WorkerResponse: {
+      git_repository?: components["schemas"]["builds_WorkerGitRepository"];
+      production_settings?: components["schemas"]["builds_WorkerBuildSettings"];
+      script_tag?: components["schemas"]["builds_external_script_id"];
+    };
+    /** @description Git repository details linked to a Worker script build configuration */
+    builds_WorkerGitRepository: {
+      /**
+       * @description Git branch to watch for builds
+       * @example main
+       */
+      branch?: string;
+      /** @description Internal grant ID for GitLab internal integrations */
+      grant_id?: string | null;
+      provider_account_id?: components["schemas"]["builds_provider_account_id"];
+      provider_account_name?: components["schemas"]["builds_provider_account_name"];
+      provider_type?: components["schemas"]["builds_SCMProviderType"];
+      repo_id?: components["schemas"]["builds_repo_id"];
+      repo_name?: components["schemas"]["builds_repo_name"];
+    };
+    /** @description Build and deploy settings for a Worker script environment */
+    builds_WorkerBuildSettings: {
+      build_caching_enabled?: components["schemas"]["builds_build_caching_enabled"];
+      build_command?: components["schemas"]["builds_build_command"];
+      build_token_uuid?: components["schemas"]["builds_build_token_uuid"];
+      deploy_command?: components["schemas"]["builds_deploy_command"];
+      environment_variables?: components["schemas"]["builds_EnvironmentVariablesResponse"];
+      path_excludes?: components["schemas"]["builds_path_excludes"];
+      path_includes?: components["schemas"]["builds_path_includes"];
+      root_directory?: components["schemas"]["builds_root_directory"];
+    };
     /**
      * @description Human-readable name of the worker.
      * @example my-worker
@@ -2592,6 +2733,35 @@ export interface components {
       deploy_hook_uuid?: components["schemas"]["builds_deploy_hook_uuid"];
       external_script_id?: components["schemas"]["builds_external_script_id"];
       modified_on?: components["schemas"]["builds_modified_on"];
+    };
+    /** @description Request body for updating a Worker build configuration. At least one field must be provided. */
+    builds_UpdateWorkerRequest: {
+      /** @description Git repository settings to update */
+      git_repository?: {
+        /**
+         * @description New git branch to watch for builds
+         * @example main
+         */
+        branch?: string;
+      };
+      production_settings?: components["schemas"]["builds_UpdateWorkerBuildSettingsInput"];
+    };
+    /** @description Partial build settings for updating a Worker build configuration */
+    builds_UpdateWorkerBuildSettingsInput: {
+      build_caching_enabled?: components["schemas"]["builds_build_caching_enabled"];
+      build_command?: components["schemas"]["builds_build_command"];
+      build_token_uuid?: components["schemas"]["builds_build_token_uuid"];
+      deploy_command?: components["schemas"]["builds_deploy_command"];
+      /** @description Environment variable updates. Set the variable entry to null to delete it. */
+      environment_variables?: {
+        [key: string]: {
+          is_secret: components["schemas"]["builds_is_secret"];
+          value: string;
+        } | null;
+      };
+      path_excludes?: components["schemas"]["builds_path_excludes"];
+      path_includes?: components["schemas"]["builds_path_includes"];
+      root_directory?: components["schemas"]["builds_root_directory"];
     };
     /**
      * @description Identifier.
@@ -4808,7 +4978,7 @@ export interface components {
      * @description Name of the script.
      * @example this-is_my_script-01
      */
-    "workers_schemas-script_name": string;
+    "workers_script_name-2": string;
     "workers_versions-list-response": components["schemas"]["workers_api-response-common"] & {
       result: {
         items?: components["schemas"]["workers_version-item-short"][];
@@ -5024,7 +5194,7 @@ export interface components {
      * @example production
      */
     workers_environment: string;
-    "workers_schemas-subdomain": {
+    "workers_subdomain-2": {
       /** @example my-subdomain */
       subdomain: string;
     };
@@ -5651,6 +5821,28 @@ export interface components {
         "application/json": components["schemas"]["builds_ErrorResponse"];
       };
     };
+    /** @description Authentication required */
+    builds_Unauthorized: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "errors": [
+         *         {
+         *           "code": 12005,
+         *           "message": "Missing token from authorization header"
+         *         }
+         *       ],
+         *       "messages": [],
+         *       "result": null,
+         *       "success": false
+         *     }
+         */
+        "application/json": components["schemas"]["builds_ErrorResponse"];
+      };
+    };
     /** @description Conflict - duplicate resource */
     builds_Conflict: {
       headers: {
@@ -5739,6 +5931,8 @@ export interface components {
     builds_ScriptName: components["schemas"]["builds_script_name"];
     /** @description Deploy hook UUID */
     builds_DeployHookUuid: components["schemas"]["builds_deploy_hook_uuid"];
+    /** @description The Worker script tag (external script ID) */
+    builds_ScriptTag: components["schemas"]["builds_external_script_id"];
   };
   requestBodies: {
     workers_namespace_upload: {
@@ -5818,7 +6012,7 @@ export type IamResponseCollectionAccounts =
   components["schemas"]["iam_response_collection_accounts"];
 export type IamApiResponseCollection = components["schemas"]["iam_api-response-collection"];
 export type IamApiResponseCommon = components["schemas"]["iam_api-response-common"];
-export type IamSchemasMessages = components["schemas"]["iam_schemas-messages"];
+export type IamMessages_2 = components["schemas"]["iam_messages-2"];
 export type IamResultInfo = components["schemas"]["iam_result_info"];
 export type IamAccount = components["schemas"]["iam_account"];
 export type IamCommonComponentsSchemasIdentifier =
@@ -5897,6 +6091,18 @@ export type BuildsIsSecret = components["schemas"]["builds_is_secret"];
 export type BuildsEnvironmentVariablesRequest =
   components["schemas"]["builds_EnvironmentVariablesRequest"];
 export type BuildsEnvironmentVariableKey = components["schemas"]["builds_environment_variable_key"];
+export type BuildsCreateWorkerRequest = components["schemas"]["builds_CreateWorkerRequest"];
+export type BuildsCreateWorkerGitRepositoryInput =
+  components["schemas"]["builds_CreateWorkerGitRepositoryInput"];
+export type BuildsCreateWorkerGitRepositoryFunfettiInput =
+  components["schemas"]["builds_CreateWorkerGitRepositoryFunfettiInput"];
+export type BuildsCreateWorkerGitRepositoryGrantInput =
+  components["schemas"]["builds_CreateWorkerGitRepositoryGrantInput"];
+export type BuildsCreateWorkerBuildSettingsInput =
+  components["schemas"]["builds_CreateWorkerBuildSettingsInput"];
+export type BuildsWorkerResponse = components["schemas"]["builds_WorkerResponse"];
+export type BuildsWorkerGitRepository = components["schemas"]["builds_WorkerGitRepository"];
+export type BuildsWorkerBuildSettings = components["schemas"]["builds_WorkerBuildSettings"];
 export type BuildsScriptName = components["schemas"]["builds_script_name"];
 export type BuildsDetailedDeployHookResponse =
   components["schemas"]["builds_DetailedDeployHookResponse"];
@@ -5904,6 +6110,9 @@ export type BuildsDeployHookName = components["schemas"]["builds_deploy_hook_nam
 export type BuildsDeployHookUuid = components["schemas"]["builds_deploy_hook_uuid"];
 export type BuildsCreateDeployHookRequest = components["schemas"]["builds_CreateDeployHookRequest"];
 export type BuildsDeployHookResponse = components["schemas"]["builds_DeployHookResponse"];
+export type BuildsUpdateWorkerRequest = components["schemas"]["builds_UpdateWorkerRequest"];
+export type BuildsUpdateWorkerBuildSettingsInput =
+  components["schemas"]["builds_UpdateWorkerBuildSettingsInput"];
 export type WorkersIdentifier = components["schemas"]["workers_identifier"];
 export type WorkersApiResponseCommon = components["schemas"]["workers_api-response-common"];
 export type WorkersMessages = components["schemas"]["workers_messages"];
@@ -6067,7 +6276,7 @@ export type WorkersSubdomain = components["schemas"]["workers_subdomain"];
 export type WorkersTail = components["schemas"]["workers_tail"];
 export type WorkersUsageModelResponse = components["schemas"]["workers_usage-model-response"];
 export type WorkersUserLimits = components["schemas"]["workers_user_limits"];
-export type WorkersSchemasScriptName = components["schemas"]["workers_schemas-script_name"];
+export type WorkersScriptName_2 = components["schemas"]["workers_script_name-2"];
 export type WorkersVersionsListResponse = components["schemas"]["workers_versions-list-response"];
 export type WorkersVersionItemShort = components["schemas"]["workers_version-item-short"];
 export type WorkersVersionsUploadResponse =
@@ -6079,7 +6288,7 @@ export type WorkersVersionsSingleResponse =
   components["schemas"]["workers_versions-single-response"];
 export type WorkersService = components["schemas"]["workers_service"];
 export type WorkersEnvironment = components["schemas"]["workers_environment"];
-export type WorkersSchemasSubdomain = components["schemas"]["workers_schemas-subdomain"];
+export type WorkersSubdomain_2 = components["schemas"]["workers_subdomain-2"];
 export type WorkersWorker = components["schemas"]["workers_Worker"];
 export type WorkersErrorAuth = components["schemas"]["workers_ErrorAuth"];
 export type WorkersErrorInternalServer = components["schemas"]["workers_ErrorInternalServer"];
@@ -6112,6 +6321,7 @@ export type IamTokenStatus = components["schemas"]["iam_token_status"];
 export type ResponseBuildsNotFound = components["responses"]["builds_NotFound"];
 export type ResponseBuildsSuccessEmpty = components["responses"]["builds_SuccessEmpty"];
 export type ResponseBuildsBadRequest = components["responses"]["builds_BadRequest"];
+export type ResponseBuildsUnauthorized = components["responses"]["builds_Unauthorized"];
 export type ResponseBuildsConflict = components["responses"]["builds_Conflict"];
 export type ResponseWorkers_200 = components["responses"]["workers_200"];
 export type ResponseWorkers_4Xx = components["responses"]["workers_4XX"];
@@ -6129,6 +6339,7 @@ export type ParameterBuildsPerPage = components["parameters"]["builds_PerPage"];
 export type ParameterBuildsTriggerUuid = components["parameters"]["builds_TriggerUuid"];
 export type ParameterBuildsScriptName = components["parameters"]["builds_ScriptName"];
 export type ParameterBuildsDeployHookUuid = components["parameters"]["builds_DeployHookUuid"];
+export type ParameterBuildsScriptTag = components["parameters"]["builds_ScriptTag"];
 export type RequestBodyWorkersNamespaceUpload =
   components["requestBodies"]["workers_namespace_upload"];
 export type RequestBodyWorkersScriptUpload = components["requestBodies"]["workers_script_upload"];
@@ -6699,6 +6910,65 @@ export interface operations {
       404: components["responses"]["builds_NotFound"];
     };
   };
+  createWorkerBuild: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "git_repository": {
+         *         "branch": "main",
+         *         "provider_account_id": "cloudflare",
+         *         "provider_account_name": "Cloudflare",
+         *         "provider_type": "github",
+         *         "repo_id": "workers-sdk",
+         *         "repo_name": "workers-sdk"
+         *       },
+         *       "production_settings": {
+         *         "build_caching_enabled": true,
+         *         "build_command": "npm run build",
+         *         "build_token_uuid": "your-build-token-uuid",
+         *         "deploy_command": "npx wrangler deploy",
+         *         "environment_variables": {},
+         *         "path_excludes": [
+         *           "*.md"
+         *         ],
+         *         "path_includes": [
+         *           "*"
+         *         ],
+         *         "root_directory": "/"
+         *       },
+         *       "script_tag": "my-worker"
+         *     }
+         */
+        "application/json": components["schemas"]["builds_CreateWorkerRequest"];
+      };
+    };
+    responses: {
+      /** @description Worker build configuration created successfully */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_WorkerResponse"];
+          };
+        };
+      };
+      400: components["responses"]["builds_BadRequest"];
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+      409: components["responses"]["builds_Conflict"];
+    };
+  };
   listBuildsByScript: {
     parameters: {
       query?: {
@@ -6904,6 +7174,104 @@ export interface operations {
           };
         };
       };
+      404: components["responses"]["builds_NotFound"];
+    };
+  };
+  getWorkerBuild: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Worker build configuration retrieved successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_WorkerResponse"];
+          };
+        };
+      };
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+    };
+  };
+  deleteWorkerBuild: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Worker build configuration deleted successfully. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            /** @example ok */
+            result?: string;
+          };
+        };
+      };
+      401: components["responses"]["builds_Unauthorized"];
+      404: components["responses"]["builds_NotFound"];
+    };
+  };
+  updateWorkerBuild: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: components["parameters"]["builds_AccountId"];
+        /** @description The Worker script tag (external script ID) */
+        script_tag: components["parameters"]["builds_ScriptTag"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "production_settings": {
+         *         "build_command": "npm run build:production",
+         *         "deploy_command": "npx wrangler deploy --env production"
+         *       }
+         *     }
+         */
+        "application/json": components["schemas"]["builds_UpdateWorkerRequest"];
+      };
+    };
+    responses: {
+      /** @description Worker build configuration updated successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["builds_APIResponse"] & {
+            result?: components["schemas"]["builds_WorkerResponse"];
+          };
+        };
+      };
+      400: components["responses"]["builds_BadRequest"];
+      401: components["responses"]["builds_Unauthorized"];
       404: components["responses"]["builds_NotFound"];
     };
   };
@@ -11733,7 +12101,7 @@ export interface operations {
       };
     };
   };
-  "noter get /accounts/{account_id}/workers/scripts/{script_name}/tails": {
+  "worker-tail-logs-list-tails": {
     parameters: {
       query?: never;
       header?: never;
@@ -11926,7 +12294,7 @@ export interface operations {
       header?: never;
       path: {
         account_id: components["schemas"]["workers_identifier"];
-        script_name: components["schemas"]["workers_schemas-script_name"];
+        script_name: components["schemas"]["workers_script_name-2"];
       };
       cookie?: never;
     };
@@ -11962,7 +12330,7 @@ export interface operations {
       header?: never;
       path: {
         account_id: components["schemas"]["workers_identifier"];
-        script_name: components["schemas"]["workers_schemas-script_name"];
+        script_name: components["schemas"]["workers_script_name-2"];
       };
       cookie?: never;
     };
@@ -11995,7 +12363,7 @@ export interface operations {
       header?: never;
       path: {
         account_id: components["schemas"]["workers_identifier"];
-        script_name: components["schemas"]["workers_schemas-script_name"];
+        script_name: components["schemas"]["workers_script_name-2"];
         version_id: components["schemas"]["workers_version_identifier"];
       };
       cookie?: never;
@@ -12202,7 +12570,7 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["workers_api-response-common"] & {
-            result: components["schemas"]["workers_schemas-subdomain"];
+            result: components["schemas"]["workers_subdomain-2"];
           };
         };
       };
@@ -12228,7 +12596,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["workers_schemas-subdomain"];
+        "application/json": components["schemas"]["workers_subdomain-2"];
       };
     };
     responses: {
@@ -12239,7 +12607,7 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["workers_api-response-common"] & {
-            result: components["schemas"]["workers_schemas-subdomain"];
+            result: components["schemas"]["workers_subdomain-2"];
           };
         };
       };

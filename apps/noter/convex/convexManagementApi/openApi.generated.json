@@ -1706,8 +1706,11 @@
           {
             "name": "team_id",
             "in": "path",
-            "description": "",
-            "required": true
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
           }
         ],
         "requestBody": {
@@ -2465,17 +2468,17 @@
           },
           {
             "type": "object",
-            "title": "OAuthApp",
-            "description": "An OAuth application.",
+            "title": "Integration",
+            "description": "An integration (OAuth application).",
             "required": ["client_id", "kind"],
             "properties": {
               "client_id": {
                 "type": "string",
-                "description": "Client ID of the OAuth application"
+                "description": "Client ID of the integration"
               },
               "kind": {
                 "type": "string",
-                "enum": ["app"]
+                "enum": ["integration"]
               }
             }
           }

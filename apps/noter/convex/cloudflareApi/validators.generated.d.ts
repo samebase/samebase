@@ -24,6 +24,9 @@ export const cloudflareApiResponseValidators: {
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks/{deploy_hook_uuid}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["deleteDeployHook"]>
     >;
+    "/accounts/{account_id}/builds/workers/{script_tag}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["deleteWorkerBuild"]>
+    >;
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-delete-namespace"]>
     >;
@@ -111,6 +114,9 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks/{deploy_hook_uuid}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["getDeployHook"]>
+    >;
+    "/accounts/{account_id}/builds/workers/{script_tag}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["getWorkerBuild"]>
     >;
     "/accounts/{account_id}/workers/account-settings": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-account-settings-fetch-worker-account-settings"]>
@@ -206,9 +212,7 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["worker-script-get-subdomain"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/tails": AjvStandaloneValidateFunction<
-      SuccessResponseJSON<
-        operations["noter get /accounts/{account_id}/workers/scripts/{script_name}/tails"]
-      >
+      SuccessResponseJSON<operations["worker-tail-logs-list-tails"]>
     >;
     "/accounts/{account_id}/workers/scripts/{script_name}/usage-model": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["worker-script-fetch-usage-model"]>
@@ -249,6 +253,9 @@ export const cloudflareApiResponseValidators: {
     >;
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["upsertEnvironmentVariables"]>
+    >;
+    "/accounts/{account_id}/builds/workers/{script_tag}": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["updateWorkerBuild"]>
     >;
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["namespace-worker-patch-namespace"]>
@@ -297,6 +304,9 @@ export const cloudflareApiResponseValidators: {
       SuccessResponseJSON<operations["createManualBuild"]>
     >;
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/purge_build_cache": null;
+    "/accounts/{account_id}/builds/workers": AjvStandaloneValidateFunction<
+      SuccessResponseJSON<operations["createWorkerBuild"]>
+    >;
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks": AjvStandaloneValidateFunction<
       SuccessResponseJSON<operations["createDeployHook"]>
     >;
