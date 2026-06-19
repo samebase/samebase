@@ -14,19 +14,21 @@
 
 Roll out Polar billing in phases so we can:
 
-1. Keep Free self-sustainable (BYO providers, minimal Noter compute).
-2. Unlock Noter-managed vault creation for paid users (Pro).
+1. Validate billing state, checkout, portal, and webhook plumbing without blocking member
+   onboarding.
+2. Keep Noter-managed vault creation available to approved members while early app creation is being
+   tested.
 3. Make entitlements transparent and correct (webhook-driven, reconciled).
-4. Leave a clean path for credits/metering later without redoing the billing core.
+4. Leave a clean path for guardrails, credits, and metering later without redoing the billing core.
 
 ## Why This Spec Exists
 
-Billing impacts core product flows (vault creation and managed infra). A phased rollout reduces risk
-by sequencing:
+Billing will eventually affect core product flows (vault creation and managed infra). A phased
+rollout reduces risk by sequencing:
 
 - entitlement correctness first (backend + webhook),
 - then UX polish and operational hardening,
-- then metering/credits.
+- then guardrails, metering, and credits.
 
 ## Goals
 
@@ -35,7 +37,7 @@ by sequencing:
 3. Minimal configuration surface:
    - server-side Convex env vars only (`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`)
    - infer sandbox vs production from `CONVEX_DEPLOYMENT`
-4. Gate Noter-managed vault creation behind active Pro (admin bypass).
+4. Keep current app creation gated by member access and provider readiness, not billing state.
 
 ## Non-Goals (For This Rollout Plan)
 
@@ -68,7 +70,7 @@ by sequencing:
 - [x] Add Polar billing module (checkout session + customer portal session).
 - [x] Add Polar webhook endpoint + signature verification.
 - [x] Add billing fields to `users` + index by external customer id.
-- [x] Gate `vaultActions.createRepository` behind active Pro (admin bypass).
+- [x] Keep `vaultActions.createRepository` independent of billing state for the member rollout.
 - [x] Update `/pricing` to call Polar actions and remove Paddle client/config.
 - [x] Remove Paddle specs/implementation from repo.
 
@@ -91,7 +93,8 @@ Exit criteria:
   - [ ] Start checkout from `/pricing` redirects to Polar sandbox checkout.
   - [ ] Completing checkout triggers webhook and upgrades user to Pro in Convex.
   - [ ] Customer portal opens and returns to `/pricing`.
-  - [ ] Pro user can create noter-managed vaults; Free cannot.
+  - [ ] Approved members can create Noter-managed vaults with connected providers regardless of
+        billing state.
 
 Exit criteria:
 
@@ -173,7 +176,7 @@ Exit criteria:
 - [ ] Webhook endpoint validates signatures and ignores invalid deliveries.
 - [ ] Redirect-based success is not treated as entitlement authority.
 - [ ] Billing gating is enforced only where intended:
-  - [x] gate noter-managed create (`createRepository`)
+  - [x] do not gate Noter-managed create (`createRepository`) during member rollout
   - [x] do not gate BYO connect (`connectRepository`)
 - [ ] No billing secrets leak to the client.
 - [ ] All changes remain type-safe (no `any`, no assertions).
@@ -182,4 +185,5 @@ Exit criteria:
 
 - [ ] A user can subscribe to Pro via Polar and become entitled without manual intervention.
 - [ ] A user can cancel and lose entitlement reliably.
-- [ ] Free plan remains viable and low-cost for Noter (BYO providers).
+- [ ] Approved members can create apps without a Pro entitlement until the guardrail/metering
+      rollout defines enforcement.

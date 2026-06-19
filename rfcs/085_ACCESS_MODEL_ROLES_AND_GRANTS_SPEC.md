@@ -43,7 +43,7 @@ Member MVP: `role_member` holds `access_public`, `access_user_preferences`, `acc
 `access_provider_connections`, `access_repo_connect`, `access_app_create`, `access_app_refresh`,
 `access_files_read`, and `access_files_write`. Members can sign in, persist signed-in app-shell
 preferences, connect provider accounts, connect/import their own repositories, create Noter-managed
-apps after provider and billing checks pass, monitor/resync app state, and use owned file surfaces
+apps after provider-readiness checks pass, monitor/resync app state, and use owned file surfaces
 behind per-vault ownership checks. Machines, MCP, and admin surfaces stay staff-only until
 deliberately opened. Enabling more later is a grant edit plus route/function reclassification, not a
 redesign.
@@ -59,10 +59,11 @@ became structural via access-key function wrappers.
    resulting checks ask whether a viewer has the required `access_*` key.
 2. Server-side enforcement that fails closed and cannot be forgotten per function: public Convex
    queries, mutations, and actions must be wrapped with an explicit access key.
-3. Member MVP limited to safe account/repo/app-status capabilities, with the path to app creation,
-   files, machines, and MCP being grant edits plus targeted reclassification, not a redesign.
-4. Keep billing (plan/add-ons) an orthogonal axis: access keys gate who may call; plan gates what
-   paid features do (the existing Pro gate on app creation stays).
+3. Member MVP includes account/repo/app-creation/app-status capabilities, with the path to files,
+   machines, and MCP being grant edits plus targeted reclassification, not a redesign.
+4. Keep billing (plan/add-ons) an orthogonal axis: access keys gate who may call; current member app
+   creation is not gated by billing state. Future quotas, credits, or plan enforcement need their
+   own rollout contract.
 5. Keep MCP delegation compatible: existing MCP scopes become a delegated subset of the user's own
    access, with a Cloudflare-style checkbox consent planned in a follow-up spec.
 
@@ -193,20 +194,20 @@ Naming rules locked in by this RFC:
 
 Capability split locked in by this RFC:
 
-| Access key                    | Product capability                                                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `access_public`               | Public routes and unauthenticated-friendly helpers.                                                                                    |
-| `access_user_preferences`     | Signed-in public app-shell preferences, such as workspace sidebar pane and geometry state.                                             |
-| `access_dashboard`            | Signed-in app shell, own app/vault lists, billing status, and low-risk dashboard reads.                                                |
-| `access_provider_connections` | Connect, list, refresh, and remove provider credentials or OAuth/API-key connections for the current viewer.                           |
-| `access_repo_connect`         | Import/link an existing repository into Noter using the viewer's provider connection.                                                  |
-| `access_app_create`           | Provision new Noter-managed app infrastructure or external provider resources. Billing still gates paid execution after access passes. |
-| `access_app_refresh`          | Reload/resync app, repository, branch, deployment, and provider-status metadata.                                                       |
-| `access_files_read`           | Read file trees, file contents, diffs, staged-change summaries, and review data.                                                       |
-| `access_files_write`          | Edit files, stage changes, upload/delete/rename, commit, open PRs, or run AI/file-compute workflows.                                   |
-| `access_machines`             | Connected-machine, local-machine, codespace executor, and machine-control flows.                                                       |
-| `access_mcp`                  | MCP OAuth consent and MCP-facing tool entry points.                                                                                    |
-| `access_admin`                | Internal operator, debug, research, prod-read, test, and unreleased surfaces.                                                          |
+| Access key                    | Product capability                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `access_public`               | Public routes and unauthenticated-friendly helpers.                                                          |
+| `access_user_preferences`     | Signed-in public app-shell preferences, such as workspace sidebar pane and geometry state.                   |
+| `access_dashboard`            | Signed-in app shell, own app/vault lists, billing status, and low-risk dashboard reads.                      |
+| `access_provider_connections` | Connect, list, refresh, and remove provider credentials or OAuth/API-key connections for the current viewer. |
+| `access_repo_connect`         | Import/link an existing repository into Noter using the viewer's provider connection.                        |
+| `access_app_create`           | Provision new Noter-managed app infrastructure or external provider resources.                               |
+| `access_app_refresh`          | Reload/resync app, repository, branch, deployment, and provider-status metadata.                             |
+| `access_files_read`           | Read file trees, file contents, diffs, staged-change summaries, and review data.                             |
+| `access_files_write`          | Edit files, stage changes, upload/delete/rename, commit, open PRs, or run AI/file-compute workflows.         |
+| `access_machines`             | Connected-machine, local-machine, codespace executor, and machine-control flows.                             |
+| `access_mcp`                  | MCP OAuth consent and MCP-facing tool entry points.                                                          |
+| `access_admin`                | Internal operator, debug, research, prod-read, test, and unreleased surfaces.                                |
 
 Route-level access should gate the shell a user can enter. Button-level affordances and backend
 functions still use the more specific key. For example, `/connect-repo` can render for a member who
@@ -284,9 +285,8 @@ export const enqueueManualRepositoryRefresh = mutation({
 - Per-resource ownership checks (`vault.userId !== userId` and friends) are the second dimension and
   remain inside handlers, with their current semantics (e.g. `listStagedFiles` returning `[]` for
   non-owners post-v1484 stays as-is).
-- The 4 inline `isAdminUser` sites become `access_admin` wrappers; the Pro-billing fallback inside
-  `validateCreateAppConnections` is **not** an access check and stays exactly where it is (billing
-  axis, see below).
+- The 4 inline `isAdminUser` sites become `access_admin` wrappers. Billing remains separate from
+  access and must not be reintroduced as a hidden role check inside the grants table.
 
 Function-area assignment is represented directly by each public function's `access` field. The
 temporary generated inventory and hand-maintained assignment map were deleted before merge so the
@@ -423,12 +423,11 @@ visibility remain `access_public`; operator-only debug params and landing-previe
 
 ### Billing stays orthogonal
 
-- Access keys gate reachability; plan gates paid capability. `createRepository` (Noter-managed
-  provisioning) keeps the existing gate: staff bypass, everyone else needs
-  `billingPlan === "pro" && billingStatus === "active"`
-  (`appProvisioningWorkflowActions.ts:273-280`) after passing `access_app_create`. Members on the
-  free plan can still `connectRepository` (BYO infra — verified unbilled and ungated today) after
-  passing `access_repo_connect`.
+- Access keys gate reachability. During the current member rollout, approved members may create
+  Noter-managed apps after `access_app_create` and provider-readiness checks pass, regardless of
+  Polar billing state. Future app-creation guardrails need an explicit quota, credit, rate-limit, or
+  plan-enforcement rollout.
+- Members can still `connectRepository` (BYO infra) after passing `access_repo_connect`.
 - The target billing posture is member-facing `access_dashboard`, but this migration keeps
   `billing.getViewerBillingStatus`, `billing.createPolarCheckoutSession`,
   `billing.createPolarCustomerPortalSession`, and `billing.syncViewerBillingFromPolar` under
@@ -494,8 +493,7 @@ has zero callers — required for real onboarding). The accepted signup boundary
 waitlist accounts: unapproved sign-ins may create or reuse a user row, resolve to `role_waitlisted`,
 and stay limited to public access until `users.isApproved` becomes true. Verify the member journey
 end to end after approval (sign in → `/home` → connect provider → connect/import repo → `/new-app` →
-create or monitor the app; managed provisioning still requires the Pro gate after
-`access_app_create` passes). No code beyond the join form and chosen signup boundary — membership is
+create or monitor the app). No code beyond the join form and chosen signup boundary — membership is
 data.
 
 **Phase 4 — MCP scoped consent (separate spec).** Checkbox consent with partial access-key grants,
@@ -545,7 +543,8 @@ settings page.
    focused on `access`.
 9. Provider connection, repo connect, app creation, app refresh, file read, and file write are
    distinct capabilities.
-10. Billing never enters the grants table; the Pro gate on app creation is untouched.
+10. Billing never enters the grants table; current app creation is member-access gated, not
+    billing-gated.
 11. Checkout requires approval (`access_dashboard`).
 12. MCP uses the same `AccessKey` literals for delegated Noter grants; OAuth calls them scopes at
     the protocol boundary.

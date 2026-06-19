@@ -4,13 +4,13 @@
 
 Implement Polar billing so that:
 
-- Free remains self-sustainable (BYO providers, no Noter-managed infra).
-- Paid (Pro) unlocks Noter-managed vault creation (GitHub repo creation + starter seeding + infra
-  provisioning).
+- Billing state, checkout, portal, and webhooks can be exercised without blocking member onboarding.
+- Approved members can create Noter-managed vaults regardless of current billing state while the
+  early app-creation flow is being validated.
 - Entitlement is webhook-driven (never trust client redirects as the authority).
 
 This spec is focused on a minimal, production-ready subscription flow, with a clear path to
-credits/metering later.
+guardrails, credits, and metering later.
 
 ## Non-Goals (V1)
 
@@ -128,11 +128,13 @@ Idempotency strategy:
 
 ## Feature Gating
 
-Gate `vaultActions.createRepository`:
+Do not gate `vaultActions.createRepository` on Polar entitlement in the current member rollout:
 
-- Admin user bypass (owner can always create managed vaults).
-- Otherwise require active Pro entitlement.
-- On failure, throw a clear error: \"Upgrade to Pro to create a Noter-managed project.\"
+- Approved members may create Noter-managed vaults without paying during the current onboarding
+  validation phase.
+- Billing fields remain available for checkout/status experiments and future enforcement design.
+- Future app-creation guardrails belong in a separate rollout that defines quota, rate limit,
+  credit, or plan semantics explicitly.
 
 Do not gate `vaultActions.connectRepository` (free tier flow).
 
@@ -153,5 +155,6 @@ Update `apps/noter/src/components/PricingPage.tsx`:
 - Dev deployment uses Polar sandbox base URL.
 - Clicking Pro CTA redirects to Polar checkout.
 - Completing checkout triggers webhook -> user becomes Pro in Convex.
-- `createRepository` succeeds for Pro, fails for free with upgrade error.
+- `createRepository` succeeds for approved members with connected providers, regardless of billing
+  state.
 - Customer portal link opens and returns to `/pricing`.
