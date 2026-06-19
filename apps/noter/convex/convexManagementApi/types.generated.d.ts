@@ -942,7 +942,7 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     /** Format: int64 */
-    AccessTokenId: number;
+    AccessTokenId: string;
     /** @description Encrypted admin key */
     AdminKey: string;
     /** @description The identity that executed an audit log action. */

@@ -8881,7 +8881,7 @@ const schema122 = {
     name: { type: "string", description: "The name given to the deploy key at creation." },
   },
 };
-const schema124 = { type: "integer", format: "int64", minimum: 0 };
+const schema124 = { pattern: "^[0-9]+$", type: "string" };
 const schema125 = {
   oneOf: [
     { type: "string", enum: ["vercel"] },
@@ -9171,37 +9171,36 @@ function validate55(
     }
     if (data.id !== undefined) {
       let data5 = data.id;
-      if (!(typeof data5 == "number" && !(data5 % 1) && !isNaN(data5))) {
-        const err13 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/AccessTokenId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err13];
-        } else {
-          vErrors.push(err13);
-        }
-        errors++;
-      }
-      if (typeof data5 == "number") {
-        if (data5 < 0 || isNaN(data5)) {
-          const err14 = {
+      if (typeof data5 === "string") {
+        if (!pattern0.test(data5)) {
+          const err13 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/AccessTokenId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/AccessTokenId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err14];
+            vErrors = [err13];
           } else {
-            vErrors.push(err14);
+            vErrors.push(err13);
           }
           errors++;
         }
+      } else {
+        const err14 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/AccessTokenId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err14];
+        } else {
+          vErrors.push(err14);
+        }
+        errors++;
       }
     }
     if (data.lastUsedTime !== undefined) {
@@ -9882,37 +9881,36 @@ function validate67(
     }
     if (data.id !== undefined) {
       let data2 = data.id;
-      if (!(typeof data2 == "number" && !(data2 % 1) && !isNaN(data2))) {
-        const err5 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/AccessTokenId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-      if (typeof data2 == "number") {
-        if (data2 < 0 || isNaN(data2)) {
-          const err6 = {
+      if (typeof data2 === "string") {
+        if (!pattern0.test(data2)) {
+          const err5 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/AccessTokenId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/AccessTokenId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err6];
+            vErrors = [err5];
           } else {
-            vErrors.push(err6);
+            vErrors.push(err5);
           }
           errors++;
         }
+      } else {
+        const err6 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/AccessTokenId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
       }
     }
     if (data.lastUsedTime !== undefined) {
@@ -10584,37 +10582,36 @@ function validate73(
     }
     if (data.id !== undefined) {
       let data3 = data.id;
-      if (!(typeof data3 == "number" && !(data3 % 1) && !isNaN(data3))) {
-        const err9 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/AccessTokenId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-      if (typeof data3 == "number") {
-        if (data3 < 0 || isNaN(data3)) {
-          const err10 = {
+      if (typeof data3 === "string") {
+        if (!pattern0.test(data3)) {
+          const err9 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/AccessTokenId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/AccessTokenId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err10];
+            vErrors = [err9];
           } else {
-            vErrors.push(err10);
+            vErrors.push(err9);
           }
           errors++;
         }
+      } else {
+        const err10 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/AccessTokenId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
       }
     }
     if (data.lastUsedTime !== undefined) {
@@ -11048,37 +11045,36 @@ function validate77(
     }
     if (data.id !== undefined) {
       let data1 = data.id;
-      if (!(typeof data1 == "number" && !(data1 % 1) && !isNaN(data1))) {
-        const err6 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/AccessTokenId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-      if (typeof data1 == "number") {
-        if (data1 < 0 || isNaN(data1)) {
-          const err7 = {
+      if (typeof data1 === "string") {
+        if (!pattern0.test(data1)) {
+          const err6 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/AccessTokenId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/AccessTokenId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err7];
+            vErrors = [err6];
           } else {
-            vErrors.push(err7);
+            vErrors.push(err6);
           }
           errors++;
         }
+      } else {
+        const err7 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/AccessTokenId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
       }
     }
     if (data.name !== undefined) {
@@ -11288,37 +11284,36 @@ function validate77(
     }
     if (data.id !== undefined) {
       let data6 = data.id;
-      if (!(typeof data6 == "number" && !(data6 % 1) && !isNaN(data6))) {
-        const err20 = {
-          instancePath: instancePath + "/id",
-          schemaPath: "#/components/schemas/AccessTokenId/type",
-          keyword: "type",
-          params: { type: "integer" },
-          message: "must be integer",
-        };
-        if (vErrors === null) {
-          vErrors = [err20];
-        } else {
-          vErrors.push(err20);
-        }
-        errors++;
-      }
-      if (typeof data6 == "number") {
-        if (data6 < 0 || isNaN(data6)) {
-          const err21 = {
+      if (typeof data6 === "string") {
+        if (!pattern0.test(data6)) {
+          const err20 = {
             instancePath: instancePath + "/id",
-            schemaPath: "#/components/schemas/AccessTokenId/minimum",
-            keyword: "minimum",
-            params: { comparison: ">=", limit: 0 },
-            message: "must be >= 0",
+            schemaPath: "#/components/schemas/AccessTokenId/pattern",
+            keyword: "pattern",
+            params: { pattern: "^[0-9]+$" },
+            message: 'must match pattern "' + "^[0-9]+$" + '"',
           };
           if (vErrors === null) {
-            vErrors = [err21];
+            vErrors = [err20];
           } else {
-            vErrors.push(err21);
+            vErrors.push(err20);
           }
           errors++;
         }
+      } else {
+        const err21 = {
+          instancePath: instancePath + "/id",
+          schemaPath: "#/components/schemas/AccessTokenId/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err21];
+        } else {
+          vErrors.push(err21);
+        }
+        errors++;
       }
     }
     if (data.name !== undefined) {
@@ -13774,37 +13769,36 @@ function validate98(
       }
       if (data.token_id !== undefined) {
         let data5 = data.token_id;
-        if (!(typeof data5 == "number" && !(data5 % 1) && !isNaN(data5))) {
-          const err19 = {
-            instancePath: instancePath + "/token_id",
-            schemaPath: "#/components/schemas/AccessTokenId/type",
-            keyword: "type",
-            params: { type: "integer" },
-            message: "must be integer",
-          };
-          if (vErrors === null) {
-            vErrors = [err19];
-          } else {
-            vErrors.push(err19);
-          }
-          errors++;
-        }
-        if (typeof data5 == "number") {
-          if (data5 < 0 || isNaN(data5)) {
-            const err20 = {
+        if (typeof data5 === "string") {
+          if (!pattern0.test(data5)) {
+            const err19 = {
               instancePath: instancePath + "/token_id",
-              schemaPath: "#/components/schemas/AccessTokenId/minimum",
-              keyword: "minimum",
-              params: { comparison: ">=", limit: 0 },
-              message: "must be >= 0",
+              schemaPath: "#/components/schemas/AccessTokenId/pattern",
+              keyword: "pattern",
+              params: { pattern: "^[0-9]+$" },
+              message: 'must match pattern "' + "^[0-9]+$" + '"',
             };
             if (vErrors === null) {
-              vErrors = [err20];
+              vErrors = [err19];
             } else {
-              vErrors.push(err20);
+              vErrors.push(err19);
             }
             errors++;
           }
+        } else {
+          const err20 = {
+            instancePath: instancePath + "/token_id",
+            schemaPath: "#/components/schemas/AccessTokenId/type",
+            keyword: "type",
+            params: { type: "string" },
+            message: "must be string",
+          };
+          if (vErrors === null) {
+            vErrors = [err20];
+          } else {
+            vErrors.push(err20);
+          }
+          errors++;
         }
       }
     } else {

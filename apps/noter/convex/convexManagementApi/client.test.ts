@@ -8,6 +8,7 @@ import type {
   paths,
   PlatformDeploymentResponse,
   PlatformProjectDetails,
+  PlatformTokenDetailsResponse,
 } from "./types.generated";
 
 const LARGE_CONVEX_ID = "9223372036854775807";
@@ -71,6 +72,15 @@ function assertConvexManagementRequestTypes(): void {
     teamId: LARGE_CONVEX_PARENT_ID,
   };
   expectType<string>()(customRoleResponse.id, true);
+
+  const tokenDetailsResponse: PlatformTokenDetailsResponse = {
+    createTime: 1710000000000,
+    id: LARGE_CONVEX_ID,
+    name: "Noter OAuth",
+    teamId: LARGE_CONVEX_PARENT_ID,
+    type: "teamToken",
+  };
+  expectType<string>()(tokenDetailsResponse.id, true);
 
   expectType<string>()(
     formatConvexManagementApiEndpoint({
@@ -263,6 +273,37 @@ describe("Convex Management API request helpers", () => {
       name: "operator",
       statements: [],
       teamId: LARGE_CONVEX_PARENT_ID,
+    });
+  });
+
+  it("preserves Convex access token IDs from token details as decimal strings", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `{
+            "createTime": 1710000000000,
+            "id": ${LARGE_CONVEX_ID},
+            "name": "Noter OAuth",
+            "teamId": ${LARGE_CONVEX_PARENT_ID},
+            "type": "teamToken"
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      requestConvexManagementApi("oauth-team-token", "GET", "/token_details"),
+    ).resolves.toEqual({
+      createTime: 1710000000000,
+      id: LARGE_CONVEX_ID,
+      name: "Noter OAuth",
+      teamId: LARGE_CONVEX_PARENT_ID,
+      type: "teamToken",
     });
   });
 

@@ -45,6 +45,7 @@ const generatedFormatPaths = [
   noterAppFilePath("convex/convexManagementApi/validators.generated.d.ts"),
 ];
 const convexManagementDecimalIdSchemaNames = [
+  "AccessTokenId",
   "CustomRoleId",
   "DeploymentId",
   "MemberId",

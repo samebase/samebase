@@ -45,9 +45,9 @@ Generator and validator checks:
   response validation.
 - The OpenAPI `int64` format can be represented as a JSON number or string, but JavaScript cannot
   safely represent every `int64` as a `number`. Convex provider IDs are opaque to Noter, so
-  `ProjectId`, `TeamId`, `DeploymentId`, and `MemberId` must be preserved as decimal strings at the
-  app boundary. Non-ID numeric fields, such as timestamps, remain numbers and must fail closed if
-  Convex returns a value outside JavaScript's safe numeric range.
+  `AccessTokenId`, `ProjectId`, `TeamId`, `DeploymentId`, and `MemberId` must be preserved as
+  decimal strings at the app boundary. Non-ID numeric fields, such as timestamps, remain numbers and
+  must fail closed if Convex returns a value outside JavaScript's safe numeric range.
 
 ## Decision
 
