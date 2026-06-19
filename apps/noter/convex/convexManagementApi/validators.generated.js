@@ -13387,12 +13387,12 @@ const schema180 = {
     },
     {
       type: "object",
-      title: "OAuthApp",
-      description: "An OAuth application.",
+      title: "Integration",
+      description: "An integration (OAuth application).",
       required: ["client_id", "kind"],
       properties: {
-        client_id: { type: "string", description: "Client ID of the OAuth application" },
-        kind: { type: "string", enum: ["app"] },
+        client_id: { type: "string", description: "Client ID of the integration" },
+        kind: { type: "string", enum: ["integration"] },
       },
     },
   ],
@@ -13903,7 +13903,7 @@ function validate98(
             }
             errors++;
           }
-          if (!(data7 === "app")) {
+          if (!(data7 === "integration")) {
             const err26 = {
               instancePath: instancePath + "/kind",
               schemaPath: "#/oneOf/3/properties/kind/enum",

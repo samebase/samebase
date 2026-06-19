@@ -968,10 +968,10 @@ export interface components {
           token_id: components["schemas"]["AccessTokenId"];
         }
       | {
-          /** @description Client ID of the OAuth application */
+          /** @description Client ID of the integration */
           client_id: string;
           /** @enum {string} */
-          kind: "app";
+          kind: "integration";
         };
     AuditLogEventResponse: {
       /** @enum {string} */
@@ -2864,7 +2864,8 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        team_id: string;
+        /** @description Team ID */
+        team_id: components["schemas"]["TeamId"];
       };
       cookie?: never;
     };
