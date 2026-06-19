@@ -44,6 +44,11 @@ const generatedFormatPaths = [
   noterAppFilePath("convex/convexManagementApi/validators.generated.js"),
   noterAppFilePath("convex/convexManagementApi/validators.generated.d.ts"),
 ];
+
+/**
+ * Convex publishes these identifiers as int64 schemas, but Noter treats provider
+ * IDs as opaque decimal strings so large values cannot lose precision in JS.
+ */
 const convexManagementDecimalIdSchemaNames = [
   "AccessTokenId",
   "CustomRoleId",
@@ -55,8 +60,11 @@ const convexManagementDecimalIdSchemaNames = [
 const convexManagementDecimalIdSchemaRefs = new Set(
   convexManagementDecimalIdSchemaNames.map((schemaName) => `#/components/schemas/${schemaName}`),
 );
+
 const convexManagementOperationMethods = ["get", "post"] as const;
+
 type ConvexManagementOperationMethod = (typeof convexManagementOperationMethods)[number];
+
 type ConvexManagementResponseValidatorEntry = {
   method: ConvexManagementOperationMethod;
   path: string;
