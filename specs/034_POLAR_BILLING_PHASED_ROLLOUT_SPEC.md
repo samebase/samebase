@@ -4,7 +4,7 @@
 
 - Status: In progress (Phase 1 complete)
 - Owner: Noter platform
-- Last updated: 2026-03-02
+- Last updated: 2026-06-19
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
@@ -12,41 +12,49 @@
 
 ## Summary
 
+This rollout spec is not an enforceable billing product decision. It records Polar plumbing and
+possible future billing directions. Until a future accepted billing spec defines real limits,
+checkout, portal, webhook, `free`/`pro`, credits, metering, and team-billing language here remains
+descriptive and must not block member app creation or retries.
+
 Roll out Polar billing in phases so we can:
 
-1. Keep Free self-sustainable (BYO providers, minimal Noter compute).
-2. Unlock Noter-managed vault creation for paid users (Pro).
-3. Make entitlements transparent and correct (webhook-driven, reconciled).
-4. Leave a clean path for credits/metering later without redoing the billing core.
+1. Validate billing state, checkout, portal, and webhook plumbing without blocking member
+   onboarding.
+2. Keep Noter-managed vault creation available to approved members while early app creation is being
+   tested.
+3. Make recorded billing state transparent and correct (webhook-driven, reconciled).
+4. Leave a clean path for guardrails, credits, and metering later without redoing the billing core.
 
 ## Why This Spec Exists
 
-Billing impacts core product flows (vault creation and managed infra). A phased rollout reduces risk
-by sequencing:
+Billing may eventually affect core product flows (vault creation and managed infra). A phased
+rollout would reduce risk by sequencing:
 
-- entitlement correctness first (backend + webhook),
+- billing-state correctness first (backend + webhook),
 - then UX polish and operational hardening,
-- then metering/credits.
+- then guardrails, metering, and credits.
 
 ## Goals
 
-1. Polar-backed Pro subscription flow (checkout redirect + customer portal).
-2. Webhook-driven entitlements (redirect success is never authority).
+1. Polar-backed checkout and customer portal flow.
+2. Webhook-driven billing state (redirect success is never authority).
 3. Minimal configuration surface:
    - server-side Convex env vars only (`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`)
    - infer sandbox vs production from `CONVEX_DEPLOYMENT`
-4. Gate Noter-managed vault creation behind active Pro (admin bypass).
+4. Keep current app creation gated by member access and provider readiness, not billing state.
 
 ## Non-Goals (For This Rollout Plan)
 
-1. Usage-based billing enforcement / credits deductions (later phases).
+1. Usage-based billing enforcement / credits deductions.
 2. Team/seat billing.
 3. Public pricing page (pricing remains authenticated-only for now).
+4. Any billing-based app creation limit.
 
 ## Design Constraints (Locked)
 
 1. No frontend Polar secrets (no Vite env vars for Polar).
-2. Entitlements are computed from Polar canonical customer state (not event payload fields).
+2. Billing state is computed from Polar canonical customer state (not event payload fields).
 3. Webhook processing must be idempotent.
 4. Prefer additive schema changes.
 5. Strict TypeScript: no `any`, no type assertions.
@@ -59,16 +67,16 @@ by sequencing:
 - [ ] Phase 2 complete: Sandbox end-to-end validation
 - [ ] Phase 3 complete: Production hardening + operational readiness
 - [ ] Phase 4 complete: Config moved out of code (DB-backed billing config)
-- [ ] Phase 5 complete: Metering + credits foundation (transparent usage)
-- [ ] Phase 6 complete: Credits enforcement + top-ups / overage handling
-- [ ] Phase 7 complete: Team billing
+- [ ] Candidate metering/credits direction accepted in a future spec
+- [ ] Candidate enforcement/top-up direction accepted in a future spec
+- [ ] Candidate team billing direction accepted in a future spec
 
 ### Phase 1: Polar scaffold + Paddle removal (complete)
 
 - [x] Add Polar billing module (checkout session + customer portal session).
 - [x] Add Polar webhook endpoint + signature verification.
 - [x] Add billing fields to `users` + index by external customer id.
-- [x] Gate `vaultActions.createRepository` behind active Pro (admin bypass).
+- [x] Keep `vaultActions.createRepository` independent of billing state for the member rollout.
 - [x] Update `/pricing` to call Polar actions and remove Paddle client/config.
 - [x] Remove Paddle specs/implementation from repo.
 
@@ -89,9 +97,10 @@ Exit criteria:
   - [ ] `POST <convex-site-url>/webhooks/polar`
 - [ ] Manual validation:
   - [ ] Start checkout from `/pricing` redirects to Polar sandbox checkout.
-  - [ ] Completing checkout triggers webhook and upgrades user to Pro in Convex.
+  - [ ] Completing checkout triggers webhook and updates billing state in Convex.
   - [ ] Customer portal opens and returns to `/pricing`.
-  - [ ] Pro user can create noter-managed vaults; Free cannot.
+  - [ ] Approved members can create Noter-managed vaults with connected providers regardless of
+        billing state.
 
 Exit criteria:
 
@@ -131,9 +140,10 @@ Exit criteria:
 
 - [ ] Product IDs and display copy can be updated without redeploying.
 
-### Phase 5: Metering + credits foundation (transparent usage)
+### Candidate Future Topic: Metering + credits foundation
 
-Goal: make usage transparent even before enforcement.
+This is not an accepted enforcement plan. The likely first step is making usage transparent before
+any limit or billing action exists.
 
 - [ ] Define a metering model (tokens, provider costs, Noter compute units).
 - [ ] Persist usage events per vault/user (append-only).
@@ -146,9 +156,10 @@ Exit criteria:
 
 - [ ] Users can see a truthful breakdown of usage over time.
 
-### Phase 6: Credits enforcement + top-ups / overage handling
+### Candidate Future Topic: Credits enforcement + top-ups / overage handling
 
-- [ ] Add a credits ledger (grants, consumption, refunds).
+- [ ] Decide whether credits are the right guardrail.
+- [ ] If they are, add a credits ledger (grants, consumption, refunds).
 - [ ] Decide enforcement boundary:
   - [ ] block new managed actions when out of credits
   - [ ] or allow overage and invoice later (requires product support)
@@ -156,12 +167,12 @@ Exit criteria:
 
 Exit criteria:
 
-- [ ] Enforcement is consistent and explainable with on-screen usage data.
+- [ ] A future accepted billing spec defines whether enforcement exists and how it works.
 
-### Phase 7: Team billing
+### Candidate Future Topic: Team billing
 
 - [ ] Define team entity and membership.
-- [ ] Team subscription maps to team entitlements/credits.
+- [ ] Decide whether team subscription maps to limits/credits.
 - [ ] Seat or shared credits behavior is explicit and tested.
 
 Exit criteria:
@@ -171,15 +182,17 @@ Exit criteria:
 ## Validation Checklist (Always-On)
 
 - [ ] Webhook endpoint validates signatures and ignores invalid deliveries.
-- [ ] Redirect-based success is not treated as entitlement authority.
-- [ ] Billing gating is enforced only where intended:
-  - [x] gate noter-managed create (`createRepository`)
+- [ ] Redirect-based success is not treated as billing-state authority.
+- [ ] Billing state is not an app-access gate until a future accepted rollout defines one:
+  - [x] do not gate Noter-managed create (`createRepository`) during member rollout
   - [x] do not gate BYO connect (`connectRepository`)
 - [ ] No billing secrets leak to the client.
 - [ ] All changes remain type-safe (no `any`, no assertions).
 
 ## Acceptance Criteria
 
-- [ ] A user can subscribe to Pro via Polar and become entitled without manual intervention.
-- [ ] A user can cancel and lose entitlement reliably.
-- [ ] Free plan remains viable and low-cost for Noter (BYO providers).
+- [ ] A user can complete checkout via Polar and have billing state recorded without manual
+      intervention.
+- [ ] A user can cancel and have billing state reconcile reliably.
+- [ ] Approved members can create apps regardless of recorded billing state until a future
+      guardrail/metering rollout defines enforcement.

@@ -7,7 +7,6 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "../shared/repoName";
-import { isAdminUser } from "./userAccess";
 import type {
   AppProvisioningEventLevel,
   AppProvisioningRunState,
@@ -268,15 +267,6 @@ export const validateCreateAppConnections = internalAction({
     }
     if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
-    }
-
-    const isAdmin = isAdminUser(currentUser.email);
-    if (!isAdmin) {
-      const plan = currentUser.billingPlan ?? "free";
-      const status = currentUser.billingStatus ?? "inactive";
-      if (!(plan === "pro" && status === "active")) {
-        throw new Error("Upgrade to Pro to create a Noter-managed project.");
-      }
     }
 
     return null;
