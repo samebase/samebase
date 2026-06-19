@@ -1,6 +1,6 @@
 # Samebase Rebrand Rollout Plan
 
-Status: draft plan
+Status: draft plan; external-state inventory updated 2026-06-20
 
 Goal: rebrand `noter.md` to Samebase with `https://samebase.com` as the public app origin,
 `samebase/samebase` as the main repository identity, `samebase/app` as the starter template source,
@@ -8,68 +8,145 @@ and `@samebase/*` as the npm package scope.
 
 ## Core Decision
 
-- [ ] `https://samebase.com` is the canonical app origin.
-- [ ] `https://www.samebase.com` redirects to `https://samebase.com`.
-- [ ] `https://noter.md` and `https://www.noter.md` redirect to `https://samebase.com` as a
+- [x] `https://samebase.com` is the canonical app origin.
+- [x] `https://www.samebase.com` redirects to `https://samebase.com`.
+- [x] `https://noter.md` and `https://www.noter.md` redirect to `https://samebase.com` as a
       human-facing relocation signpost.
-- [ ] `noter.md` does not remain an operational compatibility surface.
-- [ ] Old machine, package, API, callback, config, state, and marker names are not maintained.
-- [ ] Historical docs keep historical names unless the document is still an active runbook or
+- [x] `noter.md` does not remain an operational compatibility surface.
+- [x] Old machine, package, API, callback, config, state, and marker names are not maintained.
+- [x] Historical docs keep historical names unless the document is still an active runbook or
       source-of-truth contract.
 
 The redirect from `noter.md` is for people who knew the previous name. It must not imply support for
 old operational paths such as `/noter.ts`, `/noter-connect.json`, `noter-sync`, `@noter-md/sync`,
 `~/.noter`, `noter-origin:v1`, or `noter.md` as a repo config filename.
 
+Use a permanent host-level relocation from every `noter.md` and `www.noter.md` path to
+`https://samebase.com/`, discarding the old path and query. This keeps the human relocation signal
+while preventing legacy paths from becoming supported Samebase URLs by accident.
+
 ## Target Identifier Map
 
-- [ ] Product name: `Samebase`.
-- [ ] Public app domain: `samebase.com`.
-- [ ] Protocol/API origin, if kept split from the app origin: `api.samebase.com`.
-- [ ] Main GitHub repository: `samebase/samebase`.
-- [ ] Starter template GitHub repository: `samebase/app`.
-- [ ] npm scope: `@samebase`.
-- [ ] App workspace package: `samebase`.
-- [ ] Root workspace package: `samebase-monorepo`.
-- [ ] Public machine package: `@samebase/sync`.
-- [ ] Public machine binary: `samebase-sync`.
-- [ ] Hosted machine script: `/samebase.ts`.
-- [ ] Machine connect config: `/samebase-connect.json`.
-- [ ] Machine state directory: `~/.samebase`.
-- [ ] PR automation marker: `samebase-origin:v1`.
-- [ ] Repo config filename: `samebase.md`.
+- [x] Product name: `Samebase`.
+- [x] Public app domain: `samebase.com`.
+- [x] Browser UI origin: `https://samebase.com`.
+- [x] Protocol/API origin: `https://api.samebase.com`.
+- [x] Main GitHub repository: `samebase/samebase`.
+- [x] Starter template GitHub repository: `samebase/app`.
+- [x] Monorepo app directory: `apps/samebase`.
+- [x] npm scope: `@samebase`.
+- [x] App workspace package: `samebase`.
+- [x] Root workspace package: `samebase-monorepo`.
+- [x] Public machine package: `@samebase/sync`.
+- [x] Public machine binary: `samebase-sync`.
+- [x] Hosted machine script: `/samebase.ts`.
+- [x] Machine connect config: `/samebase-connect.json`.
+- [x] Machine state directory: `~/.samebase`.
+- [x] PR automation marker: `samebase-origin:v1`.
+- [x] Repo config filename: `samebase.md`.
 
 ## Phase 0: Freeze The Cutover Topology
 
-- [ ] Confirm whether MCP/OAuth protocol endpoints should use `https://api.samebase.com` or stay on
-      `https://samebase.com`.
-- [ ] Confirm the Cloudflare Worker name for the public app after the rebrand.
-- [ ] Confirm whether the repo directory `apps/noter` should be renamed to `apps/samebase` in the
-      same PR as package renames.
+- [x] Use `https://api.samebase.com` for MCP/OAuth protocol endpoints. Current production already
+      uses the split origin `https://api.noter.md`, so Samebase should keep the same topology with
+      the new hostname.
+- [x] Use `samebase-worker` as the target public app Worker name. If the current production Worker
+      cannot be renamed in-place, deploy a new `samebase-worker` and move the hostnames to it.
+- [x] Rename `apps/noter` to `apps/samebase` in the same implementation pass as workspace package
+      renames so app-local paths, package filters, and Cloudflare root-directory settings move
+      together.
 - [ ] Confirm the new support/legal contact address.
 - [ ] Confirm the public social account URLs to replace `notermd` links.
 - [ ] Confirm the logo/social-card direction before regenerating assets.
 - [ ] Record the cutover window for Cloudflare, Convex, OAuth, Polar, and GitHub changes.
 
-## Phase 1: Inventory External State
+## Phase 1: Current External State
 
-- [ ] Identify the current production Cloudflare Worker that serves the app.
-- [ ] Identify the current Cloudflare Workers Builds project and branch settings.
-- [ ] Identify current custom domains attached to the app Worker.
-- [ ] Identify the Cloudflare zone state for `samebase.com`.
-- [ ] Identify the Cloudflare redirect mechanism that will send `noter.md` traffic to
-      `samebase.com`.
-- [ ] Identify production Convex deployment, preview deployment policy, and current environment
-      variables.
-- [ ] Record current values that must change without writing secrets into this repo: `SITE_URL`,
-      provider OAuth redirect URLs, Polar return URLs, and webhook URLs.
-- [ ] Identify Google/Convex Auth authorized origins and callbacks.
-- [ ] Identify GitHub provider OAuth callback settings.
-- [ ] Identify Convex provider OAuth callback settings.
-- [ ] Identify Cloudflare MCP OAuth callback settings.
-- [ ] Identify Polar checkout return allowlist and webhook endpoint settings.
-- [ ] Identify Resend/domain email setup if Samebase email sending becomes part of launch.
-- [ ] Confirm no provider credential, token, or secret is copied into this plan or PR text.
+- [x] `noter.md` is Cloudflare-managed and currently serves the Noter app with HTTP 200. Nameservers
+      observed: `brady.ns.cloudflare.com` and `frida.ns.cloudflare.com`.
+- [x] `www.noter.md` resolves through Cloudflare and currently redirects to `https://noter.md/`.
+- [x] `noter.md/noter.ts` currently serves the machine installer as TypeScript.
+- [x] `noter.md/noter-connect.json` currently serves the machine connect config as JSON.
+- [x] `samebase.com` is Cloudflare-managed and currently serves a separate minimal page with title
+      `samebase.com` and visible copy `Lovable for devs`. Nameservers observed:
+      `jaziel.ns.cloudflare.com` and `phoenix.ns.cloudflare.com`.
+- [x] `samebase.com/robots.txt`, `samebase.com/sitemap.xml`, `samebase.com/noter.ts`, and
+      `samebase.com/samebase.ts` currently fall through to that Samebase page or SPA shell instead
+      of serving the rebranded app assets.
+- [x] `www.samebase.com` does not currently resolve.
+- [x] `api.noter.md` resolves through `convex.domains` and serves MCP/OAuth metadata advertising
+      resource `https://api.noter.md/mcp`, issuer `https://api.noter.md`, authorize endpoint
+      `https://api.noter.md/oauth/mcp/authorize`, token endpoint
+      `https://api.noter.md/oauth/mcp/token`, and registration endpoint
+      `https://api.noter.md/oauth/mcp/register`.
+- [x] `api.samebase.com` does not currently resolve.
+- [x] The app Worker config in `apps/noter/wrangler.jsonc` owns Static Assets, SPA fallback, and
+      preview URLs, but does not store a Worker name or custom domain route. The deploy wrapper
+      reads `WRANGLER_CI_OVERRIDE_NAME` from Workers Builds or `CLOUDFLARE_WORKER_NAME` for local
+      runs.
+- [x] The public production build still injects `NOTER_PRERENDER_ORIGIN=https://noter.md` on main.
+- [x] The repo cleanup runbook defaults the app Worker name to `noter-worker` for preview cleanup.
+      Treat that as the current documented fallback, not proof of the live production Worker name.
+- [x] The separate `samebase-domains` Worker is already named in `apps/domain-router/wrangler.jsonc`
+      and only routes `*.json.md/*` and `*.xml.md/*`; it is not the `samebase.com` app Worker.
+- [x] The `samebase-domains` Workers Builds trigger is documented with root directory
+      `apps/domain-router`, build command `pnpm run build`, deploy command `pnpm run deploy`,
+      version command `pnpm run build:preview`, and production branch `main`.
+- [x] GitHub currently has private `noter-md/noter` and private `notermd/app` repositories visible
+      to this checkout.
+- [x] `samebase/samebase`, `samebase/app`, and `samebase/template` do not currently resolve through
+      `gh repo view` from this checkout, so create or rename to `samebase/samebase` and
+      `samebase/app`; do not create `samebase/template`.
+- [x] Public npm registry checks return 404 for `@noter-md/sync`, `@noter-md/dependent`,
+      `@noter-md/domain-router`, `@samebase/sync`, `@samebase/dependent`, and
+      `@samebase/domain-router`. Public npm package compatibility/deprecation work is therefore not
+      required unless private npm state exists outside the public registry.
+- [x] The current workspace package names are `noter-monorepo`, `noter`, `@noter-md/dependent`,
+      `@noter-md/sync`, `@noter-md/domain-router`, `@noter-md/agent-context`, and
+      `@noter-md/onboarding-video-tools`; `@samebase/sure` is already in the Samebase scope.
+- [x] No provider credential, token, or secret was copied into this plan or PR text.
+
+### Credential-Gated Cloudflare Reads
+
+The current worktree is not logged into Wrangler, and neither this worktree nor the visible primary
+checkout has `apps/noter/.env.anon-seed.local`. The Noter connector available in this Codex session
+can only propose Cloudflare reads for a Noter app thread and rejected this Codex thread id, so it
+did not provide dashboard state.
+
+Before implementation starts, place the existing operator seed file at
+`apps/noter/.env.anon-seed.local` in the working checkout and run these exact read-only checks
+without printing secret values:
+
+```sh
+test -f apps/noter/.env.anon-seed.local
+set -a
+. apps/noter/.env.anon-seed.local
+set +a
+
+: "${DEV_SEED_CLOUDFLARE_ACCOUNT_ID:?missing DEV_SEED_CLOUDFLARE_ACCOUNT_ID}"
+: "${DEV_SEED_CLOUDFLARE_API_KEY:?missing DEV_SEED_CLOUDFLARE_API_KEY}"
+
+export CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY"
+export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-noter-worker}"
+
+pnpm --dir apps/noter exec wrangler whoami
+pnpm --dir apps/noter exec wrangler versions list --name "$CLOUDFLARE_WORKER_NAME" --json
+pnpm --dir apps/noter exec wrangler deployments list --name "$CLOUDFLARE_WORKER_NAME" --json
+
+curl -sS \
+  --url "https://api.cloudflare.com/client/v4/zones?name=noter.md" \
+  --header "Authorization: Bearer $DEV_SEED_CLOUDFLARE_API_KEY" |
+  jq '.result[] | {name, status, name_servers}'
+
+curl -sS \
+  --url "https://api.cloudflare.com/client/v4/zones?name=samebase.com" \
+  --header "Authorization: Bearer $DEV_SEED_CLOUDFLARE_API_KEY" |
+  jq '.result[] | {name, status, name_servers}'
+```
+
+Use those reads to fill in only the live app Worker name, attached custom domains, existing
+Cloudflare redirect rules, and Workers Builds trigger UUIDs. Do not add secrets, account IDs, token
+IDs, or raw provider payloads to this repo.
 
 ## Phase 2: Public App Identity
 
@@ -83,6 +160,8 @@ old operational paths such as `/noter.ts`, `/noter-connect.json`, `noter-sync`, 
 - [ ] Replace sitemap URLs in `apps/noter/public/sitemap.xml`.
 - [ ] Replace robots sitemap URL in `apps/noter/public/robots.txt`.
 - [ ] Replace public landing copy in English and Romanian landing preview content.
+- [ ] Add a short human-facing relocation line to the public landing surface, such as
+      `Samebase was previously noter.md`, without preserving old machine/API behavior.
 - [ ] Replace closed-signup and footer social links.
 - [ ] Replace legal and policy copy, including operator name and contact address.
 - [ ] Replace route editor examples and tests that show `https://noter.md`.
@@ -111,11 +190,13 @@ old operational paths such as `/noter.ts`, `/noter-connect.json`, `noter-sync`, 
 - [ ] Rename root `package.json` package name and description.
 - [ ] Rename `apps/noter/package.json` package name.
 - [ ] Rename internal `@noter-md/*` package names to `@samebase/*`.
+- [ ] Keep `@samebase/sure` unchanged except for import-path cleanup caused by neighboring package
+      renames.
 - [ ] Update all imports from `@noter-md/dependent` and related subpaths.
 - [ ] Update root package scripts and `pnpm --filter` selectors.
 - [ ] Update CI workflow package filters.
 - [ ] Regenerate `pnpm-lock.yaml`.
-- [ ] Decide and execute `apps/noter` to `apps/samebase` directory rename if it is in scope.
+- [ ] Rename `apps/noter` to `apps/samebase`.
 - [ ] Update path helpers and tracked-file-path generated output after any app directory rename.
 - [ ] Rename `scripts/export-notermd-app-manifest.ts`.
 - [ ] Change starter export source from `notermd/app` to `samebase/app`.
@@ -141,13 +222,18 @@ old operational paths such as `/noter.ts`, `/noter-connect.json`, `noter-sync`, 
 
 ## Phase 6: External Provider Cutover
 
-- [ ] Attach `samebase.com` to the main app Worker.
-- [ ] Attach or redirect `www.samebase.com` to the canonical app origin.
-- [ ] Configure `noter.md` and `www.noter.md` as redirect-only human-facing relocation routes.
-- [ ] Confirm `noter.md` path redirects do not create supported legacy operational routes on
+- [ ] Replace the existing `samebase.com` Cloudflare-served page with the rebranded app Worker.
+- [ ] Attach `samebase.com` to `samebase-worker`.
+- [ ] Configure `www.samebase.com` DNS and redirect it to `https://samebase.com/`.
+- [ ] Configure `api.samebase.com` to the Convex HTTP origin that replaces current
+      `api.noter.md -> convex.domains`.
+- [ ] Configure `noter.md` and `www.noter.md` as redirect-only human-facing relocation routes: every
+      path redirects permanently to `https://samebase.com/` with the old path and query discarded.
+- [ ] Confirm old `noter.md` path redirects do not create supported legacy operational routes on
       `samebase.com`.
 - [ ] Set production Convex `SITE_URL=https://samebase.com`.
-- [ ] Keep or intentionally update `CONVEX_SITE_URL` based on the chosen Convex HTTP origin.
+- [ ] Set production Convex/Auth issuer domain to `https://api.samebase.com` where the current
+      configuration uses `api.noter.md` / `CONVEX_SITE_URL`.
 - [ ] Update Google/Convex Auth authorized origins and callbacks.
 - [ ] Update GitHub provider OAuth callback URL.
 - [ ] Update Convex provider OAuth callback URL.
@@ -193,16 +279,22 @@ old operational paths such as `/noter.ts`, `/noter-connect.json`, `noter-sync`, 
 - [ ] `https://samebase.com/privacy` and `/terms` show Samebase legal copy.
 - [ ] `https://samebase.com/sitemap.xml` contains Samebase URLs.
 - [ ] `https://noter.md/` redirects to `https://samebase.com/`.
-- [ ] `https://noter.md/some/path` redirects to the corresponding Samebase path or the chosen
-      relocation target.
+- [ ] `https://noter.md/some/path` redirects to `https://samebase.com/`, not to a preserved path.
 - [ ] `https://samebase.com/samebase.ts` serves the current installer.
 - [ ] `https://samebase.com/samebase-connect.json` serves the current connect config.
 - [ ] `https://samebase.com/noter.ts` does not serve a working legacy installer.
+- [ ] `https://noter.md/noter.ts` redirects to `https://samebase.com/` and does not serve a working
+      legacy installer.
+- [ ] `https://noter.md/noter-connect.json` redirects to `https://samebase.com/` and does not serve
+      a working legacy connect config.
 - [ ] Google sign-in returns to Samebase.
 - [ ] GitHub provider OAuth returns to Samebase.
 - [ ] Convex provider OAuth returns to Samebase.
 - [ ] Cloudflare MCP OAuth returns to Samebase.
-- [ ] MCP well-known, authorize, token, and resource checks use the chosen Samebase origin.
+- [ ] `https://api.samebase.com/.well-known/oauth-protected-resource` advertises
+      `https://api.samebase.com/mcp`.
+- [ ] `https://api.samebase.com/.well-known/oauth-authorization-server` advertises issuer,
+      authorize, token, and registration endpoints on `https://api.samebase.com`.
 - [ ] Polar checkout and portal return to Samebase.
 - [ ] Polar webhook is delivered to the expected endpoint.
 - [ ] New Samebase-managed app creation exports from `samebase/app`.
