@@ -46,9 +46,9 @@ const generatedFormatPaths = [
 ];
 
 /**
- * Convex publishes these identifiers as int64 schemas, but Noter treats provider
- * IDs as opaque decimal strings so large values cannot lose precision in JS.
- */
+Convex publishes these identifiers as int64 schemas, but Noter treats provider
+IDs as opaque decimal strings so large values cannot lose precision in JS.
+*/
 const convexManagementDecimalIdSchemaNames = [
   "AccessTokenId",
   "CustomRoleId",
