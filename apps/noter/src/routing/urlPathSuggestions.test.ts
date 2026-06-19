@@ -89,12 +89,12 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/connect-repo");
     expect(suggestions).toContain("/home");
+    expect(suggestions).toContain("/new-app");
     expect(suggestions).toContain("/pricing");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/machines");
-    expect(suggestions).not.toContain("/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
   });
 

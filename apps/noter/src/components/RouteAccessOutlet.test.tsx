@@ -188,6 +188,22 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
+  it("renders app-create routes when the viewer has app-create access", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_app_create" } },
+    ];
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_app_create"],
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(markup).not.toContain("not-found-route");
+    expect(viewerAccessState.queryCalls).toBe(1);
+  });
+
   it("uses the authenticated route shell for denied non-public routes", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },

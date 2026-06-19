@@ -40,12 +40,13 @@ custom roles, per-user overrides, or delegated resource-specific grants. Code ou
 resolution, role management, audit, or admin/debug surfaces should prefer `access_*` checks.
 
 Member MVP: `role_member` holds `access_public`, `access_user_preferences`, `access_dashboard`,
-`access_provider_connections`, `access_repo_connect`, `access_app_refresh`, `access_files_read`, and
-`access_files_write`. Members can sign in, persist signed-in app-shell preferences, connect provider
-accounts, connect/import their own repositories, monitor/resync app state, and use owned file
-surfaces behind per-vault ownership checks. New managed app provisioning, machines, MCP, and admin
-surfaces stay staff-only until deliberately opened. Enabling more later is a grant edit plus
-route/function reclassification, not a redesign.
+`access_provider_connections`, `access_repo_connect`, `access_app_create`, `access_app_refresh`,
+`access_files_read`, and `access_files_write`. Members can sign in, persist signed-in app-shell
+preferences, connect provider accounts, connect/import their own repositories, create Noter-managed
+apps after provider and billing checks pass, monitor/resync app state, and use owned file surfaces
+behind per-vault ownership checks. Machines, MCP, and admin surfaces stay staff-only until
+deliberately opened. Enabling more later is a grant edit plus route/function reclassification, not a
+redesign.
 
 This RFC also closes the approval enforcement gap that existed before the backend wrapper rollout:
 `users.isApproved` was enforced only by the client-side `ApprovalGate`, so backend enforcement
@@ -159,6 +160,7 @@ export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_dashboard",
     "access_provider_connections",
     "access_repo_connect",
+    "access_app_create",
     "access_app_refresh",
     "access_files_read",
     "access_files_write",
@@ -406,12 +408,12 @@ they are.
 | `access_mcp`          | MCP-facing backend entry points and token-granted tool scopes; the consent URL itself is a public OAuth entrypoint so signed-out users can keep the request ID through sign-in                                                                                                                                        |
 | `access_admin`        | `/pitch`, `/pitch/print`, `/pitch/print/mobile`, `/landing-preview`, `/research/codex-app-server`, `/research/codex-app-server/browser`, `/test`, `/indexDB`, `/localStorage`, `/logo/iso`, `/logo/raster`, `/logo/raster-seams`, `/logo/single-cube`, `/logo/svg`, `/logo/transition`, `/logo/transition/transforms` |
 
-With MVP grants, members reach public, dashboard, provider-connection, repo-connect, app-refresh,
-file-read, and file-write capabilities; staff reach everything. The ~40 admin-marked search params
-reclassify alongside their routes: dashboard/billing params (`delete`, `checkout`) →
+With MVP grants, members reach public, dashboard, provider-connection, repo-connect, app-create,
+app-refresh, file-read, and file-write capabilities; staff reach everything. The ~40 admin-marked
+search params reclassify alongside their routes: dashboard/billing params (`delete`, `checkout`) →
 `access_dashboard`; provider-connection params (`add-cloudflare`, `add-convex`) →
-`access_provider_connections`; repo/app setup params (`add-app-root`, `app-root`, `new-app`) →
-`access_repo_connect` unless the triggered backend action is managed provisioning, which requires
+`access_provider_connections`; repo/app setup params (`add-app-root`, `app-root`) →
+`access_repo_connect`; managed app setup params (`new-app`) and managed provisioning actions →
 `access_app_create`; file-view params (`compare`, `diff`, `review`, `mobileLineNumbers`) →
 `access_files_read`; file edit/staging params → `access_files_write`; machine params →
 `access_machines`; MCP OAuth entry params (`mcp_consent_request`, `mcp_login_required`) → hidden
@@ -491,9 +493,10 @@ where shipped UI changes (waitlist/404 paths).
 has zero callers — required for real onboarding). The accepted signup boundary is authenticated
 waitlist accounts: unapproved sign-ins may create or reuse a user row, resolve to `role_waitlisted`,
 and stay limited to public access until `users.isApproved` becomes true. Verify the member journey
-end to end after approval (sign in → `/home` → connect provider → connect/import repo →
-refresh/monitor; managed app creation still requires `access_app_create` plus the Pro gate). No code
-beyond the join form and chosen signup boundary — membership is data.
+end to end after approval (sign in → `/home` → connect provider → connect/import repo → `/new-app` →
+create or monitor the app; managed provisioning still requires the Pro gate after
+`access_app_create` passes). No code beyond the join form and chosen signup boundary — membership is
+data.
 
 **Phase 4 — MCP scoped consent (separate spec).** Checkbox consent with partial access-key grants,
 live intersection on every request, step-up via `insufficient_scope`, grant management/editing on a

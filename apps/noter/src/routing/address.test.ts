@@ -122,6 +122,16 @@ describe("readRouteAddressReadiness", () => {
 
     expect(
       readRouteAddressReadinessForTest({
+        draftRouteAddress: "/new-app",
+        viewer: memberViewer,
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/new-app",
+    });
+
+    expect(
+      readRouteAddressReadinessForTest({
         draftRouteAddress: "/machines",
         viewer: memberViewer,
       }),
