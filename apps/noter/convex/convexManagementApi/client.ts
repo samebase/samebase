@@ -12,8 +12,10 @@ import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
 import { guard } from "@noter-md/dependent/main";
 import type { paths, PlatformDeploymentResponse } from "./types.generated";
 import {
+  convexManagementResponseDecimalPaths,
   convexManagementResponseValidators,
   type AjvStandaloneValidateFunction,
+  type ConvexManagementResponseDecimalPath,
 } from "./validators.generated";
 import { isRecord, toErrorMessage } from "../jsonUtils";
 import { ConvexManagementApiError } from "./errors";
@@ -21,16 +23,6 @@ import type { ProviderApiCallRecorder } from "../providerApiLog";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
 const CONVEX_MANAGEMENT_TIMEOUT_MS = 10_000;
-const CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS: ReadonlySet<string> = new Set([
-  "creator",
-  "destinationProjectId",
-  "id",
-  "memberId",
-  "projectId",
-  "referredBy",
-  "ssoTeamId",
-  "teamId",
-]);
 const CONVEX_MANAGEMENT_DECIMAL_PATH_PARAMETER_NAMES: ReadonlySet<string> = new Set([
   "project_id",
   "team_id",
@@ -224,6 +216,7 @@ export async function requestConvexManagementApi(
       endpoint,
       method,
       path,
+      decimalPaths: convexManagementResponseDecimalPaths.GET[path],
       validator: convexManagementResponseValidators.GET[path],
     });
   }
@@ -233,6 +226,7 @@ export async function requestConvexManagementApi(
     endpoint,
     method,
     path,
+    decimalPaths: convexManagementResponseDecimalPaths.POST[path],
     validator: convexManagementResponseValidators.POST[path],
   });
 }
@@ -336,6 +330,7 @@ function validateConvexManagementResult(args: {
   endpoint: string;
   method: "GET" | "POST";
   path: string;
+  decimalPaths: readonly ConvexManagementResponseDecimalPath[];
   validator: AjvStandaloneValidateFunction<unknown> | null;
 }): unknown {
   const schemaName = `${args.method} ${args.path} response`;
@@ -348,6 +343,7 @@ function validateConvexManagementResult(args: {
   }
 
   const payload = parseConvexManagementResponseJson({
+    decimalPaths: args.decimalPaths,
     endpoint: args.endpoint,
     schemaName,
     text: args.result.data,
@@ -371,6 +367,7 @@ function validateConvexManagementResult(args: {
 }
 
 function parseConvexManagementResponseJson(args: {
+  decimalPaths: readonly ConvexManagementResponseDecimalPath[];
   endpoint: string;
   schemaName: string;
   text?: string;
@@ -382,7 +379,11 @@ function parseConvexManagementResponseJson(args: {
   }
 
   try {
-    return parse(args.text, reviveConvexManagementResponseValue);
+    return normalizeConvexManagementResponseValue({
+      decimalPaths: args.decimalPaths,
+      path: [],
+      value: parse(args.text),
+    });
   } catch (error) {
     throw new Error(
       `Convex API response for ${args.endpoint} did not match ${args.schemaName}: / invalid JSON response: ${toErrorMessage(error, "parse failed")}`,
@@ -390,21 +391,77 @@ function parseConvexManagementResponseJson(args: {
   }
 }
 
-function reviveConvexManagementResponseValue(key: string, value: unknown): unknown {
-  if (!isLosslessNumber(value)) {
-    return value;
+function normalizeConvexManagementResponseValue(args: {
+  decimalPaths: readonly ConvexManagementResponseDecimalPath[];
+  path: readonly string[];
+  value: unknown;
+}): unknown {
+  if (isLosslessNumber(args.value)) {
+    return normalizeConvexManagementResponseNumber(args);
   }
 
-  const serialized = value.toString();
-  if (CONVEX_MANAGEMENT_DECIMAL_ID_FIELDS.has(key)) {
-    return readConvexManagementDecimalValue(serialized, `Convex response field ${key}`);
-  }
-  if (!isSafeNumber(serialized, { approx: false })) {
-    throw new Error(
-      `${key || "Convex response number"} is outside JavaScript's safe numeric range.`,
+  if (Array.isArray(args.value)) {
+    return args.value.map((value) =>
+      normalizeConvexManagementResponseValue({
+        ...args,
+        path: [...args.path, "*"],
+        value,
+      }),
     );
   }
+
+  if (isRecord(args.value)) {
+    const normalized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(args.value)) {
+      normalized[key] = normalizeConvexManagementResponseValue({
+        ...args,
+        path: [...args.path, key],
+        value,
+      });
+    }
+    return normalized;
+  }
+
+  return args.value;
+}
+
+function normalizeConvexManagementResponseNumber(args: {
+  decimalPaths: readonly ConvexManagementResponseDecimalPath[];
+  path: readonly string[];
+  value: unknown;
+}): number | string {
+  if (!isLosslessNumber(args.value)) {
+    throw new Error("Convex response number normalizer received a non-number value.");
+  }
+
+  const serialized = args.value.toString();
+  const pathLabel = formatConvexManagementResponsePath(args.path);
+  if (isConvexManagementDecimalResponsePath(args.path, args.decimalPaths)) {
+    return readConvexManagementDecimalValue(serialized, pathLabel);
+  }
+
+  if (!isSafeNumber(serialized, { approx: false })) {
+    throw new Error(`${pathLabel} is outside JavaScript's safe numeric range.`);
+  }
   return Number(serialized);
+}
+
+function isConvexManagementDecimalResponsePath(
+  path: readonly string[],
+  decimalPaths: readonly ConvexManagementResponseDecimalPath[],
+): boolean {
+  return decimalPaths.some(
+    (decimalPath) =>
+      decimalPath.length === path.length &&
+      decimalPath.every((segment, index) => segment === "*" || segment === path[index]),
+  );
+}
+
+function formatConvexManagementResponsePath(path: readonly string[]): string {
+  if (path.length === 0) {
+    return "Convex response number";
+  }
+  return `Convex response field /${path.join("/")}`;
 }
 
 function assertConvexManagementResultOk(args: {

@@ -307,6 +307,224 @@ describe("Convex Management API request helpers", () => {
     });
   });
 
+  it("uses response schemas instead of global field names when normalizing numbers", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `{
+            "items": [
+              {
+                "action": "team:token:view",
+                "actor": {
+                  "kind": "token",
+                  "member_id": ${LARGE_CONVEX_PARENT_ID},
+                  "token_id": ${LARGE_CONVEX_ID}
+                },
+                "createTime": 1710000000000,
+                "metadata": {
+                  "id": 7,
+                  "projectId": 8,
+                  "nested": [
+                    {
+                      "teamId": 9
+                    }
+                  ]
+                },
+                "teamId": ${LARGE_CONVEX_PARENT_ID}
+              }
+            ],
+            "pagination": {
+              "hasMore": false
+            }
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_audit_log_events", {
+        params: {
+          path: { team_id: LARGE_CONVEX_PARENT_ID },
+          query: { from: 1710000000000, to: 1710003600000 },
+        },
+      }),
+    ).resolves.toEqual({
+      items: [
+        {
+          action: "team:token:view",
+          actor: {
+            kind: "token",
+            member_id: LARGE_CONVEX_PARENT_ID,
+            token_id: LARGE_CONVEX_ID,
+          },
+          createTime: 1710000000000,
+          metadata: {
+            id: 7,
+            projectId: 8,
+            nested: [
+              {
+                teamId: 9,
+              },
+            ],
+          },
+          teamId: LARGE_CONVEX_PARENT_ID,
+        },
+      ],
+      pagination: {
+        hasMore: false,
+      },
+    });
+  });
+
+  it("preserves nested Convex custom role IDs from team member responses as decimal strings", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `{
+            "items": [
+              {
+                "customRoles": [
+                  {
+                    "id": ${LARGE_CONVEX_ID},
+                    "name": "operator"
+                  }
+                ],
+                "email": "nicu.dev@gmail.com",
+                "id": ${LARGE_CONVEX_PARENT_ID},
+                "name": "Nicu",
+                "role": "custom"
+              }
+            ]
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_members", {
+        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
+      }),
+    ).resolves.toEqual({
+      items: [
+        {
+          customRoles: [
+            {
+              id: LARGE_CONVEX_ID,
+              name: "operator",
+            },
+          ],
+          email: "nicu.dev@gmail.com",
+          id: LARGE_CONVEX_PARENT_ID,
+          name: "Nicu",
+          role: "custom",
+        },
+      ],
+    });
+  });
+
+  it("preserves nullable Convex SSO team IDs from personal access tokens", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `{
+            "items": [
+              {
+                "creationTime": 1710000000000,
+                "expiresAt": 1710003600000,
+                "id": ${LARGE_CONVEX_ID},
+                "lastUsedTime": null,
+                "name": "connected device",
+                "ssoTeamId": ${LARGE_CONVEX_PARENT_ID}
+              },
+              {
+                "creationTime": 1710000000001,
+                "id": ${LARGE_CONVEX_PARENT_ID},
+                "name": "manual token",
+                "ssoTeamId": null
+              }
+            ],
+            "pagination": {
+              "hasMore": false,
+              "nextCursor": null
+            }
+          }`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      requestConvexManagementApi("team-token", "GET", "/list_personal_access_tokens"),
+    ).resolves.toEqual({
+      items: [
+        {
+          creationTime: 1710000000000,
+          expiresAt: 1710003600000,
+          id: LARGE_CONVEX_ID,
+          lastUsedTime: null,
+          name: "connected device",
+          ssoTeamId: LARGE_CONVEX_PARENT_ID,
+        },
+        {
+          creationTime: 1710000000001,
+          id: LARGE_CONVEX_PARENT_ID,
+          name: "manual token",
+          ssoTeamId: null,
+        },
+      ],
+      pagination: {
+        hasMore: false,
+        nextCursor: null,
+      },
+    });
+  });
+
+  it("rejects unsafe non-ID numbers from responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          `[
+            {
+              "createTime": ${LARGE_CONVEX_ID},
+              "id": ${LARGE_CONVEX_ID},
+              "name": "Noter",
+              "slug": "noter",
+              "teamId": ${LARGE_CONVEX_PARENT_ID},
+              "teamSlug": "noter-team"
+            }
+          ]`,
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    await expect(
+      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_projects", {
+        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
+      }),
+    ).rejects.toThrow(
+      "Convex response field /*/createTime is outside JavaScript's safe numeric range.",
+    );
+  });
+
   it("materializes typed OpenAPI path parameters for empty POST requests", async () => {
     const requests: Request[] = [];
     vi.stubGlobal(

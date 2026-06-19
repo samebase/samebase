@@ -297,6 +297,7 @@ export const trackedFilePaths = [
   "apps/noter/convex/vault/state.ts",
   "apps/noter/convex/waitlist.ts",
   "apps/noter/convex/waitlistActions.ts",
+  "apps/noter/convex/workspaceSidebarState.convex.test.ts",
   "apps/noter/convex/workspaceSidebarState.ts",
   "apps/noter/convex/workspaceSidebarStateModel.ts",
   "apps/noter/dev/appBuildMetadata.test.ts",
