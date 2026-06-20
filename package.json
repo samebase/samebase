@@ -53,7 +53,7 @@
     "build:samebase": "vp run --filter samebase build",
     "check:samebase": "vp run --filter samebase check",
     "lint:samebase": "pnpm run check:samebase",
-    "template:export": "node scripts/export-notermd-app-manifest.ts",
+    "template:export": "node scripts/export-samebase-app-manifest.ts",
     "prepare": "vp config --hooks-dir .vite-hooks",
     "fixtures:update": "node ./scripts/update-simple-view-fixtures.ts",
     "killport": "node ./scripts/killport.ts",
