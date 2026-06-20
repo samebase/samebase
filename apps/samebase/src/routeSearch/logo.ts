@@ -56,8 +56,8 @@ import {
   type RootThemeModeSearch,
 } from "@/lib/rootThemeModeSearch";
 import {
-  type NoterRouteSearchParamSuggestion,
-  type NoterRouteSearchParamValueSuggestions,
+  type RouteSearchParamSuggestion,
+  type RouteSearchParamValueSuggestions,
 } from "@/routing/permissions";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -115,12 +115,12 @@ const LOGO_SHUFFLE_PARALLEL_MOVES_VALUE_SUGGESTIONS = [
   "1",
   "2",
   "3",
-] as const satisfies NoterRouteSearchParamValueSuggestions;
+] as const satisfies RouteSearchParamValueSuggestions;
 const [FIRST_LOGO_PRESET, ...REMAINING_LOGO_PRESETS] = LOGO_PRESETS;
 const LOGO_VOXEL_STATE_VALUE_SUGGESTIONS = [
   FIRST_LOGO_PRESET.voxelState,
   ...REMAINING_LOGO_PRESETS.map((preset) => preset.voxelState),
-] satisfies NoterRouteSearchParamValueSuggestions;
+] satisfies RouteSearchParamValueSuggestions;
 const DEFAULT_LOGO_VOXEL_STATE_VALUE_SUGGESTION = getLogoPreset(DEFAULT_LOGO_PRESET_ID).voxelState;
 export const MIN_LOGO_OPACITY = 0;
 export const MAX_LOGO_OPACITY = 1;
@@ -590,7 +590,7 @@ const LOGO_ROUTE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   LOGO_ROUTE_SEARCH_PARAM_METADATA,
 );
 
-function readLogoDepthValueSuggestions(depthMax: number): NoterRouteSearchParamValueSuggestions {
+function readLogoDepthValueSuggestions(depthMax: number): RouteSearchParamValueSuggestions {
   if (depthMax <= 3) {
     return ["1", "2", "3"];
   }
@@ -605,7 +605,7 @@ function readLogoDepthValueSuggestions(depthMax: number): NoterRouteSearchParamV
 function readLogoRouteSearchParamSuggestionsWithDepthMax(
   metadata: Readonly<Record<string, RouteSearchParamMetadata>>,
   depthMax: number,
-): readonly NoterRouteSearchParamSuggestion[] {
+): readonly RouteSearchParamSuggestion[] {
   const depthNumericRange = {
     maxValue: depthMax,
     minValue: MIN_LOGO_FRACTAL_DEPTH,
@@ -637,7 +637,7 @@ export const LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS = readLogoRouteSearchParamSugge
 
 export function readLogoRouteSearchParamSuggestionsForRenderer(
   renderer: LogoDepthRenderer,
-): readonly NoterRouteSearchParamSuggestion[] {
+): readonly RouteSearchParamSuggestion[] {
   return readLogoRouteSearchParamSuggestionsWithDepthMax(
     renderer === "iso" ? LOGO_ISO_ROUTE_SEARCH_PARAM_METADATA : LOGO_ROUTE_SEARCH_PARAM_METADATA,
     getLogoRendererFractalDepthHardMax(renderer),

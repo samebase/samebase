@@ -3,18 +3,18 @@ import { defineConfig, devices } from "@playwright/test";
 const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
 const playwrightBaseUrl = `http://127.0.0.1:${playwrightVitePort}`;
 const useDevServer = process.env.PLAYWRIGHT_USE_DEV_SERVER === "1";
-// Production-host route tests resolve noter.md to localhost, so the test
+// Production-host route tests resolve samebase.com to localhost, so the test
 // server must accept that Host header.
 const playwrightAllowedHosts = Array.from(
   new Set([
-    ...(process.env.NOTER_DEV_ALLOWED_HOSTS ?? "")
+    ...(process.env.SAMEBASE_DEV_ALLOWED_HOSTS ?? "")
       .split(",")
       .map((host) => host.trim())
       .filter((host) => host.length > 0),
-    "noter.md",
+    "samebase.com",
   ]),
 );
-const playwrightAllowedHostsEnv = `NOTER_DEV_ALLOWED_HOSTS=${playwrightAllowedHosts.join(",")}`;
+const playwrightAllowedHostsEnv = `SAMEBASE_DEV_ALLOWED_HOSTS=${playwrightAllowedHosts.join(",")}`;
 // CI sets PLAYWRIGHT_SKIP_BUILD=1 after prebuilding the app in the workflow, so
 // this branch reuses the built preview while local non-dev-server runs still
 // rely on webServerCommand to perform the build first.

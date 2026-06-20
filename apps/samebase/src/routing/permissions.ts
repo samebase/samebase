@@ -1,13 +1,13 @@
 import {
-  canAccessNoterRouteAvailability,
-  type NoterRouteAvailability,
-  type NoterRouteEnvironment,
+  canAccessRouteAvailability,
+  type RouteAvailability,
+  type RouteEnvironment,
 } from "@/routing/availability";
 import type { AccessKey } from "../../shared/accessModel";
 
-export type NoterRouteAccess = AccessKey;
+export type RouteAccess = AccessKey;
 
-export type NoterRouteSearchParamNumericRange =
+export type RouteSearchParamNumericRange =
   | {
       maxValue: number;
       minValue: number;
@@ -17,7 +17,7 @@ export type NoterRouteSearchParamNumericRange =
       minValue: number;
       rangeType: "min";
     };
-export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[]];
+export type RouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
 /**
  * Each value type carries only the metadata the editor can safely use for that
@@ -26,7 +26,7 @@ export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[
  * Numeric `valueSuggestions` are curated dropdown rows, not the accepted route
  * range; keep them `null` when the value should use only `sampleValue`.
  */
-export type NoterRouteSearchParamValueSemantics =
+export type RouteSearchParamValueSemantics =
   | {
       valueType: "manual";
     }
@@ -37,53 +37,53 @@ export type NoterRouteSearchParamValueSemantics =
   | {
       valueType: "numeric";
       numericDefaultValue: number;
-      numericRange: NoterRouteSearchParamNumericRange;
+      numericRange: RouteSearchParamNumericRange;
       numericStepValue: number;
       sampleValue: string;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
+      valueSuggestions: RouteSearchParamValueSuggestions | null;
     }
   | {
       valueType: "numeric-options";
       numericDefaultValue: number;
       sampleValue: string;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueSuggestions: RouteSearchParamValueSuggestions;
     }
   | {
       valueType: "options";
       sampleValue: string;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueSuggestions: RouteSearchParamValueSuggestions;
     }
   | {
       valueType: "completion";
       sampleValue: string;
       valueCompletion: "tailwind-color-token";
-      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueSuggestions: RouteSearchParamValueSuggestions;
     };
 
-export type NoterRouteSearchParamSemantics =
+export type RouteSearchParamSemantics =
   | {
       searchParamKind: "presence";
     }
-  | (NoterRouteSearchParamValueSemantics & {
+  | (RouteSearchParamValueSemantics & {
       searchParamKind: "value";
     });
 
-export type NoterRouteSearchParamAccess<Key extends string = string> = {
+export type RouteSearchParamAccess<Key extends string = string> = {
   key: Key;
-  access: NoterRouteAccess;
+  access: RouteAccess;
 };
 
-export type NoterRouteSearchParamSuggestion<Key extends string = string> =
-  NoterRouteSearchParamAccess<Key> & NoterRouteSearchParamSemantics;
+export type RouteSearchParamSuggestion<Key extends string = string> = RouteSearchParamAccess<Key> &
+  RouteSearchParamSemantics;
 
-export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
-  NoterRouteSearchParamSuggestion<Key>,
+export type RouteSearchParamValueSuggestion<Key extends string = string> = Extract<
+  RouteSearchParamSuggestion<Key>,
   { searchParamKind: "value" }
 >;
 
-export type NoterRouteStaticData = {
-  availableEnvironments?: NoterRouteAvailability;
-  access: NoterRouteAccess;
+export type RouteStaticData = {
+  availableEnvironments?: RouteAvailability;
+  access: RouteAccess;
   pathSuggestion?: "hidden";
 
   /**
@@ -95,45 +95,42 @@ export type NoterRouteStaticData = {
   acceptance.
   */
   acceptedSearchKeys?: readonly string[];
-  searchParamAccess?: readonly NoterRouteSearchParamAccess[];
-  searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
+  searchParamAccess?: readonly RouteSearchParamAccess[];
+  searchParamSuggestions?: readonly RouteSearchParamSuggestion[];
 };
 
-export type NoterRouteAccessViewer = {
+export type RouteAccessViewer = {
   accessKeys: readonly AccessKey[];
 };
 
-type NoterRouteAccessMatch = {
+type RouteAccessMatch = {
   staticData: {
-    access: NoterRouteAccess;
+    access: RouteAccess;
   };
 };
 
-export function canAccessNoterRouteAccess(
-  access: NoterRouteAccess,
-  viewer: NoterRouteAccessViewer,
-): boolean {
+export function canAccessRouteAccess(access: RouteAccess, viewer: RouteAccessViewer): boolean {
   return viewer.accessKeys.includes(access);
 }
 
-export function canAccessNoterRouteMatchesAccess(
-  matches: readonly NoterRouteAccessMatch[],
-  viewer: NoterRouteAccessViewer,
+export function canAccessRouteMatchesAccess(
+  matches: readonly RouteAccessMatch[],
+  viewer: RouteAccessViewer,
 ): boolean {
-  return matches.every((match) => canAccessNoterRouteAccess(match.staticData.access, viewer));
+  return matches.every((match) => canAccessRouteAccess(match.staticData.access, viewer));
 }
 
-export function canAccessNoterRouteStaticData(
-  staticData: NoterRouteStaticData,
-  viewer: NoterRouteAccessViewer,
-  routeEnvironment: NoterRouteEnvironment,
+export function canAccessRouteStaticData(
+  staticData: RouteStaticData,
+  viewer: RouteAccessViewer,
+  routeEnvironment: RouteEnvironment,
 ): boolean {
   return (
-    canAccessNoterRouteAccess(staticData.access, viewer) &&
-    canAccessNoterRouteAvailability(staticData.availableEnvironments, routeEnvironment)
+    canAccessRouteAccess(staticData.access, viewer) &&
+    canAccessRouteAvailability(staticData.availableEnvironments, routeEnvironment)
   );
 }
 
 declare module "@tanstack/react-router" {
-  interface StaticDataRouteOption extends NoterRouteStaticData {}
+  interface StaticDataRouteOption extends RouteStaticData {}
 }

@@ -17,7 +17,7 @@ import {
   readRouteAddressReadiness,
   type RouteAddressReadiness,
 } from "@/routing/address";
-import type { NoterRouteAccessViewer } from "@/routing/permissions";
+import type { RouteAccessViewer } from "@/routing/permissions";
 import { openRouteAddressQuerySlot } from "@/routing/addressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
@@ -102,7 +102,7 @@ Example focused state:
 {
   kind: "focused",
   focusMode: "editing",
-  prefix: "https://noter.md/",
+  prefix: "https://samebase.com/",
   draftRouteAddress: "/logo?top=red-",
   expectedRouteAddress: "/logo",
   selection: { start: 22, end: 22, direction: "none" },
@@ -116,7 +116,7 @@ Example keyboard preview:
 {
   kind: "focused",
   focusMode: "suggestion",
-  prefix: "https://noter.md/",
+  prefix: "https://samebase.com/",
   draftRouteAddress: "/terms?top=red-",
   expectedRouteAddress: "/terms",
   previewRoute: {
@@ -132,7 +132,7 @@ Example blurred state:
 
 {
   kind: "blurred",
-  prefix: "https://noter.md/",
+  prefix: "https://samebase.com/",
 }
 */
 export type RouteEditorState =
@@ -990,7 +990,7 @@ export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEdit
   const location = useLocation();
 
   const viewerAccess = useQuery(api.users.currentViewerAccess);
-  const routeAccessViewer = useMemo<NoterRouteAccessViewer>(
+  const routeAccessViewer = useMemo<RouteAccessViewer>(
     () => ({ accessKeys: viewerAccess?.accessKeys ?? ["access_public"] }),
     [viewerAccess],
   );

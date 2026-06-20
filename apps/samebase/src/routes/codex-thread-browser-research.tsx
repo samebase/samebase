@@ -5,7 +5,7 @@ import {
   CODEX_RESEARCH_ROUTE_SEARCH_STATIC_DATA,
   validateCodexResearchRouteSearch,
 } from "@/routeSearch/codexResearch";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = CODEX_APP_SERVER_THREAD_BROWSER_ROUTE;
@@ -47,7 +47,7 @@ function CodexThreadBrowserRouteComponent() {
 
 export const Route = createFileRoute("/research/codex-app-server/browser")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...CODEX_RESEARCH_ROUTE_SEARCH_STATIC_DATA,
   },
   component: CodexThreadBrowserRouteComponent,

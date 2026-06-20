@@ -2,17 +2,17 @@ import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { GitPullRequestCreateArrow, GitPullRequestDraft } from "lucide-react";
 import { LOGO_IDENTITY_EDIT_MARK_SVG_URL } from "@/components/logo/logoStaticSvgContract";
 
-const NOTER_LOGO_ICON_SRC = LOGO_IDENTITY_EDIT_MARK_SVG_URL;
+const SAMEBASE_LOGO_ICON_SRC = LOGO_IDENTITY_EDIT_MARK_SVG_URL;
 
 export function GitHubProviderLogo() {
   return <GitHubLogoIcon className="h-4 w-4" />;
 }
 
-export function NoterLogoMark() {
+export function SamebaseLogoMark() {
   return (
     <span className="inline-flex items-center justify-center">
       <img
-        src={NOTER_LOGO_ICON_SRC}
+        src={SAMEBASE_LOGO_ICON_SRC}
         alt=""
         aria-hidden="true"
         className="h-4 w-4"

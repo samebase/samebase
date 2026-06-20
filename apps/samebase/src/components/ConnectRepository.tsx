@@ -342,10 +342,10 @@ export function ConnectRepositoryPageContent({
         {githubConnected && (
           <>
             <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-              Missing a private org repo? GitHub may be blocking Noter's OAuth app. If you're an org
-              owner, approve Noter in the org's Settings, then Third-party Access, then OAuth app
-              policy. Otherwise request access from GitHub's Authorized OAuth Apps page if GitHub
-              offers that option, or ask an org owner to approve Noter.{" "}
+              Missing a private org repo? GitHub may be blocking Samebase's OAuth app. If you're an
+              org owner, approve Samebase in the org's Settings, then Third-party Access, then OAuth
+              app policy. Otherwise request access from GitHub's Authorized OAuth Apps page if
+              GitHub offers that option, or ask an org owner to approve Samebase.{" "}
               <a
                 href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
                 target="_blank"

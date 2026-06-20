@@ -12,13 +12,13 @@ describe("MachineConnectPageContent", () => {
         directConnectCommands={[
           {
             command:
-              "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+              "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
             description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file connect (Unix/macOS)",
           },
           {
             command:
-              "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+              "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
             description:
               "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file connect (Windows PowerShell)",
@@ -26,12 +26,14 @@ describe("MachineConnectPageContent", () => {
         ]}
         directRunCommands={[
           {
-            command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            command:
+              "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
             description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file run (Unix/macOS)",
           },
           {
-            command: "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            command:
+              "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
             description:
               "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file run (Windows PowerShell)",
@@ -40,18 +42,18 @@ describe("MachineConnectPageContent", () => {
         heartbeatLog=""
         isApproving={false}
         openedByCli
-        packageConnectCommand="npx @noter-md/sync connect"
-        packageRunCommand="npx @noter-md/sync run"
+        packageConnectCommand="npx @samebase/sync connect"
+        packageRunCommand="npx @samebase/sync run"
         requestState={{
           kind: "pending",
-          connectorVersion: "noter-sync (codex 0.1.0)",
+          connectorVersion: "samebase-sync (codex 0.1.0)",
           displayName: "Research MacBook Pro",
           expiresAt: 1_775_379_420_000,
           hostname: "research-mbp.local",
           machineId: "machine_fixture",
           os: "macos",
         }}
-        scriptUrl="https://noter.md/noter.ts"
+        scriptUrl="https://samebase.com/samebase.ts"
       />,
     );
 
@@ -86,7 +88,7 @@ describe("MachineConnectPageContent", () => {
             {
               allowedRoots: ["/Users/nicu/.codex/worktrees/f7c6/noter"],
               capabilities: ["presence", "liveControl"],
-              connectorVersion: "noter-sync 0.1.0",
+              connectorVersion: "samebase-sync 0.1.0",
               controlStatus: "ready",
               controlStatusDetail: "Live control ready.",
               controlUrl: "https://machine-live-control.trycloudflare.com",
@@ -102,7 +104,7 @@ describe("MachineConnectPageContent", () => {
             {
               allowedRoots: ["/Users/nicu/.codex/worktrees/a1b2/noter"],
               capabilities: ["presence", "liveControl"],
-              connectorVersion: "noter-sync 0.1.0",
+              connectorVersion: "samebase-sync 0.1.0",
               controlStatus: "ready",
               controlStatusDetail: "Live control ready.",
               controlUrl: "https://machine-live-control-2.trycloudflare.com",
@@ -119,13 +121,13 @@ describe("MachineConnectPageContent", () => {
           directConnectCommands={[
             {
               command:
-                "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+                "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
               description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file connect (Unix/macOS)",
             },
             {
               command:
-                "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+                "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
               description:
                 "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file connect (Windows PowerShell)",
@@ -133,13 +135,14 @@ describe("MachineConnectPageContent", () => {
           ]}
           directRunCommands={[
             {
-              command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+              command:
+                "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
               description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file run (Unix/macOS)",
             },
             {
               command:
-                "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+                "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
               description:
                 "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file run (Windows PowerShell)",
@@ -148,10 +151,10 @@ describe("MachineConnectPageContent", () => {
           heartbeatLog=""
           isApproving={false}
           openedByCli={false}
-          packageConnectCommand="npx @noter-md/sync connect"
-          packageRunCommand="npx @noter-md/sync run"
+          packageConnectCommand="npx @samebase/sync connect"
+          packageRunCommand="npx @samebase/sync run"
           requestState={{ kind: "idle" }}
-          scriptUrl="https://noter.md/noter.ts"
+          scriptUrl="https://samebase.com/samebase.ts"
         />
       </TestRouterProvider>,
     );
@@ -174,13 +177,13 @@ describe("MachineConnectPageContent", () => {
         directConnectCommands={[
           {
             command:
-              "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+              "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
             description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file connect (Unix/macOS)",
           },
           {
             command:
-              "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+              "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
             description:
               "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file connect (Windows PowerShell)",
@@ -188,12 +191,14 @@ describe("MachineConnectPageContent", () => {
         ]}
         directRunCommands={[
           {
-            command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            command:
+              "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
             description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
             label: "Direct hosted file run (Unix/macOS)",
           },
           {
-            command: "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+            command:
+              "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
             description:
               "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
             label: "Direct hosted file run (Windows PowerShell)",
@@ -202,17 +207,17 @@ describe("MachineConnectPageContent", () => {
         heartbeatLog=""
         isApproving={false}
         openedByCli={false}
-        packageConnectCommand="npx @noter-md/sync connect"
-        packageRunCommand="npx @noter-md/sync run"
+        packageConnectCommand="npx @samebase/sync connect"
+        packageRunCommand="npx @samebase/sync run"
         requestState={{
           kind: "approved",
-          connectorVersion: "noter-sync (codex 0.1.0)",
+          connectorVersion: "samebase-sync (codex 0.1.0)",
           displayName: "Research Windows Workstation",
           hostname: "research-win.local",
           machineId: "machine_fixture",
           os: "windows",
         }}
-        scriptUrl="https://noter.md/noter.ts"
+        scriptUrl="https://samebase.com/samebase.ts"
       />,
     );
 

@@ -97,11 +97,11 @@ EMPTY_VALUE=""
     expect(
       resolveSiteUrlSyncOrigin(
         {
-          DEV_ENV_ORIGIN: `"https://preview.noter.md"`,
+          DEV_ENV_ORIGIN: `"https://preview.samebase.com"`,
         },
         cwd,
       ),
-    ).toBe("https://preview.noter.md");
+    ).toBe("https://preview.samebase.com");
   });
 
   it("falls back to the chosen localhost port for local deployments", async () => {

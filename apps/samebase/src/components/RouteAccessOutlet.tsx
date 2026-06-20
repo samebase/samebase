@@ -1,10 +1,7 @@
 import { ApprovalGateViewerAccessProvider } from "@/components/ApprovalGate";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
-import {
-  canAccessNoterRouteMatchesAccess,
-  type NoterRouteAccessViewer,
-} from "@/routing/permissions";
+import { canAccessRouteMatchesAccess, type RouteAccessViewer } from "@/routing/permissions";
 import {
   readRouteSearchAccessCanonicalRouteAddress,
   routeSearchNeedsViewerAccess,
@@ -16,7 +13,7 @@ import { api } from "../../convex/_generated/api";
 
 const publicRouteAccessViewer = {
   accessKeys: ["access_public"],
-} satisfies NoterRouteAccessViewer;
+} satisfies RouteAccessViewer;
 
 function RouteAccessDeniedPage() {
   return (
@@ -65,7 +62,7 @@ function AuthenticatedRouteAccessOutlet({
     return null;
   }
 
-  const routeContent = canAccessNoterRouteMatchesAccess(matches, viewerAccess) ? (
+  const routeContent = canAccessRouteMatchesAccess(matches, viewerAccess) ? (
     <Outlet />
   ) : (
     <RouteAccessDeniedPage />
@@ -81,7 +78,7 @@ function AuthenticatedRouteAccessOutlet({
 export function RouteAccessOutlet() {
   const location = useLocation();
   const matches = useMatches();
-  const routeIsPublic = canAccessNoterRouteMatchesAccess(matches, publicRouteAccessViewer);
+  const routeIsPublic = canAccessRouteMatchesAccess(matches, publicRouteAccessViewer);
   const searchNeedsViewerAccess = routeSearchNeedsViewerAccess({
     matches,
     searchStr: location.searchStr,

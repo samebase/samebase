@@ -22,7 +22,7 @@ export function ChangedFilesLoadingState({
           Loading changed files
         </div>
         <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">
-          Noter is still loading the compare target and patch data for this view. This can take a
+          Samebase is still loading the compare target and patch data for this view. This can take a
           few seconds on larger pull requests.
         </p>
         <div className="mt-3 inline-flex items-center gap-2 corner-notch-1 border border-slate-200 bg-white px-2 py-1 font-mono text-xs text-slate-700">

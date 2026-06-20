@@ -1,14 +1,11 @@
 import type { AppRouter } from "@/router";
 import { FORCE_PROD_UI_QUERY_PARAM } from "@/lib/prodUiMode";
-import {
-  readNoterRouteEnvironmentForOrigin,
-  type NoterRouteEnvironment,
-} from "@/routing/availability";
+import { readRouteEnvironmentForOrigin, type RouteEnvironment } from "@/routing/availability";
 import { normalizeRouteUrlEditorHref } from "@/routing/urlEditor";
 import {
-  canAccessNoterRouteStaticData,
-  type NoterRouteAccessViewer,
-  type NoterRouteStaticData,
+  canAccessRouteStaticData,
+  type RouteAccessViewer,
+  type RouteStaticData,
 } from "@/routing/permissions";
 import { entries } from "@noter-md/dependent/object";
 
@@ -17,7 +14,7 @@ type RouteUrlPathSuggestionsInput = {
   draftHref: string;
   origin: string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRouteAccessViewer;
+  viewer: RouteAccessViewer;
 };
 
 /**
@@ -26,8 +23,8 @@ type RouteUrlPathSuggestionsInput = {
  */
 export function readRouteUrlPathSuggestions(
   routesByPath: AppRouter["routesByPath"],
-  viewer: NoterRouteAccessViewer,
-  routeEnvironment: NoterRouteEnvironment,
+  viewer: RouteAccessViewer,
+  routeEnvironment: RouteEnvironment,
 ) {
   return entries(routesByPath)
     .filter(([path, route]) =>
@@ -105,14 +102,14 @@ export function isRouteUrlPathReadyForNavigation({
 
 function isRouteUrlPathSuggestion(
   path: string,
-  staticData: NoterRouteStaticData,
-  viewer: NoterRouteAccessViewer,
-  routeEnvironment: NoterRouteEnvironment,
+  staticData: RouteStaticData,
+  viewer: RouteAccessViewer,
+  routeEnvironment: RouteEnvironment,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
     staticData.pathSuggestion !== "hidden" &&
-    canAccessNoterRouteStaticData(staticData, viewer, routeEnvironment)
+    canAccessRouteStaticData(staticData, viewer, routeEnvironment)
   );
 }
 
@@ -144,7 +141,7 @@ export function readRouteUrlPathSuggestionEnvironment({
   currentHref,
   draftHref,
   origin,
-}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): NoterRouteEnvironment {
+}: Omit<RouteUrlPathSuggestionsInput, "routesByPath" | "viewer">): RouteEnvironment {
   try {
     const appOrigin = new URL(origin);
     const currentUrl = new URL(currentHref, appOrigin);
@@ -154,7 +151,7 @@ export function readRouteUrlPathSuggestionEnvironment({
 
     const trimmedDraftHref = draftHref.trim();
     if (!trimmedDraftHref) {
-      return readNoterRouteEnvironmentForOrigin(origin);
+      return readRouteEnvironmentForOrigin(origin);
     }
 
     const routeHref = normalizeRouteUrlEditorHref({
@@ -163,14 +160,14 @@ export function readRouteUrlPathSuggestionEnvironment({
       rawHref: trimmedDraftHref,
     });
     if (routeHref === null) {
-      return readNoterRouteEnvironmentForOrigin(origin);
+      return readRouteEnvironmentForOrigin(origin);
     }
 
     if (new URL(routeHref, appOrigin).searchParams.has(FORCE_PROD_UI_QUERY_PARAM)) {
       return "production";
     }
 
-    return readNoterRouteEnvironmentForOrigin(origin);
+    return readRouteEnvironmentForOrigin(origin);
   } catch {
     return "production";
   }

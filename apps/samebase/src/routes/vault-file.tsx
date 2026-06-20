@@ -5,7 +5,7 @@ import {
   FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,
   validateFileViewRouteSearch,
 } from "@/routeSearch/fileView";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/vault/$";
 
@@ -28,7 +28,7 @@ function FileViewRouteComponent() {
 
 export const Route = createFileRoute("/vault/$")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,
   },
   component: FileViewRouteComponent,

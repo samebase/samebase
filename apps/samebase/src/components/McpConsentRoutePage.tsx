@@ -92,7 +92,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
         <div className="text-center">
           <h2 className="text-xl font-semibold tracking-tight">Authorize MCP client</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {clientName} is requesting access to your Noter account.
+            {clientName} is requesting access to your Samebase account.
           </p>
         </div>
 

@@ -18,7 +18,7 @@ function createLogoSvgBody(viewId: "side-diagonal" | "spatial", faceTreatment: L
   return readSvgBody(createLogoIdentityViewSvgMarkup(viewId, { faceTreatment }));
 }
 
-export function createNoterSocialCardSvgMarkup({
+export function createSamebaseSocialCardSvgMarkup({
   faceTreatment = DEFAULT_LOGO_FACE_TREATMENT,
 }: {
   faceTreatment?: LogoFaceTreatment;
@@ -33,9 +33,9 @@ export function createNoterSocialCardSvgMarkup({
   role="img"
   aria-labelledby="title desc"
 >
-  <title id="title">noter.md social card</title>
+  <title id="title">samebase.com social card</title>
   <desc id="desc">
-    noter.md logo and the text GitHub-backed workspace for AI agents.
+    Samebase logo and the text GitHub-backed workspace for notes, code, and AI.
   </desc>
 
   <rect width="1200" height="630" fill="${BRAND_BACKGROUND_COLOR}" />
@@ -53,7 +53,7 @@ ${logoBody}
     font-weight="650"
     letter-spacing="0"
   >
-    noter.md
+    samebase.com
   </text>
   <text
     x="560"
@@ -64,12 +64,12 @@ ${logoBody}
     font-weight="430"
     letter-spacing="0"
   >
-    GitHub-backed workspace for AI agents
+    GitHub-backed workspace for notes, code, and AI
   </text>
 </svg>`;
 }
 
-export function createNoterXProfileBannerSvgMarkup({
+export function createSamebaseXProfileBannerSvgMarkup({
   faceTreatment = DEFAULT_LOGO_FACE_TREATMENT,
 }: {
   faceTreatment?: LogoFaceTreatment;
@@ -85,8 +85,8 @@ export function createNoterXProfileBannerSvgMarkup({
   role="img"
   aria-labelledby="title desc"
 >
-  <title id="title">noter.md profile banner</title>
-  <desc id="desc">Three noter.md identity marks on a white background.</desc>
+  <title id="title">samebase.com profile banner</title>
+  <desc id="desc">Three Samebase identity marks on a white background.</desc>
 
   <rect width="1500" height="500" fill="${BRAND_BACKGROUND_COLOR}" />
 

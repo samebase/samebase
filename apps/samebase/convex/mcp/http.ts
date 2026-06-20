@@ -660,7 +660,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
           tools: {},
         },
         serverInfo: {
-          name: "noter",
+          name: "samebase",
           version: "0.1.0",
         },
       },

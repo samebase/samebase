@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://noter.md/sitemap.xml
+Sitemap: https://samebase.com/sitemap.xml

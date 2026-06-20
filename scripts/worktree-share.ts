@@ -95,7 +95,7 @@ type ShareModeConfig = {
 const FRONTEND_READY_TIMEOUT_MS = 120_000;
 const CLOUDFLARED_READY_TIMEOUT_MS = 60_000;
 const PROCESS_SHUTDOWN_TIMEOUT_MS = 10_000;
-const APPS_NOTER_DIRNAME = "apps/samebase";
+const APPS_SAMEBASE_DIRNAME = "apps/samebase";
 const QUICK_TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9.-]+\.trycloudflare\.com\b/i;
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -143,7 +143,7 @@ const SHARE_MODE_CONFIG: Record<ShareMode, ShareModeConfig> = {
 function getHelpText(): string {
   return `Usage: node scripts/worktree-share.ts [options]
 
-Start the local Noter dev server and publish the frontend over a Cloudflare
+Start the local Samebase dev server and publish the frontend over a Cloudflare
 quick tunnel while keeping the configured Convex backend behind Vite's
 same-origin proxy path.
 
@@ -297,20 +297,20 @@ function resolveRepoRoot(): string {
   return path.resolve(scriptDirectory, "..");
 }
 
-function resolveAppsNoterDir(repoRoot: string): string {
-  return path.join(repoRoot, APPS_NOTER_DIRNAME);
+function resolveAppsSamebaseDir(repoRoot: string): string {
+  return path.join(repoRoot, APPS_SAMEBASE_DIRNAME);
 }
 
 function readConfiguredConvexUrl(repoRoot: string): string {
-  const envPath = path.join(resolveAppsNoterDir(repoRoot), ".env.local");
+  const envPath = path.join(resolveAppsSamebaseDir(repoRoot), ".env.local");
   if (!fs.existsSync(envPath)) {
-    throw new Error(`Missing ${APPS_NOTER_DIRNAME}/.env.local after bootstrap.`);
+    throw new Error(`Missing ${APPS_SAMEBASE_DIRNAME}/.env.local after bootstrap.`);
   }
 
   const value = readLocalConvexUrlFromEnvContents(fs.readFileSync(envPath, "utf8"));
   if (!value) {
     throw new Error(
-      `Could not find VITE_CONVEX_URL or CONVEX_URL in ${APPS_NOTER_DIRNAME}/.env.local.`,
+      `Could not find VITE_CONVEX_URL or CONVEX_URL in ${APPS_SAMEBASE_DIRNAME}/.env.local.`,
     );
   }
   return value;
@@ -337,7 +337,7 @@ async function isPortAvailable(port: number): Promise<boolean> {
  * Probe a preferred frontend port range before launch so share mode can ask
  * Vite for one stable port. `apps/samebase/scripts/run-vite-dev.ts` still makes
  * the final bind decision, so this remains best-effort and
- * `NOTER_DEV_STRICT_PORT=1` intentionally fails fast if a late race loses.
+ * `SAMEBASE_DEV_STRICT_PORT=1` intentionally fails fast if a late race loses.
  */
 async function findAvailablePort(startPort: number): Promise<number> {
   for (let port = startPort; port < startPort + 100; port += 1) {
@@ -434,7 +434,7 @@ async function waitForUrlReady(args: WaitForUrlReadyArgs): Promise<void> {
 }
 
 async function waitForFrontendOrigin(args: WaitForFrontendOriginArgs): Promise<string> {
-  const appsNoterDir = resolveAppsNoterDir(args.repoRoot);
+  const appsSamebaseDir = resolveAppsSamebaseDir(args.repoRoot);
   const deadline = Date.now() + args.timeoutMs;
 
   while (Date.now() < deadline) {
@@ -447,7 +447,7 @@ async function waitForFrontendOrigin(args: WaitForFrontendOriginArgs): Promise<s
       );
     }
 
-    const localDevOriginState = readLocalDevOriginState(appsNoterDir);
+    const localDevOriginState = readLocalDevOriginState(appsSamebaseDir);
     if (localDevOriginState !== null && localDevOriginState.writtenAt >= args.minimumWrittenAt) {
       return localDevOriginState.origin;
     }
@@ -496,9 +496,9 @@ function startDevServer(args: DevLaunchArgs): ChildProcess {
         ...process.env,
         ...portEnv,
         DEV_ENV_ORIGIN: args.frontendOrigin,
-        NOTER_DEV_ALLOWED_HOSTS: ".trycloudflare.com",
-        NOTER_DEV_PORT: String(args.frontendPort),
-        NOTER_DEV_STRICT_PORT: "1",
+        SAMEBASE_DEV_ALLOWED_HOSTS: ".trycloudflare.com",
+        SAMEBASE_DEV_PORT: String(args.frontendPort),
+        SAMEBASE_DEV_STRICT_PORT: "1",
       },
       detached: true,
       stdio: "inherit",
@@ -725,7 +725,7 @@ async function setLocalSiteUrl(repoRoot: string, publicTunnelUrl: string): Promi
   await runCommand({
     command: "npx",
     args: ["convex", "env", "set", "SITE_URL", publicOrigin],
-    cwd: resolveAppsNoterDir(repoRoot),
+    cwd: resolveAppsSamebaseDir(repoRoot),
     env: process.env,
   });
 }

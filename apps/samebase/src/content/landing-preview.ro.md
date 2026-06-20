@@ -16,7 +16,7 @@ Pentru cel mai rapid startup în Codex Cloud, adaugă acest script de configurar
 curl -fsSL https://vite.plus | bash
 ```
 
-Numele organizației "notermd" a fost ales fără "-" deoarece tastatura Android implicită face
+Numele organizației "samebase" a fost ales fără "-" deoarece tastatura Android implicită face
 dificilă tastarea unui "-".
 
 Avem nevoie doar de 1 `CONVEX_DEPLOY_KEY` pentru **Production** și unul pentru **Preview**, în felul
@@ -59,7 +59,7 @@ aplicație.
 
 ## 2: Copiază codul aplicației în contul tău GitHub
 
-Vizitează https://github.com/notermd/app
+Vizitează https://github.com/samebase/app
 
 - [ ] apasă butonul verde mare "Use this template"
 - [ ] fă-l privat sau lasă-l public
@@ -69,7 +69,7 @@ Vizitează https://github.com/notermd/app
 <details>
 <summary>"Fork" dacă vrei să păstrezi istoricul git</summary>
 
-Vezi istoricul git complet aici: https://github.com/notermd/app/commits/main/
+Vezi istoricul git complet aici: https://github.com/samebase/app/commits/main/
 
 Este făcut manual ca să fie cât mai mic, clar și simplu posibil.
 
@@ -168,10 +168,10 @@ Ca să ștergi o aplicație publicată va trebui să
 - [ ] Ștergi proiectul Convex
 - [ ] Ștergi repository-ul GitHub
 
-## 9: Creează o aplicație dintr-un singur pas folosind noter.md
+## 9: Creează o aplicație dintr-un singur pas folosind samebase.com
 
-noter.md se conectează o singură dată cu GitHub, Cloudflare și Convex, apoi îți permite să creezi o
-aplicație cu o singură apăsare de buton. Îți permite și să o ștergi complet la fel de ușor.
+samebase.com se conectează o singură dată cu GitHub, Cloudflare și Convex, apoi îți permite să
+creezi o aplicație cu o singură apăsare de buton. Îți permite și să o ștergi complet la fel de ușor.
 
 Astfel aplicațiile devin de unică folosință, poți crea o aplicație și apoi crea un joc pe care să îl
 folosești într-o ieșire de seară cu prietenii
@@ -180,7 +180,7 @@ folosești într-o ieșire de seară cu prietenii
 
 poți decide să continui să o menții și să îți bazezi afacerea pe ea deoarece este
 
-### De ce este noter.md gratuit?
+### De ce este samebase.com gratuit?
 
 Am deja această funcționalitate și mult mai mult pentru propriile mele aplicații, nu mă costă mult
 să o împărtășesc cu toată lumea. Dacă vrei mai multe lucruri, cum ar fi editarea fișierelor din

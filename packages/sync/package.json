@@ -1,12 +1,12 @@
 {
-  "name": "@noter-md/sync",
+  "name": "@samebase/sync",
   "version": "0.0.0",
   "bin": {
-    "noter-sync": "./cli.ts"
+    "samebase-sync": "./cli.ts"
   },
   "files": [
     "cli.ts",
-    "noter.ts"
+    "samebase.ts"
   ],
   "type": "module",
   "publishConfig": {

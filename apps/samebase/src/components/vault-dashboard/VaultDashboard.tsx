@@ -104,7 +104,7 @@ import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
-  NoterLogoMark,
+  SamebaseLogoMark,
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand";
@@ -1491,7 +1491,7 @@ const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
   github: GitHubProviderLogo,
 };
 
-function buildVaultDashboardBranchNoterRoute(args: {
+function buildVaultDashboardBranchRoute(args: {
   repositoryFullName: string;
   branchName: string;
   openChangedFiles: boolean;
@@ -1607,7 +1607,7 @@ export function VaultBranchLinkContent({
     hasPullRequestTitle ? "font-mono text-muted-foreground" : "text-muted-foreground",
     !hasPullRequestTitle && branch.isDefault && "font-medium text-foreground",
   );
-  const branchNoterRoute = buildVaultDashboardBranchNoterRoute({
+  const branchRoute = buildVaultDashboardBranchRoute({
     repositoryFullName,
     branchName: branch.name,
     openChangedFiles: !branch.isDefault,
@@ -1790,15 +1790,15 @@ export function VaultBranchLinkContent({
                 </a>
               </div>
             ) : null}
-            {branchNoterRoute ? (
+            {branchRoute ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <Link
-                  to={branchNoterRoute}
+                  to={branchRoute}
                   className={clsx(metadataLinkClassName, "gap-1.5")}
                   title={branchNoterLinkTitle}
                 >
                   <DashboardLinkIconSlot>
-                    <NoterLogoMark />
+                    <SamebaseLogoMark />
                   </DashboardLinkIconSlot>
                   <span>{branchNoterLinkLabel}</span>
                 </Link>

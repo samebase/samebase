@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
-const VITE_NOTER_ROUTE_ENVIRONMENT = "VITE_NOTER_ROUTE_ENVIRONMENT";
+const VITE_SAMEBASE_ROUTE_ENVIRONMENT = "VITE_SAMEBASE_ROUTE_ENVIRONMENT";
 
 type BuildRouteEnvironment = "local" | "preview" | "production";
 
@@ -82,7 +82,7 @@ function readDeployKey(args: {
 export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan {
   if (isPagesBuild(env)) {
     throw new Error(
-      "Cloudflare Pages builds are disabled for Noter production during the Workers cutover. Keep the last good Pages deployment active until the Worker is public.",
+      "Cloudflare Pages builds are disabled for Samebase production during the Workers cutover. Keep the last good Pages deployment active until the Worker is public.",
     );
   }
 
@@ -157,7 +157,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     );
     await run("pnpm", ["run", "build:app"], {
       ...env,
-      [VITE_NOTER_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
+      [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
     });
     return;
   }
@@ -165,8 +165,8 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
   await run("pnpm", plan.args, {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
-    [VITE_NOTER_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
-    ...(plan.kind === "deploy" ? { NOTER_PRERENDER_ORIGIN: "https://noter.md" } : {}),
+    [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
+    ...(plan.kind === "deploy" ? { SAMEBASE_PRERENDER_ORIGIN: "https://samebase.com" } : {}),
   });
 }
 

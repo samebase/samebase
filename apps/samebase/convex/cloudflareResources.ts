@@ -52,8 +52,8 @@ export type CloudflareBuildToken = {
   cloudflareTokenId: string;
 };
 
-const NOTER_WORKERS_BUILD_TOKEN_NAME = "noter build token";
-const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
+const SAMEBASE_WORKERS_BUILD_TOKEN_NAME = "samebase build token";
+const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${SAMEBASE_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
 const BUILD_TOKEN_PAGE_SIZE = 100;
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
@@ -622,7 +622,9 @@ export function selectReusableBuildTokenUuid(args: {
     return preferredTokenUuid;
   }
 
-  const namedTokens = args.tokens.filter((token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME);
+  const namedTokens = args.tokens.filter(
+    (token) => token.name === SAMEBASE_WORKERS_BUILD_TOKEN_NAME,
+  );
   const namedTokenUuid = selectStableBuildTokenUuid(namedTokens);
   if (namedTokenUuid) {
     // Failed retries can leave duplicate Noter-named tokens. Cloudflare's list
@@ -636,7 +638,7 @@ export function selectReusableBuildTokenUuid(args: {
   }
 
   throw new Error(
-    `Cloudflare has multiple Workers build tokens. Keep one token named "${NOTER_WORKERS_BUILD_TOKEN_NAME}" and retry.`,
+    `Cloudflare has multiple Workers build tokens. Keep one token named "${SAMEBASE_WORKERS_BUILD_TOKEN_NAME}" and retry.`,
   );
 }
 
@@ -662,7 +664,7 @@ export function selectCurrentBuildTokenUuid(args: {
   }
 
   const namedTokens = matchingTokens.filter(
-    (token) => token.name === NOTER_WORKERS_BUILD_TOKEN_NAME,
+    (token) => token.name === SAMEBASE_WORKERS_BUILD_TOKEN_NAME,
   );
   const namedTokenUuid = selectStableBuildTokenUuid(namedTokens);
   if (namedTokenUuid) {
@@ -717,7 +719,7 @@ async function createBuildToken(
     },
     recordApiCall: args.recordApiCall,
     body: {
-      build_token_name: NOTER_WORKERS_BUILD_TOKEN_NAME,
+      build_token_name: SAMEBASE_WORKERS_BUILD_TOKEN_NAME,
       build_token_secret: args.token,
       cloudflare_token_id: args.cloudflareTokenId,
     },

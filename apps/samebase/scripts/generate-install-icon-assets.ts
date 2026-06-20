@@ -23,8 +23,8 @@ type LogoIdentitySvgAsset = {
 type LogoAssetModules = {
   createInstallIconSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
   createLogoIdentitySvgAssets: () => LogoIdentitySvgAsset[];
-  createNoterSocialCardSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
-  createNoterXProfileBannerSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
+  createSamebaseSocialCardSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
+  createSamebaseXProfileBannerSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
   defaultLogoFaceTreatment: LogoFaceTreatment;
   logoFaceTreatments: readonly LogoFaceTreatment[];
 };
@@ -65,16 +65,16 @@ const iconJobs: IconJob[] = [
 
 const socialAssets: SocialAsset[] = [
   {
-    brandPath: "/brand/social/noter-social-card",
+    brandPath: "/brand/social/samebase-social-card",
     createMarkup: (modules, faceTreatment) =>
-      modules.createNoterSocialCardSvgMarkup({ faceTreatment }),
-    rootPath: "/noter-social-card",
+      modules.createSamebaseSocialCardSvgMarkup({ faceTreatment }),
+    rootPath: "/samebase-social-card",
   },
   {
-    brandPath: "/brand/social/noter-x-profile-banner",
+    brandPath: "/brand/social/samebase-x-profile-banner",
     createMarkup: (modules, faceTreatment) =>
-      modules.createNoterXProfileBannerSvgMarkup({ faceTreatment }),
-    rootPath: "/noter-x-profile-banner",
+      modules.createSamebaseXProfileBannerSvgMarkup({ faceTreatment }),
+    rootPath: "/samebase-x-profile-banner",
   },
 ];
 
@@ -187,13 +187,13 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       logoStaticModule,
       "createLogoIdentitySvgAssets",
     );
-    const createNoterSocialCardSvgMarkup = readUnknownFunction(
+    const createSamebaseSocialCardSvgMarkup = readUnknownFunction(
       socialLogoModule,
-      "createNoterSocialCardSvgMarkup",
+      "createSamebaseSocialCardSvgMarkup",
     );
-    const createNoterXProfileBannerSvgMarkup = readUnknownFunction(
+    const createSamebaseXProfileBannerSvgMarkup = readUnknownFunction(
       socialLogoModule,
-      "createNoterXProfileBannerSvgMarkup",
+      "createSamebaseXProfileBannerSvgMarkup",
     );
 
     return {
@@ -201,12 +201,15 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
         readStringResult(createInstallIconSvgMarkup(args), "createInstallIconSvgMarkup"),
       createLogoIdentitySvgAssets: () =>
         readLogoIdentitySvgAssetsResult(createLogoIdentitySvgAssets()),
-      createNoterSocialCardSvgMarkup: (args) =>
-        readStringResult(createNoterSocialCardSvgMarkup(args), "createNoterSocialCardSvgMarkup"),
-      createNoterXProfileBannerSvgMarkup: (args) =>
+      createSamebaseSocialCardSvgMarkup: (args) =>
         readStringResult(
-          createNoterXProfileBannerSvgMarkup(args),
-          "createNoterXProfileBannerSvgMarkup",
+          createSamebaseSocialCardSvgMarkup(args),
+          "createSamebaseSocialCardSvgMarkup",
+        ),
+      createSamebaseXProfileBannerSvgMarkup: (args) =>
+        readStringResult(
+          createSamebaseXProfileBannerSvgMarkup(args),
+          "createSamebaseXProfileBannerSvgMarkup",
         ),
       defaultLogoFaceTreatment,
       logoFaceTreatments: readLogoFaceTreatments(faceTreatmentModule.LOGO_FACE_TREATMENTS),

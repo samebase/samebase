@@ -26,7 +26,7 @@ export function MachineConnectVisualFixture() {
             {
               allowedRoots: ["/Users/nicu/.codex/worktrees/6f41/noter"],
               capabilities: ["presence", "liveControl"],
-              connectorVersion: "noter-sync 0.1.0",
+              connectorVersion: "samebase-sync 0.1.0",
               controlStatus: "ready",
               controlStatusDetail: "Live control ready.",
               controlUrl: "https://machine-live-control.trycloudflare.com",
@@ -43,13 +43,13 @@ export function MachineConnectVisualFixture() {
           directConnectCommands={[
             {
               command:
-                "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+                "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
               description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file connect (Unix/macOS)",
             },
             {
               command:
-                "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'",
+                "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'",
               description:
                 "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file connect (Windows PowerShell)",
@@ -57,13 +57,14 @@ export function MachineConnectVisualFixture() {
           ]}
           directRunCommands={[
             {
-              command: "curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+              command:
+                "curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
               description: "Use this today in Terminal, zsh, bash, fish, or another Unix shell.",
               label: "Direct hosted file run (Unix/macOS)",
             },
             {
               command:
-                "curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run",
+                "curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run",
               description:
                 "Use this today in Windows PowerShell. `curl.exe` avoids the built-in `Invoke-WebRequest` alias. In Command Prompt, replace the single quotes with double quotes.",
               label: "Direct hosted file run (Windows PowerShell)",
@@ -74,17 +75,17 @@ export function MachineConnectVisualFixture() {
 [10:20:30 AM] heartbeat from Nicu Windows Workstation (nicu-win.local).`}
           isApproving={false}
           openedByCli
-          packageConnectCommand="npx @noter-md/sync connect"
-          packageRunCommand="npx @noter-md/sync run"
+          packageConnectCommand="npx @samebase/sync connect"
+          packageRunCommand="npx @samebase/sync run"
           requestState={{
             kind: "approved",
-            connectorVersion: "noter-sync (codex 0.1.2)",
+            connectorVersion: "samebase-sync (codex 0.1.2)",
             displayName: "Nicu Windows Workstation",
             hostname: "nicu-win.local",
             machineId: "machine_123",
             os: "windows",
           }}
-          scriptUrl="https://noter.md/noter.ts"
+          scriptUrl="https://samebase.com/samebase.ts"
         />
       </div>
     </TestRouterProvider>

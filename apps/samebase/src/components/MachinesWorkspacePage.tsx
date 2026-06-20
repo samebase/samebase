@@ -21,7 +21,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { resolveConnectedMachineStatus } from "../../shared/connectedMachinePresence";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
-import { MACHINES_ROUTE } from "@/lib/noterSync";
+import { MACHINES_ROUTE } from "@/lib/samebaseSync";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 
 const THREAD_LIST_LIMIT = 100;
@@ -86,7 +86,7 @@ function buildThreadsPath(): string {
 /** Explain why a connected machine still cannot be used as an interactive Codex host. */
 function readMachineStatusReason(machine: ConnectedMachineView): string | null {
   if (machine.status !== "online") {
-    return "This machine is offline. Start `noter-sync run` on the machine first.";
+    return "This machine is offline. Start `samebase-sync run` on the machine first.";
   }
 
   if (machine.controlStatus === "starting") {

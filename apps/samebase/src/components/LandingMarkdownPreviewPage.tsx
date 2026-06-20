@@ -52,15 +52,15 @@ const LANDING_PREVIEW_HELP_CENTER_AFTER_LAUNCH_FOLDER = {
   label: "After launch",
   path: "03 After launch",
 } as const;
-const LANDING_PREVIEW_HELP_CENTER_NOTER_FOLDER = {
-  label: "noter.md",
-  path: "04 noter.md",
+const LANDING_PREVIEW_HELP_CENTER_SAMEBASE_FOLDER = {
+  label: "samebase.com",
+  path: "04 samebase.com",
 } as const;
 const LANDING_PREVIEW_HELP_CENTER_FOLDERS = [
   LANDING_PREVIEW_HELP_CENTER_START_FOLDER,
   LANDING_PREVIEW_HELP_CENTER_DEPLOY_FOLDER,
   LANDING_PREVIEW_HELP_CENTER_AFTER_LAUNCH_FOLDER,
-  LANDING_PREVIEW_HELP_CENTER_NOTER_FOLDER,
+  LANDING_PREVIEW_HELP_CENTER_SAMEBASE_FOLDER,
 ] as const;
 
 type LandingPreviewHelpCenterFolder = (typeof LANDING_PREVIEW_HELP_CENTER_FOLDERS)[number];
@@ -109,7 +109,7 @@ function getLandingPreviewHelpCenterFolder(
     return LANDING_PREVIEW_HELP_CENTER_AFTER_LAUNCH_FOLDER;
   }
 
-  return LANDING_PREVIEW_HELP_CENTER_NOTER_FOLDER;
+  return LANDING_PREVIEW_HELP_CENTER_SAMEBASE_FOLDER;
 }
 
 function getLandingPreviewHelpCenterFileName(heading: LandingMarkdownHeading) {

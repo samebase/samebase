@@ -1,12 +1,12 @@
 import { isProductionPublicHostname } from "@/lib/prodUiMode";
 
-export type NoterRouteEnvironment = "local" | "preview" | "production";
+export type RouteEnvironment = "local" | "preview" | "production";
 
-export type NoterRouteAvailability = readonly NoterRouteEnvironment[];
+export type RouteAvailability = readonly RouteEnvironment[];
 
-type NoterRouteAvailabilityMatch = {
+type RouteAvailabilityMatch = {
   staticData: {
-    availableEnvironments?: NoterRouteAvailability;
+    availableEnvironments?: RouteAvailability;
   };
 };
 
@@ -21,8 +21,8 @@ function normalizeHostname(hostname: string): string {
   return normalized;
 }
 
-function readEnvNoterRouteEnvironment(): NoterRouteEnvironment | null {
-  const environment = import.meta.env.VITE_NOTER_ROUTE_ENVIRONMENT;
+function readEnvRouteEnvironment(): RouteEnvironment | null {
+  const environment = import.meta.env.VITE_SAMEBASE_ROUTE_ENVIRONMENT;
   switch (environment) {
     case "local":
     case "preview":
@@ -38,8 +38,8 @@ export function isLocalRouteHostname(hostname: string): boolean {
   return LOCAL_ROUTE_HOSTNAMES.some((localHostname) => localHostname === normalizedHostname);
 }
 
-export function resolveNoterRouteEnvironment(args: { hostname: string }): NoterRouteEnvironment {
-  const envEnvironment = readEnvNoterRouteEnvironment();
+export function resolveRouteEnvironment(args: { hostname: string }): RouteEnvironment {
+  const envEnvironment = readEnvRouteEnvironment();
   if (envEnvironment !== null) {
     return envEnvironment;
   }
@@ -55,34 +55,34 @@ export function resolveNoterRouteEnvironment(args: { hostname: string }): NoterR
   return "preview";
 }
 
-export function readBrowserNoterRouteEnvironment(): NoterRouteEnvironment {
-  return readNoterRouteEnvironmentForRouteGuard() ?? "production";
+export function readBrowserRouteEnvironment(): RouteEnvironment {
+  return readRouteEnvironmentForRouteGuard() ?? "production";
 }
 
-export function readNoterRouteEnvironmentForRouteGuard(): NoterRouteEnvironment | null {
-  const envEnvironment = readEnvNoterRouteEnvironment();
+export function readRouteEnvironmentForRouteGuard(): RouteEnvironment | null {
+  const envEnvironment = readEnvRouteEnvironment();
   if (envEnvironment !== null) {
     return envEnvironment;
   }
 
   if (typeof window !== "undefined") {
-    return resolveNoterRouteEnvironment({ hostname: window.location.hostname });
+    return resolveRouteEnvironment({ hostname: window.location.hostname });
   }
 
   return null;
 }
 
-export function readNoterRouteEnvironmentForOrigin(origin: string): NoterRouteEnvironment {
+export function readRouteEnvironmentForOrigin(origin: string): RouteEnvironment {
   try {
-    return resolveNoterRouteEnvironment({ hostname: new URL(origin).hostname });
+    return resolveRouteEnvironment({ hostname: new URL(origin).hostname });
   } catch {
     return "production";
   }
 }
 
-export function canAccessNoterRouteAvailability(
-  availableEnvironments: NoterRouteAvailability | undefined,
-  routeEnvironment: NoterRouteEnvironment,
+export function canAccessRouteAvailability(
+  availableEnvironments: RouteAvailability | undefined,
+  routeEnvironment: RouteEnvironment,
 ): boolean {
   return (
     availableEnvironments === undefined ||
@@ -94,11 +94,11 @@ export function canAccessNoterRouteAvailability(
  * Parent route availability is restrictive: a child can only render when every
  * matched route that declares an availability policy allows the current environment.
  */
-export function canAccessNoterRouteMatchesAvailability(
-  matches: readonly NoterRouteAvailabilityMatch[],
-  routeEnvironment: NoterRouteEnvironment,
+export function canAccessRouteMatchesAvailability(
+  matches: readonly RouteAvailabilityMatch[],
+  routeEnvironment: RouteEnvironment,
 ): boolean {
   return matches.every((match) =>
-    canAccessNoterRouteAvailability(match.staticData.availableEnvironments, routeEnvironment),
+    canAccessRouteAvailability(match.staticData.availableEnvironments, routeEnvironment),
   );
 }

@@ -87,7 +87,7 @@ describe("SignInWithGoogle", () => {
 
     vi.stubGlobal("window", {
       location: {
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/oauth/mcp/consent",
         search: consentSearch,
         hash: "",
@@ -118,7 +118,7 @@ describe("SignInWithGoogle", () => {
 
     vi.stubGlobal("window", {
       location: {
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/",
         search: publicLandingSearch,
         hash: "",
@@ -143,7 +143,7 @@ describe("SignInWithGoogle", () => {
   it("marks public root Google auth for a dashboard return", () => {
     vi.stubGlobal("window", {
       location: {
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/",
         search: "",
         hash: "",
@@ -171,7 +171,7 @@ describe("SignInWithGoogle", () => {
     isInIframeMock.mockReturnValue(true);
     vi.stubGlobal("window", {
       location: {
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/",
         search: "",
         hash: "",
@@ -196,7 +196,7 @@ describe("SignInWithGoogle", () => {
     isInIframeMock.mockReturnValue(true);
     vi.stubGlobal("window", {
       location: {
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/vault/noter-md/noter/main/README.md",
         search: "",
         hash: "",

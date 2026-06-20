@@ -1,5 +1,5 @@
 import { entries } from "@noter-md/dependent/object";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "../src/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "../src/routeAccessMetadata";
 
 type PrerenderPage = {
   path: string;
@@ -34,7 +34,7 @@ function compareRoutePaths(left: string, right: string): number {
 export function readPublicPrerenderPages() {
   // Keep Vite config on metadata-only imports. Importing the router here pulls
   // route components before app aliases are active during config loading.
-  return entries(NOTER_ROUTE_ACCESS_METADATA_BY_PATH)
+  return entries(ROUTE_ACCESS_METADATA_BY_PATH)
     .filter(
       ([routePath, routeAccessMetadata]) =>
         routeAccessMetadata.access === "access_public" &&

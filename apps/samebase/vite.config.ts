@@ -13,23 +13,23 @@ import {
   createLogoIdentitySvgAssets,
   createStaticLogoSvgMarkup,
 } from "./src/components/logo/logoStaticSvgAsset";
-import { buildNoterSyncPublicScript } from "./noterSyncPublicScript";
+import { buildSamebaseSyncPublicScript } from "./samebaseSyncPublicScript";
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
-import type { NoterBuildConfig } from "./src/lib/noterBuildConfig";
+import type { SamebaseBuildConfig } from "./src/lib/samebaseBuildConfig";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
 const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
 const slogansPath = path.resolve(gitRoot, "slogans.md");
-const BROWSER_CONVEX_PROXY_PATH = "/__noter_convex_proxy";
-const devPortRaw = process.env.NOTER_DEV_PORT?.trim();
+const BROWSER_CONVEX_PROXY_PATH = "/__samebase_convex_proxy";
+const devPortRaw = process.env.SAMEBASE_DEV_PORT?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
-const devStrictPort = readBooleanEnv(process.env.NOTER_DEV_STRICT_PORT);
-const devAllowedHosts = readAllowedHostsEnv(process.env.NOTER_DEV_ALLOWED_HOSTS);
+const devStrictPort = readBooleanEnv(process.env.SAMEBASE_DEV_STRICT_PORT);
+const devAllowedHosts = readAllowedHostsEnv(process.env.SAMEBASE_DEV_ALLOWED_HOSTS);
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) {
@@ -96,11 +96,11 @@ const appCommitNumber = resolveAppCommitNumber({
   runGitCommand,
 });
 
-const appRepoUrl = "https://github.com/noter-md/noter";
+const appRepoUrl = "https://github.com/samebase/samebase";
 const localEnvPath = path.resolve(currentDir, ".env.local");
 const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
   devOrigin: process.env.DEV_ENV_ORIGIN,
-  envProxyTarget: process.env.NOTER_BROWSER_CONVEX_PROXY_TARGET,
+  envProxyTarget: process.env.SAMEBASE_BROWSER_CONVEX_PROXY_TARGET,
   localEnvConvexUrl: readEnvFileValue(localEnvPath, "VITE_CONVEX_URL"),
 });
 const browserConvexProxyPath = browserConvexProxyTarget ? BROWSER_CONVEX_PROXY_PATH : null;
@@ -108,7 +108,7 @@ const landingPageSlogan = readBuildLandingSlogan({
   buildSeed: process.env.PLAYWRIGHT === "1" ? "" : `${appCommitNumber ?? appCommit}`,
   slogansPath,
 });
-const noterBuildConfig: NoterBuildConfig = {
+const samebaseBuildConfig: SamebaseBuildConfig = {
   appCommit,
   appCommitNumber,
   appRepoUrl,
@@ -117,17 +117,17 @@ const noterBuildConfig: NoterBuildConfig = {
 };
 const staticLogoSvgAssetPath = path.resolve(currentDir, "public/logo-static.svg");
 const staticInstallIconSvgAssetPath = path.resolve(currentDir, "public/install-icon.svg");
-const noterSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/noter.ts");
-const staticNoterSyncScriptPath = path.resolve(currentDir, "public/noter.ts");
-const noterConnectConfigPathname = "/noter-connect.json";
-const runtimeNoterConnectConfigPath = path.resolve(
+const samebaseSyncPackageScriptPath = path.resolve(gitRoot, "packages/sync/samebase.ts");
+const staticSamebaseSyncScriptPath = path.resolve(currentDir, "public/samebase.ts");
+const samebaseConnectConfigPathname = "/samebase-connect.json";
+const runtimeSamebaseConnectConfigPath = path.resolve(
   currentDir,
-  `dist/client${noterConnectConfigPathname}`,
+  `dist/client${samebaseConnectConfigPathname}`,
 );
 const spaShellOutputPath = "/index";
-const spaShellMaskPath = "/#__noter-spa-shell";
+const spaShellMaskPath = "/#__samebase-spa-shell";
 const publicPrerenderPages = readPublicPrerenderPages();
-const prerenderHeaders = readPrerenderHeaders(process.env.NOTER_PRERENDER_ORIGIN);
+const prerenderHeaders = readPrerenderHeaders(process.env.SAMEBASE_PRERENDER_ORIGIN);
 
 function readPrerenderHeaders(originValue: string | undefined) {
   const origin = originValue?.trim();
@@ -137,7 +137,9 @@ function readPrerenderHeaders(originValue: string | undefined) {
 
   const url = new URL(origin);
   if (url.pathname !== "/" || url.search || url.hash || url.username || url.password) {
-    throw new Error("NOTER_PRERENDER_ORIGIN must be an origin, for example https://example.com.");
+    throw new Error(
+      "SAMEBASE_PRERENDER_ORIGIN must be an origin, for example https://example.com.",
+    );
   }
 
   return {
@@ -155,7 +157,7 @@ function isLoopbackHostname(hostname: string): boolean {
   );
 }
 
-function parseValidatedNoterConnectConvexSiteUrl(value: string): string {
+function parseValidatedSamebaseConnectConvexSiteUrl(value: string): string {
   try {
     const convexSiteUrl = new URL(value);
     const isLoopbackHttp =
@@ -178,14 +180,14 @@ function parseValidatedNoterConnectConvexSiteUrl(value: string): string {
   } catch (error) {
     throw new Error(
       error instanceof Error
-        ? `Invalid noter-connect.json convexSiteUrl: ${error.message}`
-        : "Invalid noter-connect.json convexSiteUrl.",
+        ? `Invalid samebase-connect.json convexSiteUrl: ${error.message}`
+        : "Invalid samebase-connect.json convexSiteUrl.",
     );
   }
 }
 
-function readNoterSyncPackageScript(): string {
-  return readFileSync(noterSyncPackageScriptPath, "utf8").replace(/\r\n/g, "\n").trimEnd();
+function readSamebaseSyncPackageScript(): string {
+  return readFileSync(samebaseSyncPackageScriptPath, "utf8").replace(/\r\n/g, "\n").trimEnd();
 }
 
 function syncStaticLogoSvgAsset() {
@@ -260,43 +262,43 @@ function syncStaticInstallIconSvgAsset() {
 }
 
 /**
- * Mirror the package entrypoint into `public/noter.ts` without any mutation so
+ * Mirror the package entrypoint into `public/samebase.ts` without any mutation so
  * the hosted file stays byte-for-byte identical to the source a user can audit
  * in the package.
  */
-async function syncStaticNoterSyncScriptAsset() {
-  const nextNoterSyncScript = buildNoterSyncPublicScript({
-    packageScript: readNoterSyncPackageScript(),
+async function syncStaticSamebaseSyncScriptAsset() {
+  const nextSamebaseSyncScript = buildSamebaseSyncPublicScript({
+    packageScript: readSamebaseSyncPackageScript(),
   });
-  const nextNoterSyncScriptWithNewline = nextNoterSyncScript.endsWith("\n")
-    ? nextNoterSyncScript
-    : `${nextNoterSyncScript}\n`;
-  const currentNoterSyncScript = (() => {
+  const nextSamebaseSyncScriptWithNewline = nextSamebaseSyncScript.endsWith("\n")
+    ? nextSamebaseSyncScript
+    : `${nextSamebaseSyncScript}\n`;
+  const currentSamebaseSyncScript = (() => {
     try {
-      return readFileSync(staticNoterSyncScriptPath, "utf8");
+      return readFileSync(staticSamebaseSyncScriptPath, "utf8");
     } catch {
       return null;
     }
   })();
 
-  if (currentNoterSyncScript === nextNoterSyncScriptWithNewline) {
+  if (currentSamebaseSyncScript === nextSamebaseSyncScriptWithNewline) {
     return;
   }
 
-  writeFileSync(staticNoterSyncScriptPath, nextNoterSyncScriptWithNewline, "utf8");
+  writeFileSync(staticSamebaseSyncScriptPath, nextSamebaseSyncScriptWithNewline, "utf8");
 }
 
-async function buildRuntimeNoterSyncScript() {
-  const script = buildNoterSyncPublicScript({
-    packageScript: readNoterSyncPackageScript(),
+async function buildRuntimeSamebaseSyncScript() {
+  const script = buildSamebaseSyncPublicScript({
+    packageScript: readSamebaseSyncPackageScript(),
   });
   return script.endsWith("\n") ? script : `${script}\n`;
 }
 
-function readNoterConnectConvexSiteUrl(): string {
+function readSamebaseConnectConvexSiteUrl(): string {
   const configuredSiteUrl = process.env.CONVEX_SITE_URL?.trim();
   if (configuredSiteUrl) {
-    return parseValidatedNoterConnectConvexSiteUrl(configuredSiteUrl);
+    return parseValidatedSamebaseConnectConvexSiteUrl(configuredSiteUrl);
   }
 
   const configuredViteSiteUrl = process.env.VITE_CONVEX_SITE_URL?.trim();
@@ -304,7 +306,7 @@ function readNoterConnectConvexSiteUrl(): string {
     configuredViteSiteUrl &&
     (configuredViteSiteUrl.startsWith("https://") || configuredViteSiteUrl.startsWith("http://"))
   ) {
-    return parseValidatedNoterConnectConvexSiteUrl(configuredViteSiteUrl);
+    return parseValidatedSamebaseConnectConvexSiteUrl(configuredViteSiteUrl);
   }
 
   const localEnvSiteUrl = readEnvFileValue(localEnvPath, "VITE_CONVEX_SITE_URL");
@@ -312,20 +314,20 @@ function readNoterConnectConvexSiteUrl(): string {
     localEnvSiteUrl &&
     (localEnvSiteUrl.startsWith("https://") || localEnvSiteUrl.startsWith("http://"))
   ) {
-    return parseValidatedNoterConnectConvexSiteUrl(localEnvSiteUrl);
+    return parseValidatedSamebaseConnectConvexSiteUrl(localEnvSiteUrl);
   }
 
   throw new Error(
-    "Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_SITE_URL for noter-connect.json.",
+    "Missing CONVEX_SITE_URL or an absolute VITE_CONVEX_SITE_URL for samebase-connect.json.",
   );
 }
 
-async function buildRuntimeNoterConnectConfig() {
+async function buildRuntimeSamebaseConnectConfig() {
   return await formatGeneratedFileContents({
-    filepath: runtimeNoterConnectConfigPath,
+    filepath: runtimeSamebaseConnectConfigPath,
     content: JSON.stringify(
       {
-        convexSiteUrl: readNoterConnectConvexSiteUrl(),
+        convexSiteUrl: readSamebaseConnectConvexSiteUrl(),
       },
       null,
       2,
@@ -389,20 +391,20 @@ function syncStaticInstallIconSvgAssetPlugin() {
   };
 }
 
-function syncStaticNoterSyncScriptAssetPlugin() {
-  let hasSyncedStaticNoterSyncScriptAsset = false;
+function syncStaticSamebaseSyncScriptAssetPlugin() {
+  let hasSyncedStaticSamebaseSyncScriptAsset = false;
 
   const syncOnce = async () => {
-    if (hasSyncedStaticNoterSyncScriptAsset) {
+    if (hasSyncedStaticSamebaseSyncScriptAsset) {
       return;
     }
 
-    hasSyncedStaticNoterSyncScriptAsset = true;
-    await syncStaticNoterSyncScriptAsset();
+    hasSyncedStaticSamebaseSyncScriptAsset = true;
+    await syncStaticSamebaseSyncScriptAsset();
   };
 
   return {
-    name: "sync-static-noter-sync-script-asset",
+    name: "sync-static-samebase-sync-script-asset",
     async buildStart() {
       await syncOnce();
     },
@@ -410,7 +412,7 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       await syncOnce();
 
       // Serve a deploy-stamped installer in dev without dirtying the tracked
-      // `public/noter.ts` file away from its production default.
+      // `public/samebase.ts` file away from its production default.
       server.middlewares.use(
         (
           request: IncomingMessage,
@@ -429,12 +431,12 @@ function syncStaticNoterSyncScriptAssetPlugin() {
             }
           })();
 
-          if (requestPath !== "/noter.ts") {
+          if (requestPath !== "/samebase.ts") {
             next();
             return;
           }
 
-          void buildRuntimeNoterSyncScript()
+          void buildRuntimeSamebaseSyncScript()
             .then((runtimeScript) => {
               response.statusCode = 200;
               response.setHeader("Content-Type", "application/typescript; charset=utf-8");
@@ -445,23 +447,23 @@ function syncStaticNoterSyncScriptAssetPlugin() {
       );
     },
     async closeBundle() {
-      const builtScriptPath = path.resolve(currentDir, "dist/client/noter.ts");
-      const runtimeScript = await buildRuntimeNoterSyncScript();
+      const builtScriptPath = path.resolve(currentDir, "dist/client/samebase.ts");
+      const runtimeScript = await buildRuntimeSamebaseSyncScript();
       mkdirSync(path.dirname(builtScriptPath), { recursive: true });
       writeFileSync(builtScriptPath, runtimeScript, "utf8");
     },
   };
 }
 
-function syncRuntimeNoterConnectConfigAssetPlugin() {
+function syncRuntimeSamebaseConnectConfigAssetPlugin() {
   const writeRuntimeConfig = async () => {
-    const runtimeConfig = await buildRuntimeNoterConnectConfig();
-    mkdirSync(path.dirname(runtimeNoterConnectConfigPath), { recursive: true });
-    writeFileSync(runtimeNoterConnectConfigPath, runtimeConfig, "utf8");
+    const runtimeConfig = await buildRuntimeSamebaseConnectConfig();
+    mkdirSync(path.dirname(runtimeSamebaseConnectConfigPath), { recursive: true });
+    writeFileSync(runtimeSamebaseConnectConfigPath, runtimeConfig, "utf8");
   };
 
   return {
-    name: "sync-runtime-noter-connect-config-asset",
+    name: "sync-runtime-samebase-connect-config-asset",
     async configureServer(server: ViteDevServer) {
       server.middlewares.use(
         (
@@ -481,12 +483,12 @@ function syncRuntimeNoterConnectConfigAssetPlugin() {
             }
           })();
 
-          if (requestPath !== noterConnectConfigPathname) {
+          if (requestPath !== samebaseConnectConfigPathname) {
             next();
             return;
           }
 
-          void buildRuntimeNoterConnectConfig()
+          void buildRuntimeSamebaseConnectConfig()
             .then((runtimeConfig) => {
               response.statusCode = 200;
               response.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -559,13 +561,13 @@ const browserConvexProxyServerConfig = (() => {
 // https://vitejs.dev/config/
 export default defineConfig({
   define: {
-    __NOTER_BUILD_CONFIG__: JSON.stringify(noterBuildConfig),
+    __SAMEBASE_BUILD_CONFIG__: JSON.stringify(samebaseBuildConfig),
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
     syncStaticInstallIconSvgAssetPlugin(),
-    syncStaticNoterSyncScriptAssetPlugin(),
-    syncRuntimeNoterConnectConfigAssetPlugin(),
+    syncStaticSamebaseSyncScriptAssetPlugin(),
+    syncRuntimeSamebaseConnectConfigAssetPlugin(),
     codexAppServerResearchBridgePlugin({
       workspaceRoot: gitRoot,
     }),

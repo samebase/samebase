@@ -1,5 +1,5 @@
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
-import { noterBuildConfig } from "@/lib/noterBuildConfig";
+import { samebaseBuildConfig } from "@/lib/samebaseBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
@@ -17,7 +17,7 @@ export type AppAuthPresentationPrehydrationArgs = {
 
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  browserConvexProxyPath: noterBuildConfig.browserConvexProxyPath,
+  browserConvexProxyPath: samebaseBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,

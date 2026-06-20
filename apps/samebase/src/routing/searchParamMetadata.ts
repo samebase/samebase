@@ -11,18 +11,18 @@ import {
   type Sure,
 } from "@samebase/sure";
 import {
-  type NoterRouteAccess,
-  type NoterRouteSearchParamSemantics,
-  type NoterRouteSearchParamAccess,
-  type NoterRouteSearchParamValueSemantics,
-  type NoterRouteSearchParamValueSuggestions,
-  type NoterRouteSearchParamSuggestion,
+  type RouteAccess,
+  type RouteSearchParamSemantics,
+  type RouteSearchParamAccess,
+  type RouteSearchParamValueSemantics,
+  type RouteSearchParamValueSuggestions,
+  type RouteSearchParamSuggestion,
 } from "@/routing/permissions";
 
 type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
 
 type RouteSearchParamMetadataBase = {
-  access: NoterRouteAccess;
+  access: RouteAccess;
 
   /**
   Controls how the route URL editor exposes this param.
@@ -32,8 +32,7 @@ type RouteSearchParamMetadataBase = {
   suggestion: RouteSearchParamSuggestionSurface;
 };
 
-export type RouteSearchParamMetadata = RouteSearchParamMetadataBase &
-  NoterRouteSearchParamSemantics;
+export type RouteSearchParamMetadata = RouteSearchParamMetadataBase & RouteSearchParamSemantics;
 
 export type RouteSearchParamMetadataByKey<Search extends object> = Readonly<
   Record<keyof Search & string, RouteSearchParamMetadata>
@@ -87,7 +86,7 @@ export function routeSearchNormalizedFiniteNumber(normalizeValue: (value: number
   });
 }
 
-export function routeSearchStringValue<const Values extends NoterRouteSearchParamValueSuggestions>(
+export function routeSearchStringValue<const Values extends RouteSearchParamValueSuggestions>(
   values: Values,
 ) {
   return after(routeSearchString, (value) => {
@@ -98,7 +97,7 @@ export function routeSearchStringValue<const Values extends NoterRouteSearchPara
 
 export function routeSearchValueParam<Bad, Value>(
   schema: Sure<Bad, Value, unknown>,
-  args: RouteSearchParamMetadataBase & NoterRouteSearchParamValueSemantics,
+  args: RouteSearchParamMetadataBase & RouteSearchParamValueSemantics,
 ): RouteSearchParam<Value> {
   return sure((value) => schema(value), {
     ...args,
@@ -171,8 +170,8 @@ export function readRouteSearchParamSuggestions<
 >(
   metadata: Metadata,
   surface: RouteSearchParamSuggestionSurface,
-): readonly NoterRouteSearchParamSuggestion<keyof Metadata & string>[] {
-  const suggestions: NoterRouteSearchParamSuggestion<keyof Metadata & string>[] = [];
+): readonly RouteSearchParamSuggestion<keyof Metadata & string>[] {
+  const suggestions: RouteSearchParamSuggestion<keyof Metadata & string>[] = [];
 
   for (const [key, paramMetadata] of entries(metadata)) {
     if (paramMetadata.suggestion !== surface) {
@@ -192,8 +191,8 @@ export function readRouteSearchParamSuggestions<
 
 export function readRouteSearchParamAccess<
   const Metadata extends Readonly<Record<string, RouteSearchParamMetadata>>,
->(metadata: Metadata): readonly NoterRouteSearchParamAccess<keyof Metadata & string>[] {
-  const accessEntries: NoterRouteSearchParamAccess<keyof Metadata & string>[] = [];
+>(metadata: Metadata): readonly RouteSearchParamAccess<keyof Metadata & string>[] {
+  const accessEntries: RouteSearchParamAccess<keyof Metadata & string>[] = [];
 
   for (const [key, paramMetadata] of entries(metadata)) {
     accessEntries.push({

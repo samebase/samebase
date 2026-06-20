@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { NoterBuildConfig } from "@/lib/noterBuildConfig";
+import type { SamebaseBuildConfig } from "@/lib/samebaseBuildConfig";
 
 afterEach(() => {
-  vi.doUnmock("@/lib/noterBuildConfig");
+  vi.doUnmock("@/lib/samebaseBuildConfig");
   vi.resetModules();
 });
 
-const testNoterBuildConfig: NoterBuildConfig = __NOTER_BUILD_CONFIG__;
+const testSamebaseBuildConfig: SamebaseBuildConfig = __SAMEBASE_BUILD_CONFIG__;
 
-async function readAppBuildCommitFor(buildConfig: NoterBuildConfig) {
-  vi.doMock("@/lib/noterBuildConfig", () => ({
-    noterBuildConfig: buildConfig,
+async function readAppBuildCommitFor(buildConfig: SamebaseBuildConfig) {
+  vi.doMock("@/lib/samebaseBuildConfig", () => ({
+    samebaseBuildConfig: buildConfig,
   }));
 
   const { readAppBuildCommit } = await import("@/lib/appBuildMetadata");
@@ -20,7 +20,7 @@ async function readAppBuildCommitFor(buildConfig: NoterBuildConfig) {
 describe("readAppBuildCommit", () => {
   it("returns the commit hash when it is present", async () => {
     const appBuildCommit = await readAppBuildCommitFor({
-      ...testNoterBuildConfig,
+      ...testSamebaseBuildConfig,
       appCommit: "0123456789abcdef",
       appCommitNumber: 463,
     });
@@ -30,7 +30,7 @@ describe("readAppBuildCommit", () => {
 
   it("falls back to the build number when the commit marker is unknown", async () => {
     const appBuildCommit = await readAppBuildCommitFor({
-      ...testNoterBuildConfig,
+      ...testSamebaseBuildConfig,
       appCommit: "unknown",
       appCommitNumber: 463,
     });
@@ -40,7 +40,7 @@ describe("readAppBuildCommit", () => {
 
   it("falls back to dev when neither a commit nor build number is available", async () => {
     const appBuildCommit = await readAppBuildCommitFor({
-      ...testNoterBuildConfig,
+      ...testSamebaseBuildConfig,
       appCommit: "   ",
       appCommitNumber: null,
     });

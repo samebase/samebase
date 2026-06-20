@@ -5,7 +5,7 @@ import {
   PRICING_ROUTE_SEARCH_STATIC_DATA,
   validatePricingRouteSearch,
 } from "@/routeSearch/pricing";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/pricing";
 
@@ -19,7 +19,7 @@ function PricingRouteComponent() {
 
 export const Route = createFileRoute("/pricing")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...PRICING_ROUTE_SEARCH_STATIC_DATA,
   },
   component: PricingRouteComponent,

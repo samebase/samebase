@@ -69,7 +69,7 @@ function withFakeDocument(run: (document: FakeDocument) => void) {
   const document = new FakeDocument();
 
   vi.stubGlobal("document", document);
-  vi.stubGlobal("window", { location: { origin: "https://preview.noter.example" } });
+  vi.stubGlobal("window", { location: { origin: "https://preview.samebase.example" } });
 
   try {
     run(document);
@@ -84,7 +84,7 @@ function getHeadAttribute(document: FakeDocument, selector: string, attributeNam
 }
 
 describe("page metadata", () => {
-  it("pins canonical and social URLs to noter.md", () => {
+  it("pins canonical and social URLs to samebase.com", () => {
     withFakeDocument((document) => {
       applyPageMetadata({
         ...APP_PAGE_METADATA,
@@ -92,19 +92,19 @@ describe("page metadata", () => {
         title: resolveAppPageTitle("/vault/acme/demo"),
       });
 
-      expect(document.title).toBe("Workspace | noter");
+      expect(document.title).toBe("Workspace | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/vault/acme/demo",
+        "https://samebase.com/vault/acme/demo",
       );
       expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
-        "https://noter.md/vault/acme/demo",
+        "https://samebase.com/vault/acme/demo",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
       expect(getHeadAttribute(document, 'meta[property="og:image"]', "content")).toBe(
-        "https://noter.md/noter-social-card.png",
+        "https://samebase.com/samebase-social-card.png",
       );
       expect(getHeadAttribute(document, 'meta[name="twitter:image"]', "content")).toBe(
-        "https://noter.md/noter-social-card.png",
+        "https://samebase.com/samebase-social-card.png",
       );
     });
   });
@@ -118,13 +118,13 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("Privacy Policy | noter");
+      expect(document.title).toBe("Privacy Policy | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/privacy",
+        "https://samebase.com/privacy",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("index,follow");
       expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
-        "https://noter.md/privacy",
+        "https://samebase.com/privacy",
       );
     });
   });
@@ -138,13 +138,13 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("Terms of Service | noter");
+      expect(document.title).toBe("Terms of Service | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/terms",
+        "https://samebase.com/terms",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("index,follow");
       expect(getHeadAttribute(document, 'meta[property="og:url"]', "content")).toBe(
-        "https://noter.md/terms",
+        "https://samebase.com/terms",
       );
     });
   });
@@ -153,18 +153,18 @@ describe("page metadata", () => {
     const deckPaths = [
       {
         pathname: "/pitch",
-        title: "Pitch Deck | Noter",
-        canonicalUrl: "https://noter.md/pitch",
+        title: "Pitch Deck | Samebase",
+        canonicalUrl: "https://samebase.com/pitch",
       },
       {
         pathname: "/pitch/print",
-        title: "Pitch Deck Print | Noter",
-        canonicalUrl: "https://noter.md/pitch/print",
+        title: "Pitch Deck Print | Samebase",
+        canonicalUrl: "https://samebase.com/pitch/print",
       },
       {
         pathname: "/pitch/print/mobile",
-        title: "Pitch Deck Mobile Print | Noter",
-        canonicalUrl: "https://noter.md/pitch/print/mobile",
+        title: "Pitch Deck Mobile Print | Samebase",
+        canonicalUrl: "https://samebase.com/pitch/print/mobile",
       },
     ] as const;
 
@@ -192,16 +192,16 @@ describe("page metadata", () => {
   });
 
   it("returns a dedicated title for the machine connect route", () => {
-    expect(resolveAppPageTitle("/machines/connect")).toBe("Connect This Machine | noter");
+    expect(resolveAppPageTitle("/machines/connect")).toBe("Connect This Machine | Samebase");
   });
 
   it("returns a dedicated title for the machines route", () => {
-    expect(resolveAppPageTitle("/machines")).toBe("Machines | noter");
+    expect(resolveAppPageTitle("/machines")).toBe("Machines | Samebase");
   });
 
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
     expect(APP_PAGE_METADATA.canonicalPath).toBe("/home");
-    expect(resolveAppPageTitle("/home")).toBe("Vaults | noter");
+    expect(resolveAppPageTitle("/home")).toBe("Vaults | Samebase");
     expect(
       resolvePageMetadata({
         pathname: "/",
@@ -210,10 +210,10 @@ describe("page metadata", () => {
     ).toEqual({
       canonicalPath: "/",
       description:
-        "GitHub-backed markdown notes and AI workspace. Keep notes and code in a real repository, collaborate in real time, and ship small apps from the same workspace.",
+        "GitHub-backed workspace for notes, code, and AI. Keep work in a real repository, collaborate in real time, and ship small apps from the same workspace.",
       openGraphType: "website",
       robots: "index,follow",
-      title: "noter | GitHub-backed markdown notes and AI workspace",
+      title: "Samebase | GitHub-backed workspace for notes, code, and AI",
     });
   });
 
@@ -226,9 +226,9 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("localStorage | noter");
+      expect(document.title).toBe("localStorage | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/localStorage",
+        "https://samebase.com/localStorage",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
     });
@@ -243,9 +243,9 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("indexedDB | noter");
+      expect(document.title).toBe("indexedDB | Samebase");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/indexDB",
+        "https://samebase.com/indexDB",
       );
       expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe("noindex,nofollow");
     });
@@ -254,22 +254,22 @@ describe("page metadata", () => {
   it("builds dedicated not-found metadata without indexing the missing path", () => {
     expect(resolveNotFoundPageMetadata("/missing")).toEqual({
       canonicalPath: "/missing",
-      description: "The requested noter page could not be found.",
+      description: "The requested Samebase page could not be found.",
       openGraphType: "website",
       robots: "noindex,nofollow",
-      title: "Page not found | noter",
+      title: "Page not found | Samebase",
     });
   });
 
   it("gives the codex research route a dedicated app title", () => {
     expect(resolveAppPageTitle("/research/codex-app-server")).toBe(
-      "Codex App Server Research | noter",
+      "Codex App Server Research | Samebase",
     );
   });
 
   it("gives the codex browser research route a dedicated app title", () => {
     expect(resolveAppPageTitle("/research/codex-app-server/browser")).toBe(
-      "Codex Thread Browser Research | noter",
+      "Codex Thread Browser Research | Samebase",
     );
   });
   it("keeps the Start document shell aligned with the real public homepage", () => {
@@ -281,19 +281,19 @@ describe("page metadata", () => {
     });
     expect(rootHead.links).toContainEqual({
       rel: "canonical",
-      href: "https://noter.md/",
+      href: "https://samebase.com/",
     });
     expect(rootHead.meta).toContainEqual({
       property: "og:url",
-      content: "https://noter.md/",
+      content: "https://samebase.com/",
     });
     expect(rootHead.meta).toContainEqual({
       property: "og:image",
-      content: "https://noter.md/noter-social-card.png",
+      content: "https://samebase.com/samebase-social-card.png",
     });
     expect(rootHead.meta).toContainEqual({
       name: "twitter:image",
-      content: "https://noter.md/noter-social-card.png",
+      content: "https://samebase.com/samebase-social-card.png",
     });
     expect(rootHead.links).toContainEqual({
       rel: "manifest",

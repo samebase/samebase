@@ -9,12 +9,12 @@ import {
 } from "@/lib/connectedMachineHeartbeatLog";
 import {
   buildMachinesWorkspaceLinkOptions,
-  buildDirectNoterSyncConnectCommand,
-  buildDirectNoterSyncRunCommand,
-  buildNoterSyncScriptUrl,
-  buildPublishedNoterSyncConnectCommand,
-  buildPublishedNoterSyncRunCommand,
-} from "@/lib/noterSync";
+  buildDirectSamebaseSyncConnectCommand,
+  buildDirectSamebaseSyncRunCommand,
+  buildSamebaseSyncScriptUrl,
+  buildPublishedSamebaseSyncConnectCommand,
+  buildPublishedSamebaseSyncRunCommand,
+} from "@/lib/samebaseSync";
 import { type MachineConnectRouteSearch } from "@/routeSearch/machineConnect";
 import {
   resolveAuthoritativeNow,
@@ -26,7 +26,7 @@ import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactElement } from "react";
 import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
-import { MACHINE_CONNECT_ROUTE } from "@/lib/noterSync";
+import { MACHINE_CONNECT_ROUTE } from "@/lib/samebaseSync";
 
 type CopyableCommandBlockProps = {
   command: string;
@@ -99,7 +99,7 @@ const machineConnectRouteApi = getRouteApi(MACHINE_CONNECT_ROUTE);
 
 function resolveCurrentOrigin(): string {
   if (typeof window === "undefined") {
-    return "https://noter.md";
+    return "https://samebase.com";
   }
 
   return window.location.origin;
@@ -121,7 +121,7 @@ function LocalRequirementsSection() {
         <p className="text-sm text-muted-foreground">
           Mobile live control also needs <code>cloudflared</code> on your PATH. Check with{" "}
           <code>cloudflared --version</code>. Without it, the machine can still connect and publish
-          presence, but Noter marks live control unavailable until the Cloudflare quick tunnel
+          presence, but Samebase marks live control unavailable until the Cloudflare quick tunnel
           binary is installed.
         </p>
         <p className="text-sm text-muted-foreground">
@@ -174,7 +174,9 @@ function buildDirectCommandVariants(args: {
   scriptUrl: string;
 }): DirectCommandVariant[] {
   const commandBuilder =
-    args.action === "connect" ? buildDirectNoterSyncConnectCommand : buildDirectNoterSyncRunCommand;
+    args.action === "connect"
+      ? buildDirectSamebaseSyncConnectCommand
+      : buildDirectSamebaseSyncRunCommand;
 
   return [
     {
@@ -332,7 +334,7 @@ function renderMachineApprovalState(args: {
 
             <CopyableCommandBlock
               label="Published package run"
-              description="Use this once `@noter-md/sync` is published."
+              description="Use this once `@samebase/sync` is published."
               command={args.packageRunCommand}
             />
 
@@ -472,8 +474,8 @@ export function MachineConnectPageContent({
             <div className="space-y-1">
               <p className="text-sm font-medium">Your machine list lives on this page</p>
               <p className="text-sm text-muted-foreground">
-                Once <code>noter-sync run</code> is publishing heartbeats, scroll down to Connected
-                machines here to open live control.
+                Once <code>samebase-sync run</code> is publishing heartbeats, scroll down to
+                Connected machines here to open live control.
               </p>
             </div>
             {connectedMachines.length > 0 ? (
@@ -514,7 +516,7 @@ export function MachineConnectPageContent({
 
         <CopyableCommandBlock
           label="Published package connect"
-          description="Use this once `@noter-md/sync` is published."
+          description="Use this once `@samebase/sync` is published."
           command={packageConnectCommand}
         />
 
@@ -527,7 +529,7 @@ export function MachineConnectPageContent({
             rel="noreferrer"
             className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
           >
-            Open <code>noter.ts</code>
+            Open <code>samebase.ts</code>
             <ExternalLink className="h-4 w-4" />
           </a>
         </p>
@@ -554,7 +556,7 @@ export function MachineConnectPage() {
     openedByCli: boolean;
     requestId: MachineConnectRouteSearch["requestId"] | null;
   };
-  const scriptUrl = buildNoterSyncScriptUrl(resolveCurrentOrigin());
+  const scriptUrl = buildSamebaseSyncScriptUrl(resolveCurrentOrigin());
   const connectedMachinesQuery = useQuery(api.connectedMachines.listConnectedMachines);
   const now = useNow({
     enabled: Boolean(bootstrapSearch.requestId) || (connectedMachinesQuery?.length ?? 0) > 0,
@@ -696,8 +698,8 @@ export function MachineConnectPage() {
         isApproving={isApproving}
         openedByCli={bootstrapSearch.openedByCli}
         onApprove={requestState.kind === "pending" ? () => void handleApprove() : undefined}
-        packageConnectCommand={buildPublishedNoterSyncConnectCommand()}
-        packageRunCommand={buildPublishedNoterSyncRunCommand()}
+        packageConnectCommand={buildPublishedSamebaseSyncConnectCommand()}
+        packageRunCommand={buildPublishedSamebaseSyncRunCommand()}
         requestState={requestState}
         scriptUrl={scriptUrl}
       />

@@ -6,7 +6,7 @@ import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
-import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./noterSync";
+import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./samebaseSync";
 
 export type PageMetadata = {
   title: string;
@@ -16,111 +16,111 @@ export type PageMetadata = {
   openGraphType?: "website" | "article";
 };
 
-const DEFAULT_SITE_NAME = "noter";
-const DEFAULT_SITE_ORIGIN = "https://noter.md";
-const DEFAULT_SOCIAL_IMAGE_PATH = "/noter-social-card.png";
+const DEFAULT_SITE_NAME = "Samebase";
+const DEFAULT_SITE_ORIGIN = "https://samebase.com";
+const DEFAULT_SOCIAL_IMAGE_PATH = "/samebase-social-card.png";
 
 export const HOME_PAGE_METADATA: PageMetadata = {
-  title: "noter | GitHub-backed markdown notes and AI workspace",
+  title: "Samebase | GitHub-backed workspace for notes, code, and AI",
   description:
-    "GitHub-backed markdown notes and AI workspace. Keep notes and code in a real repository, collaborate in real time, and ship small apps from the same workspace.",
+    "GitHub-backed workspace for notes, code, and AI. Keep work in a real repository, collaborate in real time, and ship small apps from the same workspace.",
   canonicalPath: "/",
   robots: "index,follow",
   openGraphType: "website",
 };
 
 export const PRIVACY_PAGE_METADATA: PageMetadata = {
-  title: "Privacy Policy | noter",
+  title: "Privacy Policy | Samebase",
   description:
-    "Privacy Policy for noter. Describes the data the current app stores, the providers it talks to, and the browser storage it uses.",
+    "Privacy Policy for Samebase. Describes the data the current app stores, the providers it talks to, and the browser storage it uses.",
   canonicalPath: "/privacy",
   robots: "index,follow",
   openGraphType: "website",
 };
 
 export const TERMS_PAGE_METADATA: PageMetadata = {
-  title: "Terms of Service | noter",
+  title: "Terms of Service | Samebase",
   description:
-    "Terms of Service for noter. Describes the rules, responsibilities, and legal terms for using noter and noter.md.",
+    "Terms of Service for Samebase. Describes the rules, responsibilities, and legal terms for using Samebase and samebase.com.",
   canonicalPath: "/terms",
   robots: "index,follow",
   openGraphType: "website",
 };
 
 export const PITCH_DECK_PAGE_METADATA: PageMetadata = {
-  title: "Pitch Deck | Noter",
-  description: "Pitch deck surface for Noter. Public route used for deck review and PDF export.",
+  title: "Pitch Deck | Samebase",
+  description: "Pitch deck surface for Samebase. Public route used for deck review and PDF export.",
   canonicalPath: "/pitch",
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const PITCH_DECK_PRINT_PAGE_METADATA: PageMetadata = {
-  title: "Pitch Deck Print | Noter",
-  description: "Print-ready pitch deck surface for Noter. Used for stable PDF export.",
+  title: "Pitch Deck Print | Samebase",
+  description: "Print-ready pitch deck surface for Samebase. Used for stable PDF export.",
   canonicalPath: "/pitch/print",
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const PITCH_DECK_MOBILE_PRINT_PAGE_METADATA: PageMetadata = {
-  title: "Pitch Deck Mobile Print | Noter",
-  description: "Mobile print-ready pitch deck surface for Noter. Used for vertical PDF export.",
+  title: "Pitch Deck Mobile Print | Samebase",
+  description: "Mobile print-ready pitch deck surface for Samebase. Used for vertical PDF export.",
   canonicalPath: "/pitch/print/mobile",
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 export const APP_PAGE_METADATA: PageMetadata = {
-  title: "noter App",
-  description: "Private noter application workspace.",
+  title: "Samebase App",
+  description: "Private Samebase application workspace.",
   canonicalPath: DASHBOARD_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const NOT_FOUND_PAGE_METADATA: PageMetadata = {
-  title: "Page not found | noter",
-  description: "The requested noter page could not be found.",
+  title: "Page not found | Samebase",
+  description: "The requested Samebase page could not be found.",
   canonicalPath: "/",
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const MACHINE_CONNECT_PAGE_METADATA: PageMetadata = {
-  title: "Connect This Machine | noter",
-  description: "Connect a Codex machine to noter with a deploy-scoped bootstrap command.",
+  title: "Connect This Machine | Samebase",
+  description: "Connect a Codex machine to Samebase with a deploy-scoped bootstrap command.",
   canonicalPath: MACHINE_CONNECT_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const MACHINES_PAGE_METADATA: PageMetadata = {
-  title: "Machines | noter",
-  description: "Browse connected machines and continue machine-local Codex threads from noter.",
+  title: "Machines | Samebase",
+  description: "Browse connected machines and continue machine-local Codex threads from Samebase.",
   canonicalPath: MACHINES_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const LOCAL_STORAGE_PAGE_METADATA: PageMetadata = {
-  title: "localStorage | noter",
-  description: "Browser localStorage diagnostic route for noter.",
+  title: "localStorage | Samebase",
+  description: "Browser localStorage diagnostic route for Samebase.",
   canonicalPath: LOCAL_STORAGE_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const INDEXED_DB_PAGE_METADATA: PageMetadata = {
-  title: "indexedDB | noter",
-  description: "Browser indexedDB diagnostic route for noter.",
+  title: "indexedDB | Samebase",
+  description: "Browser indexedDB diagnostic route for Samebase.",
   canonicalPath: INDEXED_DB_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
 
 export const LANDING_MARKDOWN_PREVIEW_PAGE_METADATA: PageMetadata = {
-  title: "Landing Preview | noter",
-  description: "Markdown landing preview for noter.",
+  title: "Landing Preview | Samebase",
+  description: "Markdown landing preview for Samebase.",
   canonicalPath: LANDING_MARKDOWN_PREVIEW_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -128,19 +128,19 @@ export const LANDING_MARKDOWN_PREVIEW_PAGE_METADATA: PageMetadata = {
 
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE) {
-    return "Vaults | noter";
+    return "Vaults | Samebase";
   }
 
   if (pathname === "/pricing") {
-    return "Pricing | noter";
+    return "Pricing | Samebase";
   }
 
   if (pathname === "/privacy") {
-    return "Privacy Policy | noter";
+    return "Privacy Policy | Samebase";
   }
 
   if (pathname === "/terms") {
-    return "Terms of Service | noter";
+    return "Terms of Service | Samebase";
   }
 
   if (pathname === "/pitch") {
@@ -156,11 +156,11 @@ export function resolveAppPageTitle(pathname: string): string {
   }
 
   if (pathname === CODEX_APP_SERVER_RESEARCH_ROUTE) {
-    return "Codex App Server Research | noter";
+    return "Codex App Server Research | Samebase";
   }
 
   if (pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE) {
-    return "Codex Thread Browser Research | noter";
+    return "Codex Thread Browser Research | Samebase";
   }
 
   if (pathname === MACHINE_CONNECT_ROUTE) {
@@ -184,10 +184,10 @@ export function resolveAppPageTitle(pathname: string): string {
   }
 
   if (pathname.startsWith("/vault/")) {
-    return "Workspace | noter";
+    return "Workspace | Samebase";
   }
 
-  return "noter App";
+  return "Samebase App";
 }
 
 export function resolvePageMetadata(args: {

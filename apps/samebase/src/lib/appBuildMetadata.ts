@@ -1,12 +1,12 @@
-import { noterBuildConfig } from "@/lib/noterBuildConfig";
+import { samebaseBuildConfig } from "@/lib/samebaseBuildConfig";
 
 export function readAppBuildCommit(): string {
-  const commit = noterBuildConfig.appCommit.trim();
+  const commit = samebaseBuildConfig.appCommit.trim();
   if (commit.length > 0 && commit !== "unknown") {
     return commit;
   }
 
-  const appCommitNumber = noterBuildConfig.appCommitNumber;
+  const appCommitNumber = samebaseBuildConfig.appCommitNumber;
   if (appCommitNumber !== null && appCommitNumber > 0) {
     return `build-${appCommitNumber}`;
   }
