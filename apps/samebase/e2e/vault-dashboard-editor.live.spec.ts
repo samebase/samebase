@@ -13,7 +13,7 @@ test.describe("vault dashboard editor live flow", () => {
 
     await editLink.click();
     await expect(page).toHaveURL(/\/vault\/.+/);
-    await expect(page.getByText("Noter could not finish loading.")).toHaveCount(0);
+    await expect(page.getByText("Samebase could not finish loading.")).toHaveCount(0);
     await expect(page.locator("h2").first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("textbox").first()).toBeVisible({ timeout: 20_000 });
   });

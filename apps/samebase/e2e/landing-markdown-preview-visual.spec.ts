@@ -157,12 +157,12 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       .locator('[id="6-connect-codex-to-github"]'),
   ).toBeInViewport();
 
-  await page.goto("/landing-preview?dev#why-is-noter-md-free", {
+  await page.goto("/landing-preview?dev#why-is-samebase-com-free", {
     waitUntil: "domcontentloaded",
   });
   const finalHeading = page
     .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
-    .locator('[id="why-is-noter-md-free"]');
+    .locator('[id="why-is-samebase-com-free"]');
   await expect(finalHeading).toBeInViewport();
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
@@ -175,7 +175,7 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
   await page.setViewportSize({ width: 744, height: 1200 });
   await signInForLandingPreviewRoute(page);
   await page.goto(
-    "/landing-preview?dev&left&dark#9-create-an-app-in-a-single-step-using-noter-md",
+    "/landing-preview?dev&left&dark#9-create-an-app-in-a-single-step-using-samebase-com",
     {
       waitUntil: "domcontentloaded",
     },
