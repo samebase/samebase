@@ -43,7 +43,7 @@ describe("strip-public-prerender-modulepreloads", () => {
       stripModulePreloadLinks(
         [
           '<link rel="modulepreload" href="/assets/index.js"/>',
-          '<script>window.__noterPreload = "modulepreload";</script>',
+          '<script>window.__appPreload = "modulepreload";</script>',
         ].join(""),
       ),
     ).toThrow("Failed to strip every modulepreload reference");
