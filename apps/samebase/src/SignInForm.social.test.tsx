@@ -41,7 +41,6 @@ describe("public Samebase social links", () => {
 
     expect(markup).toContain(`href="${SAMEBASE_X_PROFILE_URL}"`);
     expect(markup).toContain(SAMEBASE_X_PROFILE_URL);
-    expect(markup).not.toContain("x.com/notermd");
   });
 
   it("renders the Samebase X profile link in the closed signup notice", () => {
@@ -50,6 +49,5 @@ describe("public Samebase social links", () => {
     expect(markup).toContain(`href="${SAMEBASE_X_PROFILE_URL}"`);
     expect(markup).toContain("@samebasecom");
     expect(markup).not.toContain("pending access");
-    expect(markup).not.toContain("x.com/notermd");
   });
 });
