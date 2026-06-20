@@ -64,8 +64,8 @@ jobs:
 
           expected_files="$(
             printf "%s\n" \
-              apps/noter/vite.config.ts \
-              apps/noter/wrangler.jsonc
+              apps/samebase/vite.config.ts \
+              apps/samebase/wrangler.jsonc
           )"
           actual_files="$(git diff --name-only origin/main..HEAD | sort)"
 

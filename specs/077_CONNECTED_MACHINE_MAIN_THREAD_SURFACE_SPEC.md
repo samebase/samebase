@@ -75,12 +75,12 @@ The message renderer change must not flatten those activity groups into message 
 
 ## Source Of Truth Files
 
-- `apps/noter/src/components/MachinesWorkspacePage.tsx`
-- `apps/noter/src/components/MachinesWorkspaceView.tsx`
-- `apps/noter/src/components/MachinesWorkspaceThreadPane.tsx`
-- `apps/noter/src/components/ProsemarkReadOnly.tsx`
-- `apps/noter/src/codex/threadTimeline.ts`
-- `apps/noter/e2e/machines-workspace-visual.spec.ts`
+- `apps/samebase/src/components/MachinesWorkspacePage.tsx`
+- `apps/samebase/src/components/MachinesWorkspaceView.tsx`
+- `apps/samebase/src/components/MachinesWorkspaceThreadPane.tsx`
+- `apps/samebase/src/components/ProsemarkReadOnly.tsx`
+- `apps/samebase/src/codex/threadTimeline.ts`
+- `apps/samebase/e2e/machines-workspace-visual.spec.ts`
 
 ## Relationship To Earlier Research
 

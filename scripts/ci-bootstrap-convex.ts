@@ -5,11 +5,11 @@ import { closeSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { noterAppFilePath } from "./lib/trackedFilePath.ts";
+import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
-const envLocalPath = path.join("apps", "noter", ".env.local");
+const envLocalPath = path.join("apps", "samebase", ".env.local");
 const convexEnvSetMaxAttempts = 4;
 const convexEnvLocalWaitTimeoutMs = 300_000;
 const keepBackendRunning = process.argv.slice(2).includes("--keep-running");
@@ -23,10 +23,10 @@ async function main(): Promise<void> {
     PNPM_COMMAND,
     [
       "--filter",
-      "noter",
+      "samebase",
       "exec",
       "node",
-      noterAppFilePath("scripts/convex-dev.ts"),
+      samebaseAppFilePath("scripts/convex-dev.ts"),
       ...(keepBackendRunning ? [] : ["--until-success"]),
       "--typecheck=disable",
       "--tail-logs=disable",
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
         );
       },
       convexEnvLocalWaitTimeoutMs,
-      "Timed out waiting for apps/noter/.env.local to include Convex local env values.",
+      "Timed out waiting for apps/samebase/.env.local to include Convex local env values.",
       bootstrapProcess,
     );
     await waitFor(
@@ -122,7 +122,7 @@ async function main(): Promise<void> {
  * for fatal errors and the idempotent single-key write contract.
  */
 async function runConvexEnvSet(key: string, value: string): Promise<void> {
-  const args = ["--filter", "noter", "exec", "convex", "env", "set", "--", key, value];
+  const args = ["--filter", "samebase", "exec", "convex", "env", "set", "--", key, value];
 
   for (let attempt = 1; attempt <= convexEnvSetMaxAttempts; attempt += 1) {
     const result = spawnSync(PNPM_COMMAND, args, {
@@ -174,7 +174,7 @@ async function runConvexPasswordAccountSeed(): Promise<void> {
     PNPM_COMMAND,
     [
       "--filter",
-      "noter",
+      "samebase",
       "exec",
       "convex",
       "run",

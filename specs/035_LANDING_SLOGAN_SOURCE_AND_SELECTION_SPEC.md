@@ -7,10 +7,10 @@
 - Last updated: 2026-05-29
 - Related files:
   - `slogans.md`
-  - `apps/noter/dev/landingSlogan.ts`
-  - `apps/noter/vite.config.ts`
-  - `apps/noter/src/lib/noterBuildConfig.ts`
-  - `apps/noter/src/lib/landingCopy.ts`
+  - `apps/samebase/dev/landingSlogan.ts`
+  - `apps/samebase/vite.config.ts`
+  - `apps/samebase/src/lib/noterBuildConfig.ts`
+  - `apps/samebase/src/lib/landingCopy.ts`
   - `specs/102_NOTER_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
 
 ## Summary

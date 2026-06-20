@@ -24,14 +24,14 @@ describe("run-worktree-dev", () => {
       parseWorktreeDevArgs([], {
         WORKTREE_DEV_ALLOW_MISSING_SOURCE_ENV: "1",
         WORKTREE_DEV_SOURCE_DEPLOY_KEY: "dev:key|token",
-        WORKTREE_DEV_SOURCE_ENV: "apps/noter/.env.source.local",
+        WORKTREE_DEV_SOURCE_ENV: "apps/samebase/.env.source.local",
         WORKTREE_DEV_VITE_PORT: "6210",
       }),
     ).toMatchObject({
       allowMissingSourceEnv: true,
       forceBootstrap: false,
       sourceDeployKey: "dev:key|token",
-      sourceEnv: "apps/noter/.env.source.local",
+      sourceEnv: "apps/samebase/.env.source.local",
       vitePort: 6210,
     });
   });
@@ -103,7 +103,7 @@ describe("run-worktree-dev", () => {
     expect(plan.at(-1)).toMatchObject({
       label: "launch the long-running worktree dev server",
       cwd: "/repo",
-      args: ["exec", "vp", "run", "--filter=noter", "dev:raw"],
+      args: ["exec", "vp", "run", "--filter=samebase", "dev:raw"],
       env: {
         CONVEX_AGENT_MODE: "anonymous",
         DEV_ENV_ORIGIN: "http://localhost:6001",

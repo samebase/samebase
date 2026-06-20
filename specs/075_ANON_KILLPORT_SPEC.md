@@ -17,7 +17,7 @@ Replace the root `make kill-port` target with a single `make killport` target.
 
 1. `make killport <port>` kills the explicitly provided listening port
 2. `make killport` reads the current worktree's stored anonymous local backend port from
-   `apps/noter/.env.local` and kills that port if it is listening
+   `apps/samebase/.env.local` and kills that port if it is listening
 
 `pnpm dev:worktree` and `pnpm dev:worktree:once` must run `make killport` before starting the
 anonymous Convex bootstrap flow.
@@ -40,14 +40,14 @@ anonymous Convex bootstrap flow.
 
 For the no-argument path, `make killport` must use only:
 
-- `apps/noter/.env.local`
+- `apps/samebase/.env.local`
 
 It must read the first local backend port from:
 
 - `VITE_CONVEX_URL`, or
 - `CONVEX_URL`
 
-If `apps/noter/.env.local` does not exist, or neither variable contains a local port,
+If `apps/samebase/.env.local` does not exist, or neither variable contains a local port,
 `make killport` must exit successfully without killing anything.
 
 ## Required Behavior
@@ -55,7 +55,7 @@ If `apps/noter/.env.local` does not exist, or neither variable contains a local 
 ### `make killport`
 
 1. If an explicit positional port argument is present, use it
-2. Otherwise, read the current worktree port from `apps/noter/.env.local`
+2. Otherwise, read the current worktree port from `apps/samebase/.env.local`
 3. If no port is available, exit successfully without doing anything
 4. If the port is known but nothing is listening on it, exit successfully
 5. If one or more processes are listening on that port, send `SIGTERM`

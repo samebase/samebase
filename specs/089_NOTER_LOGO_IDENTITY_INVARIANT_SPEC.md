@@ -5,13 +5,13 @@
 - Status: Accepted
 - Owner: Noter frontend
 - Last updated: 2026-05-24
-- Related files: `apps/noter/src/components/logo/logoStaticSvgContract.ts`,
-  `apps/noter/src/components/logo/logoStaticSvgAsset.ts`,
-  `apps/noter/src/components/logo/logoFaceTreatment.ts`,
-  `apps/noter/src/components/logo/logoLeftFaceStyle.ts`, `apps/noter/public/brand/`,
-  `apps/noter/public/logo-v1-side-primary.svg`, `apps/noter/public/logo-v2-side-diagonal.svg`,
-  `apps/noter/public/logo-static.svg`, `apps/noter/public/noter-x-profile-banner.png`,
-  `apps/noter/public/noter-social-card.svg`, `rfcs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
+- Related files: `apps/samebase/src/components/logo/logoStaticSvgContract.ts`,
+  `apps/samebase/src/components/logo/logoStaticSvgAsset.ts`,
+  `apps/samebase/src/components/logo/logoFaceTreatment.ts`,
+  `apps/samebase/src/components/logo/logoLeftFaceStyle.ts`, `apps/samebase/public/brand/`,
+  `apps/samebase/public/logo-v1-side-primary.svg`, `apps/samebase/public/logo-v2-side-diagonal.svg`,
+  `apps/samebase/public/logo-static.svg`, `apps/samebase/public/noter-x-profile-banner.png`,
+  `apps/samebase/public/noter-social-card.svg`, `rfcs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
   `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`,
   `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
@@ -87,8 +87,8 @@ gets the same stripe phase.
 - `/logo-v2-side-diagonal.svg` is the version 2 side-diagonal mark.
 - `/logo-static.svg` is the version 3 spatial mark and remains the canonical public static logo.
 - Stable root logo URLs point at the current default treatment.
-- Treatment-named assets under `apps/noter/public/brand/logo/` preserve both `duotone` and `striped`
-  exports for each identity view.
+- Treatment-named assets under `apps/samebase/public/brand/logo/` preserve both `duotone` and
+  `striped` exports for each identity view.
 
 Small favicons remain browser-chrome assets. They are not the identity source for product UI icons
 unless the product explicitly wants the favicon treatment.

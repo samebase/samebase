@@ -44,9 +44,9 @@ jobs:
       - name: Bootstrap Convex for CI
         run: node ./scripts/ci-bootstrap-convex.ts --keep-running
       - name: Build noter preview
-        run: PLAYWRIGHT=1 pnpm --filter noter build:ci
+        run: PLAYWRIGHT=1 pnpm --filter samebase build:ci
       - name: Install Playwright browser
-        run: pnpm --filter noter exec playwright install --with-deps chromium
+        run: pnpm --filter samebase exec playwright install --with-deps chromium
       - name: Run Testbox
         uses: useblacksmith/run-testbox@v2
         if: always()

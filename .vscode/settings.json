@@ -7,8 +7,8 @@
   },
   "oxc.fmt.configPath": "./vite.config.ts",
   "tailwindCSS.experimental.configFile": {
-    "apps/noter/src/index.css": "apps/noter/src/**",
-    "apps/noter-starter-template/src/index.css": "apps/noter-starter-template/src/**"
+    "apps/samebase/src/index.css": "apps/samebase/src/**",
+    "apps/samebase-starter-template/src/index.css": "apps/samebase-starter-template/src/**"
   },
   // Tailwind CSS IntelliSense already shows class meanings on hover in JSX
   // attributes like `className="h-8"`, but it does not know that a plain object

@@ -6,9 +6,9 @@
 - Owner: Noter frontend/app shell
 - Last updated: 2026-06-06
 - Depends on:
-  - `apps/noter/src/lib/appRouter.ts`
-  - `apps/noter/src/components/NotFoundRoutePage.tsx`
-  - `apps/noter/src/test/TestRouterProvider.tsx`
+  - `apps/samebase/src/lib/appRouter.ts`
+  - `apps/samebase/src/components/NotFoundRoutePage.tsx`
+  - `apps/samebase/src/test/TestRouterProvider.tsx`
   - `specs/081_TANSTACK_ROUTER_MIGRATION_SPEC.md`
 
 ## Summary
@@ -35,7 +35,7 @@ focused on the router transition itself.
 
 ## Cleanup Sequence
 
-1. Remove runtime dependence on the compat seam in `apps/noter/src/lib/router.ts`. Complete.
+1. Remove runtime dependence on the compat seam in `apps/samebase/src/lib/router.ts`. Complete.
 2. Replace the unresolved-path `App.tsx` bridge with an explicit routed fallback. Complete.
 3. Shrink fixture and test dependence on compat helpers such as the router seam `MemoryRouter`.
    Complete.
@@ -51,51 +51,51 @@ product policy rather than migration debt.
 
 Intentional remaining router-level boundary:
 
-1. `apps/noter/src/lib/tanstackSearchParams.ts` still defines the router-wide query
+1. `apps/samebase/src/lib/tanstackSearchParams.ts` still defines the router-wide query
    parser/stringifier because Noter intentionally preserves key-only URLs such as `/?dev` instead of
    adopting TanStack Router's default JSON-style search semantics.
 2. `/` remains the public landing route, and `/home` remains the canonical signed-in dashboard
    route. Public Google sign-in from `/` asks the provider to return directly to `/home`, while
-   `apps/noter/src/lib/useAppAuthRuntimeEffects.ts` preserves failed unauthenticated
+   `apps/samebase/src/lib/useAppAuthRuntimeEffects.ts` preserves failed unauthenticated
    `/home?signup=google` returns by sending them back to `/?signup=google`. Authenticated users can
    still open `/` directly because the runtime no longer redirects authenticated root renders.
 
 Already completed in this step:
 
-1. `apps/noter/src/lib/landingDevMode.ts`
-2. `apps/noter/src/lib/noterSync.ts`
-3. route-local builders like `buildPricingPath()` in `apps/noter/src/components/PricingPage.tsx`
-4. route-local research helpers in `apps/noter/src/components/CodexAppServerResearchPage.tsx` and
-   `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
+1. `apps/samebase/src/lib/landingDevMode.ts`
+2. `apps/samebase/src/lib/noterSync.ts`
+3. route-local builders like `buildPricingPath()` in `apps/samebase/src/components/PricingPage.tsx`
+4. route-local research helpers in `apps/samebase/src/components/CodexAppServerResearchPage.tsx` and
+   `apps/samebase/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
 5. the route-local `buildLocationHref()` helper that used to mirror TanStack's current
-   `location.href` in `apps/noter/src/components/RootIndexRoutePage.tsx`
+   `location.href` in `apps/samebase/src/components/RootIndexRoutePage.tsx`
 6. the `buildGithubOAuthReturnToPath()` helper that used to reassemble the current route from
-   browser-style location pieces in `apps/noter/src/lib/githubOAuthFlow.ts`
+   browser-style location pieces in `apps/samebase/src/lib/githubOAuthFlow.ts`
 7. the remaining browser-style fixture shim in
-   `apps/noter/src/components/CommitReviewVisualFixture.tsx`
-8. the root landing/layout shell callsites in `apps/noter/src/Layout.tsx` and
-   `apps/noter/src/components/FastPublicLandingShell.tsx`
-9. the file-view search contract in `apps/noter/src/lib/fileViewRouteSearch.ts` and the search-only
-   query-state transitions in `apps/noter/src/components/FileView.tsx`
+   `apps/samebase/src/components/CommitReviewVisualFixture.tsx`
+8. the root landing/layout shell callsites in `apps/samebase/src/Layout.tsx` and
+   `apps/samebase/src/components/FastPublicLandingShell.tsx`
+9. the file-view search contract in `apps/samebase/src/lib/fileViewRouteSearch.ts` and the
+   search-only query-state transitions in `apps/samebase/src/components/FileView.tsx`
 10. the low-level history pushes/replaces that used to sit behind file-view navigation in
-    `apps/noter/src/components/FileView.tsx`
+    `apps/samebase/src/components/FileView.tsx`
 11. the duplicated `/vault/...` file-route string assembly that now lives in
-    `apps/noter/src/lib/vaultRoutes.ts::buildVaultFileRoute`
+    `apps/samebase/src/lib/vaultRoutes.ts::buildVaultFileRoute`
 12. the direct route-owned parser/stringifier callsites that used to sit in
-    `apps/noter/src/components/LogoPreviewPage.tsx`, `apps/noter/src/components/PricingPage.tsx`,
-    and `apps/noter/src/lib/rootRouteSearch.ts`
+    `apps/samebase/src/components/LogoPreviewPage.tsx`,
+    `apps/samebase/src/components/PricingPage.tsx`, and `apps/samebase/src/lib/rootRouteSearch.ts`
 13. the remaining app-side parser/stringifier usage on the raw `/vault/$` boundary in
-    `apps/noter/src/components/FileView.tsx` and
-    `apps/noter/src/components/EditedFilesCategories.tsx`
-14. the shell-only landing copy renderer in `apps/noter/src/lib/landingCopyShell.ts`
-15. the temporary routed fast shell in `apps/noter/src/components/FastPublicLandingShell.tsx`, its
-    once-per-load root-route handoff in `apps/noter/src/components/RootIndexRoutePage.tsx`, the
-    shell-only scroll store in `apps/noter/src/lib/publicLandingScrollState.ts`, and the dedicated
-    `apps/noter/e2e/public-landing-shell.spec.ts` handoff assertions
-16. the generic query-param helper in `apps/noter/src/lib/queryParams.ts`
+    `apps/samebase/src/components/FileView.tsx` and
+    `apps/samebase/src/components/EditedFilesCategories.tsx`
+14. the shell-only landing copy renderer in `apps/samebase/src/lib/landingCopyShell.ts`
+15. the temporary routed fast shell in `apps/samebase/src/components/FastPublicLandingShell.tsx`,
+    its once-per-load root-route handoff in `apps/samebase/src/components/RootIndexRoutePage.tsx`,
+    the shell-only scroll store in `apps/samebase/src/lib/publicLandingScrollState.ts`, and the
+    dedicated `apps/samebase/e2e/public-landing-shell.spec.ts` handoff assertions
+16. the generic query-param helper in `apps/samebase/src/lib/queryParams.ts`
 17. the local ESLint plugin that only existed to enforce the generic query-param helper
-18. the Google auth redirect search updates in `apps/noter/src/lib/googleAuthRedirect.ts`, which now
-    return typed root search updates for router-owned URL construction
+18. the Google auth redirect search updates in `apps/samebase/src/lib/googleAuthRedirect.ts`, which
+    now return typed root search updates for router-owned URL construction
 
 Important non-targets for this step:
 
@@ -103,7 +103,7 @@ Important non-targets for this step:
    conversion just because they use string literals.
 2. Existing `getRouteApi("/...")` callsites are already route-typed and should stay as they are
    unless a more local route API becomes clearer.
-3. `apps/noter/src/lib/tanstackSearchParams.ts` is no longer tracked as cleanup debt while Noter
+3. `apps/samebase/src/lib/tanstackSearchParams.ts` is no longer tracked as cleanup debt while Noter
    intentionally preserves key-only query params such as `/?dev`.
 
 ## Working Log
@@ -113,8 +113,8 @@ Important non-targets for this step:
 - Problem: the remaining generic query-param helper and local lint rule were now preserving a
   pre-router abstraction. Tried: moved route-owned URL updates onto TanStack search objects and
   `router.buildLocation`, while using native `URL` APIs for external URLs and internal API request
-  paths. Result: `apps/noter/src/lib/queryParams.ts` and the `eslint-rules` workspace package are
-  deleted; the only app-wide search codec left is `apps/noter/src/lib/tanstackSearchParams.ts`,
+  paths. Result: `apps/samebase/src/lib/queryParams.ts` and the `eslint-rules` workspace package are
+  deleted; the only app-wide search codec left is `apps/samebase/src/lib/tanstackSearchParams.ts`,
   which preserves the shipped key-only query string contract.
 
 ### 2026-04-08
@@ -123,20 +123,20 @@ Important non-targets for this step:
   split the cleanup plan into a dedicated follow-up spec. Result: `081` stays focused on the
   migration, and this document now tracks the smaller cleanup phases.
 
-- Problem: the `"$"` catch-all route in `apps/noter/src/lib/appRouter.ts` still rendered `App.tsx`,
-  which was no longer a real route surface. Tried: inspected the routed app state after the TanStack
-  migration. Result: the unresolved-path behavior should become an explicit not-found route instead
-  of keeping a leftover auth/layout bridge alive.
+- Problem: the `"$"` catch-all route in `apps/samebase/src/lib/appRouter.ts` still rendered
+  `App.tsx`, which was no longer a real route surface. Tried: inspected the routed app state after
+  the TanStack migration. Result: the unresolved-path behavior should become an explicit not-found
+  route instead of keeping a leftover auth/layout bridge alive.
 
 - Problem: the follow-up inventory on `origin/main` showed that the compat seam cleanup was less
   complete than expected; runtime app code, test helpers, and visual fixtures still imported
-  `apps/noter/src/lib/router.ts`. Tried: finished the cleanup in two passes instead of assuming step
-  1 was already done. Result: runtime now imports native `@tanstack/react-router` APIs directly,
-  fixtures and tests use `apps/noter/src/test/TestRouterProvider.tsx`, and the compat seam plus its
-  dedicated seam test are deleted.
+  `apps/samebase/src/lib/router.ts`. Tried: finished the cleanup in two passes instead of assuming
+  step 1 was already done. Result: runtime now imports native `@tanstack/react-router` APIs
+  directly, fixtures and tests use `apps/samebase/src/test/TestRouterProvider.tsx`, and the compat
+  seam plus its dedicated seam test are deleted.
 
 - Problem: the generic TanStack `navigate()` API does not accept arbitrary browser-style history
-  state objects on raw `href` navigations, but `apps/noter/src/components/FileView.tsx` still
+  state objects on raw `href` navigations, but `apps/samebase/src/components/FileView.tsx` still
   preserves user-owned history state while it hand-builds file-view hrefs. Tried: switch the
   component to a local `router.history.push` / `replace` escape hatch instead of keeping the old
   global compat wrapper alive. Result: the remaining untyped history usage is explicit, local to
@@ -231,10 +231,10 @@ Important non-targets for this step:
   behavior directly and confirmed that it double-encodes pre-encoded branch segments instead of
   preserving them. Result: we removed the low-level `router.history.push` / `replace` escape hatches
   from `FileView.tsx`, centralized the intentional raw path boundary in
-  `apps/noter/src/lib/vaultRoutes.ts::buildVaultFileRoute`, and updated `EditedFilesCategories.tsx`
-  to reuse that helper instead of duplicating `/vault/...` assembly. The remaining debt is now
-  explicit: one staged-file popover raw-href navigation path and the route shape itself, rather than
-  scattered path builders or low-level history calls.
+  `apps/samebase/src/lib/vaultRoutes.ts::buildVaultFileRoute`, and updated
+  `EditedFilesCategories.tsx` to reuse that helper instead of duplicating `/vault/...` assembly. The
+  remaining debt is now explicit: one staged-file popover raw-href navigation path and the route
+  shape itself, rather than scattered path builders or low-level history calls.
 
 - Problem: `tanstackSearchParams.ts` was still being called directly from a mix of generic helpers
   and clearly route-owned component code, which made the remaining serializer/parser debt look

@@ -125,8 +125,8 @@ the shared state that requires ordered execution.
 
 When browser tests fail after a route is moved behind auth, authenticate the test through the
 existing local password account instead of weakening the route policy. The shared helper lives in
-`apps/noter/e2e/liveHelpers.ts` as `signInIfNeeded`.
+`apps/samebase/e2e/liveHelpers.ts` as `signInIfNeeded`.
 
 The seeded credentials are defined once in `runtime/localWorktreePasswordAuth.ts`. CI and Linux
-Docker bootstrap should seed that account through `apps/noter/convex/devAuth.ts` before Playwright
-starts. If a test cannot log in inside Docker or CI, inspect that bootstrap chain first.
+Docker bootstrap should seed that account through `apps/samebase/convex/devAuth.ts` before
+Playwright starts. If a test cannot log in inside Docker or CI, inspect that bootstrap chain first.

@@ -8,10 +8,10 @@
 - Related specs:
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
 - Related files:
-  - `apps/noter/convex/vault/actions.ts`
-  - `apps/noter/convex/starterSeed.ts` (or replacement)
+  - `apps/samebase/convex/vault/actions.ts`
+  - `apps/samebase/convex/starterSeed.ts` (or replacement)
   - `scripts/export-notermd-app-manifest.ts`
-  - `apps/noter/convex/starterSeedManifest.generated.ts`
+  - `apps/samebase/convex/starterSeedManifest.generated.ts`
 
 ## Summary
 
@@ -113,7 +113,7 @@ Current resolution:
 - `notermd/app` is the source of truth.
 - Runtime app creation does not fetch from GitHub or require a git-capable Convex job.
 - `scripts/export-notermd-app-manifest.ts` downloads the selected branch archive and writes
-  `apps/noter/convex/starterSeedManifest.generated.ts`.
+  `apps/samebase/convex/starterSeedManifest.generated.ts`.
 
 ### Option D: Separate repo plus staged replay/pinning (deferred)
 

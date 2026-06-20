@@ -9,10 +9,10 @@
   - `archive/021_AGENT_BUILDER_TEMPLATE_SPEC.md`
   - `specs/071_FILE_VIEW_GRAPH_TOGGLE_IN_DEVELOPER_TOOLS_SPEC.md`
 - Related files:
-  - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/FileViewDeveloperTools.tsx`
-  - `apps/noter/src/components/CodeEditor.tsx`
-  - `apps/noter/src/main.tsx`
+  - `apps/samebase/src/components/FileView.tsx`
+  - `apps/samebase/src/components/FileViewDeveloperTools.tsx`
+  - `apps/samebase/src/components/CodeEditor.tsx`
+  - `apps/samebase/src/main.tsx`
 
 ## Summary
 
@@ -71,11 +71,11 @@ Positions:
 ## Implementation Plan
 
 1. Dependency
-   - Add `@xyflow/react` to `apps/noter/package.json`.
-   - Import `@xyflow/react/dist/style.css` from `apps/noter/src/main.tsx`.
+   - Add `@xyflow/react` to `apps/samebase/package.json`.
+   - Import `@xyflow/react/dist/style.css` from `apps/samebase/src/main.tsx`.
 
 2. New Component
-   - Create `apps/noter/src/components/AgentGraphView.tsx`.
+   - Create `apps/samebase/src/components/AgentGraphView.tsx`.
    - Use `ReactFlow`, `Controls`, and `Background`.
    - Accept props: `nodes`, `edges`, `onOpenFile`.
    - On node click, call `onOpenFile(node.data.path)`.

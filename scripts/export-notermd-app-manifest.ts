@@ -317,7 +317,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const outputPath = path.resolve(
   repoRoot,
-  trackedFilePath("apps/noter/convex/starterSeedManifest.generated.ts"),
+  trackedFilePath("apps/samebase/convex/starterSeedManifest.generated.ts"),
 );
 
 const { sourceBranch } = parseArgs(process.argv.slice(2));

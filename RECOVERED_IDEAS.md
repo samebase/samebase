@@ -9,7 +9,7 @@ File: TODO.md
         restrict reachability or add hardened gateway auth
 - - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export
         and regenerate deterministic `starterSeedManifest.generated.ts`
-- - [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a
+- - [ ] starter template hygiene: add CI coverage for `apps/samebase-starter-template` (we missed a
         `node_modules`/ignore drift once because it wasn't being checked)
 - - [ ] editor: on hover over Tailwind classes, show their definition
 - - [ ] simple view: consider switching from exclude-only to explicit include allowlist (ex:
@@ -26,7 +26,7 @@ File: TODO.md
         restrict reachability or add hardened gateway auth
 - - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export
         and regenerate deterministic `starterSeedManifest.generated.ts`
-- - [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a
+- - [ ] starter template hygiene: add CI coverage for `apps/samebase-starter-template` (we missed a
         `node_modules`/ignore drift once because it wasn't being checked)
 - - [ ] editor: on hover over Tailwind classes, show their definition
 - - [x] removing noter from builder.io todo is done
@@ -73,7 +73,7 @@ File: TODO.md
 
 ## 1f5e31f9896f785cf0529b06787b1c64615415b7 2026-02-14 TODO.md[28], noter.md[9-10]
 
-File: apps/noter-starter-template/noter.md
+File: apps/samebase-starter-template/noter.md
 
 -     - "**/*.{ts,tsx,js,jsx,css,html}" # Source file extensions
 
@@ -149,8 +149,8 @@ File: README.md
 - ## Important Behavior
 - - Auto infra provisioning is triggered only for newly created noter-managed vaults.
 - - Connecting an existing GitHub repository does not auto-provision infra.
-- - Starter seed source of truth is maintained in `apps/noter-starter-template` and exported to
-    `apps/noter/convex/starterSeedManifest.generated.ts`.
+- - Starter seed source of truth is maintained in `apps/samebase-starter-template` and exported to
+    `apps/samebase/convex/starterSeedManifest.generated.ts`.
 - - Frontend: React 18, TypeScript, Vite, React Router
 - - Backend: Convex (queries, mutations, actions, scheduler)
 - - Editor: CodeMirror 6
@@ -183,7 +183,7 @@ File: README.md
 - pnpm dev:starter
 - pnpm build:starter
 - pnpm lint:starter
-- ### App commands (`apps/noter`)
+- ### App commands (`apps/samebase`)
 - npm run dev # frontend + backend
 - npm run dev:frontend
 - npm run dev:backend
@@ -197,7 +197,7 @@ File: README.md
 - 2. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
 - 3. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 - 4. `specs/001_CODESPACE_CONNECTION_SPEC.md`
-- 5. `apps/noter/convex/schema.ts`
+- 5. `apps/samebase/convex/schema.ts`
 - MIT
 
 ## 1ef8f91b4ca720bfe0096806cdd75939bbf03788 2026-02-13 to-do.md[10-14]

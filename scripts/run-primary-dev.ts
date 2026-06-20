@@ -3,8 +3,8 @@ import { spawn } from "node:child_process";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { resolveLocalDevPort } from "../apps/noter/scripts/convex-local-utils.ts";
-import { normalizeEnvValue } from "../apps/noter/scripts/normalizeEnvValue.ts";
+import { resolveLocalDevPort } from "../apps/samebase/scripts/convex-local-utils.ts";
+import { normalizeEnvValue } from "../apps/samebase/scripts/normalizeEnvValue.ts";
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
@@ -49,7 +49,7 @@ export function buildPrimaryDevEnvironment(
 }
 
 export function buildPrimaryDevArgs(args: string[], script: "dev" | "dev:raw" = "dev"): string[] {
-  return ["exec", "vp", "run", "--filter=noter", script, ...args];
+  return ["exec", "vp", "run", "--filter=samebase", script, ...args];
 }
 
 function isMainModule() {

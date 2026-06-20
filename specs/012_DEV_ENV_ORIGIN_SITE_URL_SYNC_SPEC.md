@@ -57,8 +57,8 @@ shared deployment.
 
 ### 3) Where the origin is used
 
-`apps/noter/scripts/sync-site-url.ts` reads `DEV_ENV_ORIGIN`, falls back to the resolved local dev
-origin for localhost Convex deployments, and runs:
+`apps/samebase/scripts/sync-site-url.ts` reads `DEV_ENV_ORIGIN`, falls back to the resolved local
+dev origin for localhost Convex deployments, and runs:
 
 ```
 npx convex env set SITE_URL "<origin>"

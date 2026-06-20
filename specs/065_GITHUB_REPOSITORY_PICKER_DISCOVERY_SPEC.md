@@ -35,9 +35,9 @@ Noter to connect them.
 
 ## Source Of Truth Files
 
-- `apps/noter/convex/github.ts`
-- `apps/noter/src/components/AddRepository.tsx`
-- `apps/noter/src/lib/repositorySearch.ts`
+- `apps/samebase/convex/github.ts`
+- `apps/samebase/src/components/AddRepository.tsx`
+- `apps/samebase/src/lib/repositorySearch.ts`
 
 ## Runtime Contract
 

@@ -98,7 +98,7 @@ should update or remove these facts as the code catches up.
 ### Template
 
 `notermd/app@main` is still Pages-oriented. Noter currently exports that branch into
-`apps/noter/convex/starterSeedManifest.generated.ts`.
+`apps/samebase/convex/starterSeedManifest.generated.ts`.
 
 The Workers branch is `notermd/app@v5-tanstack-start-workers`. That branch proves the rough shape:
 
@@ -250,7 +250,7 @@ For generated single-repository apps, use these Workers Builds commands:
 2. production deploy command: `pnpm run deploy`
 3. preview deploy command: `pnpm run deploy:preview`
 
-For older monorepo-shaped Noter-generated apps, a temporary fallback can use `apps/noter` as the
+For older monorepo-shaped Noter-generated apps, a temporary fallback can use `apps/samebase` as the
 root with direct Wrangler commands while the template surface converges.
 
 User-facing Cloudflare connection must stay web-authenticated. Do not replace the product flow with

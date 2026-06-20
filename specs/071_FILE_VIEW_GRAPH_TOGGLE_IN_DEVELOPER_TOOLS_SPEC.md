@@ -9,9 +9,9 @@
   - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
   - `rfcs/023_AGENT_GRAPH_CHAT_INTEGRATION_SPEC.md`
 - Source of truth files:
-  - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/FileViewDeveloperTools.tsx`
-  - `apps/noter/src/components/AgentGraphView.tsx`
+  - `apps/samebase/src/components/FileView.tsx`
+  - `apps/samebase/src/components/FileViewDeveloperTools.tsx`
+  - `apps/samebase/src/components/AgentGraphView.tsx`
 
 ## Summary
 
@@ -45,7 +45,7 @@ default if the graph entry point is meant to stay more developer-oriented than e
 
 ### FileView behavior
 
-Current implementation in `apps/noter/src/components/FileView.tsx`:
+Current implementation in `apps/samebase/src/components/FileView.tsx`:
 
 1. `viewMode` is `"editor" | "graph"`.
 2. `viewMode` is stored in localStorage under `noter:graph-view:${vaultId}`.

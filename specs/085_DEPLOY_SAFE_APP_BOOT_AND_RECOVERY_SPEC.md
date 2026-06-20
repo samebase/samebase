@@ -5,12 +5,12 @@
 - Status: Accepted and implemented
 - Owner: Noter frontend
 - Last updated: 2026-04-12
-- Related files: `specs/064_THIN_INSTALLABLE_WEB_APP_SPEC.md`, `apps/noter/src/main.tsx`,
-  `apps/noter/src/components/AppBootErrorBoundary.tsx`,
-  `apps/noter/src/components/AppBootFailureState.tsx`, `apps/noter/src/lib/appBootRecovery.ts`,
-  `apps/noter/src/lib/appBuildMetadata.ts`, `apps/noter/src/lib/convexQueryCache.ts`,
-  `apps/noter/src/lib/convexQueryCacheStorage.ts`, `apps/noter/src/lib/storageAccess.ts`,
-  `apps/noter/src/routes/root.tsx`
+- Related files: `specs/064_THIN_INSTALLABLE_WEB_APP_SPEC.md`, `apps/samebase/src/main.tsx`,
+  `apps/samebase/src/components/AppBootErrorBoundary.tsx`,
+  `apps/samebase/src/components/AppBootFailureState.tsx`,
+  `apps/samebase/src/lib/appBootRecovery.ts`, `apps/samebase/src/lib/appBuildMetadata.ts`,
+  `apps/samebase/src/lib/convexQueryCache.ts`, `apps/samebase/src/lib/convexQueryCacheStorage.ts`,
+  `apps/samebase/src/lib/storageAccess.ts`, `apps/samebase/src/routes/root.tsx`
 
 ## Summary
 
@@ -180,7 +180,7 @@ app HTML.
   handling.
 - The recovery UI has direct tests for stale-asset and generic-startup failure rendering.
 - App query-cache keys include a build-scoped namespace.
-- `pnpm --dir apps/noter exec tsgo --noEmit` passes.
+- `pnpm --dir apps/samebase exec tsgo --noEmit` passes.
 
 ### Manual
 

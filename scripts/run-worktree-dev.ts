@@ -16,7 +16,7 @@ import {
   readPositiveIntegerEnvValue,
 } from "./lib/env.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
-import { noterAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
+import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
@@ -183,7 +183,7 @@ export function buildWorktreeDevCommandPlan(
   repoRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): CommandSpec[] {
-  const appDir = path.join(repoRoot, "apps", "noter");
+  const appDir = path.join(repoRoot, "apps", "samebase");
   const seedEnv = options.sourceDeployKey
     ? {
         ...env,
@@ -236,7 +236,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: appDir,
       command: process.execPath,
       args: [
-        path.join(appDir, noterAppFilePath("scripts/convex-dev.ts")),
+        path.join(appDir, samebaseAppFilePath("scripts/convex-dev.ts")),
         "--once",
         "--codegen=enable",
         "--tail-logs=disable",
@@ -268,7 +268,7 @@ export function buildWorktreeDevCommandPlan(
       cwd: appDir,
       command: process.execPath,
       args: [
-        path.join(appDir, noterAppFilePath("scripts/convex-dev.ts")),
+        path.join(appDir, samebaseAppFilePath("scripts/convex-dev.ts")),
         "--refresh-anon-auth",
         "--once",
         "--codegen=disable",

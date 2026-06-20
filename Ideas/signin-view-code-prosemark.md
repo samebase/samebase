@@ -60,7 +60,7 @@ Renderer maps each shortcode to a known React component. No dynamic code eval.
 ## Implementation sketch (later)
 
 1. **Content file**
-   - Add `apps/noter/src/content/signin.landing.md` (or reuse `noter.md` section if preferred).
+   - Add `apps/samebase/src/content/signin.landing.md` (or reuse `noter.md` section if preferred).
 2. **Doc renderer**
    - Parse markdown with existing pipeline.
    - Detect shortcodes like `[[auth.google]]`.

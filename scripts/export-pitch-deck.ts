@@ -4,15 +4,15 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import type * as PlaywrightTest from "@playwright/test";
-import { noterAppFilePath } from "./lib/trackedFilePath.ts";
+import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const appDir = path.join(repoRoot, "apps/noter");
+const appDir = path.join(repoRoot, "apps/samebase");
 const appDistDir = path.join(appDir, "dist");
 const previewPort = Number.parseInt(process.env.PITCH_DECK_EXPORT_PORT ?? "43129", 10);
 const previewUrl = `http://127.0.0.1:${previewPort}`;
-const requireFromApp = createRequire(path.join(appDir, noterAppFilePath("package.json")));
+const requireFromApp = createRequire(path.join(appDir, samebaseAppFilePath("package.json")));
 const playwrightModule: typeof PlaywrightTest = requireFromApp("@playwright/test");
 const { chromium } = playwrightModule;
 type ExportTarget = {

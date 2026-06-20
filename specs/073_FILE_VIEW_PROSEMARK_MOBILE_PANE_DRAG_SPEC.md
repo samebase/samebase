@@ -6,12 +6,12 @@
 - Owner: Noter frontend/editor UX
 - Last updated: 2026-03-30
 - Depends on:
-  - `apps/noter/src/components/WorkspaceSidebarShell.tsx`
-  - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
-  - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/ProsemarkMergeEditor.tsx`
-  - `apps/noter/src/components/ProsemarkReadOnly.tsx`
-  - `apps/noter/src/components/sidebar.tsx`
+  - `apps/samebase/src/components/WorkspaceSidebarShell.tsx`
+  - `apps/samebase/src/components/RepositoryWorkspaceFrame.tsx`
+  - `apps/samebase/src/components/FileView.tsx`
+  - `apps/samebase/src/components/ProsemarkMergeEditor.tsx`
+  - `apps/samebase/src/components/ProsemarkReadOnly.tsx`
+  - `apps/samebase/src/components/sidebar.tsx`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
   - `rfcs/073_INDEPENDENT_RIGHT_SIDEBAR_SPEC.md`
 

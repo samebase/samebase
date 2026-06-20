@@ -147,7 +147,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   all Chrome, mobile emulation from launch, touch-gesture anchoring), follow
   `skills/noter-playwright-live/SKILL.md`.
 - Worktree frontend should avoid port `5173`; prefer the worktree defaults.
-- Treat shadcn-generated files in `apps/noter/src/components/ui/*` as read-only unless the user
+- Treat shadcn-generated files in `apps/samebase/src/components/ui/*` as read-only unless the user
   explicitly asks to update shadcn output.
 - Treat speculative future-proofing as a bug. Do not add backup env vars, imagined code paths, or
   placeholder config.
@@ -238,7 +238,7 @@ Key domain entities:
 
 ## Convex CLI
 
-Use from `apps/noter` when debugging runtime issues: `npx convex logs` (add `--prod --history 50`
+Use from `apps/samebase` when debugging runtime issues: `npx convex logs` (add `--prod --history 50`
 for production), `npx convex dashboard`, `npx convex env list`.
 
 - When checking production from a worktree, never pass `--env-file` pointing at another checkout. If
@@ -325,7 +325,7 @@ Simplicity and deletion:
   whose path carries the context (`pick` in an object module).
 - Generated files contain only output derived from their named source of truth.
 - Wrap hard-coded tracked-file references in scripts with `trackedFilePath(...)` or
-  `noterAppFilePath(...)`.
+  `samebaseAppFilePath(...)`.
 
 Effects and reads:
 
@@ -397,9 +397,9 @@ UI code:
   fixture policy, follow `skills/noter-playwright-live/SKILL.md` and
   `docs/playwright-visual-testing.md`. `pnpm test:visual:linux` is the canonical local acceptance
   command for visual/Playwright validation. Do not substitute host-native
-  `pnpm --filter noter test:visual`, Playwright shards, or focused specs for acceptance unless the
-  user explicitly asks for that exact non-canonical command; if a non-canonical visual run was used
-  first, say so and run the Docker/Linux wrapper before reporting visual acceptance.
+  `pnpm --filter samebase test:visual`, Playwright shards, or focused specs for acceptance unless
+  the user explicitly asks for that exact non-canonical command; if a non-canonical visual run was
+  used first, say so and run the Docker/Linux wrapper before reporting visual acceptance.
 - For bugs involving scroll, touch, drag, focus, selection, pane layout, auth wiring, or route shell
   behavior, reproduce and test the real app route first. Do not create fake visual fixtures just to
   show or approve a behavior screenshot; a fixture must mount the exact production component tree
@@ -412,7 +412,7 @@ UI code:
 
 ## shadcn/ui Rules
 
-- Do not manually edit generated files in `apps/noter/src/components/ui/*` unless the user
+- Do not manually edit generated files in `apps/samebase/src/components/ui/*` unless the user
   explicitly asks for that exact change.
 - Use the shadcn CLI via `npx` for component additions or refreshes.
 - Prefer repo-owned wrapper entrypoints outside `components/ui/*` when Noter needs shared styling or
@@ -436,9 +436,9 @@ UI code:
 
 This project uses [Convex](https://convex.dev) as its backend.
 
-When working on Convex code, **always read `apps/noter/convex/_generated/ai/guidelines.md` first**
-for important guidelines on how to correctly use Convex APIs and patterns. The file contains rules
-that override what you may have learned about Convex from training data.
+When working on Convex code, **always read `apps/samebase/convex/_generated/ai/guidelines.md`
+first** for important guidelines on how to correctly use Convex APIs and patterns. The file contains
+rules that override what you may have learned about Convex from training data.
 
 Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
 

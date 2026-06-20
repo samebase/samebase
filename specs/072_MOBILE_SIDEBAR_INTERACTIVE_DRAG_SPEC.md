@@ -6,11 +6,11 @@
 - Owner: Noter frontend
 - Last updated: 2026-03-29
 - Depends on:
-  - `apps/noter/src/components/DashboardWorkspaceLayout.tsx`
-  - `apps/noter/src/components/RepositoryWorkspaceFrame.tsx`
-  - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
-  - `apps/noter/src/components/WorkspaceSidebarShell.tsx`
+  - `apps/samebase/src/components/DashboardWorkspaceLayout.tsx`
+  - `apps/samebase/src/components/RepositoryWorkspaceFrame.tsx`
+  - `apps/samebase/src/components/FileView.tsx`
+  - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+  - `apps/samebase/src/components/WorkspaceSidebarShell.tsx`
   - `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md`
 
 ## Summary

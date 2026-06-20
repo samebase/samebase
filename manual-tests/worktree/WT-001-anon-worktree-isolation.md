@@ -30,8 +30,8 @@ make -C /tmp/noter-wt-b dev:worktree:once
 3. Compare backend URLs written by each worktree:
 
 ```bash
-grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-a/apps/noter/.env.local
-grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-b/apps/noter/.env.local
+grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-a/apps/samebase/.env.local
+grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-b/apps/samebase/.env.local
 ```
 
 4. Confirm each worktree captured allowlisted env vars in `.env.anon-seed.local` and applied seed
@@ -40,16 +40,16 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-
    `ANTHROPIC_API_KEY` is set on the cloud dev deployment:
 
 ```bash
-grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local | cut -d= -f1
-grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-a/apps/samebase/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/samebase/.env.anon-seed.local | cut -d= -f1
 
-(cd /tmp/noter-wt-a/apps/noter && \
+(cd /tmp/noter-wt-a/apps/samebase && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
   pid=$!; sleep 5; \
   npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \
   kill $pid; wait $pid 2>/dev/null || true)
 
-(cd /tmp/noter-wt-b/apps/noter && \
+(cd /tmp/noter-wt-b/apps/samebase && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
   pid=$!; sleep 5; \
   npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \

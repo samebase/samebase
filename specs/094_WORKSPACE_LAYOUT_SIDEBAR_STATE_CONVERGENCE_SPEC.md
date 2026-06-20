@@ -6,16 +6,16 @@
 - Owner: Noter frontend/workspace shell
 - Last updated: 2026-06-15
 - Related files:
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
-  - `apps/noter/src/components/AppWorkspaceShell.tsx`
-  - `apps/noter/src/lib/appWorkspaceSidebarPrehydration.ts`
-  - `apps/noter/src/lib/rootHead.ts`
-  - `apps/noter/src/components/PersistedSidebarProvider.tsx`
-  - `apps/noter/src/hooks/usePersistedWorkspaceSidebarState.ts`
-  - `apps/noter/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
-  - `apps/noter/src/lib/workspaceSidebarStateController.ts`
-  - `apps/noter/src/Layout.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
+  - `apps/samebase/src/components/AppWorkspaceShell.tsx`
+  - `apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts`
+  - `apps/samebase/src/lib/rootHead.ts`
+  - `apps/samebase/src/components/PersistedSidebarProvider.tsx`
+  - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
+  - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
+  - `apps/samebase/src/lib/workspaceSidebarStateController.ts`
+  - `apps/samebase/src/Layout.tsx`
   - `vite.config.ts`
 
 ## Summary

@@ -6,7 +6,7 @@ import { resolveStoredLocalBackendPort, stopListeningPort } from "./lib/killport
 const HELP_TEXT = `Usage: scripts/killport.ts [options] [port]
 
 Send SIGTERM to a listening local backend port. If no explicit port is passed,
-the script reads apps/noter/.env.local and reuses the stored CONVEX_URL or
+the script reads apps/samebase/.env.local and reuses the stored CONVEX_URL or
 VITE_CONVEX_URL port.
 
 Options:

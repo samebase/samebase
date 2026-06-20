@@ -16,7 +16,7 @@ and stored in Convex.
 
 ### Frontend
 
-- Component: `apps/noter/src/components/ChatFab.tsx`
+- Component: `apps/samebase/src/components/ChatFab.tsx`
 - Rendered for authenticated users
 - One thread per user+vault when a vault context exists
 - Supports metadata-driven cards:
@@ -26,9 +26,9 @@ and stored in Convex.
 
 ### Backend
 
-- Thread/message lifecycle: `apps/noter/convex/chat/index.ts`
-- Response generation and proposal/result messages: `apps/noter/convex/chat/actions.ts`
-- Tool catalog/system behavior: `apps/noter/convex/agent/*`
+- Thread/message lifecycle: `apps/samebase/convex/chat/index.ts`
+- Response generation and proposal/result messages: `apps/samebase/convex/chat/actions.ts`
+- Tool catalog/system behavior: `apps/samebase/convex/agent/*`
 
 ## Data Model
 

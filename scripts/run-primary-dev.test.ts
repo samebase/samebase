@@ -63,7 +63,7 @@ describe("run-primary-dev", () => {
       "exec",
       "vp",
       "run",
-      "--filter=noter",
+      "--filter=samebase",
       "dev",
       "--",
       "--continue",
@@ -75,7 +75,7 @@ describe("run-primary-dev", () => {
       "exec",
       "vp",
       "run",
-      "--filter=noter",
+      "--filter=samebase",
       "dev:raw",
     ]);
   });

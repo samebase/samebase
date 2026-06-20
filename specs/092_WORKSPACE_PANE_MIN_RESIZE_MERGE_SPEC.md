@@ -6,11 +6,11 @@
 - Owner: Noter frontend/workspace shell
 - Last updated: 2026-05-06
 - Related files:
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.mobile.test.tsx`
-  - `apps/noter/e2e/workspace-sidebar-drag.spec.ts`
-  - `apps/noter/e2e/public-landing-shell.spec.ts`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.mobile.test.tsx`
+  - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
+  - `apps/samebase/e2e/public-landing-shell.spec.ts`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
   - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `research/2026-05-04-mobile-sidebar-min-resize-merge.md`

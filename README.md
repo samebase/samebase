@@ -25,7 +25,7 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 - Connecting an existing GitHub repository does not auto-provision infra.
 - Starter seed source of truth is the external `notermd/app` GitHub repository, exported via
   `pnpm template:export` (`scripts/export-notermd-app-manifest.ts`) to
-  `apps/noter/convex/starterSeedManifest.generated.ts`.
+  `apps/samebase/convex/starterSeedManifest.generated.ts`.
 
 ## Tech Stack
 
@@ -116,7 +116,7 @@ Notes:
   so project-scoped Volta setups launch the same Codex binary that the later runtime command would
   use.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive Convex CLI
-  login/bootstrap prompt before `apps/noter/.env.local` exists.
+  login/bootstrap prompt before `apps/samebase/.env.local` exists.
 - On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL` sync after the
   long-running backend starts, so local OAuth redirects continue to follow the URL Vite printed even
   when the temporary bootstrap backend exits first.
@@ -162,7 +162,7 @@ pnpm dev:worktree
 pnpm build
 ```
 
-For Cloudflare Workers Builds, point the project root directory at `apps/noter` and use:
+For Cloudflare Workers Builds, point the project root directory at `apps/samebase` and use:
 
 - Build command: `pnpm run build`
 - Production deploy command: `pnpm run deploy`
@@ -175,7 +175,7 @@ Local dry-runs build the app assets without deploying Convex and can validate th
 with:
 
 ```bash
-CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run
+CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter samebase deploy:dry-run
 ```
 
 ### Testing
@@ -202,7 +202,7 @@ This project uses:
 - TypeScript for type safety
 - Vitest for testing
 
-Convex-generated client files under `apps/noter/convex/_generated/` are intentionally committed.
+Convex-generated client files under `apps/samebase/convex/_generated/` are intentionally committed.
 Building against an already-existing dev deployment can hide this requirement, because
 `convex codegen` has a deployment to talk to. Creating a fresh preview deployment is different:
 `convex deploy --cmd ...` runs the app build before Convex finishes the preview deploy's

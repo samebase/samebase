@@ -12,8 +12,8 @@ Replace the current fragile custom inline markdown diff editor with a safer impl
 ## Current State
 
 The current `Inline` mode is a custom layer on top of
-[`ProsemarkReadOnly`](../apps/noter/src/components/ProsemarkReadOnly.tsx) and
-[`FileView`](../apps/noter/src/components/FileView.tsx).
+[`ProsemarkReadOnly`](../apps/samebase/src/components/ProsemarkReadOnly.tsx) and
+[`FileView`](../apps/samebase/src/components/FileView.tsx).
 
 It currently:
 
@@ -98,7 +98,7 @@ This is the closest official solution to the UX we want.
 
 ### Existing repo constraints
 
-- `apps/noter/package.json` currently includes `diff`, and this change adds `@codemirror/merge`
+- `apps/samebase/package.json` currently includes `diff`, and this change adds `@codemirror/merge`
 - current inline mode is hand-rolled on top of `diffLines`
 - current markdown editor stack is based on `@prosemark/core`
 

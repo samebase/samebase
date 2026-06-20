@@ -8,8 +8,8 @@
 - Related files:
   - `vite.config.ts`
   - `package.json`
-  - `apps/noter/convex/test.setup.ts`
-  - `apps/noter/convex/**/*.convex.test.ts`
+  - `apps/samebase/convex/test.setup.ts`
+  - `apps/samebase/convex/**/*.convex.test.ts`
 
 ## Summary
 
@@ -27,14 +27,14 @@ The accepted approach is:
 ## Current Coverage
 
 The existing backend-adjacent tests are valuable, but they mostly import pure helpers from
-`apps/noter/convex`. They do not currently call registered functions through `api` or `internal`, do
-not use `t.withIdentity`, and do not call HTTP actions with `t.fetch`.
+`apps/samebase/convex`. They do not currently call registered functions through `api` or `internal`,
+do not use `t.withIdentity`, and do not call HTTP actions with `t.fetch`.
 
 The current Convex surface contains:
 
 - more than 120 public `query`, `mutation`, and `action` functions
 - internal functions that own cross-function state transitions
-- 18 app HTTP routes in `apps/noter/convex/http.ts`
+- 18 app HTTP routes in `apps/samebase/convex/http.ts`
 - installed Convex components for agent and workflow behavior
 
 Helper tests should remain, but new backend behavior that depends on Convex auth, schema validation,
@@ -49,7 +49,7 @@ this repo should not add a separate `vitest.config.ts` for Convex.
 The root test config should define separate projects:
 
 - `unit`: existing Node-based helper, React, script, and package tests.
-- `convex`: `apps/noter/convex/**/*.convex.test.ts` under `edge-runtime`.
+- `convex`: `apps/samebase/convex/**/*.convex.test.ts` under `edge-runtime`.
 
 `convex-test` and `@edge-runtime/vm` are direct root and `noter` package dev dependencies so CI,
 local worktrees, the root test runner, and app-local test imports do not depend on transitive
@@ -57,10 +57,10 @@ optional peer resolution.
 
 ## Convex Test Helper
 
-`apps/noter/convex/test.setup.ts` owns the Convex test harness:
+`apps/samebase/convex/test.setup.ts` owns the Convex test harness:
 
 - import `convexTest` from `convex-test`
-- pass `apps/noter/convex/schema.ts`
+- pass `apps/samebase/convex/schema.ts`
 - pass a filtered `import.meta.glob` module map for Convex source files
 - register `@convex-dev/agent` with component name `agent`
 - register `@convex-dev/workflow` with component name `workflow`

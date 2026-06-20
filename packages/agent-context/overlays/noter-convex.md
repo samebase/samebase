@@ -8,7 +8,7 @@ for Convex's generated guidance.
 
 ## Load First
 
-- When touching Noter Convex code, read `apps/noter/convex/_generated/ai/guidelines.md` first.
+- When touching Noter Convex code, read `apps/samebase/convex/_generated/ai/guidelines.md` first.
 - Then load the relevant generic Convex skill when the task matches it:
   - `convex-migration-helper` for breaking schema/data migrations
   - `convex-performance-audit` for latency, read amplification, subscription cost, or OCC issues
@@ -26,7 +26,7 @@ for Convex's generated guidance.
 - Classify the work before changing code: schema migration, module move, contract test,
   provider-boundary work, HTTP route, scheduled function, auth flow, component boundary, or pure
   helper.
-- Do not manually edit files under `apps/noter/convex/_generated/*`. Regenerate or typecheck them
+- Do not manually edit files under `apps/samebase/convex/_generated/*`. Regenerate or typecheck them
   through the normal Noter workflow when code edits are allowed.
 
 ## Local And Production Commands
@@ -45,7 +45,7 @@ for Convex's generated guidance.
 
 ## Noter Module And API Shape
 
-- Keep `apps/noter/convex/schema.ts` as the app schema entrypoint.
+- Keep `apps/samebase/convex/schema.ts` as the app schema entrypoint.
 - Organize modules by product responsibility. Do not preserve old Convex function references with
   root-level re-export shims or `index.ts` dumping grounds.
 - For app-owned module moves, update current callsites directly instead of keeping compatibility
@@ -80,7 +80,7 @@ for Convex's generated guidance.
   intentionally maintaining an existing older test file. Do not copy old unsuffixed `.test.ts`
   Convex examples just because they happen to use the harness.
 - Keep pure helper tests in normal `.test.ts` files.
-- Use `makeConvexTest()` from `apps/noter/convex/test.setup.ts` as the single harness. Seed only
+- Use `makeConvexTest()` from `apps/samebase/convex/test.setup.ts` as the single harness. Seed only
   needed rows, use `t.withIdentity` for authenticated users, call registered functions through
   `t.query`, `t.mutation`, `t.action`, and use `t.fetch` for HTTP routes.
 - Do not recreate component registration in individual tests; the harness owns current component
@@ -93,8 +93,9 @@ for Convex's generated guidance.
 - Convex Management API and Cloudflare API boundaries use generated OpenAPI types, checked-in drift
   sentinels, standalone validators, literal method/path/params/body callsites, and focused boundary
   tests.
-- Verify generated provider boundaries with `pnpm --dir apps/noter run verify:convex-management-api`
-  and `pnpm --dir apps/noter run verify:cloudflare-api`.
+- Verify generated provider boundaries with
+  `pnpm --dir apps/samebase run verify:convex-management-api` and
+  `pnpm --dir apps/samebase run verify:cloudflare-api`.
 - Do not hand-edit generated OpenAPI artifacts; regenerate from the source contract.
 - Keep `/oauth/token` and other endpoints outside a generated provider contract as explicit small
   local schemas.
@@ -108,7 +109,7 @@ for Convex's generated guidance.
 
 ## Research Notes
 
-Derived from `AGENTS.md`, `apps/noter/AGENTS.md`, `apps/noter/convex/_generated/ai/guidelines.md`,
-Convex task skills, `specs/095_CONVEX_BACKEND_CONTRACT_TESTING_SPEC.md`,
-`specs/100_CONVEX_VAULT_MODULE_LAYOUT_SPEC.md`, `specs/103_CONVEX_API_VALIDATION_SPEC.md`, and
-`specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`.
+Derived from `AGENTS.md`, `apps/samebase/AGENTS.md`,
+`apps/samebase/convex/_generated/ai/guidelines.md`, Convex task skills,
+`specs/095_CONVEX_BACKEND_CONTRACT_TESTING_SPEC.md`, `specs/100_CONVEX_VAULT_MODULE_LAYOUT_SPEC.md`,
+`specs/103_CONVEX_API_VALIDATION_SPEC.md`, and `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`.

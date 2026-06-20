@@ -8,15 +8,15 @@ type StripTrackedPrefix<
 > = Path extends `${Prefix}/${infer Rest}` ? Rest : never;
 
 export type TrackedPathUnder<Prefix extends string> = StripTrackedPrefix<TrackedFilePath, Prefix>;
-export type NoterAppFilePath = TrackedPathUnder<"apps/noter">;
+export type SamebaseAppFilePath = TrackedPathUnder<"apps/samebase">;
 
 export function isTrackedFilePath(filePath: unknown) {
   return includes(trackedFilePaths, filePath);
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- membership is checked on the derived `apps/noter/${filePath}` string, so control flow earns only `string`; the prefixed hit makes the suffix claim sound by construction
-export function isNoterAppFilePath(filePath: unknown): filePath is NoterAppFilePath {
-  return typeof filePath === "string" && isTrackedFilePath(`apps/noter/${filePath}`);
+// eslint-disable-next-line noter/no-hand-written-type-predicate -- membership is checked on the derived `apps/samebase/${filePath}` string, so control flow earns only `string`; the prefixed hit makes the suffix claim sound by construction
+export function isSamebaseAppFilePath(filePath: unknown): filePath is SamebaseAppFilePath {
+  return typeof filePath === "string" && isTrackedFilePath(`apps/samebase/${filePath}`);
 }
 
 /**
@@ -31,9 +31,9 @@ export function trackedFilePath<const Path extends TrackedFilePath>(filePath: Pa
   return filePath;
 }
 
-export function noterAppFilePath<const Path extends NoterAppFilePath>(filePath: Path): Path {
-  if (!isNoterAppFilePath(filePath)) {
-    throw new Error(`Untracked Noter app file path: ${String(filePath)}`);
+export function samebaseAppFilePath<const Path extends SamebaseAppFilePath>(filePath: Path): Path {
+  if (!isSamebaseAppFilePath(filePath)) {
+    throw new Error(`Untracked Samebase app file path: ${String(filePath)}`);
   }
   return filePath;
 }

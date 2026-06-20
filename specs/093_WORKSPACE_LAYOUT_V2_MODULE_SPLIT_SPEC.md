@@ -6,12 +6,12 @@
 - Owner: Noter frontend/workspace shell
 - Last updated: 2026-05-06
 - Related files:
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts`
-  - `apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts`
-  - `apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileCarousel.ts`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Viewports.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts`
+  - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts`
+  - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileCarousel.ts`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Viewports.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel.tsx`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
 
 ## Summary
@@ -181,7 +181,7 @@ the PR.
 Useful checks:
 
 ```bash
-pnpm test apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.mobile.test.tsx
-pnpm test apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.test.tsx
-pnpm --filter noter check:ci
+pnpm test apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.mobile.test.tsx
+pnpm test apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.test.tsx
+pnpm --filter samebase check:ci
 ```

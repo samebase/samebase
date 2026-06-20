@@ -6,8 +6,8 @@
 - Owner: Noter frontend/app shell
 - Last updated: 2026-05-27
 - Depends on:
-  - `apps/noter/src/lib/routeSearchFlags.ts`
-  - `apps/noter/src/lib/tanstackSearchParams.ts`
+  - `apps/samebase/src/lib/routeSearchFlags.ts`
+  - `apps/samebase/src/lib/tanstackSearchParams.ts`
   - `research/2026-05-02-route-search-presence-flags-and-validation.md`
 
 ## Summary
