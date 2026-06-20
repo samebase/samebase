@@ -23,7 +23,7 @@ async function main(): Promise<void> {
     PNPM_COMMAND,
     [
       "--filter",
-      "noter",
+      "samebase",
       "exec",
       "node",
       samebaseAppFilePath("scripts/convex-dev.ts"),
@@ -122,7 +122,7 @@ async function main(): Promise<void> {
  * for fatal errors and the idempotent single-key write contract.
  */
 async function runConvexEnvSet(key: string, value: string): Promise<void> {
-  const args = ["--filter", "noter", "exec", "convex", "env", "set", "--", key, value];
+  const args = ["--filter", "samebase", "exec", "convex", "env", "set", "--", key, value];
 
   for (let attempt = 1; attempt <= convexEnvSetMaxAttempts; attempt += 1) {
     const result = spawnSync(PNPM_COMMAND, args, {
@@ -174,7 +174,7 @@ async function runConvexPasswordAccountSeed(): Promise<void> {
     PNPM_COMMAND,
     [
       "--filter",
-      "noter",
+      "samebase",
       "exec",
       "convex",
       "run",
