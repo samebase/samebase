@@ -7,7 +7,7 @@ environments.
 
 ## Current Repo State (2026-02-13)
 
-- `apps/noter/package.json` currently pins `convex` to `1.27.5`.
+- `apps/samebase/package.json` currently pins `convex` to `1.27.5`.
 - Current scripts still run `convex codegen` during lint/build.
 
 ## If/When Upgrading Convex to `>=1.28.0`

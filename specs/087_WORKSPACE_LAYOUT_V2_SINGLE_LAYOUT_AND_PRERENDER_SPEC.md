@@ -6,12 +6,12 @@
 - Owner: Noter frontend/workspace shell
 - Last updated: 2026-04-25
 - Related files:
-  - `apps/noter/src/Layout.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx`
-  - `apps/noter/src/routes/public-layout.tsx`
-  - `apps/noter/src/routes/-publicRouteComponents.tsx`
-  - `apps/noter/vite.config.ts`
+  - `apps/samebase/src/Layout.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx`
+  - `apps/samebase/src/routes/public-layout.tsx`
+  - `apps/samebase/src/routes/-publicRouteComponents.tsx`
+  - `apps/samebase/vite.config.ts`
   - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
   - `specs/083_TANSTACK_ROUTER_FILE_BASED_MIGRATION_SPEC.md`
 

@@ -6,13 +6,13 @@
 - Owner: Noter backend
 - Last updated: 2026-05-06
 - Related files:
-  - `apps/noter/convex/schema.ts`
-  - `apps/noter/convex/codespaces/model.ts`
-  - `apps/noter/convex/codespaces/index.ts`
-  - `apps/noter/convex/codespaces/mutations.ts`
-  - `apps/noter/convex/codespaces/executor.ts`
-  - `apps/noter/convex/codespaces/ports.ts`
-  - `apps/noter/convex/codespaces/vaultIntegration.ts`
+  - `apps/samebase/convex/schema.ts`
+  - `apps/samebase/convex/codespaces/model.ts`
+  - `apps/samebase/convex/codespaces/index.ts`
+  - `apps/samebase/convex/codespaces/mutations.ts`
+  - `apps/samebase/convex/codespaces/executor.ts`
+  - `apps/samebase/convex/codespaces/ports.ts`
+  - `apps/samebase/convex/codespaces/vaultIntegration.ts`
   - `specs/001_CODESPACE_CONNECTION_SPEC.md`
   - `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
   - `rfcs/009_CODESPACE_PORT_VISIBILITY_SPEC.md`
@@ -23,7 +23,7 @@ Codespaces is a standalone Convex backend domain. It owns the GitHub Codespace l
 record mutations, agent executor calls, port visibility reconciliation, and vault-to-codespace
 integration.
 
-The domain should live under `apps/noter/convex/codespaces/` so the backend tree shows that shape
+The domain should live under `apps/samebase/convex/codespaces/` so the backend tree shows that shape
 directly. Root `schema.ts` should still define the app schema because Convex expects the app schema
 there, but it should import the codespaces table from the domain model so the root file reads as a
 map of tables instead of a place for all table implementation details.
@@ -47,7 +47,7 @@ reference the owning module path directly.
 
 ## Schema Contract
 
-`apps/noter/convex/schema.ts` remains the single app schema entrypoint.
+`apps/samebase/convex/schema.ts` remains the single app schema entrypoint.
 
 The `codespaces` table definition belongs in `codespaces/model.ts` and is imported into root schema
 as:

@@ -6,38 +6,38 @@
 - Owner: Noter frontend/workspace shell
 - Last updated: 2026-04-11
 - Depends on:
-  - `apps/noter/index.html`
-  - `apps/noter/package.json`
-  - `apps/noter/vite.config.ts`
-  - `apps/noter/src/main.tsx`
-  - `apps/noter/src/bootstrap.ts`
-  - `apps/noter/src/App.tsx`
-  - `apps/noter/src/Layout.tsx`
-  - `apps/noter/src/SignInForm.tsx`
-  - `apps/noter/src/SignInForm.scrollRestore.test.tsx`
-  - `apps/noter/src/components/AppBuildStatusBar.tsx`
-  - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/LandingCopyVisualFixture.tsx`
-  - `apps/noter/src/components/RepositoryRouteConnectState.tsx`
-  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
-  - `apps/noter/src/components/workspace-layout/RepositoryWorkspaceFrame.tsx`
-  - `apps/noter/src/components/workspace-layout/DashboardWorkspaceLayout.tsx`
-  - `apps/noter/src/components/workspace-layout/VaultDashboardWorkspaceScene.tsx`
-  - `apps/noter/src/components/workspace-layout/WorkspaceScene.tsx`
-  - `apps/noter/src/components/workspace-layout/WorkspaceSidebarShell.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface.ts`
-  - `apps/noter/src/components/useProsemarkMobilePaneDrag.ts`
-  - `apps/noter/src/lib/fastLandingBoot.ts`
-  - `apps/noter/src/lib/landingCopyShell.ts`
-  - `apps/noter/src/lib/pageMetadata.ts`
-  - `apps/noter/src/lib/publicLandingAuthState.ts`
-  - `apps/noter/src/lib/publicLandingScrollState.ts`
-  - `apps/noter/src/visualFixture.tsx`
-  - `apps/noter/e2e/public-landing-shell.spec.ts`
-  - `apps/noter/e2e/landing-copy-visual.spec.ts`
+  - `apps/samebase/index.html`
+  - `apps/samebase/package.json`
+  - `apps/samebase/vite.config.ts`
+  - `apps/samebase/src/main.tsx`
+  - `apps/samebase/src/bootstrap.ts`
+  - `apps/samebase/src/App.tsx`
+  - `apps/samebase/src/Layout.tsx`
+  - `apps/samebase/src/SignInForm.tsx`
+  - `apps/samebase/src/SignInForm.scrollRestore.test.tsx`
+  - `apps/samebase/src/components/AppBuildStatusBar.tsx`
+  - `apps/samebase/src/components/FileView.tsx`
+  - `apps/samebase/src/components/LandingCopyVisualFixture.tsx`
+  - `apps/samebase/src/components/RepositoryRouteConnectState.tsx`
+  - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+  - `apps/samebase/src/components/workspace-layout/RepositoryWorkspaceFrame.tsx`
+  - `apps/samebase/src/components/workspace-layout/DashboardWorkspaceLayout.tsx`
+  - `apps/samebase/src/components/workspace-layout/VaultDashboardWorkspaceScene.tsx`
+  - `apps/samebase/src/components/workspace-layout/WorkspaceScene.tsx`
+  - `apps/samebase/src/components/workspace-layout/WorkspaceSidebarShell.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2PageFrame.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface.ts`
+  - `apps/samebase/src/components/useProsemarkMobilePaneDrag.ts`
+  - `apps/samebase/src/lib/fastLandingBoot.ts`
+  - `apps/samebase/src/lib/landingCopyShell.ts`
+  - `apps/samebase/src/lib/pageMetadata.ts`
+  - `apps/samebase/src/lib/publicLandingAuthState.ts`
+  - `apps/samebase/src/lib/publicLandingScrollState.ts`
+  - `apps/samebase/src/visualFixture.tsx`
+  - `apps/samebase/e2e/public-landing-shell.spec.ts`
+  - `apps/samebase/e2e/landing-copy-visual.spec.ts`
   - `specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md`
   - `specs/073_FILE_VIEW_PROSEMARK_MOBILE_PANE_DRAG_SPEC.md`
   - `specs/074_FILE_VIEW_MONACO_MOBILE_PANE_DRAG_SPEC.md`
@@ -480,35 +480,35 @@ following code becomes a direct deletion or reduction target.
 
 These are tightly coupled to the current split bootstrap path:
 
-1. `apps/noter/src/bootstrap.ts`
-2. `apps/noter/src/lib/fastLandingBoot.ts`
-3. `resolveBootstrapPageMetadata()` inside `apps/noter/src/lib/pageMetadata.ts`
-4. `shouldRenderFastLandingShell()` inside `apps/noter/src/lib/publicLandingAuthState.ts`
-5. `apps/noter/e2e/public-landing-shell.spec.ts`
+1. `apps/samebase/src/bootstrap.ts`
+2. `apps/samebase/src/lib/fastLandingBoot.ts`
+3. `resolveBootstrapPageMetadata()` inside `apps/samebase/src/lib/pageMetadata.ts`
+4. `shouldRenderFastLandingShell()` inside `apps/samebase/src/lib/publicLandingAuthState.ts`
+5. `apps/samebase/e2e/public-landing-shell.spec.ts`
 
 ### Likely follow-on deletions
 
 These should disappear once the landing page renders only through the real route tree and no longer
 needs bootstrap parity:
 
-1. `apps/noter/src/lib/publicLandingScrollState.ts`
-2. `apps/noter/src/SignInForm.scrollRestore.test.tsx`
-3. `apps/noter/src/lib/landingCopyShell.ts`
-4. the bootstrap parity mode inside `apps/noter/src/components/LandingCopyVisualFixture.tsx`
-5. the related parity-only modes inside `apps/noter/src/visualFixture.tsx`
-6. parity assertions in `apps/noter/e2e/landing-copy-visual.spec.ts`
+1. `apps/samebase/src/lib/publicLandingScrollState.ts`
+2. `apps/samebase/src/SignInForm.scrollRestore.test.tsx`
+3. `apps/samebase/src/lib/landingCopyShell.ts`
+4. the bootstrap parity mode inside `apps/samebase/src/components/LandingCopyVisualFixture.tsx`
+5. the related parity-only modes inside `apps/samebase/src/visualFixture.tsx`
+6. parity assertions in `apps/samebase/e2e/landing-copy-visual.spec.ts`
 
 ### Major reductions
 
 These are strong simplification targets even if they are not deleted immediately:
 
-1. `apps/noter/src/App.tsx` should stop being the central pathname switchboard for special pages,
+1. `apps/samebase/src/App.tsx` should stop being the central pathname switchboard for special pages,
    auth branching, and route rendering
-2. `apps/noter/src/main.tsx` should be replaced by a much thinner framework entry client
-3. `apps/noter/index.html` should stop owning the document shell and should likely disappear in
+2. `apps/samebase/src/main.tsx` should be replaced by a much thinner framework entry client
+3. `apps/samebase/index.html` should stop owning the document shell and should likely disappear in
    favor of a route-aware root entry
-4. metadata resolution in `apps/noter/src/lib/pageMetadata.ts` and
-   `apps/noter/src/lib/usePageMetadata.ts` should shrink once route modules own their metadata
+4. metadata resolution in `apps/samebase/src/lib/pageMetadata.ts` and
+   `apps/samebase/src/lib/usePageMetadata.ts` should shrink once route modules own their metadata
    closer to the route
 
 The route wrapper work in this spec is successful only if it moves the app toward fewer runtimes,

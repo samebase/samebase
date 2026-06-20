@@ -117,7 +117,7 @@ What to verify:
 To confirm the exact-copy contract locally:
 
 ```bash
-git diff --no-index -- packages/sync/noter.ts apps/noter/public/noter.ts
+git diff --no-index -- packages/sync/noter.ts apps/samebase/public/noter.ts
 ```
 
 Expected result:
@@ -237,12 +237,12 @@ That bypasses `curl` while keeping the same runtime behavior.
 
 Useful files:
 
-1. machine-connect page: `apps/noter/src/components/MachineConnectPage.tsx`
-2. machine approval and presence backend: `apps/noter/convex/connectedMachines.ts`
-3. machine HTTP entrypoints: `apps/noter/convex/connectedMachineHttp.ts`
-4. machine row and credential models: `apps/noter/convex/connectedMachineModel.ts`
+1. machine-connect page: `apps/samebase/src/components/MachineConnectPage.tsx`
+2. machine approval and presence backend: `apps/samebase/convex/connectedMachines.ts`
+3. machine HTTP entrypoints: `apps/samebase/convex/connectedMachineHttp.ts`
+4. machine row and credential models: `apps/samebase/convex/connectedMachineModel.ts`
 5. canonical installer and runner: `packages/sync/noter.ts`
-6. hosted mirrored copy: `apps/noter/public/noter.ts`
+6. hosted mirrored copy: `apps/samebase/public/noter.ts`
 
 ## 11. What To Conclude From This Slice
 

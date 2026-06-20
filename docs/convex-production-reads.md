@@ -14,7 +14,7 @@ key's deployment instead. If the CLI prints
 
 ## The recipe
 
-Run prod commands from the primary local checkout's `apps/noter` directory, derive a comment-free
+Run prod commands from the primary local checkout's `apps/samebase` directory, derive a comment-free
 `CONVEX_DEPLOYMENT` value from that checkout's `.env.local`, and clear the deploy-key env in the
 same command:
 
@@ -23,7 +23,7 @@ primary_checkout="$(
   git worktree list --porcelain |
     awk '$1 == "worktree" { worktree=$2 } $1 == "branch" && $2 == "refs/heads/main" { print worktree; exit }'
 )"
-cd "$primary_checkout/apps/noter"
+cd "$primary_checkout/apps/samebase"
 CONVEX_DEPLOYMENT="$(
   node <<'NODE'
 const fs = require("fs");

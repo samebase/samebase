@@ -9,16 +9,16 @@
   - framework-readiness direction in
     `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
 - Depends on:
-  - `apps/noter/package.json`
-  - `apps/noter/public/_redirects`
-  - `apps/noter/scripts/run-vite-dev.ts`
-  - `apps/noter/src/Layout.tsx`
-  - `apps/noter/src/components/FastPublicLandingShell.tsx`
-  - `apps/noter/src/components/NotFoundRoutePage.tsx`
-  - `apps/noter/src/components/RootIndexRoutePage.tsx`
-  - `apps/noter/src/entry.tsx`
-  - `apps/noter/src/main.tsx`
-  - `apps/noter/vite.config.ts`
+  - `apps/samebase/package.json`
+  - `apps/samebase/public/_redirects`
+  - `apps/samebase/scripts/run-vite-dev.ts`
+  - `apps/samebase/src/Layout.tsx`
+  - `apps/samebase/src/components/FastPublicLandingShell.tsx`
+  - `apps/samebase/src/components/NotFoundRoutePage.tsx`
+  - `apps/samebase/src/components/RootIndexRoutePage.tsx`
+  - `apps/samebase/src/entry.tsx`
+  - `apps/samebase/src/main.tsx`
+  - `apps/samebase/vite.config.ts`
   - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
   - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
 
@@ -58,26 +58,26 @@ problems, attempted fixes, and outcomes.
 
 ## Current Constraints
 
-- `apps/noter/src/entry.tsx` now loads directly from `index.html`, while `apps/noter/src/main.tsx`
-  only owns the reusable routed app mount logic.
-- `apps/noter/src/lib/appRouter.ts` now owns the simple standalone public and dev-only routes
+- `apps/samebase/src/entry.tsx` now loads directly from `index.html`, while
+  `apps/samebase/src/main.tsx` only owns the reusable routed app mount logic.
+- `apps/samebase/src/lib/appRouter.ts` now owns the simple standalone public and dev-only routes
   (`/privacy`, `/terms`, `/logo*`, `/pitch*`, and the Codex research paths) plus the non-root
   authenticated app routes (MCP consent, pricing, add-repository, machines, machine connect,
   codespace chat, and the vault/file surfaces), plus the explicit root routes for `/` and `/test`.
-- `apps/noter/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
+- `apps/samebase/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
   Google sign-in entrypoints now pass `/home` as the provider return route when the user starts
   sign-in from `/`. Authenticated users can still browse the public landing route because
-  `apps/noter/src/lib/useAppAuthRuntimeEffects.ts` no longer redirects authenticated `/` renders.
+  `apps/samebase/src/lib/useAppAuthRuntimeEffects.ts` no longer redirects authenticated `/` renders.
   Unresolved paths now go through a deliberate root-level not-found route instead of a leftover
   `App.tsx` bridge.
 - The fast public landing behavior now lives inside routed public landing components instead of a
   separate `bootstrap.ts` HTML path.
-- The repo-owned router seam in `apps/noter/src/lib/router.ts` is still a temporary compatibility
+- The repo-owned router seam in `apps/samebase/src/lib/router.ts` is still a temporary compatibility
   layer for `Link`, `useLocation`, `useSearchParams`, `useNavigate`, and `MemoryRouter`, so route
   ownership is only partially moved out of the React Router-era API shape.
-- `apps/noter/src/lib/appRouter.ts` now uses repo-owned plain-string search parsing/stringifying so
-  route-owned TanStack search can preserve the app's existing human-readable query semantics instead
-  of falling back to TanStack's JSON-like default search serialization.
+- `apps/samebase/src/lib/appRouter.ts` now uses repo-owned plain-string search parsing/stringifying
+  so route-owned TanStack search can preserve the app's existing human-readable query semantics
+  instead of falling back to TanStack's JSON-like default search serialization.
 - The meaningful app-owned search surfaces (landing, MCP consent, machine connect, pricing,
   machines, logo, and the research routes) now validate through route-owned TanStack search
   contracts, so the remaining work is cleanup and simplification rather than finishing search
@@ -116,10 +116,10 @@ problems, attempted fixes, and outcomes.
   the package swap does not require another repo-wide search.
 
 - Problem: a bulk import rewrite can accidentally rewrite the seam module itself and turn it into a
-  self-import. Tried: introduced `apps/noter/src/lib/router.tsx`, bulk-moved imports behind it, then
-  ran TypeScript. Result: the first pass rewrote the seam file to import `@/lib/router` from itself
-  and triggered circular alias errors. The seam works once it keeps a direct `react-router-dom`
-  import, so every automated rewrite step needs a post-change typecheck.
+  self-import. Tried: introduced `apps/samebase/src/lib/router.tsx`, bulk-moved imports behind it,
+  then ran TypeScript. Result: the first pass rewrote the seam file to import `@/lib/router` from
+  itself and triggered circular alias errors. The seam works once it keeps a direct
+  `react-router-dom` import, so every automated rewrite step needs a post-change typecheck.
 
 - Problem: a repo-owned router seam should not live in a `.tsx` file when it only exports helpers.
   Tried: committed the seam as `router.tsx` and let the normal pre-commit lint run. Result:
@@ -401,6 +401,6 @@ problems, attempted fixes, and outcomes.
    shell/handoff contract: `shouldRenderFastLandingShell()`, `fastLandingBoot.ts`,
    `FastPublicLandingShell.tsx`, and the related parity-only tests or fixtures.
 2. Delete the remaining unresolved fallback route bridge in `App.tsx` and the router compat seam in
-   `apps/noter/src/lib/router.ts` once those callers have a deliberate TanStack-native path.
+   `apps/samebase/src/lib/router.ts` once those callers have a deliberate TanStack-native path.
 3. Keep the shared workspace wrapper and drag-contract migration from `specs/080` on a separate
    rollout track, and reconnect it only where routed ownership genuinely needs those seams.

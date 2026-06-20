@@ -83,11 +83,11 @@ recency so normal presence updates do not reshuffle the browser-visible machine 
 
 - `packages/sync/noter.ts`
 - `packages/sync/package.json`
-- `apps/noter/convex/connectedMachineHttp.ts`
-- `apps/noter/convex/connectedMachines.ts`
-- `apps/noter/convex/connectedMachineModel.ts`
-- `apps/noter/convex/schema.ts`
-- `apps/noter/src/components/MachineConnectPage.tsx`
+- `apps/samebase/convex/connectedMachineHttp.ts`
+- `apps/samebase/convex/connectedMachines.ts`
+- `apps/samebase/convex/connectedMachineModel.ts`
+- `apps/samebase/convex/schema.ts`
+- `apps/samebase/src/components/MachineConnectPage.tsx`
 
 ## What This Spec Does Not Define
 

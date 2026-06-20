@@ -2,7 +2,7 @@
 
 ## Project Detection
 
-1. If `apps/noter/package.json` exists: treat as Noter monorepo.
+1. If `apps/samebase/package.json` exists: treat as Noter monorepo.
 2. Else if root `package.json` has `dev:frontend` and `dev:backend`: treat as Noter-stack generated
    app.
 
@@ -43,7 +43,7 @@ done
 ## Dashboard/Create-App Flow (Noter monorepo)
 
 1. Open home page.
-2. Sign in with seeded dev password account (from `apps/noter/convex/devAuth.ts`).
+2. Sign in with seeded dev password account (from `apps/samebase/convex/devAuth.ts`).
 3. Fill `New app name`.
 4. Click `New app`.
 5. Verify:

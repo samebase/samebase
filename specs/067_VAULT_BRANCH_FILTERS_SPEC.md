@@ -21,12 +21,12 @@ The branch filter UI is inclusive:
 
 ## Source of Truth Files
 
-- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
-- `apps/noter/src/components/vault-dashboard/VaultBranchFilters.tsx`
-- `apps/noter/src/components/vault-dashboard/vaultDashboardBranchFilters.ts`
-- `apps/noter/src/lib/pullRequestLabels.ts`
-- `apps/noter/convex/vault/dashboard.ts`
-- `apps/noter/convex/schema.ts`
+- `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+- `apps/samebase/src/components/vault-dashboard/VaultBranchFilters.tsx`
+- `apps/samebase/src/components/vault-dashboard/vaultDashboardBranchFilters.ts`
+- `apps/samebase/src/lib/pullRequestLabels.ts`
+- `apps/samebase/convex/vault/dashboard.ts`
+- `apps/samebase/convex/schema.ts`
 
 ## UI Behavior
 

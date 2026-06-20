@@ -6,16 +6,16 @@
 - Owner: Noter frontend/editor + GitHub integration
 - Last updated: 2026-03-25
 - Depends on:
-  - `apps/noter/src/components/FileView.tsx`
-  - `apps/noter/src/components/RepositoryMediaViewer.tsx`
-  - `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
-  - `apps/noter/src/components/AddRepository.tsx`
-  - `apps/noter/shared/repositoryMedia.ts`
-  - `apps/noter/convex/fileStaging.ts`
-  - `apps/noter/convex/fileStagingActions.ts`
-  - `apps/noter/convex/github.ts`
-  - `apps/noter/convex/gitOperations.ts`
-  - `apps/noter/convex/schema.ts`
+  - `apps/samebase/src/components/FileView.tsx`
+  - `apps/samebase/src/components/RepositoryMediaViewer.tsx`
+  - `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+  - `apps/samebase/src/components/AddRepository.tsx`
+  - `apps/samebase/shared/repositoryMedia.ts`
+  - `apps/samebase/convex/fileStaging.ts`
+  - `apps/samebase/convex/fileStagingActions.ts`
+  - `apps/samebase/convex/github.ts`
+  - `apps/samebase/convex/gitOperations.ts`
+  - `apps/samebase/convex/schema.ts`
 
 ## Why
 
@@ -138,7 +138,7 @@ would still require at least one of:
 - a safe non-preview binary details surface
 - a different selection model that does not fall into text staging
 
-Phase 1 accepted types should therefore match `apps/noter/shared/repositoryMedia.ts`.
+Phase 1 accepted types should therefore match `apps/samebase/shared/repositoryMedia.ts`.
 
 ### 3. Add a sidebar footer upload surface
 

@@ -26,7 +26,7 @@ devices.
 
 **Convex API**
 
-- New module: `apps/noter/convex/dashboardSettings.ts`
+- New module: `apps/samebase/convex/dashboardSettings.ts`
   - Query `getDashboardSettings`
     - Returns `{ providersPanelOpen: boolean }`
     - If unauthenticated or no row exists, return `{ providersPanelOpen: false }`
@@ -38,7 +38,7 @@ devices.
 
 **Frontend**
 
-- File: `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
+- File: `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
   - Rename panel heading to "Providers".
   - Wrap the providers list in a `Collapsible`:
     - `CollapsibleTrigger` styled like the Developer tools trigger

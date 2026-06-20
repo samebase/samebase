@@ -81,11 +81,11 @@ Today:
 
 ## Source of Truth Files
 
-- `apps/noter/dev/codexAppServerResearchBridge.ts`
-- `apps/noter/src/codex/appServerResearch.ts`
-- `apps/noter/src/components/CodexAppServerResearchPage.tsx`
-- `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
-- `apps/noter/src/components/CodexThreadBrowserView.tsx`
+- `apps/samebase/dev/codexAppServerResearchBridge.ts`
+- `apps/samebase/src/codex/appServerResearch.ts`
+- `apps/samebase/src/components/CodexAppServerResearchPage.tsx`
+- `apps/samebase/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
+- `apps/samebase/src/components/CodexThreadBrowserView.tsx`
 
 ## Runtime Contract
 

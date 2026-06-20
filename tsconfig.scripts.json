@@ -6,7 +6,7 @@
     "allowImportingTsExtensions": true,
     "lib": ["ES2022"],
     "types": ["node"],
-    "typeRoots": ["./apps/noter/node_modules/@types"],
+    "typeRoots": ["./apps/samebase/node_modules/@types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true
@@ -15,9 +15,9 @@
     "scripts/**/*.ts",
     "runtime/**/*.ts",
     ".devcontainer/postcreate.ts",
-    "apps/noter/scripts/**/*.ts",
-    "apps/noter/postcss.config.ts",
-    "apps/noter/tailwind.config.ts"
+    "apps/samebase/scripts/**/*.ts",
+    "apps/samebase/postcss.config.ts",
+    "apps/samebase/tailwind.config.ts"
   ],
   "exclude": ["node_modules"]
 }

@@ -6,7 +6,7 @@
     "allowImportingTsExtensions": true,
     "lib": ["ES2022"],
     "types": ["node"],
-    "typeRoots": ["../../apps/noter/node_modules/@types"],
+    "typeRoots": ["../../apps/samebase/node_modules/@types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true

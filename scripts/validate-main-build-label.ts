@@ -2,7 +2,7 @@
 import { execSync } from "node:child_process";
 import process from "node:process";
 
-import { resolveAppCommitNumber } from "../apps/noter/dev/appBuildMetadata.ts";
+import { resolveAppCommitNumber } from "../apps/samebase/dev/appBuildMetadata.ts";
 
 function readGitOutput(command: string): string | null {
   try {

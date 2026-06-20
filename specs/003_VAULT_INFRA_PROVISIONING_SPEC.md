@@ -41,13 +41,13 @@ partially fails.
 
 ## Source of Truth Files
 
-- `apps/noter/convex/vault/actions.ts`
-- `apps/noter/convex/vault/dashboard.ts`
-- `apps/noter/convex/vault/records.ts`
-- `apps/noter/convex/infraProvisioning.ts`
-- `apps/noter/convex/infraProviders.ts`
-- `apps/noter/convex/schema.ts`
-- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
+- `apps/samebase/convex/vault/actions.ts`
+- `apps/samebase/convex/vault/dashboard.ts`
+- `apps/samebase/convex/vault/records.ts`
+- `apps/samebase/convex/infraProvisioning.ts`
+- `apps/samebase/convex/infraProviders.ts`
+- `apps/samebase/convex/schema.ts`
+- `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
 
 ## Data Model
 

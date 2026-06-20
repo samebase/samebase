@@ -4,9 +4,9 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { parsePositiveInteger } from "../apps/noter/dev/appBuildMetadata.ts";
+import { parsePositiveInteger } from "../apps/samebase/dev/appBuildMetadata.ts";
 import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
-import { noterAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
+import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.58.2-noble";
 const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
@@ -16,7 +16,7 @@ const DEFAULT_VITE_PORT = "43121";
 const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "4";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
 const ciBootstrapConvexScriptPath = `./${trackedFilePath("scripts/ci-bootstrap-convex.ts")}`;
-const noterPlaywrightConfigPath = noterAppFilePath("playwright.config.ts");
+const noterPlaywrightConfigPath = samebaseAppFilePath("playwright.config.ts");
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
@@ -34,40 +34,40 @@ tar \
   --exclude=.vite \
   --exclude=.env \
   --exclude=.env.* \
-  --exclude=apps/noter/.env \
-  --exclude=apps/noter/.env.* \
-  --exclude=apps/noter/.convex/local \
+  --exclude=apps/samebase/.env \
+  --exclude=apps/samebase/.env.* \
+  --exclude=apps/samebase/.convex/local \
   --exclude=node_modules \
-  --exclude=apps/noter/node_modules \
-  --exclude=apps/noter/dist \
-  --exclude=apps/noter/dev-dist \
-  --exclude=apps/noter/e2e/playwright-report \
-  --exclude=apps/noter/e2e/test-results \
+  --exclude=apps/samebase/node_modules \
+  --exclude=apps/samebase/dist \
+  --exclude=apps/samebase/dev-dist \
+  --exclude=apps/samebase/e2e/playwright-report \
+  --exclude=apps/samebase/e2e/test-results \
   -cf - . | tar -xf - -C /work
 
 cd /work
 pnpm config set store-dir /pnpm-store >/dev/null
 pnpm install --frozen-lockfile
 node ${ciBootstrapConvexScriptPath} --keep-running
-PLAYWRIGHT=1 pnpm --filter noter build:ci
+PLAYWRIGHT=1 pnpm --filter samebase build:ci
 
 set +e
 PLAYWRIGHT_SKIP_BUILD=1 \
   PLAYWRIGHT_VITE_PORT="$PLAYWRIGHT_VITE_PORT" \
-  pnpm --filter noter exec playwright test -c ${noterPlaywrightConfigPath} "$@"
+  pnpm --filter samebase exec playwright test -c ${noterPlaywrightConfigPath} "$@"
 status=$?
 set -e
 
 rm -rf /out/playwright-report /out/test-results
-if [ -d apps/noter/e2e/playwright-report ]; then
-  cp -a apps/noter/e2e/playwright-report /out/playwright-report
+if [ -d apps/samebase/e2e/playwright-report ]; then
+  cp -a apps/samebase/e2e/playwright-report /out/playwright-report
 fi
-if [ -d apps/noter/e2e/test-results ]; then
-  cp -a apps/noter/e2e/test-results /out/test-results
+if [ -d apps/samebase/e2e/test-results ]; then
+  cp -a apps/samebase/e2e/test-results /out/test-results
 fi
 
 if [ "$PLAYWRIGHT_LINUX_UPDATE_SNAPSHOTS" = "1" ]; then
-  find apps/noter/e2e -type d -name "*-snapshots" -print0 |
+  find apps/samebase/e2e -type d -name "*-snapshots" -print0 |
     while IFS= read -r -d "" snapshot_dir; do
       target="/src/$snapshot_dir"
       mkdir -p "$target"
@@ -75,9 +75,9 @@ if [ "$PLAYWRIGHT_LINUX_UPDATE_SNAPSHOTS" = "1" ]; then
       cp -a "$snapshot_dir/." "$target/"
     done
 
-  if [ -d apps/noter/public/visual-fixtures ]; then
-    mkdir -p /src/apps/noter/public/visual-fixtures
-    cp -a apps/noter/public/visual-fixtures/. /src/apps/noter/public/visual-fixtures/
+  if [ -d apps/samebase/public/visual-fixtures ]; then
+    mkdir -p /src/apps/samebase/public/visual-fixtures
+    cp -a apps/samebase/public/visual-fixtures/. /src/apps/samebase/public/visual-fixtures/
   fi
 fi
 

@@ -5,7 +5,7 @@ import net from "node:net";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { readLocalDevOriginState } from "../apps/noter/scripts/convex-local-utils.ts";
+import { readLocalDevOriginState } from "../apps/samebase/scripts/convex-local-utils.ts";
 
 type ChildProcess = import("node:child_process").ChildProcess;
 
@@ -95,7 +95,7 @@ type ShareModeConfig = {
 const FRONTEND_READY_TIMEOUT_MS = 120_000;
 const CLOUDFLARED_READY_TIMEOUT_MS = 60_000;
 const PROCESS_SHUTDOWN_TIMEOUT_MS = 10_000;
-const APPS_NOTER_DIRNAME = "apps/noter";
+const APPS_NOTER_DIRNAME = "apps/samebase";
 const QUICK_TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9.-]+\.trycloudflare\.com\b/i;
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
@@ -335,7 +335,7 @@ async function isPortAvailable(port: number): Promise<boolean> {
 
 /**
  * Probe a preferred frontend port range before launch so share mode can ask
- * Vite for one stable port. `apps/noter/scripts/run-vite-dev.ts` still makes
+ * Vite for one stable port. `apps/samebase/scripts/run-vite-dev.ts` still makes
  * the final bind decision, so this remains best-effort and
  * `NOTER_DEV_STRICT_PORT=1` intentionally fails fast if a late race loses.
  */

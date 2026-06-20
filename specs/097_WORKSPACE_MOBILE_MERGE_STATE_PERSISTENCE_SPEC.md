@@ -9,16 +9,16 @@
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
   - `specs/094_WORKSPACE_LAYOUT_SIDEBAR_STATE_CONVERGENCE_SPEC.md`
 - Related files:
-  - `apps/noter/convex/workspaceSidebarState.ts`
-  - `apps/noter/convex/workspaceSidebarStateModel.ts`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts`
-  - `apps/noter/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
-  - `apps/noter/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts`
-  - `apps/noter/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
-  - `apps/noter/src/hooks/usePersistedWorkspaceSidebarState.ts`
-  - `apps/noter/src/lib/workspaceSidebarStateController.ts`
-  - `apps/noter/e2e/workspace-sidebar-drag.spec.ts`
+  - `apps/samebase/convex/workspaceSidebarState.ts`
+  - `apps/samebase/convex/workspaceSidebarStateModel.ts`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts`
+  - `apps/samebase/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
+  - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts`
+  - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
+  - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
+  - `apps/samebase/src/lib/workspaceSidebarStateController.ts`
+  - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
 
 ## Summary
 

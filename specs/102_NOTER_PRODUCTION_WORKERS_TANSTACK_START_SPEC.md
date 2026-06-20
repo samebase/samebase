@@ -10,8 +10,8 @@
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-notermd-workers-provisioning-migration.md`
-  - `apps/noter/scripts/generate-cloudflare-redirects.ts`
-  - `apps/noter/scripts/strip-public-prerender-modulepreloads.ts`
+  - `apps/samebase/scripts/generate-cloudflare-redirects.ts`
+  - `apps/samebase/scripts/strip-public-prerender-modulepreloads.ts`
 
 ## Summary
 
@@ -77,7 +77,7 @@ bundles a local runtime that supports compatibility dates through 2026-05-14, `w
 `2026-05-14` until the pinned Wrangler version can be advanced.
 
 Keep the app's current `@/*` import alias for this migration. TanStack Start has no required alias
-convention, and shadcn is configured through `apps/noter/components.json` with `@/components`,
+convention, and shadcn is configured through `apps/samebase/components.json` with `@/components`,
 `@/lib/utils`, and `@/hooks`. Changing to package imports or another alias can be evaluated as a
 separate repo-wide cleanup, but it is not part of the hosting cutover.
 
@@ -98,9 +98,9 @@ their route `index.html` files, such as `dist/client/terms/index.html`,
 The production build does not run request-time SSR and does not run a separate root-prerender
 helper. All static HTML comes from the canonical TanStack route tree at build time. Cloudflare
 Workers Static Assets deploys only `dist/client`, and the tagged generated block in
-`apps/noter/public/_redirects` owns the exact prerender aliases. User-owned exact redirects may live
-outside that block. Unknown app-route navigations use Workers' `single-page-application` fallback to
-the SPA shell at `/index.html`.
+`apps/samebase/public/_redirects` owns the exact prerender aliases. User-owned exact redirects may
+live outside that block. Unknown app-route navigations use Workers' `single-page-application`
+fallback to the SPA shell at `/index.html`.
 
 After `vp build`, the production build post-processes public prerendered HTML files to remove
 `<link rel="modulepreload">` hints. Cold public visits should let HTML and CSS reach first paint
@@ -145,7 +145,7 @@ config-level change. Keep it rebased on the SPA-first branch and keep the SSR de
 The SSR branch is not a second prerendered-SPA build. It is a hybrid Static Assets plus Worker SSR
 proof. Its single config commit must:
 
-1. add `@cloudflare/vite-plugin` to `apps/noter/vite.config.ts` and register
+1. add `@cloudflare/vite-plugin` to `apps/samebase/vite.config.ts` and register
    `cloudflare({ viteEnvironment: { name: "ssr" } })`;
 2. remove the production branch's `spa` TanStack Start option because the Worker handles unmatched
    routes instead of a client-only SPA fallback;
@@ -154,7 +154,7 @@ proof. Its single config commit must:
 4. remove the copied `dist/client/_redirects` file from the SSR build output so Cloudflare's local
    asset server does not rewrite prerender requests during `vp build`;
 5. add `"main": "@tanstack/react-start/server-entry"` and `"compatibility_flags": ["nodejs_compat"]`
-   to `apps/noter/wrangler.jsonc`; and
+   to `apps/samebase/wrangler.jsonc`; and
 6. keep `"assets": { "directory": "./dist/client" }`, set `assets.html_handling` to
    `drop-trailing-slash`, and remove `assets.not_found_handling = "single-page-application"` so
    missing app routes invoke the Worker instead of serving a client-only shell.
@@ -178,7 +178,7 @@ fetches on the client.
 
 ## Current Production Baseline
 
-`apps/noter` currently builds as a Vite static app:
+`apps/samebase` currently builds as a Vite static app:
 
 1. `vite.config.ts` uses `tanstackRouter`, `react`, and an explicit `index.html` Rollup input.
 2. `src/main.tsx` manually mounts React and wraps the app providers around `RouterProvider`.
@@ -220,7 +220,7 @@ Noter production itself.
 
 ### Workers Deploy Contract
 
-1. Add `apps/noter/wrangler.jsonc`.
+1. Add `apps/samebase/wrangler.jsonc`.
 2. Use a current compatibility date for this migration.
 3. Enable preview URLs.
 4. Serve assets from `./dist/client`.
@@ -228,9 +228,9 @@ Noter production itself.
    serve the SPA shell from `/index.html` without routing generated assets through `_redirects`.
 6. Set `assets.html_handling` to `none` so `_redirects` 200 rewrites can serve explicit `.html`
    files.
-7. Generate the exact prerender alias block in `apps/noter/public/_redirects` from the same public
-   prerender page list used by TanStack Start, and preserve user-owned redirects outside the tagged
-   block.
+7. Generate the exact prerender alias block in `apps/samebase/public/_redirects` from the same
+   public prerender page list used by TanStack Start, and preserve user-owned redirects outside the
+   tagged block.
 8. Keep runtime bindings empty for this phase.
 9. Do not hard-code secrets in source or config.
 
@@ -262,13 +262,13 @@ Noter production itself.
 
 ### Phase 1: Local Build Migration
 
-Convert `apps/noter` to TanStack Start SPA mode and keep local preview behavior working.
+Convert `apps/samebase` to TanStack Start SPA mode and keep local preview behavior working.
 
 Validation:
 
 1. `pnpm dev:worktree`
-2. `pnpm --filter noter check`
-3. `pnpm --filter noter build`
+2. `pnpm --filter samebase check`
+3. `pnpm --filter samebase build`
 4. browser smoke test of `/`, `/home`, `/vault/$`, `/noter.ts`, and `/noter-connect.json`
 
 ### Phase 2: Worker Dry Run
@@ -277,8 +277,8 @@ Add Workers config and deploy scripts.
 
 Validation:
 
-1. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:dry-run`
-2. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter noter deploy:preview:dry-run`
+1. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter samebase deploy:dry-run`
+2. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter samebase deploy:preview:dry-run`
 3. inspect generated `dist/client/index.html`, `dist/client/_landing.html`,
    `dist/client/logo/index.html`, `dist/client/terms/index.html`, `dist/client/privacy/index.html`,
    and `dist/client/_redirects`
@@ -287,12 +287,12 @@ Validation:
 
 Current implementation result:
 
-1. `pnpm --filter noter build:ci` passes.
-2. `CLOUDFLARE_WORKER_NAME=noter-workers-migration-test pnpm --filter noter deploy:dry-run` passes
-   locally.
-3. `CLOUDFLARE_WORKER_NAME=noter-workers-migration-test WORKERS_CI=1 pnpm --filter noter deploy:preview:dry-run`
+1. `pnpm --filter samebase build:ci` passes.
+2. `CLOUDFLARE_WORKER_NAME=noter-workers-migration-test pnpm --filter samebase deploy:dry-run`
    passes locally.
-4. Wrangler reads `apps/noter/dist/client` as the Worker Static Assets upload directory.
+3. `CLOUDFLARE_WORKER_NAME=noter-workers-migration-test WORKERS_CI=1 pnpm --filter samebase deploy:preview:dry-run`
+   passes locally.
+4. Wrangler reads `apps/samebase/dist/client` as the Worker Static Assets upload directory.
 
 ### Phase 3: Shadow Worker
 

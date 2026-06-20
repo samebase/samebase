@@ -46,7 +46,7 @@ git rev-parse --abbrev-ref HEAD
 
 2. Detect project type.
 
-- Noter monorepo: `apps/noter/package.json` exists.
+- Noter monorepo: `apps/samebase/package.json` exists.
 - Noter starter/generated app: root `package.json` includes Vite + Convex scripts (`dev`,
   `dev:frontend`, `dev:backend`).
 
@@ -147,7 +147,7 @@ await page.goto("/admin-route", { waitUntil: "networkidle" });
 3. If a Docker or CI-like run cannot sign in, inspect the bootstrap path before rewriting tests:
    - `scripts/ci-bootstrap-convex.ts`
    - `runtime/localWorktreePasswordAuth.ts`
-   - `apps/noter/convex/devAuth.ts`
+   - `apps/samebase/convex/devAuth.ts`
 4. In CI/bootstrap contexts, the Vite-only `Autofill & sign in` shortcut may be absent. Tests should
    fill the seeded email/password and click the exact `Sign in` button through `signInIfNeeded`.
 

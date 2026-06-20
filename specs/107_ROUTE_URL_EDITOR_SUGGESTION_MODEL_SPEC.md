@@ -6,13 +6,13 @@
 - Owner: Noter frontend/app shell
 - Last updated: 2026-06-18
 - Depends on:
-  - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
-  - `apps/noter/src/components/RouteUrlEditor/useRouteEditorVm.ts`
-  - `apps/noter/src/components/RouteUrlEditor/RouteUrlEditorSuggestions.ts`
-  - `apps/noter/src/components/RouteUrlEditor/useRouteUrlEditorPageHashSuggestions.ts`
-  - `apps/noter/src/lib/routeAddress.ts`
-  - `apps/noter/src/lib/routeUrlEditorHashSuggestions.ts`
-  - `apps/noter/src/lib/routeSearchParamMetadata.ts`
+  - `apps/samebase/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
+  - `apps/samebase/src/components/RouteUrlEditor/useRouteEditorVm.ts`
+  - `apps/samebase/src/components/RouteUrlEditor/RouteUrlEditorSuggestions.ts`
+  - `apps/samebase/src/components/RouteUrlEditor/useRouteUrlEditorPageHashSuggestions.ts`
+  - `apps/samebase/src/lib/routeAddress.ts`
+  - `apps/samebase/src/lib/routeUrlEditorHashSuggestions.ts`
+  - `apps/samebase/src/lib/routeSearchParamMetadata.ts`
   - `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`
 
 ## Summary

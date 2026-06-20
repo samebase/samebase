@@ -87,12 +87,12 @@ Noter pins Convex Management API validation to the published OpenAPI schema:
    together as an explicit endpoint contract.
 8. Keep generated AJV validator exports prefixed with `ajv`, reserving the `v` prefix for Convex
    `convex/values` validators.
-9. Keep the Convex platform API boundary together under `apps/noter/convex/convexManagementApi/`:
+9. Keep the Convex platform API boundary together under `apps/samebase/convex/convexManagementApi/`:
    the typed client, shared errors, OAuth token contract, generated OpenAPI JSON, generated
    TypeScript declarations, generated standalone validators, and focused tests.
-10. Use `pnpm --dir apps/noter run verify:convex-management-api` to regenerate the pinned document,
-    generated declarations, and standalone validators and fail if Convex's published OpenAPI schema
-    drifted from the checked-in contract.
+10. Use `pnpm --dir apps/samebase run verify:convex-management-api` to regenerate the pinned
+    document, generated declarations, and standalone validators and fail if Convex's published
+    OpenAPI schema drifted from the checked-in contract.
 11. Keep compile-time tests alongside the client tests for the OpenAPI call surface. They must prove
     that provider IDs are decimal strings, required path params stay required, wrong methods are
     rejected, and the management client cannot be constructed without a token.

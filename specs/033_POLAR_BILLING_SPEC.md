@@ -77,7 +77,7 @@ Index:
 
 ## Backend API (Convex)
 
-Create `apps/noter/convex/billing.ts`:
+Create `apps/samebase/convex/billing.ts`:
 
 Access status:
 
@@ -118,7 +118,7 @@ Internal helpers
 
 ## Webhooks
 
-Create `apps/noter/convex/polarWebhooks.ts` + route it in `apps/noter/convex/http.ts`:
+Create `apps/samebase/convex/polarWebhooks.ts` + route it in `apps/samebase/convex/http.ts`:
 
 - Route: `POST /webhooks/polar`
 - Validate signature using Polar SDK helper (`validateEvent`) against `POLAR_WEBHOOK_SECRET`.
@@ -150,7 +150,7 @@ Do not gate `vaultActions.connectRepository` (free tier flow).
 
 ## Frontend (Pricing Page)
 
-Update `apps/noter/src/components/PricingPage.tsx`:
+Update `apps/samebase/src/components/PricingPage.tsx`:
 
 - Keep the 3-tier UI (Free, Pro, Team).
 - Pro CTA:

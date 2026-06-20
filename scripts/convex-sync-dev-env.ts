@@ -6,7 +6,7 @@ import path from "node:path";
 import { guard, isRecord } from "@noter-md/dependent";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
-import { noterAppFilePath } from "./lib/trackedFilePath.ts";
+import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 import { WORKTREE_ENV_ALLOWLIST } from "./worktree-env-allowlist.ts";
 import {
   buildCloudDeploymentUrl,
@@ -72,7 +72,7 @@ Options:
   --source-env <path>     Path to a dev env file (contains CONVEX_DEPLOYMENT=dev:*).
                           If omitted, the script scans git worktrees and picks main.
   --target-env <path>     Output env file path.
-                          Default: apps/noter/.env.anon-seed.local
+                          Default: apps/samebase/.env.anon-seed.local
   --check-prereqs         Validate the source env and deploy key without generating a seed file.
   --allow-missing-source-env
                           Allow local-only seed generation when no cloud dev source env is discoverable.
@@ -87,7 +87,7 @@ if (options.showHelp) {
 }
 
 const repoRoot = resolveRepoRoot();
-const appDir = path.join(repoRoot, "apps", "noter");
+const appDir = path.join(repoRoot, "apps", "samebase");
 const targetEnvPath = path.resolve(options.targetEnv ?? path.join(appDir, ".env.anon-seed.local"));
 const localAnonEnvPath = path.join(appDir, ".env.local");
 
@@ -395,16 +395,16 @@ async function listDeploymentEnvVarsWithDeployKey({
   deploymentName: string;
   deployKey: string;
 }): Promise<EnvEntry[]> {
-  const requireFromApp = createRequire(path.join(appDir, noterAppFilePath("package.json")));
+  const requireFromApp = createRequire(path.join(appDir, samebaseAppFilePath("package.json")));
 
   const convexBrowserModule: unknown = requireFromApp("convex/browser");
 
   const convexServerModule: unknown = requireFromApp("convex/server");
   if (!isConvexBrowserModule(convexBrowserModule)) {
-    exitWithError("Failed to load Convex browser client from apps/noter.");
+    exitWithError("Failed to load Convex browser client from apps/samebase.");
   }
   if (!isConvexServerModule(convexServerModule)) {
-    exitWithError("Failed to load Convex server helpers from apps/noter.");
+    exitWithError("Failed to load Convex server helpers from apps/samebase.");
   }
 
   const ConvexHttpClient = convexBrowserModule.ConvexHttpClient;
@@ -445,7 +445,7 @@ function findSourceEnvFile(repoRoot: string): string | null {
   const candidates: Array<{ envPath: string; branch: string | null }> = [];
 
   for (const worktree of worktrees) {
-    const envPath = path.join(worktree.worktree, "apps", "noter", ".env.local");
+    const envPath = path.join(worktree.worktree, "apps", "samebase", ".env.local");
     const envFile = readEnvFile(envPath);
     if (!envFile) {
       continue;
@@ -515,7 +515,7 @@ function exitWithError(message: string): never {
 function exitWithMissingSourceEnvError(): never {
   exitWithError(
     "Missing source env file for worktree bootstrap.\n" +
-      "Copy apps/noter/.env.local from a working checkout, including CONVEX_DEPLOY_KEY, or pass --source-env <path>.",
+      "Copy apps/samebase/.env.local from a working checkout, including CONVEX_DEPLOY_KEY, or pass --source-env <path>.",
   );
 }
 

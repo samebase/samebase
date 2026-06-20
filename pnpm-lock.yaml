@@ -75,7 +75,7 @@ importers:
         specifier: 4.90.0
         version: 4.90.0
 
-  apps/noter:
+  apps/samebase:
     dependencies:
       '@ai-sdk/anthropic':
         specifier: ^3.0.79

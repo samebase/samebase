@@ -53,7 +53,7 @@ declaring one.
   erase a type all hide unsafety instead of declaring it — each is worse than a visible
   `@ts-expect-error`. Overloads are welcome when they refine a truth the implementation actually
   guarantees (the length-preserving `map`/`atLeast`/`exactly` in `packages/dependent/src/main.ts`,
-  the OpenAPI clients in `apps/noter/convex/*Api/client.ts`); they are forbidden as a costume for
+  the OpenAPI clients in `apps/samebase/convex/*Api/client.ts`); they are forbidden as a costume for
   types the code cannot earn.
 
   A local annotation can launder the same gap when the expression is already `any`. For example,
@@ -118,7 +118,7 @@ declaring one.
   visible without spelling the null failure channel —
   `guard<Input, Target>((value) => (cond ? value : null))`; the callback returns the received value
   where control flow narrowed it, or null to reject — see `isConnectedVault` in
-  `apps/noter/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and the
+  `apps/samebase/convex/vault/state.ts`. Returning the un-narrowed input is a compile error and the
   factory identity-checks the result at runtime, so the `value is` claim is earned, never asserted,
   while the annotated callback keeps the guarded type visible.
 
@@ -178,7 +178,7 @@ declaring one.
 - Generated files must only contain output derived from the named source of truth. Do not put
   hand-authored schemas, local endpoint contracts, or convenience types into generated output.
 - For hard-coded references to tracked repo files in scripts, prefer `trackedFilePath(...)` or a
-  scoped wrapper such as `noterAppFilePath(...)` before using an untyped string path.
+  scoped wrapper such as `samebaseAppFilePath(...)` before using an untyped string path.
 - In Convex modules, define result validators before handlers, derive types via `Infer<typeof ...>`,
   and prefer destructuring validator builders once instead of repeated `v.<fn>()` call sites.
 - Reserve the leading `v` prefix for reusable Convex value validators from `convex/values`, such as

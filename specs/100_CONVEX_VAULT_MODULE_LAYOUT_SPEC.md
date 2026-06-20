@@ -16,7 +16,7 @@
 Move the root-level Convex vault modules into a dedicated `vault/` folder, but do not hide the move
 behind root re-export shims and do not collapse the public API into `api.vault.index.*`.
 
-Before this change, the root `apps/noter/convex/` directory already had foldered domains for
+Before this change, the root `apps/samebase/convex/` directory already had foldered domains for
 `agent/`, `chat/`, `codespaces/`, `mcp/`, and `toolRuntime/`. Vault was the largest remaining
 root-level backend domain. Keeping it flat made root navigation worse and made related deletion,
 branch, state, and model files look like miscellaneous backend utilities instead of one product
@@ -75,10 +75,10 @@ and `vaultDomains`.
 
 ## Accepted Module Shape
 
-Use named files under `apps/noter/convex/vault/`:
+Use named files under `apps/samebase/convex/vault/`:
 
 ```text
-apps/noter/convex/vault/
+apps/samebase/convex/vault/
   actions.ts
   branches.ts
   dashboard.ts
@@ -169,7 +169,7 @@ the function exists.
 
 ## Schema Contract
 
-`apps/noter/convex/schema.ts` remains the single app schema entrypoint because Convex expects the
+`apps/samebase/convex/schema.ts` remains the single app schema entrypoint because Convex expects the
 app schema there.
 
 Vault-owned validators should live in `vault/model.ts` and `vault/deletion/model.ts`, then be
@@ -215,7 +215,7 @@ be pulled under `vault/` merely because vault identity is part of their argument
 7. Update generated-reference callsites to the new named paths.
 8. Run Convex codegen and typecheck.
 9. Run the moved Convex tests for vault creation, branch selection, and deletion workflow.
-10. Update `apps/noter/convex/README.md` so the backend overview points at the foldered vault
+10. Update `apps/samebase/convex/README.md` so the backend overview points at the foldered vault
     domain.
 
 `getVaultByRepository` belongs in `vault/records.ts` because it returns the single-vault read model
@@ -226,12 +226,12 @@ used by file surfaces, not the dashboard aggregate.
 At minimum, run:
 
 ```bash
-pnpm --dir apps/noter run typecheck
-pnpm --dir apps/noter exec vp test run convex/vault/branches.test.ts convex/vault/dashboard.convex.test.ts convex/vault/deletion/workflow.convex.test.ts
+pnpm --dir apps/samebase run typecheck
+pnpm --dir apps/samebase exec vp test run convex/vault/branches.test.ts convex/vault/dashboard.convex.test.ts convex/vault/deletion/workflow.convex.test.ts
 ```
 
 If test glob support is awkward after the move, run the specific moved vault test files directly. A
-full `pnpm --dir apps/noter run check` is preferred before shipping the implementation PR.
+full `pnpm --dir apps/samebase run check` is preferred before shipping the implementation PR.
 
 ## Non-Goals
 

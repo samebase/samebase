@@ -131,14 +131,14 @@ jobs:
         run: node ./scripts/ci-bootstrap-convex.ts --keep-running
 
       - name: Build noter preview
-        run: PLAYWRIGHT=1 pnpm --filter noter build:ci
+        run: PLAYWRIGHT=1 pnpm --filter samebase build:ci
 
       - name: Install Playwright browser
-        run: pnpm --filter noter exec playwright install --with-deps chromium
+        run: pnpm --filter samebase exec playwright install --with-deps chromium
 
       - name: Run Playwright tests
         run:
-          PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter exec playwright
+          PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter samebase exec playwright
           test -c playwright.config.ts --shard=${{ matrix.shard }}
 
       - name: Upload Playwright failure artifacts
@@ -151,8 +151,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
           path: |
-            apps/noter/e2e/playwright-report
-            apps/noter/e2e/test-results
+            apps/samebase/e2e/playwright-report
+            apps/samebase/e2e/test-results
 
   sync-windows:
     runs-on: blacksmith-4vcpu-windows-2025
@@ -187,16 +187,16 @@ jobs:
       - name: Run sync smoke tests on Windows
         run:
           pnpm exec vp test run packages/sync/noter.test.ts
-          apps/noter/src/lib/noterSyncPublicScript.test.ts
+          apps/samebase/src/lib/noterSyncPublicScript.test.ts
 
       - name: Run anonymous predev smoke on Windows
-        working-directory: apps/noter
+        working-directory: apps/samebase
         env:
           CONVEX_AGENT_MODE: anonymous
         run: node ./scripts/predev.ts
 
       - name: Run Vite wrapper smoke on Windows
-        working-directory: apps/noter
+        working-directory: apps/samebase
         run: node ./scripts/run-vite-dev.ts --version
 
   ci:

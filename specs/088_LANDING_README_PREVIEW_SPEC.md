@@ -6,13 +6,13 @@
 - Owner: Noter landing/onboarding
 - Last updated: 2026-06-18
 - Related files:
-  - `apps/noter/src/routes/landing-preview.tsx`
-  - `apps/noter/src/components/LandingMarkdownPreviewPage.tsx`
-  - `apps/noter/src/components/MarkdownLandingDocument.tsx`
-  - `apps/noter/src/content/landing-preview.md`
-  - `apps/noter/src/content/landing-preview.ro.md`
-  - `apps/noter/public/landing-preview/`
-  - `apps/noter/e2e/landing-markdown-preview-visual.spec.ts`
+  - `apps/samebase/src/routes/landing-preview.tsx`
+  - `apps/samebase/src/components/LandingMarkdownPreviewPage.tsx`
+  - `apps/samebase/src/components/MarkdownLandingDocument.tsx`
+  - `apps/samebase/src/content/landing-preview.md`
+  - `apps/samebase/src/content/landing-preview.ro.md`
+  - `apps/samebase/public/landing-preview/`
+  - `apps/samebase/e2e/landing-markdown-preview-visual.spec.ts`
 
 ## Summary
 
@@ -75,9 +75,10 @@ cover one new construct.
 GitHub `user-attachments` URLs from private repositories are not stable public browser assets. They
 may work through authenticated GitHub rendering, but the resolved video URLs are temporary.
 
-For now, Codex manually mirrors README media into `apps/noter/public/landing-preview/` and rewrites
-the preview copy to use local paths such as `/landing-preview/step-1-create-accounts.mp4`. Relative
-README logo paths should also be mirrored under `apps/noter/public/landing-preview/logos/`.
+For now, Codex manually mirrors README media into `apps/samebase/public/landing-preview/` and
+rewrites the preview copy to use local paths such as `/landing-preview/step-1-create-accounts.mp4`.
+Relative README logo paths should also be mirrored under
+`apps/samebase/public/landing-preview/logos/`.
 
 Landing preview videos should be authored as inline raw `<video>` embeds rather than hidden inside
 `<details>` disclosures. Non-video notes may still use `<details>` when the README needs collapsible

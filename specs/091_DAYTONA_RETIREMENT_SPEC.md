@@ -40,7 +40,7 @@ provider becomes relevant again.
 
 ## Initial Retirement State
 
-At the start of this retirement plan, Daytona was blocked by `apps/noter/shared/daytonaPause.ts`:
+At the start of this retirement plan, Daytona was blocked by `apps/samebase/shared/daytonaPause.ts`:
 
 1. `DAYTONA_PAUSED` resolves to `true`.
 2. Vault dashboard and file view Daytona UI are not rendered.
@@ -52,7 +52,7 @@ Even paused, Daytona remained active codebase context:
 
 1. Frontend imports include `DaytonaWorkspaceButton`, `DaytonaPreviewPanel`, `DaytonaSnapshotList`,
    `DaytonaSnapshotBanner`, and PTY helpers.
-2. Convex modules under `apps/noter/convex/daytona/` remain generated API surface.
+2. Convex modules under `apps/samebase/convex/daytona/` remain generated API surface.
 3. `vaults` still carries `daytonaSandbox*`, `daytonaSnapshot*`, and `daytonaPrebuild*` fields.
 4. `daytonaSnapshots` remains in schema and query paths.
 5. Vite still defines Daytona SDK/proxy constants.
@@ -97,7 +97,7 @@ After this phase, no shipped UI should expose Daytona controls, state, or termin
 
 Remove backend/runtime entrypoints that only exist for Daytona:
 
-1. Delete `apps/noter/convex/daytona/*` actions, terminal helpers, policies, generated runtime
+1. Delete `apps/samebase/convex/daytona/*` actions, terminal helpers, policies, generated runtime
    renderings, and tests.
 2. Remove Daytona calls from vault actions and vault queries.
 3. Remove `@daytonaio/api-client` and `@daytonaio/sdk`.
@@ -131,7 +131,7 @@ Use a widen-migrate-narrow sequence for schema cleanup.
 3. Do not automate deletion of external Daytona sandboxes or snapshots; the operator can remove
    those manually in Daytona.
 4. Verify no documents retain removed fields.
-5. Only then remove Daytona fields from `apps/noter/convex/schema.ts`.
+5. Only then remove Daytona fields from `apps/samebase/convex/schema.ts`.
 6. Treat any remaining `daytonaSnapshots` table cleanup as a separate manual or doc-retirement task,
    not part of the automated Phase 4 migration.
 7. Remove migration scaffolding after the narrow deploy is stable.

@@ -1,2 +1,2 @@
 vp staged
-pnpm --filter noter exec tsgo --noEmit
+pnpm --filter samebase exec tsgo --noEmit

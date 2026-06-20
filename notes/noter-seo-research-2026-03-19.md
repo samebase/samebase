@@ -28,12 +28,12 @@ The highest-leverage direction is:
 Local product references reviewed:
 
 - `README.md`
-- `apps/noter/index.html`
-- `apps/noter/src/bootstrap.ts`
-- `apps/noter/src/SignInForm.tsx`
-- `apps/noter/src/App.tsx`
-- `apps/noter/src/components/vault-dashboard/VaultDashboard.tsx`
-- `apps/noter/src/components/ChatFab.tsx`
+- `apps/samebase/index.html`
+- `apps/samebase/src/bootstrap.ts`
+- `apps/samebase/src/SignInForm.tsx`
+- `apps/samebase/src/App.tsx`
+- `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx`
+- `apps/samebase/src/components/ChatFab.tsx`
 - `slogans.md`
 
 Live production checks reviewed:
@@ -54,8 +54,8 @@ initial HTML is sparse.
 
 Relevant local references:
 
-- `apps/noter/src/bootstrap.ts`
-- `apps/noter/src/SignInForm.tsx`
+- `apps/samebase/src/bootstrap.ts`
+- `apps/samebase/src/SignInForm.tsx`
 
 Implication:
 
@@ -71,7 +71,7 @@ The base document currently ships:
 
 Relevant local reference:
 
-- `apps/noter/index.html`
+- `apps/samebase/index.html`
 
 Implication:
 
@@ -108,8 +108,8 @@ funneled to the landing/sign-in surface.
 
 Relevant local references:
 
-- `apps/noter/src/App.tsx`
-- `apps/noter/src/SignInForm.tsx`
+- `apps/samebase/src/App.tsx`
+- `apps/samebase/src/SignInForm.tsx`
 
 Implication:
 
@@ -141,7 +141,7 @@ Examples currently include:
 Relevant local references:
 
 - `slogans.md`
-- `apps/noter/src/bootstrap.ts`
+- `apps/samebase/src/bootstrap.ts`
 
 Implication:
 

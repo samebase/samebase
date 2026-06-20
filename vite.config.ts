@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
-import type { NoterBuildConfig } from "./apps/noter/src/lib/noterBuildConfig";
+import type { NoterBuildConfig } from "./apps/samebase/src/lib/noterBuildConfig";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,7 +35,7 @@ export default defineConfig({
       "**/dist",
       "**/.codespace-agent/**",
       "**/convex/_generated",
-      "apps/noter/public/noter.ts",
+      "apps/samebase/public/noter.ts",
       "**/src/components/ui",
     ],
     jsPlugins: [
@@ -128,10 +128,10 @@ export default defineConfig({
           "**/*.cjs",
           "packages/sync/**/*.ts",
           "packages/onboarding-video-tools/**/*.ts",
-          "apps/noter/public/**/*.ts",
-          "apps/noter/convex/**/*.{ts,tsx}",
-          "apps/noter-starter-template/convex/**/*.{ts,tsx}",
-          "apps/noter/scripts/**/*.ts",
+          "apps/samebase/public/**/*.ts",
+          "apps/samebase/convex/**/*.{ts,tsx}",
+          "apps/samebase-starter-template/convex/**/*.{ts,tsx}",
+          "apps/samebase/scripts/**/*.ts",
         ],
         env: {
           node: true,
@@ -139,22 +139,22 @@ export default defineConfig({
       },
       {
         files: [
-          "apps/noter/e2e/**/*.ts",
-          "apps/noter/playwright.config.ts",
-          "apps/noter-starter-template/convex/**/*.ts",
+          "apps/samebase/e2e/**/*.ts",
+          "apps/samebase/playwright.config.ts",
+          "apps/samebase-starter-template/convex/**/*.ts",
         ],
         rules: {
           "@typescript-eslint/no-unnecessary-condition": "off",
         },
       },
       {
-        files: ["apps/noter/src/components/workspace-layout-v2/**/*.{ts,tsx}"],
+        files: ["apps/samebase/src/components/workspace-layout-v2/**/*.{ts,tsx}"],
         rules: {
           "react-refresh/only-export-components": "off",
         },
       },
       {
-        files: ["apps/noter/convex/**/*.ts", "apps/noter-starter-template/convex/**/*.ts"],
+        files: ["apps/samebase/convex/**/*.ts", "apps/samebase-starter-template/convex/**/*.ts"],
         rules: {
           "@convex-dev/import-wrong-runtime": "off",
           "@convex-dev/no-old-registered-function-syntax": "error",
@@ -165,7 +165,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(rootDir, "./apps/noter/src"),
+      "@": path.resolve(rootDir, "./apps/samebase/src"),
     },
   },
   staged: {
@@ -188,12 +188,12 @@ export default defineConfig({
             "packages/**/*.test.ts",
             "packages/**/*.test.tsx",
           ],
-          setupFiles: ["./apps/noter/src/test/reactActEnvironment.ts"],
+          setupFiles: ["./apps/samebase/src/test/reactActEnvironment.ts"],
           exclude: [
             "**/node_modules/**",
             "dist",
             "dev-dist",
-            "apps/noter/convex/**/*.convex.test.ts",
+            "apps/samebase/convex/**/*.convex.test.ts",
           ],
         },
       },
@@ -202,7 +202,7 @@ export default defineConfig({
         test: {
           name: "convex",
           environment: "edge-runtime",
-          include: ["apps/noter/convex/**/*.convex.test.ts"],
+          include: ["apps/samebase/convex/**/*.convex.test.ts"],
           exclude: ["**/node_modules/**", "dist", "dev-dist"],
         },
       },

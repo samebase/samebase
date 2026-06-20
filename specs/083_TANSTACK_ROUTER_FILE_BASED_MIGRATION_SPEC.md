@@ -6,10 +6,10 @@
 - Owner: Noter frontend/app shell
 - Last updated: 2026-04-09
 - Depends on:
-  - `apps/noter/package.json`
-  - `apps/noter/vite.config.ts`
-  - `apps/noter/src/lib/appRouter.ts`
-  - `apps/noter/src/routes.ts`
+  - `apps/samebase/package.json`
+  - `apps/samebase/vite.config.ts`
+  - `apps/samebase/src/lib/appRouter.ts`
+  - `apps/samebase/src/routes.ts`
   - `specs/081_TANSTACK_ROUTER_MIGRATION_SPEC.md`
   - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
 
@@ -51,14 +51,14 @@ issues, attempted fixes, and outcomes from each landed slice.
 
 ## Current Constraints
 
-- `apps/noter/src/lib/appRouter.ts` currently owns the shipped route tree and router factory.
+- `apps/samebase/src/lib/appRouter.ts` currently owns the shipped route tree and router factory.
 - The shipped route tree includes explicit root, public, research, authenticated, machines,
   codespace, and vault/file surfaces.
-- `apps/noter/src/lib/tanstackSearchParams.ts` intentionally preserves human-readable query params
-  such as `/?dev`.
-- `apps/noter/src/main.tsx` and `apps/noter/src/test/TestRouterProvider.tsx` already mount the real
-  TanStack router through stable app-owned seams that should survive the first migration slice.
-- `apps/noter/public/_redirects` and `apps/noter/index.html` still represent the active SPA
+- `apps/samebase/src/lib/tanstackSearchParams.ts` intentionally preserves human-readable query
+  params such as `/?dev`.
+- `apps/samebase/src/main.tsx` and `apps/samebase/src/test/TestRouterProvider.tsx` already mount the
+  real TanStack router through stable app-owned seams that should survive the first migration slice.
+- `apps/samebase/public/_redirects` and `apps/samebase/index.html` still represent the active SPA
   hosting/runtime contract and should stay unchanged in this migration unless a step proves
   otherwise.
 
@@ -66,8 +66,8 @@ issues, attempted fixes, and outcomes from each landed slice.
 
 1. Add the TanStack Router Vite plugin and generate the route tree from a virtual file routes
    config.
-2. Mirror the current shipped route table into route modules under `apps/noter/src/routes`.
-3. Keep the router factory in `apps/noter/src/lib/appRouter.ts`, but switch it from a handwritten
+2. Mirror the current shipped route table into route modules under `apps/samebase/src/routes`.
+3. Keep the router factory in `apps/samebase/src/lib/appRouter.ts`, but switch it from a handwritten
    `createRoute(...)` tree to the generated `routeTree`.
 4. Preserve the existing app-owned search parser/stringifier, root search middleware, and not-found
    handling.
@@ -94,9 +94,9 @@ issues, attempted fixes, and outcomes from each landed slice.
 - Problem: the first file-based slice needed to prove that Noter could swap the route-tree source
   without widening scope into runtime or test-harness rewrites. Tried: kept `createAppRouter(...)`,
   `AppRouterProvider`, and `TestRouterProvider` intact while replacing the handwritten
-  `createRoute(...)` table with generated virtual file routes under `apps/noter/src/routes`. Result:
-  the initial pass generated `routeTree.gen.ts`, preserved the current Vite SPA runtime, and passed
-  `tsc --noEmit`, focused router/route-dependent Vitest coverage, `lint:ci`, and `build:ci`.
+  `createRoute(...)` table with generated virtual file routes under `apps/samebase/src/routes`.
+  Result: the initial pass generated `routeTree.gen.ts`, preserved the current Vite SPA runtime, and
+  passed `tsc --noEmit`, focused router/route-dependent Vitest coverage, `lint:ci`, and `build:ci`.
 
 - Problem: the first file-based slice still left many routes with a two-step hop:
   `routes/*.tsx -> components/*RoutePage.tsx -> real page component`. Tried: inline the route-only

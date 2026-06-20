@@ -18,13 +18,13 @@ describe("generate-tracked-file-paths", () => {
       [
         "scripts/run-context-dev.ts",
         trackedFilePathsOutputPath,
-        "apps/noter/package.json",
+        "apps/samebase/package.json",
         "",
       ].join("\0"),
     );
 
     expect(parseGitTrackedFilePaths(input)).toEqual([
-      "apps/noter/package.json",
+      "apps/samebase/package.json",
       "scripts/run-context-dev.ts",
     ]);
   });

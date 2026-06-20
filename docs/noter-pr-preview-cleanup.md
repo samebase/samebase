@@ -35,13 +35,13 @@ Noter-managed vault infrastructure as part of this workflow.
 ## 0. Load Cleanup Credentials
 
 Run cleanup commands from the repo root. The cleanup credentials normally live in
-`apps/noter/.env.anon-seed.local`, not in the inherited shell environment. Load that file before
+`apps/samebase/.env.anon-seed.local`, not in the inherited shell environment. Load that file before
 checking Cloudflare or Convex, and do not print the values:
 
 ```bash
-test -f apps/noter/.env.anon-seed.local
+test -f apps/samebase/.env.anon-seed.local
 set -a
-. apps/noter/.env.anon-seed.local
+. apps/samebase/.env.anon-seed.local
 set +a
 export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-noter-worker}"
 
@@ -79,8 +79,8 @@ number, URL, state, branch, and head SHA visible while inspecting provider resou
 List recent Worker versions and active deployments:
 
 ```bash
-CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/noter exec wrangler versions list --name "$CLOUDFLARE_WORKER_NAME" --json
-CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/noter exec wrangler deployments list --name "$CLOUDFLARE_WORKER_NAME" --json
+CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler versions list --name "$CLOUDFLARE_WORKER_NAME" --json
+CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler deployments list --name "$CLOUDFLARE_WORKER_NAME" --json
 ```
 
 Also inspect GitHub checks and PR comments for Cloudflare preview metadata:

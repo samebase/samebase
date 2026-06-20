@@ -9,11 +9,11 @@
   - `vite.config.ts`
   - `package.json`
   - `tsconfig.scripts.json`
-  - `apps/noter/package.json`
-  - `apps/noter/tsconfig.json`
-  - `apps/noter/convex/jsonUtils.ts`
-  - `apps/noter/convex/jsonUtils.test.ts`
-  - `apps/noter/lintConfig.test.ts`
+  - `apps/samebase/package.json`
+  - `apps/samebase/tsconfig.json`
+  - `apps/samebase/convex/jsonUtils.ts`
+  - `apps/samebase/convex/jsonUtils.test.ts`
+  - `apps/samebase/lintConfig.test.ts`
 
 ## Summary
 
@@ -68,9 +68,9 @@ incompatibility, or rollout decision appears.
   JS-plugin bridge.
 - Convex-specific rules such as `@convex-dev/no-old-registered-function-syntax` and
   `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
-- The app/frontend lint entrypoints in `apps/noter/package.json` now run Oxlint directly.
+- The app/frontend lint entrypoints in `apps/samebase/package.json` now run Oxlint directly.
 - Root `package.json` also runs Oxlint for `runtime/**/*.ts`, `scripts/**/*.ts`, and
-  `apps/noter/scripts/**/*.ts` using `tsconfig.scripts.json`.
+  `apps/samebase/scripts/**/*.ts` using `tsconfig.scripts.json`.
 - `baseUrl` has been removed from the app tsconfigs so the repo aligns with the TypeScript 6 and
   TypeScript 7 direction instead of preserving deprecated lookup-root behavior.
 - The app package keeps the old intended TypeScript-focused lint surface instead of silently
@@ -87,7 +87,7 @@ onto Oxlint where that can be done without dropping accepted protections.
 ### 2. The custom query-param rule is retired
 
 The old rule in `eslint-rules/use-query-param-helpers.ts` was temporary scaffolding around
-`apps/noter/src/lib/queryParams.ts`.
+`apps/samebase/src/lib/queryParams.ts`.
 
 Current app-route URL behavior should be expressed through:
 
@@ -150,7 +150,7 @@ When a rule cannot move cleanly, this document must record:
 - Problem: the local query-param rule now points contributors toward a helper layer that predates
   the app's TanStack Router search schemas. Tried: converted current app-route search callsites to
   typed route search objects and left non-route URLs on native `URL`/`URLSearchParams`. Result: the
-  `eslint-rules` workspace package and `apps/noter/src/lib/queryParams.ts` helper are retired
+  `eslint-rules` workspace package and `apps/samebase/src/lib/queryParams.ts` helper are retired
   instead of being preserved as a second URL abstraction.
 
 ### 2026-04-10
@@ -164,7 +164,7 @@ When a rule cannot move cleanly, this document must record:
 - Problem: the migration needs to preserve the meaning of the custom rule, not just its filename.
   Tried: traced the rule logic directly. Result: the rule protects two invariants:
   1. do not mutate likely `URLSearchParams` instances directly in app code
-  2. do not hardcode root query URLs such as `/?foo=bar`; use `apps/noter/src/lib/queryParams.ts`
+  2. do not hardcode root query URLs such as `/?foo=bar`; use `apps/samebase/src/lib/queryParams.ts`
      helpers instead
 
 - Problem: the repo previously depended on TypeScript-aware ESLint coverage. Tried: inventoried the
@@ -177,15 +177,15 @@ When a rule cannot move cleanly, this document must record:
   runs.
 
 - Problem: the app/frontend TypeScript config did not initially initialize Oxlint type-aware mode.
-  Tried: ran Oxlint type-aware against `apps/noter/tsconfig.json`, then checked the current
+  Tried: ran Oxlint type-aware against `apps/samebase/tsconfig.json`, then checked the current
   TypeScript guidance on `baseUrl`. Result: TypeScript 6 now deprecates `baseUrl`, Oxlint's
   type-aware backend rejects it, and the repo's `@/*` alias still works through explicit `paths`, so
   removing `baseUrl` is accepted simplification rather than unsafe drift.
 
 - Problem: not all repo surfaces were blocked equally. Tried: ran Oxlint type-aware against
   `tsconfig.scripts.json`. Result: type-aware mode already worked for the repo's `scripts/**/*.ts`,
-  `runtime/**/*.ts`, and `apps/noter/scripts/**/*.ts` surface, so the script pass could move first
-  while the app tsconfig cleanup was in flight.
+  `runtime/**/*.ts`, and `apps/samebase/scripts/**/*.ts` surface, so the script pass could move
+  first while the app tsconfig cleanup was in flight.
 
 - Problem: the migration also depends on Convex-specific rules. Tried: inspected
   `@convex-dev/eslint-plugin` and verified that Oxlint can load JS plugins by rule id when
@@ -230,19 +230,19 @@ When a rule cannot move cleanly, this document must record:
   place to maintain type-aware rule coverage.
 
 - Problem: removing `baseUrl` exposed a real dependency on it in app imports. Tried: ran
-  `pnpm --filter noter lint:ci` after the tsconfig cleanup. Result: a handful of `convex/schema`
+  `pnpm --filter samebase lint:ci` after the tsconfig cleanup. Result: a handful of `convex/schema`
   imports were relying on app-root lookup-root behavior, so the accepted simplification replaces
   them with explicit relative imports instead of adding another broad `paths` alias that could
   shadow the real Convex package subpaths.
 
 - Problem: Oxlint traverses a broader default file surface than the previous app lint command.
-  Tried: ran Oxlint directly against `apps/noter`. Result: the command started linting top-level
+  Tried: ran Oxlint directly against `apps/samebase`. Result: the command started linting top-level
   TypeScript helpers and `public/noter.ts` that the old `eslint --ext ts,tsx` script never covered,
   so the accepted migration keeps those files outside the app package lint scope for now rather than
   treating this standardization pass as a surprise lint expansion.
 
 - Problem: the integrated migration needed a clear acceptance bar. Tried: ran focused config tests
-  plus the repo lint entrypoints. Result: `pnpm exec vp test run apps/noter/lintConfig.test.ts`,
+  plus the repo lint entrypoints. Result: `pnpm exec vp test run apps/samebase/lintConfig.test.ts`,
   `pnpm lint:scripts`, and `pnpm lint` now pass. Remaining output is warning-only, led by existing
   `consistent-type-assertions` warnings that were already accepted as warning severity in the old
   ESLint contract.
@@ -255,15 +255,15 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: the first Oxlint-only pass had reintroduced a broad app-wide
   `@typescript-eslint/no-explicit-any` override. Tried: removed the override, then fixed the
-  remaining handwritten `any` usage in `apps/noter/src/lib/convexQueryCache.ts`,
-  `apps/noter/convex/gitOperationsActions.ts`, `apps/noter/convex/schema.ts`, and
-  `apps/noter/src/lib/convexUtils.tsx`. Result: `no-explicit-any` is enforced again for handwritten
-  app code; remaining `any` references are limited to generated Convex bindings and TanStack's
-  generated route tree.
+  remaining handwritten `any` usage in `apps/samebase/src/lib/convexQueryCache.ts`,
+  `apps/samebase/convex/gitOperationsActions.ts`, `apps/samebase/convex/schema.ts`, and
+  `apps/samebase/src/lib/convexUtils.tsx`. Result: `no-explicit-any` is enforced again for
+  handwritten app code; remaining `any` references are limited to generated Convex bindings and
+  TanStack's generated route tree.
 
 - Problem: review surfaced a server-side safety regression outside the lint config itself. Tried:
-  removed `JSON.stringify(error)` fallback behavior from `apps/noter/convex/jsonUtils.ts`, limited
-  `toErrorMessage()` to `Error` instances, primitives, and a small allowlist of plain-object message
-  keys, and added `apps/noter/convex/jsonUtils.test.ts` coverage. Result: the Oxlint migration no
-  longer broadens arbitrary thrown-object logging in Convex code, so the accepted simplification
-  still respects the repo's no-sensitive-logs guardrail.
+  removed `JSON.stringify(error)` fallback behavior from `apps/samebase/convex/jsonUtils.ts`,
+  limited `toErrorMessage()` to `Error` instances, primitives, and a small allowlist of plain-object
+  message keys, and added `apps/samebase/convex/jsonUtils.test.ts` coverage. Result: the Oxlint
+  migration no longer broadens arbitrary thrown-object logging in Convex code, so the accepted
+  simplification still respects the repo's no-sensitive-logs guardrail.

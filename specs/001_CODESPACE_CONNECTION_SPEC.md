@@ -154,9 +154,9 @@ environment.
 
 ## Implementation Files
 
-- `apps/noter/src/components/CodespaceIframe.tsx` - Web interface embedding
-- `apps/noter/convex/codespaces.ts` - Codespace management
-- `apps/noter/convex/codespacesExecutor.ts` - HTTP agent communication
+- `apps/samebase/src/components/CodespaceIframe.tsx` - Web interface embedding
+- `apps/samebase/convex/codespaces.ts` - Codespace management
+- `apps/samebase/convex/codespacesExecutor.ts` - HTTP agent communication
 - `.codespace-agent/server.ts` - Agent HTTP server
 
 ## Agent API Specification

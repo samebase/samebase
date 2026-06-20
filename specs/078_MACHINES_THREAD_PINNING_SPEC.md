@@ -37,7 +37,7 @@ That means pin state is already:
 
 ### The shipped `/machines` rail already understands pinned groups
 
-`apps/noter/src/components/MachinesWorkspaceView.tsx` already renders:
+`apps/samebase/src/components/MachinesWorkspaceView.tsx` already renders:
 
 1. pinned threads first
 2. project groups for remaining threads
@@ -178,10 +178,10 @@ If the same icon is used for both states, that is acceptable.
 Primary files expected to change:
 
 1. `packages/sync/noter.ts`
-2. `apps/noter/public/noter.ts`
-3. `apps/noter/src/codex/appServerResearch.ts`
-4. `apps/noter/src/components/MachinesWorkspacePage.tsx`
-5. `apps/noter/src/components/MachinesWorkspaceView.tsx`
-6. `apps/noter/src/components/MachinesWorkspaceVisualFixture.tsx`
-7. `apps/noter/e2e/machines-workspace-visual.spec.ts`
+2. `apps/samebase/public/noter.ts`
+3. `apps/samebase/src/codex/appServerResearch.ts`
+4. `apps/samebase/src/components/MachinesWorkspacePage.tsx`
+5. `apps/samebase/src/components/MachinesWorkspaceView.tsx`
+6. `apps/samebase/src/components/MachinesWorkspaceVisualFixture.tsx`
+7. `apps/samebase/e2e/machines-workspace-visual.spec.ts`
 8. `packages/sync/noter.test.ts`

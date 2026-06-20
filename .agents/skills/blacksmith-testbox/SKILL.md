@@ -40,7 +40,7 @@ build, and Chromium install.
 Use `run` for CI-parity commands:
 
 ```bash
-blacksmith testbox run --id <tbx_id> "PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter exec playwright test -c playwright.config.ts --shard=1/3"
+blacksmith testbox run --id <tbx_id> "PLAYWRIGHT_SKIP_BUILD=1 PLAYWRIGHT_VITE_PORT=43121 pnpm --filter samebase exec playwright test -c playwright.config.ts --shard=1/3"
 ```
 
 The run command syncs tracked and unignored local changes before executing the command. If
@@ -52,8 +52,8 @@ testing.
 Fetch Playwright reports or test results when needed:
 
 ```bash
-blacksmith testbox download --id <tbx_id> apps/noter/e2e/playwright-report/ ./tmp/testbox-playwright-report/
-blacksmith testbox download --id <tbx_id> apps/noter/e2e/test-results/ ./tmp/testbox-test-results/
+blacksmith testbox download --id <tbx_id> apps/samebase/e2e/playwright-report/ ./tmp/testbox-playwright-report/
+blacksmith testbox download --id <tbx_id> apps/samebase/e2e/test-results/ ./tmp/testbox-test-results/
 ```
 
 Keep downloaded reports out of commits unless explicitly needed as a durable artifact.

@@ -274,7 +274,7 @@ function getBundledPlaywrightCliPath(repoRoot: string): string {
     PNPM_COMMAND,
     [
       "--dir",
-      path.join(repoRoot, "apps/noter"),
+      path.join(repoRoot, "apps/samebase"),
       "exec",
       "node",
       "-p",
@@ -394,7 +394,7 @@ function runPlaywrightCli(
     PNPM_COMMAND,
     [
       "--dir",
-      path.join(repoRoot, "apps/noter"),
+      path.join(repoRoot, "apps/samebase"),
       "exec",
       "playwright-cli",
       `--config=${configPath}`,
