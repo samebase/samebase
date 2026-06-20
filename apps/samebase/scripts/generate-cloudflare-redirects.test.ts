@@ -90,7 +90,7 @@ describe("generate-cloudflare-redirects", () => {
         contents: "/favicon.ico /favicon.png 200\n",
         generatedBlock: createCloudflarePrerenderRedirectsBlock(pages),
       }),
-    ).toThrow("Missing # @noter-md/cloudflare-prerender-redirects:start");
+    ).toThrow(`Missing ${GENERATED_REDIRECTS_START_TAG}`);
   });
 
   it("keeps prerender pages from taking the Cloudflare SPA shell path", () => {

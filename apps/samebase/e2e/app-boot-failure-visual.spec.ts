@@ -3,16 +3,16 @@ import { expect, test, type Page } from "@playwright/test";
 const appBootFailureDesktopScenarios = [
   {
     mode: "app-boot-failure-stale",
-    heading: "Noter updated while this tab was open.",
+    heading: "Samebase updated while this tab was open.",
     description:
-      "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for noter on this device.",
+      "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for Samebase on this device.",
     errorMessage: "Failed to fetch dynamically imported module",
   },
   {
     mode: "app-boot-failure-generic",
-    heading: "Noter could not finish loading.",
+    heading: "Samebase could not finish loading.",
     description:
-      "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for noter on this device.",
+      "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for Samebase on this device.",
     errorMessage: "Unexpected token",
   },
 ] as const;
@@ -20,16 +20,16 @@ const appBootFailureDesktopScenarios = [
 const appBootFailureMobileScenarios = [
   {
     mode: "app-boot-failure-stale",
-    heading: "Noter updated while this tab was open.",
+    heading: "Samebase updated while this tab was open.",
     description:
-      "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for noter on this device.",
+      "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for Samebase on this device.",
     errorMessage: "Failed to fetch dynamically imported module",
   },
   {
     mode: "app-boot-failure-generic",
-    heading: "Noter could not finish loading.",
+    heading: "Samebase could not finish loading.",
     description:
-      "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for noter on this device.",
+      "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for Samebase on this device.",
     errorMessage: "Unexpected token",
   },
 ] as const;
@@ -58,7 +58,7 @@ async function captureAppBootFailureVisual(
   const reloadButton = page.getByRole("button", { name: "Reload app" });
   const resetButton = page.getByRole("button", { name: "Reset local data" });
   const warning = page.getByText(
-    "Reset local data clears saved browser storage for noter on this device and may sign you out.",
+    "Reset local data clears saved browser storage for Samebase on this device and may sign you out.",
   );
   const build = page.getByText(/^Build:/);
   const error = page.getByText(`Error: ${scenario.errorMessage}`);

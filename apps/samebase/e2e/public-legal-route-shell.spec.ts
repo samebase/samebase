@@ -66,7 +66,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
 
   expect(directLoadState).toEqual(clientNavigationState);
   expect(directLoadState.hasWorkspaceMain).toBe(true);
-  expect(directLoadState.title).toBe("Terms of Service | noter");
+  expect(directLoadState.title).toBe("Terms of Service | Samebase");
 });
 
 test("public legal routes share the public account right sidebar", async ({ page }) => {

@@ -676,7 +676,7 @@ async function expectAppBuildVersionDisplay(
 async function expectAppBuildCommitLink(commitLabel: Locator) {
   const href = await commitLabel.getAttribute("href");
 
-  expect(href).toMatch(/^https:\/\/github\.com\/noter-md\/noter\/commit\/[0-9a-f]{40}$/);
+  expect(href).toMatch(/^https:\/\/github\.com\/samebase\/samebase\/commit\/[0-9a-f]{40}$/);
 
   return href;
 }
@@ -988,7 +988,7 @@ test("public landing renders the closed Google signup return state", async ({ pa
   );
 });
 
-test("landing dev toggle keeps the account and waitlist rows aligned", async ({ page }) => {
+test("landing dev toggle keeps the account rows aligned", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("noter_auth_provider", "google");
   });
