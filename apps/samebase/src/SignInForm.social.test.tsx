@@ -49,6 +49,7 @@ describe("public Samebase social links", () => {
 
     expect(markup).toContain(`href="${SAMEBASE_X_PROFILE_URL}"`);
     expect(markup).toContain("@samebasecom");
+    expect(markup).not.toContain("waitlist");
     expect(markup).not.toContain("x.com/notermd");
   });
 });
