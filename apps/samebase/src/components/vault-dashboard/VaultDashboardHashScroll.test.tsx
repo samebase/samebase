@@ -64,7 +64,7 @@ function makeVaultDashboardVault({
     hasCloudflareProvision: false,
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
-    isNoterManaged: true,
+    isSamebaseManaged: true,
     providerSetup: { status: "not_applicable" },
     remoteBranches: [],
     repositoryFullName,

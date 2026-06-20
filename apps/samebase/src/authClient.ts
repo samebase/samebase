@@ -137,7 +137,7 @@ const deferredPostHogResetClient: PostHogResetClient = {
   reset: resetDeferredPostHogClient,
 };
 
-export function useNoterSignInActions() {
+export function useAppSignInActions() {
   const { signIn } = useAuthActions();
 
   return {
@@ -146,7 +146,7 @@ export function useNoterSignInActions() {
   };
 }
 
-export function useNoterAuthActions() {
+export function useAppAuthActions() {
   const { signOut } = useAuthActions();
 
   return {

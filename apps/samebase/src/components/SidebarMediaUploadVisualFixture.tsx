@@ -52,7 +52,7 @@ export function SidebarMediaUploadVisualFixture() {
   const sidebarHeader = (
     <>
       <div className="border-b border-border/50 p-3">
-        <div className="text-sm font-medium text-foreground">Noter</div>
+        <div className="text-sm font-medium text-foreground">Samebase</div>
         <div className="mt-1 text-xs text-muted-foreground">Sidebar media upload fixture</div>
       </div>
 
@@ -60,7 +60,7 @@ export function SidebarMediaUploadVisualFixture() {
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
           <span className="truncate text-xs font-medium text-muted-foreground">
-            noter-md/media-upload-fixture
+            samebase/media-upload-fixture
           </span>
         </div>
       </div>

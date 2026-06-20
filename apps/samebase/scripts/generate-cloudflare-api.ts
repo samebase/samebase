@@ -10,7 +10,7 @@ import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
 const sourceUrl = "https://raw.githubusercontent.com/cloudflare/api-schemas/main/openapi.json";
 const sourceFetchTimeoutMs = 30_000;
-const cloudflareApiOpenApiSchemaId = "noter://cloudflare-api/openApi.generated.json";
+const cloudflareApiOpenApiSchemaId = "samebase://cloudflare-api/openApi.generated.json";
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const openApiDocumentOutputPath = fileURLToPath(
   new URL(
@@ -321,7 +321,7 @@ function ensureCloudflareApiOperationIds(paths: JsonRecord): void {
         continue;
       }
 
-      operation["operationId"] = `noter ${method} ${path}`;
+      operation["operationId"] = `samebase ${method} ${path}`;
     }
   }
 }
@@ -356,10 +356,10 @@ function isSelectedCloudflareApiPath(path: string): boolean {
 function readCloudflareApiSubsetInfo(document: OpenAPI3): JsonRecord {
   const sourceInfo = isRecord(document.info) ? document.info : {};
   return {
-    title: "Cloudflare Noter API Family Subset",
+    title: "Cloudflare Samebase API Family Subset",
     version: readOptionalString(sourceInfo, "version") ?? "0.0.0",
     description:
-      "Generated subset for Noter-owned Cloudflare Workers and Workers Builds API families.",
+      "Generated subset for Samebase-owned Cloudflare Workers and Workers Builds API families.",
   };
 }
 
@@ -483,7 +483,7 @@ function collectCloudflareApiResponseValidatorEntries(
               path,
               usedExportNames,
             });
-      const schemaId = exportName === null ? null : `noter://cloudflare-api/${exportName}`;
+      const schemaId = exportName === null ? null : `samebase://cloudflare-api/${exportName}`;
 
       entries.push({
         method,

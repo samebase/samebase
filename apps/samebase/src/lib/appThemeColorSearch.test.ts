@@ -130,7 +130,7 @@ describe("appThemeColorSearch", () => {
       secondary: "lime-100",
     });
 
-    const styleElement = document.getElementById("noter-app-theme-color-search");
+    const styleElement = document.getElementById("samebase-app-theme-color-search");
     expect(styleElement?.textContent).toContain(":root");
     expect(styleElement?.textContent).toContain(".dark");
     expect(styleElement?.textContent).toContain("--background: 0 0% 0%;");
@@ -142,7 +142,7 @@ describe("appThemeColorSearch", () => {
 
     syncDocumentThemeColorSearch({});
 
-    expect(document.getElementById("noter-app-theme-color-search")).toBeNull();
+    expect(document.getElementById("samebase-app-theme-color-search")).toBeNull();
   });
 
   it("syncs the browser theme-color meta tag to the app background", () => {

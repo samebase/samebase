@@ -95,7 +95,7 @@ function makeResourceRailBuilderVault(
       state: "not_deleting",
       deleteAction: { state: "available" },
     },
-    isNoterManaged: true,
+    isSamebaseManaged: true,
     hasConnectedGitHubRepository: true,
     hasConvexProvision: false,
     hasCloudflareProvision: false,
@@ -133,7 +133,7 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('title="Open branch on GitHub"');
   });
 
-  it("keeps the default branch Noter link pointed at the branch editor", () => {
+  it("keeps the default branch Samebase link pointed at the branch editor", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
@@ -151,13 +151,13 @@ describe("VaultBranchLinkContent", () => {
     );
 
     expect(markup).toContain('href="/vault/noter-md/noter/main"');
-    expect(markup).toContain('title="Open branch in Noter"');
+    expect(markup).toContain('title="Open branch in Samebase"');
     expect(markup).toContain(">Edit<");
     expect(markup).not.toContain(">View changes<");
     expect(markup).not.toContain("?compare");
   });
 
-  it("links non-default branch Noter actions to changed files", () => {
+  it("links non-default branch Samebase actions to changed files", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
@@ -175,7 +175,7 @@ describe("VaultBranchLinkContent", () => {
     );
 
     expect(markup).toContain('href="/vault/noter-md/noter/codex%2Fview%20changes?compare"');
-    expect(markup).toContain('title="View changes in Noter"');
+    expect(markup).toContain('title="View changes in Samebase"');
     expect(markup).toContain(">View changes<");
     expect(markup).not.toContain(">Edit<");
   });
@@ -515,7 +515,7 @@ describe("VaultDashboardDeleteDialog", () => {
         {...baseProps}
         vaultToDelete={{
           repositoryFullName: "ada/existing-repo",
-          isNoterManaged: false,
+          isSamebaseManaged: false,
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
           hasCloudflareProvision: true,
@@ -535,7 +535,7 @@ describe("VaultDashboardDeleteDialog", () => {
         {...baseProps}
         vaultToDelete={{
           repositoryFullName: "ada/existing-repo",
-          isNoterManaged: false,
+          isSamebaseManaged: false,
           canRemoveGithubRepo: false,
           hasConvexProvision: false,
           hasCloudflareProvision: false,
@@ -546,7 +546,7 @@ describe("VaultDashboardDeleteDialog", () => {
     );
 
     expect(markup).toContain("Also remove Convex project/deployment");
-    expect(markup).not.toContain("Only available for infrastructure provisioned by Noter.");
+    expect(markup).not.toContain("Only available for infrastructure provisioned by Samebase.");
   });
 });
 
@@ -910,7 +910,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
-        isNoterManaged: false,
+        isSamebaseManaged: false,
         providerSetup: {
           status: "running",
           provider: "cloudflare",

@@ -95,7 +95,7 @@ function buildInternalLinkTarget({
   pathname: string;
   searchStr: string;
 }): MarkdownInternalLinkTarget {
-  const baseUrl = new URL(`${pathname}${searchStr}${locationHash}`, "https://noter.local");
+  const baseUrl = new URL(`${pathname}${searchStr}${locationHash}`, "https://samebase.local");
   const targetUrl = new URL(href, baseUrl);
   const search: Record<string, string> = {};
 

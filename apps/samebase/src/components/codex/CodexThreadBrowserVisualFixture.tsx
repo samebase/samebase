@@ -26,9 +26,9 @@ const FIXTURE_TURN_OLDER: CodexAppServerThreadTurn = {
       id: "item-fixture-agent",
       type: "agentMessage",
       summary:
-        "The browser should see the same provider thread inventory that Codex sees, including loaded sessions and archive state, without coupling Noter to provider-specific persistence internals.",
+        "The browser should see the same provider thread inventory that Codex sees, including loaded sessions and archive state, without coupling Samebase to provider-specific persistence internals.",
       raw: {
-        text: "The browser should see the same provider thread inventory that Codex sees, including loaded sessions and archive state, without coupling Noter to provider-specific persistence internals.",
+        text: "The browser should see the same provider thread inventory that Codex sees, including loaded sessions and archive state, without coupling Samebase to provider-specific persistence internals.",
       },
     },
   ],
@@ -67,12 +67,12 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     id: "thread-browser-active",
     name: "Research PR trigger automation",
     preview:
-      "check latest pr created; it was created from noter.md ui and I need a local process that starts Codex, does the research, and updates the PR automatically.",
-    cwd: "/Users/nicu/.codex/worktrees/5fed/noter",
+      "check latest pr created; it was created from samebase.md ui and I need a local process that starts Codex, does the research, and updates the PR automatically.",
+    cwd: "/Users/nicu/.codex/worktrees/5fed/samebase",
     project: {
-      id: "/Users/nicu/dev/my/noter",
-      label: "noter",
-      rootCwd: "/Users/nicu/dev/my/noter",
+      id: "/Users/nicu/dev/my/samebase",
+      label: "samebase",
+      rootCwd: "/Users/nicu/dev/my/samebase",
     },
     workspace: {
       label: "5fed",
@@ -91,7 +91,7 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     },
     gitInfo: {
       branch: "codex/pr-research-automation",
-      originUrl: "git@github.com:noter-md/noter.git",
+      originUrl: "git@github.com:samebase/samebase.git",
       sha: "a2bc5bdeff0eb8cbf7c05e0e8b8f2efbea234813",
     },
     path: "/Users/nicu/.codex/sessions/2026/03/26/rollout-thread-browser-active.jsonl",
@@ -105,11 +105,11 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     name: "Add changed-files loading state",
     preview:
       "the changed files view can take multiple seconds, so the loading state needs a clearer explanation and a stopwatch.",
-    cwd: "/Users/nicu/.codex/worktrees/6257/noter",
+    cwd: "/Users/nicu/.codex/worktrees/6257/samebase",
     project: {
-      id: "/Users/nicu/dev/my/noter",
-      label: "noter",
-      rootCwd: "/Users/nicu/dev/my/noter",
+      id: "/Users/nicu/dev/my/samebase",
+      label: "samebase",
+      rootCwd: "/Users/nicu/dev/my/samebase",
     },
     workspace: {
       label: "6257",
@@ -128,7 +128,7 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     },
     gitInfo: {
       branch: null,
-      originUrl: "git@github.com:noter-md/noter.git",
+      originUrl: "git@github.com:samebase/samebase.git",
       sha: "01158573a4261e7371f47ce3828523dc8c208ff5",
     },
     path: "/Users/nicu/.codex/sessions/2026/03/26/rollout-thread-browser-compare.jsonl",
@@ -141,11 +141,11 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     id: "thread-browser-ready",
     name: null,
     preview: "Reply with exactly READY and nothing else.",
-    cwd: "/Users/nicu/.codex/worktrees/5fed/noter",
+    cwd: "/Users/nicu/.codex/worktrees/5fed/samebase",
     project: {
-      id: "/Users/nicu/dev/my/noter",
-      label: "noter",
-      rootCwd: "/Users/nicu/dev/my/noter",
+      id: "/Users/nicu/dev/my/samebase",
+      label: "samebase",
+      rootCwd: "/Users/nicu/dev/my/samebase",
     },
     workspace: {
       label: "5fed",
@@ -164,7 +164,7 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     },
     gitInfo: {
       branch: "codex/pr-research-automation",
-      originUrl: "git@github.com:noter-md/noter.git",
+      originUrl: "git@github.com:samebase/samebase.git",
       sha: "3573f3d208e1bc84347c1c180aa22fae3f3c9590",
     },
     path: "/Users/nicu/.codex/sessions/2026/03/26/rollout-thread-browser-ready.jsonl",

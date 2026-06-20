@@ -1,9 +1,9 @@
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
-import { samebaseBuildConfig } from "@/lib/samebaseBuildConfig";
+import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
-  "noter-app-auth-presentation-prehydration";
+  "samebase-app-auth-presentation-prehydration";
 const APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE = "data-app-auth-presentation-prehydrated";
 
 export type AppAuthPresentationPrehydrationArgs = {
@@ -17,7 +17,7 @@ export type AppAuthPresentationPrehydrationArgs = {
 
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  browserConvexProxyPath: samebaseBuildConfig.browserConvexProxyPath,
+  browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,

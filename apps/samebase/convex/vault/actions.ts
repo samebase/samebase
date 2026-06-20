@@ -9,7 +9,7 @@ import { RequestError } from "@octokit/request-error";
 import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
-import { isLiveConnectedVault, isNoterManagedVault } from "./state";
+import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import {
@@ -779,7 +779,7 @@ export const createRepository = action({
 
     const visibility = args.private === false ? "public" : "private";
     const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.records.createInitializingNoterManagedVaultForUser,
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
         ghRepoOwner,
@@ -843,8 +843,8 @@ export const retryInfrastructureProvisioning = action({
     if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
-    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
-      throw new Error("Infrastructure retry is available only for live Noter-managed vaults");
+    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
+      throw new Error("Infrastructure retry is available only for live Samebase-managed vaults");
     }
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,

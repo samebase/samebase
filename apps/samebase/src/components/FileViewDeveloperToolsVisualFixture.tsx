@@ -37,7 +37,7 @@ export function FileViewDeveloperToolsVisualFixture({
   const showEditorActions = viewMode === "editor";
   const sidebarContent = (
     <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
-      <div className="border-b p-3 text-xs text-muted-foreground">noter-md/noter</div>
+      <div className="border-b p-3 text-xs text-muted-foreground">samebase/samebase</div>
       <div className="flex min-h-0 flex-1 items-center justify-center p-3 text-xs text-muted-foreground">
         File tree
       </div>

@@ -2,7 +2,7 @@ import { notEmpty } from "@noter-md/dependent";
 import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
 import { ensureWindowStorageAccess } from "@/lib/storageAccess";
 
-const RECOVERY_QUERY_PARAM = "__noter-reload";
+const RECOVERY_QUERY_PARAM = "__samebase-reload";
 const STALE_ASSET_PATTERNS = [
   /chunkloaderror/i,
   /failed to fetch dynamically imported module/i,

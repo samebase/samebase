@@ -16,7 +16,7 @@ import {
 
 describe("cloudflare resources", () => {
   it("omits trace propagation policy when creating Workers with traces disabled", () => {
-    expect(buildCloudflareWorkerCreateBody("noter-app").observability.traces).toBe(undefined);
+    expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
   it("uses the split production Convex deploy key for production Workers builds", () => {
@@ -62,9 +62,9 @@ describe("cloudflare resources", () => {
       readCloudflareWorkerTag(
         {
           id: "775e3115b5f8411988e4a6b1411d0022",
-          name: "noter-app",
+          name: "samebase-app",
         },
-        "noter-app",
+        "samebase-app",
       ),
     ).toBe("775e3115b5f8411988e4a6b1411d0022");
   });
@@ -75,18 +75,18 @@ describe("cloudflare resources", () => {
         {
           external_script_id: "worker-external-script-id",
           tag: "worker-tag",
-          name: "noter-app",
+          name: "samebase-app",
         },
-        "noter-app",
+        "samebase-app",
       ),
     ).toBe("worker-external-script-id");
     expect(
       readCloudflareWorkerTag(
         {
           tag: "worker-tag",
-          name: "noter-app",
+          name: "samebase-app",
         },
-        "noter-app",
+        "samebase-app",
       ),
     ).toBe("worker-tag");
   });
@@ -193,7 +193,7 @@ describe("cloudflare resources", () => {
     ).toBe("noter-build-token");
   });
 
-  it("chooses a stable Noter-named build token when Cloudflare has duplicates", () => {
+  it("chooses a stable Samebase-named build token when Cloudflare has duplicates", () => {
     expect(
       selectReusableBuildTokenUuid({
         tokens: [

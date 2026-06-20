@@ -25,9 +25,9 @@ vi.mock("convex/react", () => ({
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QHNhbWViYXNlLmNvbSJ9.signature";
 const NON_ASCII_PROFILE_JWT =
-  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJKb3PDqSDkuK3mnZEiLCJlbWFpbCI6Im3DvGxsZXJAbm90ZXIubWQifQ.signature";
+  "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJKb3PDqSDkuK3mnZEiLCJlbWFpbCI6Im3DvGxsZXJAc2FtZWJhc2UuY29tIn0.signature";
 const EXPIRED_JWT = "header.eyJleHAiOjF9.signature";
 const NON_FINITE_EXP_JWT = "header.eyJleHAiOjFlOTk5fQ.signature";
 const NO_EXP_JWT = "header.e30.signature";
@@ -124,7 +124,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         name: "Nicu",
       },
     });
@@ -137,14 +137,14 @@ describe("app auth presentation", () => {
   it("clears the head prehydration marker and style after the auth hint resolves", async () => {
     document.documentElement.setAttribute("data-app-auth-presentation-prehydrated", "");
     const styleElement = document.createElement("style");
-    styleElement.id = "noter-app-auth-presentation-prehydration";
+    styleElement.id = "samebase-app-auth-presentation-prehydration";
     document.head.append(styleElement);
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
       true,
     );
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).not.toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).not.toBeNull();
 
     expect(await renderPresentationProviderAfterEffects()).toBe(
       "<span>temporaryAuthenticated</span>",
@@ -153,7 +153,7 @@ describe("app auth presentation", () => {
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
       false,
     );
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("keeps auth presentation pending while only the refresh token can restore the session", async () => {
@@ -173,7 +173,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         name: "Nicu",
       },
     });
@@ -188,7 +188,7 @@ describe("app auth presentation", () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({
       kind: "present",
       profile: {
-        email: "müller@noter.md",
+        email: "müller@samebase.com",
         name: "José 中村",
       },
     });

@@ -31,7 +31,7 @@ describe("publicLandingLogoPrehydration", () => {
       document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
     ).toBe(true);
     expect(
-      document.getElementById("noter-public-landing-logo-prehydration")?.textContent,
+      document.getElementById("samebase-public-landing-logo-prehydration")?.textContent,
     ).toContain("[data-public-landing-logo-static-fallback]");
   });
 
@@ -43,6 +43,6 @@ describe("publicLandingLogoPrehydration", () => {
     expect(
       document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
     ).toBe(false);
-    expect(document.getElementById("noter-public-landing-logo-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-public-landing-logo-prehydration")).toBeNull();
   });
 });

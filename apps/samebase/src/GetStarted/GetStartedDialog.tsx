@@ -20,7 +20,7 @@ export function GetStartedDialog({ children }: { children: ReactNode }) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <AppDialogContent
         size="lg"
-        className="[--noter-get-started-dialog-max-height:calc(100dvh-8rem)] [--noter-get-started-dialog-rows:1fr_auto] max-h-(--noter-get-started-dialog-max-height) grid-rows-(--noter-get-started-dialog-rows)"
+        className="[--samebase-get-started-dialog-max-height:calc(100dvh-8rem)] [--samebase-get-started-dialog-rows:1fr_auto] max-h-(--samebase-get-started-dialog-max-height) grid-rows-(--samebase-get-started-dialog-rows)"
       >
         <DialogHeader>
           <DialogTitle className="flex items-baseline gap-2">

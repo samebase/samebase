@@ -203,7 +203,7 @@ async function fetchGithubIdentity(token: string): Promise<{
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
-      "User-Agent": "noter-app",
+      "User-Agent": "samebase-app",
     },
   });
 

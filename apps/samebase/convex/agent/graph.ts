@@ -45,9 +45,9 @@ function createModel(provider: string, model: string) {
   }
 }
 
-function createNoterAgent(provider: string, model: string) {
+function createAppAgent(provider: string, model: string) {
   return new Agent(components.agent, {
-    name: "noter-chat",
+    name: "samebase-chat",
     languageModel: createModel(provider, model),
     maxSteps: 12,
   });
@@ -161,7 +161,7 @@ function summarizeSavedMessages(savedMessages?: MessageDoc[]) {
 }
 
 /**
- * Runs the Noter agent turn using the official Convex Agent runtime.
+ * Runs the Samebase agent turn using the official Convex Agent runtime.
  *
  * Returns the final assistant text plus detected commit/prod-read proposals.
  */
@@ -186,7 +186,7 @@ export async function runAgentGraph(opts: {
     userId,
   } = opts;
 
-  const agent = createNoterAgent(provider, model);
+  const agent = createAppAgent(provider, model);
   const tools = toolCtx ? createTools(toolCtx) : undefined;
 
   const steps: StepSnapshot[] = [];

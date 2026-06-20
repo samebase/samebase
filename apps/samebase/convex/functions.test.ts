@@ -15,7 +15,7 @@ import {
 
 const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
-  role_waitlisted: ["access_public", "access_user_preferences"],
+  role_pending_access: ["access_public", "access_user_preferences"],
   role_member: [
     "access_public",
     "access_user_preferences",

@@ -113,8 +113,6 @@ import type * as vault_model from "../vault/model.js";
 import type * as vault_records from "../vault/records.js";
 import type * as vault_resourceLinksStateModel from "../vault/resourceLinksStateModel.js";
 import type * as vault_state from "../vault/state.js";
-import type * as waitlist from "../waitlist.js";
-import type * as waitlistActions from "../waitlistActions.js";
 import type * as workspaceSidebarState from "../workspaceSidebarState.js";
 import type * as workspaceSidebarStateModel from "../workspaceSidebarStateModel.js";
 
@@ -230,8 +228,6 @@ declare const fullApi: ApiFromModules<{
   "vault/records": typeof vault_records;
   "vault/resourceLinksStateModel": typeof vault_resourceLinksStateModel;
   "vault/state": typeof vault_state;
-  waitlist: typeof waitlist;
-  waitlistActions: typeof waitlistActions;
   workspaceSidebarState: typeof workspaceSidebarState;
   workspaceSidebarStateModel: typeof workspaceSidebarStateModel;
 }>;

@@ -53,7 +53,7 @@ describe("app provisioning workflow actions", () => {
       return userId;
     });
     const { vaultId, runId } = await t.mutation(
-      internal.vault.records.createInitializingNoterManagedVaultForUser,
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
         ghRepoOwner: "ada",

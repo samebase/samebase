@@ -1,8 +1,8 @@
 import { ConvexReactClient } from "convex/react";
 import { readBrowserOrigin } from "@/lib/isomorphic";
-import { samebaseBuildConfig } from "@/lib/samebaseBuildConfig";
+import { appBuildConfig } from "@/lib/appBuildConfig";
 
-const browserConvexProxyPath = samebaseBuildConfig.browserConvexProxyPath;
+const browserConvexProxyPath = appBuildConfig.browserConvexProxyPath;
 const fallbackConvexUrl = import.meta.env.MODE === "test" ? "http://127.0.0.1:3210" : null;
 
 function readBrowserConvexProxyUrl(proxyPath: string): string | null {

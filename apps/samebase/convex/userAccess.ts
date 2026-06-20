@@ -1,4 +1,4 @@
-const ADMIN_EMAILS = new Set(["nicuchiciuc@gmail.com", "nicu@noter.md"]);
+const ADMIN_EMAILS = new Set(["nicuchiciuc@gmail.com", "nicu@samebase.com"]);
 
 export function isAdminUser(email?: string | null): boolean {
   if (!email) {

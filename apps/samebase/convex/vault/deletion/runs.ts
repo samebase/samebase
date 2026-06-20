@@ -305,7 +305,7 @@ async function buildDeletionPlan(
         convex,
         cloudflare,
         target: {
-          kind: "noter_managed_repository",
+          kind: "samebase_managed_repository",
           ghRepoId: args.vault.ghRepoId,
           owner: args.vault.owner,
           name: args.vault.name,

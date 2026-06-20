@@ -178,7 +178,7 @@ function readBaseFractalCoordinates(
 
 /**
  * Repeats the depth-1 motif in every filled voxel. The default motif is the
- * Noter mark, which keeps recursive corners empty instead of becoming a
+ * Samebase mark, which keeps recursive corners empty instead of becoming a
  * standard Menger sponge. Generation expands only from filled motif cells so
  * higher depths do not scan the empty recursive volume.
  */

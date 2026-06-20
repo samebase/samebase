@@ -514,7 +514,7 @@ type EditorChatPanelProps = {
   shellMode?: "embedded" | "standalone";
 };
 
-const STORAGE_KEY_LOCAL_THREAD = "noter-chat-thread";
+const STORAGE_KEY_LOCAL_THREAD = "samebase-chat-thread";
 
 function loadStoredLocalThreadId(): string | null {
   try {

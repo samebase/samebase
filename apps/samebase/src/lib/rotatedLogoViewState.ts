@@ -28,8 +28,8 @@ type WriteRotatedLogoViewStateArgs = {
 };
 
 const STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY = {
-  [PUBLIC_LANDING_LOGO_VIEW_STATE_KEY]: "noter:logo-view:public-landing",
-  [DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY]: "noter:logo-view:dashboard-empty",
+  [PUBLIC_LANDING_LOGO_VIEW_STATE_KEY]: "samebase:logo-view:public-landing",
+  [DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY]: "samebase:logo-view:dashboard-empty",
 } as const satisfies Record<RotatedLogoViewStateKey, string>;
 
 let cachedRotatedLogoViewStateByKey: Partial<

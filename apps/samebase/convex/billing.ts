@@ -145,7 +145,7 @@ async function fetchPolarJson(args: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
         Accept: "application/json",
-        "User-Agent": "noter-app",
+        "User-Agent": "samebase-app",
       },
       body: args.body ? JSON.stringify(args.body) : undefined,
       signal: controller.signal,
@@ -207,7 +207,7 @@ export const ensurePolarExternalCustomerId = internalMutation({
       };
     }
 
-    const externalCustomerId = `noter_${randomToken(24)}`;
+    const externalCustomerId = `samebase_${randomToken(24)}`;
     await ctx.db.patch(args.userId, {
       billingPolarExternalCustomerId: externalCustomerId,
     });

@@ -39,7 +39,7 @@ describe("app auth presentation runtime", () => {
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
-          email: "nicu@noter.md",
+          email: "nicu@samebase.com",
           exp: 4100000000,
           name: "Nicu",
         }),
@@ -48,7 +48,7 @@ describe("app auth presentation runtime", () => {
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({
-          email: "nicu@noter.md",
+          email: "nicu@samebase.com",
           exp: -1,
           name: "Nicu",
         }),
@@ -66,7 +66,7 @@ describe("app auth presentation runtime", () => {
   it("reads the local auth presentation hint from storage and search", () => {
     const runtime = createRuntime();
     const jwt = createJwt({
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       exp: 4100000000,
     });
     const entries = new Map([[runtime.convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), jwt]]);
@@ -81,9 +81,9 @@ describe("app auth presentation runtime", () => {
       }),
     ).toEqual({
       kind: "present",
-      label: "nicu@noter.md",
+      label: "nicu@samebase.com",
       profile: {
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
       },
     });
   });
@@ -112,12 +112,12 @@ describe("app auth presentation runtime", () => {
     const runtime = createRuntime();
     const payloads = [
       {
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         exp: 4100000000,
         name: "Nicu",
       },
       {
-        email: "  nicu@noter.md  ",
+        email: "  nicu@samebase.com  ",
         exp: 4100000000,
         name: "  Nicu  ",
       },
@@ -132,7 +132,7 @@ describe("app auth presentation runtime", () => {
         name: "Nicu",
       },
       {
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         exp: 4100000000,
         name: 123,
       },

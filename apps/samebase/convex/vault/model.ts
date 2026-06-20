@@ -23,7 +23,7 @@ export const vGithubTreeData = object({
 export type GithubTreeData = Infer<typeof vGithubTreeData>;
 
 /**
- * GitHub visibility values currently supported by Noter's create and connect
+ * GitHub visibility values currently supported by Samebase's create and connect
  * flows.
  */
 export const vGitHubRepositoryVisibility = union(literal("private"), literal("public"));
@@ -57,7 +57,7 @@ const githubRepositoryCoordinatesFields = {
  * Visibility is separate from coordinates because owner/name identify the repo
  * target even when visibility is not known yet. Create-repository states use it
  * as requested intent; connected states use it as the latest GitHub metadata
- * observed by Noter.
+ * observed by Samebase.
  */
 const githubRepositoryWithVisibilityFields = {
   ...githubRepositoryCoordinatesFields,

@@ -631,7 +631,7 @@ describe("vault dashboard Convex contract", () => {
     });
 
     const ids = await t.mutation(
-      internal.vault.records.createInitializingNoterManagedVaultForUser,
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
         ghRepoOwner: "ada",
@@ -669,7 +669,7 @@ describe("vault dashboard Convex contract", () => {
         vaultId: ids.vaultId,
         runId: ids.runId,
         step: "initialize_vault",
-        message: "Created the initializing Noter vault.",
+        message: "Created the initializing Samebase vault.",
       },
     ]);
   });
@@ -1098,7 +1098,7 @@ describe("vault dashboard Convex contract", () => {
 
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
-      isNoterManaged: false,
+      isSamebaseManaged: false,
       providerSetup: {
         status: "running",
         provider: "cloudflare",

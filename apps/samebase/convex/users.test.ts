@@ -4,7 +4,7 @@ import { hasAppAccess, isAdminUser } from "./userAccess";
 
 describe("isAdminUser", () => {
   it("matches admin emails case-insensitively", () => {
-    expect(isAdminUser("NICU@NOTER.MD")).toBe(true);
+    expect(isAdminUser("NICU@SAMEBASE.COM")).toBe(true);
   });
 
   it("does not give staff access to the member test account by email", () => {
@@ -16,7 +16,7 @@ describe("hasAppAccess", () => {
   it("allows explicitly approved users", () => {
     expect(
       hasAppAccess({
-        email: "noter.guest@gmail.com",
+        email: "samebase.guest@gmail.com",
         isApproved: true,
       }),
     ).toBe(true);
@@ -25,7 +25,7 @@ describe("hasAppAccess", () => {
   it("allows admins without a stored approval flag", () => {
     expect(
       hasAppAccess({
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
       }),
     ).toBe(true);
   });
@@ -33,7 +33,7 @@ describe("hasAppAccess", () => {
   it("blocks unapproved non-admin users", () => {
     expect(
       hasAppAccess({
-        email: "noter.guest@gmail.com",
+        email: "samebase.guest@gmail.com",
       }),
     ).toBe(false);
   });

@@ -1,4 +1,4 @@
-import { useNoterAuthActions } from "@/authClient";
+import { useAppAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import type { RouteAccessViewer } from "@/routing/permissions";
 import { useQuery } from "convex/react";
@@ -33,7 +33,7 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
     viewerAccessContext === null ? {} : "skip",
   );
   const viewerAccess = viewerAccessContext ?? queriedViewerAccess;
-  const { signOut } = useNoterAuthActions();
+  const { signOut } = useAppAuthActions();
 
   // Avoid flashing gated content before approval state is known.
   if (viewerAccess === undefined) {
@@ -41,15 +41,15 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
   }
 
   if (
-    viewerAccess.role === "role_waitlisted" ||
+    viewerAccess.role === "role_pending_access" ||
     !viewerAccess.accessKeys.some((accessKey) => accessKey !== "access_public")
   ) {
     return (
       <div className="container my-auto">
         <div className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center">
-          <h2 className="text-xl font-semibold tracking-tight">You're on the waitlist</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Account access pending</h2>
           <p className="text-sm text-muted-foreground">
-            We'll let you know when your spot opens up.
+            This account does not have app access yet.
           </p>
           <Button
             variant="outline"

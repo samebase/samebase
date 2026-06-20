@@ -578,11 +578,11 @@ export const createVaultForRepository = internalAction({
       runId: args.runId,
       step: "connect_github",
       level: "info",
-      message: "Connecting the Noter vault to GitHub.",
+      message: "Connecting the Samebase vault to GitHub.",
       state: "running",
     });
 
-    await ctx.runMutation(internal.vault.records.connectNoterManagedVaultGitHub, {
+    await ctx.runMutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {
       vaultId: args.vaultId,
       userId: args.userId,
       ghRepoId: args.ghRepoId,
@@ -596,7 +596,7 @@ export const createVaultForRepository = internalAction({
       runId: args.runId,
       step: "connect_github",
       level: "info",
-      message: "Connected the Noter vault to GitHub.",
+      message: "Connected the Samebase vault to GitHub.",
       state: "running",
     });
 
@@ -623,7 +623,7 @@ export const connectExistingRepositoryVault = internalAction({
       runId: args.runId,
       step: "connect_github",
       level: "info",
-      message: "Connecting the Noter vault to GitHub.",
+      message: "Connecting the Samebase vault to GitHub.",
       state: "running",
     });
 
@@ -641,7 +641,7 @@ export const connectExistingRepositoryVault = internalAction({
       runId: args.runId,
       step: "connect_github",
       level: "info",
-      message: "Connected the Noter vault to GitHub.",
+      message: "Connected the Samebase vault to GitHub.",
       state: "running",
     });
 

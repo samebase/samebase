@@ -37,31 +37,31 @@ describe("workspace sidebar state Convex contract", () => {
     ).resolves.toBeNull();
   });
 
-  it("lets waitlisted users update their own public shell sidebar state", async () => {
+  it("lets pending-access users update their own public shell sidebar state", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
-        name: "Waitlisted",
-        email: "waitlisted@example.com",
+        name: "Pending Access",
+        email: "pending-access@example.com",
         isApproved: false,
       });
     });
-    const asWaitlisted = t.withIdentity({
-      subject: `${userId}|waitlisted-session`,
+    const asPendingAccess = t.withIdentity({
+      subject: `${userId}|pending-access-session`,
       tokenIdentifier: `test:${userId}`,
     });
 
-    await asWaitlisted.mutation(api.workspaceSidebarState.setWorkspaceSidebarState, {
+    await asPendingAccess.mutation(api.workspaceSidebarState.setWorkspaceSidebarState, {
       state: RIGHT_PANE_STATE,
       workspaceKey: "app",
     });
-    await asWaitlisted.mutation(api.workspaceSidebarState.setWorkspaceSidebarState, {
+    await asPendingAccess.mutation(api.workspaceSidebarState.setWorkspaceSidebarState, {
       state: MAIN_PANE_STATE,
       workspaceKey: "app",
     });
 
     await expect(
-      asWaitlisted.query(api.workspaceSidebarState.getWorkspaceSidebarState, {
+      asPendingAccess.query(api.workspaceSidebarState.getWorkspaceSidebarState, {
         workspaceKey: "app",
       }),
     ).resolves.toEqual(MAIN_PANE_STATE);

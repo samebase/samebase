@@ -205,7 +205,7 @@ export const seedProviderConnectionsForEmail = internalMutation({
       return null;
     }
 
-    // Seeded preview/local password accounts must skip the waitlist gate so
+    // Seeded preview/local password accounts must skip the pending access gate so
     // operators do not need a parallel code-side allowlist for dev access.
     if (user.isApproved !== true) {
       await ctx.db.patch(user._id, { isApproved: true });

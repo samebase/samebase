@@ -1,4 +1,4 @@
-import { useNoterAuthActions } from "@/authClient";
+import { useAppAuthActions } from "@/authClient";
 import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
 import {
   VaultDashboardAccountSection,
@@ -164,7 +164,7 @@ function PublicLandingResolvedSignedInAccountSection({
   viewer: PublicLandingSignedInViewer;
 }) {
   const authProviders = useQuery(api.users.getViewerAuthProviders);
-  const { signOut } = useNoterAuthActions();
+  const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const providerLabel = useMemo(() => {
@@ -210,7 +210,7 @@ function PublicLandingPresentedSignedInAccountSection({
 }: {
   profile: AppAuthPresentationProfile;
 }) {
-  const { signOut } = useNoterAuthActions();
+  const { signOut } = useAppAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const accountDisplayName = profile.name ?? profile.email;

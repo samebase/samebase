@@ -46,7 +46,7 @@ const generatedFormatPaths = [
 ];
 
 /**
-Convex publishes these identifiers as int64 schemas, but Noter treats provider
+Convex publishes these identifiers as int64 schemas, but Samebase treats provider
 IDs as opaque decimal strings so large values cannot lose precision in JS.
 */
 const convexManagementDecimalIdSchemaNames = [
@@ -199,7 +199,8 @@ function collectConvexManagementResponseValidatorEntries(
               path,
               usedExportNames,
             });
-      const schemaId = exportName === null ? null : `noter://convex-management-api/${exportName}`;
+      const schemaId =
+        exportName === null ? null : `samebase://convex-management-api/${exportName}`;
 
       entries.push({
         method,

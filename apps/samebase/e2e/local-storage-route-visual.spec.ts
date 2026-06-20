@@ -34,9 +34,9 @@ async function signInForLocalStorageRoute(page: Page): Promise<void> {
 
 async function seedLocalStorageRouteValues(page: Page): Promise<void> {
   await page.evaluate(() => {
-    window.localStorage.setItem("noter.alpha", "plain value");
+    window.localStorage.setItem("samebase.alpha", "plain value");
     window.localStorage.setItem(
-      "noter.json",
+      "samebase.json",
       JSON.stringify({
         enabled: true,
         nested: {
@@ -44,7 +44,7 @@ async function seedLocalStorageRouteValues(page: Page): Promise<void> {
         },
       }),
     );
-    window.localStorage.setItem("noter.multiline", "line one\nline two\nline three");
+    window.localStorage.setItem("samebase.multiline", "line one\nline two\nline three");
   });
 }
 
@@ -70,7 +70,7 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
   );
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
-      hasText: "noter.multiline",
+      hasText: "samebase.multiline",
     }),
   ).toBeVisible();
   await expect(
@@ -123,7 +123,7 @@ test("localStorage route reflects same-tab storage writes without manual refresh
 
   await page.evaluate(() => {
     window.localStorage.setItem(
-      "noter.route-live-update",
+      "samebase.route-live-update",
       JSON.stringify({
         enabled: true,
         source: "same-tab-write",
@@ -134,7 +134,7 @@ test("localStorage route reflects same-tab storage writes without manual refresh
 
   await expect(
     page.getByTestId("local-storage-entry-key").filter({
-      hasText: "noter.route-live-update",
+      hasText: "samebase.route-live-update",
     }),
   ).toBeVisible();
   await expect(

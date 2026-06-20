@@ -50,7 +50,7 @@ const LOCAL_SIDEBAR_STATE = {
 } satisfies WorkspaceSidebarState;
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR =
-  "style#noter-app-workspace-sidebar-prehydration";
+  "style#samebase-app-workspace-sidebar-prehydration";
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR =
   ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
 
@@ -389,7 +389,7 @@ describe("AppWorkspaceShell", () => {
     );
 
     expect(markup).toContain("flex h-full min-h-0 flex-col");
-    expect(markup).not.toContain("--noter-app-workspace-shell-height");
+    expect(markup).not.toContain("--samebase-app-workspace-shell-height");
     expect(markup).not.toContain("h-dvh");
     expect(markup).not.toContain("min-h-dvh");
   });
@@ -571,7 +571,7 @@ describe("AppWorkspaceShell", () => {
     });
 
     expect(
-      document.querySelector("style#noter-app-workspace-sidebar-mobile-prehydration"),
+      document.querySelector("style#samebase-app-workspace-sidebar-mobile-prehydration"),
     ).toBeNull();
     expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
       "260px",

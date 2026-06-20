@@ -17,10 +17,10 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
             Updated
           </div>
           <VaultSyncStatusContent
-            repositoryFullName="noter-md/noter"
+            repositoryFullName="samebase/samebase"
             branch="main"
-            owner="noter-md"
-            repoName="noter"
+            owner="samebase"
+            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
             lastTreeRefreshAt={FIXTURE_NOW - 18_000}
             stagedFiles={[]}
@@ -34,10 +34,10 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
             Syncing
           </div>
           <VaultSyncStatusContent
-            repositoryFullName="noter-md/noter"
+            repositoryFullName="samebase/samebase"
             branch="main"
-            owner="noter-md"
-            repoName="noter"
+            owner="samebase"
+            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
             treeRefreshStartedAt={FIXTURE_NOW - 5_000}
             lastTreeRefreshAt={FIXTURE_NOW - 42_000}
@@ -52,10 +52,10 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
             Rate Limited
           </div>
           <VaultSyncStatusContent
-            repositoryFullName="noter-md/noter"
+            repositoryFullName="samebase/samebase"
             branch="main"
-            owner="noter-md"
-            repoName="noter"
+            owner="samebase"
+            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
             lastTreeRefreshAt={FIXTURE_NOW - 51_000}
             lastTreeRefreshFailedAt={FIXTURE_NOW - 8_000}
@@ -73,10 +73,10 @@ export function VaultSyncStatusVisualFixture({ mode }: { mode: VaultSyncStatusVi
             Failed
           </div>
           <VaultSyncStatusContent
-            repositoryFullName="noter-md/noter"
+            repositoryFullName="samebase/samebase"
             branch="main"
-            owner="noter-md"
-            repoName="noter"
+            owner="samebase"
+            repoName="samebase"
             commitSha="1234567890abcdef1234567890abcdef12345678"
             lastTreeRefreshAt={FIXTURE_NOW - 2 * 60 * 1000}
             lastTreeRefreshFailedAt={FIXTURE_NOW - 10_000}

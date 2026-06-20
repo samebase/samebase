@@ -18,7 +18,7 @@ const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithGoogleMo
 vi.mock("@/authClient", () => ({
   isInIframe: isInIframeMock,
   openAuthPopup: openAuthPopupMock,
-  useNoterSignInActions: () => ({
+  useAppSignInActions: () => ({
     signInWithGoogle: signInWithGoogleMock,
   }),
 }));

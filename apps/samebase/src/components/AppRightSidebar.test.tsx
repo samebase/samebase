@@ -108,7 +108,7 @@ vi.mock("convex/react", async (importOriginal) => {
 
 vi.mock("@/authClient", () => ({
   isInIframe: () => false,
-  useNoterAuthActions: () => ({
+  useAppAuthActions: () => ({
     signOut: vi.fn(),
   }),
 }));
@@ -379,7 +379,7 @@ describe("AppRightSidebarContent", () => {
     expectProviderStatusQueriesNotSeen();
   });
 
-  it("loads the account row without provider controls for confirmed waitlisted users", async () => {
+  it("loads the account row without provider controls for confirmed pending-access users", async () => {
     blockProviderStatusQueries();
 
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
@@ -387,16 +387,16 @@ describe("AppRightSidebarContent", () => {
         [
           getFunctionName(api.users.currentViewerAccess),
           {
-            role: "role_waitlisted",
+            role: "role_pending_access",
             accessKeys: ["access_public", "access_user_preferences"],
           },
         ],
         [
           getFunctionName(api.users.viewer),
           {
-            _id: "user_waitlisted",
-            name: "Waitlisted User",
-            email: "waitlisted@example.com",
+            _id: "user_pending-access",
+            name: "Pending Access User",
+            email: "pending-access@example.com",
             hasCloudflareConnection: false,
             hasConvexConnection: false,
             hasGithubConnection: false,
@@ -411,7 +411,7 @@ describe("AppRightSidebarContent", () => {
       ]),
     );
 
-    expect(hydratedMarkup).toContain("Waitlisted User");
+    expect(hydratedMarkup).toContain("Pending Access User");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
     expect(hydratedMarkup).not.toContain("New App");
@@ -439,7 +439,7 @@ describe("AppRightSidebarContent", () => {
           {
             _id: "user_123",
             name: "Nicu",
-            email: "nicu@noter.md",
+            email: "nicu@samebase.md",
             hasCloudflareConnection: false,
             hasConvexConnection: false,
             hasGithubConnection: false,

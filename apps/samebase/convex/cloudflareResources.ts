@@ -193,7 +193,7 @@ async function readAccountSubdomain(
   const subdomain = raw?.subdomain.trim();
   if (!subdomain) {
     throw new Error(
-      "Cloudflare Workers needs a configured workers.dev subdomain before Noter can create a production URL.",
+      "Cloudflare Workers needs a configured workers.dev subdomain before Samebase can create a production URL.",
     );
   }
   return subdomain;
@@ -627,7 +627,7 @@ export function selectReusableBuildTokenUuid(args: {
   );
   const namedTokenUuid = selectStableBuildTokenUuid(namedTokens);
   if (namedTokenUuid) {
-    // Failed retries can leave duplicate Noter-named tokens. Cloudflare's list
+    // Failed retries can leave duplicate Samebase-named tokens. Cloudflare's list
     // response has no creation time, so choose by stable UUID order and let the
     // trigger upserts bind both triggers to the same token.
     return namedTokenUuid;

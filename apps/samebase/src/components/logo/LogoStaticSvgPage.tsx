@@ -72,7 +72,7 @@ export function LogoStaticSvgPage({ routeSearch }: { routeSearch: LogoRouteSearc
           <img
             data-testid="logo-static-svg-image"
             src={staticSvgSrc}
-            alt="Noter logo"
+            alt="Samebase logo"
             width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
             height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}
             className="block h-auto w-full max-w-[24rem]"

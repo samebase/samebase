@@ -24,7 +24,7 @@ export function MachineConnectVisualFixture() {
           approvalError="Machine registration request expired."
           connectedMachines={[
             {
-              allowedRoots: ["/Users/nicu/.codex/worktrees/6f41/noter"],
+              allowedRoots: ["/Users/nicu/.codex/worktrees/6f41/samebase"],
               capabilities: ["presence", "liveControl"],
               connectorVersion: "samebase-sync 0.1.0",
               controlStatus: "ready",

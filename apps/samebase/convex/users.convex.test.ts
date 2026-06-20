@@ -74,7 +74,7 @@ describe("users Convex contract", () => {
     });
   });
 
-  it("keeps waitlisted users on public shell access and denies provider access", async () => {
+  it("keeps pending-access users on public shell access and denies provider access", async () => {
     const t = makeConvexTest();
     const ownerId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -118,11 +118,11 @@ describe("users Convex contract", () => {
       hasCloudflareConnection: false,
     });
     await expect(asViewer.query(api.users.currentViewerAccess)).resolves.toEqual({
-      role: "role_waitlisted",
+      role: "role_pending_access",
       accessKeys: ["access_public", "access_user_preferences"],
     });
     await expect(asViewer.query(api.users.currentViewerRole)).resolves.toEqual({
-      role: "role_waitlisted",
+      role: "role_pending_access",
     });
     await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
       "Access denied",

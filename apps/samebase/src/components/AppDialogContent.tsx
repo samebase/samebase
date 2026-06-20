@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 type AppDialogContentSize = "default" | "lg";
 
 const appDialogContentSizeClass: Record<AppDialogContentSize, string> = {
-  default: "[--noter-dialog-max-width:28rem]",
-  lg: "[--noter-dialog-max-width:42rem]",
+  default: "[--samebase-dialog-max-width:28rem]",
+  lg: "[--samebase-dialog-max-width:42rem]",
 };
 
 /**
@@ -26,7 +26,7 @@ export function AppDialogContent({
       className={cn(
         appDialogContentSizeClass[size],
         className,
-        "[--noter-dialog-left:50dvw] [--noter-dialog-top:50dvh] [--noter-dialog-width:min(var(--noter-dialog-max-width),calc(100dvw-2rem))] top-(--noter-dialog-top) left-(--noter-dialog-left) w-(--noter-dialog-width) max-w-(--noter-dialog-width) sm:w-(--noter-dialog-width) sm:max-w-(--noter-dialog-width)",
+        "[--samebase-dialog-left:50dvw] [--samebase-dialog-top:50dvh] [--samebase-dialog-width:min(var(--samebase-dialog-max-width),calc(100dvw-2rem))] top-(--samebase-dialog-top) left-(--samebase-dialog-left) w-(--samebase-dialog-width) max-w-(--samebase-dialog-width) sm:w-(--samebase-dialog-width) sm:max-w-(--samebase-dialog-width)",
       )}
       {...props}
     />

@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Cloudflare Noter API Family Subset",
+    "title": "Cloudflare Samebase API Family Subset",
     "version": "4.0.0",
-    "description": "Generated subset for Noter-owned Cloudflare Workers and Workers Builds API families."
+    "description": "Generated subset for Samebase-owned Cloudflare Workers and Workers Builds API families."
   },
   "paths": {
     "/accounts": {

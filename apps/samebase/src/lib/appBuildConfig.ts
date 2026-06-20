@@ -1,4 +1,4 @@
-export type SamebaseBuildConfig = {
+export type AppBuildConfig = {
   readonly appCommit: string;
   readonly appCommitNumber: number | null;
   readonly appRepoUrl: string;
@@ -6,4 +6,4 @@ export type SamebaseBuildConfig = {
   readonly landingPageSlogan: string;
 };
 
-export const samebaseBuildConfig: SamebaseBuildConfig = __SAMEBASE_BUILD_CONFIG__;
+export const appBuildConfig: AppBuildConfig = __APP_BUILD_CONFIG__;

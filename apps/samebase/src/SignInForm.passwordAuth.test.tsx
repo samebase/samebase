@@ -28,7 +28,7 @@ const componentState = vi.hoisted<{
   search: {},
 }));
 vi.mock("@/authClient", () => ({
-  useNoterSignInActions: () => ({
+  useAppSignInActions: () => ({
     signInWithPassword: signInWithPasswordMock,
   }),
 }));
@@ -147,7 +147,7 @@ describe("PasswordAuthForm", () => {
     const rootElement = document.createElement("div");
     rootElement.innerHTML = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
     document.body.append(rootElement);
-    window.localStorage.setItem("noter_public_landing_password_auth_mode", "preview_seed");
+    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
     const recoverableErrors: Array<unknown> = [];
 
     await act(async () => {
@@ -219,7 +219,7 @@ describe("PasswordAuthForm", () => {
 
   it("runs the success handoff after password sign-in", async () => {
     signInWithPasswordMock.mockResolvedValue(undefined);
-    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@noter.md");
+    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@samebase.com");
     vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_VALUE", "pass1234");
     const onSignIn = vi.fn();
     const rootElement = document.createElement("div");
@@ -243,7 +243,7 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(signInWithPasswordMock).toHaveBeenCalledWith({
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       flow: "signIn",
       password: "pass1234",
     });
@@ -256,7 +256,7 @@ describe("PasswordAuthForm", () => {
       passwordAuthMode: "local_worktree_seed",
     };
     signInWithPasswordMock.mockResolvedValue(undefined);
-    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@noter.md");
+    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@samebase.com");
     vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_VALUE", "pass1234");
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -279,7 +279,7 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(signInWithPasswordMock).toHaveBeenCalledWith({
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       flow: "signIn",
       password: "pass1234",
     });

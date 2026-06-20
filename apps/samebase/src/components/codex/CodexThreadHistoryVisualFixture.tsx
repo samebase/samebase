@@ -16,16 +16,16 @@ const TWO_LINE_ITEM = {
   id: "message-two-line",
   type: "assistant_message",
   summary:
-    "Machine threads stay local to the connector.\nNoter only needs the normalized session handle.",
+    "Machine threads stay local to the connector.\nSamebase only needs the normalized session handle.",
   raw: {
-    text: "Machine threads stay local to the connector.\nNoter only needs the normalized session handle.",
+    text: "Machine threads stay local to the connector.\nSamebase only needs the normalized session handle.",
   },
 } as const;
 
 const LONG_ITEM = {
   id: "message-long",
   type: "assistant_message",
-  summary: `I inspected the app-server handshake and captured the full event sequence so we can separate the provider protocol from the Noter contract.\n\nThe next step is to keep machine presence, approvals, and recent normalized events in Convex while treating the provider thread id as opaque runtime state. That gives us one machine connector process that can service multiple remote threads without leaking Codex-specific JSON-RPC details into the product model.`,
+  summary: `I inspected the app-server handshake and captured the full event sequence so we can separate the provider protocol from the Samebase contract.\n\nThe next step is to keep machine presence, approvals, and recent normalized events in Convex while treating the provider thread id as opaque runtime state. That gives us one machine connector process that can service multiple remote threads without leaking Codex-specific JSON-RPC details into the product model.`,
   raw: {},
 } as const;
 
@@ -33,12 +33,12 @@ const TWO_LINE_THREAD = {
   id: "thread-two-line",
   name: null,
   preview:
-    "Machine threads stay local to the connector.\nNoter only needs the normalized session handle.",
-  cwd: "/Users/nicu/.codex/worktrees/5fed/noter",
+    "Machine threads stay local to the connector.\nSamebase only needs the normalized session handle.",
+  cwd: "/Users/nicu/.codex/worktrees/5fed/samebase",
   project: {
-    id: "/Users/nicu/dev/my/noter",
-    label: "noter",
-    rootCwd: "/Users/nicu/dev/my/noter",
+    id: "/Users/nicu/dev/my/samebase",
+    label: "samebase",
+    rootCwd: "/Users/nicu/dev/my/samebase",
   },
   workspace: {
     label: "5fed",
@@ -67,7 +67,7 @@ const LONG_THREAD = {
   ...TWO_LINE_THREAD,
   id: "thread-long",
   preview:
-    "check latest pr created; it was created from noter.md ui I'd like something to run on this machine that when it sees such a pr created knows that it needs to start codex to do the research and update the pull request with findings",
+    "check latest pr created; it was created from samebase.md ui I'd like something to run on this machine that when it sees such a pr created knows that it needs to start codex to do the research and update the pull request with findings",
 } as const satisfies CodexAppServerThread;
 
 export function CodexThreadHistoryVisualFixture({ mode }: { mode: CodexThreadHistoryVisualMode }) {

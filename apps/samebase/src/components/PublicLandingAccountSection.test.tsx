@@ -74,10 +74,10 @@ vi.mock("convex/react", async (importOriginal) => {
 vi.mock("@/authClient", () => ({
   isInIframe: () => false,
   openAuthPopup: vi.fn(),
-  useNoterAuthActions: () => ({
+  useAppAuthActions: () => ({
     signOut: vi.fn(),
   }),
-  useNoterSignInActions: () => ({
+  useAppSignInActions: () => ({
     signInWithGoogle: vi.fn(),
   }),
 }));

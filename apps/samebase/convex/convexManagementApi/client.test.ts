@@ -76,7 +76,7 @@ function assertConvexManagementRequestTypes(): void {
   const tokenDetailsResponse: PlatformTokenDetailsResponse = {
     createTime: 1710000000000,
     id: LARGE_CONVEX_ID,
-    name: "Noter OAuth",
+    name: "Samebase OAuth",
     teamId: LARGE_CONVEX_PARENT_ID,
     type: "teamToken",
   };
@@ -158,7 +158,7 @@ describe("Convex Management API request helpers", () => {
             {
               "createTime": 1710000000000,
               "id": ${LARGE_CONVEX_ID},
-              "name": "Noter",
+              "name": "Samebase",
               "slug": "noter",
               "teamId": ${LARGE_CONVEX_PARENT_ID},
               "teamSlug": "noter-team"
@@ -180,7 +180,7 @@ describe("Convex Management API request helpers", () => {
       {
         createTime: 1710000000000,
         id: LARGE_CONVEX_ID,
-        name: "Noter",
+        name: "Samebase",
         slug: "noter",
         teamId: LARGE_CONVEX_PARENT_ID,
         teamSlug: "noter-team",
@@ -284,7 +284,7 @@ describe("Convex Management API request helpers", () => {
           `{
             "createTime": 1710000000000,
             "id": ${LARGE_CONVEX_ID},
-            "name": "Noter OAuth",
+            "name": "Samebase OAuth",
             "teamId": ${LARGE_CONVEX_PARENT_ID},
             "type": "teamToken"
           }`,
@@ -301,7 +301,7 @@ describe("Convex Management API request helpers", () => {
     ).resolves.toEqual({
       createTime: 1710000000000,
       id: LARGE_CONVEX_ID,
-      name: "Noter OAuth",
+      name: "Samebase OAuth",
       teamId: LARGE_CONVEX_PARENT_ID,
       type: "teamToken",
     });
@@ -502,7 +502,7 @@ describe("Convex Management API request helpers", () => {
             {
               "createTime": ${LARGE_CONVEX_ID},
               "id": ${LARGE_CONVEX_ID},
-              "name": "Noter",
+              "name": "Samebase",
               "slug": "noter",
               "teamId": ${LARGE_CONVEX_PARENT_ID},
               "teamSlug": "noter-team"

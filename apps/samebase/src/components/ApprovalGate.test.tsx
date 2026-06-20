@@ -28,7 +28,7 @@ vi.mock("convex/react", () => ({
 }));
 
 vi.mock("@/authClient", () => ({
-  useNoterAuthActions: () => ({
+  useAppAuthActions: () => ({
     signOut: () => {},
   }),
 }));
@@ -52,15 +52,15 @@ describe("ApprovalGate", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
-  it("renders the waitlist state for waitlisted viewers", () => {
+  it("renders the pending access state for pending-access viewers", () => {
     viewerAccessState.result = {
-      role: "role_waitlisted",
+      role: "role_pending_access",
       accessKeys: ["access_public", "access_user_preferences"],
     };
 
     const markup = renderApprovalGate();
 
-    expect(markup).toContain("waitlist");
+    expect(markup).toContain("Account access pending");
     expect(markup).not.toContain("Route child");
   });
 
@@ -73,7 +73,7 @@ describe("ApprovalGate", () => {
     const markup = renderApprovalGate();
 
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("waitlist");
+    expect(markup).not.toContain("pending access");
   });
 
   it("uses provided route access without starting a duplicate query", () => {

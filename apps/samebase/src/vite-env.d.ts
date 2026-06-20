@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-declare const __SAMEBASE_BUILD_CONFIG__: import("./lib/samebaseBuildConfig").SamebaseBuildConfig;
+declare const __APP_BUILD_CONFIG__: import("./lib/appBuildConfig").AppBuildConfig;
 declare var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 
 interface Navigation extends EventTarget {

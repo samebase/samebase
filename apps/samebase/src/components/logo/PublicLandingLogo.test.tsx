@@ -132,7 +132,10 @@ describe("PublicLandingLogo", () => {
       elevationDegrees: 0,
       rotationDegrees: 180,
     };
-    window.localStorage.setItem("noter:logo-view:dashboard-empty", JSON.stringify(persistedView));
+    window.localStorage.setItem(
+      "samebase:logo-view:dashboard-empty",
+      JSON.stringify(persistedView),
+    );
 
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -202,7 +205,7 @@ describe("PublicLandingLogo", () => {
     expect(
       document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
     ).toBe(false);
-    expect(document.getElementById("noter-public-landing-logo-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-public-landing-logo-prehydration")).toBeNull();
   });
 
   it("keeps the query-aware static fallback hidden while the interactive scene is pending", async () => {
@@ -229,7 +232,7 @@ describe("PublicLandingLogo", () => {
     expect(
       document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
     ).toBe(false);
-    expect(document.getElementById("noter-public-landing-logo-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-public-landing-logo-prehydration")).toBeNull();
   });
 
   it("hydrates query fallback visibility without a recoverable mismatch", async () => {
@@ -272,12 +275,12 @@ describe("PublicLandingLogo", () => {
     expect(
       document.documentElement.hasAttribute("data-public-landing-logo-static-fallback-hidden"),
     ).toBe(false);
-    expect(document.getElementById("noter-public-landing-logo-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-public-landing-logo-prehydration")).toBeNull();
   });
 
   it("renders static fallback from shareable logo route shape and view params", async () => {
     window.localStorage.setItem(
-      "noter:logo-view:dashboard-empty",
+      "samebase:logo-view:dashboard-empty",
       JSON.stringify({
         elevationDegrees: 90,
         rotationDegrees: 270,

@@ -70,16 +70,18 @@ describe("appBootRecovery", () => {
     );
 
     expect(reloadedUrl.searchParams.get("devtools")).toBe("true");
-    expect(reloadedUrl.searchParams.has("__noter-reload")).toBe(true);
+    expect(reloadedUrl.searchParams.has("__samebase-reload")).toBe(true);
   });
 
   it("removes the cache-busting recovery query param without dropping others", () => {
     const strippedUrl = new URL(
-      stripRecoveryReloadParam(new URL("https://samebase.com/?devtools=true&__noter-reload=123")),
+      stripRecoveryReloadParam(
+        new URL("https://samebase.com/?devtools=true&__samebase-reload=123"),
+      ),
     );
 
     expect(strippedUrl.searchParams.get("devtools")).toBe("true");
-    expect(strippedUrl.searchParams.has("__noter-reload")).toBe(false);
+    expect(strippedUrl.searchParams.has("__samebase-reload")).toBe(false);
   });
 
   it("waits until load before removing the recovery query param", () => {
@@ -95,17 +97,17 @@ describe("appBootRecovery", () => {
       configurable: true,
       value: "loading",
     });
-    window.history.replaceState(null, "", "/?devtools=true&__noter-reload=123");
+    window.history.replaceState(null, "", "/?devtools=true&__samebase-reload=123");
 
     initializeAppBootRecovery();
 
-    expect(new URL(window.location.href).searchParams.has("__noter-reload")).toBe(true);
+    expect(new URL(window.location.href).searchParams.has("__samebase-reload")).toBe(true);
 
     window.dispatchEvent(new Event("load"));
 
     const currentUrl = new URL(window.location.href);
     expect(currentUrl.searchParams.get("devtools")).toBe("true");
-    expect(currentUrl.searchParams.has("__noter-reload")).toBe(false);
+    expect(currentUrl.searchParams.has("__samebase-reload")).toBe(false);
   });
 
   it("clears local app data even when service workers are unavailable", async () => {

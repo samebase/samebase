@@ -679,7 +679,7 @@ async function fetchGitHubRepositoryPage(args: {
     headers: {
       Authorization: `Bearer ${args.accessToken}`,
       Accept: "application/vnd.github+json",
-      "User-Agent": "noter-App",
+      "User-Agent": "samebase-app",
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });

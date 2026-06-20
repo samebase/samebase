@@ -4,7 +4,7 @@
 "use strict";
 export const ajvAccountsListAccountsResponse = validate0;
 const schema0 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts/get/responses/200/content/application~1json/schema",
 };
 const schema2 = {
   allOf: [
@@ -1240,7 +1240,7 @@ validate0.evaluated = {
 };
 export const ajvAccountCreationResponse = validate10;
 const schema11 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts/post/responses/200/content/application~1json/schema",
 };
 const schema12 = {
   allOf: [
@@ -1381,7 +1381,7 @@ validate10.evaluated = {
 };
 export const ajvGetAccountLimitsResponse = validate17;
 const schema14 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1account~1limits/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1account~1limits/get/responses/200/content/application~1json/schema",
 };
 const schema15 = {
   allOf: [
@@ -1885,7 +1885,7 @@ validate17.evaluated = {
 };
 export const ajvGetBuildsByVersionIdsResponse = validate22;
 const schema19 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds/get/responses/200/content/application~1json/schema",
 };
 const schema20 = {
   allOf: [
@@ -3409,7 +3409,7 @@ validate22.evaluated = {
 };
 export const ajvGetBuildByUuidResponse = validate34;
 const schema66 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1{build_uuid}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1{build_uuid}/get/responses/200/content/application~1json/schema",
 };
 const schema67 = {
   allOf: [
@@ -3506,7 +3506,7 @@ validate34.evaluated = {
 };
 export const ajvCancelBuildByUuidResponse = validate39;
 const schema68 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1{build_uuid}~1cancel/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1{build_uuid}~1cancel/put/responses/200/content/application~1json/schema",
 };
 const schema69 = {
   allOf: [
@@ -3724,7 +3724,7 @@ validate39.evaluated = {
 };
 export const ajvGetBuildLogsResponse = validate45;
 const schema74 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1{build_uuid}~1logs/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1{build_uuid}~1logs/get/responses/200/content/application~1json/schema",
 };
 const schema75 = {
   allOf: [
@@ -4053,7 +4053,7 @@ validate45.evaluated = {
 };
 export const ajvGetLatestBuildsByScriptsResponse = validate51;
 const schema78 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1latest/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1builds~1latest/get/responses/200/content/application~1json/schema",
 };
 const schema79 = {
   allOf: [
@@ -4226,7 +4226,7 @@ validate51.evaluated = {
 };
 export const ajvGetWorkerConfigAutofillResponse = validate58;
 const schema81 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1repos~1{provider_type}~1{provider_account_id}~1{repo_id}~1config_autofill/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1repos~1{provider_type}~1{provider_account_id}~1{repo_id}~1config_autofill/get/responses/200/content/application~1json/schema",
 };
 const schema82 = {
   allOf: [
@@ -4559,7 +4559,7 @@ validate58.evaluated = {
 };
 export const ajvUpsertRepoConnectionResponse = validate64;
 const schema85 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1repos~1connections/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1repos~1connections/put/responses/200/content/application~1json/schema",
 };
 const schema86 = {
   allOf: [
@@ -4656,7 +4656,7 @@ validate64.evaluated = {
 };
 export const ajvListBuildTokensResponse = validate69;
 const schema87 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1tokens/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1tokens/get/responses/200/content/application~1json/schema",
 };
 const schema88 = {
   allOf: [
@@ -5009,7 +5009,7 @@ validate69.evaluated = {
 };
 export const ajvCreateBuildTokenResponse = validate75;
 const schema95 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1tokens/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1tokens/post/responses/200/content/application~1json/schema",
 };
 const schema96 = {
   allOf: [
@@ -5225,7 +5225,7 @@ validate75.evaluated = {
 };
 export const ajvCreateTriggerResponse = validate81;
 const schema102 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers/post/responses/200/content/application~1json/schema",
 };
 const schema103 = {
   allOf: [
@@ -5766,7 +5766,7 @@ validate81.evaluated = {
 };
 export const ajvUpdateTriggerResponse = validate88;
 const schema121 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}/patch/responses/200/content/application~1json/schema",
 };
 const schema122 = {
   allOf: [
@@ -5863,7 +5863,7 @@ validate88.evaluated = {
 };
 export const ajvCreateManualBuildResponse = validate93;
 const schema123 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}~1builds/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}~1builds/post/responses/200/content/application~1json/schema",
 };
 const schema124 = {
   allOf: [
@@ -6038,7 +6038,7 @@ validate93.evaluated = {
 };
 export const ajvListEnvironmentVariablesResponse = validate99;
 const schema128 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}~1environment_variables/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}~1environment_variables/get/responses/200/content/application~1json/schema",
 };
 const schema129 = {
   allOf: [
@@ -6293,7 +6293,7 @@ validate99.evaluated = {
 };
 export const ajvUpsertEnvironmentVariablesResponse = validate105;
 const schema133 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}~1environment_variables/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1triggers~1{trigger_uuid}~1environment_variables/patch/responses/200/content/application~1json/schema",
 };
 const schema134 = {
   allOf: [
@@ -6390,7 +6390,7 @@ validate105.evaluated = {
 };
 export const ajvCreateWorkerBuildResponse = validate110;
 const schema135 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers/post/responses/201/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers/post/responses/201/content/application~1json/schema",
 };
 const schema136 = {
   allOf: [
@@ -7048,7 +7048,7 @@ validate110.evaluated = {
 };
 export const ajvListBuildsByScriptResponse = validate121;
 const schema153 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{external_script_id}~1builds/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{external_script_id}~1builds/get/responses/200/content/application~1json/schema",
 };
 const schema154 = {
   allOf: [
@@ -7277,7 +7277,7 @@ validate121.evaluated = {
 };
 export const ajvListTriggersByScriptResponse = validate126;
 const schema156 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{external_script_id}~1triggers/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{external_script_id}~1triggers/get/responses/200/content/application~1json/schema",
 };
 const schema157 = {
   allOf: [
@@ -7396,7 +7396,7 @@ validate126.evaluated = {
 };
 export const ajvListDeployHooksResponse = validate131;
 const schema158 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks/get/responses/200/content/application~1json/schema",
 };
 const schema159 = {
   allOf: [
@@ -7758,7 +7758,7 @@ validate131.evaluated = {
 };
 export const ajvCreateDeployHookResponse = validate137;
 const schema168 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks/post/responses/200/content/application~1json/schema",
 };
 const schema169 = {
   allOf: [
@@ -8044,7 +8044,7 @@ validate137.evaluated = {
 };
 export const ajvDeleteDeployHookResponse = validate143;
 const schema177 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks~1{deploy_hook_uuid}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks~1{deploy_hook_uuid}/delete/responses/200/content/application~1json/schema",
 };
 const schema178 = {
   allOf: [
@@ -8141,7 +8141,7 @@ validate143.evaluated = {
 };
 export const ajvGetDeployHookResponse = validate148;
 const schema179 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks~1{deploy_hook_uuid}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks~1{deploy_hook_uuid}/get/responses/200/content/application~1json/schema",
 };
 const schema180 = {
   allOf: [
@@ -8238,7 +8238,7 @@ validate148.evaluated = {
 };
 export const ajvUpdateDeployHookResponse = validate153;
 const schema181 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks~1{deploy_hook_uuid}/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_name}~1deploy_hooks~1{deploy_hook_uuid}/put/responses/200/content/application~1json/schema",
 };
 const schema182 = {
   allOf: [
@@ -8335,7 +8335,7 @@ validate153.evaluated = {
 };
 export const ajvDeleteWorkerBuildResponse = validate158;
 const schema183 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_tag}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_tag}/delete/responses/200/content/application~1json/schema",
 };
 const schema184 = {
   allOf: [
@@ -8432,7 +8432,7 @@ validate158.evaluated = {
 };
 export const ajvGetWorkerBuildResponse = validate162;
 const schema185 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_tag}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_tag}/get/responses/200/content/application~1json/schema",
 };
 const schema186 = {
   allOf: [
@@ -8529,7 +8529,7 @@ validate162.evaluated = {
 };
 export const ajvUpdateWorkerBuildResponse = validate167;
 const schema187 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_tag}/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1builds~1workers~1{script_tag}/patch/responses/200/content/application~1json/schema",
 };
 const schema188 = {
   allOf: [
@@ -8626,7 +8626,7 @@ validate167.evaluated = {
 };
 export const ajvWorkerAccountSettingsFetchWorkerAccountSettingsResponse = validate172;
 const schema189 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1account-settings/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1account-settings/get/responses/200/content/application~1json/schema",
 };
 const schema190 = {
   allOf: [
@@ -9347,7 +9347,7 @@ validate172.evaluated = {
 };
 export const ajvWorkerAccountSettingsCreateWorkerAccountSettingsResponse = validate177;
 const schema195 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1account-settings/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1account-settings/put/responses/200/content/application~1json/schema",
 };
 const schema196 = {
   allOf: [
@@ -9503,10 +9503,10 @@ export const ajvWorkerAssetsUploadResponse = validate181;
 const schema198 = {
   anyOf: [
     {
-      $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1assets~1upload/post/responses/201/content/application~1json/schema",
+      $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1assets~1upload/post/responses/201/content/application~1json/schema",
     },
     {
-      $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1assets~1upload/post/responses/202/content/application~1json/schema",
+      $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1assets~1upload/post/responses/202/content/application~1json/schema",
     },
   ],
 };
@@ -9791,7 +9791,7 @@ function validate181(
 validate181.evaluated = { dynamicProps: true, dynamicItems: false };
 export const ajvNamespaceWorkerListResponse = validate188;
 const schema201 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces/get/responses/200/content/application~1json/schema",
 };
 const schema202 = {
   allOf: [
@@ -10228,7 +10228,7 @@ validate188.evaluated = {
 };
 export const ajvNamespaceWorkerCreateResponse = validate194;
 const schema212 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces/post/responses/200/content/application~1json/schema",
 };
 const schema213 = {
   allOf: [
@@ -10325,7 +10325,7 @@ validate194.evaluated = {
 };
 export const ajvNamespaceWorkerDeleteNamespaceResponse = validate199;
 const schema214 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/delete/responses/200/content/application~1json/schema",
 };
 const schema215 = {
   allOf: [
@@ -10438,7 +10438,7 @@ validate199.evaluated = {
 };
 export const ajvNamespaceWorkerGetNamespaceResponse = validate203;
 const schema216 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/get/responses/200/content/application~1json/schema",
 };
 function validate204(
   data,
@@ -10526,7 +10526,7 @@ validate203.evaluated = {
 };
 export const ajvNamespaceWorkerPatchNamespaceResponse = validate208;
 const schema218 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/patch/responses/200/content/application~1json/schema",
 };
 function validate209(
   data,
@@ -10614,7 +10614,7 @@ validate208.evaluated = {
 };
 export const ajvNamespaceWorkerPutNamespaceResponse = validate213;
 const schema220 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}/put/responses/200/content/application~1json/schema",
 };
 function validate214(
   data,
@@ -10702,7 +10702,7 @@ validate213.evaluated = {
 };
 export const ajvNamespaceWorkerDeleteScriptsResponse = validate218;
 const schema222 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts/delete/responses/200/content/application~1json/schema",
 };
 const schema223 = {
   description: "Detail about bulk deletion of scripts in a namespace.",
@@ -10890,7 +10890,7 @@ validate218.evaluated = {
 };
 export const ajvNamespaceWorkerListScriptsResponse = validate221;
 const schema225 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts/get/responses/200/content/application~1json/schema",
 };
 const schema226 = {
   allOf: [
@@ -14022,7 +14022,7 @@ validate221.evaluated = {
 };
 export const ajvNamespaceWorkerScriptDeleteWorkerResponse = validate237;
 const schema252 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}/delete/responses/200/content/application~1json/schema",
 };
 function validate238(
   data,
@@ -14129,7 +14129,7 @@ validate237.evaluated = {
 };
 export const ajvNamespaceWorkerScriptWorkerDetailsResponse = validate241;
 const schema254 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}/get/responses/200/content/application~1json/schema",
 };
 const schema255 = {
   allOf: [
@@ -14242,7 +14242,7 @@ validate241.evaluated = {
 };
 export const ajvNamespaceWorkerScriptUpdateCreateAssetsUploadSessionResponse = validate246;
 const schema256 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1assets-upload-session/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1assets-upload-session/post/responses/200/content/application~1json/schema",
 };
 const schema257 = {
   allOf: [
@@ -14440,7 +14440,7 @@ validate246.evaluated = {
 };
 export const ajvNamespaceWorkerGetScriptBindingsResponse = validate250;
 const schema258 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1bindings/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1bindings/get/responses/200/content/application~1json/schema",
 };
 const schema259 = {
   allOf: [
@@ -22526,7 +22526,7 @@ validate250.evaluated = {
 };
 export const ajvNamespaceWorkerPutScriptContentResponse = validate326;
 const schema333 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1content/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1content/put/responses/200/content/application~1json/schema",
 };
 const schema334 = {
   allOf: [
@@ -22699,7 +22699,7 @@ validate326.evaluated = {
 };
 export const ajvNamespaceWorkerListScriptSecretsResponse = validate333;
 const schema336 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets/get/responses/200/content/application~1json/schema",
 };
 const schema337 = {
   allOf: [
@@ -22952,7 +22952,7 @@ validate333.evaluated = {
 };
 export const ajvNamespaceWorkerPutScriptSecretsResponse = validate341;
 const schema339 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets/put/responses/200/content/application~1json/schema",
 };
 const schema340 = {
   allOf: [
@@ -23065,7 +23065,7 @@ validate341.evaluated = {
 };
 export const ajvNamespaceWorkerPatchScriptSecretsBulkResponse = validate346;
 const schema341 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets-bulk/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets-bulk/patch/responses/200/content/application~1json/schema",
 };
 const schema342 = {
   allOf: [
@@ -23230,7 +23230,7 @@ validate346.evaluated = {
 };
 export const ajvNamespaceWorkerDeleteScriptSecretResponse = validate353;
 const schema344 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets~1{secret_name}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets~1{secret_name}/delete/responses/200/content/application~1json/schema",
 };
 function validate354(
   data,
@@ -23337,7 +23337,7 @@ validate353.evaluated = {
 };
 export const ajvNamespaceWorkerGetScriptSecretsResponse = validate357;
 const schema346 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets~1{secret_name}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1secrets~1{secret_name}/get/responses/200/content/application~1json/schema",
 };
 const schema347 = {
   allOf: [
@@ -23450,7 +23450,7 @@ validate357.evaluated = {
 };
 export const ajvNamespaceWorkerGetScriptSettingsResponse = validate362;
 const schema348 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1settings/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1settings/get/responses/200/content/application~1json/schema",
 };
 const schema349 = {
   allOf: [
@@ -26841,7 +26841,7 @@ validate362.evaluated = {
 };
 export const ajvNamespaceWorkerPatchScriptSettingsResponse = validate379;
 const schema365 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
 const schema366 = {
   allOf: [
@@ -26940,7 +26940,7 @@ validate379.evaluated = {
 };
 export const ajvNamespaceWorkerGetScriptTagsResponse = validate384;
 const schema367 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags/get/responses/200/content/application~1json/schema",
 };
 const schema368 = {
   allOf: [
@@ -27098,7 +27098,7 @@ validate384.evaluated = {
 };
 export const ajvNamespaceWorkerPutScriptTagsResponse = validate388;
 const schema370 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags/put/responses/200/content/application~1json/schema",
 };
 const schema371 = {
   allOf: [
@@ -27272,7 +27272,7 @@ validate388.evaluated = {
 };
 export const ajvNamespaceWorkerDeleteScriptTagResponse = validate392;
 const schema373 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags~1{tag}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags~1{tag}/delete/responses/200/content/application~1json/schema",
 };
 function validate393(
   data,
@@ -27379,7 +27379,7 @@ validate392.evaluated = {
 };
 export const ajvNamespaceWorkerPutScriptTagResponse = validate396;
 const schema375 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags~1{tag}/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1dispatch~1namespaces~1{dispatch_namespace}~1scripts~1{script_name}~1tags~1{tag}/put/responses/200/content/application~1json/schema",
 };
 function validate397(
   data,
@@ -27486,7 +27486,7 @@ validate396.evaluated = {
 };
 export const ajvWorkersDomainsListResponse = validate400;
 const schema377 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains/get/responses/200/content/application~1json/schema",
 };
 const schema378 = {
   allOf: [
@@ -28110,7 +28110,7 @@ validate400.evaluated = {
 };
 export const ajvWorkersDomainsUpdateResponse = validate406;
 const schema381 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains/put/responses/200/content/application~1json/schema",
 };
 const schema382 = {
   allOf: [
@@ -28452,7 +28452,7 @@ validate406.evaluated = {
 };
 export const ajvWorkersDomainsDeleteResponse = validate410;
 const schema384 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains~1{domain_id}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains~1{domain_id}/delete/responses/200/content/application~1json/schema",
 };
 function validate411(
   data,
@@ -29014,7 +29014,7 @@ validate410.evaluated = {
 };
 export const ajvWorkersDomainsGetResponse = validate413;
 const schema388 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains~1{domain_id}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1domains~1{domain_id}/get/responses/200/content/application~1json/schema",
 };
 const schema389 = {
   allOf: [
@@ -29356,7 +29356,7 @@ validate413.evaluated = {
 };
 export const ajvDurableObjectsNamespaceListNamespacesResponse = validate417;
 const schema391 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1durable_objects~1namespaces/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1durable_objects~1namespaces/get/responses/200/content/application~1json/schema",
 };
 const schema392 = {
   allOf: [
@@ -29575,7 +29575,7 @@ validate417.evaluated = {
 };
 export const ajvDurableObjectsNamespaceListObjectsResponse = validate421;
 const schema394 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1durable_objects~1namespaces~1{id}~1objects/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1durable_objects~1namespaces~1{id}~1objects/get/responses/200/content/application~1json/schema",
 };
 const schema395 = {
   allOf: [
@@ -29821,7 +29821,7 @@ validate421.evaluated = {
 };
 export const ajvDestinationListResponse = validate425;
 const schema398 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema",
 };
 const schema399 = {
   properties: {
@@ -29900,7 +29900,7 @@ function validate425(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -29916,7 +29916,7 @@ function validate425(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -29932,7 +29932,7 @@ function validate425(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -29948,7 +29948,7 @@ function validate425(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -29971,7 +29971,7 @@ function validate425(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -29988,7 +29988,7 @@ function validate425(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -30005,7 +30005,7 @@ function validate425(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -30022,7 +30022,7 @@ function validate425(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -30046,7 +30046,7 @@ function validate425(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -30064,7 +30064,7 @@ function validate425(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -30080,7 +30080,7 @@ function validate425(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema399.properties.messages.items.properties.message.enum,
@@ -30099,7 +30099,7 @@ function validate425(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -30116,7 +30116,7 @@ function validate425(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -30140,7 +30140,7 @@ function validate425(
               const err13 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "slug" },
                 message: "must have required property '" + "slug" + "'",
@@ -30156,7 +30156,7 @@ function validate425(
               const err14 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "name" },
                 message: "must have required property '" + "name" + "'",
@@ -30172,7 +30172,7 @@ function validate425(
               const err15 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "enabled" },
                 message: "must have required property '" + "enabled" + "'",
@@ -30188,7 +30188,7 @@ function validate425(
               const err16 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "configuration" },
                 message: "must have required property '" + "configuration" + "'",
@@ -30204,7 +30204,7 @@ function validate425(
               const err17 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "scripts" },
                 message: "must have required property '" + "scripts" + "'",
@@ -30223,7 +30223,7 @@ function validate425(
                   const err18 = {
                     instancePath: instancePath + "/result/" + i2 + "/configuration",
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
                     keyword: "required",
                     params: { missingProperty: "type" },
                     message: "must have required property '" + "type" + "'",
@@ -30239,7 +30239,7 @@ function validate425(
                   const err19 = {
                     instancePath: instancePath + "/result/" + i2 + "/configuration",
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
                     keyword: "required",
                     params: { missingProperty: "logpushDataset" },
                     message: "must have required property '" + "logpushDataset" + "'",
@@ -30255,7 +30255,7 @@ function validate425(
                   const err20 = {
                     instancePath: instancePath + "/result/" + i2 + "/configuration",
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
                     keyword: "required",
                     params: { missingProperty: "destination_conf" },
                     message: "must have required property '" + "destination_conf" + "'",
@@ -30271,7 +30271,7 @@ function validate425(
                   const err21 = {
                     instancePath: instancePath + "/result/" + i2 + "/configuration",
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
                     keyword: "required",
                     params: { missingProperty: "url" },
                     message: "must have required property '" + "url" + "'",
@@ -30287,7 +30287,7 @@ function validate425(
                   const err22 = {
                     instancePath: instancePath + "/result/" + i2 + "/configuration",
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
                     keyword: "required",
                     params: { missingProperty: "headers" },
                     message: "must have required property '" + "headers" + "'",
@@ -30303,7 +30303,7 @@ function validate425(
                   const err23 = {
                     instancePath: instancePath + "/result/" + i2 + "/configuration",
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/required",
                     keyword: "required",
                     params: { missingProperty: "jobStatus" },
                     message: "must have required property '" + "jobStatus" + "'",
@@ -30321,7 +30321,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/destination_conf",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/destination_conf/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/destination_conf/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -30347,7 +30347,7 @@ function validate425(
                             "/configuration/headers/" +
                             key0.replace(/~/g, "~0").replace(/\//g, "~1"),
                           schemaPath:
-                            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/headers/additionalProperties/type",
+                            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/headers/additionalProperties/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -30364,7 +30364,7 @@ function validate425(
                     const err26 = {
                       instancePath: instancePath + "/result/" + i2 + "/configuration/headers",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/headers/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/headers/type",
                       keyword: "type",
                       params: { type: "object" },
                       message: "must be object",
@@ -30384,7 +30384,7 @@ function validate425(
                       const err27 = {
                         instancePath: instancePath + "/result/" + i2 + "/configuration/jobStatus",
                         schemaPath:
-                          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/required",
+                          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/required",
                         keyword: "required",
                         params: { missingProperty: "last_complete" },
                         message: "must have required property '" + "last_complete" + "'",
@@ -30400,7 +30400,7 @@ function validate425(
                       const err28 = {
                         instancePath: instancePath + "/result/" + i2 + "/configuration/jobStatus",
                         schemaPath:
-                          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/required",
+                          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/required",
                         keyword: "required",
                         params: { missingProperty: "last_error" },
                         message: "must have required property '" + "last_error" + "'",
@@ -30416,7 +30416,7 @@ function validate425(
                       const err29 = {
                         instancePath: instancePath + "/result/" + i2 + "/configuration/jobStatus",
                         schemaPath:
-                          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/required",
+                          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/required",
                         keyword: "required",
                         params: { missingProperty: "error_message" },
                         message: "must have required property '" + "error_message" + "'",
@@ -30437,7 +30437,7 @@ function validate425(
                             i2 +
                             "/configuration/jobStatus/error_message",
                           schemaPath:
-                            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/properties/error_message/type",
+                            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/properties/error_message/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -30459,7 +30459,7 @@ function validate425(
                             i2 +
                             "/configuration/jobStatus/last_complete",
                           schemaPath:
-                            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/properties/last_complete/type",
+                            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/properties/last_complete/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -30478,7 +30478,7 @@ function validate425(
                           instancePath:
                             instancePath + "/result/" + i2 + "/configuration/jobStatus/last_error",
                           schemaPath:
-                            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/properties/last_error/type",
+                            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/properties/last_error/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -30495,7 +30495,7 @@ function validate425(
                     const err33 = {
                       instancePath: instancePath + "/result/" + i2 + "/configuration/jobStatus",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/jobStatus/type",
                       keyword: "type",
                       params: { type: "object" },
                       message: "must be object",
@@ -30518,7 +30518,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/logpushDataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/0/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/0/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -30535,7 +30535,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/logpushDataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/0/enum",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/0/enum",
                       keyword: "enum",
                       params: {
                         allowedValues:
@@ -30559,7 +30559,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/logpushDataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/1/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/1/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -30576,7 +30576,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/logpushDataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/1/enum",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/1/enum",
                       keyword: "enum",
                       params: {
                         allowedValues:
@@ -30600,7 +30600,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/logpushDataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/2/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/2/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -30617,7 +30617,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/logpushDataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/2/enum",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf/2/enum",
                       keyword: "enum",
                       params: {
                         allowedValues:
@@ -30640,7 +30640,7 @@ function validate425(
                       instancePath:
                         instancePath + "/result/" + i2 + "/configuration/logpushDataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/logpushDataset/anyOf",
                       keyword: "anyOf",
                       params: {},
                       message: "must match a schema in anyOf",
@@ -30668,7 +30668,7 @@ function validate425(
                     const err41 = {
                       instancePath: instancePath + "/result/" + i2 + "/configuration/type",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/type/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/type/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -30684,7 +30684,7 @@ function validate425(
                     const err42 = {
                       instancePath: instancePath + "/result/" + i2 + "/configuration/type",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/type/enum",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/type/enum",
                       keyword: "enum",
                       params: {
                         allowedValues:
@@ -30706,7 +30706,7 @@ function validate425(
                     const err43 = {
                       instancePath: instancePath + "/result/" + i2 + "/configuration/url",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/url/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/properties/url/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -30723,7 +30723,7 @@ function validate425(
                 const err44 = {
                   instancePath: instancePath + "/result/" + i2 + "/configuration",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/configuration/type",
                   keyword: "type",
                   params: { type: "object" },
                   message: "must be object",
@@ -30741,7 +30741,7 @@ function validate425(
                 const err45 = {
                   instancePath: instancePath + "/result/" + i2 + "/enabled",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/enabled/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/enabled/type",
                   keyword: "type",
                   params: { type: "boolean" },
                   message: "must be boolean",
@@ -30761,7 +30761,7 @@ function validate425(
                   const err46 = {
                     instancePath: instancePath + "/result/" + i2 + "/name",
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/name/pattern",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/name/pattern",
                     keyword: "pattern",
                     params: { pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$" },
                     message: 'must match pattern "' + "^[a-z0-9][a-z0-9-]*[a-z0-9]$" + '"',
@@ -30777,7 +30777,7 @@ function validate425(
                 const err47 = {
                   instancePath: instancePath + "/result/" + i2 + "/name",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/name/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/name/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -30799,7 +30799,7 @@ function validate425(
                     const err48 = {
                       instancePath: instancePath + "/result/" + i2 + "/scripts/" + i3,
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/scripts/items/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/scripts/items/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -30816,7 +30816,7 @@ function validate425(
                 const err49 = {
                   instancePath: instancePath + "/result/" + i2 + "/scripts",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/scripts/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/scripts/type",
                   keyword: "type",
                   params: { type: "array" },
                   message: "must be array",
@@ -30834,7 +30834,7 @@ function validate425(
                 const err50 = {
                   instancePath: instancePath + "/result/" + i2 + "/slug",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/slug/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/properties/slug/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -30851,7 +30851,7 @@ function validate425(
             const err51 = {
               instancePath: instancePath + "/result/" + i2,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -30868,7 +30868,7 @@ function validate425(
         const err52 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -30887,7 +30887,7 @@ function validate425(
         const err53 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -30903,7 +30903,7 @@ function validate425(
         const err54 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema399.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -30920,7 +30920,7 @@ function validate425(
     const err55 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/get/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -30942,7 +30942,7 @@ validate425.evaluated = {
 };
 export const ajvDestinationCreateResponse = validate426;
 const schema400 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema",
 };
 const schema401 = {
   properties: {
@@ -31008,7 +31008,7 @@ function validate426(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -31024,7 +31024,7 @@ function validate426(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -31040,7 +31040,7 @@ function validate426(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -31056,7 +31056,7 @@ function validate426(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -31079,7 +31079,7 @@ function validate426(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -31096,7 +31096,7 @@ function validate426(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31113,7 +31113,7 @@ function validate426(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -31130,7 +31130,7 @@ function validate426(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -31154,7 +31154,7 @@ function validate426(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -31172,7 +31172,7 @@ function validate426(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31188,7 +31188,7 @@ function validate426(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema401.properties.messages.items.properties.message.enum,
@@ -31207,7 +31207,7 @@ function validate426(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -31224,7 +31224,7 @@ function validate426(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -31244,7 +31244,7 @@ function validate426(
           const err13 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "slug" },
             message: "must have required property '" + "slug" + "'",
@@ -31260,7 +31260,7 @@ function validate426(
           const err14 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "name" },
             message: "must have required property '" + "name" + "'",
@@ -31276,7 +31276,7 @@ function validate426(
           const err15 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "enabled" },
             message: "must have required property '" + "enabled" + "'",
@@ -31292,7 +31292,7 @@ function validate426(
           const err16 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "configuration" },
             message: "must have required property '" + "configuration" + "'",
@@ -31308,7 +31308,7 @@ function validate426(
           const err17 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "scripts" },
             message: "must have required property '" + "scripts" + "'",
@@ -31327,7 +31327,7 @@ function validate426(
               const err18 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "type" },
                 message: "must have required property '" + "type" + "'",
@@ -31343,7 +31343,7 @@ function validate426(
               const err19 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "logpushDataset" },
                 message: "must have required property '" + "logpushDataset" + "'",
@@ -31359,7 +31359,7 @@ function validate426(
               const err20 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "logpushJob" },
                 message: "must have required property '" + "logpushJob" + "'",
@@ -31375,7 +31375,7 @@ function validate426(
               const err21 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "destination_conf" },
                 message: "must have required property '" + "destination_conf" + "'",
@@ -31391,7 +31391,7 @@ function validate426(
               const err22 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "url" },
                 message: "must have required property '" + "url" + "'",
@@ -31408,7 +31408,7 @@ function validate426(
                 const err23 = {
                   instancePath: instancePath + "/result/configuration/destination_conf",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/destination_conf/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/destination_conf/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31430,7 +31430,7 @@ function validate426(
                 const err24 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31446,7 +31446,7 @@ function validate426(
                 const err25 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -31469,7 +31469,7 @@ function validate426(
                 const err26 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31485,7 +31485,7 @@ function validate426(
                 const err27 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -31508,7 +31508,7 @@ function validate426(
                 const err28 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31524,7 +31524,7 @@ function validate426(
                 const err29 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -31546,7 +31546,7 @@ function validate426(
                 const err30 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf",
                   keyword: "anyOf",
                   params: {},
                   message: "must match a schema in anyOf",
@@ -31573,7 +31573,7 @@ function validate426(
                 const err31 = {
                   instancePath: instancePath + "/result/configuration/logpushJob",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushJob/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/logpushJob/type",
                   keyword: "type",
                   params: { type: "number" },
                   message: "must be number",
@@ -31592,7 +31592,7 @@ function validate426(
                 const err32 = {
                   instancePath: instancePath + "/result/configuration/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/type/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/type/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31608,7 +31608,7 @@ function validate426(
                 const err33 = {
                   instancePath: instancePath + "/result/configuration/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/type/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/type/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -31629,7 +31629,7 @@ function validate426(
                 const err34 = {
                   instancePath: instancePath + "/result/configuration/url",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/url/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/properties/url/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31646,7 +31646,7 @@ function validate426(
             const err35 = {
               instancePath: instancePath + "/result/configuration",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/configuration/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -31664,7 +31664,7 @@ function validate426(
             const err36 = {
               instancePath: instancePath + "/result/enabled",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/enabled/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/enabled/type",
               keyword: "type",
               params: { type: "boolean" },
               message: "must be boolean",
@@ -31684,7 +31684,7 @@ function validate426(
               const err37 = {
                 instancePath: instancePath + "/result/name",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/name/pattern",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/name/pattern",
                 keyword: "pattern",
                 params: { pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$" },
                 message: 'must match pattern "' + "^[a-z0-9][a-z0-9-]*[a-z0-9]$" + '"',
@@ -31700,7 +31700,7 @@ function validate426(
             const err38 = {
               instancePath: instancePath + "/result/name",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/name/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/name/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -31722,7 +31722,7 @@ function validate426(
                 const err39 = {
                   instancePath: instancePath + "/result/scripts/" + i2,
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/scripts/items/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/scripts/items/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -31739,7 +31739,7 @@ function validate426(
             const err40 = {
               instancePath: instancePath + "/result/scripts",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/scripts/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/scripts/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
@@ -31757,7 +31757,7 @@ function validate426(
             const err41 = {
               instancePath: instancePath + "/result/slug",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/slug/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/properties/slug/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -31774,7 +31774,7 @@ function validate426(
         const err42 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -31793,7 +31793,7 @@ function validate426(
         const err43 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -31809,7 +31809,7 @@ function validate426(
         const err44 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema401.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -31826,7 +31826,7 @@ function validate426(
     const err45 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations/post/responses/201/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -31848,7 +31848,7 @@ validate426.evaluated = {
 };
 export const ajvDestinationsDeleteResponse = validate427;
 const schema402 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema",
 };
 const schema403 = {
   properties: {
@@ -31914,7 +31914,7 @@ function validate427(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -31930,7 +31930,7 @@ function validate427(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -31946,7 +31946,7 @@ function validate427(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -31969,7 +31969,7 @@ function validate427(
               const err3 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -31986,7 +31986,7 @@ function validate427(
                 const err4 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32003,7 +32003,7 @@ function validate427(
             const err5 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -32020,7 +32020,7 @@ function validate427(
         const err6 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -32044,7 +32044,7 @@ function validate427(
               const err7 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -32062,7 +32062,7 @@ function validate427(
                 const err8 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32078,7 +32078,7 @@ function validate427(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema403.properties.messages.items.properties.message.enum,
@@ -32097,7 +32097,7 @@ function validate427(
             const err10 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -32114,7 +32114,7 @@ function validate427(
         const err11 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -32134,7 +32134,7 @@ function validate427(
           const err12 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "slug" },
             message: "must have required property '" + "slug" + "'",
@@ -32150,7 +32150,7 @@ function validate427(
           const err13 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "name" },
             message: "must have required property '" + "name" + "'",
@@ -32166,7 +32166,7 @@ function validate427(
           const err14 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "enabled" },
             message: "must have required property '" + "enabled" + "'",
@@ -32182,7 +32182,7 @@ function validate427(
           const err15 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "configuration" },
             message: "must have required property '" + "configuration" + "'",
@@ -32198,7 +32198,7 @@ function validate427(
           const err16 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "scripts" },
             message: "must have required property '" + "scripts" + "'",
@@ -32217,7 +32217,7 @@ function validate427(
               const err17 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "type" },
                 message: "must have required property '" + "type" + "'",
@@ -32233,7 +32233,7 @@ function validate427(
               const err18 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "logpushDataset" },
                 message: "must have required property '" + "logpushDataset" + "'",
@@ -32249,7 +32249,7 @@ function validate427(
               const err19 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "logpushJob" },
                 message: "must have required property '" + "logpushJob" + "'",
@@ -32265,7 +32265,7 @@ function validate427(
               const err20 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "destination_conf" },
                 message: "must have required property '" + "destination_conf" + "'",
@@ -32281,7 +32281,7 @@ function validate427(
               const err21 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "url" },
                 message: "must have required property '" + "url" + "'",
@@ -32298,7 +32298,7 @@ function validate427(
                 const err22 = {
                   instancePath: instancePath + "/result/configuration/destination_conf",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/destination_conf/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/destination_conf/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32320,7 +32320,7 @@ function validate427(
                 const err23 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32336,7 +32336,7 @@ function validate427(
                 const err24 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -32359,7 +32359,7 @@ function validate427(
                 const err25 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32375,7 +32375,7 @@ function validate427(
                 const err26 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -32398,7 +32398,7 @@ function validate427(
                 const err27 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32414,7 +32414,7 @@ function validate427(
                 const err28 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -32436,7 +32436,7 @@ function validate427(
                 const err29 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf",
                   keyword: "anyOf",
                   params: {},
                   message: "must match a schema in anyOf",
@@ -32463,7 +32463,7 @@ function validate427(
                 const err30 = {
                   instancePath: instancePath + "/result/configuration/logpushJob",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushJob/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushJob/type",
                   keyword: "type",
                   params: { type: "number" },
                   message: "must be number",
@@ -32482,7 +32482,7 @@ function validate427(
                 const err31 = {
                   instancePath: instancePath + "/result/configuration/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32498,7 +32498,7 @@ function validate427(
                 const err32 = {
                   instancePath: instancePath + "/result/configuration/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -32519,7 +32519,7 @@ function validate427(
                 const err33 = {
                   instancePath: instancePath + "/result/configuration/url",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/url/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/url/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32536,7 +32536,7 @@ function validate427(
             const err34 = {
               instancePath: instancePath + "/result/configuration",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/configuration/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -32554,7 +32554,7 @@ function validate427(
             const err35 = {
               instancePath: instancePath + "/result/enabled",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/enabled/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/enabled/type",
               keyword: "type",
               params: { type: "boolean" },
               message: "must be boolean",
@@ -32574,7 +32574,7 @@ function validate427(
               const err36 = {
                 instancePath: instancePath + "/result/name",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/name/pattern",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/name/pattern",
                 keyword: "pattern",
                 params: { pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$" },
                 message: 'must match pattern "' + "^[a-z0-9][a-z0-9-]*[a-z0-9]$" + '"',
@@ -32590,7 +32590,7 @@ function validate427(
             const err37 = {
               instancePath: instancePath + "/result/name",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/name/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/name/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -32612,7 +32612,7 @@ function validate427(
                 const err38 = {
                   instancePath: instancePath + "/result/scripts/" + i2,
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/scripts/items/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/scripts/items/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32629,7 +32629,7 @@ function validate427(
             const err39 = {
               instancePath: instancePath + "/result/scripts",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/scripts/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/scripts/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
@@ -32647,7 +32647,7 @@ function validate427(
             const err40 = {
               instancePath: instancePath + "/result/slug",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/slug/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/properties/slug/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -32664,7 +32664,7 @@ function validate427(
         const err41 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -32683,7 +32683,7 @@ function validate427(
         const err42 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -32699,7 +32699,7 @@ function validate427(
         const err43 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema403.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -32716,7 +32716,7 @@ function validate427(
     const err44 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/delete/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -32738,7 +32738,7 @@ validate427.evaluated = {
 };
 export const ajvDestinationUpdateResponse = validate428;
 const schema404 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema",
 };
 const schema405 = {
   properties: {
@@ -32804,7 +32804,7 @@ function validate428(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -32820,7 +32820,7 @@ function validate428(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -32836,7 +32836,7 @@ function validate428(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -32852,7 +32852,7 @@ function validate428(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -32875,7 +32875,7 @@ function validate428(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -32892,7 +32892,7 @@ function validate428(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32909,7 +32909,7 @@ function validate428(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -32926,7 +32926,7 @@ function validate428(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -32950,7 +32950,7 @@ function validate428(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -32968,7 +32968,7 @@ function validate428(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -32984,7 +32984,7 @@ function validate428(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema405.properties.messages.items.properties.message.enum,
@@ -33003,7 +33003,7 @@ function validate428(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -33020,7 +33020,7 @@ function validate428(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -33040,7 +33040,7 @@ function validate428(
           const err13 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "slug" },
             message: "must have required property '" + "slug" + "'",
@@ -33056,7 +33056,7 @@ function validate428(
           const err14 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "name" },
             message: "must have required property '" + "name" + "'",
@@ -33072,7 +33072,7 @@ function validate428(
           const err15 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "enabled" },
             message: "must have required property '" + "enabled" + "'",
@@ -33088,7 +33088,7 @@ function validate428(
           const err16 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "configuration" },
             message: "must have required property '" + "configuration" + "'",
@@ -33104,7 +33104,7 @@ function validate428(
           const err17 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "scripts" },
             message: "must have required property '" + "scripts" + "'",
@@ -33123,7 +33123,7 @@ function validate428(
               const err18 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "type" },
                 message: "must have required property '" + "type" + "'",
@@ -33139,7 +33139,7 @@ function validate428(
               const err19 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "logpushDataset" },
                 message: "must have required property '" + "logpushDataset" + "'",
@@ -33155,7 +33155,7 @@ function validate428(
               const err20 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "logpushJob" },
                 message: "must have required property '" + "logpushJob" + "'",
@@ -33171,7 +33171,7 @@ function validate428(
               const err21 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "destination_conf" },
                 message: "must have required property '" + "destination_conf" + "'",
@@ -33187,7 +33187,7 @@ function validate428(
               const err22 = {
                 instancePath: instancePath + "/result/configuration",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/required",
                 keyword: "required",
                 params: { missingProperty: "url" },
                 message: "must have required property '" + "url" + "'",
@@ -33204,7 +33204,7 @@ function validate428(
                 const err23 = {
                   instancePath: instancePath + "/result/configuration/destination_conf",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/destination_conf/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/destination_conf/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -33226,7 +33226,7 @@ function validate428(
                 const err24 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -33242,7 +33242,7 @@ function validate428(
                 const err25 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/0/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -33265,7 +33265,7 @@ function validate428(
                 const err26 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -33281,7 +33281,7 @@ function validate428(
                 const err27 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/1/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -33304,7 +33304,7 @@ function validate428(
                 const err28 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -33320,7 +33320,7 @@ function validate428(
                 const err29 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf/2/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -33342,7 +33342,7 @@ function validate428(
                 const err30 = {
                   instancePath: instancePath + "/result/configuration/logpushDataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushDataset/anyOf",
                   keyword: "anyOf",
                   params: {},
                   message: "must match a schema in anyOf",
@@ -33369,7 +33369,7 @@ function validate428(
                 const err31 = {
                   instancePath: instancePath + "/result/configuration/logpushJob",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushJob/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/logpushJob/type",
                   keyword: "type",
                   params: { type: "number" },
                   message: "must be number",
@@ -33388,7 +33388,7 @@ function validate428(
                 const err32 = {
                   instancePath: instancePath + "/result/configuration/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -33404,7 +33404,7 @@ function validate428(
                 const err33 = {
                   instancePath: instancePath + "/result/configuration/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/type/enum",
                   keyword: "enum",
                   params: {
                     allowedValues:
@@ -33425,7 +33425,7 @@ function validate428(
                 const err34 = {
                   instancePath: instancePath + "/result/configuration/url",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/url/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/properties/url/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -33442,7 +33442,7 @@ function validate428(
             const err35 = {
               instancePath: instancePath + "/result/configuration",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/configuration/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -33460,7 +33460,7 @@ function validate428(
             const err36 = {
               instancePath: instancePath + "/result/enabled",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/enabled/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/enabled/type",
               keyword: "type",
               params: { type: "boolean" },
               message: "must be boolean",
@@ -33480,7 +33480,7 @@ function validate428(
               const err37 = {
                 instancePath: instancePath + "/result/name",
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/name/pattern",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/name/pattern",
                 keyword: "pattern",
                 params: { pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$" },
                 message: 'must match pattern "' + "^[a-z0-9][a-z0-9-]*[a-z0-9]$" + '"',
@@ -33496,7 +33496,7 @@ function validate428(
             const err38 = {
               instancePath: instancePath + "/result/name",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/name/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/name/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -33518,7 +33518,7 @@ function validate428(
                 const err39 = {
                   instancePath: instancePath + "/result/scripts/" + i2,
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/scripts/items/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/scripts/items/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -33535,7 +33535,7 @@ function validate428(
             const err40 = {
               instancePath: instancePath + "/result/scripts",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/scripts/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/scripts/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
@@ -33553,7 +33553,7 @@ function validate428(
             const err41 = {
               instancePath: instancePath + "/result/slug",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/slug/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/properties/slug/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -33570,7 +33570,7 @@ function validate428(
         const err42 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -33589,7 +33589,7 @@ function validate428(
         const err43 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -33605,7 +33605,7 @@ function validate428(
         const err44 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema405.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -33622,7 +33622,7 @@ function validate428(
     const err45 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1destinations~1{slug}/patch/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -33644,7 +33644,7 @@ validate428.evaluated = {
 };
 export const ajvQueriesListResponse = validate429;
 const schema406 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries/get/responses/200/content/application~1json/schema",
 };
 const schema407 = {
   properties: {
@@ -36153,7 +36153,7 @@ validate429.evaluated = {
 };
 export const ajvQueriesPostResponse = validate436;
 const schema411 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries/post/responses/200/content/application~1json/schema",
 };
 const schema412 = {
   properties: {
@@ -36508,7 +36508,7 @@ validate436.evaluated = {
 };
 export const ajvQueriesDeleteResponse = validate440;
 const schema413 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/delete/responses/200/content/application~1json/schema",
 };
 const schema414 = {
   properties: {
@@ -36863,7 +36863,7 @@ validate440.evaluated = {
 };
 export const ajvQueriesGetResponse = validate444;
 const schema415 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/get/responses/200/content/application~1json/schema",
 };
 const schema416 = {
   properties: {
@@ -37218,7 +37218,7 @@ validate444.evaluated = {
 };
 export const ajvQueriesPatchResponse = validate448;
 const schema417 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1queries~1{queryId}/patch/responses/200/content/application~1json/schema",
 };
 const schema418 = {
   properties: {
@@ -37573,7 +37573,7 @@ validate448.evaluated = {
 };
 export const ajvSharedQueryPostResponse = validate452;
 const schema419 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema",
 };
 const schema420 = {
   properties: {
@@ -37617,7 +37617,7 @@ function validate452(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -37633,7 +37633,7 @@ function validate452(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -37649,7 +37649,7 @@ function validate452(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -37665,7 +37665,7 @@ function validate452(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -37688,7 +37688,7 @@ function validate452(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -37705,7 +37705,7 @@ function validate452(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -37722,7 +37722,7 @@ function validate452(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -37739,7 +37739,7 @@ function validate452(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -37763,7 +37763,7 @@ function validate452(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -37781,7 +37781,7 @@ function validate452(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -37797,7 +37797,7 @@ function validate452(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema420.properties.messages.items.properties.message.enum,
@@ -37816,7 +37816,7 @@ function validate452(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -37833,7 +37833,7 @@ function validate452(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -37853,7 +37853,7 @@ function validate452(
           const err13 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "id" },
             message: "must have required property '" + "id" + "'",
@@ -37870,7 +37870,7 @@ function validate452(
             const err14 = {
               instancePath: instancePath + "/result/id",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/result/properties/id/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/result/properties/id/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -37887,7 +37887,7 @@ function validate452(
         const err15 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -37906,7 +37906,7 @@ function validate452(
         const err16 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -37922,7 +37922,7 @@ function validate452(
         const err17 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema420.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -37939,7 +37939,7 @@ function validate452(
     const err18 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query/post/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -37961,7 +37961,7 @@ validate452.evaluated = {
 };
 export const ajvSharedQueryGetResponse = validate453;
 const schema421 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query~1{id}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1shared~1query~1{id}/get/responses/200/content/application~1json/schema",
 };
 const schema422 = {
   properties: {
@@ -49177,7 +49177,7 @@ validate453.evaluated = {
 };
 export const ajvTelemetryKeysListResponse = validate461;
 const schema428 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema",
 };
 const schema429 = {
   properties: {
@@ -49228,7 +49228,7 @@ function validate461(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -49244,7 +49244,7 @@ function validate461(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -49260,7 +49260,7 @@ function validate461(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -49276,7 +49276,7 @@ function validate461(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -49299,7 +49299,7 @@ function validate461(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -49316,7 +49316,7 @@ function validate461(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -49333,7 +49333,7 @@ function validate461(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -49350,7 +49350,7 @@ function validate461(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -49374,7 +49374,7 @@ function validate461(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -49392,7 +49392,7 @@ function validate461(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -49408,7 +49408,7 @@ function validate461(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema429.properties.messages.items.properties.message.enum,
@@ -49427,7 +49427,7 @@ function validate461(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -49444,7 +49444,7 @@ function validate461(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -49468,7 +49468,7 @@ function validate461(
               const err13 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "key" },
                 message: "must have required property '" + "key" + "'",
@@ -49484,7 +49484,7 @@ function validate461(
               const err14 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "type" },
                 message: "must have required property '" + "type" + "'",
@@ -49500,7 +49500,7 @@ function validate461(
               const err15 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "lastSeenAt" },
                 message: "must have required property '" + "lastSeenAt" + "'",
@@ -49517,7 +49517,7 @@ function validate461(
                 const err16 = {
                   instancePath: instancePath + "/result/" + i2 + "/key",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/key/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/key/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -49535,7 +49535,7 @@ function validate461(
                 const err17 = {
                   instancePath: instancePath + "/result/" + i2 + "/lastSeenAt",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/lastSeenAt/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/lastSeenAt/type",
                   keyword: "type",
                   params: { type: "number" },
                   message: "must be number",
@@ -49554,7 +49554,7 @@ function validate461(
                 const err18 = {
                   instancePath: instancePath + "/result/" + i2 + "/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -49570,7 +49570,7 @@ function validate461(
                 const err19 = {
                   instancePath: instancePath + "/result/" + i2 + "/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/enum",
                   keyword: "enum",
                   params: { allowedValues: schema429.properties.result.items.properties.type.enum },
                   message: "must be equal to one of the allowed values",
@@ -49587,7 +49587,7 @@ function validate461(
             const err20 = {
               instancePath: instancePath + "/result/" + i2,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -49604,7 +49604,7 @@ function validate461(
         const err21 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -49623,7 +49623,7 @@ function validate461(
         const err22 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -49639,7 +49639,7 @@ function validate461(
         const err23 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema429.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -49656,7 +49656,7 @@ function validate461(
     const err24 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1keys/post/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -49678,7 +49678,7 @@ validate461.evaluated = {
 };
 export const ajvTelemetryLiveTailPostResponse = validate462;
 const schema430 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema",
 };
 const schema431 = {
   properties: {
@@ -49728,7 +49728,7 @@ function validate462(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -49744,7 +49744,7 @@ function validate462(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -49760,7 +49760,7 @@ function validate462(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -49776,7 +49776,7 @@ function validate462(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -49799,7 +49799,7 @@ function validate462(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -49816,7 +49816,7 @@ function validate462(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -49833,7 +49833,7 @@ function validate462(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -49850,7 +49850,7 @@ function validate462(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -49874,7 +49874,7 @@ function validate462(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -49892,7 +49892,7 @@ function validate462(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -49908,7 +49908,7 @@ function validate462(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema431.properties.messages.items.properties.message.enum,
@@ -49927,7 +49927,7 @@ function validate462(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -49944,7 +49944,7 @@ function validate462(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -49964,7 +49964,7 @@ function validate462(
           const err13 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "wsUrl" },
             message: "must have required property '" + "wsUrl" + "'",
@@ -49981,7 +49981,7 @@ function validate462(
             const err14 = {
               instancePath: instancePath + "/result/wsUrl",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/result/properties/wsUrl/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/result/properties/wsUrl/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -49998,7 +49998,7 @@ function validate462(
         const err15 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -50017,7 +50017,7 @@ function validate462(
         const err16 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -50033,7 +50033,7 @@ function validate462(
         const err17 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema431.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -50050,7 +50050,7 @@ function validate462(
     const err18 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail/post/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -50072,7 +50072,7 @@ validate462.evaluated = {
 };
 export const ajvTelemetryLiveTailHeartbeatGetResponse = validate463;
 const schema432 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema",
 };
 const schema433 = {
   properties: {
@@ -50112,7 +50112,7 @@ function validate463(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -50128,7 +50128,7 @@ function validate463(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -50144,7 +50144,7 @@ function validate463(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -50160,7 +50160,7 @@ function validate463(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -50183,7 +50183,7 @@ function validate463(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -50200,7 +50200,7 @@ function validate463(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -50217,7 +50217,7 @@ function validate463(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -50234,7 +50234,7 @@ function validate463(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -50258,7 +50258,7 @@ function validate463(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -50276,7 +50276,7 @@ function validate463(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -50292,7 +50292,7 @@ function validate463(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema433.properties.messages.items.properties.message.enum,
@@ -50311,7 +50311,7 @@ function validate463(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -50328,7 +50328,7 @@ function validate463(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -50347,7 +50347,7 @@ function validate463(
         const err13 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -50366,7 +50366,7 @@ function validate463(
         const err14 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -50382,7 +50382,7 @@ function validate463(
         const err15 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema433.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -50399,7 +50399,7 @@ function validate463(
     const err16 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1live-tail~1heartbeat/post/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -50421,7 +50421,7 @@ validate463.evaluated = {
 };
 export const ajvTelemetryQueryResponse = validate464;
 const schema434 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1query/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1query/post/responses/200/content/application~1json/schema",
 };
 const schema435 = {
   properties: {
@@ -50776,7 +50776,7 @@ validate464.evaluated = {
 };
 export const ajvTelemetryValuesListResponse = validate468;
 const schema436 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema",
 };
 const schema437 = {
   properties: {
@@ -50828,7 +50828,7 @@ function validate468(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -50844,7 +50844,7 @@ function validate468(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -50860,7 +50860,7 @@ function validate468(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -50876,7 +50876,7 @@ function validate468(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -50899,7 +50899,7 @@ function validate468(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -50916,7 +50916,7 @@ function validate468(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -50933,7 +50933,7 @@ function validate468(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -50950,7 +50950,7 @@ function validate468(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -50974,7 +50974,7 @@ function validate468(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -50992,7 +50992,7 @@ function validate468(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -51008,7 +51008,7 @@ function validate468(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema437.properties.messages.items.properties.message.enum,
@@ -51027,7 +51027,7 @@ function validate468(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -51044,7 +51044,7 @@ function validate468(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -51068,7 +51068,7 @@ function validate468(
               const err13 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "key" },
                 message: "must have required property '" + "key" + "'",
@@ -51084,7 +51084,7 @@ function validate468(
               const err14 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "type" },
                 message: "must have required property '" + "type" + "'",
@@ -51100,7 +51100,7 @@ function validate468(
               const err15 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "value" },
                 message: "must have required property '" + "value" + "'",
@@ -51116,7 +51116,7 @@ function validate468(
               const err16 = {
                 instancePath: instancePath + "/result/" + i2,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/required",
                 keyword: "required",
                 params: { missingProperty: "dataset" },
                 message: "must have required property '" + "dataset" + "'",
@@ -51133,7 +51133,7 @@ function validate468(
                 const err17 = {
                   instancePath: instancePath + "/result/" + i2 + "/dataset",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/dataset/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/dataset/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -51151,7 +51151,7 @@ function validate468(
                 const err18 = {
                   instancePath: instancePath + "/result/" + i2 + "/key",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/key/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/key/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -51170,7 +51170,7 @@ function validate468(
                 const err19 = {
                   instancePath: instancePath + "/result/" + i2 + "/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -51186,7 +51186,7 @@ function validate468(
                 const err20 = {
                   instancePath: instancePath + "/result/" + i2 + "/type",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/type/enum",
                   keyword: "enum",
                   params: { allowedValues: schema437.properties.result.items.properties.type.enum },
                   message: "must be equal to one of the allowed values",
@@ -51208,7 +51208,7 @@ function validate468(
                 const err21 = {
                   instancePath: instancePath + "/result/" + i2 + "/value",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf/0/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf/0/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -51227,7 +51227,7 @@ function validate468(
                 const err22 = {
                   instancePath: instancePath + "/result/" + i2 + "/value",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf/1/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf/1/type",
                   keyword: "type",
                   params: { type: "number" },
                   message: "must be number",
@@ -51246,7 +51246,7 @@ function validate468(
                 const err23 = {
                   instancePath: instancePath + "/result/" + i2 + "/value",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf/2/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf/2/type",
                   keyword: "type",
                   params: { type: "boolean" },
                   message: "must be boolean",
@@ -51264,7 +51264,7 @@ function validate468(
                 const err24 = {
                   instancePath: instancePath + "/result/" + i2 + "/value",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/properties/value/anyOf",
                   keyword: "anyOf",
                   params: {},
                   message: "must match a schema in anyOf",
@@ -51290,7 +51290,7 @@ function validate468(
             const err25 = {
               instancePath: instancePath + "/result/" + i2,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -51307,7 +51307,7 @@ function validate468(
         const err26 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -51326,7 +51326,7 @@ function validate468(
         const err27 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -51342,7 +51342,7 @@ function validate468(
         const err28 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema437.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -51359,7 +51359,7 @@ function validate468(
     const err29 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1telemetry~1values/post/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -51381,7 +51381,7 @@ validate468.evaluated = {
 };
 export const ajvUsageGetResponse = validate469;
 const schema438 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema",
 };
 const schema439 = {
   properties: {
@@ -51450,7 +51450,7 @@ function validate469(
       const err0 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "messages" },
         message: "must have required property '" + "messages" + "'",
@@ -51466,7 +51466,7 @@ function validate469(
       const err1 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "success" },
         message: "must have required property '" + "success" + "'",
@@ -51482,7 +51482,7 @@ function validate469(
       const err2 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "errors" },
         message: "must have required property '" + "errors" + "'",
@@ -51498,7 +51498,7 @@ function validate469(
       const err3 = {
         instancePath,
         schemaPath:
-          "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
+          "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/required",
         keyword: "required",
         params: { missingProperty: "result" },
         message: "must have required property '" + "result" + "'",
@@ -51521,7 +51521,7 @@ function validate469(
               const err4 = {
                 instancePath: instancePath + "/errors/" + i0,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -51538,7 +51538,7 @@ function validate469(
                 const err5 = {
                   instancePath: instancePath + "/errors/" + i0 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -51555,7 +51555,7 @@ function validate469(
             const err6 = {
               instancePath: instancePath + "/errors/" + i0,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -51572,7 +51572,7 @@ function validate469(
         const err7 = {
           instancePath: instancePath + "/errors",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/errors/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -51596,7 +51596,7 @@ function validate469(
               const err8 = {
                 instancePath: instancePath + "/messages/" + i1,
                 schemaPath:
-                  "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/required",
+                  "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/required",
                 keyword: "required",
                 params: { missingProperty: "message" },
                 message: "must have required property '" + "message" + "'",
@@ -51614,7 +51614,7 @@ function validate469(
                 const err9 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -51630,7 +51630,7 @@ function validate469(
                 const err10 = {
                   instancePath: instancePath + "/messages/" + i1 + "/message",
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/properties/message/enum",
                   keyword: "enum",
                   params: {
                     allowedValues: schema439.properties.messages.items.properties.message.enum,
@@ -51649,7 +51649,7 @@ function validate469(
             const err11 = {
               instancePath: instancePath + "/messages/" + i1,
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/items/type",
               keyword: "type",
               params: { type: "object" },
               message: "must be object",
@@ -51666,7 +51666,7 @@ function validate469(
         const err12 = {
           instancePath: instancePath + "/messages",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/messages/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
@@ -51686,7 +51686,7 @@ function validate469(
           const err13 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "events" },
             message: "must have required property '" + "events" + "'",
@@ -51702,7 +51702,7 @@ function validate469(
           const err14 = {
             instancePath: instancePath + "/result",
             schemaPath:
-              "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/required",
+              "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/required",
             keyword: "required",
             params: { missingProperty: "breakdown" },
             message: "must have required property '" + "breakdown" + "'",
@@ -51725,7 +51725,7 @@ function validate469(
                   const err15 = {
                     instancePath: instancePath + "/result/breakdown/" + i2,
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
                     keyword: "required",
                     params: { missingProperty: "bin" },
                     message: "must have required property '" + "bin" + "'",
@@ -51741,7 +51741,7 @@ function validate469(
                   const err16 = {
                     instancePath: instancePath + "/result/breakdown/" + i2,
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
                     keyword: "required",
                     params: { missingProperty: "dataset" },
                     message: "must have required property '" + "dataset" + "'",
@@ -51757,7 +51757,7 @@ function validate469(
                   const err17 = {
                     instancePath: instancePath + "/result/breakdown/" + i2,
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
                     keyword: "required",
                     params: { missingProperty: "service" },
                     message: "must have required property '" + "service" + "'",
@@ -51773,7 +51773,7 @@ function validate469(
                   const err18 = {
                     instancePath: instancePath + "/result/breakdown/" + i2,
                     schemaPath:
-                      "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
+                      "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/required",
                     keyword: "required",
                     params: { missingProperty: "count" },
                     message: "must have required property '" + "count" + "'",
@@ -51790,7 +51790,7 @@ function validate469(
                     const err19 = {
                       instancePath: instancePath + "/result/breakdown/" + i2 + "/bin",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/bin/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/bin/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -51808,7 +51808,7 @@ function validate469(
                     const err20 = {
                       instancePath: instancePath + "/result/breakdown/" + i2 + "/count",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/count/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/count/type",
                       keyword: "type",
                       params: { type: "number" },
                       message: "must be number",
@@ -51826,7 +51826,7 @@ function validate469(
                     const err21 = {
                       instancePath: instancePath + "/result/breakdown/" + i2 + "/dataset",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/dataset/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/dataset/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -51844,7 +51844,7 @@ function validate469(
                     const err22 = {
                       instancePath: instancePath + "/result/breakdown/" + i2 + "/service",
                       schemaPath:
-                        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/service/type",
+                        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/properties/service/type",
                       keyword: "type",
                       params: { type: "string" },
                       message: "must be string",
@@ -51861,7 +51861,7 @@ function validate469(
                 const err23 = {
                   instancePath: instancePath + "/result/breakdown/" + i2,
                   schemaPath:
-                    "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/type",
+                    "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/items/type",
                   keyword: "type",
                   params: { type: "object" },
                   message: "must be object",
@@ -51878,7 +51878,7 @@ function validate469(
             const err24 = {
               instancePath: instancePath + "/result/breakdown",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/breakdown/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
@@ -51896,7 +51896,7 @@ function validate469(
             const err25 = {
               instancePath: instancePath + "/result/events",
               schemaPath:
-                "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/events/type",
+                "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/properties/events/type",
               keyword: "type",
               params: { type: "number" },
               message: "must be number",
@@ -51913,7 +51913,7 @@ function validate469(
         const err26 = {
           instancePath: instancePath + "/result",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/result/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -51932,7 +51932,7 @@ function validate469(
         const err27 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/success/type",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/success/type",
           keyword: "type",
           params: { type: "boolean" },
           message: "must be boolean",
@@ -51948,7 +51948,7 @@ function validate469(
         const err28 = {
           instancePath: instancePath + "/success",
           schemaPath:
-            "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/success/enum",
+            "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/properties/success/enum",
           keyword: "enum",
           params: { allowedValues: schema439.properties.success.enum },
           message: "must be equal to one of the allowed values",
@@ -51965,7 +51965,7 @@ function validate469(
     const err29 = {
       instancePath,
       schemaPath:
-        "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/type",
+        "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1observability~1usage/get/responses/200/content/application~1json/schema/type",
       keyword: "type",
       params: { type: "object" },
       message: "must be object",
@@ -51987,7 +51987,7 @@ validate469.evaluated = {
 };
 export const ajvWorkerPlacementListRegionsResponse = validate470;
 const schema440 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1placement~1regions/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1placement~1regions/get/responses/200/content/application~1json/schema",
 };
 const schema441 = {
   allOf: [
@@ -52367,7 +52367,7 @@ validate470.evaluated = {
 };
 export const ajvWorkerScriptListWorkersResponse = validate478;
 const schema445 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts/get/responses/200/content/application~1json/schema",
 };
 const schema446 = {
   allOf: [
@@ -52728,7 +52728,7 @@ validate478.evaluated = {
 };
 export const ajvWorkerScriptSearchWorkersResponse = validate485;
 const schema449 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts-search/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts-search/get/responses/200/content/application~1json/schema",
 };
 const schema450 = {
   allOf: [
@@ -53117,7 +53117,7 @@ validate485.evaluated = {
 };
 export const ajvWorkerScriptDeleteWorkerResponse = validate489;
 const schema455 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/delete/responses/200/content/application~1json/schema",
 };
 function validate490(
   data,
@@ -53224,7 +53224,7 @@ validate489.evaluated = {
 };
 export const ajvWorkerScriptUploadWorkerModuleResponse = validate493;
 const schema457 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}/put/responses/200/content/application~1json/schema",
 };
 const schema458 = {
   allOf: [
@@ -53553,7 +53553,7 @@ validate493.evaluated = {
 };
 export const ajvWorkerScriptUpdateCreateAssetsUploadSessionResponse = validate502;
 const schema461 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1assets-upload-session/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1assets-upload-session/post/responses/200/content/application~1json/schema",
 };
 function validate503(
   data,
@@ -53720,7 +53720,7 @@ validate502.evaluated = {
 };
 export const ajvWorkerScriptPutContentResponse = validate506;
 const schema463 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1content/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1content/put/responses/200/content/application~1json/schema",
 };
 function validate507(
   data,
@@ -53823,7 +53823,7 @@ validate506.evaluated = {
 };
 export const ajvWorkerDeploymentsListDeploymentsResponse = validate511;
 const schema465 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/get/responses/200/content/application~1json/schema",
 };
 const schema466 = {
   allOf: [
@@ -54490,7 +54490,7 @@ validate511.evaluated = {
 };
 export const ajvWorkerDeploymentsCreateDeploymentResponse = validate515;
 const schema468 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments/post/responses/200/content/application~1json/schema",
 };
 const schema469 = {
   allOf: [
@@ -54999,7 +54999,7 @@ validate515.evaluated = {
 };
 export const ajvWorkerDeploymentsDeleteDeploymentResponse = validate519;
 const schema471 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/delete/responses/200/content/application~1json/schema",
 };
 function validate520(
   data,
@@ -55561,7 +55561,7 @@ validate519.evaluated = {
 };
 export const ajvWorkerDeploymentsGetDeploymentResponse = validate522;
 const schema475 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1deployments~1{deployment_id}/get/responses/200/content/application~1json/schema",
 };
 const schema476 = {
   allOf: [
@@ -56070,7 +56070,7 @@ validate522.evaluated = {
 };
 export const ajvWorkerCronTriggerGetCronTriggersResponse = validate526;
 const schema478 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/get/responses/200/content/application~1json/schema",
 };
 const schema479 = {
   allOf: [
@@ -56327,7 +56327,7 @@ validate526.evaluated = {
 };
 export const ajvWorkerCronTriggerUpdateCronTriggersResponse = validate530;
 const schema481 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1schedules/put/responses/200/content/application~1json/schema",
 };
 const schema482 = {
   allOf: [
@@ -56575,7 +56575,7 @@ validate530.evaluated = {
 };
 export const ajvWorkerScriptSettingsGetSettingsResponse = validate534;
 const schema484 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/get/responses/200/content/application~1json/schema",
 };
 const schema485 = {
   allOf: [
@@ -57361,7 +57361,7 @@ validate534.evaluated = {
 };
 export const ajvWorkerScriptSettingsPatchSettingsResponse = validate541;
 const schema491 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1script-settings/patch/responses/200/content/application~1json/schema",
 };
 function validate542(
   data,
@@ -57464,7 +57464,7 @@ validate541.evaluated = {
 };
 export const ajvWorkerListScriptSecretsResponse = validate546;
 const schema493 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/get/responses/200/content/application~1json/schema",
 };
 const schema494 = {
   allOf: [
@@ -57583,7 +57583,7 @@ validate546.evaluated = {
 };
 export const ajvWorkerPutScriptSecretResponse = validate551;
 const schema495 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets/put/responses/200/content/application~1json/schema",
 };
 const schema496 = {
   allOf: [
@@ -57677,7 +57677,7 @@ validate551.evaluated = {
 };
 export const ajvWorkerPatchScriptSecretsBulkResponse = validate556;
 const schema497 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets-bulk/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets-bulk/patch/responses/200/content/application~1json/schema",
 };
 const schema498 = {
   allOf: [
@@ -57774,7 +57774,7 @@ validate556.evaluated = {
 };
 export const ajvWorkerDeleteScriptSecretResponse = validate561;
 const schema499 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/delete/responses/200/content/application~1json/schema",
 };
 function validate562(
   data,
@@ -57881,7 +57881,7 @@ validate561.evaluated = {
 };
 export const ajvWorkerGetScriptSecretResponse = validate565;
 const schema501 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1secrets~1{secret_name}/get/responses/200/content/application~1json/schema",
 };
 const schema502 = {
   allOf: [
@@ -57975,7 +57975,7 @@ validate565.evaluated = {
 };
 export const ajvWorkerScriptGetSettingsResponse = validate570;
 const schema503 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/get/responses/200/content/application~1json/schema",
 };
 const schema504 = {
   allOf: [
@@ -59243,7 +59243,7 @@ validate570.evaluated = {
 };
 export const ajvWorkerScriptPatchSettingsResponse = validate584;
 const schema512 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
 function validate585(
   data,
@@ -59346,7 +59346,7 @@ validate584.evaluated = {
 };
 export const ajvWorkerScriptDeleteSubdomainResponse = validate589;
 const schema514 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/delete/responses/200/content/application~1json/schema",
 };
 const schema515 = {
   allOf: [
@@ -59564,7 +59564,7 @@ validate589.evaluated = {
 };
 export const ajvWorkerScriptGetSubdomainResponse = validate593;
 const schema517 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/get/responses/200/content/application~1json/schema",
 };
 const schema518 = {
   allOf: [
@@ -59762,7 +59762,7 @@ validate593.evaluated = {
 };
 export const ajvWorkerScriptPostSubdomainResponse = validate597;
 const schema520 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1subdomain/post/responses/200/content/application~1json/schema",
 };
 const schema521 = {
   allOf: [
@@ -59960,7 +59960,7 @@ validate597.evaluated = {
 };
 export const ajvWorkerTailLogsListTailsResponse = validate601;
 const schema523 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/get/responses/200/content/application~1json/schema",
 };
 const schema524 = {
   allOf: [
@@ -60232,7 +60232,7 @@ validate601.evaluated = {
 };
 export const ajvWorkerTailLogsStartTailResponse = validate607;
 const schema527 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails/post/responses/200/content/application~1json/schema",
 };
 const schema528 = {
   allOf: [
@@ -60345,7 +60345,7 @@ validate607.evaluated = {
 };
 export const ajvWorkerTailLogsDeleteTailResponse = validate612;
 const schema529 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails~1{id}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1tails~1{id}/delete/responses/200/content/application~1json/schema",
 };
 function validate613(
   data,
@@ -60907,7 +60907,7 @@ validate612.evaluated = {
 };
 export const ajvWorkerScriptFetchUsageModelResponse = validate615;
 const schema533 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/get/responses/200/content/application~1json/schema",
 };
 const schema534 = {
   allOf: [
@@ -61117,7 +61117,7 @@ validate615.evaluated = {
 };
 export const ajvWorkerScriptUpdateUsageModelResponse = validate619;
 const schema537 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1usage-model/put/responses/200/content/application~1json/schema",
 };
 function validate620(
   data,
@@ -61296,7 +61296,7 @@ validate619.evaluated = {
 };
 export const ajvWorkerVersionsListVersionsResponse = validate623;
 const schema541 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/get/responses/200/content/application~1json/schema",
 };
 const schema542 = {
   allOf: [
@@ -61748,7 +61748,7 @@ validate623.evaluated = {
 };
 export const ajvWorkerVersionsUploadVersionResponse = validate627;
 const schema544 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions/post/responses/200/content/application~1json/schema",
 };
 const schema545 = {
   allOf: [
@@ -62763,7 +62763,7 @@ validate627.evaluated = {
 };
 export const ajvWorkerVersionsGetVersionDetailResponse = validate636;
 const schema549 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1scripts~1{script_name}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
 };
 const schema550 = {
   allOf: [
@@ -62876,7 +62876,7 @@ validate636.evaluated = {
 };
 export const ajvWorkerEnvironmentPutScriptContentResponse = validate641;
 const schema551 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1content/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1content/put/responses/200/content/application~1json/schema",
 };
 function validate642(
   data,
@@ -62979,7 +62979,7 @@ validate641.evaluated = {
 };
 export const ajvWorkerScriptEnvironmentGetSettingsResponse = validate646;
 const schema553 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/get/responses/200/content/application~1json/schema",
 };
 function validate647(
   data,
@@ -63082,7 +63082,7 @@ validate646.evaluated = {
 };
 export const ajvWorkerScriptEnvironmentPatchSettingsResponse = validate651;
 const schema555 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1services~1{service_name}~1environments~1{environment_name}~1settings/patch/responses/200/content/application~1json/schema",
 };
 function validate652(
   data,
@@ -63185,7 +63185,7 @@ validate651.evaluated = {
 };
 export const ajvWorkerSubdomainGetSubdomainResponse = validate656;
 const schema557 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/get/responses/200/content/application~1json/schema",
 };
 const schema558 = {
   allOf: [
@@ -63340,7 +63340,7 @@ validate656.evaluated = {
 };
 export const ajvWorkerSubdomainCreateSubdomainResponse = validate660;
 const schema560 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1subdomain/put/responses/200/content/application~1json/schema",
 };
 const schema561 = {
   allOf: [
@@ -63490,7 +63490,7 @@ validate660.evaluated = {
 };
 export const ajvListWorkersResponse = validate664;
 const schema563 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/get/responses/200/content/application~1json/schema",
 };
 const schema564 = {
   allOf: [
@@ -65908,7 +65908,7 @@ validate664.evaluated = {
 };
 export const ajvCreateWorkerResponse = validate668;
 const schema566 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers/post/responses/200/content/application~1json/schema",
 };
 const schema567 = {
   allOf: [
@@ -67808,7 +67808,7 @@ validate668.evaluated = {
 };
 export const ajvDeleteWorkerResponse = validate672;
 const schema569 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/delete/responses/200/content/application~1json/schema",
 };
 function validate673(
   data,
@@ -68370,7 +68370,7 @@ validate672.evaluated = {
 };
 export const ajvGetWorkerResponse = validate675;
 const schema573 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/get/responses/200/content/application~1json/schema",
 };
 const schema574 = {
   allOf: [
@@ -70270,7 +70270,7 @@ validate675.evaluated = {
 };
 export const ajvEditWorkerResponse = validate679;
 const schema576 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/patch/responses/200/content/application~1json/schema",
 };
 const schema577 = {
   allOf: [
@@ -72170,7 +72170,7 @@ validate679.evaluated = {
 };
 export const ajvUpdateWorkerResponse = validate683;
 const schema579 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/put/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}/put/responses/200/content/application~1json/schema",
 };
 const schema580 = {
   allOf: [
@@ -74070,7 +74070,7 @@ validate683.evaluated = {
 };
 export const ajvListWorkerVersionsResponse = validate687;
 const schema582 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/get/responses/200/content/application~1json/schema",
 };
 const schema583 = {
   allOf: [
@@ -75514,7 +75514,7 @@ validate687.evaluated = {
 };
 export const ajvCreateWorkerVersionResponse = validate700;
 const schema588 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/post/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions/post/responses/200/content/application~1json/schema",
 };
 const schema589 = {
   allOf: [
@@ -75627,7 +75627,7 @@ validate700.evaluated = {
 };
 export const ajvDeleteWorkerVersionResponse = validate705;
 const schema590 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/delete/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/delete/responses/200/content/application~1json/schema",
 };
 function validate706(
   data,
@@ -76189,7 +76189,7 @@ validate705.evaluated = {
 };
 export const ajvGetWorkerVersionResponse = validate708;
 const schema594 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1{version_id}/get/responses/200/content/application~1json/schema",
 };
 const schema595 = {
   allOf: [
@@ -76302,7 +76302,7 @@ validate708.evaluated = {
 };
 export const ajvPatchLatestWorkerVersionResponse = validate713;
 const schema596 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1latest/patch/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1accounts~1{account_id}~1workers~1workers~1{worker_id}~1versions~1latest/patch/responses/200/content/application~1json/schema",
 };
 const schema597 = {
   allOf: [
@@ -76415,7 +76415,7 @@ validate713.evaluated = {
 };
 export const ajvUserApiTokensVerifyTokenResponse = validate718;
 const schema598 = {
-  $ref: "noter://cloudflare-api/openApi.generated.json#/paths/~1user~1tokens~1verify/get/responses/200/content/application~1json/schema",
+  $ref: "samebase://cloudflare-api/openApi.generated.json#/paths/~1user~1tokens~1verify/get/responses/200/content/application~1json/schema",
 };
 const schema599 = {
   allOf: [

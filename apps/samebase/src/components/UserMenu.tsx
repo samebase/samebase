@@ -15,7 +15,7 @@ import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { api } from "../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
-import { useNoterAuthActions } from "@/authClient";
+import { useAppAuthActions } from "@/authClient";
 
 export function UserMenu({ children, menuLabel }: { children?: ReactNode; menuLabel?: ReactNode }) {
   const [accountOpen, setAccountOpen] = useState(false);
@@ -71,7 +71,7 @@ export function UserMenu({ children, menuLabel }: { children?: ReactNode; menuLa
 }
 
 function SignOutButton() {
-  const { signOut } = useNoterAuthActions();
+  const { signOut } = useAppAuthActions();
   return (
     <DropdownMenuItem
       onClick={() => {

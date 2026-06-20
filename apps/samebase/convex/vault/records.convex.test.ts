@@ -22,8 +22,8 @@ describe("vault records Convex contract", () => {
         ghRepoName: "Existing-App",
       },
     );
-    const noterManaged = await t.mutation(
-      internal.vault.records.createInitializingNoterManagedVaultForUser,
+    const samebaseManaged = await t.mutation(
+      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
       {
         userId,
         ghRepoOwner: "Ada",
@@ -46,14 +46,14 @@ describe("vault records Convex contract", () => {
           resourceLinksOpen: true,
         },
         {
-          vaultId: noterManaged.vaultId,
+          vaultId: samebaseManaged.vaultId,
           resourceLinksOpen: true,
         },
       ]),
     );
   });
 
-  it("rejects case-insensitive duplicate Noter-managed repository targets", async () => {
+  it("rejects case-insensitive duplicate Samebase-managed repository targets", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -63,7 +63,7 @@ describe("vault records Convex contract", () => {
       });
     });
 
-    await t.mutation(internal.vault.records.createInitializingNoterManagedVaultForUser, {
+    await t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
       userId,
       ghRepoOwner: "Ada",
       ghRepoName: "Example-App",
@@ -74,7 +74,7 @@ describe("vault records Convex contract", () => {
     });
 
     await expect(
-      t.mutation(internal.vault.records.createInitializingNoterManagedVaultForUser, {
+      t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
         userId,
         ghRepoOwner: " ada ",
         ghRepoName: " example-app ",

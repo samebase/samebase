@@ -743,14 +743,6 @@ export default defineSchema({
     .index("by_threadId", ["threadId"]),
 
   /**
-   * Waitlist for invite-only access.
-   */
-  waitlist: defineTable({
-    email: string(),
-    createdAt: number(),
-  }).index("by_email", ["email"]),
-
-  /**
    * Approval-first requests for AI reads against production infrastructure/data.
    */
   aiProdAccessRequests: defineTable({

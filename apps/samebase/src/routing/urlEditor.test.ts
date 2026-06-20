@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { normalizeRouteUrlEditorHref } from "./urlEditor";
 
-const ORIGIN = "https://noter.local";
+const ORIGIN = "https://samebase.local";
 
 describe("normalizeRouteUrlEditorHref", () => {
   it("keeps same-origin app paths as route hrefs", () => {
@@ -29,7 +29,7 @@ describe("normalizeRouteUrlEditorHref", () => {
       normalizeRouteUrlEditorHref({
         currentHref: "/",
         origin: ORIGIN,
-        rawHref: "https://noter.local/terms?dev",
+        rawHref: "https://samebase.local/terms?dev",
       }),
     ).toBeNull();
   });
