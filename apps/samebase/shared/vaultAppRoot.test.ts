@@ -4,7 +4,7 @@ import { normalizeVaultAppRoot } from "./vaultAppRoot";
 
 describe("normalizeVaultAppRoot", () => {
   it("normalizes repository-relative app roots", () => {
-    expect(normalizeVaultAppRoot(" apps\\noter/ ")).toBe("apps/samebase");
+    expect(normalizeVaultAppRoot(" apps\\samebase/ ")).toBe("apps/samebase");
     expect(normalizeVaultAppRoot("/apps/samebase/")).toBe("apps/samebase");
     expect(normalizeVaultAppRoot(".")).toBe(".");
   });
