@@ -99,19 +99,6 @@ export const setAccountPanelOpen = mutation({
   },
 });
 
-export const setProvidersPanelOpen = mutation({
-  access: "access_dashboard",
-  args: {
-    isOpen: boolean(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
-      providersPanelOpen: args.isOpen,
-    });
-  },
-});
-
 export const setPricingBillingCycle = mutation({
   access: "access_dashboard",
   args: {
