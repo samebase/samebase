@@ -3,8 +3,8 @@ import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
   it("contains a single template snapshot contract", () => {
-    expect(starterTemplateManifest.version).toMatch(/^notermd-app-[0-9a-f]{12}$/);
-    expect(starterTemplateManifest.sourceRepo).toBe("https://github.com/notermd/app.git");
+    expect(starterTemplateManifest.version).toMatch(/^samebase-app-[0-9a-f]{12}$/);
+    expect(starterTemplateManifest.sourceRepo).toBe("https://github.com/samebase/app.git");
     expect(starterTemplateManifest.sourceBranch).toBe("v5-tanstack-start-workers");
     expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
@@ -46,7 +46,7 @@ describe("starterSeedManifest", () => {
       "Cloudflare SPA mode owns app-route fallback through /index.html.",
     );
     expect(starterTemplateManifest.files["public/_redirects"]).toContain(
-      "# @notermd/app-prerender-redirects:start",
+      "# @samebase/app-prerender-redirects:start",
     );
     expect(starterTemplateManifest.files["public/_redirects"]).toContain("/ /_landing.html 200");
     expect(starterTemplateManifest.files["scripts/cloudflare-prerender-pages.ts"]).toContain(
