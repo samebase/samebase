@@ -88,6 +88,11 @@ For a Workers/TanStack Start version:
 - Use the split Convex deploy-key contract: `PROD_CONVEX_DEPLOY_KEY` for the
   production branch, `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches,
   and no generic `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
+- Document the current Convex permission split: production `PROD_CONVEX_DEPLOY_KEY`
+  is a production deploy key with exactly `deployment:deploy` and
+  `deployment:data:view`; `deployment:data:write`, env permissions,
+  function-run permissions, logs, backups, and integrations are not needed.
+  `PREVIEW_CONVEX_DEPLOY_KEY` is the separate project-level Preview deploy key.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 

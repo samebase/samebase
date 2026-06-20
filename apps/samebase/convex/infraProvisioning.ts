@@ -536,6 +536,7 @@ async function createConvexDeployKey(args: {
     {
       params: { path: { deployment_name: args.deploymentName } },
       body: {
+        allowedActions: ["deployment:deploy", "deployment:data:view"],
         name: args.name,
       },
       recordApiCall: args.recordApiCall,

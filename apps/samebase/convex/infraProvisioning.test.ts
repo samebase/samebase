@@ -477,12 +477,17 @@ describe("infrastructure provisioning ownership", () => {
   });
 
   it("creates project preview deploy keys for Cloudflare preview builds", async () => {
-    const requests: { method: string; url: string }[] = [];
+    const requests: { body: unknown; method: string; url: string }[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = input instanceof Request ? input : new Request(input, init);
-        requests.push({ method: request.method, url: request.url });
+        const bodyText = await request.clone().text();
+        requests.push({
+          body: bodyText ? JSON.parse(bodyText) : null,
+          method: request.method,
+          url: request.url,
+        });
         const json = (value: string) =>
           new Response(value, {
             status: 200,
@@ -676,7 +681,10 @@ describe("infrastructure provisioning ownership", () => {
     const convexKeyRequests = requests
       .filter((request) => request.url.startsWith("https://api.convex.dev/v1/"))
       .filter((request) => request.method === "POST")
-      .map((request) => new URL(request.url).pathname);
+      .map((request) => ({
+        body: request.body,
+        path: new URL(request.url).pathname,
+      }));
     const deployment = await t.run(async (ctx) => {
       return await ctx.db
         .query("vaultConvexDeployments")
@@ -685,9 +693,17 @@ describe("infrastructure provisioning ownership", () => {
     });
 
     expect(convexKeyRequests).toEqual([
-      "/v1/deployments/deploy-keys-prod/create_deploy_key",
-      `/v1/projects/${convexProjectId}/create_preview_deploy_key`,
+      expect.objectContaining({
+        body: expect.objectContaining({
+          allowedActions: ["deployment:deploy", "deployment:data:view"],
+        }),
+        path: "/v1/deployments/deploy-keys-prod/create_deploy_key",
+      }),
+      expect.objectContaining({
+        path: `/v1/projects/${convexProjectId}/create_preview_deploy_key`,
+      }),
     ]);
+    expect(convexKeyRequests[1]?.body).not.toHaveProperty("allowedActions");
     expect(deployment).toMatchObject({
       deployKeys: {
         production: { state: "created", id: "prod:deploy-keys-prod" },

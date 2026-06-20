@@ -80,7 +80,19 @@ describe("build-cloudflare", () => {
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "feature-branch",
       }),
-    ).toThrow("Set PREVIEW_CONVEX_DEPLOY_KEY");
+    ).toThrow("Use a Convex project Preview deploy key.");
+  });
+
+  it("requires the production key with the current least-privilege permission set", () => {
+    expect(() =>
+      selectConvexDeployPlan({
+        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+        WORKERS_CI: "1",
+        WORKERS_CI_BRANCH: "main",
+      }),
+    ).toThrow(
+      "Use a Convex production deploy key with exactly deployment:deploy and deployment:data:view.",
+    );
   });
 
   it("skips Convex deploys for local builds without deploy keys", () => {
