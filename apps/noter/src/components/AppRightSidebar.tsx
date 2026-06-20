@@ -5,6 +5,7 @@ import {
   PublicLandingAccountSection,
 } from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
   VaultDashboardAccountSection,
@@ -19,6 +20,7 @@ import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
 import { Link } from "@tanstack/react-router";
+import { clsx } from "clsx";
 import { useMutation, useQuery as useConvexQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -164,14 +166,30 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
 
 function AppRightSidebarPrimaryLinks() {
   return (
-    <nav
-      aria-label="App"
-      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3 text-sm"
-    >
-      <Link to={PROVIDERS_ROUTE}>Providers</Link>
-      <Link to={NEW_APP_ROUTE}>New App</Link>
-      <Link to={CONNECT_REPO_ROUTE}>Connect existing app</Link>
-    </nav>
+    <>
+      <nav
+        aria-label="App"
+        className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3 text-sm"
+      >
+        <Link to={PROVIDERS_ROUTE}>Providers</Link>
+      </nav>
+      <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
+        <Button className="w-full" asChild>
+          <Link to={NEW_APP_ROUTE}>New App</Link>
+        </Button>
+        <Link
+          className={clsx(
+            buttonVariants({ variant: "outline" }),
+            "h-auto min-h-8 w-full whitespace-normal py-2",
+          )}
+          to={CONNECT_REPO_ROUTE}
+        >
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+            Connect existing app
+          </span>
+        </Link>
+      </div>
+    </>
   );
 }
 
