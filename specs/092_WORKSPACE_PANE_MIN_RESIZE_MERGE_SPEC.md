@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/workspace shell
+- Owner: Samebase frontend/workspace shell
 - Last updated: 2026-05-06
 - Related files:
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
@@ -20,7 +20,7 @@
 `WorkspaceLayoutV2` currently treats mobile sidebars as carousel panes that can resize until they
 hit a minimum, then converts any additional resize drag into a slide back toward the main pane.
 
-That behavior remains valid for routes that want a drawer-like mobile sidebar. Noter also needs a
+That behavior remains valid for routes that want a drawer-like mobile sidebar. Samebase also needs a
 second behavior for routes where a narrow side pane and a complete main pane should coexist in the
 same viewport. In that mode, dragging a side pane past its minimum should resize the adjacent main
 pane instead of sliding the active pane away.

@@ -20,8 +20,8 @@ The add-vault repository picker therefore adopts a two-phase load:
 3. continue loading the full accessible repository set in the background
 4. make partial-search state explicit until the background load completes
 
-This keeps the initial screen fast while preserving eventual access to every repository that Noter
-can connect.
+This keeps the initial screen fast while preserving eventual access to every repository that
+Samebase can connect.
 
 ## Problem Statement
 

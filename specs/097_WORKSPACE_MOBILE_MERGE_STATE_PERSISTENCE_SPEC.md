@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted hard-break implementation plan
-- Owner: Noter frontend/workspace shell
+- Owner: Samebase frontend/workspace shell
 - Created: 2026-05-08
 - Related specs:
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`

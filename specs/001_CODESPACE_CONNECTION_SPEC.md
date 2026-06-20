@@ -13,7 +13,7 @@
 
 ## Overview
 
-This document outlines how Noter connects to and interacts with GitHub Codespaces, providing both
+This document outlines how Samebase connects to and interacts with GitHub Codespaces, providing both
 visual and programmatic access to cloud development environments.
 
 ## Connection Methods
@@ -22,14 +22,14 @@ visual and programmatic access to cloud development environments.
 
 - **URL Pattern**: `https://{codespace-name}.github.dev`
 - **Access**: Direct browser access to VS Code in the browser
-- **Integration**: Embedded via iframe in Noter's `CodespaceIframe` component
+- **Integration**: Embedded via iframe in Samebase's `CodespaceIframe` component
 - **Features**: Full VS Code experience with extensions, terminal, file editing
 
 ### 2. HTTP Agent API (Programmatic Access)
 
 - **URL Pattern**: `https://{codespace-name}-3000.app.github.dev`
 - **Authentication**: Bearer token (generated UUID stored in database)
-- **Purpose**: Allows Noter to programmatically interact with the Codespace
+- **Purpose**: Allows Samebase to programmatically interact with the Codespace
 
 ## Codex Authentication in Codespaces
 
@@ -61,7 +61,7 @@ visual and programmatic access to cloud development environments.
 
 ### Creation Process:
 
-1. **Codespace Creation**: Noter calls GitHub API to create a Codespace
+1. **Codespace Creation**: Samebase calls GitHub API to create a Codespace
 2. **Agent Setup**: A Node.js HTTP server starts on port 3000 inside the Codespace
 3. **URL Generation**:
    - Web URL: `{codespace-name}.github.dev`
@@ -93,7 +93,7 @@ const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 - **Path Sanitization**: Input validation on all file paths
 - **Workspace Isolation**: All operations restricted to `/workspaces` directory
 
-## Usage in Noter
+## Usage in Samebase
 
 - **Visual Access**: Iframe embedding of VS Code web interface
 - **Programmatic Control**: HTTP API for file operations and command execution
@@ -113,9 +113,9 @@ const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 
 ### Connection Establishment
 
-The connection is established automatically when you create a Codespace through Noter's interface,
-providing both visual and programmatic access to your GitHub repository in a cloud development
-environment.
+The connection is established automatically when you create a Codespace through Samebase's
+interface, providing both visual and programmatic access to your GitHub repository in a cloud
+development environment.
 
 ## TODOs / Ideas
 
@@ -235,7 +235,7 @@ GET /files/stat?path={file-path}
 
 ## Integration Points
 
-### 1. Noter UI Components
+### 1. Samebase UI Components
 
 **CodespaceIframe Component**
 

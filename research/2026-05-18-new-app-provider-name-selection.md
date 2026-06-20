@@ -8,7 +8,7 @@
 - Related:
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
-  - `research/2026-05-15-notermd-workers-provisioning-migration.md`
+  - `research/2026-05-15-samebase-workers-provisioning-migration.md`
   - `docs/artifacts/notermd-app/cloudflare-workers-install.md`
 
 ## Prompt
@@ -133,7 +133,7 @@ Durable Cloudflare identifiers are stored on the vault provider state:
 
 The Workers migration research explicitly documents the current intent: deterministic Worker names
 are derived from owner, repository, and vault suffix so retries target the same Worker without
-storing another pending name (`research/2026-05-15-notermd-workers-provisioning-migration.md:363`).
+storing another pending name (`research/2026-05-15-samebase-workers-provisioning-migration.md:363`).
 
 ## Important Edge Cases
 

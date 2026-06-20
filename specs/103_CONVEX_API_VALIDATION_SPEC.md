@@ -4,10 +4,10 @@ Status: Accepted
 
 ## Problem
 
-Noter currently treats Convex Platform API responses as `unknown` and then tries to discover fields
-with fallback helpers such as `resolveField`, `readString`, and `readStringOrNumber`. That makes the
-provider boundary weak: the app cannot tell whether Convex changed a response, whether Noter guessed
-the wrong shape, or whether a missing field is a real product state.
+Samebase currently treats Convex Platform API responses as `unknown` and then tries to discover
+fields with fallback helpers such as `resolveField`, `readString`, and `readStringOrNumber`. That
+makes the provider boundary weak: the app cannot tell whether Convex changed a response, whether
+Samebase guessed the wrong shape, or whether a missing field is a real product state.
 
 The concrete bug is the Convex team slug. OAuth and API-key connection flows can resolve the team id
 from `/v1/token_details`, but the published token-details schema does not include `teamSlug`. The
@@ -34,17 +34,17 @@ Generator and validator checks:
 - `openapi-typescript` produces strong TypeScript types from the Convex Management API document
   without adding runtime dependencies.
 - AJV 2020 compiles validators directly against the Convex OpenAPI 3.1 schemas and rejects missing
-  required fields for the response schemas Noter uses.
+  required fields for the response schemas Samebase uses.
 - Zod JSON-schema conversion did not reliably resolve OpenAPI `$ref`s in a quick probe.
-- Higher-level client generators added more machinery than Noter needs or weakened some schema
+- Higher-level client generators added more machinery than Samebase needs or weakened some schema
   constraints.
 - `openapi-fetch` provides the desired client contract: callsites pass literal OpenAPI path
   templates and grouped `params.path` / `params.query` values so TypeScript can reject misspelled
-  paths, wrong methods, missing path params, and invalid request bodies before runtime. Noter uses
-  it with the generated `paths` type while keeping Noter-owned error shaping and AJV runtime
+  paths, wrong methods, missing path params, and invalid request bodies before runtime. Samebase
+  uses it with the generated `paths` type while keeping Samebase-owned error shaping and AJV runtime
   response validation.
 - The OpenAPI `int64` format can be represented as a JSON number or string, but JavaScript cannot
-  safely represent every `int64` as a `number`. Convex provider IDs are opaque to Noter, so
+  safely represent every `int64` as a `number`. Convex provider IDs are opaque to Samebase, so
   `AccessTokenId`, `CustomRoleId`, `ProjectId`, `TeamId`, `DeploymentId`, and `MemberId` must be
   preserved as decimal strings at the app boundary. Non-ID numeric fields, such as timestamps,
   remain numbers and must fail closed if Convex returns a value outside JavaScript's safe numeric
@@ -52,18 +52,18 @@ Generator and validator checks:
 
 ## Decision
 
-Noter pins Convex Management API validation to the published OpenAPI schema:
+Samebase pins Convex Management API validation to the published OpenAPI schema:
 
 1. Store the Convex Management API OpenAPI document as a generated JSON drift sentinel. App code
    must not import it at runtime.
 2. Store generated TypeScript declarations derived from that document.
 3. Generate TypeScript declarations with `openapi-typescript` transform hooks that map the Convex ID
-   schemas Noter consumes to decimal strings. The checked-in OpenAPI document remains the upstream
-   drift sentinel; generated app types model Noter's lossless provider boundary.
-4. Generate standalone AJV validators from a Noter-normalized copy of the fetched document for every
-   Convex Management API response Noter consumes. The normalization keeps the same upstream schema
-   except for the Convex ID schemas that Noter treats as decimal strings. Convex imports the
-   generated validators, not AJV itself, because the Convex runtime disallows string-code
+   schemas Samebase consumes to decimal strings. The checked-in OpenAPI document remains the
+   upstream drift sentinel; generated app types model Samebase's lossless provider boundary.
+4. Generate standalone AJV validators from a Samebase-normalized copy of the fetched document for
+   every Convex Management API response Samebase consumes. The normalization keeps the same upstream
+   schema except for the Convex ID schemas that Samebase treats as decimal strings. Convex imports
+   the generated validators, not AJV itself, because the Convex runtime disallows string-code
    generation.
 5. Expose a typed Convex Management client instead of a generic
    `request(path, method, body): Promise<unknown>` escape hatch. Internal requests must go through

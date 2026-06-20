@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted and implemented
-- Owner: Noter backend
+- Owner: Samebase backend
 - Created: 2026-05-12
 - Related docs:
   - `specs/095_CONVEX_CODESPACES_MODULE_SPLIT_SPEC.md`
@@ -138,9 +138,9 @@ The accepted public and internal Convex references are named by responsibility:
 - `internal.vault.records.getByRepositoryFullName`
 - `internal.vault.records.hasOtherVaultsForRepository`
 - `internal.vault.records.createInitializingExistingRepositoryVaultForUser`
-- `internal.vault.records.createInitializingNoterManagedVaultForUser`
+- `internal.vault.records.createInitializingSamebaseManagedVaultForUser`
 - `internal.vault.records.connectExistingRepositoryVaultGitHub`
-- `internal.vault.records.connectNoterManagedVaultGitHub`
+- `internal.vault.records.connectSamebaseManagedVaultGitHub`
 - `internal.vault.records.markGithubProvisioningFailed`
 - `internal.vault.records.markVaultAsReady`
 - `internal.vault.records.updateVaultDevcontainerConfig`

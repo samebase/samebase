@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: In progress (Phase 1 complete)
-- Owner: Noter platform
+- Owner: Samebase platform
 - Last updated: 2026-06-19
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -21,8 +21,8 @@ Roll out Polar billing in phases so we can:
 
 1. Validate billing state, checkout, portal, and webhook plumbing without blocking member
    onboarding.
-2. Keep Noter-managed vault creation available to approved members while early app creation is being
-   tested.
+2. Keep Samebase-managed vault creation available to approved members while early app creation is
+   being tested.
 3. Make recorded billing state transparent and correct (webhook-driven, reconciled).
 4. Leave a clean path for guardrails, credits, and metering later without redoing the billing core.
 
@@ -99,7 +99,7 @@ Exit criteria:
   - [ ] Start checkout from `/pricing` redirects to Polar sandbox checkout.
   - [ ] Completing checkout triggers webhook and updates billing state in Convex.
   - [ ] Customer portal opens and returns to `/pricing`.
-  - [ ] Approved members can create Noter-managed vaults with connected providers regardless of
+  - [ ] Approved members can create Samebase-managed vaults with connected providers regardless of
         billing state.
 
 Exit criteria:
@@ -113,7 +113,7 @@ Exit criteria:
 - [ ] Set Convex prod deployment env vars:
   - [ ] `POLAR_ACCESS_TOKEN`
   - [ ] `POLAR_WEBHOOK_SECRET`
-- [ ] Verify return URL allowlist is correct for prod (`https://noter.md`).
+- [ ] Verify return URL allowlist is correct for prod (`https://samebase.com`).
 - [ ] Expand billing status derivation beyond "active vs inactive":
   - [ ] map cancellations / past-due states (without breaking free tier).
 - [ ] Add a periodic reconciliation action (manual or scheduled) to self-heal:
@@ -145,7 +145,7 @@ Exit criteria:
 This is not an accepted enforcement plan. The likely first step is making usage transparent before
 any limit or billing action exists.
 
-- [ ] Define a metering model (tokens, provider costs, Noter compute units).
+- [ ] Define a metering model (tokens, provider costs, Samebase compute units).
 - [ ] Persist usage events per vault/user (append-only).
 - [ ] Build a basic usage page that explains:
   - [ ] what was consumed
@@ -184,7 +184,7 @@ Exit criteria:
 - [ ] Webhook endpoint validates signatures and ignores invalid deliveries.
 - [ ] Redirect-based success is not treated as billing-state authority.
 - [ ] Billing state is not an app-access gate until a future accepted rollout defines one:
-  - [x] do not gate Noter-managed create (`createRepository`) during member rollout
+  - [x] do not gate Samebase-managed create (`createRepository`) during member rollout
   - [x] do not gate BYO connect (`connectRepository`)
 - [ ] No billing secrets leak to the client.
 - [ ] All changes remain type-safe (no `any`, no assertions).

@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter product
+- Owner: Samebase product
 - Last updated: 2026-05-29
 - Related files:
   - `slogans.md`

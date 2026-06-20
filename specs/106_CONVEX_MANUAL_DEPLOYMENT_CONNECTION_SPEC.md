@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter provider resources, vault dashboard
+- Owner: Samebase provider resources, vault dashboard
 - Created: 2026-05-23
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -65,13 +65,13 @@ type VaultConvexState =
 ```
 
 During the initial rollout, code may tolerate older connected rows without `origin`; new writes must
-set it. Rows without `origin` should be treated as provisioned only when existing Noter-created
-infrastructure already proves Noter created the resource. Destructive cleanup must otherwise fail
+set it. Rows without `origin` should be treated as provisioned only when existing Samebase-created
+infrastructure already proves Samebase created the resource. Destructive cleanup must otherwise fail
 closed.
 
 `origin` answers how this vault attached to the Convex production deployment:
 
-- `provisioned` means Noter created the project/deployment during an explicit create flow.
+- `provisioned` means Samebase created the project/deployment during an explicit create flow.
 - `selected_existing` means the user chose an existing project from Convex inventory.
 
 Cleanup ownership is derived from `origin`: `provisioned` projects can be removed by managed cleanup
@@ -105,7 +105,7 @@ vault resource.
 Manual Convex connection uses the connected provider team's `teamId`. If the user needs a different
 team, they must reconnect or switch the Convex provider connection before starting this flow.
 
-When a project read returns `teamSlug`, Noter should persist it to the Convex provider connection
+When a project read returns `teamSlug`, Samebase should persist it to the Convex provider connection
 for later dashboard links.
 
 ## Resource Selection

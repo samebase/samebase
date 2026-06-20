@@ -4,7 +4,7 @@
 
 - Status: Accepted implementation reference; Phase 1 and Phase 2 runtime behavior shipped in `v1257`
   / `#733`
-- Owner: Noter existing repository onboarding, vault source setup, and provisioning runs
+- Owner: Samebase existing repository onboarding, vault source setup, and provisioning runs
 - Created: 2026-05-08
 - Last updated: 2026-05-09
 - Related docs:
@@ -22,8 +22,8 @@ repository, clicks connect, and then sees one visible setup run on the dashboard
 usable or clearly failed.
 
 Internally this is not one implementation step. Existing repository connection must move from a
-synchronous repository-first action to the same vault-first Workflow shape used by Noter-managed app
-creation:
+synchronous repository-first action to the same vault-first Workflow shape used by Samebase-managed
+app creation:
 
 1. create an initializing vault and provisioning run before any GitHub API call
 2. fetch and validate the existing GitHub repository inside Workflow
@@ -56,9 +56,9 @@ connection. The target model requires that `runId` directly on connected
 rows: the operator is the only production user and can delete incompatible existing-repository vault
 rows before deploying the required shape.
 
-Dashboard source setup summaries are currently derived for Noter-managed repositories only. Existing
-repositories can be connected or stuck without a default-branch tree while `sourceSetup` still reads
-as `not_applicable`.
+Dashboard source setup summaries are currently derived for Samebase-managed repositories only.
+Existing repositories can be connected or stuck without a default-branch tree while `sourceSetup`
+still reads as `not_applicable`.
 
 The direct file route currently assumes `connectRepository` returns only after the tree exists.
 After this spec, that route cannot immediately navigate to a file workspace, because the action
@@ -132,7 +132,7 @@ Recommended user-facing log copy:
 1. `initialize_vault`: "Queued existing repository connection."
 2. `validate_connections`: "Checking provider connections."
 3. `fetch_github_repo`: "Checking existing GitHub repository."
-4. `connect_github`: "Connected the Noter vault to GitHub."
+4. `connect_github`: "Connected the Samebase vault to GitHub."
 5. `sync_tree`: "Syncing the default branch tree."
 6. `finish`: "Connected existing repository."
 

@@ -3,14 +3,14 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/editor
+- Owner: Samebase frontend/editor
 - Last updated: 2026-03-26
 
 ## Summary
 
 The `Changed Files` view must not render as a blank surface while the compare payload is loading.
 
-When Noter is still fetching the compare target and patch data, the editor surface should show an
+When Samebase is still fetching the compare target and patch data, the editor surface should show an
 explicit loading state that:
 
 - explains that the compare request can take a few seconds,
@@ -42,8 +42,8 @@ explicit loading state that:
 ### 2. Loading state content
 
 - Primary label: `Loading changed files`
-- Supporting copy should explain that Noter is still loading the compare target and patch data, and
-  that this can take a few seconds.
+- Supporting copy should explain that Samebase is still loading the compare target and patch data,
+  and that this can take a few seconds.
 - Include a live stopwatch in the same loading panel.
 
 ### 3. Stopwatch behavior

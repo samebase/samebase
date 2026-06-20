@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/editor
+- Owner: Samebase frontend/editor
 - Last updated: 2026-03-25
 
 ## Summary

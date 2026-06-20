@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted and implemented
-- Owner: Noter frontend
+- Owner: Samebase frontend
 - Last updated: 2026-04-25
 - Related files: `specs/085_DEPLOY_SAFE_APP_BOOT_AND_RECOVERY_SPEC.md`,
   `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/samebase/index.html`,
@@ -34,12 +34,12 @@ model.
   by SPA public entry points.
 - Production `/manifest.webmanifest` still resolves to the SPA HTML fallback instead of a real
   manifest asset.
-- [#245](https://github.com/noter-md/noter/pull/245) removed `vite-plugin-pwa` and `registerSW`.
+- [#245](https://github.com/samebase/samebase/pull/245) removed `vite-plugin-pwa` and `registerSW`.
   That removed the stale-cache path, but it also removed the only manifest-generation path.
-- [#262](https://github.com/noter-md/noter/pull/262) refined the small favicon assets for browser
+- [#262](https://github.com/samebase/samebase/pull/262) refined the small favicon assets for browser
   chrome, but that did not restore dedicated install metadata.
-- [#281](https://github.com/noter-md/noter/pull/281) made the generated `logo-static.svg` path the
-  current public logo source of truth for install icon exports.
+- [#281](https://github.com/samebase/samebase/pull/281) made the generated `logo-static.svg` path
+  the current public logo source of truth for install icon exports.
 - `/privacy` and `/terms` are prerendered through the canonical React route tree and inherit the
   shared app metadata. Keep that path rather than returning to separate hand-authored static HTML
   generation.
@@ -179,7 +179,7 @@ Requirements:
 ### 6. Caching constraints
 
 This feature must not reintroduce the stale-content problems removed with
-[#245](https://github.com/noter-md/noter/pull/245).
+[#245](https://github.com/samebase/samebase/pull/245).
 
 Constraints:
 
@@ -241,13 +241,13 @@ problems are not. The accepted app-side deploy recovery contract now lives in
 
 ## Historical Context
 
-- [#245](https://github.com/noter-md/noter/pull/245) removed caching and accidentally removed
+- [#245](https://github.com/samebase/samebase/pull/245) removed caching and accidentally removed
   install metadata in the same step.
-- [#262](https://github.com/noter-md/noter/pull/262) improved the small browser-favicon assets but
-  did not restore dedicated install metadata.
-- [#281](https://github.com/noter-md/noter/pull/281) made the generated `logo-static.svg` path the
-  public logo source of truth.
-- [#310](https://github.com/noter-md/noter/pull/310) added crawlable public legal pages, which
+- [#262](https://github.com/samebase/samebase/pull/262) improved the small browser-favicon assets
+  but did not restore dedicated install metadata.
+- [#281](https://github.com/samebase/samebase/pull/281) made the generated `logo-static.svg` path
+  the public logo source of truth.
+- [#310](https://github.com/samebase/samebase/pull/310) added crawlable public legal pages, which
   expanded the set of public HTML documents that can surface install UI.
 
 This spec keeps the cache removal and restores only the thin install pieces.

@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/app shell
+- Owner: Samebase frontend/app shell
 - Last updated: 2026-06-06
 - Supersedes:
   - framework-readiness direction in
@@ -24,7 +24,7 @@
 
 ## Summary
 
-Noter should migrate to TanStack Router, not React Router framework mode.
+Samebase should migrate to TanStack Router, not React Router framework mode.
 
 The accepted shell seams from `specs/080` still stand:
 

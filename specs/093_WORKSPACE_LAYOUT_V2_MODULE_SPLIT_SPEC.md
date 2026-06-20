@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/workspace shell
+- Owner: Samebase frontend/workspace shell
 - Last updated: 2026-05-06
 - Related files:
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`

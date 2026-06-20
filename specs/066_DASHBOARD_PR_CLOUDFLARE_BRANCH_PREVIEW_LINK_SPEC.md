@@ -50,8 +50,8 @@ behavior:
 3. When no pull request title is available, PR metadata may render as its own row. Pull request
    labels and the draft badge belong with PR metadata, not the commit row.
 4. The branch name remains visible with a branch icon and links to the GitHub branch tree, but is
-   not itself the Noter edit navigation target.
-5. A Noter link renders below the Cloudflare preview/logs affordance and uses the version 2
+   not itself the Samebase edit navigation target.
+5. A Samebase link renders below the Cloudflare preview/logs affordance and uses the version 2
    side-diagonal identity mark. On the default branch it is labeled `Edit` and opens the branch file
    view. On non-default branches it is labeled `View changes` and opens the branch file view in
    Changed Files mode.
@@ -62,7 +62,7 @@ behavior:
 8. The preview affordance target is still the parsed `Branch Preview URL`.
 9. The preview affordance renders only when the cached preview belongs to the branch's current PR,
    according to the freshness rules below.
-10. Branch-row icons use a fixed-width slot so PR, branch, commit, Cloudflare, Convex, and Noter
+10. Branch-row icons use a fixed-width slot so PR, branch, commit, Cloudflare, Convex, and Samebase
     labels share a stable text rail.
 
 ## Why This Is The Right Scope
@@ -182,8 +182,8 @@ For each active branch row:
    `Cloudflare preview` affordance in the branch row metadata.
 2. Otherwise render nothing.
 3. The displayed link should be the branch preview URL.
-4. The consolidated PR link, Cloudflare preview link, and Noter `Edit` link are independent targets.
-   A row with a PR and a current Cloudflare preview must render all applicable links.
+4. The consolidated PR link, Cloudflare preview link, and Samebase `Edit` link are independent
+   targets. A row with a PR and a current Cloudflare preview must render all applicable links.
 
 ## Freshness Rules
 

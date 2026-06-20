@@ -22,7 +22,7 @@ The shipped main pane must:
 2. keep grouped work/tool activity between message rows
 3. keep the composer anchored at the bottom of the pane
 4. render both user and assistant messages through the shared `ProsemarkReadOnly` surface so
-   markdown behaves the same way as other Noter chat surfaces
+   markdown behaves the same way as other Samebase chat surfaces
 
 ## Locked Product Decisions
 
@@ -63,7 +63,7 @@ For hydrated message items:
 4. the message renderer should not fork into a `<pre>` path for user prompts or a
    `StaticMarkdownDocument` path for assistant replies
 
-This keeps markdown rendering, folding, and typography behavior aligned with the rest of Noter's
+This keeps markdown rendering, folding, and typography behavior aligned with the rest of Samebase's
 read-only chat surfaces.
 
 ### Work-log rendering contract
@@ -88,7 +88,7 @@ The earlier research note in `research/2026-04-02-machines-main-chat-surface.md`
 `StaticMarkdownDocument` for lightweight assistant rendering.
 
 The shipped behavior standardizes on `ProsemarkReadOnly` for both message roles instead so
-`/machines` matches the existing Noter chat rendering contract.
+`/machines` matches the existing Samebase chat rendering contract.
 
 ## Acceptance
 

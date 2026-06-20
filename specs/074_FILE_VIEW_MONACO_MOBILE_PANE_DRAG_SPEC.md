@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/editor UX
+- Owner: Samebase frontend/editor UX
 - Last updated: 2026-03-30
 - Depends on:
   - `apps/samebase/src/components/WorkspaceSidebarShell.tsx`

@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted next-phase implementation plan
-- Owner: Noter app creation, existing repository onboarding, and vault model
+- Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
 - Related docs:
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
@@ -43,8 +43,8 @@ connection lifecycle.
 
 1. Create a durable vault row before external GitHub provisioning work starts.
 2. Represent GitHub connection state as a required discriminated union.
-3. Use the same GitHub state machine for Noter-managed repository creation and existing-repository
-   connection.
+3. Use the same GitHub state machine for Samebase-managed repository creation and
+   existing-repository connection.
 4. Keep Convex and Cloudflare state present only on connected GitHub variants.
 5. Keep repository-backed features gated on connected GitHub state.
 6. Keep failures structured enough that a later retry action can target one failed provider state on
@@ -126,7 +126,7 @@ GitHub state:
  * These fields live on the vault row itself; `state` is top-level because
  * GitHub is the source-workspace state of the vault.
  */
-/** GitHub visibility values currently supported by Noter's create flow. */
+/** GitHub visibility values currently supported by Samebase's create flow. */
 type GitHubRepositoryVisibility = "private" | "public";
 
 /**
@@ -309,10 +309,10 @@ The `not_connected` state deliberately has no user-supplied label. If future man
 creation needs a user-named placeholder, add a separate field with a concrete product reason instead
 of carrying a root label now.
 
-Root `isNoterManaged` should also not be part of this shape. It is ambiguous between "Noter created
-the GitHub repository" and "Noter manages infrastructure." The repo-origin question is represented
-by `githubMode`; infrastructure management is represented by connected-only Convex and Cloudflare
-states.
+Root `isSamebaseManaged` should also not be part of this shape. It is ambiguous between "Samebase
+created the GitHub repository" and "Samebase manages infrastructure." The repo-origin question is
+represented by `githubMode`; infrastructure management is represented by connected-only Convex and
+Cloudflare states.
 
 GitHub state fields:
 
@@ -432,7 +432,7 @@ external provider calls.
 
 ## Create New App Flow
 
-For Noter-managed repository creation:
+For Samebase-managed repository creation:
 
 1. validate local input shape, including the selected GitHub user/org owner
 2. in one mutation, insert the vault, insert the provisioning run with required `vaultId`, then
@@ -469,7 +469,7 @@ Connecting an existing repository must use the same vault/run/GitHub state model
 8. let the dashboard derive the vault summary from GitHub, Convex, and Cloudflare states
 
 This flow is currently an action. Moving it to Workflow is part of this model so existing-repo
-onboarding gets the same observability and retry surface as Noter-managed repository creation.
+onboarding gets the same observability and retry surface as Samebase-managed repository creation.
 
 ## Provisioning Runs
 
@@ -570,7 +570,7 @@ retry code should still derive product state from `vault.convex` and `vault.clou
 The normal Convex path is widen, migrate, and narrow because existing vault rows currently require
 GitHub fields. If production vaults must be preserved, use the standard multi-deploy migration.
 
-Because Noter currently has one real operator/user and the operator is willing to remove existing
+Because Samebase currently has one real operator/user and the operator is willing to remove existing
 production vaults, this phase may use a direct reset shortcut:
 
 The important project data is pushed to GitHub. Convex currently stores connections, provisioning
@@ -646,7 +646,7 @@ child tables is a separate cleanup project, not hidden Phase 1 scope.
 
 ### Vault-First Phase 2: Initializing Vault Creation
 
-Goal: make a new Noter-managed app visible as a vault before external GitHub work starts.
+Goal: make a new Samebase-managed app visible as a vault before external GitHub work starts.
 
 Scope:
 
@@ -723,7 +723,7 @@ Scope:
 4. keep tree-dependent controls, including infra provisioning, gated on a usable default-branch tree
    from `vaultBranchTrees` or the temporary mirror
 5. show post-GitHub source setup failures, especially `seed_starter` and `sync_tree`, on connected
-   Noter-managed vault cards without replacing their connected GitHub state
+   Samebase-managed vault cards without replacing their connected GitHub state
 6. make provisioning logs visible for non-ready setup/failed cards that have provisioning events,
    not only inside ready-state developer tools
 
@@ -749,9 +749,9 @@ Frontend behavior:
 
 1. A pre-GitHub failure still renders as a failed create attempt, because the repository identity
    was not established.
-2. A connected Noter-managed vault without a usable tree renders as setup in progress while its
+2. A connected Samebase-managed vault without a usable tree renders as setup in progress while its
    create-app run is queued/running.
-3. A connected Noter-managed vault whose create-app run failed in `seed_starter` or `sync_tree`
+3. A connected Samebase-managed vault whose create-app run failed in `seed_starter` or `sync_tree`
    renders as setup failed, shows the latest failure message, and shows the provisioning log.
 4. GitHub links and delete affordances continue to use the connected repository identity.
 5. Branch lists, source workspace links, chat, and infra controls remain hidden until a usable
@@ -764,7 +764,7 @@ Observed Phase 3 happy path, from a local end-to-end run on 2026-05-08:
 2. once GitHub identity is connected, the card shows the source setup summary and provisioning
    textarea for `connect GitHub`, `seed starter`, and `sync tree`
 3. when the first usable tree lands, the source setup summary disappears
-4. because the old dashboard readiness model now sees a ready Noter-managed vault while infra is
+4. because the old dashboard readiness model now sees a ready Samebase-managed vault while infra is
    briefly `not_started`, the legacy `Provision infra` action can flash
 5. once infra provisioning starts, the action disappears and the card can look bare until repository
    links arrive
@@ -793,7 +793,7 @@ Scope:
 4. replace the New App pre-insert GitHub owner discovery fallback with explicit user/org owner
    selection in the UI
 5. either add the retained-created-repo failure state or keep delete UI limited to confirmed
-   connected Noter-managed repositories
+   connected Samebase-managed repositories
 6. collapse the dashboard's legacy readiness projection once `sourceSetup`, connected state, and
    tree availability cover the shipped UI directly
 7. define the canonical New App dashboard sequence after source setup succeeds: the card should not
@@ -805,7 +805,7 @@ Scope:
    remove
 
 Phase 4 starts by canonicalizing the dashboard sequence after the first usable source tree exists. A
-Noter-managed app that is still preparing or provisioning infrastructure should render a
+Samebase-managed app that is still preparing or provisioning infrastructure should render a
 progress/log surface on the card, not a `Provision infra` or `Retry infra` button. Manual provider
 retry is intentionally kept out of this phase until the compatibility exits below are closed enough
 that a retry control proves backend durability rather than papering over legacy dashboard states.
@@ -878,13 +878,13 @@ retry or reconcile the Cloudflare deployment without re-running unrelated provid
 preserve the provider-specific event/error trail when the retry budget is exhausted.
 
 The first `seed_starter` idempotency case to cover is GitHub's empty-repository consistency window
-after Noter's bootstrap commit creates the default branch. Production observed the bootstrap commit
-succeed, then a follow-up manifest tree write still failed with GitHub reporting that the repository
-was empty. Phase 5 should retry `seed_starter` through this exact post-bootstrap empty-repo response
-and keep the existing force-update behavior so the final starter commit replaces the bootstrap-only
-branch. Do not enable Workflow retry for `seed_starter` until this case is covered by tests. Keep
-`create_github_repo` non-retried unless a retained-repository state or equivalent durable identity
-guard exists.
+after Samebase's bootstrap commit creates the default branch. Production observed the bootstrap
+commit succeed, then a follow-up manifest tree write still failed with GitHub reporting that the
+repository was empty. Phase 5 should retry `seed_starter` through this exact post-bootstrap
+empty-repo response and keep the existing force-update behavior so the final starter commit replaces
+the bootstrap-only branch. Do not enable Workflow retry for `seed_starter` until this case is
+covered by tests. Keep `create_github_repo` non-retried unless a retained-repository state or
+equivalent durable identity guard exists.
 
 ### Vault-First Phase 6: Existing Repository Onboarding
 
@@ -900,8 +900,8 @@ Scope:
 
 1. move existing-repository connection onto Workflow using the same GitHub state model
 2. write `githubMode: "connect_existing_repository"` for provisioning, failed, and connected states
-3. reuse the same dashboard visibility and backend durability semantics as Noter-managed repository
-   creation
+3. reuse the same dashboard visibility and backend durability semantics as Samebase-managed
+   repository creation
 
 Manual provider retry is intentionally parked until there is a concrete product need and a designed
 UX.
@@ -923,7 +923,7 @@ Backend:
 
 1. create-app inserts a vault before external GitHub calls
 2. create-app run is created with required `vaultId`
-3. create-app success writes connected Noter-managed GitHub state
+3. create-app success writes connected Samebase-managed GitHub state
 4. connected GitHub state stores the run that established the connection
 5. create-app GitHub failure writes failed GitHub state on the vault
 6. connected GitHub state stores current repository visibility
@@ -934,8 +934,8 @@ Backend:
 11. repo-backed helpers reject pre-GitHub vaults
 12. connected vaults without a usable default-branch tree do not expose tree-dependent infra
     provisioning controls
-13. connected Noter-managed vaults whose create run failed in `seed_starter` or `sync_tree` expose a
-    dashboard source-setup failure summary derived from the run/events
+13. connected Samebase-managed vaults whose create run failed in `seed_starter` or `sync_tree`
+    expose a dashboard source-setup failure summary derived from the run/events
 14. after compatibility cleanup, source, staging, dashboard, and infra paths read default-branch
     tree state from `vaultBranchTrees` without vault-row tree mirror fallback
 15. after compatibility cleanup, supported provisioning events require `runId` and supported
@@ -953,7 +953,7 @@ Frontend:
 
 1. dashboard shows initializing vault provider state
 2. repo-backed controls are hidden or disabled before GitHub connection
-3. delete dialog only offers GitHub repository deletion for confirmed connected Noter-managed
+3. delete dialog only offers GitHub repository deletion for confirmed connected Samebase-managed
    repositories
 4. connected-without-tree failures render as setup failed with the relevant provisioning message/log
    instead of only showing `setting up...`
@@ -967,7 +967,7 @@ Frontend:
 
 ## Acceptance Criteria
 
-1. New Noter-managed app creation has a visible vault before GitHub provisioning completes.
+1. New Samebase-managed app creation has a visible vault before GitHub provisioning completes.
 2. Existing-repository connection uses the same GitHub state model.
 3. Repo-backed features cannot run against pre-GitHub vaults.
 4. Convex and Cloudflare state cannot exist unless GitHub is connected.

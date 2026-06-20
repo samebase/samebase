@@ -10,7 +10,7 @@
   - `rfcs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
-  - `research/2026-05-15-notermd-workers-provisioning-migration.md`
+  - `research/2026-05-15-samebase-workers-provisioning-migration.md`
   - GitHub PR `noter-md/noter#758`
   - GitHub PR `noter-md/noter#760`
 

@@ -1,45 +1,45 @@
-# notermd/app Workers Provisioning Migration Research
+# samebase/app Workers Provisioning Migration Research
 
 ## Document Control
 
 - Status: Research with implementation follow-up
-- Owner: Noter app provisioning and template deployment
+- Owner: Samebase app provisioning and template deployment
 - Created: 2026-05-15
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
-  - `docs/artifacts/notermd-app/README.md`
-  - `docs/artifacts/notermd-app/cloudflare-workers-install.md`
-  - `docs/artifacts/notermd-app/regeneration-prompt.md`
+  - `docs/artifacts/samebase-app/README.md`
+  - `docs/artifacts/samebase-app/cloudflare-workers-install.md`
+  - `docs/artifacts/samebase-app/regeneration-prompt.md`
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
   - `specs/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
 
 ## Prompt
 
-Research how Noter currently provisions Cloudflare Pages for generated `notermd/app` repositories,
-then map what has to change before Noter can provision Cloudflare Workers Static Assets through
-Workers Builds instead.
+Research how Samebase currently provisions Cloudflare Pages for generated `samebase/app`
+repositories, then map what has to change before Samebase can provision Cloudflare Workers Static
+Assets through Workers Builds instead.
 
-The immediate product goal is to make the public `notermd/app` template use Cloudflare Workers, then
-replace Noter's automatic Pages provisioning with Workers provisioning. This research started before
-implementation; later notes record constraints learned while building the first Workers provisioning
-PR.
+The immediate product goal is to make the public `samebase/app` template use Cloudflare Workers,
+then replace Samebase's automatic Pages provisioning with Workers provisioning. This research
+started before implementation; later notes record constraints learned while building the first
+Workers provisioning PR.
 
 ## Current Finding
 
-Noter's current app creation path is deeply Cloudflare Pages-shaped. Replacing it with Workers is
+Samebase's current app creation path is deeply Cloudflare Pages-shaped. Replacing it with Workers is
 feasible, but it is a provider-adapter migration, not a template-only change.
 
-The product should still present one supported stack. Noter does not yet have external users who
+The product should still present one supported stack. Samebase does not yet have external users who
 require backwards compatibility, and the operator can remove or rewrite production data before
 deploying a breaking migration. Therefore the default implementation should not preserve Cloudflare
 Pages support unless doing so is clearly simpler than deleting it. Pages should be treated as the
-old stack being replaced, not as a second provider Noter intends to maintain.
+old stack being replaced, not as a second provider Samebase intends to maintain.
 
-The runtime app creation flow does not clone or preserve the public `notermd/app` commit history.
-Noter exports a selected `notermd/app` branch into
-`apps/noter/convex/starterSeedManifest.generated.ts`, then seeds the user's new GitHub repository as
-one starter commit. The pedagogical history stays in `notermd/app`; the generated user repository
-receives a snapshot.
+The runtime app creation flow does not clone or preserve the public `samebase/app` commit history.
+Samebase exports a selected `samebase/app` branch into
+`apps/samebase/convex/starterSeedManifest.generated.ts`, then seeds the user's new GitHub repository
+as one starter commit. The pedagogical history stays in `samebase/app`; the generated user
+repository receives a snapshot.
 
 Cloudflare Pages provisioning currently depends on Pages-specific API endpoints, build env
 semantics, preview comments, URL shapes, domain source values, status reads, log reads, and deletion
@@ -47,12 +47,12 @@ behavior.
 
 ## Current Template Snapshot
 
-Before the Workers implementation, the generated starter manifest pointed at `notermd/app@main`:
+Before the Workers implementation, the generated starter manifest pointed at `samebase/app@main`:
 
-- `sourceRepo`: `https://github.com/notermd/app.git`
+- `sourceRepo`: `https://github.com/samebase/app.git`
 - `sourceBranch`: `main`
 - `sourceCommit`: `49d0faa1ba17b73138d0a1c4f709c750720b0e9d`
-- `version`: `notermd-app-49d0faa1ba17`
+- `version`: `samebase-app-49d0faa1ba17`
 
 The exported package is still Pages-oriented:
 
@@ -68,7 +68,7 @@ The exported package is still Pages-oriented:
 }
 ```
 
-The Workers artifact currently lives in `notermd/app` branch `v5-tanstack-start-workers`. It uses
+The Workers artifact currently lives in `samebase/app` branch `v5-tanstack-start-workers`. It uses
 Workers Static Assets, a `wrangler.jsonc`, `pnpm run build`, `pnpm run deploy`, and
 `pnpm run deploy:preview`.
 
@@ -76,24 +76,25 @@ The first Workers provisioning implementation branch exports:
 
 - `sourceBranch`: `v5-tanstack-start-workers`
 - `sourceCommit`: `5df04d0d2a2883b4d480218a716bf9438461f11e`
-- `version`: `notermd-app-5df04d0d2a28`
+- `version`: `samebase-app-5df04d0d2a28`
 
 That branch is good enough for auto-provisioning. Commit numbering and template copy can still
-improve later without blocking the Noter implementation.
+improve later without blocking the Samebase implementation.
 
-## Current Noter Flow
+## Current Samebase Flow
 
 ### 1. User Starts App Creation
 
-`apps/noter/convex/vault/actions.ts:createRepository` creates an initializing Noter-managed vault
-and provisioning run, then starts `internal.appProvisioningWorkflow.startCreateAppProvisioning`.
+`apps/samebase/convex/vault/actions.ts:createRepository` creates an initializing Samebase-managed
+vault and provisioning run, then starts
+`internal.appProvisioningWorkflow.startCreateAppProvisioning`.
 
 The action requires GitHub only at this first boundary. Convex and Cloudflare connections are
 checked inside the workflow.
 
 ### 2. Convex Workflow Orchestrates Creation
 
-`apps/noter/convex/appProvisioningWorkflow.ts:provisionApp` runs these steps:
+`apps/samebase/convex/appProvisioningWorkflow.ts:provisionApp` runs these steps:
 
 1. `validate_connections`
 2. `create_github_repo`
@@ -111,11 +112,11 @@ The existing-repository path intentionally does not auto-provision Convex or Clo
 
 ### 3. Starter Seeding Uses One Snapshot Commit
 
-`scripts/export-notermd-app-manifest.ts` downloads the selected `notermd/app` branch archive from
+`scripts/export-samebase-app-manifest.ts` downloads the selected `samebase/app` branch archive from
 GitHub, collects all files, computes a content hash, and writes
-`apps/noter/convex/starterSeedManifest.generated.ts`.
+`apps/samebase/convex/starterSeedManifest.generated.ts`.
 
-`apps/noter/convex/starterSeed.ts:seedRepositoryWithStarter` creates one GitHub commit with the
+`apps/samebase/convex/starterSeed.ts:seedRepositoryWithStarter` creates one GitHub commit with the
 manifest tree and no parents. If the target repository is empty, it first creates a temporary
 bootstrap commit and then force-updates the default branch to the starter commit.
 
@@ -129,10 +130,10 @@ or whatever final Workers branch replaces it.
 
 ### 4. Convex Production And Preview Deployments Are Created First
 
-`apps/noter/convex/infraProvisioning.ts:ensureCloudflareInfrastructure` requires the production
+`apps/samebase/convex/infraProvisioning.ts:ensureCloudflareInfrastructure` requires the production
 Convex project/deployment to exist before Cloudflare provisioning.
 
-During the Cloudflare step, Noter also ensures a Convex preview deployment and creates two deploy
+During the Cloudflare step, Samebase also ensures a Convex preview deployment and creates two deploy
 keys:
 
 1. production deploy key for the production Convex deployment
@@ -140,16 +141,16 @@ keys:
 
 Those keys are then injected into Cloudflare's production and preview build settings.
 
-For the Workers target, Noter injects those keys with the same names the public template and Noter
-production build use: `PROD_CONVEX_DEPLOY_KEY` for the production trigger and
+For the Workers target, Samebase injects those keys with the same names the public template and
+Samebase production build use: `PROD_CONVEX_DEPLOY_KEY` for the production trigger and
 `PREVIEW_CONVEX_DEPLOY_KEY` for the preview trigger. Even though Workers Builds API triggers can
-isolate environment variables per trigger, using the split names keeps manual template setup, Noter
-app provisioning, and Noter production on one eventual contract.
+isolate environment variables per trigger, using the split names keeps manual template setup,
+Samebase app provisioning, and Samebase production on one eventual contract.
 
 ### 5. Pages Project Is Created Or Patched
 
-`apps/noter/convex/cloudflareResources.ts:ensureCloudflareResources` is the current Pages adapter.
-It calls the Cloudflare API through Cloudflare MCP `execute`, using `cloudflare.request`.
+`apps/samebase/convex/cloudflareResources.ts:ensureCloudflareResources` is the current Pages
+adapter. It calls the Cloudflare API through Cloudflare MCP `execute`, using `cloudflare.request`.
 
 Pages endpoints currently used:
 
@@ -199,7 +200,7 @@ The Pages create/patch payload includes:
 }
 ```
 
-For the current single-package template, Noter resolves the Pages build config as:
+For the current single-package template, Samebase resolves the Pages build config as:
 
 ```ts
 {
@@ -213,13 +214,13 @@ For older monorepo-shaped generated apps, it uses:
 
 ```ts
 {
-  rootDir: "apps/noter",
+  rootDir: "apps/samebase",
   buildCommand: "npx convex deploy --cmd 'pnpm run build'",
   destinationDir: "dist",
 }
 ```
 
-### 6. Noter Previously Recorded Pages Resource State
+### 6. Samebase Previously Recorded Pages Resource State
 
 Before the Workers migration, Cloudflare state was:
 
@@ -232,7 +233,7 @@ Before the Workers migration, Cloudflare state was:
 }
 ```
 
-After Pages provisioning succeeded, Noter recorded:
+After Pages provisioning succeeded, Samebase recorded:
 
 1. `vaultInfrastructure.cloudflare`
 2. `vaults.cloudflare`
@@ -248,11 +249,11 @@ contradict the vault provider states, Workflow run state, and ownership row.
 
 ### 7. Preview Links Come From GitHub Comments
 
-Noter does not currently read preview URLs from Cloudflare's API. Instead, branch refresh parses PR
-comments from `cloudflare-workers-and-pages[bot]`.
+Samebase does not currently read preview URLs from Cloudflare's API. Instead, branch refresh parses
+PR comments from `cloudflare-workers-and-pages[bot]`.
 
-`apps/noter/convex/cloudflarePreviewComment.ts` expects a Cloudflare Pages comment with table fields
-such as:
+`apps/samebase/convex/cloudflarePreviewComment.ts` expects a Cloudflare Pages comment with table
+fields such as:
 
 1. `Preview URL`
 2. `Branch Preview URL`
@@ -271,8 +272,8 @@ The parsed values are cached on `vaultRemoteBranches`:
 7. `cloudflarePreviewCommentCreatedAt`
 
 This is the highest-risk migration dependency. If Workers Builds comments differ from Pages
-comments, Noter should move preview metadata to a first-party Cloudflare Builds API read instead of
-extending a brittle comment parser.
+comments, Samebase should move preview metadata to a first-party Cloudflare Builds API read instead
+of extending a brittle comment parser.
 
 ### 8. Status, Logs, Inventory, And Deletion Were Pages-Specific
 
@@ -306,7 +307,7 @@ command. The default production deploy command is `npx wrangler deploy`; the def
 deploy command is `npx wrangler versions upload`, which creates a preview version without promoting
 it to active production traffic.
 
-Workers branch behavior is closer to the model Noter wants:
+Workers branch behavior is closer to the model Samebase wants:
 
 1. the production branch runs the build command then deploy command
 2. non-production branches can be enabled separately
@@ -328,7 +329,7 @@ Relevant Cloudflare API surface from the Workers Builds docs:
    deployments
 
 Cloudflare's docs state the Builds API requires token-backed credentials for configuration. The
-user-facing Noter flow must still stay web-authenticated through the Cloudflare MCP OAuth
+user-facing Samebase flow must still stay web-authenticated through the Cloudflare MCP OAuth
 connection, not a manual API-token setup. Local and preview deployments can use operator-seeded
 Cloudflare credentials, but those credentials need the equivalent of Workers Scripts edit, Workers
 Builds Configuration edit, and Account Settings read.
@@ -337,7 +338,7 @@ Builds Configuration edit, and Account Settings read.
 
 The first Workers auto-provisioning implementation chose this shape:
 
-1. Export `notermd/app@v5-tanstack-start-workers` into `starterSeedManifest.generated.ts`.
+1. Export `samebase/app@v5-tanstack-start-workers` into `starterSeedManifest.generated.ts`.
 2. Keep Cloudflare user authentication on the existing web/MCP OAuth path.
 3. Fail closed with reconnect copy when the Cloudflare connection lacks Workers Builds access.
 4. Derive deterministic Worker names from owner, repository, and the vault suffix so retries target
@@ -351,7 +352,7 @@ The first Workers auto-provisioning implementation chose this shape:
    - build command: `pnpm run build`
    - production deploy command: `pnpm run deploy`
    - preview deploy command: `pnpm run deploy:preview`
-10. Keep a temporary monorepo fallback with root `apps/noter`, `pnpm run build`,
+10. Keep a temporary monorepo fallback with root `apps/samebase`, `pnpm run build`,
     `pnpm exec wrangler deploy`, and `pnpm exec wrangler versions upload`.
 11. Store only `accountId`, `workerName`, `workerTag`, and `productionUrl` on the vault's Cloudflare
     state.
@@ -361,11 +362,11 @@ The first Workers auto-provisioning implementation chose this shape:
 The first implementation did not finish the branch-preview metadata migration. The old Cloudflare
 Pages PR-comment parser still exists, so preview URLs remain the main follow-up risk.
 
-## Expected Noter Migration Work
+## Expected Samebase Migration Work
 
 ### 1. Template Export
 
-Once `notermd/app` has a final Workers branch or main is updated, refresh the starter manifest from
+Once `samebase/app` has a final Workers branch or main is updated, refresh the starter manifest from
 that source:
 
 ```bash
@@ -477,7 +478,7 @@ Workers migration should update copy only when the backing behavior changes.
 
    Cloudflare docs warn that when a repo has a Wrangler config, the Worker name in the dashboard
    must match the `name` in Wrangler config. The v5 template intentionally omits a fixed `name` and
-   passes the Worker name at deploy time. Noter provisioning must preserve that property because
+   passes the Worker name at deploy time. Samebase provisioning must preserve that property because
    generated app names vary per user.
 
 3. **First deploy behavior**
@@ -493,10 +494,10 @@ Workers migration should update copy only when the backing behavior changes.
 
 5. **Breaking Pages compatibility is acceptable**
 
-   Existing Noter-managed vaults may already have Pages resources, but Noter can reset or rewrite
-   that production data before rollout. The implementation should optimize for the future single
-   Workers stack. The deployment checklist should explicitly say whether old Pages rows/projects
-   were removed manually or by a one-off cleanup.
+   Existing Samebase-managed vaults may already have Pages resources, but Samebase can reset or
+   rewrite that production data before rollout. The implementation should optimize for the future
+   single Workers stack. The deployment checklist should explicitly say whether old Pages
+   rows/projects were removed manually or by a one-off cleanup.
 
 6. **Static asset billing**
 
@@ -511,7 +512,7 @@ Workers migration should update copy only when the backing behavior changes.
    provisioning, build-trigger reads, and deletion updates.
 3. Inspect a real Workers PR preview and replace the remaining Pages preview comment path if Workers
    gives us a better source.
-4. Move Noter production hosting from Pages to Workers.
+4. Move Samebase production hosting from Pages to Workers.
 5. Remove remaining Pages copy, fixtures, tests, and operational cleanup paths once production data
    has been cleared or migrated.
 

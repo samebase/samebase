@@ -3,14 +3,14 @@
 ## Document Control
 
 - Status: Implemented for MVP owner mode (with follow-ups)
-- Owner: Noter chat/agent + platform security
+- Owner: Samebase chat/agent + platform security
 - Last updated: 2026-02-13
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
 ## Summary
 
-Define how the main Noter AI can inspect production infrastructure, logs, and data in a way that is
-auditable and gated by explicit user approval for each request.
+Define how the main Samebase AI can inspect production infrastructure, logs, and data in a way that
+is auditable and gated by explicit user approval for each request.
 
 This spec is intentionally approval-first and read-only for MVP.
 

@@ -3,7 +3,7 @@
 ## Status
 
 - Accepted implementation plan
-- Owner: Noter frontend + local machine-control bridge
+- Owner: Samebase frontend + local machine-control bridge
 - Last updated: 2026-04-02
 
 ## Summary
@@ -25,9 +25,9 @@ second persistence layer in Convex or route-local state.
 
 ### Existing pin data already exists end to end
 
-`packages/sync/noter.ts` already reads desktop pin state from `$CODEX_HOME/.codex-global-state.json`
-under `pinned-thread-ids`, and the machine-control `GET /threads` response already returns that
-array as `pinnedThreadIds`.
+`packages/sync/samebase.ts` already reads desktop pin state from
+`$CODEX_HOME/.codex-global-state.json` under `pinned-thread-ids`, and the machine-control
+`GET /threads` response already returns that array as `pinnedThreadIds`.
 
 That means pin state is already:
 
@@ -177,8 +177,8 @@ If the same icon is used for both states, that is acceptable.
 
 Primary files expected to change:
 
-1. `packages/sync/noter.ts`
-2. `apps/samebase/public/noter.ts`
+1. `packages/sync/samebase.ts`
+2. `apps/samebase/public/samebase.ts`
 3. `apps/samebase/src/codex/appServerResearch.ts`
 4. `apps/samebase/src/components/MachinesWorkspacePage.tsx`
 5. `apps/samebase/src/components/MachinesWorkspaceView.tsx`

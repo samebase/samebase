@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: In progress
-- Owner: Noter frontend/editor + Convex vault/github
+- Owner: Samebase frontend/editor + Convex vault/github
 - Last updated: 2026-05-12
 - Related specs:
   - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
@@ -35,11 +35,11 @@ Current rollout note:
 
 ## Product Intent
 
-Current workflow direction for Noter:
+Current workflow direction for Samebase:
 
 1. Work against remote branches only
 2. Local branch state in connected-machine or Codex worktrees is implementation detail
-3. Commit in Noter implies push to the selected remote branch
+3. Commit in Samebase implies push to the selected remote branch
 
 ## Current Runtime State
 
@@ -109,7 +109,7 @@ correctness for branch names that contain `/` (for example `feature/oauth/login`
 2. Branch create/delete/rename UI
 3. Multi-branch connected-machine launch UX
 4. Per-branch infra/hosting lifecycle changes
-5. Git merge/rebase UX in Noter
+5. Git merge/rebase UX in Samebase
 
 ## Scope
 

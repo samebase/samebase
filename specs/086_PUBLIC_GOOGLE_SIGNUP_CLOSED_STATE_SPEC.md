@@ -3,14 +3,14 @@
 ## Document Control
 
 - Status: Implemented
-- Owner: Noter auth/frontend
+- Owner: Samebase auth/frontend
 - Last updated: 2026-06-06
 
 ## Summary
 
 When a cold public landing visitor starts Google auth from `/` and returns still unauthenticated,
-Noter should show a dedicated signup-closed landing state instead of silently dropping the user back
-onto the default landing page.
+Samebase should show a dedicated signup-closed landing state instead of silently dropping the user
+back onto the default landing page.
 
 ## Goals
 

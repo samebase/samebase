@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Implemented for MVP
-- Owner: Noter frontend
+- Owner: Samebase frontend
 - Date: 2026-02-22
 - Related specs:
   - `archive/021_AGENT_BUILDER_TEMPLATE_SPEC.md`
@@ -23,7 +23,7 @@ to validate ReactFlow’s feel and integration surface before deeper agent-editi
 
 ## Goals
 
-- Validate ReactFlow in the Noter UI with minimal integration risk.
+- Validate ReactFlow in the Samebase UI with minimal integration risk.
 - Provide a clear, simple graph view of agent scaffolding files.
 - Allow users to switch between Editor and Graph view from Developer tools.
 - Persist the chosen view per vault.

@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter backend/runtime
+- Owner: Samebase backend/runtime
 - Last updated: 2026-05-06
 - Related files:
   - `vite.config.ts`
@@ -13,7 +13,7 @@
 
 ## Summary
 
-Noter has strong Playwright and helper-level coverage, but backend behavior also needs tests that
+Samebase has strong Playwright and helper-level coverage, but backend behavior also needs tests that
 exercise registered Convex functions against database state. These tests protect route access,
 authorization checks, validators, state transitions, and HTTP endpoints at the Convex API boundary.
 

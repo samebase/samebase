@@ -1,9 +1,9 @@
-# 089 Noter Logo Identity Invariant Spec
+# 089 Samebase Logo Identity Invariant Spec
 
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend
+- Owner: Samebase frontend
 - Last updated: 2026-05-24
 - Related files: `apps/samebase/src/components/logo/logoStaticSvgContract.ts`,
   `apps/samebase/src/components/logo/logoStaticSvgAsset.ts`,
@@ -17,7 +17,7 @@
 
 ## Summary
 
-The Noter logo identity is one `3x3x3` voxel shape viewed through three stable camera states:
+The Samebase logo identity is one `3x3x3` voxel shape viewed through three stable camera states:
 
 1. Version 1, side-primary: at rotation `0deg` and elevation `0deg`, the mark reads as a `3x3`
    primary-color square with the center cut out to the background.
@@ -50,7 +50,7 @@ face changes from secondary color to a primary/background stripe pattern.
 
 ## Single-Color Stripe Treatment
 
-Use this treatment whenever the Noter mark must work with one foreground color:
+Use this treatment whenever the Samebase mark must work with one foreground color:
 
 - Right face: fill solid foreground color.
 - Top face: leave as background/knockout.
@@ -95,10 +95,10 @@ unless the product explicitly wants the favicon treatment.
 
 ## Product Usage
 
-When a product UI needs a compact Noter identity mark, choose the named identity view that matches
-the product meaning:
+When a product UI needs a compact Samebase identity mark, choose the named identity view that
+matches the product meaning:
 
-- Use version 2 for app-internal navigation back into Noter, such as the dashboard branch `Edit`
+- Use version 2 for app-internal navigation back into Samebase, such as the dashboard branch `Edit`
   link.
 - Use version 3 for public marketing, install, and social-card surfaces where the full spatial
   object should carry the brand.
