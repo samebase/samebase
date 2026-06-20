@@ -54,6 +54,16 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
             />
           </div>
           {authPlacement === "inline" ? <PublicLandingAuthControls /> : null}
+          <div className="flex flex-col gap-2 pt-2">
+            <a
+              className="text-center text-sm text-muted-foreground underline underline-offset-4"
+              href="https://x.com/samebasecom"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              https://x.com/samebasecom
+            </a>
+          </div>
         </div>
       </div>
     </div>
