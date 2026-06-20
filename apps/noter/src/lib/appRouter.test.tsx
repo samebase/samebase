@@ -123,6 +123,10 @@ vi.mock("@/components/NewAppPage", () => ({
   NewAppPage: () => <div data-testid="new-app-page">New app page</div>,
 }));
 
+vi.mock("@/components/ProviderConnectionsPage", () => ({
+  ProviderConnectionsPage: () => <div data-testid="providers-page">Providers page</div>,
+}));
+
 vi.mock("@/components/MachinesWorkspacePage", () => ({
   MachinesWorkspacePage: () => <div data-testid="machines-page">Machines page</div>,
 }));
@@ -642,6 +646,24 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="new-app-page"]')?.textContent).toBe(
       "New app page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders providers through an explicit TanStack route instead of the App fallback", async () => {
+    await renderRoute("/providers");
+
+    expect(rootElement?.querySelector('[data-testid="providers-page"]')?.textContent).toBe(
+      "Providers page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("accepts a trailing slash on the promoted providers route", async () => {
+    await renderRoute("/providers/");
+
+    expect(rootElement?.querySelector('[data-testid="providers-page"]')?.textContent).toBe(
+      "Providers page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

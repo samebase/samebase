@@ -160,6 +160,68 @@ export function VaultDashboardAccountSection({
   );
 }
 
+export function VaultDashboardProviderRows({
+  footer,
+  providerRows,
+}: {
+  footer?: ReactNode;
+  providerRows: readonly VaultDashboardProviderRowViewModel[];
+}) {
+  return (
+    <div data-testid="provider-connections-panel" className="space-y-3">
+      {providerRows.map((providerRow) => (
+        <div key={providerRow.key} className="flex flex-wrap items-start gap-3">
+          <div
+            data-provider-key={providerRow.key}
+            data-testid="provider-connection-row"
+            className={SIDEBAR_ROW_CONTENT_CLASS}
+          >
+            <div data-testid="provider-connection-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+              {providerRow.icon}
+            </div>
+            <div data-testid="provider-connection-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+              <div className="text-sm font-medium">{providerRow.label}</div>
+              <div
+                className={clsx(
+                  SIDEBAR_METADATA_TEXT_CLASS,
+                  "text-xs leading-5 text-muted-foreground",
+                )}
+                title={providerRow.status}
+              >
+                {providerRow.status}
+              </div>
+            </div>
+          </div>
+          {providerRow.actions.length > 0 ? (
+            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+              {providerRow.actions.map((action) => (
+                <Button
+                  key={action.key}
+                  variant="outline"
+                  size="sm"
+                  onClick={action.onClick}
+                  className="h-auto max-w-full whitespace-normal py-2 text-left"
+                  disabled={action.disabled}
+                >
+                  {action.isPending ? (
+                    <>
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      {action.pendingLabel ?? action.label}
+                    </>
+                  ) : (
+                    action.label
+                  )}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ))}
+      {footer}
+    </div>
+  );
+}
+
 export function VaultDashboardProvidersSection({
   footer,
   onOpenChange,
@@ -188,63 +250,7 @@ export function VaultDashboardProvidersSection({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div data-testid="dashboard-shell-sidebar-panel" className="space-y-3">
-            {providerRows.map((providerRow) => (
-              <div key={providerRow.key} className="flex flex-wrap items-start gap-3">
-                <div
-                  data-provider-key={providerRow.key}
-                  data-testid="dashboard-sidebar-provider-row"
-                  className={SIDEBAR_ROW_CONTENT_CLASS}
-                >
-                  <div
-                    data-testid="dashboard-sidebar-provider-icon"
-                    className={SIDEBAR_ROW_ICON_CLASS}
-                  >
-                    {providerRow.icon}
-                  </div>
-                  <div
-                    data-testid="dashboard-sidebar-provider-text"
-                    className={SIDEBAR_ROW_TEXT_CLASS}
-                  >
-                    <div className="text-sm font-medium">{providerRow.label}</div>
-                    <div
-                      className={clsx(
-                        SIDEBAR_METADATA_TEXT_CLASS,
-                        "text-xs leading-5 text-muted-foreground",
-                      )}
-                      title={providerRow.status}
-                    >
-                      {providerRow.status}
-                    </div>
-                  </div>
-                </div>
-                {providerRow.actions.length > 0 ? (
-                  <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-                    {providerRow.actions.map((action) => (
-                      <Button
-                        key={action.key}
-                        variant="outline"
-                        size="sm"
-                        onClick={action.onClick}
-                        className="h-auto max-w-full whitespace-normal py-2 text-left"
-                        disabled={action.disabled}
-                      >
-                        {action.isPending ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            {action.pendingLabel ?? action.label}
-                          </>
-                        ) : (
-                          action.label
-                        )}
-                      </Button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            {footer}
-          </div>
+          <VaultDashboardProviderRows footer={footer} providerRows={providerRows} />
         </CollapsibleContent>
       </Collapsible>
     </div>

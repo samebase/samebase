@@ -270,9 +270,9 @@ test("vault dashboard fixture (sidebar account clamp)", async ({ page }) => {
     textTestId: "dashboard-sidebar-account-text",
   });
   await expectSidebarTextOwnsWrappedLine({
-    iconTestId: "dashboard-sidebar-provider-icon",
-    row: page.getByTestId("dashboard-sidebar-provider-row").filter({ hasText: "GitHub" }),
-    textTestId: "dashboard-sidebar-provider-text",
+    iconTestId: "provider-connection-icon",
+    row: page.getByTestId("provider-connection-row").filter({ hasText: "GitHub" }),
+    textTestId: "provider-connection-text",
   });
   await expect(fixture).toHaveScreenshot("vault-sidebar-account-clamp.png", {
     animations: "disabled",
@@ -323,9 +323,9 @@ test("vault dashboard fixture (mobile sidebar min width)", async ({ browser }, t
     textTestId: "dashboard-sidebar-account-text",
   });
   await expectSidebarTextOwnsWrappedLine({
-    iconTestId: "dashboard-sidebar-provider-icon",
-    row: page.getByTestId("dashboard-sidebar-provider-row").filter({ hasText: "GitHub" }),
-    textTestId: "dashboard-sidebar-provider-text",
+    iconTestId: "provider-connection-icon",
+    row: page.getByTestId("provider-connection-row").filter({ hasText: "GitHub" }),
+    textTestId: "provider-connection-text",
   });
 
   await expect(page).toHaveScreenshot("vault-sidebar-account-mobile-min.png", {

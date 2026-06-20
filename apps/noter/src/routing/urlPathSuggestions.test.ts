@@ -91,6 +91,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/home");
     expect(suggestions).toContain("/new-app");
     expect(suggestions).toContain("/pricing");
+    expect(suggestions).toContain("/providers");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
