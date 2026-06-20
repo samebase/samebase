@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/root";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
+import { Route as providersRouteImport } from "./routes/providers";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
@@ -53,6 +54,11 @@ const testRoute = testRouteImport.update({
 const termsRoute = termsRouteImport.update({
   id: "/terms",
   path: "/terms",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const providersRoute = providersRouteImport.update({
+  id: "/providers",
+  path: "/providers",
   getParentRoute: () => rootRouteImport,
 } as any);
 const privacyRoute = privacyRouteImport.update({
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/providers": typeof providersRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/providers": typeof providersRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -271,6 +279,7 @@ export interface FileRoutesById {
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
+  "/providers": typeof providersRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/privacy"
+    | "/providers"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -337,6 +347,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/privacy"
+    | "/providers"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | "/pitch"
     | "/pricing"
     | "/privacy"
+    | "/providers"
     | "/terms"
     | "/test"
     | "/visual-fixture"
@@ -402,6 +414,7 @@ export interface RootRouteChildren {
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
+  providersRoute: typeof providersRoute;
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
@@ -443,6 +456,13 @@ declare module "@tanstack/react-router" {
       path: "/terms";
       fullPath: "/terms";
       preLoaderRoute: typeof termsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/providers": {
+      id: "/providers";
+      path: "/providers";
+      fullPath: "/providers";
+      preLoaderRoute: typeof providersRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/privacy": {
@@ -650,6 +670,7 @@ const rootRouteChildren: RootRouteChildren = {
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
+  providersRoute: providersRoute,
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,

@@ -36,6 +36,7 @@ const noterRouteAccessMetadataByPath = {
   "/pitch/print/mobile": { access: "access_admin" },
   "/pricing": { access: "access_dashboard" },
   "/privacy": { access: "access_public" },
+  "/providers": { access: "access_provider_connections" },
   "/research/codex-app-server": { access: "access_admin" },
   "/research/codex-app-server/browser": { access: "access_admin" },
   "/terms": { access: "access_public" },
