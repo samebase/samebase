@@ -17,14 +17,14 @@
 
 `#386` shipped the connected-machine registration and presence foundation on `main`.
 
-Noter now has:
+Samebase now has:
 
-1. a hosted `/noter.ts` installer artifact mirrored from `packages/sync/noter.ts`
-2. a machine-scoped config file at `~/.noter/config.json`
+1. a hosted `/samebase.ts` installer artifact mirrored from `packages/sync/samebase.ts`
+2. a machine-scoped config file at `~/.samebase/config.json`
 3. a `/machines/connect` browser handoff and approval page
 4. one live machine credential per approved machine
-5. a long-running `noter-sync run` command that publishes machine heartbeats
-6. a `connectedMachines` table and auth-bound machine list in Noter
+5. a long-running `samebase-sync run` command that publishes machine heartbeats
+6. a `connectedMachines` table and auth-bound machine list in Samebase
 
 ## Locked Product Decisions
 
@@ -34,8 +34,8 @@ Noter now has:
    bootstrap and durable machine registration.
 4. The connector must authenticate with a machine-scoped credential, not with a copied browser
    session and not with a manually pasted admin deploy key.
-5. The local config stays machine-scoped at `~/.noter/config.json`; reruns update one installation
-   record instead of creating parallel installs.
+5. The local config stays machine-scoped at `~/.samebase/config.json`; reruns update one
+   installation record instead of creating parallel installs.
 6. The current connected-machine capability set is `presence` only.
 7. The current connected-machine rows do not yet carry thread summaries, command queues, or tunnel
    metadata.
@@ -45,15 +45,15 @@ Noter now has:
 
 ### Installer and approval flow
 
-1. `noter-sync connect` validates its source URL and checks `codex --version` so the Codex CLI is
+1. `samebase-sync connect` validates its source URL and checks `codex --version` so the Codex CLI is
    available on `PATH`.
-2. The CLI creates a machine registration request and writes `~/.noter/config.json`.
+2. The CLI creates a machine registration request and writes `~/.samebase/config.json`.
 3. The browser handoff page lets the signed-in user approve the pending machine.
 4. Approval activates exactly one live credential for that machine.
 
 ### Presence flow
 
-1. `noter-sync run` reads the stored machine credential.
+1. `samebase-sync run` reads the stored machine credential.
 2. The connector publishes `online` heartbeats while it runs.
 3. On clean shutdown, the connector publishes one final `offline` heartbeat.
 4. Stale heartbeats resolve to `offline` in browser-visible machine state.
@@ -81,7 +81,7 @@ recency so normal presence updates do not reshuffle the browser-visible machine 
 
 ## Source Of Truth Files
 
-- `packages/sync/noter.ts`
+- `packages/sync/samebase.ts`
 - `packages/sync/package.json`
 - `apps/samebase/convex/connectedMachineHttp.ts`
 - `apps/samebase/convex/connectedMachines.ts`
@@ -107,10 +107,10 @@ Those follow-on phone-control decisions now live in `rfcs/078_TUNNELED_LOCAL_COD
 
 ### Slice 1
 
-- [x] `packages/sync/noter.ts` is the canonical installer and runner source.
-- [x] The hosted `/noter.ts` artifact mirrors the checked-in source.
+- [x] `packages/sync/samebase.ts` is the canonical installer and runner source.
+- [x] The hosted `/samebase.ts` artifact mirrors the checked-in source.
 - [x] The browser handoff page supports explicit machine approval.
 - [x] The local connector authenticates with a machine-scoped credential.
-- [x] Noter can list approved machines with truthful online and offline state.
-- [x] Noter lists approved machines in a deterministic newest-first default order until a later
+- [x] Samebase can list approved machines with truthful online and offline state.
+- [x] Samebase lists approved machines in a deterministic newest-first default order until a later
       manual reorder flow exists.

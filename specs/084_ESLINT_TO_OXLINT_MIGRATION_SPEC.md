@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter linting/tooling
+- Owner: Samebase linting/tooling
 - Last updated: 2026-05-01
 - Depends on:
   - `vite.config.ts`
@@ -17,7 +17,7 @@
 
 ## Summary
 
-Noter should standardize on Oxlint as the repo's linter while keeping the configuration colocated
+Samebase should standardize on Oxlint as the repo's linter while keeping the configuration colocated
 with the wider Vite+ workflow surface.
 
 This migration is accepted as a simplification pass, not a 100%-compatibility exercise.
@@ -39,7 +39,7 @@ incompatibility, or rollout decision appears.
 
 ## Goals
 
-1. Make Oxlint the primary lint entrypoint for Noter.
+1. Make Oxlint the primary lint entrypoint for Samebase.
 2. Retire the repo-local query-param helper rule once route-owned search params move to TanStack
    Router search schemas.
 3. Preserve Convex-specific lint coverage.
@@ -222,7 +222,7 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: Oxlint and ESLint do not lint exactly the same default file surface. Earlier
   starter-template-specific hidden-folder handling is obsolete because the monorepo-local starter
-  app was removed in favor of exporting `notermd/app`.
+  app was removed in favor of exporting `samebase/app`.
 
 - Problem: standardization mattered more than perfect historical parity for this migration. Tried:
   removed `baseUrl` from app tsconfigs, moved app scripts onto Oxlint-only flows, and deleted the
@@ -237,9 +237,9 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: Oxlint traverses a broader default file surface than the previous app lint command.
   Tried: ran Oxlint directly against `apps/samebase`. Result: the command started linting top-level
-  TypeScript helpers and `public/noter.ts` that the old `eslint --ext ts,tsx` script never covered,
-  so the accepted migration keeps those files outside the app package lint scope for now rather than
-  treating this standardization pass as a surprise lint expansion.
+  TypeScript helpers and `public/samebase.ts` that the old `eslint --ext ts,tsx` script never
+  covered, so the accepted migration keeps those files outside the app package lint scope for now
+  rather than treating this standardization pass as a surprise lint expansion.
 
 - Problem: the integrated migration needed a clear acceptance bar. Tried: ran focused config tests
   plus the repo lint entrypoints. Result: `pnpm exec vp test run apps/samebase/lintConfig.test.ts`,

@@ -10,8 +10,8 @@
 
 ## Summary
 
-The `/add` route must let a connected GitHub user discover any repository that Noter can connect on
-their behalf, including repositories that were moved from a personal account into an organization
+The `/add` route must let a connected GitHub user discover any repository that Samebase can connect
+on their behalf, including repositories that were moved from a personal account into an organization
 the user controls.
 
 Two concrete requirements define that behavior:
@@ -31,7 +31,7 @@ Before this change:
    made the repo unsearchable by its new organization name.
 
 That combination made transferred org-owned repositories look absent even when GitHub would allow
-Noter to connect them.
+Samebase to connect them.
 
 ## Source Of Truth Files
 
@@ -80,7 +80,7 @@ match.
 
 ## External Constraint
 
-Noter currently connects to GitHub with an OAuth app, not a GitHub App.
+Samebase currently connects to GitHub with an OAuth app, not a GitHub App.
 
 When a repository belongs to a private organization with OAuth app access restrictions enabled,
 repository discovery is still gated by GitHub's org-level approval model:
@@ -89,8 +89,8 @@ repository discovery is still gated by GitHub's org-level approval model:
 2. Organization owners approve pending requests from the org's OAuth app policy settings.
 3. Organization members, and outside collaborators when the org enables access requests for them,
    can request approval from their Authorized OAuth Apps page.
-4. Non-owners may still need an organization owner to approve Noter directly, depending on the org's
-   request policy.
+4. Non-owners may still need an organization owner to approve Samebase directly, depending on the
+   org's request policy.
 5. Reconnecting the personal GitHub account does not override that org policy.
 6. The `/add` UI should surface a short note for both owner and non-owner recovery paths instead of
    failing silently.

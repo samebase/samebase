@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Implemented for MVP
-- Owner: Noter backend/frontend
+- Owner: Samebase backend/frontend
 - Last updated: 2026-05-08
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
@@ -16,7 +16,7 @@
 
 ## Summary
 
-For noter-managed vaults, infrastructure is provisioned automatically after vault creation:
+For samebase-managed vaults, infrastructure is provisioned automatically after vault creation:
 
 1. Convex project/deployment resources (user-scoped)
 2. Cloudflare Worker + Workers Builds setup (user-scoped)
@@ -27,16 +27,16 @@ partially fails.
 
 ## Important Behavior
 
-- `api.vault.actions.createRepository` (new noter-managed repo) requires a selected GitHub user/org
-  owner and starts the create-app Workflow after inserting the initializing vault and run. The
-  Workflow validates provider connections and starts infrastructure provisioning after source setup
-  succeeds.
+- `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
+  user/org owner and starts the create-app Workflow after inserting the initializing vault and run.
+  The Workflow validates provider connections and starts infrastructure provisioning after source
+  setup succeeds.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra.
 - Existing GitHub vaults can attach or create Convex resources later through the manual Convex
   deployment connection flow in `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`.
 - `api.vault.actions.retryInfrastructureProvisioning` still exists as a backend action, but the
-  dashboard no longer exposes `Provision infra` or `Retry infra` as the normal Noter-managed
+  dashboard no longer exposes `Provision infra` or `Retry infra` as the normal Samebase-managed
   create-app path. Manual provider retry UI belongs to a later vault-first phase.
 
 ## Source of Truth Files
@@ -127,7 +127,7 @@ Repository default branch:
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: `null`
-- Behavior: validates ownership + noter-managed, starts a forced provisioning retry
+- Behavior: validates ownership + samebase-managed, starts a forced provisioning retry
 
 3. `api.vault.dashboard.getVaultInfrastructure`
 
@@ -180,12 +180,12 @@ In `VaultDashboard`:
 
 - Infra status label per vault
 - Production URL when available
-- Infra setup progress/log surface while Noter-managed infra is preparing, provisioning, failed, or
-  partially complete
+- Infra setup progress/log surface while Samebase-managed infra is preparing, provisioning, failed,
+  or partially complete
 
 Dashboard external links:
 
-- Noter-managed vaults with infrastructure metadata render a compact service-link row near the
+- Samebase-managed vaults with infrastructure metadata render a compact service-link row near the
   repository title.
 - The row includes the GitHub repository link and only renders when at least one managed-infra link
   is available.
@@ -224,9 +224,9 @@ Dashboard external links:
 
 ## Acceptance Checklist
 
-- [x] New noter-managed vault creation schedules infra provisioning automatically.
+- [x] New samebase-managed vault creation schedules infra provisioning automatically.
 - [x] Existing-repo connect flow does not auto-provision infra.
-- [x] Retry path exists and is guarded to noter-managed vaults.
+- [x] Retry path exists and is guarded to samebase-managed vaults.
 - [x] Infra status + URL are visible in dashboard query/UI surfaces.
 - [x] Managed vault dashboard cards expose direct Cloudflare project and Convex deployment links
       when the stored infrastructure metadata is available.

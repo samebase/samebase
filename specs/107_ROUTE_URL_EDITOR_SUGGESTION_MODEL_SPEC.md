@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/app shell
+- Owner: Samebase frontend/app shell
 - Last updated: 2026-06-18
 - Depends on:
   - `apps/samebase/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`

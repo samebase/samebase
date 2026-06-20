@@ -12,7 +12,7 @@
   `apps/noter/src/components/logo/logoPresets.ts`,
   `apps/noter/src/components/logo/logoShuffleRules.ts`,
   `apps/noter/src/components/logo/logoTailwindColors.ts`,
-  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`,
+  `specs/089_SAMEBASE_LOGO_IDENTITY_INVARIANT_SPEC.md`,
   `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Conclusion
@@ -68,7 +68,7 @@ exploration state is grid-size-aware: the route default remains the accepted `3x
 - The supported base grid sizes are `2x2x2` and `3x3x3`.
 - `/logo` defaults to `3x3x3`; `gridSize=2` switches the same playground state model to `2x2x2`.
 - Canonical public brand assets use the `3x3x3` identity grid from
-  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`.
+  `specs/089_SAMEBASE_LOGO_IDENTITY_INVARIANT_SPEC.md`.
 - Each voxel is either filled or empty.
 
 ### 2. URL serialization
@@ -222,7 +222,7 @@ The playground should expose at least these presets:
   striped primary/background pattern.
 - `striped` is the default and has controls for stripe width, gap, angle, and offset. Its default
   state is the canonical single-color treatment from
-  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`: `-45deg`, vertical basis, `1/4` width, `1/4`
+  `specs/089_SAMEBASE_LOGO_IDENTITY_INVARIANT_SPEC.md`: `-45deg`, vertical basis, `1/4` width, `1/4`
   gap, and `0` offset.
 - `secondary` remains a shareable duotone comparison state at `/logo?leftFace=secondary`.
 - Stripe width and gap may be `0`, and the playground should expose a shareable linked-width/gap

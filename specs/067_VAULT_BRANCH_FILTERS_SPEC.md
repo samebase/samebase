@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Implemented
-- Owner: Noter dashboard/frontend
+- Owner: Samebase dashboard/frontend
 - Last updated: 2026-03-24
 - Background research: `rfcs/068_VAULT_BRANCH_PR_FILTERING_RESEARCH.md`
 

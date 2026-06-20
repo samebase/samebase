@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/app shell
+- Owner: Samebase frontend/app shell
 - Last updated: 2026-04-09
 - Depends on:
   - `apps/samebase/package.json`
@@ -15,7 +15,7 @@
 
 ## Summary
 
-Noter should keep its current Vite SPA runtime and convert the shipped TanStack Router app from a
+Samebase should keep its current Vite SPA runtime and convert the shipped TanStack Router app from a
 handwritten code-based route table into generated file-based routing.
 
 The first implementation path should use TanStack Router's virtual file routes instead of the plain
@@ -42,10 +42,11 @@ issues, attempted fixes, and outcomes from each landed slice.
 ## Non-Goals
 
 1. Adopting TanStack Start in the same change series.
-2. Moving Noter from the current Vite SPA deployment shape to a Workers or SSR runtime.
+2. Moving Samebase from the current Vite SPA deployment shape to a Workers or SSR runtime.
 3. Rewriting route-owned search contracts, Convex data flow, or auth boundaries just because the
    route tree generator changes.
-4. Changing Noter's existing key-only query-param policy or other intentional URL-shape decisions.
+4. Changing Samebase's existing key-only query-param policy or other intentional URL-shape
+   decisions.
 5. Renaming app-level router seams to match TanStack Start conventions before the file-based
    migration is proven.
 
@@ -81,8 +82,8 @@ issues, attempted fixes, and outcomes from each landed slice.
 - Problem: plain filesystem-based routing would force awkward filenames for a few current shipped
   routes, especially the encoded catch-all vault route at `/vault/$`. Tried: reviewed the latest
   TanStack Router file-based and virtual file routes docs. Result: start with `virtualRouteConfig`
-  so Noter can move to file-based route ownership without inventing brittle filename conventions for
-  already-shipped paths.
+  so Samebase can move to file-based route ownership without inventing brittle filename conventions
+  for already-shipped paths.
 
 - Problem: the current `appRouter.ts` seam intentionally stayed a `.ts` file during the earlier
   TanStack migration because widening it to `.tsx` had caused extra lint and module-shape churn.
@@ -91,7 +92,7 @@ issues, attempted fixes, and outcomes from each landed slice.
   should stay `.ts` and continue using `createElement(RouterProvider, { router })` instead of
   widening the seam during this migration.
 
-- Problem: the first file-based slice needed to prove that Noter could swap the route-tree source
+- Problem: the first file-based slice needed to prove that Samebase could swap the route-tree source
   without widening scope into runtime or test-harness rewrites. Tried: kept `createAppRouter(...)`,
   `AppRouterProvider`, and `TestRouterProvider` intact while replacing the handwritten
   `createRoute(...)` table with generated virtual file routes under `apps/samebase/src/routes`.

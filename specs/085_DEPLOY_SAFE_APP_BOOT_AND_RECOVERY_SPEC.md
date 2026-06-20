@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted and implemented
-- Owner: Noter frontend
+- Owner: Samebase frontend
 - Last updated: 2026-04-12
 - Related files: `specs/064_THIN_INSTALLABLE_WEB_APP_SPEC.md`, `apps/samebase/src/main.tsx`,
   `apps/samebase/src/components/AppBootErrorBoundary.tsx`,

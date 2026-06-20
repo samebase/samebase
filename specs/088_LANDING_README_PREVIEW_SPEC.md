@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter landing/onboarding
+- Owner: Samebase landing/onboarding
 - Last updated: 2026-06-18
 - Related files:
   - `apps/samebase/src/routes/landing-preview.tsx`
@@ -17,12 +17,12 @@
 ## Summary
 
 `/landing-preview` is the admin-only preview surface for the README-shaped landing document. It lets
-the operator review `notermd/app` README-style onboarding pages in Noter's `WorkspaceLayoutV2`
+the operator review `samebase/app` README-style onboarding pages in Samebase's `WorkspaceLayoutV2`
 chrome before any content is promoted to the public landing route.
 
 The preview is intentionally a constrained Markdown renderer, not a general GitHub clone. The
-authoring baseline is content that renders clearly in the `notermd/app` GitHub README and uses only
-the subset Noter currently supports.
+authoring baseline is content that renders clearly in the `samebase/app` GitHub README and uses only
+the subset Samebase currently supports.
 
 ## Accepted Contract
 
@@ -85,8 +85,8 @@ Landing preview videos should be authored as inline raw `<video>` embeds rather 
 supporting context.
 
 This manual mirror is acceptable until a non-LLM sync command exists. A future automation should
-fetch `notermd/app@main`, copy referenced media to a stable Noter-owned public location, and rewrite
-the preview Markdown deterministically.
+fetch `samebase/app@main`, copy referenced media to a stable Samebase-owned public location, and
+rewrite the preview Markdown deterministically.
 
 ### Sanitization
 

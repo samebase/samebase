@@ -12,7 +12,7 @@ member app creation or retries.
 Implement Polar billing so that:
 
 - Billing state, checkout, portal, and webhooks can be exercised without blocking member onboarding.
-- Approved members can create Noter-managed vaults regardless of current billing state while the
+- Approved members can create Samebase-managed vaults regardless of current billing state while the
   early app-creation flow is being validated.
 - Billing state is webhook-driven (never trust client redirects as the authority).
 
@@ -29,7 +29,7 @@ and any enforcement boundary require a separate future decision.
 ## Polar Model (What We Use)
 
 - Checkout Sessions: server-side creation returns a checkout URL to redirect to.
-- `external_customer_id`: a stable Noter-generated identifier, stored on the user record, used to
+- `external_customer_id`: a stable Samebase-generated identifier, stored on the user record, used to
   reconcile Polar state back to the Convex user.
 - Webhooks: signature-validated inbound events; we treat customer state as the source of truth for
   billing state.
@@ -139,7 +139,7 @@ Idempotency strategy:
 
 Do not gate `vaultActions.createRepository` on Polar billing state in the current member rollout:
 
-- Approved members may create Noter-managed vaults without paying during the current onboarding
+- Approved members may create Samebase-managed vaults without paying during the current onboarding
   validation phase.
 - Billing fields remain available for checkout/status experiments.
 - Future app-creation guardrails belong in a separate accepted rollout that defines quota, rate

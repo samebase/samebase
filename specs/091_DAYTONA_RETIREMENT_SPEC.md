@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted implementation plan
-- Owner: Noter development environment direction
+- Owner: Samebase development environment direction
 - Created: 2026-05-04
 - Supersedes active Daytona implementation plans for future work:
   - `specs/010_DAYTONA_SANDBOX_INTEGRATION_SPEC.md`
@@ -15,9 +15,9 @@
 
 ## Summary
 
-Retire Noter's Daytona integration from the live app and codebase.
+Retire Samebase's Daytona integration from the live app and codebase.
 
-Daytona is currently paused while Noter focuses on local-machine Codex and connected-machine
+Daytona is currently paused while Samebase focuses on local-machine Codex and connected-machine
 workflows. The pause switch prevents normal runtime use, but the implementation still threads
 Daytona through active routes, Convex schema shapes, generated API surface, Vite config, env
 allowlists, package dependencies, tests, scripts, workflows, manual tests, and accepted docs.
@@ -184,8 +184,8 @@ Retire docs in the same branch that removes the corresponding implementation:
   plus operator runbook.
 - Daytona schema fields intentionally remain until the cleanup migration has run and verification
   reports completion.
-- Daytona sandboxes, external Daytona snapshots, and Noter's legacy `daytonaSnapshots` rows are not
-  deleted by the automated migration.
+- Daytona sandboxes, external Daytona snapshots, and Samebase's legacy `daytonaSnapshots` rows are
+  not deleted by the automated migration.
 - Phase 4 narrow schema cleanup continued after production verification returned `complete: true`
   with no sampled vault ids.
 - The Daytona fields on `vaults` and the completed migration scaffolding were removed from active

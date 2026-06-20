@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/editor + GitHub integration
+- Owner: Samebase frontend/editor + GitHub integration
 - Last updated: 2026-03-25
 - Depends on:
   - `apps/samebase/src/components/FileView.tsx`
@@ -19,27 +19,27 @@
 
 ## Why
 
-Noter should be a better place than Telegram Saved Messages for dropping images and project assets
-that belong with the repo.
+Samebase should be a better place than Telegram Saved Messages for dropping images and project
+assets that belong with the repo.
 
 Today, if a user wants to quickly save screenshots, logos, reference images, or other media while
-working on a project, Telegram Saved Messages is often the faster capture surface than Noter. That
-is a product failure. Those files end up outside the repository, outside the editor, outside the
-staging flow, and outside the durable project context that Noter is supposed to own.
+working on a project, Telegram Saved Messages is often the faster capture surface than Samebase.
+That is a product failure. Those files end up outside the repository, outside the editor, outside
+the staging flow, and outside the durable project context that Samebase is supposed to own.
 
 Media uploads fix a real product gap:
 
 - project assets should land next to the code and docs they belong to
 - uploads should be visible in the same file tree and commit flow as the rest of the repository
 - the user should not need a sidecar personal inbox just to get files into the project
-- Noter should be the canonical working surface for collecting and committing repo assets
+- Samebase should be the canonical working surface for collecting and committing repo assets
 
-This is not decorative polish. It is part of making Noter credible as the place where the project
+This is not decorative polish. It is part of making Samebase credible as the place where the project
 actually lives.
 
 ## Summary
 
-Noter should support media uploads by adding a bottom-of-sidebar upload surface on vault routes
+Samebase should support media uploads by adding a bottom-of-sidebar upload surface on vault routes
 first. The shipped CTA should read `Drop file or click` and use rectangular app chrome with a
 segmented or dashed border.
 
@@ -286,12 +286,12 @@ This is a product decision, not a GitHub hard limit.
 ## Why not use the repository contents write API for the MVP?
 
 It looks tempting because it accepts Base64 content directly, but it is the wrong primitive for
-Noter's current product shape.
+Samebase's current product shape.
 
 Reasons:
 
-- it creates one commit per file instead of fitting naturally into Noter's staged multi-file commit
-  model
+- it creates one commit per file instead of fitting naturally into Samebase's staged multi-file
+  commit model
 - GitHub explicitly warns that parallel contents writes and deletes conflict
 - it does not solve pre-commit image preview
 - it does not solve the current text-only staging model

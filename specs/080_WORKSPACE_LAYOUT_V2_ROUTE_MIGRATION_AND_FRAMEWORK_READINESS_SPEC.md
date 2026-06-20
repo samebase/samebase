@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/workspace shell
+- Owner: Samebase frontend/workspace shell
 - Last updated: 2026-04-11
 - Depends on:
   - `apps/samebase/index.html`
@@ -60,7 +60,7 @@ shared route layout layer:
 Those shared wrappers should be reimplemented on top of `WorkspaceLayoutV2` while preserving each
 route's current chrome, scroll ownership, focus behavior, touch behavior, and editor lifetime.
 
-This spec also adds a framework-readiness constraint. Noter still runs through a plain
+This spec also adds a framework-readiness constraint. Samebase still runs through a plain
 `BrowserRouter` plus a monolithic `<Routes>` tree in `App.tsx`. Route shell work should not deepen
 that coupling if the team decides to migrate to a Vite plus React Router framework architecture
 next.

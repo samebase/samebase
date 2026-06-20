@@ -104,7 +104,7 @@ allowlist_extra_domains = []
 allowed_http_methods = ["GET", "HEAD", "OPTIONS"]
 
 [repos]
-default_repo = "noter-md/noter"
+default_repo = "samebase/samebase"
 default_branch = "main"
 ```
 

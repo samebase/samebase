@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted phased implementation plan
-- Owner: Noter app creation + infrastructure provisioning
+- Owner: Samebase app creation + infrastructure provisioning
 - Created: 2026-05-02
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -14,9 +14,9 @@
 
 ## Summary
 
-Adopt Convex Workflow for the create-new-app provisioning lifecycle so Noter can show one durable,
-user-readable run instead of collapsing GitHub, Convex, Cloudflare, env setup, and deployment state
-into a coarse dashboard label.
+Adopt Convex Workflow for the create-new-app provisioning lifecycle so Samebase can show one
+durable, user-readable run instead of collapsing GitHub, Convex, Cloudflare, env setup, and
+deployment state into a coarse dashboard label.
 
 The implementation is phased: first make the current path observable, then move post-vault
 infrastructure into Workflow, then move the full create-app path into Workflow once the run model is
@@ -57,7 +57,7 @@ migration history; use `096` for the current create-app state model.
 2. creates the GitHub repository
 3. seeds the starter app
 4. fetches the initial branch tree
-5. creates a Noter vault row
+5. creates a Samebase vault row
 6. links the run and early events to the vault
 7. runs the post-vault infrastructure steps
 
@@ -94,7 +94,7 @@ work, cancel work, or clean up completed component records.
 
 1. Make create-new-app provisioning understandable from the dashboard.
 2. Record durable, user-safe provisioning progress events.
-3. Show a basic log textarea for each Noter-managed vault with recent provisioning events.
+3. Show a basic log textarea for each Samebase-managed vault with recent provisioning events.
 4. Preserve current idempotent provider helpers and retry behavior.
 5. Migrate to Convex Workflow incrementally after the observable run model exists.
 
@@ -231,7 +231,7 @@ comments at the temporary optional read/schema boundaries until a backfill lets 
 
 ### 3. Starter Dashboard Log Textarea
 
-For Noter-managed vaults, add a basic read-only textarea under the existing developer/infra
+For Samebase-managed vaults, add a basic read-only textarea under the existing developer/infra
 dashboard surface.
 
 The textarea should:
@@ -339,7 +339,7 @@ Backend:
 
 Frontend:
 
-1. Noter-managed vault with events shows a read-only textarea
+1. Samebase-managed vault with events shows a read-only textarea
 2. vault without events does not render empty log chrome
 3. failed/partial infra cards keep the existing retry action
 4. log lines do not overlap existing dashboard card controls
@@ -353,8 +353,8 @@ Workflow follow-up:
 ## Acceptance Criteria
 
 1. New app provisioning has durable, user-visible logs.
-2. Dashboard cards expose recent provisioning logs in a simple read-only textarea for Noter-managed
-   vaults.
+2. Dashboard cards expose recent provisioning logs in a simple read-only textarea for
+   Samebase-managed vaults.
 3. Logs do not contain secrets or raw provider payloads.
 4. Existing create, retry, and infra state behavior remains compatible.
 5. The spec defines the incremental path from observable scheduler-based provisioning to Convex

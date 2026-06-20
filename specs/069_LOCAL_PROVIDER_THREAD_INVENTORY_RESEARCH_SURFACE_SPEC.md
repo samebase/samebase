@@ -26,8 +26,8 @@ Phase 1 therefore adds:
 5. a second Codex-style browser route that makes project and thread browsing primary while
    preserving the protocol lab as a separate surface
 
-This phase does not bind local provider threads to Convex/Noter threads yet. Its purpose is to prove
-the machine-local contract first so the later Convex mapping is based on real runtime behavior
+This phase does not bind local provider threads to Convex/Samebase threads yet. Its purpose is to
+prove the machine-local contract first so the later Convex mapping is based on real runtime behavior
 rather than guesses.
 
 ## Problem Statement
@@ -38,7 +38,7 @@ start/resume controls.
 That is too narrow for the current connected-machine direction:
 
 1. one local machine process should be able to service multiple threads
-2. Noter must eventually map its own cloud thread ids onto machine-local provider thread ids
+2. Samebase must eventually map its own cloud thread ids onto machine-local provider thread ids
 3. the web UI needs a way to inspect existing local provider threads before it can become a real
    machine control plane
 
@@ -48,7 +48,7 @@ future Convex schema and connector contract.
 ## Product Decisions (Locked)
 
 1. The local research runtime is machine-scoped, not single-thread-scoped.
-2. Provider thread ids remain separate from Noter/Convex thread ids.
+2. Provider thread ids remain separate from Samebase/Convex thread ids.
 3. `currentThreadId` may remain as a convenience selection, but it must not be the only thread
    model.
 4. The bridge must expose provider thread inventory before any Convex thread mapping is added.
@@ -231,7 +231,7 @@ This spec intentionally does not define:
 1. machine approval or heartbeat publishing
 2. tunnel lifecycle
 3. machine-control token brokerage
-4. a phone-facing Noter control route
+4. a phone-facing Samebase control route
 5. cloud transcript storage
 
 But it must preserve the boundary required for follow-on machine work:

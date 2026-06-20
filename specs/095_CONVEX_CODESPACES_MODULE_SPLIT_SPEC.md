@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter backend
+- Owner: Samebase backend
 - Last updated: 2026-05-06
 - Related files:
   - `apps/samebase/convex/schema.ts`

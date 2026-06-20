@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted next-phase implementation plan
-- Owner: Noter vault deletion, durable workflows, and vault-scoped cleanup
+- Owner: Samebase vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
@@ -12,7 +12,7 @@
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
-  - [PR #724: Research vault deletion workflow failure](https://github.com/noter-md/noter/pull/724)
+  - [PR #724: Research vault deletion workflow failure](https://github.com/samebase/samebase/pull/724)
 
 ## Summary
 
@@ -20,8 +20,8 @@ Vault deletion remains one destructive user action, but the backend must treat i
 orchestration instead of one synchronous action. The user confirms delete once, the app records a
 deletion run and deletion gate, and Workflow owns provider teardown plus local cleanup.
 
-The practical forcing function is branch-heavy vaults. Repositories like Noter can have close to 100
-branches, and each branch can fan out into branch trees, remote-branch metadata, staged files,
+The practical forcing function is branch-heavy vaults. Repositories like Samebase can have close to
+100 branches, and each branch can fan out into branch trees, remote-branch metadata, staged files,
 collaborative updates, blobs, storage objects, domains, and infrastructure state. Deletion must make
 bounded progress through those rows. No cleanup mutation may depend on loading every vault row into
 one Convex execution context.
@@ -570,7 +570,7 @@ The deletion Workflow runs:
 2. `delete_codespaces`: delete connected Codespaces when requested
 3. `delete_cloudflare`: delete the recorded Cloudflare Worker when requested
 4. `delete_convex`: delete the recorded Convex project or deployment when requested
-5. `delete_github_repo`: delete the recorded Noter-managed GitHub repository when requested
+5. `delete_github_repo`: delete the recorded Samebase-managed GitHub repository when requested
 6. `cleanup_editor_state`: delete `fileStaging`, `collaborativeUpdates`, `blobs`, and backing
    storage in bounded batches
 7. `cleanup_source_caches`: delete branch filters, folder expansion state, `vaultRemoteBranches`,

@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: In progress
-- Owner: Noter dashboard/frontend
+- Owner: Samebase dashboard/frontend
 - Last updated: 2026-05-03
 - Related specs:
   - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`

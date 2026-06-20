@@ -13,12 +13,12 @@ should expect to see at each step.
 Today this slice already gives you:
 
 1. a machine-connect page in the app
-2. a hosted `/noter.ts` installer artifact
-3. a mirrored package entrypoint at `packages/sync/noter.ts`
+2. a hosted `/samebase.ts` installer artifact
+3. a mirrored package entrypoint at `packages/sync/samebase.ts`
 4. browser-backed machine approval
-5. one durable machine credential in `~/.noter/config.json`
-6. a `noter-sync run` command that publishes online and offline heartbeats
-7. a live machine list in Noter
+5. one durable machine credential in `~/.samebase/config.json`
+6. a `samebase-sync run` command that publishes online and offline heartbeats
+7. a live machine list in Samebase
 
 Today this slice still does **not** give you:
 
@@ -31,7 +31,7 @@ That next step is tracked in `rfcs/078_TUNNELED_LOCAL_CODEX_CONTROL_SPEC.md`.
 ## Local Prerequisites
 
 The direct hosted-file flow needs both `node` and the Codex CLI command `codex` on `PATH` before you
-run any `noter.ts` command.
+run any `samebase.ts` command.
 
 Quick check:
 
@@ -76,7 +76,7 @@ Expected result:
 
 1. the app runs on [http://127.0.0.1:5174/](http://127.0.0.1:5174/)
 2. the hosted installer is available at
-   [http://127.0.0.1:5174/noter.ts](http://127.0.0.1:5174/noter.ts)
+   [http://127.0.0.1:5174/samebase.ts](http://127.0.0.1:5174/samebase.ts)
 
 If this worktree chose another frontend port, substitute that origin in the commands below.
 
@@ -99,25 +99,25 @@ What to look for:
 
 1. a `Published package connect` block for the eventual public npm path
 2. two `Direct hosted file connect` blocks: one for `Unix/macOS` and one for `Windows PowerShell`
-3. a link to open `noter.ts`
+3. a link to open `samebase.ts`
 4. a machine list section if any machines are already connected
 
 ## 3. Inspect The Hosted Installer File
 
 Open:
 
-- [http://127.0.0.1:5174/noter.ts](http://127.0.0.1:5174/noter.ts)
+- [http://127.0.0.1:5174/samebase.ts](http://127.0.0.1:5174/samebase.ts)
 
 What to verify:
 
 1. it is a single readable Node script
 2. it has no runtime dependencies
-3. it matches `packages/sync/noter.ts` exactly
+3. it matches `packages/sync/samebase.ts` exactly
 
 To confirm the exact-copy contract locally:
 
 ```bash
-git diff --no-index -- packages/sync/noter.ts apps/samebase/public/noter.ts
+git diff --no-index -- packages/sync/samebase.ts apps/samebase/public/samebase.ts
 ```
 
 Expected result:
@@ -131,21 +131,21 @@ Use the hosted local file directly:
 
 ```bash
 set -o pipefail
-curl -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.ts'
+curl -fsSL 'http://127.0.0.1:5174/samebase.ts' | node --input-type=module - connect 'http://127.0.0.1:5174/samebase.ts'
 ```
 
 On Windows PowerShell use `curl.exe` so the command does not hit the `Invoke-WebRequest` alias:
 
 ```powershell
-curl.exe -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - connect 'http://127.0.0.1:5174/noter.ts'
+curl.exe -fsSL 'http://127.0.0.1:5174/samebase.ts' | node --input-type=module - connect 'http://127.0.0.1:5174/samebase.ts'
 ```
 
 What this does today:
 
-1. validates that the source URL points to `/noter.ts`
+1. validates that the source URL points to `/samebase.ts`
 2. runs `codex --version` to confirm the Codex CLI is on `PATH`
-3. creates a machine registration request in Noter
-4. writes or updates `~/.noter/config.json`
+3. creates a machine registration request in Samebase
+4. writes or updates `~/.samebase/config.json`
 5. prints a markdown status block to stdout
 6. prints the `next:` approval URL for `/machines/connect?openedByCli&requestId=...`
 7. waits for you to open that printed `next:` URL manually in a signed-in browser
@@ -163,15 +163,15 @@ Expected result:
 4. the page now shows `run` commands for both the future published package path and the direct
    hosted-file path
 
-Open that same printed `next:` URL in the browser where you are signed in to Noter and approve the
-machine there.
+Open that same printed `next:` URL in the browser where you are signed in to Samebase and approve
+the machine there.
 
 ## 6. Inspect The Local Config File
 
 After the connect flow, inspect:
 
 ```bash
-sed -n '1,200p' ~/.noter/config.json
+sed -n '1,200p' ~/.samebase/config.json
 ```
 
 Expected fields:
@@ -194,19 +194,19 @@ Use the direct hosted-file run command:
 
 ```bash
 set -o pipefail
-curl -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - run
+curl -fsSL 'http://127.0.0.1:5174/samebase.ts' | node --input-type=module - run
 ```
 
 On Windows PowerShell:
 
 ```powershell
-curl.exe -fsSL 'http://127.0.0.1:5174/noter.ts' | node --input-type=module - run
+curl.exe -fsSL 'http://127.0.0.1:5174/samebase.ts' | node --input-type=module - run
 ```
 
 What this does today:
 
-1. reads `~/.noter/config.json`
-2. resolves the current Noter backend URL from `noter-connect.json`
+1. reads `~/.samebase/config.json`
+2. resolves the current Samebase backend URL from `samebase-connect.json`
 3. reuses the stored machine credential
 4. publishes `online` heartbeats until the process exits
 5. publishes one final `offline` heartbeat when it shuts down cleanly
@@ -227,8 +227,8 @@ Expected result:
 When debugging the script itself, you can run the checked-in source directly:
 
 ```bash
-node packages/sync/noter.ts connect 'http://127.0.0.1:5174/noter.ts'
-node packages/sync/noter.ts run
+node packages/sync/samebase.ts connect 'http://127.0.0.1:5174/samebase.ts'
+node packages/sync/samebase.ts run
 ```
 
 That bypasses `curl` while keeping the same runtime behavior.
@@ -241,16 +241,16 @@ Useful files:
 2. machine approval and presence backend: `apps/samebase/convex/connectedMachines.ts`
 3. machine HTTP entrypoints: `apps/samebase/convex/connectedMachineHttp.ts`
 4. machine row and credential models: `apps/samebase/convex/connectedMachineModel.ts`
-5. canonical installer and runner: `packages/sync/noter.ts`
-6. hosted mirrored copy: `apps/samebase/public/noter.ts`
+5. canonical installer and runner: `packages/sync/samebase.ts`
+6. hosted mirrored copy: `apps/samebase/public/samebase.ts`
 
 ## 11. What To Conclude From This Slice
 
 If all of the steps above work, the current merged foundation proves:
 
-1. Noter can bootstrap and approve a machine from a thin browser handoff page
-2. Noter can persist machine-scoped local state at `~/.noter/config.json`
-3. Noter can keep a connected machine visible as online or offline
+1. Samebase can bootstrap and approve a machine from a thin browser handoff page
+2. Samebase can persist machine-scoped local state at `~/.samebase/config.json`
+3. Samebase can keep a connected machine visible as online or offline
 4. the machine-scoped `run` command is now the right place to grow future local control behavior
 
 If you are asking "can I already browse and control Codex from my phone?", the answer is still no.

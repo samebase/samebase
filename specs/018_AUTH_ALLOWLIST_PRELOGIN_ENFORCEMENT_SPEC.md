@@ -3,15 +3,15 @@
 ## Document Control
 
 - Status: Implemented
-- Owner: Noter auth/backend
+- Owner: Samebase auth/backend
 - Last updated: 2026-06-19
 - Related specs:
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
 
 ## Summary
 
-Noter keeps signup approval in `users.isApproved`. A signed-in user whose account exists but is not
-approved is a waitlisted account, not an anonymous viewer and not a member. Backend viewer
+Samebase keeps signup approval in `users.isApproved`. A signed-in user whose account exists but is
+not approved is a waitlisted account, not an anonymous viewer and not a member. Backend viewer
 resolution derives `role_waitlisted` for that state and projects `access_public` plus the
 signed-in-only `access_user_preferences` key.
 
@@ -25,7 +25,7 @@ avoid creating a `users` row, and avoid issuing an authenticated session. The me
 different current product boundary so operators can test and approve real signed-in accounts through
 standard data state instead of editing code-side email allowlists.
 
-The pre-login-denial model is no longer the active contract for member onboarding. If Noter later
+The pre-login-denial model is no longer the active contract for member onboarding. If Samebase later
 returns to callback-time denial, that change needs a new rollout spec because it would remove the
 authenticated waitlisted-account state defined here.
 

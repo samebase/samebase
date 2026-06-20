@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Implemented
-- Owner: Noter frontend
+- Owner: Samebase frontend
 - Last updated: 2026-03-29
 - Depends on:
   - `apps/samebase/src/components/DashboardWorkspaceLayout.tsx`

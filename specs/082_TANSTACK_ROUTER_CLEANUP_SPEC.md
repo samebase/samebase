@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter frontend/app shell
+- Owner: Samebase frontend/app shell
 - Last updated: 2026-06-06
 - Depends on:
   - `apps/samebase/src/lib/appRouter.ts`
@@ -52,8 +52,8 @@ product policy rather than migration debt.
 Intentional remaining router-level boundary:
 
 1. `apps/samebase/src/lib/tanstackSearchParams.ts` still defines the router-wide query
-   parser/stringifier because Noter intentionally preserves key-only URLs such as `/?dev` instead of
-   adopting TanStack Router's default JSON-style search semantics.
+   parser/stringifier because Samebase intentionally preserves key-only URLs such as `/?dev` instead
+   of adopting TanStack Router's default JSON-style search semantics.
 2. `/` remains the public landing route, and `/home` remains the canonical signed-in dashboard
    route. Public Google sign-in from `/` asks the provider to return directly to `/home`, while
    `apps/samebase/src/lib/useAppAuthRuntimeEffects.ts` preserves failed unauthenticated
@@ -103,8 +103,8 @@ Important non-targets for this step:
    conversion just because they use string literals.
 2. Existing `getRouteApi("/...")` callsites are already route-typed and should stay as they are
    unless a more local route API becomes clearer.
-3. `apps/samebase/src/lib/tanstackSearchParams.ts` is no longer tracked as cleanup debt while Noter
-   intentionally preserves key-only query params such as `/?dev`.
+3. `apps/samebase/src/lib/tanstackSearchParams.ts` is no longer tracked as cleanup debt while
+   Samebase intentionally preserves key-only query params such as `/?dev`.
 
 ## Working Log
 

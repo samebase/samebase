@@ -4,9 +4,9 @@ Status: Accepted
 
 ## Problem
 
-Noter calls Cloudflare through Cloudflare MCP because user-facing Cloudflare connections use
+Samebase calls Cloudflare through Cloudflare MCP because user-facing Cloudflare connections use
 `mcp_oauth`, not a standard Cloudflare API token. The MCP server accepts that credential and
-executes `cloudflare.request()` on Noter's behalf, but direct Cloudflare REST token introspection
+executes `cloudflare.request()` on Samebase's behalf, but direct Cloudflare REST token introspection
 can reject it as an invalid API token.
 
 Current Cloudflare provisioning code still treats each request as an untyped string path and then
@@ -19,7 +19,7 @@ path parameters, invalid request bodies, or changed response fields before featu
 Use Cloudflare's OpenAPI schema as the contract source while keeping Cloudflare MCP as the
 transport:
 
-1. Generate a checked-in OpenAPI subset for the Cloudflare API families Noter currently owns, not
+1. Generate a checked-in OpenAPI subset for the Cloudflare API families Samebase currently owns, not
    only the exact endpoints called today. Do not generate the full Cloudflare schema into the app
    boundary because unrelated products can break generation and would add unused contract weight.
 2. Generate TypeScript declarations from that subset with `openapi-typescript`. Type generation
@@ -42,7 +42,7 @@ transport:
 
 ## Initial API Family Scope
 
-The initial subset covers the Cloudflare API families Noter currently owns:
+The initial subset covers the Cloudflare API families Samebase currently owns:
 
 1. `/accounts/{account_id}/workers...` for Workers, Worker Script, Worker Subdomain, Worker
    versions, Worker deployments, Worker routes/domains, and adjacent account-scoped Workers APIs.

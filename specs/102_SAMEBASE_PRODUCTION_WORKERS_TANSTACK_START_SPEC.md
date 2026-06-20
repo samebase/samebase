@@ -1,21 +1,21 @@
-# Noter Production Workers And TanStack Start Migration Spec
+# Samebase Production Workers And TanStack Start Migration Spec
 
 ## Document Control
 
 - Status: Accepted implementation plan
-- Owner: Noter production hosting
+- Owner: Samebase production hosting
 - Created: 2026-05-16
 - Last updated: 2026-06-16
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
-  - `research/2026-05-15-notermd-workers-provisioning-migration.md`
+  - `research/2026-05-15-samebase-workers-provisioning-migration.md`
   - `apps/samebase/scripts/generate-cloudflare-redirects.ts`
   - `apps/samebase/scripts/strip-public-prerender-modulepreloads.ts`
 
 ## Summary
 
-Move the Noter production app from the current Cloudflare Pages static Vite deploy to Cloudflare
+Move the Samebase production app from the current Cloudflare Pages static Vite deploy to Cloudflare
 Workers Static Assets and TanStack Start in one rollout.
 
 The easiest acceptable migration is a single app cutover:
@@ -23,7 +23,7 @@ The easiest acceptable migration is a single app cutover:
 1. convert the production app from TanStack Router-only Vite to TanStack Start SPA mode
 2. add a Workers-owned deploy contract with `wrangler.jsonc`
 3. keep the browser app client-first and keep Convex as the backend
-4. validate a shadow Worker before touching the `noter.md` production hostname
+4. validate a shadow Worker before touching the `samebase.com` production hostname
 5. switch the hostname from Pages to Workers during a short operator window
 
 The rollout may include a brief outage because the app is operator-only today. The implementation
@@ -33,13 +33,13 @@ should still minimize downtime by proving the Worker on its own URL before the h
 
 Do the framework and hosting migration together.
 
-Do not first adopt TanStack Start while still deploying Noter production to Cloudflare Pages. That
-path already failed in practice, and the current target stack is Workers Static Assets. Splitting
-the work would create a temporary combination that is not the desired production platform and would
-need its own debugging surface.
+Do not first adopt TanStack Start while still deploying Samebase production to Cloudflare Pages.
+That path already failed in practice, and the current target stack is Workers Static Assets.
+Splitting the work would create a temporary combination that is not the desired production platform
+and would need its own debugging surface.
 
 Use TanStack Start in SPA mode for the first production migration. Do not add SSR, server functions,
-or Worker runtime handlers in this phase. Noter already uses Convex for application state and
+or Worker runtime handlers in this phase. Samebase already uses Convex for application state and
 browser-side auth flows, so the Worker can serve static assets only.
 
 For the public landing route, prefer SSG over request-time SSR and over a plain SPA shell. SSG keeps
@@ -187,7 +187,7 @@ fetches on the client.
 5. README deployment instructions still describe Cloudflare Pages.
 
 Generated user apps already use the Workers-shaped template. This spec applies the same direction to
-Noter production itself.
+Samebase production itself.
 
 ## Implementation Requirements
 
@@ -269,7 +269,7 @@ Validation:
 1. `pnpm dev:worktree`
 2. `pnpm --filter samebase check`
 3. `pnpm --filter samebase build`
-4. browser smoke test of `/`, `/home`, `/vault/$`, `/noter.ts`, and `/noter-connect.json`
+4. browser smoke test of `/`, `/home`, `/vault/$`, `/samebase.ts`, and `/samebase-connect.json`
 
 ### Phase 2: Worker Dry Run
 

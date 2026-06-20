@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Accepted
-- Owner: Noter product
+- Owner: Samebase product
 - Last updated: 2026-05-29
 - Related files:
   - `slogans.md`
@@ -11,7 +11,7 @@
   - `apps/samebase/vite.config.ts`
   - `apps/samebase/src/lib/noterBuildConfig.ts`
   - `apps/samebase/src/lib/landingCopy.ts`
-  - `specs/102_NOTER_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
+  - `specs/102_SAMEBASE_PRODUCTION_WORKERS_TANSTACK_START_SPEC.md`
 
 ## Summary
 
