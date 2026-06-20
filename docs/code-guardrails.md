@@ -58,7 +58,7 @@ declaring one.
 
   A local annotation can launder the same gap when the expression is already `any`. For example,
   Convex Auth currently types the `jwt.customClaims` callback with `GenericQueryCtx<AnyDataModel>`,
-  so `ctx.db.get("users", userId)` does not carry Noter's generated `Doc<"users">` type. Do not
+  so `ctx.db.get("users", userId)` does not carry Samebase's generated `Doc<"users">` type. Do not
   write:
 
   ```ts
@@ -78,7 +78,7 @@ declaring one.
 
 - When a real TS limitation keeps muddying business code, absorb the technicality in a tiny shared
   wrapper with an honest outer signature and the `@ts-expect-error` contained inside — `includes()`,
-  `keys()`, `entries()`, `fromEntries()`, `pick()` in `@noter-md/dependent` are the canonical
+  `keys()`, `entries()`, `fromEntries()`, `pick()` in `@samebase/dependent` are the canonical
   shapes: callers read like the mental model, and the gap lives in one audited line. `packages/sure`
   is this philosophy taken to its extreme (inference-first APIs, slot types, unsafety concentrated
   at a few composition points) — read it when in doubt. Counter-rule: this is a small, stable
@@ -114,7 +114,7 @@ declaring one.
 
   A good predicate needs two things at once: complete type safety (the claim is checked, so it
   cannot drift) and visibility (the guarded type is readable at the definition). Derive reusable
-  predicates with `guard` in `@noter-md/dependent`, written generics-first so both types stay
+  predicates with `guard` in `@samebase/dependent`, written generics-first so both types stay
   visible without spelling the null failure channel —
   `guard<Input, Target>((value) => (cond ? value : null))`; the callback returns the received value
   where control flow narrowed it, or null to reject — see `isConnectedVault` in
@@ -232,7 +232,7 @@ declaring one.
   `!== undefined`, `!== null`, or `typeof value === "string"` checks unless the exact missing value,
   runtime type, empty string, or union discriminator is the state being modeled.
 - When filtering nullable arrays, use the shared `notEmpty` type predicate from
-  `@noter-md/dependent` instead of inline Boolean type predicates.
+  `@samebase/dependent` instead of inline Boolean type predicates.
 - Treat repeated optional chaining on the same value as a correctness smell. If logic reads a
   maybe-null object more than once, narrow it once with an explicit missing-value branch, then use
   direct access. Keep `?.` only for one-off maybe-reads whose missing case is genuinely equivalent

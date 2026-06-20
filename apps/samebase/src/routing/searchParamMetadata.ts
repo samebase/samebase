@@ -1,5 +1,5 @@
-import { includes } from "@noter-md/dependent";
-import { entries, fromEntries, keys } from "@noter-md/dependent/object";
+import { includes } from "@samebase/dependent";
+import { entries, fromEntries, keys } from "@samebase/dependent/object";
 import {
   after,
   bad,

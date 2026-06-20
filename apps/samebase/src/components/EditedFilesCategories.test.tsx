@@ -17,7 +17,7 @@ describe("EditedFilesCategories", () => {
               renamed: [],
               renamedAndModified: [],
             }}
-            repositoryFullName="noter-md/noter"
+            repositoryFullName="samebase/samebase"
           />
         </TestRouterProvider>,
       ),

@@ -1,6 +1,6 @@
 "use node";
 
-import { notEmpty } from "@noter-md/dependent/main";
+import { notEmpty } from "@samebase/dependent/main";
 import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";

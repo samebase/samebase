@@ -44,12 +44,12 @@ importers:
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
-      '@noter-md/dependent':
-        specifier: workspace:*
-        version: link:packages/dependent
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
+      '@samebase/dependent':
+        specifier: workspace:*
+        version: link:packages/dependent
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260413.1
         version: 7.0.0-dev.20260413.1
@@ -155,9 +155,6 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@noter-md/dependent':
-        specifier: workspace:*
-        version: link:../../packages/dependent
       '@octokit/request-error':
         specifier: 7.1.0
         version: 7.1.0
@@ -170,6 +167,9 @@ importers:
       '@prosemark/core':
         specifier: ^0.0.7
         version: 0.0.7(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.3)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.3)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.6.0)(@codemirror/view@6.43.0)
+      '@samebase/dependent':
+        specifier: workspace:*
+        version: link:../../packages/dependent
       '@samebase/sure':
         specifier: workspace:*
         version: link:../../packages/sure
@@ -431,12 +431,12 @@ importers:
 
   packages/onboarding-video-tools:
     dependencies:
-      '@noter-md/dependent':
-        specifier: workspace:*
-        version: link:../dependent
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
+      '@samebase/dependent':
+        specifier: workspace:*
+        version: link:../dependent
 
   packages/sure:
     devDependencies:

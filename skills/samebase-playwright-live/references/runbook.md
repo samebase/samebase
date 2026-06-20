@@ -2,13 +2,13 @@
 
 ## Project Detection
 
-1. If `apps/samebase/package.json` exists: treat as Noter monorepo.
-2. Else if root `package.json` has `dev:frontend` and `dev:backend`: treat as Noter-stack generated
-   app.
+1. If `apps/samebase/package.json` exists: treat as Samebase monorepo.
+2. Else if root `package.json` has `dev:frontend` and `dev:backend`: treat as Samebase-stack
+   generated app.
 
 ## Startup Commands
 
-### Noter monorepo
+### Samebase monorepo
 
 ```bash
 pnpm dev:worktree
@@ -20,7 +20,7 @@ Expected result:
 - frontend + backend dev processes running
 - frontend likely on first free Vite port (`5173+`)
 
-### Noter starter/generated app
+### Samebase starter/generated app
 
 ```bash
 pnpm install
@@ -40,7 +40,7 @@ for p in $(seq 5173 5190); do
 done
 ```
 
-## Dashboard/Create-App Flow (Noter monorepo)
+## Dashboard/Create-App Flow (Samebase monorepo)
 
 1. Open home page.
 2. Sign in with seeded dev password account (from `apps/samebase/convex/devAuth.ts`).
@@ -58,4 +58,4 @@ Always capture:
 
 1. Pre-action snapshot
 2. Post-action snapshot
-3. Final screenshot at `/tmp/noter-<flow>-<timestamp>.png`
+3. Final screenshot at `/tmp/samebase-<flow>-<timestamp>.png`

@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 
 const VIDEO_EXTENSIONS = [".m4v", ".mov", ".mp4", ".ogv", ".webm"] as const;
 

@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { isRecord } from "@noter-md/dependent";
+import { isRecord } from "@samebase/dependent";
 
 const HELP_TEXT = `Usage: scripts/playwright-branch-browser.ts <command> [args]
 

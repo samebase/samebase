@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 import tailwindColors from "tailwindcss/colors";
 
 export type FaceColorKey = "left" | "right" | "top";
@@ -185,7 +185,7 @@ function resolveStaticColorSource(
   return source.fallbackHexByTheme?.[themeMode] ?? source.fallbackHex;
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- regex test cannot narrow to a template-literal type
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- regex test cannot narrow to a template-literal type
 function isHexColorToken(token: string): token is HexColorToken {
   return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token);
 }

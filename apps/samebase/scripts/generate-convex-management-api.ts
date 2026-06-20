@@ -11,7 +11,7 @@ import openapiTS, {
   type SchemaObject,
   type TransformNodeOptions,
 } from "openapi-typescript";
-import { isRecord } from "@noter-md/dependent/main";
+import { isRecord } from "@samebase/dependent/main";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
@@ -112,7 +112,7 @@ function parseJsonSchemaDocument(documentText: string): OpenAPI3 {
   throw new Error(`${sourceUrl} did not return an OpenAPI document.`);
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
 function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   return (
     typeof payload === "boolean" ||
@@ -120,7 +120,7 @@ function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   );
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info as records, never the nested OpenAPI3 interface
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info as records, never the nested OpenAPI3 interface
 function isOpenApiDocument(payload: unknown): payload is OpenAPI3 {
   return isRecord(payload) && typeof payload.openapi === "string" && isRecord(payload.info);
 }

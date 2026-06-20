@@ -15,7 +15,7 @@ import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
-import { isRecord } from "@noter-md/dependent";
+import { isRecord } from "@samebase/dependent";
 import { useLocation } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { useEffect, useRef, useState, type MutableRefObject, type ReactElement } from "react";

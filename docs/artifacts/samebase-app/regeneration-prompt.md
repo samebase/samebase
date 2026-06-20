@@ -1,17 +1,17 @@
-# Prompt: Regenerate notermd/app-Style Artifact
+# Prompt: Regenerate samebase/app-Style Artifact
 
 Use this prompt when asking an agent to recreate a clean public artifact history.
 
 ```text
-You are regenerating a notermd/app-style public teaching artifact.
+You are regenerating a samebase/app-style public teaching artifact.
 
 Important: the generated app repository is an artifact. Do not put prompt files,
-research notes, or regeneration instructions inside it. Keep those in the Noter
-source repo under docs/artifacts/notermd-app/.
+research notes, or regeneration instructions inside it. Keep those in the Samebase
+source repo under docs/artifacts/samebase-app/.
 
 Before writing code:
-1. Read docs/artifacts/notermd-app/README.md in the Noter repo.
-2. Inspect the current notermd/app main branch:
+1. Read docs/artifacts/samebase-app/README.md in the Samebase repo.
+2. Inspect the current samebase/app main branch:
    - git log --oneline --reverse main
    - REPO_HISTORY.md
    - README.md
@@ -22,7 +22,7 @@ Before writing code:
    - convex
    - scripts
    - docs/logos
-3. Compare Noter and the generated artifact toolchain pins. Keep Node, pnpm,
+3. Compare Samebase and the generated artifact toolchain pins. Keep Node, pnpm,
    Wrangler, Convex, Vite+, TanStack Start, TypeScript, React, and related
    shared deploy tooling aligned unless the plan explicitly explains a temporary
    divergence.
@@ -44,7 +44,7 @@ When implementing:
 7. Prefer exact command blocks in REPO_HISTORY.md when a step is created by a
    CLI. The command shown must be the command that actually ran.
 8. Prefer CLI commands over hand-written scaffolding whenever a clean CLI exists.
-9. For step 1, use the Vite+ app command, like notermd/app:
+9. For step 1, use the Vite+ app command, like samebase/app:
 
    vp create vite:application \
      --directory <target-directory> \
@@ -75,7 +75,7 @@ For a Workers/TanStack Start version:
 - Keep Convex as the backend.
 - Preserve the current app behavior, including the QR share block.
 - Deploy with Cloudflare Workers Static Assets using wrangler.jsonc.
-- Read docs/artifacts/notermd-app/cloudflare-workers-install.md before writing
+- Read docs/artifacts/samebase-app/cloudflare-workers-install.md before writing
   Workers setup docs. Make `package.json` `build` match the Cloudflare
   dashboard default and delegate to the Cloudflare-aware build path. Do not
   hard-code the Worker `name` in `wrangler.jsonc`; use repo-owned deploy scripts

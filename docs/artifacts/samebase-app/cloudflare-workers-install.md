@@ -1,6 +1,6 @@
 # Cloudflare Workers Install Trace
 
-Use this note when regenerating or auditing the `notermd/app` teaching artifact. It records the
+Use this note when regenerating or auditing the `samebase/app` teaching artifact. It records the
 current Cloudflare Workers Git setup shape so a future agent can repeat the browser walkthrough and
 spot dashboard changes.
 
@@ -61,7 +61,7 @@ Worker version and preview URL without promoting it to the active production dep
 
 If `wrangler.jsonc` contains `name`, Cloudflare requires that value to match the Worker name in the
 dashboard. For a reusable artifact template, do not hard-code `name` in `wrangler.jsonc`; let
-Cloudflare/noter.md own the Worker name and pass it to Wrangler from a deploy script.
+Samebase automation own the Worker name and pass it to Wrangler from a deploy script.
 
 The `Path` field is the repository root used for build and deploy commands. It should stay `/` while
 the app lives at the repository root.

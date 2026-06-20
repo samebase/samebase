@@ -43,7 +43,7 @@ describe("env helpers", () => {
 
 describe("readEnvFile", () => {
   it("parses env files while preserving empty assignments", () => {
-    const tempDir = mkdtempSync(path.join(os.tmpdir(), "noter-env-file-"));
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), "samebase-env-file-"));
     const envPath = path.join(tempDir, ".env.local");
 
     try {

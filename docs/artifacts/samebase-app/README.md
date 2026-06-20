@@ -1,15 +1,15 @@
-# notermd/app Artifact Regeneration
+# samebase/app Artifact Regeneration
 
-`notermd/app` is a public teaching artifact, not the place where the messy design process should
-live. Keep regeneration instructions, prompts, and decision notes in the Noter repo, then regenerate
-the artifact repository from those instructions when the target shape is clear.
+`samebase/app` is a public teaching artifact, not the place where the messy design process should
+live. Keep regeneration instructions, prompts, and decision notes in the Samebase repo, then
+regenerate the artifact repository from those instructions when the target shape is clear.
 
 ## Core Idea
 
 The artifact history is a curriculum, not a diary.
 
 Each generated commit should teach one stack layer in an order a new user could repeat. Exploratory
-work, false starts, and platform research belong in Noter docs or disposable repos. The public
+work, false starts, and platform research belong in Samebase docs or disposable repos. The public
 artifact should look deliberately built.
 
 ## Regeneration Rules
@@ -17,21 +17,21 @@ artifact should look deliberately built.
 - Preserve any existing generated attempt first, usually as `v0`, `v1`, or the next obvious archive
   branch.
 - Start the new public history from an orphan branch and create `0: empty commit`.
-- Use numbered commit subjects after that, matching the `notermd/app` style: `1. initialize ...`,
+- Use numbered commit subjects after that, matching the `samebase/app` style: `1. initialize ...`,
   `2. add ...`, and so on.
 - Create or update `REPO_HISTORY.md` inside each numbered commit. It is part of the teaching
   artifact, not a report reconstructed at the end.
-- Treat the current `notermd/app` final state as the feature-parity source before changing the
+- Treat the current `samebase/app` final state as the feature-parity source before changing the
   stack. Inventory small visible details, including the QR share block, shadcn primitives, Convex
   todo backend, local workflow, Convex AI files, docs, and logos.
 - Do not put regeneration prompt files inside generated artifact repos. Put them here, or in another
-  durable Noter repo document.
+  durable Samebase repo document.
 
 ## CLI Preference
 
 Prefer CLI commands whenever a clean CLI exists.
 
-For the first step, use Vite+ the same way `notermd/app` does:
+For the first step, use Vite+ the same way `samebase/app` does:
 
 ```sh
 vp create vite:application \
@@ -159,7 +159,7 @@ For a Workers version of the artifact:
   reusable artifact template.
 - Make `package.json` `deploy` and `deploy:preview` repo-owned wrappers around `wrangler deploy` and
   `wrangler versions upload` so the real Worker name can come from Cloudflare's connected-build
-  environment or noter.md automation.
+  environment or Samebase automation.
 - Keep deploy/build helper scripts runnable by plain `node` in Cloudflare's Workers Builds image. If
   those helpers are TypeScript, pin Node 24 with `.node-version` or `NODE_VERSION`; otherwise use
   ESM JavaScript helpers or an explicit TypeScript runner.
@@ -167,9 +167,9 @@ For a Workers version of the artifact:
   `Build command`, and local deploy wrappers can run the build before Wrangler.
 - Do not tell users to leave the Cloudflare Workers Git build command empty. Workers Builds has its
   own dashboard build command and currently does not honor Wrangler custom build settings there.
-- Keep Convex deploy-key names aligned with Noter production and Noter-provisioned generated apps:
-  `PROD_CONVEX_DEPLOY_KEY` for `main`, `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches, and
-  no generic `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
+- Keep Convex deploy-key names aligned with Samebase production and Samebase-provisioned generated
+  apps: `PROD_CONVEX_DEPLOY_KEY` for `main`, `PREVIEW_CONVEX_DEPLOY_KEY` for non-production
+  branches, and no generic `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
 - Keep Workers request handlers, server functions, and SSR complexity out of the first app unless
   the template truly needs them.
 
@@ -177,11 +177,11 @@ Workers research can happen in disposable repos first. Once the shape is known, 
 artifact history from scratch.
 
 The current Cloudflare Workers Git install trace lives in
-`docs/artifacts/notermd-app/cloudflare-workers-install.md`.
+`docs/artifacts/samebase-app/cloudflare-workers-install.md`.
 
 ## Toolchain Alignment
 
-Treat the generated app artifact and the Noter app as one shared stack surface. When either side
+Treat the generated app artifact and the Samebase app as one shared stack surface. When either side
 changes runtime or package-manager versions, update the other side deliberately instead of letting
 them drift.
 

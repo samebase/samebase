@@ -1,5 +1,5 @@
 import { Infer, v } from "convex/values";
-import { notEmpty } from "@noter-md/dependent/main";
+import { notEmpty } from "@samebase/dependent/main";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { action, query } from "./functions";

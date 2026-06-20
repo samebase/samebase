@@ -352,7 +352,7 @@ function configureCacheRoot(): string {
     return "";
   }
 
-  const cacheRoot = "/vscode/noter-cache";
+  const cacheRoot = "/vscode/samebase-cache";
   mkdirSync(cacheRoot, { recursive: true });
 
   process.env.PNPM_HOME = process.env.PNPM_HOME ?? path.join(cacheRoot, "pnpm-home");

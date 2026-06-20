@@ -1,4 +1,4 @@
-import { includes } from "@noter-md/dependent";
+import { includes } from "@samebase/dependent";
 import { ROUTE_SEARCH_PRESENCE_FLAG_KEYS } from "@/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 

@@ -75,7 +75,7 @@ function makeVaultDashboardVault({
 
 function makeVaultDashboardVaults(): VaultDashboardVault[] {
   return [
-    makeVaultDashboardVault({ repositoryFullName: "noter-md/noter" }),
+    makeVaultDashboardVault({ repositoryFullName: "samebase/samebase" }),
     makeVaultDashboardVault({ repositoryFullName: "nicu-chiciuc/tmp-flow" }),
   ];
 }

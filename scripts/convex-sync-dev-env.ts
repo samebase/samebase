@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { guard, isRecord } from "@noter-md/dependent";
+import { guard, isRecord } from "@samebase/dependent";
 import { readEnvFile, type EnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
@@ -542,12 +542,12 @@ function formatSeedEnvCommand(sourceEnvPath: string | null): string {
   return `node ./scripts/convex-sync-dev-env.ts${sourceArg}`;
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses ConvexHttpClient only as Function, never its constructor signature
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses ConvexHttpClient only as Function, never its constructor signature
 function isConvexBrowserModule(value: unknown): value is ConvexBrowserModule {
   return isRecord(value) && typeof value.ConvexHttpClient === "function";
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses makeFunctionReference only as Function, never its call signature
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses makeFunctionReference only as Function, never its call signature
 function isConvexServerModule(value: unknown): value is ConvexServerModule {
   return isRecord(value) && typeof value.makeFunctionReference === "function";
 }

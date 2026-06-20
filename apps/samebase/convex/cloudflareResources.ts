@@ -1,4 +1,4 @@
-import { notEmpty } from "@noter-md/dependent/main";
+import { notEmpty } from "@samebase/dependent/main";
 
 import { requestCloudflareApi, CloudflareApiError } from "./cloudflareApi/client";
 import type { components, Readable, Writable } from "./cloudflareApi/types.generated";

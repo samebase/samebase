@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Plugin, ViteDevServer } from "vite";
-import { isRecord } from "@noter-md/dependent/main";
+import { isRecord } from "@samebase/dependent/main";
 
 import { CODEX_APP_SERVER_RESEARCH_API_BASE } from "../src/codex/appServerResearch";
 
@@ -37,12 +37,12 @@ const codexLocalControlBridgeModuleUrl = pathToFileURL(
 
 function isCodexLocalControlRuntimeConstructor(
   value: unknown,
-  // eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses CodexLocalControlRuntime only as Function, never its constructor signature
+  // eslint-disable-next-line samebase/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses CodexLocalControlRuntime only as Function, never its constructor signature
 ): value is CodexLocalControlRuntimeConstructor {
   return typeof value === "function";
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses createCodexLocalControlRouter only as Function, never its call signature
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses createCodexLocalControlRouter only as Function, never its call signature
 function isCodexLocalControlRouterFactory(value: unknown): value is CodexLocalControlRouterFactory {
   return typeof value === "function";
 }

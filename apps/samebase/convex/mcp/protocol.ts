@@ -1,4 +1,4 @@
-import { includes } from "@noter-md/dependent/main";
+import { includes } from "@samebase/dependent/main";
 import { asRecord } from "../jsonUtils";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;

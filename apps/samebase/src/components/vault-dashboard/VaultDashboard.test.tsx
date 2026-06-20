@@ -114,7 +114,7 @@ describe("VaultBranchLinkContent", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
-          repositoryFullName="noter-md/noter"
+          repositoryFullName="samebase/samebase"
           branch={{
             name: "codex/dashboard branch-link",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -128,7 +128,7 @@ describe("VaultBranchLinkContent", () => {
     );
 
     expect(markup).toContain(
-      'href="https://github.com/noter-md/noter/tree/codex/dashboard%20branch-link"',
+      'href="https://github.com/samebase/samebase/tree/codex/dashboard%20branch-link"',
     );
     expect(markup).toContain('title="Open branch on GitHub"');
   });
@@ -137,7 +137,7 @@ describe("VaultBranchLinkContent", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
-          repositoryFullName="noter-md/noter"
+          repositoryFullName="samebase/samebase"
           branch={{
             name: "main",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -150,7 +150,7 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/noter-md/noter/main"');
+    expect(markup).toContain('href="/vault/samebase/samebase/main"');
     expect(markup).toContain('title="Open branch in Samebase"');
     expect(markup).toContain(">Edit<");
     expect(markup).not.toContain(">View changes<");
@@ -161,7 +161,7 @@ describe("VaultBranchLinkContent", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
-          repositoryFullName="noter-md/noter"
+          repositoryFullName="samebase/samebase"
           branch={{
             name: "codex/view changes",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -174,7 +174,7 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/noter-md/noter/codex%2Fview%20changes?compare"');
+    expect(markup).toContain('href="/vault/samebase/samebase/codex%2Fview%20changes?compare"');
     expect(markup).toContain('title="View changes in Samebase"');
     expect(markup).toContain(">View changes<");
     expect(markup).not.toContain(">Edit<");
@@ -184,7 +184,7 @@ describe("VaultBranchLinkContent", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
-          repositoryFullName="noter-md/noter"
+          repositoryFullName="samebase/samebase"
           productionApps={[
             {
               appRoot: ".",
@@ -222,14 +222,14 @@ describe("VaultBranchLinkContent", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
-          repositoryFullName="noter-md/noter"
+          repositoryFullName="samebase/samebase"
           productionApps={[
             {
               appRoot: "apps/api",
               links: [
                 {
-                  href: "https://api.notermd.workers.dev",
-                  label: "api.notermd.workers.dev",
+                  href: "https://api.pfp.workers.dev",
+                  label: "api.pfp.workers.dev",
                   provider: "cloudflare",
                   title: "Open production app for apps/api",
                 },
@@ -239,13 +239,13 @@ describe("VaultBranchLinkContent", () => {
               appRoot: "apps/samebase",
               links: [
                 {
-                  href: "https://noter.notermd.workers.dev",
-                  label: "noter.notermd.workers.dev",
+                  href: "https://samebase.pfp.workers.dev",
+                  label: "samebase.pfp.workers.dev",
                   provider: "cloudflare",
                   title: "Open production app for apps/samebase",
                 },
                 {
-                  href: "https://dashboard.convex.dev/t/noter-md/noter/calm-swan-123",
+                  href: "https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123",
                   label: "Production: calm-swan-123",
                   provider: "convex",
                   title: "Open production Convex deployment calm-swan-123",
@@ -266,10 +266,12 @@ describe("VaultBranchLinkContent", () => {
     );
 
     expect(markup).toContain("apps/api");
-    expect(markup).toContain('href="https://api.notermd.workers.dev"');
+    expect(markup).toContain('href="https://api.pfp.workers.dev"');
     expect(markup).toContain("apps/samebase");
-    expect(markup).toContain('href="https://noter.notermd.workers.dev"');
-    expect(markup).toContain('href="https://dashboard.convex.dev/t/noter-md/noter/calm-swan-123"');
+    expect(markup).toContain('href="https://samebase.pfp.workers.dev"');
+    expect(markup).toContain(
+      'href="https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123"',
+    );
     expect(markup).toContain(">Production: calm-swan-123<");
     expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("apps/samebase"));
     expect(markup.indexOf("apps/samebase")).toBeLessThan(
@@ -309,8 +311,8 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={false}
-        repositoryOwner="noter-md"
-        repositoryName="noter"
+        repositoryOwner="samebase"
+        repositoryName="samebase"
         repositoryLinksOpen={false}
         onRepositoryLinksOpenChange={() => {}}
         titleSuffix={
@@ -320,8 +322,8 @@ describe("VaultDashboardRepositoryCard", () => {
     );
 
     expect(markup).toContain("#");
-    expect(markup).toContain("noter");
-    expect(markup).not.toContain("noter-md/");
+    expect(markup).toContain("samebase");
+    expect(markup).not.toContain("samebase/");
     expect(markup).toContain("(deleting...)");
     expect(markup).not.toContain("<a");
   });
@@ -361,11 +363,11 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={true}
-        repositoryOwner="noter-md"
-        repositoryName="noter"
+        repositoryOwner="samebase"
+        repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">
-            <a href="https://github.com/noter-md/noter">GitHub</a>
+            <a href="https://github.com/samebase/samebase">GitHub</a>
           </nav>
         }
         repositoryLinksOpen={false}
@@ -385,11 +387,11 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={true}
-        repositoryOwner="noter-md"
-        repositoryName="noter"
+        repositoryOwner="samebase"
+        repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">
-            <a href="https://github.com/noter-md/noter">GitHub</a>
+            <a href="https://github.com/samebase/samebase">GitHub</a>
           </nav>
         }
         repositoryLinksOpen={true}
@@ -1292,8 +1294,8 @@ describe("buildVaultDashboardResourceRailState", () => {
         cloudflareWorkers: [
           {
             appRoot: "apps/samebase",
-            workerName: "noter-worker",
-            workersDevUrl: "https://noter-worker.ada.workers.dev",
+            workerName: "samebase-worker",
+            workersDevUrl: "https://samebase-worker.ada.workers.dev",
           },
         ],
       }),

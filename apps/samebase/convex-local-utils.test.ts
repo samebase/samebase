@@ -14,7 +14,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createTempWorkspace = () => {
-  const cwd = mkdtempSync(join(tmpdir(), "noter-convex-local-utils-"));
+  const cwd = mkdtempSync(join(tmpdir(), "samebase-convex-local-utils-"));
   temporaryDirectories.push(cwd);
   return cwd;
 };
@@ -83,7 +83,7 @@ EMPTY_VALUE=""
 
   it("requires an explicit origin before syncing SITE_URL to a shared deployment", () => {
     const cwd = createTempWorkspace();
-    writeEnvFile(cwd, `CONVEX_URL="https://team-noter.convex.cloud"\n`);
+    writeEnvFile(cwd, `CONVEX_URL="https://team-samebase.convex.cloud"\n`);
 
     expect(() => resolveSiteUrlSyncOrigin({}, cwd)).toThrow(
       "DEV_ENV_ORIGIN is required unless the Convex deployment points at localhost.",
@@ -92,7 +92,7 @@ EMPTY_VALUE=""
 
   it("keeps explicit origins for shared deployments", () => {
     const cwd = createTempWorkspace();
-    writeEnvFile(cwd, `CONVEX_URL="https://team-noter.convex.cloud"\n`);
+    writeEnvFile(cwd, `CONVEX_URL="https://team-samebase.convex.cloud"\n`);
 
     expect(
       resolveSiteUrlSyncOrigin(

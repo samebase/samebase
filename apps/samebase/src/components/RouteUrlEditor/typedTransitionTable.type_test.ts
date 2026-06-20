@@ -1,4 +1,4 @@
-import { expectType } from "@noter-md/dependent";
+import { expectType } from "@samebase/dependent";
 import type {
   TypedTransitionActionHandlerTable,
   TypedTransitionAction,

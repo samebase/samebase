@@ -1,10 +1,10 @@
 ---
 name: ios-safari-simulator
 description:
-  Start, inspect, and reason about Apple iOS Simulator for Noter web testing. Use when asked to test
-  noter.md or the Noter app in Mobile Safari, install or inspect an iOS Home Screen PWA, debug
-  iPhone-only focus or software-keyboard behavior, compare Simulator versus real iPhone coverage, or
-  recover missing Xcode/simctl/iOS runtime setup on a Mac.
+  Start, inspect, and reason about Apple iOS Simulator for Samebase web testing. Use when asked to
+  test samebase.com or the Samebase app in Mobile Safari, install or inspect an iOS Home Screen PWA,
+  debug iPhone-only focus or software-keyboard behavior, compare Simulator versus real iPhone
+  coverage, or recover missing Xcode/simctl/iOS runtime setup on a Mac.
 ---
 
 # iOS Safari Simulator
@@ -40,7 +40,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 On 2026-06-09 this Mac successfully installed `iOS 26.3.1 (23D8133)` with that command. Do not
 assume the exact runtime version later; list runtimes after install.
 
-## Boot And Open Noter
+## Boot And Open Samebase
 
 List generated devices and pick an iPhone that matches the available runtime:
 
@@ -63,14 +63,14 @@ Open the public site or a local dev URL in Mobile Safari:
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcrun simctl openurl "$DEVICE" https://noter.md
+  xcrun simctl openurl "$DEVICE" https://samebase.com
 ```
 
 Capture evidence:
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcrun simctl io "$DEVICE" screenshot /tmp/noter-ios-simulator.png
+  xcrun simctl io "$DEVICE" screenshot /tmp/samebase-ios-simulator.png
 ```
 
 Use `simctl io "$DEVICE" recordVideo <file>` when motion or keyboard transition evidence matters.

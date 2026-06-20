@@ -51,10 +51,10 @@ describe("run-primary-dev", () => {
   it("leaves explicit non-local origins alone", () => {
     expect(
       buildPrimaryDevEnvironment({
-        DEV_ENV_ORIGIN: "https://preview.noter.md",
+        DEV_ENV_ORIGIN: "https://preview.samebase.md",
       }),
     ).toEqual({
-      DEV_ENV_ORIGIN: "https://preview.noter.md",
+      DEV_ENV_ORIGIN: "https://preview.samebase.md",
     });
   });
 

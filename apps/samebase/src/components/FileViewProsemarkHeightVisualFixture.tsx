@@ -12,7 +12,7 @@ import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { linkStyle } from "@/components/styles";
 import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
-import { isKeyOf } from "@noter-md/dependent";
+import { isKeyOf } from "@samebase/dependent";
 
 export type FileViewProsemarkHeightVisualMode = "fileview-prosemark-flex-height";
 

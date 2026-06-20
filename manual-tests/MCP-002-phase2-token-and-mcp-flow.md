@@ -27,5 +27,5 @@ Validate token and protected MCP endpoints are present and enforce OAuth validat
 
 ## Notes
 
-- Full authorization-code + PKCE success flow requires an authenticated Noter session for
+- Full authorization-code + PKCE success flow requires an authenticated Samebase session for
   `/oauth/mcp/authorize`.

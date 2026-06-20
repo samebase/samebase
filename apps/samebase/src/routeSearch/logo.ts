@@ -1,5 +1,5 @@
-import { includes } from "@noter-md/dependent";
-import { keys } from "@noter-md/dependent/object";
+import { includes } from "@samebase/dependent";
+import { keys } from "@samebase/dependent/object";
 import { type LogoRotationAxisMode } from "@/components/logo/logoRotationMath";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,

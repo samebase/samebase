@@ -7,7 +7,7 @@ import {
   redirect,
   rootRouteId,
 } from "@tanstack/react-router";
-import { pick } from "@noter-md/dependent/object";
+import { pick } from "@samebase/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { AppRootClient } from "@/components/AppRootClient";
 import {

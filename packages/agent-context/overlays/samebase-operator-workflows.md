@@ -1,4 +1,4 @@
-# Noter Operator Workflows Overlay Draft
+# Samebase Operator Workflows Overlay Draft
 
 ## Purpose
 
@@ -41,22 +41,22 @@ portable TypeScript or generated-app skill pack.
 
 When the user says one of these commands, execute it directly:
 
-| Command        | Action                                                                                                                                                         |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `commit`       | Stage changes and create a concise commit                                                                                                                      |
-| `push`         | Commit if needed, then push                                                                                                                                    |
-| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                             |
-| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                             |
-| `ready`        | Mark the current PR ready                                                                                                                                      |
-| `wait`         | Watch CI and report status                                                                                                                                     |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                                 |
-| `squash`       | Squash-merge the current PR                                                                                                                                    |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                          |
-| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                                    |
-| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                                 |
-| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
-| `status`       | Report branch, local changes, and PR state                                                                                                                     |
-| `rebase`       | Rebase onto the latest base and push the rewritten branch                                                                                                      |
+| Command        | Action                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `commit`       | Stage changes and create a concise commit                                                                                                                          |
+| `push`         | Commit if needed, then push                                                                                                                                        |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                                 |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                                 |
+| `ready`        | Mark the current PR ready                                                                                                                                          |
+| `wait`         | Watch CI and report status                                                                                                                                         |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, wait                                                                                     |
+| `squash`       | Squash-merge the current PR                                                                                                                                        |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                              |
+| `link machine` | Run the current checkout's `samebase.ts` machine-link flow with worktree isolation when needed                                                                     |
+| `clean vaults` | Remove temporary Samebase-managed vaults for the current worktree                                                                                                  |
+| `clean`        | Run `clean vaults`, clean samebase.com PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
+| `status`       | Report branch, local changes, and PR state                                                                                                                         |
+| `rebase`       | Rebase onto the latest base and push the rewritten branch                                                                                                          |
 
 ## Convex And External State
 
@@ -64,7 +64,7 @@ When the user says one of these commands, execute it directly:
   and clear `CONVEX_DEPLOY_KEY` in the command environment.
 - Stop and rerun if the Convex CLI says it is ignoring `--prod` because of `CONVEX_DEPLOY_KEY`.
 - Use exact temporary resource prefixes such as `tmp-<worktree-id>-<intent>` when the workflow
-  requires Noter-managed test resources.
+  requires Samebase-managed test resources.
 - Cleanup must prove provider resource identity and skip resources whose exact preview ownership is
   not provable.
 - Dry-run cleanup proof should use read-only local and GitHub evidence such as `git status`,

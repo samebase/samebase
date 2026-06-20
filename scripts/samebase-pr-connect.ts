@@ -40,7 +40,7 @@ type PullRequestSummary = {
   labels: PullRequestLabel[];
 };
 
-type NoterOriginMarker = {
+type SamebaseOriginMarker = {
   source: string;
   mode: string;
   firstMessage: string;
@@ -48,13 +48,13 @@ type NoterOriginMarker = {
   requestedReasoningEffort: string;
   repositoryFullName: string;
   headRefName: string;
-  noterThreadId?: string;
+  samebaseThreadId?: string;
 };
 
 type MarkerValidationResult =
   | {
       ok: true;
-      marker: NoterOriginMarker;
+      marker: SamebaseOriginMarker;
     }
   | {
       ok: false;
@@ -98,11 +98,11 @@ const DEFAULT_INTERVAL_SECONDS = 60;
 const FAILED_RUN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
 const SAFE_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const ALLOWED_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"];
-const MARKER_PREFIX = "<!-- noter-origin:v1 ";
+const MARKER_PREFIX = "<!-- samebase-origin:v1 ";
 const MARKER_SUFFIX = " -->";
-const HELP_TEXT = `Usage: scripts/noter-pr-connect.ts [options]
+const HELP_TEXT = `Usage: scripts/samebase-pr-connect.ts [options]
 
-Poll GitHub PRs for explicit noter-origin metadata and launch local Codex runs.
+Poll GitHub PRs for explicit samebase-origin metadata and launch local Codex runs.
 
 Options:
   --once               Run one polling cycle and exit.
@@ -123,7 +123,7 @@ if (options.showHelp) {
 
 const repoRoot = resolveRepoRoot();
 const repoFullName = resolveRepositoryFullName(repoRoot);
-const stateRoot = path.join(os.homedir(), ".codex", "noter-connect");
+const stateRoot = path.join(os.homedir(), ".codex", "samebase-connect");
 const worktreesRoot = path.join(stateRoot, "worktrees");
 const runsRoot = path.join(stateRoot, "runs");
 const statePath = path.join(stateRoot, "state.json");
@@ -554,7 +554,7 @@ function buildRunKey(pullRequest: PullRequestSummary): string {
 
 function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidationResult {
   // Treat the PR body marker as the cross-system contract. We do not infer this
-  // from Noter chat state or branch naming.
+  // from Samebase chat state or branch naming.
   const extractedMarker = extractOriginMarkerJson(pullRequest.body);
   if (!extractedMarker.ok) {
     return {
@@ -569,14 +569,14 @@ function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidation
   } catch (error) {
     return {
       ok: false,
-      reason: `invalid noter-origin JSON: ${describeError(error)}`,
+      reason: `invalid samebase-origin JSON: ${describeError(error)}`,
     };
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return {
       ok: false,
-      reason: "noter-origin marker must decode to a JSON object",
+      reason: "samebase-origin marker must decode to a JSON object",
     };
   }
 
@@ -594,7 +594,7 @@ function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidation
     if (typeof marker[fieldName] !== "string" || marker[fieldName].trim().length === 0) {
       return {
         ok: false,
-        reason: `noter-origin marker is missing required string field "${fieldName}"`,
+        reason: `samebase-origin marker is missing required string field "${fieldName}"`,
       };
     }
   }
@@ -603,7 +603,7 @@ function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidation
   if (!SAFE_MODEL_PATTERN.test(requestedModel)) {
     return {
       ok: false,
-      reason: `noter-origin requestedModel "${requestedModel}" contains unsupported characters`,
+      reason: `samebase-origin requestedModel "${requestedModel}" contains unsupported characters`,
     };
   }
 
@@ -611,21 +611,21 @@ function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidation
   if (!ALLOWED_REASONING_EFFORTS.includes(requestedReasoningEffort)) {
     return {
       ok: false,
-      reason: `noter-origin requestedReasoningEffort "${requestedReasoningEffort}" is unsupported`,
+      reason: `samebase-origin requestedReasoningEffort "${requestedReasoningEffort}" is unsupported`,
     };
   }
 
-  if (marker["source"] !== "noter_ui") {
+  if (marker["source"] !== "samebase_ui") {
     return {
       ok: false,
-      reason: `noter-origin source must be "noter_ui" (got "${String(marker["source"])}")`,
+      reason: `samebase-origin source must be "samebase_ui" (got "${String(marker["source"])}")`,
     };
   }
 
   if (marker["mode"] !== "research") {
     return {
       ok: false,
-      reason: `noter-origin mode must be "research" (got "${String(marker["mode"])}")`,
+      reason: `samebase-origin mode must be "research" (got "${String(marker["mode"])}")`,
     };
   }
 
@@ -633,7 +633,7 @@ function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidation
     return {
       ok: false,
       reason:
-        `noter-origin repositoryFullName "${String(marker["repositoryFullName"])}" ` +
+        `samebase-origin repositoryFullName "${String(marker["repositoryFullName"])}" ` +
         `does not match current repo "${repoFullName}"`,
     };
   }
@@ -642,14 +642,14 @@ function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidation
     return {
       ok: false,
       reason:
-        `noter-origin headRefName "${String(marker["headRefName"])}" ` +
+        `samebase-origin headRefName "${String(marker["headRefName"])}" ` +
         `does not match PR head "${pullRequest.headRefName}"`,
     };
   }
 
   return {
     ok: true,
-    marker: marker as NoterOriginMarker,
+    marker: marker as SamebaseOriginMarker,
   };
 }
 
@@ -657,7 +657,7 @@ function validateOriginMarker(pullRequest: PullRequestSummary): MarkerValidation
 
 async function handleValidPullRequest(
   pullRequest: PullRequestSummary,
-  marker: NoterOriginMarker,
+  marker: SamebaseOriginMarker,
   state: ConnectState,
 ): Promise<void> {
   const runKey = buildRunKey(pullRequest);
@@ -762,7 +762,7 @@ function buildWorktreePath(pullRequest: PullRequestSummary): string {
     worktreesRoot,
     repositoryPathSegment,
     `pr-${pullRequest.number}-${sanitizePathSegment(pullRequest.headRefName)}`,
-    "noter",
+    "samebase",
   );
 }
 
@@ -884,7 +884,7 @@ function findWorktreeByBranch(branchRef: string): string | null {
 
 function runCodexForPullRequest(params: {
   pullRequest: PullRequestSummary;
-  marker: NoterOriginMarker;
+  marker: SamebaseOriginMarker;
   runId: string;
   worktreePath: string;
   artifactDir: string;
@@ -934,14 +934,14 @@ function runCodexForPullRequest(params: {
 
 function buildCodexPrompt(params: {
   pullRequest: PullRequestSummary;
-  marker: NoterOriginMarker;
+  marker: SamebaseOriginMarker;
   runId: string;
   worktreePath: string;
   artifactDir: string;
 }): string {
   const markerText = `${MARKER_PREFIX}${JSON.stringify(params.marker)}${MARKER_SUFFIX}`;
   return [
-    "A draft PR created from noter.md UI was claimed by a local `pnpm connect` run.",
+    "A draft PR created from samebase.com UI was claimed by a local `pnpm connect` run.",
     "",
     `Repository: ${repoFullName}`,
     `PR: #${params.pullRequest.number} ${params.pullRequest.url}`,
@@ -950,7 +950,7 @@ function buildCodexPrompt(params: {
     "",
     "Important context:",
     "- Read AGENTS.md and the current source-of-truth docs before making decisions.",
-    "- Noter Convex chat state and Codex thread state are separate systems today. Do not assume hidden shared chat history outside this prompt and the PR body.",
+    "- Samebase Convex chat state and Codex thread state are separate systems today. Do not assume hidden shared chat history outside this prompt and the PR body.",
     "- The PR body marker below is the durable machine-readable contract for this run.",
     `- If you need to push branch updates, prefer \`git push origin HEAD:${params.pullRequest.headRefName}\`.`,
     "",
@@ -1023,7 +1023,7 @@ function tryPostPullRequestComment(pullRequestNumber: number, body: string): voi
 
 function buildClaimComment(params: {
   pullRequest: PullRequestSummary;
-  marker: NoterOriginMarker;
+  marker: SamebaseOriginMarker;
   runId: string;
 }): string {
   return [
@@ -1049,7 +1049,7 @@ function buildInvalidContractComment(pullRequest: PullRequestSummary, reason: st
     "",
     "Current runner contract:",
     `- visible label: \`${options.label}\``,
-    "- hidden body marker: `<!-- noter-origin:v1 {...} -->`",
+    "- hidden body marker: `<!-- samebase-origin:v1 {...} -->`",
     "- required marker fields: `source`, `mode`, `firstMessage`, `requestedModel`, `requestedReasoningEffort`, `repositoryFullName`, `headRefName`",
     "",
     "Nothing was launched.",
@@ -1219,7 +1219,7 @@ function extractOriginMarkerJson(
     if (!trimmedLine.endsWith(MARKER_SUFFIX)) {
       return {
         ok: false,
-        reason: "noter-origin marker is missing the closing `-->` delimiter",
+        reason: "samebase-origin marker is missing the closing `-->` delimiter",
       };
     }
 
@@ -1231,7 +1231,7 @@ function extractOriginMarkerJson(
 
   return {
     ok: false,
-    reason: "missing hidden `<!-- noter-origin:v1 {...} -->` marker in the PR body",
+    reason: "missing hidden `<!-- samebase-origin:v1 {...} -->` marker in the PR body",
   };
 }
 

@@ -1,15 +1,15 @@
-# noter.md
+# samebase.com
 
-noter is a collaborative, GitHub-connected code editor built as a PNPM workspace with React +
+Samebase is a collaborative, GitHub-connected code editor built as a PNPM workspace with React +
 TanStack Start/Vite on the frontend and Convex on the backend.
 
 ## Current Product Capabilities (2026-02-13)
 
 - Real-time collaborative editing with CodeMirror + Convex synchronization
 - GitHub repository connection (`connectRepository`) for existing repos
-- New agent/repo creation (`createRepository`) for noter-managed vaults, seeded as a runnable
+- New agent/repo creation (`createRepository`) for samebase-managed vaults, seeded as a runnable
   starter in a single commit
-- Automatic infrastructure provisioning for new noter-managed vaults:
+- Automatic infrastructure provisioning for new samebase-managed vaults:
   - Convex project/deployment
   - Cloudflare Workers project + environment wiring
   - Infrastructure status surfaced in Vault Dashboard
@@ -21,10 +21,10 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 
 ## Important Behavior
 
-- Auto infra provisioning is triggered only for newly created noter-managed vaults.
+- Auto infra provisioning is triggered only for newly created samebase-managed vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
-- Starter seed source of truth is the external `notermd/app` GitHub repository, exported via
-  `pnpm template:export` (`scripts/export-notermd-app-manifest.ts`) to
+- Starter seed source of truth is the external `samebase/app` GitHub repository, exported via
+  `pnpm template:export` (`scripts/export-samebase-app-manifest.ts`) to
   `apps/samebase/convex/starterSeedManifest.generated.ts`.
 
 ## Tech Stack
@@ -42,7 +42,7 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 .
 ├── AGENTS.md
 ├── apps/
-│   ├── noter/
+│   ├── samebase/
 │   │   ├── src/
 │   │   └── convex/
 │   ├── domain-router/
@@ -100,21 +100,20 @@ pnpm dev
 ```
 
 6. Open the URL Vite prints in the terminal. The usual default is
-   [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy noter now picks the
+   [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy Samebase now picks the
    next free local port before startup so the frontend and `SITE_URL` stay aligned.
 
 Notes:
 
-- In Windows PowerShell, direct hosted-file `noter.ts` commands should use `curl.exe`, not the
-  built-in `curl` alias. This matches the Windows-safe command work merged in
-  [`#395`](https://github.com/noter-md/noter/pull/395).
-- The `noter.ts connect` flow now prints a `next:` approval URL instead of trying to open a browser
-  automatically. Open that printed link manually in a signed-in browser. This keeps the flow
+- In Windows PowerShell, direct hosted-file `samebase.ts` commands should use `curl.exe`, not the
+  built-in `curl` alias.
+- The `samebase.ts connect` flow now prints a `next:` approval URL instead of trying to open a
+  browser automatically. Open that printed link manually in a signed-in browser. This keeps the flow
   consistent across native Windows and Linux sandbox environments.
-- Windows `noter.ts` resolution also supports Codex installed through Volta, as long as the `codex`
-  and `volta` commands are available on `PATH`. noter resolves that shim from the current workspace
-  so project-scoped Volta setups launch the same Codex binary that the later runtime command would
-  use.
+- Windows `samebase.ts` resolution also supports Codex installed through Volta, as long as the
+  `codex` and `volta` commands are available on `PATH`. Samebase resolves that shim from the current
+  workspace so project-scoped Volta setups launch the same Codex binary that the later runtime
+  command would use.
 - On a brand-new machine, the first `pnpm dev` run may pause for an interactive Convex CLI
   login/bootstrap prompt before `apps/samebase/.env.local` exists.
 - On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL` sync after the
@@ -123,7 +122,7 @@ Notes:
 - `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on `3210` before
   bootstrap. If it still reports that `3210` is occupied, stop the leftover backend process manually
   and retry.
-- For local connected-machine testing with `/noter.ts` on a fresh Windows checkout that does not
+- For local connected-machine testing with `/samebase.ts` on a fresh Windows checkout that does not
   already have a cloud dev source env, use the dated troubleshooting notes in
   `research/windows-native-connected-machine-walkthrough-2026-04-01.md` if you need the older
   step-by-step debugging sequence.
@@ -175,7 +174,7 @@ Local dry-runs build the app assets without deploying Convex and can validate th
 with:
 
 ```bash
-CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter samebase deploy:dry-run
+CLOUDFLARE_WORKER_NAME=samebase pnpm --filter samebase deploy:dry-run
 ```
 
 ### Testing

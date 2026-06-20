@@ -4,7 +4,7 @@ import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { isRecord } from "@noter-md/dependent";
+import { isRecord } from "@samebase/dependent";
 
 type ParsedArgs = Record<string, string | undefined>;
 type BufferedChildProcess = ChildProcessByStdio<null, Readable, Readable>;
@@ -131,8 +131,8 @@ export async function main(argv: string[]) {
   throw new Error(
     [
       "Usage:",
-      "  noter-onboarding-video landing-demo [--output <path>] [--pad <points>]",
-      "  noter-onboarding-video screen-demo [--output <path>] [--duration <seconds>]",
+      "  samebase-onboarding-video landing-demo [--output <path>] [--pad <points>]",
+      "  samebase-onboarding-video screen-demo [--output <path>] [--duration <seconds>]",
     ].join("\n"),
   );
 }

@@ -2,7 +2,7 @@
 
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { Infer, v } from "convex/values";
-import { guard } from "@noter-md/dependent/main";
+import { guard } from "@samebase/dependent/main";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";

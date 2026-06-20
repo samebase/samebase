@@ -1,26 +1,26 @@
 ---
-name: noter-playwright-live
+name: samebase-playwright-live
 description:
-  Run Noter-stack apps locally and inspect real UI behavior with Playwright CLI. Use when asked to
-  start the site, navigate pages, log in, click through flows, reproduce UI bugs, verify visual
-  states, or capture screenshots/snapshots. Applies to this noter monorepo and repositories created
-  from noter starter template (React + Vite + Convex).
+  Run Samebase-stack apps locally and inspect real UI behavior with Playwright CLI. Use when asked
+  to start the site, navigate pages, log in, click through flows, reproduce UI bugs, verify visual
+  states, or capture screenshots/snapshots. Applies to this Samebase monorepo and repositories
+  created from the Samebase starter template (React + Vite + Convex).
 ---
 
-# Noter Playwright Live
+# Samebase Playwright Live
 
 ## Goal
 
 Use a real browser session (not unit/E2E test runner) to validate behavior and visuals for
-Noter-stack apps.
+Samebase-stack apps.
 
 ## Packaged Context Relationship
 
-This skill remains the Noter-specific compatibility entrypoint for live browser sessions. For the
+This skill remains the Samebase-specific compatibility entrypoint for live browser sessions. For the
 portable route-validation checklist, use
 `packages/agent-context/skills/route-ui-validation/SKILL.md`. Pair it with
-`packages/agent-context/overlays/noter-operator-workflows.md` for context-aware dev startup,
-branch-scoped browser sessions, Linux visual baselines, and Noter response rules.
+`packages/agent-context/overlays/samebase-operator-workflows.md` for context-aware dev startup,
+branch-scoped browser sessions, Linux visual baselines, and Samebase response rules.
 
 ## Core Policy
 
@@ -46,13 +46,13 @@ git rev-parse --abbrev-ref HEAD
 
 2. Detect project type.
 
-- Noter monorepo: `apps/samebase/package.json` exists.
-- Noter starter/generated app: root `package.json` includes Vite + Convex scripts (`dev`,
+- Samebase monorepo: `apps/samebase/package.json` exists.
+- Samebase starter/generated app: root `package.json` includes Vite + Convex scripts (`dev`,
   `dev:frontend`, `dev:backend`).
 
 3. Start dev server in a long-running session.
 
-- Noter monorepo (preferred): run `pnpm dev:worktree` from repo root.
+- Samebase monorepo (preferred): run `pnpm dev:worktree` from repo root.
 - Starter/generated app: run `pnpm run dev` from project root.
 
 If dependencies are missing, run `pnpm install` first.
@@ -80,7 +80,7 @@ if [ -f ./scripts/playwright-branch-browser.ts ]; then
   SESSION="$(node ./scripts/playwright-branch-browser.ts session)"
   node ./scripts/playwright-branch-browser.ts open "$URL"
 else
-  SESSION="noter-$(basename "$PWD")-$(git rev-parse --abbrev-ref HEAD | tr '/' '-')"
+  SESSION="samebase-$(basename "$PWD")-$(git rev-parse --abbrev-ref HEAD | tr '/' '-')"
   npx --yes @playwright/cli -s="$SESSION" open "$URL"
 fi
 ```
@@ -98,10 +98,10 @@ fi
 ```bash
 if [ -f ./scripts/playwright-branch-browser.ts ]; then
   node ./scripts/playwright-branch-browser.ts cli snapshot
-  node ./scripts/playwright-branch-browser.ts cli screenshot --filename=/tmp/noter-<action>-<timestamp>.png
+  node ./scripts/playwright-branch-browser.ts cli screenshot --filename=/tmp/samebase-<action>-<timestamp>.png
 else
   npx --yes @playwright/cli -s="$SESSION" snapshot
-  npx --yes @playwright/cli -s="$SESSION" screenshot --filename=/tmp/noter-<action>-<timestamp>.png
+  npx --yes @playwright/cli -s="$SESSION" screenshot --filename=/tmp/samebase-<action>-<timestamp>.png
 fi
 ```
 
@@ -110,7 +110,7 @@ fi
 - Include URL reached, key state changes, and blockers.
 - Include screenshot file paths.
 
-## Noter Monorepo Defaults
+## Samebase Monorepo Defaults
 
 Use these defaults when working in this repository.
 

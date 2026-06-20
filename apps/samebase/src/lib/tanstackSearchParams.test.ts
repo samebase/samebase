@@ -28,7 +28,7 @@ describe("tanstackSearchParams", () => {
     expect(
       stringifyTanStackSearch({
         "create-account": true,
-        delete: "noter-md/noter",
+        delete: "samebase/samebase",
         dev: false,
         diff: 0,
         freeView: "false",

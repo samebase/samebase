@@ -2,7 +2,7 @@
 
 Use `@playwright/cli` for direct browser driving.
 
-## Noter Repo Default
+## Samebase Repo Default
 
 When `scripts/playwright-branch-browser.ts` exists, prefer the branch wrapper so each branch keeps a
 deterministic session/profile and reopening the session adds a fresh tab instead of unloading a
@@ -12,7 +12,7 @@ dirty page.
 SESSION="$(node ./scripts/playwright-branch-browser.ts session)"
 node ./scripts/playwright-branch-browser.ts open "$URL"
 node ./scripts/playwright-branch-browser.ts cli snapshot
-node ./scripts/playwright-branch-browser.ts cli screenshot --filename=/tmp/noter-step.png
+node ./scripts/playwright-branch-browser.ts cli screenshot --filename=/tmp/samebase-step.png
 ```
 
 ## Session + Navigation
@@ -37,7 +37,7 @@ npx --yes @playwright/cli -s=<session> press Enter
 ```bash
 npx --yes @playwright/cli -s=<session> console
 npx --yes @playwright/cli -s=<session> network
-npx --yes @playwright/cli -s=<session> screenshot --filename=/tmp/noter-step.png
+npx --yes @playwright/cli -s=<session> screenshot --filename=/tmp/samebase-step.png
 ```
 
 ## Cleanup

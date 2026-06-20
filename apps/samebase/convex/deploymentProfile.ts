@@ -1,5 +1,5 @@
 import { Infer, v } from "convex/values";
-import { notEmpty } from "@noter-md/dependent/main";
+import { notEmpty } from "@samebase/dependent/main";
 import { query } from "./functions";
 import { readOptionalEnv } from "./oauthUtils";
 

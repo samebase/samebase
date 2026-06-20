@@ -41,7 +41,7 @@ import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
-import { notEmpty } from "@noter-md/dependent";
+import { notEmpty } from "@samebase/dependent";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
@@ -547,7 +547,7 @@ type FileViewVault = NonNullable<(typeof api.vault.records.getVaultByRepository)
 
 function hasFileViewVaultTree(
   vault: NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>,
-  // eslint-disable-next-line noter/no-hand-written-type-predicate -- property-presence intersection: the checks narrow property references, not the vault object
+  // eslint-disable-next-line samebase/no-hand-written-type-predicate -- property-presence intersection: the checks narrow property references, not the vault object
 ): vault is FileViewVault {
   return Boolean(vault.treeSHA && vault.treeData);
 }

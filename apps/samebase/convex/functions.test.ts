@@ -1,4 +1,4 @@
-import { expectType } from "@noter-md/dependent";
+import { expectType } from "@samebase/dependent";
 import { v } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 

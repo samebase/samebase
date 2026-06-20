@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
-import { notEmpty } from "@noter-md/dependent/main";
+import { notEmpty } from "@samebase/dependent/main";
 import { normalizeEnvValue } from "./normalizeEnvValue.ts";
 
 const LOCAL_CONVEX_HOSTS = new Set(["127.0.0.1", "localhost"]);
 export const DEFAULT_LOCAL_SITE_PORT = 5173;
 const getLocalDevOriginStatePath = (cwd = process.cwd()) =>
-  path.join(cwd, "node_modules", ".cache", "noter-local-dev-origin.json");
+  path.join(cwd, "node_modules", ".cache", "samebase-local-dev-origin.json");
 
 export const readEnvFile = (cwd: string = process.cwd()): Partial<Record<string, string>> => {
   const envPath = path.join(cwd, ".env.local");

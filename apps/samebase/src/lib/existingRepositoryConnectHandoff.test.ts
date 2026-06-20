@@ -14,15 +14,15 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     await queueExistingRepositoryAndNavigateToDashboard({
       connectRepository,
       navigateByHref,
-      repositoryFullName: "noter-md/noter",
+      repositoryFullName: "samebase/samebase",
       search: { "prod-ui": true },
     });
 
     expect(connectRepository).toHaveBeenCalledWith({
-      repositoryFullName: "noter-md/noter",
+      repositoryFullName: "samebase/samebase",
     });
     expect(navigateByHref).toHaveBeenCalledWith("/home?prod-ui", undefined);
-    expect(calls).toEqual(["connect:noter-md/noter", "navigate:/home?prod-ui:push"]);
+    expect(calls).toEqual(["connect:samebase/samebase", "navigate:/home?prod-ui:push"]);
   });
 
   it("replaces the direct file route with the dashboard after queueing", async () => {
@@ -32,13 +32,13 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     await queueExistingRepositoryAndNavigateToDashboard({
       connectRepository,
       navigateByHref,
-      repositoryFullName: "noter-md/noter",
+      repositoryFullName: "samebase/samebase",
       replace: true,
       search: { review: true, mobileLineNumbers: "1" },
     });
 
     expect(connectRepository).toHaveBeenCalledWith({
-      repositoryFullName: "noter-md/noter",
+      repositoryFullName: "samebase/samebase",
     });
     expect(navigateByHref).toHaveBeenCalledWith("/home?review&mobileLineNumbers=1", {
       replace: true,
@@ -55,7 +55,7 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
       queueExistingRepositoryAndNavigateToDashboard({
         connectRepository,
         navigateByHref,
-        repositoryFullName: "noter-md/noter",
+        repositoryFullName: "samebase/samebase",
         search: {},
       }),
     ).rejects.toThrow("GitHub is not connected");

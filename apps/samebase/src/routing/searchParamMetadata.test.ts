@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { expectType } from "@noter-md/dependent";
+import { expectType } from "@samebase/dependent";
 import { literal } from "@samebase/sure";
 import {
   defineRouteSearchParams,

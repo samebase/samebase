@@ -16,7 +16,7 @@ Ensure the landing page copy renders as prose while blurred, reveals markdown ma
 2. Find the dev URL (example):
    `for p in $(seq 5173 5190); do curl -fsS "http://127.0.0.1:$p" >/dev/null && echo "http://127.0.0.1:$p" && break; done`
 3. Open the URL in a browser or Playwright CLI session.
-4. On the landing page, find the heading “Noter is a collaborative markdown workspace on top of
+4. On the landing page, find the heading “Samebase is a collaborative markdown workspace on top of
    GitHub”.
 5. Confirm there are no visible `#` characters in the heading or description list.
 6. Click inside the landing copy (on the heading text).
@@ -38,7 +38,7 @@ Ensure the landing page copy renders as prose while blurred, reveals markdown ma
 ## Optional Evidence
 
 - Screenshot before click, after click, after selection, and after blur (paths like
-  `/tmp/noter-landing-before.png`).
+  `/tmp/samebase-landing-before.png`).
 
 ## Cleanup
 

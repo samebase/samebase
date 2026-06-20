@@ -16,7 +16,7 @@ import {
   type ProdReadProposalPayload as ProdReadProposal,
 } from "../../shared/chatMetadata";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
-import { isRecord } from "@noter-md/dependent";
+import { isRecord } from "@samebase/dependent";
 
 // --- Metadata parsing ---
 

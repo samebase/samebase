@@ -87,7 +87,7 @@ describe("FileViewPushActions", () => {
       <FileViewPushActions
         canCreateDraftPullRequest={false}
         currentPullRequestNumber={999}
-        currentPullRequestUrl="https://github.com/noter-md/noter/pull/999"
+        currentPullRequestUrl="https://github.com/samebase/samebase/pull/999"
         draftButtonLabel="create draft"
         hasChangesToCommit={false}
         isCreatingDraftPullRequest={false}
@@ -98,7 +98,7 @@ describe("FileViewPushActions", () => {
     );
 
     expect(markup).toMatchInlineSnapshot(
-      `"<a class="text-xs" data-component="PullRequestLink" data-pull-request-number="999" href="https://github.com/noter-md/noter/pull/999">#999</a><button class="h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50" disabled="" data-size="sm" data-variant="outline">All Synced</button>"`,
+      `"<a class="text-xs" data-component="PullRequestLink" data-pull-request-number="999" href="https://github.com/samebase/samebase/pull/999">#999</a><button class="h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50" disabled="" data-size="sm" data-variant="outline">All Synced</button>"`,
     );
   });
 

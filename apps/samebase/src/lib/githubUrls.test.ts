@@ -10,9 +10,9 @@ describe("githubUrls", () => {
   it("builds a branch tree URL for GitHub repository branches", () => {
     expect(
       buildGitHubBranchTreeUrl({
-        repositoryFullName: "noter-md/noter",
+        repositoryFullName: "samebase/samebase",
         branchName: "codex/dashboard branch-link",
       }),
-    ).toBe("https://github.com/noter-md/noter/tree/codex/dashboard%20branch-link");
+    ).toBe("https://github.com/samebase/samebase/tree/codex/dashboard%20branch-link");
   });
 });

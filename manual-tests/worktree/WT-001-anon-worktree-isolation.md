@@ -16,22 +16,22 @@ and isolated seed data.
 1. Create two test worktrees on new temporary branches:
 
 ```bash
-git worktree add /tmp/noter-wt-a -b codex/wt-isolation-a
-git worktree add /tmp/noter-wt-b -b codex/wt-isolation-b
+git worktree add /tmp/samebase-wt-a -b codex/wt-isolation-a
+git worktree add /tmp/samebase-wt-b -b codex/wt-isolation-b
 ```
 
 2. In each worktree, bootstrap anonymous mode:
 
 ```bash
-make -C /tmp/noter-wt-a dev:worktree:once
-make -C /tmp/noter-wt-b dev:worktree:once
+make -C /tmp/samebase-wt-a dev:worktree:once
+make -C /tmp/samebase-wt-b dev:worktree:once
 ```
 
 3. Compare backend URLs written by each worktree:
 
 ```bash
-grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-a/apps/samebase/.env.local
-grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-b/apps/samebase/.env.local
+grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/samebase-wt-a/apps/samebase/.env.local
+grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/samebase-wt-b/apps/samebase/.env.local
 ```
 
 4. Confirm each worktree captured allowlisted env vars in `.env.anon-seed.local` and applied seed
@@ -40,16 +40,16 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-
    `ANTHROPIC_API_KEY` is set on the cloud dev deployment:
 
 ```bash
-grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-a/apps/samebase/.env.anon-seed.local | cut -d= -f1
-grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/samebase/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/samebase-wt-a/apps/samebase/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/samebase-wt-b/apps/samebase/.env.anon-seed.local | cut -d= -f1
 
-(cd /tmp/noter-wt-a/apps/samebase && \
+(cd /tmp/samebase-wt-a/apps/samebase && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
   pid=$!; sleep 5; \
   npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \
   kill $pid; wait $pid 2>/dev/null || true)
 
-(cd /tmp/noter-wt-b/apps/samebase && \
+(cd /tmp/samebase-wt-b/apps/samebase && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
   pid=$!; sleep 5; \
   npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \
@@ -65,7 +65,7 @@ grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/samebase/.en
 ## Expected Results
 
 1. Both `make ... dev:worktree:once` commands complete successfully.
-2. `VITE_CONVEX_URL` values differ between `/tmp/noter-wt-a` and `/tmp/noter-wt-b`.
+2. `VITE_CONVEX_URL` values differ between `/tmp/samebase-wt-a` and `/tmp/samebase-wt-b`.
 3. Each worktree can run seed/auth setup without cross-worktree admin/auth conflicts.
 4. Each `.env.anon-seed.local` includes `DEV_SEED_*` entries from the dev seed env (API keys
    present), plus `ANTHROPIC_API_KEY` when it is set on the cloud dev deployment.
@@ -81,8 +81,8 @@ grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/samebase/.en
 ```bash
 mkdir -p manual-tests/.runs
 # Use tee while running step 2:
-# make -C /tmp/noter-wt-a dev:worktree:once | tee manual-tests/.runs/wt-001-a.log
-# make -C /tmp/noter-wt-b dev:worktree:once | tee manual-tests/.runs/wt-001-b.log
+# make -C /tmp/samebase-wt-a dev:worktree:once | tee manual-tests/.runs/wt-001-a.log
+# make -C /tmp/samebase-wt-b dev:worktree:once | tee manual-tests/.runs/wt-001-b.log
 ```
 
 - Avoid saving `npx convex data ...` outputs to disk unless you redact API keys.
@@ -90,7 +90,7 @@ mkdir -p manual-tests/.runs
 ## Cleanup
 
 ```bash
-git worktree remove --force /tmp/noter-wt-a
-git worktree remove --force /tmp/noter-wt-b
+git worktree remove --force /tmp/samebase-wt-a
+git worktree remove --force /tmp/samebase-wt-b
 git branch -D codex/wt-isolation-a codex/wt-isolation-b
 ```

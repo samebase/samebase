@@ -1,20 +1,21 @@
-# Noter PR Preview Cleanup
+# Samebase PR Preview Cleanup
 
 Use this during `clean` for a branch whose PR is merged or closed, after `clean vaults` and before
 deleting the remote branch. This is a Codex/operator workflow, not a repo script.
 
-Any GitHub PR for the branch, including a draft PR, is enough evidence that Noter preview resources
-exist. Treat both the Cloudflare Worker preview and the Convex preview deployment as mandatory
-cleanup targets once the PR is terminal. Missing local environment files or inherited credentials do
-not change that assumption; they only block cleanup until the credentials are available.
+Any GitHub PR for the branch, including a draft PR, is enough evidence that Samebase preview
+resources exist. Treat both the Cloudflare Worker preview and the Convex preview deployment as
+mandatory cleanup targets once the PR is terminal. Missing local environment files or inherited
+credentials do not change that assumption; they only block cleanup until the credentials are
+available.
 
-The scope is only preview resources created for the `noter.md` app build:
+The scope is only preview resources created for the `samebase.com` app build:
 
 - Cloudflare Worker preview versions, when they can be proven
 - the Convex preview deployment for the exact branch
 
 Do not change Cloudflare deploy behavior, add preview tags, add cleanup scripts, or touch temporary
-Noter-managed vault infrastructure as part of this workflow.
+Samebase-managed vault infrastructure as part of this workflow.
 
 ## Safety Rules
 
@@ -43,7 +44,7 @@ test -f apps/samebase/.env.anon-seed.local
 set -a
 . apps/samebase/.env.anon-seed.local
 set +a
-export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-noter-worker}"
+export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-samebase}"
 
 : "${DEV_SEED_CLOUDFLARE_ACCOUNT_ID:?missing DEV_SEED_CLOUDFLARE_ACCOUNT_ID}"
 : "${DEV_SEED_CLOUDFLARE_API_KEY:?missing DEV_SEED_CLOUDFLARE_API_KEY}"
@@ -128,18 +129,18 @@ Do not treat a missing first-pass match as permission to skip Cloudflare preview
 
 ## 3. Inspect Convex Preview Deployments
 
-Resolve the `noter` project:
+Resolve the `samebase` project:
 
 ```bash
 curl --fail-with-body --request GET \
-  --url "https://api.convex.dev/v1/teams/$DEV_SEED_CONVEX_TEAM_ID/projects/noter" \
+  --url "https://api.convex.dev/v1/teams/$DEV_SEED_CONVEX_TEAM_ID/projects/samebase" \
   --header "Authorization: Bearer $DEV_SEED_CONVEX_MANAGEMENT_API_KEY"
 ```
 
 Use the returned project ID to list deployments:
 
 ```bash
-project_id="<noter-project-id>"
+project_id="<samebase-project-id>"
 curl --fail-with-body --request GET \
   --url "https://api.convex.dev/v1/projects/$project_id/list_deployments" \
   --header "Authorization: Bearer $DEV_SEED_CONVEX_MANAGEMENT_API_KEY"
@@ -149,7 +150,7 @@ Delete a Convex deployment only when all of these are true:
 
 1. `deploymentType` is `preview`
 2. the deployment reference is `preview/<branch>` or equivalent metadata names the exact branch
-3. the deployment belongs to the `noter` project resolved above
+3. the deployment belongs to the `samebase` project resolved above
 
 Delete only the matching preview deployment:
 
@@ -160,7 +161,7 @@ curl --fail-with-body --request POST \
   --header "Authorization: Bearer $DEV_SEED_CONVEX_MANAGEMENT_API_KEY"
 ```
 
-Never delete a `prod`, `dev`, or local Convex deployment during Noter PR preview cleanup. If the
+Never delete a `prod`, `dev`, or local Convex deployment during Samebase PR preview cleanup. If the
 preview deployment for the exact branch cannot be identified, stop with `clean` blocked and report
 the lookup evidence.
 

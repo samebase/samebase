@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
-import { guard } from "@noter-md/dependent/main";
+import { guard } from "@samebase/dependent/main";
 
 const modes = {
   deploy: ["deploy"],

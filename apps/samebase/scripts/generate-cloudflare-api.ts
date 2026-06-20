@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Ajv2020, type AnySchema } from "ajv/dist/2020.js";
 import { standaloneCode } from "ajv/dist/standalone/index.js";
 import openapiTS, { astToString, COMMENT_HEADER, type OpenAPI3 } from "openapi-typescript";
-import { includes, isRecord } from "@noter-md/dependent/main";
+import { includes, isRecord } from "@samebase/dependent/main";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
@@ -75,7 +75,7 @@ type CloudflareApiResponseValidatorEntry = {
   schemaId: string | null;
 };
 
-// The full Cloudflare schema covers every product. Noter pins a generated
+// The full Cloudflare schema covers every product. Samebase pins a generated
 // family subset so Workers/Builds additions drift visibly without pulling
 // unrelated Cloudflare products into this boundary.
 const response = await fetch(sourceUrl, {
@@ -110,7 +110,7 @@ function parseJsonSchemaDocument(documentText: string): OpenAPI3WithPaths {
   throw new Error(`${sourceUrl} did not return an OpenAPI document.`);
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- index-signature schema shape over unknown: control flow earns only boolean | object, never ajv's AnySchema object shape
 function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   return (
     typeof payload === "boolean" ||
@@ -118,7 +118,7 @@ function isJsonSchemaDocument(payload: unknown): payload is AnySchema {
   );
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info/paths as records, never the nested OpenAPI3 interface
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- fetched-document interface over unknown: the probes witness openapi/info/paths as records, never the nested OpenAPI3 interface
 function isOpenApiDocument(payload: unknown): payload is OpenAPI3WithPaths {
   return (
     isRecord(payload) &&

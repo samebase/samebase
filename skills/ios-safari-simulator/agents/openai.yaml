@@ -2,5 +2,5 @@ interface:
   display_name: "iOS Safari Simulator"
   short_description: "Run iOS Safari and PWA checks locally"
   default_prompt:
-    "Use $ios-safari-simulator to verify Noter in iOS Simulator and plan real-iPhone keyboard
+    "Use $ios-safari-simulator to verify Samebase in iOS Simulator and plan real-iPhone keyboard
     checks."

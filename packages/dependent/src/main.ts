@@ -1,4 +1,4 @@
-/* eslint-disable noter/no-hand-written-type-predicate -- audited vocabulary */
+/* eslint-disable samebase/no-hand-written-type-predicate -- audited vocabulary */
 // https://stackoverflow.com/a/50375286/2659549
 export type UnionToIntersection<Union> = (
   Union extends unknown ? (value: Union) => void : never

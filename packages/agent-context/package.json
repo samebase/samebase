@@ -1,8 +1,8 @@
 {
-  "name": "@noter-md/agent-context",
+  "name": "@samebase/agent-context",
   "version": "0.0.0",
   "private": true,
-  "description": "Portable agent context bundle extracted from Noter workflow research",
+  "description": "Portable agent context bundle extracted from Samebase workflow research",
   "files": [
     "core",
     "skills",

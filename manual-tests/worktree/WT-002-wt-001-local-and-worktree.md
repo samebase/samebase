@@ -8,7 +8,7 @@ discovery and worktree seed setup behave consistently.
 ## Preconditions
 
 - Main checkout is available.
-- No existing `/tmp/noter-wt-a` or `/tmp/noter-wt-b` worktrees.
+- No existing `/tmp/samebase-wt-a` or `/tmp/samebase-wt-b` worktrees.
 - No long-running `pnpm dev:worktree` processes in temporary worktrees.
 
 ## Steps
@@ -18,22 +18,22 @@ discovery and worktree seed setup behave consistently.
 2. Create a runner worktree:
 
 ```bash
-git worktree add /tmp/noter-wt-runner -b codex/wt-meta-runner
+git worktree add /tmp/samebase-wt-runner -b codex/wt-meta-runner
 ```
 
-3. From `/tmp/noter-wt-runner`, re-run `manual-tests/worktree/WT-001-anon-worktree-isolation.md`
+3. From `/tmp/samebase-wt-runner`, re-run `manual-tests/worktree/WT-001-anon-worktree-isolation.md`
    exactly as written, then complete its cleanup.
 4. Remove the runner worktree:
 
 ```bash
-git worktree remove --force /tmp/noter-wt-runner
+git worktree remove --force /tmp/samebase-wt-runner
 git branch -D codex/wt-meta-runner
 ```
 
 ## Expected Results
 
 1. `WT-001` passes when executed from the main checkout.
-2. `WT-001` passes when executed from `/tmp/noter-wt-runner`.
+2. `WT-001` passes when executed from `/tmp/samebase-wt-runner`.
 3. No cross-worktree conflicts or port collisions are observed.
 
 ## Optional Evidence
@@ -42,4 +42,4 @@ git branch -D codex/wt-meta-runner
 
 ## Cleanup
 
-- Remove any leftover `/tmp/noter-wt-a` and `/tmp/noter-wt-b` worktrees if they still exist.
+- Remove any leftover `/tmp/samebase-wt-a` and `/tmp/samebase-wt-b` worktrees if they still exist.

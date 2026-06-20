@@ -1,12 +1,12 @@
 ---
-name: noter-refactoring-style
+name: samebase-refactoring-style
 description:
-  Apply Noter's preferred refactoring style for simplifying shared UI and app architecture. Use when
-  asked to refactor, simplify, standardize layouts, remove wrappers, migrate routes onto a shared
-  shell, or delete compatibility layers instead of preserving them.
+  Apply Samebase's preferred refactoring style for simplifying shared UI and app architecture. Use
+  when asked to refactor, simplify, standardize layouts, remove wrappers, migrate routes onto a
+  shared shell, or delete compatibility layers instead of preserving them.
 ---
 
-# Noter Refactoring Style
+# Samebase Refactoring Style
 
 Use this skill when working in this repo and the job is to simplify, not to preserve old structure.
 
@@ -20,7 +20,7 @@ plumbing.
 
 ## Packaged Context Relationship
 
-This skill remains the Noter-specific compatibility entrypoint for app/UI refactoring style. For
+This skill remains the Samebase-specific compatibility entrypoint for app/UI refactoring style. For
 portable typed refactoring, validation-boundary, state-modeling, and delete-first guidance, use
 `packages/agent-context/skills/typed-product-engineering/SKILL.md`. Pair it with
 `packages/agent-context/skills/route-ui-validation/SKILL.md` when the refactor changes shipped UI

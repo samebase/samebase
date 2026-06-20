@@ -1,4 +1,4 @@
-import { entries } from "@noter-md/dependent/object";
+import { entries } from "@samebase/dependent/object";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "../src/routeAccessMetadata";
 
 type PrerenderPage = {

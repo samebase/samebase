@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -28,7 +28,7 @@ type AuthPopupMessage = {
   tokens?: unknown;
 };
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (typeof value !== "object" || value === null) {
     return false;

@@ -9,7 +9,7 @@ import { fail, isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntim
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
-const DEFAULT_RECORDINGS_DIRNAME = "noter-browser-recordings";
+const DEFAULT_RECORDINGS_DIRNAME = "samebase-browser-recordings";
 
 const HELP_TEXT = `Usage: scripts/playwright-session.ts <command>
 
