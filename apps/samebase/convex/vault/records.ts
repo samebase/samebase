@@ -17,7 +17,7 @@ import {
   assertConnectedVault,
   isConnectedVault,
   isLiveConnectedVault,
-  isNoterManagedVault,
+  isSamebaseManagedVault,
 } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 import { countActiveRemoteBranches, resolveVaultBranchSelection } from "./branches";
@@ -274,7 +274,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
   },
 });
 
-export const createInitializingNoterManagedVaultForUser = internalMutation({
+export const createInitializingSamebaseManagedVaultForUser = internalMutation({
   args: {
     userId: id("users"),
     ghRepoOwner: string(),
@@ -351,7 +351,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
       runId,
       step: "initialize_vault",
       level: "info",
-      message: "Created the initializing Noter vault.",
+      message: "Created the initializing Samebase vault.",
       createdAt: now,
     });
     await ctx.db.insert("vaultInfrastructureTargets", {
@@ -383,7 +383,7 @@ export const createInitializingNoterManagedVaultForUser = internalMutation({
   },
 });
 
-export const connectNoterManagedVaultGitHub = internalMutation({
+export const connectSamebaseManagedVaultGitHub = internalMutation({
   args: {
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
@@ -404,7 +404,7 @@ export const connectNoterManagedVaultGitHub = internalMutation({
       return null;
     }
     if (isConnectedVault(vault)) {
-      if (!isNoterManagedVault(vault)) {
+      if (!isSamebaseManagedVault(vault)) {
         throw new Error("Connected vault repository identity cannot be changed.");
       }
       if (vault.ghRepoId !== args.ghRepoId || vault.runId !== args.runId) {

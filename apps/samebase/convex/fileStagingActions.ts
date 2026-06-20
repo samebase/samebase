@@ -1268,7 +1268,7 @@ function buildRebaseConflictBundleMarkdown(args: {
   });
 
   return [
-    "# Noter rebase conflict bundle",
+    "# Samebase rebase conflict bundle",
     `- Repository: ${args.repositoryFullName}`,
     `- Branch: ${args.branch}`,
     "",

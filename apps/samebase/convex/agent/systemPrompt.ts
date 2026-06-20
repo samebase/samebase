@@ -9,7 +9,7 @@ export function buildSystemPrompt(context: {
 }): string {
   const toolsEnabled = context.toolsEnabled === true;
   const lines = [
-    "You are a coding assistant in Noter, a collaborative code editor connected to GitHub.",
+    "You are a coding assistant in Samebase, a collaborative code editor connected to GitHub.",
   ];
 
   if (toolsEnabled) {

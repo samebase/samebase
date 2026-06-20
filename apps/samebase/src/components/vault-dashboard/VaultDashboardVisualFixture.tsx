@@ -123,7 +123,7 @@ const FIXTURE_CLOUDFLARE_WORKERS = [
     workerTag: "70d0ab9620b44d7b99a9964cde102887",
   },
   {
-    workerName: "noter-worker",
+    workerName: "samebase-worker",
     workerTag: "f832053cb31b46f0bff56f70b8c9b57e",
   },
   {
@@ -174,22 +174,22 @@ function fixtureVaultBranch(
 function FixtureRepositoryLinks() {
   return (
     <VaultDashboardRepositoryExternalLinks
-      repositoryFullName="noter-md/noter"
+      repositoryFullName="samebase/samebase"
       links={[
         {
-          href: "https://github.com/noter-md/noter",
+          href: "https://github.com/samebase/samebase",
           key: "github",
           label: "GitHub",
           title: "Open GitHub repository",
         },
         {
-          href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/noter/production/deployments",
+          href: "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/deployments",
           key: "cloudflare",
           label: "Cloudflare",
           title: "Open Cloudflare Worker",
         },
         {
-          href: "https://dashboard.convex.dev/t/nicu/noter/settings",
+          href: "https://dashboard.convex.dev/t/nicu/samebase/settings",
           key: "convexProjectSettings",
           label: "Project settings",
           title: "Open Convex project settings",
@@ -202,16 +202,16 @@ function FixtureRepositoryLinks() {
 function FixtureDeleteControl() {
   return (
     <VaultDashboardDeleteControl
-      repositoryFullName="noter-md/noter"
-      repositoryHashId="noter"
+      repositoryFullName="samebase/samebase"
+      repositoryHashId="samebase"
       deleteAction={{ state: "available" }}
     />
   );
 }
 
 const fixtureDeleteDialogTarget = {
-  repositoryFullName: "noter-md/noter",
-  isNoterManaged: true,
+  repositoryFullName: "samebase/samebase",
+  isSamebaseManaged: true,
   canRemoveGithubRepo: true,
   hasConvexProvision: true,
   hasCloudflareProvision: true,
@@ -237,8 +237,8 @@ function FixtureVaultLastUpdatedStatusCard() {
             <h3 className="min-w-0 font-semibold">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="min-w-0 truncate">
-                  <span className="font-normal text-muted-foreground">noter-md/</span>
-                  <span>noter</span>
+                  <span className="font-normal text-muted-foreground">samebase/</span>
+                  <span>samebase</span>
                 </span>
               </span>
             </h3>
@@ -247,7 +247,7 @@ function FixtureVaultLastUpdatedStatusCard() {
                 lastSyncedAt={FIXTURE_NOW - 12_000}
                 now={FIXTURE_NOW}
                 onRefresh={incrementRefreshCount}
-                repositoryFullName="noter-md/noter"
+                repositoryFullName="samebase/samebase"
               />
             </div>
           </div>
@@ -274,13 +274,13 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       isDefault: false,
       aheadBy: 1,
       behindBy: 0,
-      pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
+      pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
       pullRequestNumber: 321,
       pullRequestTitle: "Use the full dashboard main pane",
-      cloudflareBranchPreviewUrl: "https://codex-dashboard-main-pane-spacing.noter.pages.dev",
+      cloudflareBranchPreviewUrl: "https://codex-dashboard-main-pane-spacing.samebase.pages.dev",
       cloudflarePreviewPullRequestNumber: 321,
       convexPreviewDeploymentDashboardUrl:
-        "https://dashboard.convex.dev/t/nicu/noter/preview/codex/dashboard-main-pane-spacing",
+        "https://dashboard.convex.dev/t/nicu/samebase/preview/codex/dashboard-main-pane-spacing",
     }),
   },
   {
@@ -290,7 +290,7 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       isDefault: false,
       aheadBy: 2,
       behindBy: 0,
-      pullRequestUrl: "https://github.com/noter-md/noter/pull/322",
+      pullRequestUrl: "https://github.com/samebase/samebase/pull/322",
       pullRequestNumber: 322,
       pullRequestTitle: "Persist branch list expansion",
     }),
@@ -364,9 +364,9 @@ const LIST_SPACING_VAULT_ID = fakeVaultId();
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
   _creationTime: FIXTURE_NOW - 900_000,
-  ghRepoOwner: "noter-md",
-  ghRepoName: "noter",
-  repositoryFullName: "noter-md/noter",
+  ghRepoOwner: "samebase",
+  ghRepoName: "samebase",
+  repositoryFullName: "samebase/samebase",
   commitSHA: "1234567890abcdef1234567890abcdef12345678",
   fileCount: 18,
   lastTreeRefreshAt: FIXTURE_NOW - 12_000,
@@ -377,7 +377,7 @@ const LIST_SPACING_VAULT = {
     state: "not_deleting",
     deleteAction: { state: "available" },
   },
-  isNoterManaged: true,
+  isSamebaseManaged: true,
   hasConnectedGitHubRepository: true,
   hasConvexProvision: true,
   hasCloudflareProvision: true,
@@ -394,23 +394,23 @@ const LIST_SPACING_VAULT = {
     },
     {
       appRoot: "apps/samebase",
-      workerName: "noter-worker",
-      workersDevUrl: "https://noter-worker.nicu.workers.dev",
+      workerName: "samebase-worker",
+      workersDevUrl: "https://samebase-worker.nicu.workers.dev",
       projectDashboardUrl:
-        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/noter-worker/production/deployments",
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-worker/production/deployments",
     },
   ],
   convexDeployments: [
     {
       appRoot: "apps/samebase",
-      projectId: "noter",
-      projectSlug: "noter",
+      projectId: "samebase",
+      projectSlug: "samebase",
       teamSlug: "nicu",
       deploymentName: "calm-swan-123",
       cloudUrl: "https://calm-swan-123.convex.cloud",
       siteUrl: "https://calm-swan-123.convex.site",
-      projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/settings",
-      deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+      projectSettingsDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/settings",
+      deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
     },
   ],
   remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
@@ -491,9 +491,9 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
           <div data-testid="vault-dashboard-dev-tools-card">
             <VaultDashboardRepositoryCard
               isReady={true}
-              repositoryOwner="noter-md"
-              repositoryName="noter"
-              titleHref="https://github.com/noter-md/noter"
+              repositoryOwner="samebase"
+              repositoryName="samebase"
+              titleHref="https://github.com/samebase/samebase"
               repositoryLinks={<FixtureRepositoryLinks />}
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
@@ -533,9 +533,9 @@ function VaultDashboardDeleteOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="noter-md"
-            repositoryName="noter"
-            titleHref="https://github.com/noter-md/noter"
+            repositoryOwner="samebase"
+            repositoryName="samebase"
+            titleHref="https://github.com/samebase/samebase"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -642,9 +642,9 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="noter-md"
-            repositoryName="noter"
-            titleHref="https://github.com/noter-md/noter"
+            repositoryOwner="samebase"
+            repositoryName="samebase"
+            titleHref="https://github.com/samebase/samebase"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -666,7 +666,7 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
             hasAppRoots: true,
             hasRootAppRoot: true,
             id: fakeVaultId(),
-            repositoryFullName: "noter-md/noter",
+            repositoryFullName: "samebase/samebase",
           }}
         />
       </TestRouterProvider>
@@ -754,9 +754,9 @@ function VaultDashboardConnectConvexOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="noter-md"
-            repositoryName="noter-app"
-            titleHref="https://github.com/noter-md/noter-app"
+            repositoryOwner="samebase"
+            repositoryName="samebase-app"
+            titleHref="https://github.com/samebase/app"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -767,13 +767,13 @@ function VaultDashboardConnectConvexOpenFixture() {
         <VaultDashboardConvexDialog
           appRoot="."
           appRootReadOnly={false}
-          createProjectName="noter-app"
+          createProjectName="samebase-app"
           projects={[
             {
               projectId: "jaded-heron-123",
-              projectName: "noter-app",
-              projectSlug: "noter-app",
-              teamSlug: "noter",
+              projectName: "samebase-app",
+              projectSlug: "samebase-app",
+              teamSlug: "samebase",
             },
           ]}
           error={null}
@@ -791,8 +791,8 @@ function VaultDashboardConnectConvexOpenFixture() {
           vault={{
             fixedAppRoot: ".",
             id: fakeVaultId(),
-            repositoryFullName: "noter-md/noter-app",
-            repositoryName: "noter-app",
+            repositoryFullName: "samebase/app",
+            repositoryName: "samebase-app",
           }}
         />
       </TestRouterProvider>
@@ -811,9 +811,9 @@ function VaultDashboardProvisioningLogFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="noter-md"
-            repositoryName="noter-app"
-            titleHref="https://github.com/noter-md/noter-app"
+            repositoryOwner="samebase"
+            repositoryName="samebase-app"
+            titleHref="https://github.com/samebase/app"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -825,7 +825,7 @@ function VaultDashboardProvisioningLogFixture() {
                 <div className="space-y-2">
                   <div className="text-xs text-muted-foreground">Infra: Provisioning</div>
                   <VaultProvisioningLogViewer
-                    repositoryFullName="noter-md/noter-app"
+                    repositoryFullName="samebase/app"
                     events={[
                       {
                         createdAt: Date.parse("2026-05-02T12:30:01Z"),
@@ -878,16 +878,16 @@ function VaultDashboardInfrastructureSetupFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="noter-md"
-            repositoryName="noter-app"
-            titleHref="https://github.com/noter-md/noter-app"
+            repositoryOwner="samebase"
+            repositoryName="samebase-app"
+            titleHref="https://github.com/samebase/app"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
             setupSection={
               <VaultSetupProgressSection status="running" label="Infra: provisioning">
                 <VaultProvisioningLogViewer
-                  repositoryFullName="noter-md/noter-app"
+                  repositoryFullName="samebase/app"
                   events={[
                     {
                       createdAt: Date.parse("2026-05-08T09:15:00Z"),
@@ -920,11 +920,11 @@ function VaultDashboardInfrastructureSetupFixture() {
 
 function VaultDashboardBottomTargetScrollFixture() {
   const repositoryNames = [
-    "noter-alpha",
-    "noter-beta",
-    "noter-gamma",
-    "noter-delta",
-    "noter-bottom-target",
+    "samebase-alpha",
+    "samebase-beta",
+    "samebase-gamma",
+    "samebase-delta",
+    "samebase-bottom-target",
   ];
   const bottomTargetBranches = [
     {
@@ -956,23 +956,23 @@ function VaultDashboardBottomTargetScrollFixture() {
               <div
                 key={repositoryName}
                 data-testid={
-                  repositoryName === "noter-bottom-target"
+                  repositoryName === "samebase-bottom-target"
                     ? "vault-dashboard-bottom-target-card"
                     : undefined
                 }
               >
                 <VaultDashboardRepositoryCard
                   isReady={true}
-                  repositoryOwner="noter-md"
+                  repositoryOwner="samebase"
                   repositoryName={repositoryName}
-                  titleHref={`https://github.com/noter-md/${repositoryName}`}
+                  titleHref={`https://github.com/samebase/${repositoryName}`}
                   repositoryLinks={<FixtureRepositoryLinks />}
                   repositoryLinksOpen={false}
                   onRepositoryLinksOpenChange={() => {}}
                   repositoryStatus={<span>Updated 12s ago</span>}
                   topRightAction={<FixtureDeleteControl />}
                   branchSection={
-                    repositoryName === "noter-bottom-target" ? (
+                    repositoryName === "samebase-bottom-target" ? (
                       <div className="space-y-1.5">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground/80">
                           Branches
@@ -982,7 +982,7 @@ function VaultDashboardBottomTargetScrollFixture() {
                             <VaultBranchLinkRow
                               key={branchRow.branch.name}
                               vaultId={fakeVaultId()}
-                              repositoryFullName="noter-md/noter-bottom-target"
+                              repositoryFullName="samebase/samebase-bottom-target"
                               branch={branchRow.branch}
                             />
                           ))}
@@ -1031,9 +1031,9 @@ function VaultDashboardStickyHeaderFixture() {
           <VaultDashboardRepositoryList>
             <VaultDashboardRepositoryCard
               isReady={true}
-              repositoryOwner="noter-md"
-              repositoryName="noter"
-              titleHref="https://github.com/noter-md/noter"
+              repositoryOwner="samebase"
+              repositoryName="samebase"
+              titleHref="https://github.com/samebase/samebase"
               repositoryLinks={<FixtureRepositoryLinks />}
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
@@ -1065,7 +1065,7 @@ function VaultDashboardStickyHeaderFixture() {
                     <VaultBranchLinkRow
                       key={branch.name}
                       vaultId={fakeVaultId()}
-                      repositoryFullName="noter-md/noter"
+                      repositoryFullName="samebase/samebase"
                       branch={branch}
                     />
                   ))}
@@ -1111,7 +1111,7 @@ function FixtureDashboardSidebarAccountClamp() {
             open={true}
             onOpenChange={() => {}}
             displayName="Alexandria Example With A Very Long Pane Account Name"
-            email="alexandria.very.long.operator.email-address@noter-example-workspace.dev"
+            email="alexandria.very.long.operator.email-address@samebase-example-workspace.dev"
             providerLabel="Google Workspace Enterprise"
             isSignOutPending={false}
             onSignOut={() => {}}
@@ -1148,7 +1148,7 @@ function FixtureDashboardCreateControl() {
             open={true}
             onOpenChange={() => {}}
             displayName="Nicu Example With A Very Long Pane Account Name"
-            email="nicu@noter.md"
+            email="nicu@samebase.md"
             providerLabel="Google"
             isSignOutPending={false}
             onSignOut={() => {}}
@@ -1264,9 +1264,9 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
           <TestRouterProvider>
             <VaultDashboardRepositoryCard
               isReady={true}
-              repositoryOwner="noter-md"
-              repositoryName="noter"
-              titleHref="https://github.com/noter-md/noter"
+              repositoryOwner="samebase"
+              repositoryName="samebase"
+              titleHref="https://github.com/samebase/samebase"
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}
@@ -1279,7 +1279,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                   <div className="-mx-4 overflow-hidden border bg-muted">
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
-                      repositoryFullName="noter-md/noter"
+                      repositoryFullName="samebase/samebase"
                       branch={fixtureVaultBranch({
                         name: "main",
                         headCommitSha: "1234567890abcdef1234567890abcdef12345678",
@@ -1292,7 +1292,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                           appRoot: ".",
                           links: [
                             {
-                              href: "https://dashboard.convex.dev/t/nicu/noter/calm-swan-123",
+                              href: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
                               label: "Production: calm-swan-123",
                               provider: "convex",
                               title: "Open production Convex deployment calm-swan-123",
@@ -1303,14 +1303,14 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                     />
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
-                      repositoryFullName="noter-md/noter"
+                      repositoryFullName="samebase/samebase"
                       branch={fixtureVaultBranch({
                         name: "codex/mobile-branch-card-spacing",
                         headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
                         isDefault: false,
                         aheadBy: 2,
                         behindBy: 0,
-                        pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
+                        pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
                         pullRequestNumber: 321,
                         pullRequestTitle: "Align mobile branch rows with vault cards",
                       })}
@@ -1337,8 +1337,8 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
             <div className="space-y-3">
               <div>
                 <div className="text-lg font-semibold">
-                  <span className="font-normal text-muted-foreground">noter-md/</span>
-                  <span>noter</span>
+                  <span className="font-normal text-muted-foreground">samebase/</span>
+                  <span>samebase</span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">Updated 12s ago</div>
               </div>
@@ -1398,14 +1398,14 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                   <TestRouterProvider>
                     <VaultBranchLinkRow
                       vaultId={fakeVaultId()}
-                      repositoryFullName="noter-md/noter"
+                      repositoryFullName="samebase/samebase"
                       branch={fixtureVaultBranch({
                         name: "codex/branch-filters",
                         headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
                         isDefault: false,
                         aheadBy: 1,
                         behindBy: 0,
-                        pullRequestUrl: "https://github.com/noter-md/noter/pull/321",
+                        pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
                         pullRequestNumber: 321,
                         pullRequestTitle: "Ship saved branch filters per vault",
                         pullRequestLabels: [

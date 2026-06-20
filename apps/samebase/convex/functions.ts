@@ -140,7 +140,7 @@ async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<Resolve
     return resolveUserViewer({ role: "role_member", userId, user });
   }
 
-  return resolveUserViewer({ role: "role_waitlisted", userId, user });
+  return resolveUserViewer({ role: "role_pending_access", userId, user });
 }
 
 function assertPublicViewerAccess(viewer: ResolvedViewer): PublicAppViewer {

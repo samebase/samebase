@@ -394,7 +394,7 @@ test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   await openVaultDashboardVisualFixture(page, "vault-dashboard-delete-open");
 
   const deleteDialog = page.getByRole("dialog", {
-    name: "Remove Vault noter-md/noter",
+    name: "Remove Vault samebase/samebase",
   });
   await expect(deleteDialog).toBeVisible();
   await expect(page.getByRole("button", { name: "Remove Vault" })).toBeVisible();
@@ -431,7 +431,7 @@ test("vault dashboard fixture (add app root dialog)", async ({ page }) => {
   await openVaultDashboardVisualFixture(page, "vault-dashboard-add-app-root-open");
 
   const appRootDialog = page.getByRole("dialog", {
-    name: "Add app root noter-md/noter",
+    name: "Add app root samebase/samebase",
   });
   await expect(appRootDialog).toBeVisible();
   await expect(appRootDialog.getByText("convert this repository to a monorepo")).toBeVisible();
@@ -575,7 +575,7 @@ test("vault dashboard fixture (connect Convex dialog)", async ({ page }) => {
   await openVaultDashboardVisualFixture(page, "vault-dashboard-connect-convex-open");
 
   const connectDialog = page.getByRole("dialog", {
-    name: "Connect Convex noter-md/noter-app",
+    name: "Connect Convex samebase/app",
   });
   await expect(connectDialog).toBeVisible();
   await expect(connectDialog.getByRole("button", { name: "Existing" })).toBeVisible();
@@ -605,7 +605,7 @@ test("vault dashboard fixture (delete dialog mobile)", async ({ browser }, testI
   await openVaultDashboardVisualFixture(page, "vault-dashboard-delete-open");
 
   const deleteDialog = page.getByRole("dialog", {
-    name: "Remove Vault noter-md/noter",
+    name: "Remove Vault samebase/samebase",
   });
   await expect(deleteDialog).toBeVisible();
   await expect(page.getByRole("button", { name: "Remove Vault" })).toBeVisible();
@@ -646,7 +646,7 @@ test("vault dashboard fixture (provisioning log)", async ({ page }) => {
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(
     fixture.getByRole("region", {
-      name: "Provisioning log for noter-md/noter-app",
+      name: "Provisioning log for samebase/app",
     }),
   ).toBeVisible();
   await expect(fixture.locator(".monaco-editor")).toHaveCount(4);
@@ -680,15 +680,15 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   const deleteLink = fixture.getByRole("link", {
-    name: "Remove vault noter-md/noter",
+    name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/home?delete#noter");
+  await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toHaveCount(0);
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
@@ -698,10 +698,10 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open GitHub: noter-md/noter" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toBeVisible();
   await expect(
-    fixture.getByRole("link", { name: "Open Cloudflare: nicu/noter-worker" }),
+    fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
   ).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
@@ -715,7 +715,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   ).toBeVisible();
   await expect(
     fixture.getByRole("link", {
-      name: "noter-worker.nicu.workers.dev",
+      name: "samebase-worker.nicu.workers.dev",
     }),
   ).toBeVisible();
   await expect(
@@ -768,15 +768,15 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   const deleteLink = fixture.getByRole("link", {
-    name: "Remove vault noter-md/noter",
+    name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/home?delete#noter");
+  await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toHaveCount(0);
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
   await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -786,10 +786,10 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open GitHub: noter-md/noter" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/noter" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toBeVisible();
   await expect(
-    fixture.getByRole("link", { name: "Open Cloudflare: nicu/noter-worker" }),
+    fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
   ).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
@@ -803,7 +803,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   ).toBeVisible();
   await expect(
     fixture.getByRole("link", {
-      name: "noter-worker.nicu.workers.dev",
+      name: "samebase-worker.nicu.workers.dev",
     }),
   ).toBeVisible();
   await expect(
@@ -830,7 +830,7 @@ test("vault dashboard fixture (bottom target can align at top)", async ({ page }
   const target = page.getByTestId("vault-dashboard-bottom-target-card");
   const targetHeader = target.locator("[data-vault-dashboard-repository-header]");
   const targetRepositoryLink = page.getByRole("link", {
-    name: "#noter-bottom-target",
+    name: "#samebase-bottom-target",
     exact: true,
   });
   const targetLastBranchLink = page.getByRole("link", {
@@ -947,7 +947,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
       return Math.abs(headerBox.y - scrollportBox.y);
     })
     .toBeLessThanOrEqual(1);
-  await expect(page.getByRole("link", { name: "#noter", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "#samebase", exact: true })).toBeVisible();
   const branchExpansionButton = header.getByRole("button", {
     name: "Show less branches",
     exact: true,
@@ -1039,10 +1039,10 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   const deleteLink = fixture.getByRole("link", {
-    name: "Remove vault noter-md/noter",
+    name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/home?delete#noter");
+  await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

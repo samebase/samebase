@@ -2,10 +2,10 @@ import * as React from "react";
 import { type CornerNotchType } from "@/lib/cornerNotch";
 
 const CORNER_BRIDGE_SIZE_VARS = [
-  "--noter-corner-notch-bridge-top-left-size",
-  "--noter-corner-notch-bridge-top-right-size",
-  "--noter-corner-notch-bridge-bottom-right-size",
-  "--noter-corner-notch-bridge-bottom-left-size",
+  "--samebase-corner-notch-bridge-top-left-size",
+  "--samebase-corner-notch-bridge-top-right-size",
+  "--samebase-corner-notch-bridge-bottom-right-size",
+  "--samebase-corner-notch-bridge-bottom-left-size",
 ] as const;
 
 function assignForwardedRef<T>(ref: React.ForwardedRef<T>, value: T | null) {
@@ -29,7 +29,7 @@ function toPixels(value: string) {
 }
 
 function clearBridgePaint(element: HTMLElement) {
-  element.style.removeProperty("--noter-corner-notch-bridge-color");
+  element.style.removeProperty("--samebase-corner-notch-bridge-color");
   for (const variableName of CORNER_BRIDGE_SIZE_VARS) {
     element.style.removeProperty(variableName);
   }
@@ -42,21 +42,21 @@ function syncBridgePaint(element: HTMLElement) {
   const borderBottomWidth = Number.parseFloat(styles.borderBottomWidth) || 0;
   const borderLeftWidth = Number.parseFloat(styles.borderLeftWidth) || 0;
 
-  element.style.setProperty("--noter-corner-notch-bridge-color", styles.borderTopColor);
+  element.style.setProperty("--samebase-corner-notch-bridge-color", styles.borderTopColor);
   element.style.setProperty(
-    "--noter-corner-notch-bridge-top-left-size",
+    "--samebase-corner-notch-bridge-top-left-size",
     toPixels(Math.min(borderTopWidth, borderLeftWidth).toString()),
   );
   element.style.setProperty(
-    "--noter-corner-notch-bridge-top-right-size",
+    "--samebase-corner-notch-bridge-top-right-size",
     toPixels(Math.min(borderTopWidth, borderRightWidth).toString()),
   );
   element.style.setProperty(
-    "--noter-corner-notch-bridge-bottom-right-size",
+    "--samebase-corner-notch-bridge-bottom-right-size",
     toPixels(Math.min(borderBottomWidth, borderRightWidth).toString()),
   );
   element.style.setProperty(
-    "--noter-corner-notch-bridge-bottom-left-size",
+    "--samebase-corner-notch-bridge-bottom-left-size",
     toPixels(Math.min(borderBottomWidth, borderLeftWidth).toString()),
   );
 }

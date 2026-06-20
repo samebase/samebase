@@ -462,7 +462,7 @@ export async function seedRepositoryWithStarter(args: {
     });
   };
 
-  const bootstrapPath = ".noter-seed-bootstrap";
+  const bootstrapPath = ".samebase-seed-bootstrap";
   const bootstrapMessage = "chore: bootstrap branch for starter seeding";
   const bootstrapContentBase64 = Buffer.from("bootstrap\n", "utf8").toString("base64");
 

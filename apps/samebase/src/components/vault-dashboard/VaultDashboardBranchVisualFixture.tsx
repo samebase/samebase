@@ -19,7 +19,7 @@ export function VaultDashboardBranchVisualFixture() {
           <div className="flex items-start gap-3 border-b border-border/40 px-3 py-3.5">
             <TestRouterProvider>
               <VaultBranchLinkContent
-                repositoryFullName="noter-md/noter"
+                repositoryFullName="samebase/samebase"
                 branch={{
                   name: "codex/draft-pr-button",
                   headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
@@ -29,7 +29,7 @@ export function VaultDashboardBranchVisualFixture() {
                   lastSyncedAt: 0,
                   aheadBy: 3,
                   behindBy: 0,
-                  pullRequestUrl: "https://github.com/noter-md/noter/pull/999",
+                  pullRequestUrl: "https://github.com/samebase/samebase/pull/999",
                   pullRequestNumber: 999,
                   pullRequestTitle: "Show PR titles above lighter branch labels",
                 }}

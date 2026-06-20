@@ -155,7 +155,7 @@ test("local landing first load keeps the password auth slot stable on the dev se
   );
 
   await page.addInitScript(() => {
-    localStorage.removeItem("noter_public_landing_password_auth_mode");
+    localStorage.removeItem("samebase_public_landing_password_auth_mode");
   });
 
   const firstLoadFrames = await captureLandingFirstLoadFrames(page, "/");

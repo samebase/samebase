@@ -638,7 +638,7 @@ async function expectLandingLogoStaticFallbackVisible(page: Page) {
         () =>
           document.documentElement.hasAttribute(
             "data-public-landing-logo-static-fallback-hidden",
-          ) || document.getElementById("noter-public-landing-logo-prehydration") !== null,
+          ) || document.getElementById("samebase-public-landing-logo-prehydration") !== null,
       ),
     )
     .toBe(false);
@@ -990,7 +990,7 @@ test("public landing renders the closed Google signup return state", async ({ pa
 
 test("landing dev toggle keeps the account rows aligned", async ({ page }) => {
   await page.addInitScript(() => {
-    window.localStorage.setItem("noter_auth_provider", "google");
+    window.localStorage.setItem("samebase_auth_provider", "google");
   });
   await page.goto("/", { waitUntil: "networkidle" });
 
@@ -1082,7 +1082,7 @@ test("public landing keeps copy and sidebar links stable without bundled fonts",
 
 test("local landing keeps the remembered password auth slot stable on reload", async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("noter_public_landing_password_auth_mode", "local_worktree_seed");
+    localStorage.setItem("samebase_public_landing_password_auth_mode", "local_worktree_seed");
   });
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(page.getByRole("button", { name: "Autofill & sign in" })).toBeVisible();
@@ -1094,7 +1094,7 @@ test("local landing keeps the remembered password auth slot stable on reload", a
 
 test("local landing explains missing worktree autofill credentials", async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem("noter_public_landing_password_auth_mode", "local_worktree_seed");
+    localStorage.setItem("samebase_public_landing_password_auth_mode", "local_worktree_seed");
   });
   await page.goto("/", { waitUntil: "domcontentloaded" });
 

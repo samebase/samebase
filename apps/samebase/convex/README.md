@@ -1,6 +1,6 @@
 # Convex Backend Overview
 
-This directory contains Noter's backend: schema, auth, repository workflows, collaboration logic,
+This directory contains Samebase's backend: schema, auth, repository workflows, collaboration logic,
 chat orchestration, and infrastructure provisioning.
 
 ## Start Here
@@ -84,7 +84,7 @@ flowchart LR
 
 ## Useful Local Commands
 
-From the repo root in a worktree, use the Noter workflow instead of raw Convex dev commands:
+From the repo root in a worktree, use the Samebase workflow instead of raw Convex dev commands:
 
 ```bash
 pnpm dev --once

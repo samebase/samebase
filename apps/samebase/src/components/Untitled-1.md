@@ -4,7 +4,7 @@ description:
 status: draft
 ---
 
-> Note: Personal draft content. This file is not part of Noter's product spec or engineering
+> Note: Personal draft content. This file is not part of Samebase's product spec or engineering
 > source-of-truth docs.
 
 Remember the last time HTML made the update and you couldn't use a website anymore.

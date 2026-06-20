@@ -84,7 +84,7 @@ async function createExistingRepositoryVaultWithConvex(args: {
   return { ids, t };
 }
 
-async function createNoterManagedVaultWithConvex(args: { withDeployment: boolean }) {
+async function createSamebaseManagedVaultWithConvex(args: { withDeployment: boolean }) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -313,7 +313,7 @@ describe("vault deletion Convex resource planning", () => {
   });
 
   it("deletes recorded created Convex projects before deployment ownership checks", async () => {
-    const { ids, t } = await createNoterManagedVaultWithConvex({
+    const { ids, t } = await createSamebaseManagedVaultWithConvex({
       withDeployment: false,
     });
     await t.run(async (ctx) => {
@@ -356,10 +356,10 @@ describe("vault deletion Convex resource planning", () => {
   });
 
   it("deletes a managed Convex project only when the deployment proves ownership", async () => {
-    const withDeployment = await createNoterManagedVaultWithConvex({
+    const withDeployment = await createSamebaseManagedVaultWithConvex({
       withDeployment: true,
     });
-    const withoutDeployment = await createNoterManagedVaultWithConvex({
+    const withoutDeployment = await createSamebaseManagedVaultWithConvex({
       withDeployment: false,
     });
 

@@ -57,7 +57,9 @@ export function RepositoryMediaVisualFixture({ mode }: { mode: RepositoryMediaVi
     },
   ];
   const sidebarHeader = (
-    <div className="flex h-full items-center px-3 text-sm font-medium text-foreground">Noter</div>
+    <div className="flex h-full items-center px-3 text-sm font-medium text-foreground">
+      Samebase
+    </div>
   );
 
   const sidebarContent = (
@@ -67,7 +69,7 @@ export function RepositoryMediaVisualFixture({ mode }: { mode: RepositoryMediaVi
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
           <span className="truncate text-xs font-medium text-muted-foreground">
-            noter-md/media-preview-fixture
+            samebase/media-preview-fixture
           </span>
         </div>
         <div className="mt-2 text-[11px] text-muted-foreground">

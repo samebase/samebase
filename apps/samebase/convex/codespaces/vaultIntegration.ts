@@ -115,7 +115,7 @@ export const createVaultWithCodespace = action({
         runId,
         step: "connect_github",
         level: "info",
-        message: "Connected the Noter vault to GitHub.",
+        message: "Connected the Samebase vault to GitHub.",
         state: "running",
       });
 

@@ -36,7 +36,7 @@ export function buildGoogleAuthPopupSearch<TSearch extends RootRouteSearch>(
     "auth-return": options.authReturn,
     "create-account": undefined,
     // Keep iframe-based Google auth aligned with the top-level button so failed
-    // public signup returns land on the same waitlist state.
+    // public signup returns land on the same pending access state.
     signup: options.markPublicSignupReturn ? "google" : undefined,
     "sign-in": undefined,
   };

@@ -17,7 +17,7 @@ async function createConvexConnectedUser() {
   const userId = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       isApproved: true,
     });
     await ctx.db.insert("providerConnections", {
@@ -147,7 +147,7 @@ describe("vault Convex deployment connection actions", () => {
             {
               "createTime": 1710000000002,
               "id": 1003,
-              "name": "Noter",
+              "name": "Samebase",
               "slug": "noter",
               "teamId": 1000,
               "teamSlug": "noter-team"
@@ -176,7 +176,7 @@ describe("vault Convex deployment connection actions", () => {
       },
       {
         projectId: "1003",
-        projectName: "Noter",
+        projectName: "Samebase",
         projectSlug: "noter",
         teamSlug: "noter-team",
       },

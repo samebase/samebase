@@ -25,7 +25,7 @@ async function deleteIndexedDbDatabase(page: Page, databaseName: string): Promis
 }
 
 async function seedIndexedDbRouteDatabase(page: Page): Promise<void> {
-  const databaseName = "noterIndexedDbRouteTest";
+  const databaseName = "samebaseIndexedDbRouteTest";
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await deleteIndexedDbDatabase(page, databaseName);
@@ -42,7 +42,7 @@ async function seedIndexedDbRouteDatabase(page: Page): Promise<void> {
         request.onsuccess = () => {
           const db = request.result;
           const transaction = db.transaction(["notes", "settings"], "readwrite");
-          transaction.objectStore("notes").put("line one\nline two", "noter.multiline");
+          transaction.objectStore("notes").put("line one\nline two", "samebase.multiline");
           transaction.objectStore("settings").put(
             {
               enabled: true,
@@ -50,7 +50,7 @@ async function seedIndexedDbRouteDatabase(page: Page): Promise<void> {
                 count: 2,
               },
             },
-            "noter.json",
+            "samebase.json",
           );
           transaction.oncomplete = () => {
             db.close();
@@ -94,17 +94,17 @@ test("indexedDB route shows database store keys and formatted values", async ({ 
     LOCAL_STORAGE_ROUTE,
   );
   const settingsRow = page.getByRole("row", {
-    name: /noterIndexedDbRouteTest settings noter\.json/,
+    name: /samebaseIndexedDbRouteTest settings samebase\.json/,
   });
   const notesRow = page.getByRole("row", {
-    name: /noterIndexedDbRouteTest notes noter\.multiline/,
+    name: /samebaseIndexedDbRouteTest notes samebase\.multiline/,
   });
 
   await expect(settingsRow.getByTestId("indexed-db-entry-database")).toHaveText(
-    "noterIndexedDbRouteTest",
+    "samebaseIndexedDbRouteTest",
   );
   await expect(settingsRow.getByTestId("indexed-db-entry-store")).toHaveText("settings");
-  await expect(settingsRow.getByTestId("indexed-db-entry-key")).toHaveText("noter.json");
+  await expect(settingsRow.getByTestId("indexed-db-entry-key")).toHaveText("samebase.json");
   await expect(settingsRow.getByTestId("indexed-db-entry-value")).toContainText(
     `"nested": {\n    "count": 2\n  }`,
   );

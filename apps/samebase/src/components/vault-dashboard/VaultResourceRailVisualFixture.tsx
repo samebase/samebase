@@ -165,14 +165,14 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Monorepo apps",
-    repositoryOwner: "noter-md",
-    repositoryName: "noter",
+    repositoryOwner: "samebase",
+    repositoryName: "samebase",
     state: {
       githubRow: {
         provider: "github",
         status: "ready",
-        value: "noter-md/noter",
-        href: "https://github.com/noter-md/noter",
+        value: "samebase/samebase",
+        href: "https://github.com/samebase/samebase",
       },
       apps: [
         {
@@ -181,9 +181,9 @@ const ADD_VAULT_FLOW_SCENARIOS = [
             {
               provider: "convex",
               status: "ready",
-              scope: "noter",
-              value: "noter",
-              href: "https://dashboard.convex.dev/t/noter/noter/settings",
+              scope: "samebase",
+              value: "samebase",
+              href: "https://dashboard.convex.dev/t/samebase/samebase/settings",
             },
           ],
         },
@@ -216,7 +216,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
                 {
                   kind: "add",
                   label: "?add-convex",
-                  href: "/home?add-convex&app-root=apps%2Fnoter#noter",
+                  href: "/home?add-convex&app-root=apps%2Fsamebase#samebase",
                 },
               ],
             },
@@ -224,8 +224,8 @@ const ADD_VAULT_FLOW_SCENARIOS = [
               provider: "cloudflare",
               status: "ready",
               scope: "nicuchiciuc",
-              value: "noter-worker",
-              href: "https://dash.cloudflare.com/?to=/workers/services/view/noter-worker/production/overview",
+              value: "samebase-worker",
+              href: "https://dash.cloudflare.com/?to=/workers/services/view/samebase-worker/production/overview",
             },
           ],
         },

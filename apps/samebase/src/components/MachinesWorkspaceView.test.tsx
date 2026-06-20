@@ -39,7 +39,7 @@ const THREAD_FIXTURE: CodexAppServerThread = {
   agentRole: null,
   cliVersion: "0.117.0-alpha.10",
   createdAt: 1_775_541_200,
-  cwd: "/Users/fixture/dev/noter",
+  cwd: "/Users/fixture/dev/samebase",
   gitInfo: null,
   id: "thread-machine-workspace-test",
   modelProvider: "openai",
@@ -47,9 +47,9 @@ const THREAD_FIXTURE: CodexAppServerThread = {
   path: "/Users/fixture/.codex/sessions/2026/04/02/thread.jsonl",
   preview: "Keep stale inventory visible but disabled.",
   project: {
-    id: "/Users/fixture/dev/noter",
-    label: "noter",
-    rootCwd: "/Users/fixture/dev/noter",
+    id: "/Users/fixture/dev/samebase",
+    label: "samebase",
+    rootCwd: "/Users/fixture/dev/samebase",
   },
   raw: null,
   source: "vscode",
@@ -143,7 +143,7 @@ describe("MachinesWorkspaceView", () => {
       />,
     );
 
-    expect(markup).toContain("Start new conversation in noter");
+    expect(markup).toContain("Start new conversation in samebase");
   });
 
   it("disables project-level start buttons while a turn submission is pending", () => {
@@ -181,7 +181,7 @@ describe("MachinesWorkspaceView", () => {
     );
 
     expect(markup).toMatch(
-      /<button[^>]*aria-label="Start new conversation in noter"[^>]*disabled=""[^>]*>/,
+      /<button[^>]*aria-label="Start new conversation in samebase"[^>]*disabled=""[^>]*>/,
     );
   });
 

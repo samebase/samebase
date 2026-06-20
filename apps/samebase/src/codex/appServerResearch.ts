@@ -1,6 +1,6 @@
 export const CODEX_APP_SERVER_RESEARCH_ROUTE = "/research/codex-app-server";
 export const CODEX_APP_SERVER_THREAD_BROWSER_ROUTE = "/research/codex-app-server/browser";
-export const CODEX_APP_SERVER_RESEARCH_API_BASE = "/__noter/research/codex-app-server";
+export const CODEX_APP_SERVER_RESEARCH_API_BASE = "/__samebase/research/codex-app-server";
 
 export type CodexAppServerRequestId = string | number;
 

@@ -1,4 +1,4 @@
-import { useNoterAuthActions } from "@/authClient";
+import { useSamebaseAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
   PublicLandingAccountLoadingSection,
@@ -96,7 +96,7 @@ function GenericSignedInAccountSection({
   profile: AppAuthPresentationProfile | null;
   user?: AppRightSidebarViewer | null;
 }) {
-  const { signOut } = useNoterAuthActions();
+  const { signOut } = useSamebaseAuthActions();
   const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const handleSignOut = () => {
@@ -217,7 +217,7 @@ function AuthenticatedAppRightSidebarContent({
       },
     );
   });
-  const { signOut } = useNoterAuthActions();
+  const { signOut } = useSamebaseAuthActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const resolvedAccountPanelOpen = dashboardSettings?.accountPanelOpen ?? false;
 

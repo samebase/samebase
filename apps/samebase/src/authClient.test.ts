@@ -124,7 +124,7 @@ describe("useAutoSignIn", () => {
 
     useAutoSignIn({ auth: "google" });
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 7, __TSR_key: "popup-route" },
       "",
@@ -262,16 +262,16 @@ describe("useAutoSignIn", () => {
     await signInWithPasswordAction({
       signIn: signInMock,
       flow: "signIn",
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       password: "pass1234",
     });
 
     expect(signInMock).toHaveBeenCalledWith("password", {
       flow: "signIn",
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       password: "pass1234",
     });
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "password");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "password");
   });
 
   it("always signs out even if PostHog reset throws", async () => {
@@ -293,8 +293,8 @@ describe("useAutoSignIn", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_was_authenticated");
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_was_authenticated");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_auth_provider");
     expect(resetMock).toHaveBeenCalledTimes(1);
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
@@ -346,7 +346,7 @@ describe("useAutoSignIn", () => {
       }),
     );
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
     expect(locationState.href).toBe("/home?prod-ui");
     expect(locationReloadMock).not.toHaveBeenCalled();
@@ -457,12 +457,12 @@ describe("useAutoSignIn", () => {
       }),
     );
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthRefreshToken", "refresh");
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthRefreshToken");
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthAccessToken");
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_auth_provider");
     expect(locationState.href).toBe("https://samebase.com/");
     expect(locationReloadMock).not.toHaveBeenCalled();
   });
@@ -490,8 +490,8 @@ describe("useAutoSignIn", () => {
 
     openAuthPopup("google", { popupPath: "/?auth=google" });
 
-    expect(localStorageSetItemMock).toHaveBeenCalledWith("noter_auth_provider", "google");
-    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
+    expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
+    expect(localStorageRemoveItemMock).toHaveBeenCalledWith("samebase_auth_provider");
     expect(locationReloadMock).not.toHaveBeenCalled();
   });
 });

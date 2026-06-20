@@ -237,7 +237,7 @@ export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "vaults.list",
-    description: "List vault repositories available to the authenticated Noter user.",
+    description: "List vault repositories available to the authenticated Samebase user.",
     surfaces: ["mcp"],
     requiredScopes: ["vaults.read"],
     requiresVaultContext: false,

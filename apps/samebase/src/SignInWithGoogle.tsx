@@ -1,4 +1,4 @@
-import { isInIframe, openAuthPopup, useNoterSignInActions } from "@/authClient";
+import { isInIframe, openAuthPopup, useSamebaseSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID } from "@/lib/publicLanding";
@@ -15,7 +15,7 @@ export function SignInWithGoogle({
   visible?: boolean;
   markPublicSignupReturn?: boolean;
 } = {}) {
-  const { signInWithGoogle } = useNoterSignInActions();
+  const { signInWithGoogle } = useSamebaseSignInActions();
   const router = useRouter();
   const buildCurrentGoogleRedirectTo = () =>
     router.buildLocation({

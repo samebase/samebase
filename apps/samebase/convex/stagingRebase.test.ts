@@ -29,7 +29,7 @@ describe("rebaseStagedContent", () => {
     });
 
     expect(result.hasConflict).toBe(true);
-    expect(result.content).toContain("<<<<<<< noter");
+    expect(result.content).toContain("<<<<<<< samebase");
     expect(result.content).toContain("=======");
     expect(result.content).toContain(">>>>>>> main");
     expect(result.content).toContain("ours");
@@ -125,6 +125,6 @@ describe("rebaseStagedContent", () => {
     });
 
     expect(result.hasConflict).toBe(true);
-    expect(result.content).toContain("<<<<<<< noter");
+    expect(result.content).toContain("<<<<<<< samebase");
   });
 });

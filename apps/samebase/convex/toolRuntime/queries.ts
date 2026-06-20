@@ -17,7 +17,7 @@ const listVaultsForUserResultValidator = array(
     vaultId: id("vaults"),
     repositoryFullName: string(),
     state: union(literal("copying_files"), literal("ready")),
-    isNoterManaged: boolean(),
+    isSamebaseManaged: boolean(),
     commitSha: optional(string()),
   }),
 );
@@ -124,7 +124,7 @@ export const listVaultsForUser = internalQuery({
           vaultId: vault._id,
           repositoryFullName: `${vault.owner}/${vault.name}`,
           state: defaultBranchTree ? "ready" : "copying_files",
-          isNoterManaged: vault.githubMode === "create_repository",
+          isSamebaseManaged: vault.githubMode === "create_repository",
           commitSha: defaultBranchTree?.commitSHA,
         };
       }),

@@ -47,7 +47,7 @@ export function NotFoundRoutePage() {
       <Authenticated>
         <ApprovalGate>
           <NotFoundContent
-            description="The requested noter app route does not exist."
+            description="The requested Samebase app route does not exist."
             pathname={pathname}
             primaryActionLabel="Go to vaults"
             primaryActionTo={DASHBOARD_ROUTE}
@@ -56,7 +56,7 @@ export function NotFoundRoutePage() {
       </Authenticated>
       <Unauthenticated>
         <NotFoundContent
-          description="The requested noter page does not exist."
+          description="The requested Samebase page does not exist."
           pathname={pathname}
           primaryActionLabel="Go home"
           primaryActionTo="/"

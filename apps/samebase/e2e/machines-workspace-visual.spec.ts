@@ -53,7 +53,7 @@ test("machines workspace project collapse stays closed", async ({ page }) => {
   await openMachinesWorkspaceFixture(page);
 
   const projectToggle = page.getByRole("button", {
-    name: "noter",
+    name: "samebase",
     exact: true,
   });
   const projectThread = page.getByRole("button", {
@@ -111,11 +111,11 @@ test("machines workspace project plus button opens a local draft conversation", 
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await pressEnter(page.getByRole("button", { name: "Start new conversation in noter" }));
+  await pressEnter(page.getByRole("button", { name: "Start new conversation in samebase" }));
   await pressEnter(page.getByRole("menuitem", { name: "Local" }));
 
   await expect(
-    page.getByText("Send the first prompt to start a local conversation in noter.").first(),
+    page.getByText("Send the first prompt to start a local conversation in samebase.").first(),
   ).toBeVisible();
 });
 
@@ -124,11 +124,13 @@ test("machines workspace project plus button opens a worktree draft conversation
 }) => {
   await openMachinesWorkspaceFixture(page);
 
-  await pressEnter(page.getByRole("button", { name: "Start new conversation in noter" }));
+  await pressEnter(page.getByRole("button", { name: "Start new conversation in samebase" }));
   await pressEnter(page.getByRole("menuitem", { name: "New worktree" }));
 
   await expect(
-    page.getByText("Send the first prompt to create a new worktree conversation in noter.").first(),
+    page
+      .getByText("Send the first prompt to create a new worktree conversation in samebase.")
+      .first(),
   ).toBeVisible();
 });
 

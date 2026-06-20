@@ -5,8 +5,8 @@ import { parseDocument } from "yaml";
 
 import { getAncestorFolderPaths } from "./fileTreeState";
 
-export const SIMPLE_VIEW_CONFIG_PATH = "noter.md";
-const SIMPLE_VIEW_STORAGE_KEY_PREFIX = "noter-simple-view";
+export const SIMPLE_VIEW_CONFIG_PATH = "samebase.md";
+const SIMPLE_VIEW_STORAGE_KEY_PREFIX = "samebase-simple-view";
 
 type StagedSimpleViewConfigFile =
   | {
@@ -98,8 +98,10 @@ export function shouldLoadRepositorySimpleViewConfig(
   return !didAttemptRepositoryLoad;
 }
 
-export function parseSimpleViewConfig(noterMarkdown: string | null | undefined): SimpleViewConfig {
-  if (noterMarkdown === null || noterMarkdown === undefined) {
+export function parseSimpleViewConfig(
+  samebaseMarkdown: string | null | undefined,
+): SimpleViewConfig {
+  if (samebaseMarkdown === null || samebaseMarkdown === undefined) {
     return {
       hasConfigFile: false,
       hasValidConfig: false,
@@ -107,7 +109,7 @@ export function parseSimpleViewConfig(noterMarkdown: string | null | undefined):
     };
   }
 
-  const frontmatterSource = getFrontmatterSource(noterMarkdown);
+  const frontmatterSource = getFrontmatterSource(samebaseMarkdown);
   if (!frontmatterSource) {
     return {
       hasConfigFile: true,

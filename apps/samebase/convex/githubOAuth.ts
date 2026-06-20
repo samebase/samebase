@@ -114,7 +114,7 @@ async function fetchGithubUser(accessToken: string): Promise<{ username: string 
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/vnd.github+json",
-      "User-Agent": "noter-app",
+      "User-Agent": "samebase-app",
     },
   });
   const payload = await response.json().catch(() => null);

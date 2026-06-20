@@ -28,7 +28,7 @@ function buildProvisioningLogValueDocumentPath(
   event: ProvisioningLogApiDocumentEvent,
 ): string {
   return [
-    "noter-provisioning-log",
+    "samebase-provisioning-log",
     encodeURIComponent(repositoryFullName),
     `${encodeURIComponent(event.time)}-${event.api.provider}-${event.api.method}-${encodeURIComponent(
       event.api.endpoint,

@@ -1,4 +1,4 @@
-import { useNoterSignInActions } from "@/authClient";
+import { useSamebaseSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
@@ -210,7 +210,7 @@ export function PasswordAuthForm({
   onSignIn?: () => Promise<unknown> | void;
   surface: Exclude<PasswordAuthSurface, "hidden">;
 }) {
-  const { signInWithPassword } = useNoterSignInActions();
+  const { signInWithPassword } = useSamebaseSignInActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

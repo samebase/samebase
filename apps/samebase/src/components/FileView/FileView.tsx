@@ -741,7 +741,7 @@ function FileViewInner({
       dontCache: isDiffRequested || reviewOnMountRequested,
     },
   );
-  const stagedNoterFile = useQuery(
+  const stagedSamebaseFile = useQuery(
     api.fileStaging.getByNewPath,
     {
       branch,
@@ -752,9 +752,9 @@ function FileViewInner({
       dontCache: true,
     },
   );
-  const [repositoryNoterContent, setRepositoryNoterContent] = useState<string | null>(null);
-  const [didAttemptRepositoryNoterLoad, setDidAttemptRepositoryNoterLoad] = useState(false);
-  const [didResolveRepositoryNoterLoad, setDidResolveRepositoryNoterLoad] = useState(false);
+  const [repositorySamebaseContent, setRepositorySamebaseContent] = useState<string | null>(null);
+  const [didAttemptRepositorySamebaseLoad, setDidAttemptRepositorySamebaseLoad] = useState(false);
+  const [didResolveRepositorySamebaseLoad, setDidResolveRepositorySamebaseLoad] = useState(false);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
 
@@ -821,33 +821,36 @@ function FileViewInner({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const hasNoterConfigFile = hasSimpleViewConfigFile(stagedNoterFile, repositoryNoterContent);
-  const hasDeletedStagedNoterFile = isStagedSimpleViewConfigDeleted(stagedNoterFile);
+  const hasSamebaseConfigFile = hasSimpleViewConfigFile(
+    stagedSamebaseFile,
+    repositorySamebaseContent,
+  );
+  const hasDeletedStagedSamebaseFile = isStagedSimpleViewConfigDeleted(stagedSamebaseFile);
   const didResolveSimpleViewConfigSource =
-    stagedNoterFile !== undefined &&
-    (hasStagedSimpleViewConfigFile(stagedNoterFile) ||
-      hasDeletedStagedNoterFile ||
-      didResolveRepositoryNoterLoad);
+    stagedSamebaseFile !== undefined &&
+    (hasStagedSimpleViewConfigFile(stagedSamebaseFile) ||
+      hasDeletedStagedSamebaseFile ||
+      didResolveRepositorySamebaseLoad);
 
   const sidebarModeStorageKey = useMemo(
     () => getSimpleViewPreferenceStorageKey(vault._id),
     [vault._id],
   );
-  const graphViewStorageKey = useMemo(() => `noter:graph-view:${vault._id}`, [vault._id]);
+  const graphViewStorageKey = useMemo(() => `samebase:graph-view:${vault._id}`, [vault._id]);
   const [viewMode, setViewMode] = useState<"editor" | "graph">(() => {
     return readGraphViewMode(graphViewStorageKey) ?? "editor";
   });
   const [viewModeHydrated, setViewModeHydrated] = useState(false);
 
   /**
-   * When the user switches vaults or branches, clear the cached `.noter.md`
+   * When the user switches vaults or branches, clear the cached `.samebase.md`
    * data and hydration flags so the new branch loads its own config from
    * scratch.
    */
   useEffect(() => {
-    setRepositoryNoterContent(null);
-    setDidAttemptRepositoryNoterLoad(false);
-    setDidResolveRepositoryNoterLoad(false);
+    setRepositorySamebaseContent(null);
+    setDidAttemptRepositorySamebaseLoad(false);
+    setDidResolveRepositorySamebaseLoad(false);
     setSidebarModeHydrated(false);
   }, [vault._id, branch]);
 
@@ -879,11 +882,13 @@ function FileViewInner({
   }, [commitReviewMode, setViewMode, viewMode]);
 
   /**
-   * Load `.noter.md` from the repository only when staging has not already
+   * Load `.samebase.md` from the repository only when staging has not already
    * supplied a staged copy or a staged deletion for that same file.
    */
   useEffect(() => {
-    if (!shouldLoadRepositorySimpleViewConfig(stagedNoterFile, didAttemptRepositoryNoterLoad)) {
+    if (
+      !shouldLoadRepositorySimpleViewConfig(stagedSamebaseFile, didAttemptRepositorySamebaseLoad)
+    ) {
       return;
     }
 
@@ -898,17 +903,17 @@ function FileViewInner({
         if (cancelled) {
           return;
         }
-        setDidAttemptRepositoryNoterLoad(true);
-        setRepositoryNoterContent(result.exists ? result.content : null);
-        setDidResolveRepositoryNoterLoad(true);
+        setDidAttemptRepositorySamebaseLoad(true);
+        setRepositorySamebaseContent(result.exists ? result.content : null);
+        setDidResolveRepositorySamebaseLoad(true);
       })
       .catch(() => {
         if (cancelled) {
           return;
         }
-        setDidAttemptRepositoryNoterLoad(true);
-        setRepositoryNoterContent(null);
-        setDidResolveRepositoryNoterLoad(true);
+        setDidAttemptRepositorySamebaseLoad(true);
+        setRepositorySamebaseContent(null);
+        setDidResolveRepositorySamebaseLoad(true);
       });
 
     return () => {
@@ -916,10 +921,10 @@ function FileViewInner({
     };
   }, [
     branch,
-    didAttemptRepositoryNoterLoad,
+    didAttemptRepositorySamebaseLoad,
     loadRepositoryFileContent,
     repositoryFullName,
-    stagedNoterFile,
+    stagedSamebaseFile,
   ]);
 
   /**
@@ -931,7 +936,7 @@ function FileViewInner({
     if (!didResolveSimpleViewConfigSource) {
       return;
     }
-    const defaultMode: SidebarMode = hasNoterConfigFile ? "simple" : "all";
+    const defaultMode: SidebarMode = hasSamebaseConfigFile ? "simple" : "all";
 
     try {
       const storedMode = localStorage.getItem(sidebarModeStorageKey);
@@ -946,7 +951,7 @@ function FileViewInner({
 
     setSidebarMode(defaultMode);
     setSidebarModeHydrated(true);
-  }, [didResolveSimpleViewConfigSource, hasNoterConfigFile, sidebarModeStorageKey]);
+  }, [didResolveSimpleViewConfigSource, hasSamebaseConfigFile, sidebarModeStorageKey]);
 
   /** Save the current sidebar mode (`simple` or `all`) after the initial load completes. */
   useEffect(() => {
@@ -960,16 +965,16 @@ function FileViewInner({
     }
   }, [didResolveSimpleViewConfigSource, sidebarMode, sidebarModeHydrated, sidebarModeStorageKey]);
 
-  const stagedNoterContent = hasStagedSimpleViewConfigFile(stagedNoterFile)
-    ? stagedNoterFile.content
+  const stagedSamebaseContent = hasStagedSimpleViewConfigFile(stagedSamebaseFile)
+    ? stagedSamebaseFile.content
     : null;
-  const noterConfigContent = hasDeletedStagedNoterFile
+  const samebaseConfigContent = hasDeletedStagedSamebaseFile
     ? null
-    : (stagedNoterContent ?? repositoryNoterContent);
+    : (stagedSamebaseContent ?? repositorySamebaseContent);
 
   const simpleViewConfig = useMemo(
-    () => parseSimpleViewConfig(noterConfigContent),
-    [noterConfigContent],
+    () => parseSimpleViewConfig(samebaseConfigContent),
+    [samebaseConfigContent],
   );
   const buildVaultFileUrl = useCallback(
     (

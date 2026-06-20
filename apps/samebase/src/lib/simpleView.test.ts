@@ -27,8 +27,8 @@ function getRepositoryRoot(): string {
   return fileURLToPath(new URL("../../../../", import.meta.url));
 }
 
-function getRootNoterMarkdown(): string {
-  return readFileSync(`${getRepositoryRoot()}/noter.md`, "utf8");
+function getRootSamebaseMarkdown(): string {
+  return readFileSync(`${getRepositoryRoot()}/samebase.md`, "utf8");
 }
 
 function getTrackedFiles(): string[] {
@@ -102,9 +102,9 @@ function assertPathsContainFixture(fixturePath: string, actualPaths: string[]): 
 }
 
 function getRootVisibleSimpleViewFilePaths(): string[] {
-  const parsedConfig = parseSimpleViewConfig(getRootNoterMarkdown());
+  const parsedConfig = parseSimpleViewConfig(getRootSamebaseMarkdown());
   if (!parsedConfig.hasValidConfig) {
-    throw new Error("Expected root noter.md to have valid simpleView config");
+    throw new Error("Expected root samebase.md to have valid simpleView config");
   }
 
   return filterSimpleViewTreeItems(getRepositoryTreeItems(), parsedConfig.excludePatterns)
@@ -114,7 +114,7 @@ function getRootVisibleSimpleViewFilePaths(): string[] {
 }
 
 describe("repository file tree fixtures", () => {
-  it("contains the visible simple-view baseline fixture for root noter.md", () => {
+  it("contains the visible simple-view baseline fixture for root samebase.md", () => {
     const visibleFiles = getRootVisibleSimpleViewFilePaths();
 
     assertPathsContainFixture(toFixtureFilePath("visible-simple-view-files.txt"), visibleFiles);
@@ -141,12 +141,12 @@ describe("repository file tree fixtures", () => {
 
 describe("getSimpleViewPreferenceStorageKey", () => {
   it("returns the per-vault key format", () => {
-    expect(getSimpleViewPreferenceStorageKey("vault_123")).toBe("noter-simple-view:vault_123");
+    expect(getSimpleViewPreferenceStorageKey("vault_123")).toBe("samebase-simple-view:vault_123");
   });
 });
 
 describe("simple view config source resolution", () => {
-  it("detects staged noter.md when present", () => {
+  it("detects staged samebase.md when present", () => {
     expect(
       hasStagedSimpleViewConfigFile({
         fileDeleted: false,
@@ -154,7 +154,7 @@ describe("simple view config source resolution", () => {
     ).toBe(true);
   });
 
-  it("does not treat deleted staged noter.md as available", () => {
+  it("does not treat deleted staged samebase.md as available", () => {
     expect(
       hasStagedSimpleViewConfigFile({
         fileDeleted: true,
@@ -162,7 +162,7 @@ describe("simple view config source resolution", () => {
     ).toBe(false);
   });
 
-  it("detects staged noter.md deletion state", () => {
+  it("detects staged samebase.md deletion state", () => {
     expect(
       isStagedSimpleViewConfigDeleted({
         fileDeleted: true,
@@ -170,11 +170,11 @@ describe("simple view config source resolution", () => {
     ).toBe(true);
   });
 
-  it("treats repository noter.md fallback as config when not staged", () => {
+  it("treats repository samebase.md fallback as config when not staged", () => {
     expect(hasSimpleViewConfigFile(null, "---\nsimpleView:\n  exclude: []\n---")).toBe(true);
   });
 
-  it("does not fall back to repository config when staged noter.md is deleted", () => {
+  it("does not fall back to repository config when staged samebase.md is deleted", () => {
     expect(
       hasSimpleViewConfigFile(
         {
@@ -201,7 +201,7 @@ describe("simple view config source resolution", () => {
     expect(shouldLoadRepositorySimpleViewConfig(null, true)).toBe(false);
   });
 
-  it("skips repository load when staged noter.md exists", () => {
+  it("skips repository load when staged samebase.md exists", () => {
     expect(
       shouldLoadRepositorySimpleViewConfig(
         {
@@ -212,7 +212,7 @@ describe("simple view config source resolution", () => {
     ).toBe(false);
   });
 
-  it("skips repository load when staged noter.md is deleted", () => {
+  it("skips repository load when staged samebase.md is deleted", () => {
     expect(
       shouldLoadRepositorySimpleViewConfig(
         {
@@ -249,7 +249,7 @@ simpleView:
     - "  tsconfig.base.json  "
     - "   "
 ---
-# noter.md
+# samebase.md
 `);
 
     expect(parsed).toEqual({
@@ -436,11 +436,11 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
   });
 });
 
-describe("current noter.md config with repository tree", () => {
+describe("current samebase.md config with repository tree", () => {
   const repositoryTreeItems = getRepositoryTreeItems();
-  const parsedConfig = parseSimpleViewConfig(getRootNoterMarkdown());
+  const parsedConfig = parseSimpleViewConfig(getRootSamebaseMarkdown());
 
-  it("parses root noter.md simpleView config", () => {
+  it("parses root samebase.md simpleView config", () => {
     expect(parsedConfig.hasConfigFile).toBe(true);
     expect(parsedConfig.hasValidConfig).toBe(true);
     expect(parsedConfig.excludePatterns.length).toBeGreaterThan(0);
@@ -448,7 +448,7 @@ describe("current noter.md config with repository tree", () => {
 
   it("hides known noisy files from this repository", () => {
     if (!parsedConfig.hasValidConfig) {
-      throw new Error("Expected root noter.md to have valid simpleView config");
+      throw new Error("Expected root samebase.md to have valid simpleView config");
     }
 
     const filtered = filterSimpleViewTreeItems(repositoryTreeItems, parsedConfig.excludePatterns);
@@ -463,7 +463,7 @@ describe("current noter.md config with repository tree", () => {
 
   it("keeps top-level docs visible", () => {
     if (!parsedConfig.hasValidConfig) {
-      throw new Error("Expected root noter.md to have valid simpleView config");
+      throw new Error("Expected root samebase.md to have valid simpleView config");
     }
 
     const filtered = filterSimpleViewTreeItems(repositoryTreeItems, parsedConfig.excludePatterns);

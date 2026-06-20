@@ -7,11 +7,11 @@ import {
 import type { MachinesWorkspaceProjectConversationSelection } from "@/lib/machinesWorkspaceConversation";
 
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_775_541_762_000;
-const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/noter";
-const FIXTURE_PROJECT_ROOT = "/Users/fixture/dev/noter";
+const FIXTURE_WORKTREE_CWD = "/Users/fixture/.codex/worktrees/demo/samebase";
+const FIXTURE_PROJECT_ROOT = "/Users/fixture/dev/samebase";
 const FIXTURE_SECOND_PROJECT_ROOT = "/Users/fixture/dev/learn_vp";
 const FIXTURE_SESSION_ROOT = "/Users/fixture/.codex/sessions/2026/04/01";
-const FIXTURE_GIT_ORIGIN_URL = "git@github.com:fixture/noter.git";
+const FIXTURE_GIT_ORIGIN_URL = "git@github.com:fixture/samebase.git";
 const FIXTURE_BRANCH_NAME = "codex/machines-sidebar";
 const FIXTURE_GIT_SHA = "abc123def4567890abc123def4567890abc123de";
 const LONG_CLAMP_THREAD_NAME =
@@ -116,7 +116,7 @@ const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
       raw: {
         text: `Flatten the list, keep the rail compact, and turn the main pane into a Codex-like timeline with grouped tool rows and a bottom composer.
 
-Use the same readonly ProseMark surface that Noter already trusts for chat messages.`,
+Use the same readonly ProseMark surface that Samebase already trusts for chat messages.`,
       },
     },
   ],
@@ -143,7 +143,7 @@ const FIRST_THREAD: CodexAppServerThread = {
     "Tighten the thread rail so the list behaves like Codex instead of a stack of research cards.",
   project: {
     id: FIXTURE_PROJECT_ROOT,
-    label: "noter",
+    label: "samebase",
     rootCwd: FIXTURE_PROJECT_ROOT,
   },
   raw: null,
@@ -169,7 +169,7 @@ const SECOND_THREAD: CodexAppServerThread = {
   name: LONG_CLAMP_THREAD_NAME,
   path: `${FIXTURE_SESSION_ROOT}/thread-machine-workspace-second.jsonl`,
   preview:
-    "Mirror the Codex thread rail more literally before adding any extra Noter structure around it.",
+    "Mirror the Codex thread rail more literally before adding any extra Samebase structure around it.",
   status: {
     activeFlags: [],
     raw: { type: "idle" },
@@ -239,7 +239,7 @@ const FIFTH_THREAD: CodexAppServerThread = {
 const SIXTH_THREAD: CodexAppServerThread = {
   ...FIRST_THREAD,
   createdAt: 1_775_520_000,
-  cwd: "/Users/fixture/.codex/worktrees/e2ca/noter",
+  cwd: "/Users/fixture/.codex/worktrees/e2ca/samebase",
   gitInfo: {
     branch: "codex/worktree-sidebar",
     originUrl: FIXTURE_GIT_ORIGIN_URL,

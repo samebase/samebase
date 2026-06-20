@@ -119,7 +119,7 @@ type VaultDashboardLogoComponent = () => ReactNode;
 
 export type VaultDeleteDialogTarget = {
   repositoryFullName: string;
-  isNoterManaged: boolean;
+  isSamebaseManaged: boolean;
   canRemoveGithubRepo: boolean;
   hasConvexProvision: boolean;
   hasCloudflareProvision: boolean;
@@ -596,8 +596,8 @@ function buildVaultDeleteIntent(vault: VaultDashboardVault): VaultDeleteIntent {
   return {
     id: vault._id,
     repositoryFullName: vault.repositoryFullName,
-    isNoterManaged: vault.isNoterManaged,
-    canRemoveGithubRepo: vault.isNoterManaged && vault.hasConnectedGitHubRepository,
+    isSamebaseManaged: vault.isSamebaseManaged,
+    canRemoveGithubRepo: vault.isSamebaseManaged && vault.hasConnectedGitHubRepository,
     hasConvexProvision: vault.hasConvexProvision,
     hasCloudflareProvision: vault.hasCloudflareProvision,
     canRemoveConvexProvision: vault.canRemoveConvexProvision,
@@ -752,7 +752,7 @@ export function VaultDashboardDeleteDialog({
                 Also remove GitHub repository
                 {!vaultToDelete.canRemoveGithubRepo ? (
                   <div className="text-xs text-muted-foreground">
-                    Only available for confirmed repositories created in Noter.
+                    Only available for confirmed repositories created in Samebase.
                   </div>
                 ) : null}
               </label>
@@ -788,7 +788,7 @@ export function VaultDashboardDeleteDialog({
                   Also remove Convex project/deployment
                   {!vaultToDelete.canRemoveConvexProvision ? (
                     <div className="text-xs text-muted-foreground">
-                      Only available for infrastructure provisioned by Noter.
+                      Only available for infrastructure provisioned by Samebase.
                     </div>
                   ) : null}
                 </label>
@@ -1612,8 +1612,10 @@ export function VaultBranchLinkContent({
     branchName: branch.name,
     openChangedFiles: !branch.isDefault,
   });
-  const branchNoterLinkLabel = branch.isDefault ? "Edit" : "View changes";
-  const branchNoterLinkTitle = branch.isDefault ? "Open branch in Noter" : "View changes in Noter";
+  const branchSamebaseLinkLabel = branch.isDefault ? "Edit" : "View changes";
+  const branchSamebaseLinkTitle = branch.isDefault
+    ? "Open branch in Samebase"
+    : "View changes in Samebase";
   const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
     pullRequestNumber: branch.pullRequestNumber,
     cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
@@ -1795,12 +1797,12 @@ export function VaultBranchLinkContent({
                 <Link
                   to={branchRoute}
                   className={clsx(metadataLinkClassName, "gap-1.5")}
-                  title={branchNoterLinkTitle}
+                  title={branchSamebaseLinkTitle}
                 >
                   <DashboardLinkIconSlot>
                     <SamebaseLogoMark />
                   </DashboardLinkIconSlot>
-                  <span>{branchNoterLinkLabel}</span>
+                  <span>{branchSamebaseLinkLabel}</span>
                 </Link>
               </div>
             ) : null}
@@ -2869,7 +2871,7 @@ export function VaultDashboardBody({
             ? vault.providerSetup
             : null;
         const hasProvisioningLog =
-          Boolean(activeSourceSetup || activeProviderSetup) || vault.isNoterManaged;
+          Boolean(activeSourceSetup || activeProviderSetup) || vault.isSamebaseManaged;
         const sourceSetupSection =
           !isReady && activeSourceSetup ? (
             <VaultSourceSetupSection sourceSetup={activeSourceSetup} />
@@ -3923,7 +3925,7 @@ export function VaultDashboard() {
           connectedCodespacesCount !== undefined &&
           connectedCodespacesCount > 0 &&
           removeCodespaces,
-        removeGithubRepo: vaultToDelete.isNoterManaged
+        removeGithubRepo: vaultToDelete.isSamebaseManaged
           ? vaultToDelete.canRemoveGithubRepo && removeGithubRepo
           : false,
         removeConvexProvision: vaultToDelete.canRemoveConvexProvision

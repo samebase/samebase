@@ -25,9 +25,9 @@ const FIXTURE_OWNER = "nicu-chiciuc";
 const FIXTURE_REPOSITORY_NAME = "tmp-cda7-prosemark-scroll";
 const FIXTURE_REPOSITORY_FULL_NAME = `${FIXTURE_OWNER}/${FIXTURE_REPOSITORY_NAME}`;
 
-const README_DOCUMENT = `# Noter Starter Template
+const README_DOCUMENT = `# Samebase Starter Template
 
-This project is the seeded baseline for newly created noter-managed repositories.
+This project is the seeded baseline for newly created Samebase-managed repositories.
 
 ## Stack
 

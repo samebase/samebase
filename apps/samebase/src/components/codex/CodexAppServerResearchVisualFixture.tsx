@@ -39,11 +39,11 @@ const FIXTURE_THREAD: CodexAppServerThread = {
   name: "Connected machines thread sync follow-up",
   preview:
     "We already have the dedicated browser view for thread discovery, so the research page should keep only the selected thread detail and controls.",
-  cwd: "/workspace/noter",
+  cwd: "/workspace/samebase",
   project: {
-    id: "project:noter",
-    label: "noter",
-    rootCwd: "/workspace/noter",
+    id: "project:samebase",
+    label: "samebase",
+    rootCwd: "/workspace/samebase",
   },
   workspace: {
     label: "research",
@@ -62,7 +62,7 @@ const FIXTURE_THREAD: CodexAppServerThread = {
   },
   gitInfo: {
     branch: "codex/connected-machine-followup",
-    originUrl: "git@github.com:noter-md/noter.git",
+    originUrl: "git@github.com:samebase/samebase.git",
     sha: "f4b9f7280a4bc7a74f3de83f7afc3d62f14f17f8",
   },
   path: "/workspace/.codex/sessions/2026/03/31/research-thread-selected.jsonl",

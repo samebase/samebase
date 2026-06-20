@@ -598,15 +598,15 @@ async function getCodespaceWithRetry(
 const MAX_CODESPACE_DISPLAY_NAME_LENGTH = 48;
 
 function buildCodespaceDisplayName(envLabel: string, owner: string, repo: string): string {
-  const rawName = `Noter ${envLabel} ${owner}-${repo}`;
+  const rawName = `Samebase ${envLabel} ${owner}-${repo}`;
   const cleanedName = rawName
     .replace(/[^a-zA-Z0-9 _-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const safeName = cleanedName.length > 0 ? cleanedName : "Noter Codespace";
+  const safeName = cleanedName.length > 0 ? cleanedName : "Samebase Codespace";
   if (safeName.length <= MAX_CODESPACE_DISPLAY_NAME_LENGTH) {
     return safeName;
   }
   const truncatedName = safeName.slice(0, MAX_CODESPACE_DISPLAY_NAME_LENGTH).trim();
-  return truncatedName.length > 0 ? truncatedName : "Noter Codespace";
+  return truncatedName.length > 0 ? truncatedName : "Samebase Codespace";
 }

@@ -63,7 +63,7 @@ export function ensureWindowStorageAccess(storageKey: "localStorage" | "sessionS
   }
 
   try {
-    window[storageKey].getItem("__noter-storage-access-check__");
+    window[storageKey].getItem("__samebase-storage-access-check__");
     return;
   } catch {
     // Some embedded browsers block storage through a throwing getter; install the same fallback.

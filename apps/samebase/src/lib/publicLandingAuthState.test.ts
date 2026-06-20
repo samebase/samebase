@@ -64,7 +64,7 @@ describe("publicLandingAuthState", () => {
       configurable: true,
       value: createMockStorage(),
     });
-    window.localStorage.setItem("noter_auth_provider", "google");
+    window.localStorage.setItem("samebase_auth_provider", "google");
 
     expect(shouldRenderPublicLandingWithoutAuthGate("/", validateRootRouteSearch({}))).toBe(false);
   });
@@ -74,7 +74,7 @@ describe("publicLandingAuthState", () => {
       configurable: true,
       value: createMockStorage(),
     });
-    window.localStorage.setItem("noter_auth_provider", "google");
+    window.localStorage.setItem("samebase_auth_provider", "google");
 
     expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({}))).toBe(false);
     expect(shouldShowGoogleAuthForPathname("/", validateRootRouteSearch({ dev: true }))).toBe(
@@ -87,7 +87,7 @@ describe("publicLandingAuthState", () => {
       configurable: true,
       value: createMockStorage(),
     });
-    window.localStorage.setItem("noter_auth_provider", "google");
+    window.localStorage.setItem("samebase_auth_provider", "google");
 
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
@@ -154,7 +154,7 @@ describe("publicLandingAuthState", () => {
       configurable: true,
       value: createMockStorage(),
     });
-    window.localStorage.setItem("noter_public_landing_password_auth_mode", "nope");
+    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "nope");
 
     expect(resolvePublicLandingPasswordAuthMode(undefined)).toBe("off");
   });

@@ -150,7 +150,7 @@ export function CommandPalette({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppDialogContent
         size="lg"
-        className="p-0 [--noter-command-palette-max-height:80dvh] max-h-(--noter-command-palette-max-height) overflow-hidden"
+        className="p-0 [--samebase-command-palette-max-height:80dvh] max-h-(--samebase-command-palette-max-height) overflow-hidden"
       >
         <div className="flex flex-col">
           {/* Search Input */}

@@ -68,7 +68,7 @@ export function FileViewCompareVisualFixture({ mode }: { mode: FileViewCompareVi
       <div className="mx-auto max-w-5xl corner-notch-1 border border-slate-300 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-2 text-xs text-slate-600">
           <GitHubLogoIcon className="h-3 w-3" />
-          noter-md/noter
+          samebase/samebase
         </div>
 
         <div className="mt-3">

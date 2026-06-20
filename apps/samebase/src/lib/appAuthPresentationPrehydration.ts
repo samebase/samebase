@@ -3,7 +3,7 @@ import { samebaseBuildConfig } from "@/lib/samebaseBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
-  "noter-app-auth-presentation-prehydration";
+  "samebase-app-auth-presentation-prehydration";
 const APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE = "data-app-auth-presentation-prehydrated";
 
 export type AppAuthPresentationPrehydrationArgs = {

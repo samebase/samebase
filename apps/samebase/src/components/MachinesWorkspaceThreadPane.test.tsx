@@ -25,7 +25,7 @@ const THREAD_FIXTURE: CodexAppServerThread = {
   agentRole: null,
   cliVersion: "0.117.0-alpha.10",
   createdAt: 1_775_541_200,
-  cwd: "/Users/fixture/.codex/worktrees/demo/noter",
+  cwd: "/Users/fixture/.codex/worktrees/demo/samebase",
   gitInfo: null,
   id: "thread-machine-workspace-test",
   modelProvider: "openai",
@@ -33,9 +33,9 @@ const THREAD_FIXTURE: CodexAppServerThread = {
   path: "/Users/fixture/.codex/sessions/2026/04/02/thread.jsonl",
   preview: "Switch the main thread pane to the shared readonly renderer.",
   project: {
-    id: "/Users/fixture/dev/noter",
-    label: "noter",
-    rootCwd: "/Users/fixture/dev/noter",
+    id: "/Users/fixture/dev/samebase",
+    label: "samebase",
+    rootCwd: "/Users/fixture/dev/samebase",
   },
   raw: null,
   source: "vscode",
@@ -110,7 +110,7 @@ describe("MachinesWorkspaceThreadPane", () => {
         selectedThreadId={null}
         pendingConversation={{
           envMode: "worktree",
-          projectLabel: "noter",
+          projectLabel: "samebase",
         }}
         selectedMachineStatusReason={null}
         hasPendingStartedThread={false}
@@ -125,7 +125,7 @@ describe("MachinesWorkspaceThreadPane", () => {
 
     expect(markup).toContain("New conversation");
     expect(markup).toContain(
-      "Send the first prompt to create a new worktree conversation in noter.",
+      "Send the first prompt to create a new worktree conversation in samebase.",
     );
   });
 

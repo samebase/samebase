@@ -25,22 +25,22 @@ const PROFILE_CLAIM_CASES: {
   {
     name: "keeps valid email and name claims",
     input: {
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       name: CLAIM_VALUES.valid,
     },
     expected: {
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       name: "Nicu",
     },
   },
   {
     name: "trims usable claims before putting them in JWTs",
     input: {
-      email: "  nicu@noter.md  ",
+      email: "  nicu@samebase.com  ",
       name: CLAIM_VALUES.trimmed,
     },
     expected: {
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       name: "Nicu",
     },
   },
@@ -56,10 +56,10 @@ const PROFILE_CLAIM_CASES: {
   {
     name: "keeps a valid email when name is missing",
     input: {
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
     },
     expected: {
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
     },
   },
   {
@@ -101,11 +101,11 @@ describe("auth token claims", () => {
   it("builds flat Convex Auth custom claims without avatar fields", () => {
     expect(
       buildAuthTokenProfileCustomClaims({
-        email: "  nicu@noter.md  ",
+        email: "  nicu@samebase.com  ",
         name: "Nicu",
       }),
     ).toEqual({
-      email: "nicu@noter.md",
+      email: "nicu@samebase.com",
       name: "Nicu",
     });
   });
@@ -113,7 +113,7 @@ describe("auth token claims", () => {
   it("omits custom claims when a profile field is outside the JWT display contract", () => {
     expect(
       buildAuthTokenProfileCustomClaims({
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         name: CLAIM_VALUES.tooLong,
       }),
     ).toEqual({});

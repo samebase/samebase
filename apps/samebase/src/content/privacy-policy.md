@@ -14,9 +14,6 @@ product yet.
 - Account and sign-in data. When you sign in, Samebase stores the account fields needed to identify
   you and operate login, including your name, email address, profile image, email verification time,
   approval state, and the auth/session records required by the current auth system.
-- Waitlist data. If you join the waitlist, Samebase stores your email address and the time you
-  joined. If waitlist notifications are configured, that email address is also sent through Resend
-  to notify the team.
 - Connected provider credentials and related identifiers. If you connect GitHub, Convex, Cloudflare,
   or Codex, Samebase stores the credentials and metadata needed to operate that integration, such as
   OAuth access tokens, refresh tokens, API keys, expiry times, usernames, team IDs, account IDs, and
@@ -49,15 +46,12 @@ product yet.
   workspace data.
 - Analytics cookies and local storage. PostHog may store browser identifiers and related session
   state in cookies and localStorage to support analytics, diagnostics, and other client telemetry.
-- Temporary in-memory landing state. The public landing page keeps the waitlist email draft in
-  memory during the shell-to-app handoff.
-
-Depending on the sign-in flow you use, third-party identity providers such as Google may also set
-their own cookies or session state as part of authentication.
+  Depending on the sign-in flow you use, third-party identity providers such as Google may also set
+  their own cookies or session state as part of authentication.
 
 ## How Samebase Uses Information
 
-- To authenticate users, maintain sessions, and enforce access controls such as waitlist approval.
+- To authenticate users, maintain sessions, and enforce access controls.
 - To connect to external providers and perform the actions you ask Samebase to perform, including
   reading repositories, staging edits, proposing commits, creating repositories, and provisioning
   infrastructure.
@@ -90,7 +84,6 @@ browser storage and provider integrations described on this page.
 - With Polar when you start checkout or open the billing portal, and when subscription state is
   synchronized by webhook.
 - With PostHog when the app sends product analytics, browser error, and related client telemetry.
-- With Resend if waitlist email notifications are configured.
 - With MCP clients that you explicitly authorize through Samebase's MCP OAuth flow.
 
 If you ask Samebase to create hosted previews or production infrastructure, deployment URLs and
@@ -99,8 +92,8 @@ provider-side resource identifiers may be created and stored as part of that wor
 ## Retention and Controls
 
 - The current codebase does not implement one global auto-deletion schedule for all personal data.
-- Account, workspace, billing, waitlist, and audit records generally remain until they are removed
-  through product actions or operational cleanup.
+- Account, workspace, billing, and audit records generally remain until they are removed through
+  product actions or operational cleanup.
 - Some short-lived records, including OAuth state and certain token records, are created with
   expiration timestamps and are intended to expire automatically.
 - You can disconnect connected providers, which removes the corresponding provider-connection record

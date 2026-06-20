@@ -1,5 +1,5 @@
 /**
- * Local ambient typings for the Three.js example modules used by Noter's VOX
+ * Local ambient typings for the Three.js example modules used by Samebase's VOX
  * preview. Keep these declarations aligned with the `three` version in
  * `apps/samebase/package.json` when example loader/control APIs change upstream.
  */

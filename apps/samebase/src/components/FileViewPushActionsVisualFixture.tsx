@@ -28,7 +28,7 @@ export function FileViewPushActionsVisualFixture({
               canCreateDraftPullRequest={!isOpenPullRequestMode}
               currentPullRequestNumber={isOpenPullRequestMode ? 999 : undefined}
               currentPullRequestUrl={
-                isOpenPullRequestMode ? "https://github.com/noter-md/noter/pull/999" : undefined
+                isOpenPullRequestMode ? "https://github.com/samebase/samebase/pull/999" : undefined
               }
               draftButtonLabel={isDefaultDraftMode ? "draft" : "create draft"}
               hasChangesToCommit={!isOpenPullRequestMode}

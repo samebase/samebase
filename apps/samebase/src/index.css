@@ -358,22 +358,22 @@
      * If the stroke width comes from a plain `.border` ancestor, borderless
      * children can inherit it and render the wrong notch geometry.
      */
-    --noter-corner-notch-bridge-size: 0px;
-    --noter-corner-notch-bridge-top-left-size: var(--noter-corner-notch-bridge-size);
-    --noter-corner-notch-bridge-top-right-size: var(--noter-corner-notch-bridge-size);
-    --noter-corner-notch-bridge-bottom-right-size: var(--noter-corner-notch-bridge-size);
-    --noter-corner-notch-bridge-bottom-left-size: var(--noter-corner-notch-bridge-size);
-    --noter-corner-notch-stroke: 1px;
+    --samebase-corner-notch-bridge-size: 0px;
+    --samebase-corner-notch-bridge-top-left-size: var(--samebase-corner-notch-bridge-size);
+    --samebase-corner-notch-bridge-top-right-size: var(--samebase-corner-notch-bridge-size);
+    --samebase-corner-notch-bridge-bottom-right-size: var(--samebase-corner-notch-bridge-size);
+    --samebase-corner-notch-bridge-bottom-left-size: var(--samebase-corner-notch-bridge-size);
+    --samebase-corner-notch-stroke: 1px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border {
-    --noter-corner-notch-bridge-size: 1px;
-    --noter-corner-notch-stroke: 1px;
+    --samebase-corner-notch-bridge-size: 1px;
+    --samebase-corner-notch-stroke: 1px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border-2 {
-    --noter-corner-notch-bridge-size: 2px;
-    --noter-corner-notch-stroke: 2px;
+    --samebase-corner-notch-bridge-size: 2px;
+    --samebase-corner-notch-stroke: 2px;
   }
 
   /*
@@ -383,59 +383,59 @@
    */
   :is(.corner-notch-1, .corner-notch-2).border-x-0,
   :is(.corner-notch-1, .corner-notch-2).border-y-0 {
-    --noter-corner-notch-bridge-top-left-size: 0px;
-    --noter-corner-notch-bridge-top-right-size: 0px;
-    --noter-corner-notch-bridge-bottom-right-size: 0px;
-    --noter-corner-notch-bridge-bottom-left-size: 0px;
+    --samebase-corner-notch-bridge-top-left-size: 0px;
+    --samebase-corner-notch-bridge-top-right-size: 0px;
+    --samebase-corner-notch-bridge-bottom-right-size: 0px;
+    --samebase-corner-notch-bridge-bottom-left-size: 0px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border-l-0 {
-    --noter-corner-notch-bridge-top-left-size: 0px;
-    --noter-corner-notch-bridge-bottom-left-size: 0px;
+    --samebase-corner-notch-bridge-top-left-size: 0px;
+    --samebase-corner-notch-bridge-bottom-left-size: 0px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border-r-0 {
-    --noter-corner-notch-bridge-top-right-size: 0px;
-    --noter-corner-notch-bridge-bottom-right-size: 0px;
+    --samebase-corner-notch-bridge-top-right-size: 0px;
+    --samebase-corner-notch-bridge-bottom-right-size: 0px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border-t-0 {
-    --noter-corner-notch-bridge-top-left-size: 0px;
-    --noter-corner-notch-bridge-top-right-size: 0px;
+    --samebase-corner-notch-bridge-top-left-size: 0px;
+    --samebase-corner-notch-bridge-top-right-size: 0px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border-b-0 {
-    --noter-corner-notch-bridge-bottom-right-size: 0px;
-    --noter-corner-notch-bridge-bottom-left-size: 0px;
+    --samebase-corner-notch-bridge-bottom-right-size: 0px;
+    --samebase-corner-notch-bridge-bottom-left-size: 0px;
   }
 
   @media not all and (min-width: 640px) {
     :is(.corner-notch-1, .corner-notch-2).max-sm\:border-x-0,
     :is(.corner-notch-1, .corner-notch-2).max-sm\:border-y-0 {
-      --noter-corner-notch-bridge-top-left-size: 0px;
-      --noter-corner-notch-bridge-top-right-size: 0px;
-      --noter-corner-notch-bridge-bottom-right-size: 0px;
-      --noter-corner-notch-bridge-bottom-left-size: 0px;
+      --samebase-corner-notch-bridge-top-left-size: 0px;
+      --samebase-corner-notch-bridge-top-right-size: 0px;
+      --samebase-corner-notch-bridge-bottom-right-size: 0px;
+      --samebase-corner-notch-bridge-bottom-left-size: 0px;
     }
 
     :is(.corner-notch-1, .corner-notch-2).max-sm\:border-l-0 {
-      --noter-corner-notch-bridge-top-left-size: 0px;
-      --noter-corner-notch-bridge-bottom-left-size: 0px;
+      --samebase-corner-notch-bridge-top-left-size: 0px;
+      --samebase-corner-notch-bridge-bottom-left-size: 0px;
     }
 
     :is(.corner-notch-1, .corner-notch-2).max-sm\:border-r-0 {
-      --noter-corner-notch-bridge-top-right-size: 0px;
-      --noter-corner-notch-bridge-bottom-right-size: 0px;
+      --samebase-corner-notch-bridge-top-right-size: 0px;
+      --samebase-corner-notch-bridge-bottom-right-size: 0px;
     }
 
     :is(.corner-notch-1, .corner-notch-2).max-sm\:border-t-0 {
-      --noter-corner-notch-bridge-top-left-size: 0px;
-      --noter-corner-notch-bridge-top-right-size: 0px;
+      --samebase-corner-notch-bridge-top-left-size: 0px;
+      --samebase-corner-notch-bridge-top-right-size: 0px;
     }
 
     :is(.corner-notch-1, .corner-notch-2).max-sm\:border-b-0 {
-      --noter-corner-notch-bridge-bottom-right-size: 0px;
-      --noter-corner-notch-bridge-bottom-left-size: 0px;
+      --samebase-corner-notch-bridge-bottom-right-size: 0px;
+      --samebase-corner-notch-bridge-bottom-left-size: 0px;
     }
   }
 
@@ -445,8 +445,8 @@
      * `step` is the notch size, and `end` mirrors that same distance from the
      * far edge so the polygon can reuse the same numbers on every corner.
      */
-    --noter-notch-step: var(--noter-corner-notch-stroke, 1px);
-    --noter-notch-end: calc(100% - var(--noter-notch-step));
+    --samebase-notch-step: var(--samebase-corner-notch-stroke, 1px);
+    --samebase-notch-end: calc(100% - var(--samebase-notch-step));
 
     /*
      * Walk clockwise around the box.
@@ -461,18 +461,18 @@
      * border paints the extra inner corner pixel directly.
      */
     clip-path: polygon(
-      var(--noter-notch-step) 0,
-      var(--noter-notch-end) 0,
-      var(--noter-notch-end) var(--noter-notch-step),
-      100% var(--noter-notch-step),
-      100% var(--noter-notch-end),
-      var(--noter-notch-end) var(--noter-notch-end),
-      var(--noter-notch-end) 100%,
-      var(--noter-notch-step) 100%,
-      var(--noter-notch-step) var(--noter-notch-end),
-      0 var(--noter-notch-end),
-      0 var(--noter-notch-step),
-      var(--noter-notch-step) var(--noter-notch-step)
+      var(--samebase-notch-step) 0,
+      var(--samebase-notch-end) 0,
+      var(--samebase-notch-end) var(--samebase-notch-step),
+      100% var(--samebase-notch-step),
+      100% var(--samebase-notch-end),
+      var(--samebase-notch-end) var(--samebase-notch-end),
+      var(--samebase-notch-end) 100%,
+      var(--samebase-notch-step) 100%,
+      var(--samebase-notch-step) var(--samebase-notch-end),
+      0 var(--samebase-notch-end),
+      0 var(--samebase-notch-step),
+      var(--samebase-notch-step) var(--samebase-notch-step)
     );
   }
 
@@ -482,18 +482,18 @@
     inset: 0;
     pointer-events: none;
     background:
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 0 /
-        var(--noter-corner-notch-bridge-top-left-size, 0px)
-        var(--noter-corner-notch-bridge-top-left-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 0 /
-        var(--noter-corner-notch-bridge-top-right-size, 0px)
-        var(--noter-corner-notch-bridge-top-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 100% /
-        var(--noter-corner-notch-bridge-bottom-right-size, 0px)
-        var(--noter-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 100% /
-        var(--noter-corner-notch-bridge-bottom-left-size, 0px)
-        var(--noter-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 0 0 /
+        var(--samebase-corner-notch-bridge-top-left-size, 0px)
+        var(--samebase-corner-notch-bridge-top-left-size, 0px) no-repeat,
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 100% 0 /
+        var(--samebase-corner-notch-bridge-top-right-size, 0px)
+        var(--samebase-corner-notch-bridge-top-right-size, 0px) no-repeat,
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 100% 100% /
+        var(--samebase-corner-notch-bridge-bottom-right-size, 0px)
+        var(--samebase-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 0 100% /
+        var(--samebase-corner-notch-bridge-bottom-left-size, 0px)
+        var(--samebase-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
   }
 
   .corner-notch-2 {
@@ -528,18 +528,18 @@
     pointer-events: none;
     /* Paint the inner bridge pixel that the clipped outer border cannot reach. */
     background:
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 0 /
-        var(--noter-corner-notch-bridge-top-left-size, 0px)
-        var(--noter-corner-notch-bridge-top-left-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 0 /
-        var(--noter-corner-notch-bridge-top-right-size, 0px)
-        var(--noter-corner-notch-bridge-top-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 100% 100% /
-        var(--noter-corner-notch-bridge-bottom-right-size, 0px)
-        var(--noter-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
-      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0) 0 100% /
-        var(--noter-corner-notch-bridge-bottom-left-size, 0px)
-        var(--noter-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 0 0 /
+        var(--samebase-corner-notch-bridge-top-left-size, 0px)
+        var(--samebase-corner-notch-bridge-top-left-size, 0px) no-repeat,
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 100% 0 /
+        var(--samebase-corner-notch-bridge-top-right-size, 0px)
+        var(--samebase-corner-notch-bridge-top-right-size, 0px) no-repeat,
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 100% 100% /
+        var(--samebase-corner-notch-bridge-bottom-right-size, 0px)
+        var(--samebase-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
+      linear-gradient(var(--samebase-corner-notch-bridge-color, currentColor) 0 0) 0 100% /
+        var(--samebase-corner-notch-bridge-bottom-left-size, 0px)
+        var(--samebase-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
   }
 
   .corner-notch-1:focus-visible,

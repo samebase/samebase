@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { signInIfNeeded } from "./liveHelpers";
 
-const PREVIOUS_REPOSITORY_HASH = "noter";
+const PREVIOUS_REPOSITORY_HASH = "samebase";
 const TARGET_REPOSITORY_FULL_NAME = "nicu-chiciuc/tmp-flow";
 const TARGET_REPOSITORY_HASH = "tmp-flow";
 

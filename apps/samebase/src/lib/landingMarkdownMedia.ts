@@ -9,7 +9,7 @@ function getUrlPathname(value: string): string {
   }
 
   try {
-    return new URL(trimmedValue, "https://noter.local").pathname.toLowerCase();
+    return new URL(trimmedValue, "https://samebase.local").pathname.toLowerCase();
   } catch {
     return trimmedValue.split(/[?#]/)[0]?.toLowerCase() ?? "";
   }

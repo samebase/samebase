@@ -3,7 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 
 export type ConnectedVault = Extract<Doc<"vaults">, { state: "connected" }>;
-export type NoterManagedConnectedVault = Extract<
+export type SamebaseManagedConnectedVault = Extract<
   ConnectedVault,
   { githubMode: "create_repository" }
 >;
@@ -36,6 +36,6 @@ export function assertConnectedVault(vault: Doc<"vaults"> | null | undefined): C
   return vault;
 }
 
-export const isNoterManagedVault = guard<ConnectedVault, NoterManagedConnectedVault>((vault) =>
-  vault.githubMode === "create_repository" ? vault : null,
+export const isSamebaseManagedVault = guard<ConnectedVault, SamebaseManagedConnectedVault>(
+  (vault) => (vault.githubMode === "create_repository" ? vault : null),
 );

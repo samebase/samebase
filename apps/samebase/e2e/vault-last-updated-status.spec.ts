@@ -26,7 +26,7 @@ test("vault last updated status fixture refreshes on click", async ({ page }) =>
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture).toHaveAttribute("data-refresh-count", "0");
 
-  await page.getByRole("button", { name: "Refresh noter-md/noter now" }).click();
+  await page.getByRole("button", { name: "Refresh samebase/samebase now" }).click();
 
   await expect(fixture).toHaveAttribute("data-refresh-count", "1");
 });

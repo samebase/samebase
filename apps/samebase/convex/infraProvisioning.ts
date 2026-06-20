@@ -25,8 +25,8 @@ import type { AppProvisioningStep, GithubTreeData } from "./schema";
 import { vaultSuffix } from "./slugUtils";
 import {
   isLiveConnectedVault,
-  isNoterManagedVault,
-  type NoterManagedConnectedVault,
+  isSamebaseManagedVault,
+  type SamebaseManagedConnectedVault,
 } from "./vault/state";
 import type { ConvexDeployKeyState, VaultCloudflareBuildConfig } from "./vault/model";
 import {
@@ -57,13 +57,13 @@ async function requireActiveProvisioningVault(
     vaultId: Id<"vaults">;
     runId: Id<"appProvisioningRuns">;
   },
-): Promise<NoterManagedConnectedVault | null> {
+): Promise<SamebaseManagedConnectedVault | null> {
   const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
   if (!ownership || !isActiveProvisioningOwner(ownership, { runId: args.runId })) {
     return null;
   }
   const vault = await ctx.db.get(args.vaultId);
-  if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+  if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
     return null;
   }
   return vault;
@@ -105,7 +105,7 @@ function requireVaultInfrastructureTarget(
 
 async function assertVaultInfrastructureTargetExists(
   ctx: Pick<MutationCtx, "db">,
-  vault: NoterManagedConnectedVault,
+  vault: SamebaseManagedConnectedVault,
 ): Promise<void> {
   const existing = await readVaultInfrastructureTarget(ctx, vault._id);
   if (existing) {
@@ -733,11 +733,11 @@ async function ensureActiveProvisioningRun(
 async function getManagedProvisioningVault(
   ctx: ActionCtx,
   vaultId: Id<"vaults">,
-): Promise<NoterManagedConnectedVault | null> {
+): Promise<SamebaseManagedConnectedVault | null> {
   const vault = await ctx.runQuery(internal.vault.records.getById, {
     id: vaultId,
   });
-  if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+  if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
     return null;
   }
   return vault;
@@ -1090,7 +1090,7 @@ export const markCloudflareProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
       return { applied: false };
     }
 
@@ -1131,7 +1131,7 @@ export const markCloudflareConnected = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
       return { applied: false };
     }
     const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
@@ -1187,7 +1187,7 @@ export const upsertDomainRecord = internalMutation({
   returns: infrastructurePatchResult,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
       return { applied: false };
     }
 
@@ -1240,7 +1240,7 @@ export const claimWorkflowProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
       await appendProvisioningRunEvent(ctx, {
         runId: args.runId,
         step: "claim_infra",
@@ -1636,7 +1636,7 @@ export const ensureCloudflareInfrastructure = internalAction({
     const productionDeployKey = await createConvexDeployKey({
       convexToken,
       deploymentName: existing.deploymentName,
-      name: `noter-${vaultSuffix(args.vaultId)}`,
+      name: `samebase-${vaultSuffix(args.vaultId)}`,
       recordApiCall,
     });
     const productionDeployKeyRecord = await ctx.runMutation(
@@ -1658,7 +1658,7 @@ export const ensureCloudflareInfrastructure = internalAction({
     const previewDeployKey = await createConvexPreviewDeployKey({
       convexToken,
       projectId: existing.projectId,
-      name: `noter-preview-${vaultSuffix(args.vaultId)}`,
+      name: `samebase-preview-${vaultSuffix(args.vaultId)}`,
       recordApiCall,
     });
     const previewDeployKeyRecord = await ctx.runMutation(
@@ -1834,7 +1834,7 @@ export const finishWorkflowProvisioning = internalMutation({
     }
 
     const vault = await ctx.db.get(args.vaultId);
-    if (!isLiveConnectedVault(vault) || !isNoterManagedVault(vault)) {
+    if (!isLiveConnectedVault(vault) || !isSamebaseManagedVault(vault)) {
       return null;
     }
 

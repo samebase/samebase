@@ -7,7 +7,7 @@ export function ConnectedMachineHeartbeatLogSection(props: { heartbeatLog: strin
         <h2 className="text-sm font-medium">Live heartbeat log</h2>
         <p className="text-sm text-muted-foreground">
           New lines appear here while this page stays open and the local connector keeps pinging
-          noter.
+          Samebase.
         </p>
       </div>
       <Textarea

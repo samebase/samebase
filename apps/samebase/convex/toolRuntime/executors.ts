@@ -459,7 +459,7 @@ export async function executeVaultsList(
       id: vault.vaultId,
       repositoryFullName: vault.repositoryFullName,
       state: vault.state,
-      isNoterManaged: vault.isNoterManaged,
+      isSamebaseManaged: vault.isSamebaseManaged,
       commitSha: vault.commitSha,
     })),
   };

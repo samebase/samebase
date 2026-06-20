@@ -48,11 +48,11 @@ export type ResolvedAppThemeColorState = {
   themeMode: DocumentThemeMode;
 };
 
-const APP_THEME_COLOR_STYLE_ELEMENT_ID = "noter-app-theme-color-search";
+const APP_THEME_COLOR_STYLE_ELEMENT_ID = "samebase-app-theme-color-search";
 const APP_THEME_COLOR_META_SELECTOR = 'meta[name="theme-color"]';
 // Logo renderers read computed CSS variables, so reset/style syncs must
 // invalidate color state even when route search props are already clean.
-const APP_THEME_COLOR_SEARCH_SYNC_EVENT = "noter:app-theme-color-search-sync";
+const APP_THEME_COLOR_SEARCH_SYNC_EVENT = "samebase:app-theme-color-search-sync";
 const LOGO_COLOR_THEME_MODES = ["light", "dark"] as const satisfies readonly LogoColorThemeMode[];
 const LOGO_THEME_COLOR_VALUE_SUGGESTIONS = TAILWIND_COLOR_TOKEN_SUGGESTIONS;
 

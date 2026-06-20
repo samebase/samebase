@@ -8,7 +8,7 @@ import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStat
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
 
 const { act } = React;
-const STORAGE_KEY = "noter_test_app_workspace_sidebar_state";
+const STORAGE_KEY = "samebase_test_app_workspace_sidebar_state";
 const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
 const DEFAULT_SIDEBAR_STATE = {
   leftDesktopOpen: false,

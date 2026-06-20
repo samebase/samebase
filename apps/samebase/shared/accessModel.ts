@@ -19,7 +19,7 @@ export type AuthenticatedAccessKey = Exclude<AccessKey, PublicAccessKey>;
 
 export const VIEWER_ROLES = [
   "role_anonymous",
-  "role_waitlisted",
+  "role_pending_access",
   "role_member",
   "role_staff",
 ] as const;
@@ -28,7 +28,7 @@ export type ViewerRole = (typeof VIEWER_ROLES)[number];
 
 export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
-  role_waitlisted: ["access_public", "access_user_preferences"],
+  role_pending_access: ["access_public", "access_user_preferences"],
   role_member: [
     "access_public",
     "access_user_preferences",

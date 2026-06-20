@@ -62,7 +62,7 @@ async function fetchCustomerState(args: {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
-        "User-Agent": "noter-app",
+        "User-Agent": "samebase-app",
       },
       signal: controller.signal,
     });

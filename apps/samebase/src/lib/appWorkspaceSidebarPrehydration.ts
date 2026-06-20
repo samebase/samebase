@@ -11,7 +11,7 @@ import {
 } from "@/lib/appWorkspaceSidebarPreferences";
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
-  "noter-app-workspace-sidebar-prehydration";
+  "samebase-app-workspace-sidebar-prehydration";
 
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopStyleElementId: APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID,

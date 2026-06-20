@@ -65,7 +65,7 @@ describe("vault deletion workflow", () => {
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         isApproved: true,
       });
       const vaultId = await ctx.db.insert("vaults", {
@@ -146,7 +146,7 @@ describe("vault deletion workflow", () => {
         state: "retained_for_retry",
         plan: {
           target: {
-            kind: "noter_managed_repository",
+            kind: "samebase_managed_repository",
             ghRepoId: "123",
           },
           githubRepository: {
@@ -751,7 +751,7 @@ describe("vault deletion workflow", () => {
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         isApproved: true,
       });
       const vaultId = await ctx.db.insert("vaults", {

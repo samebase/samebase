@@ -14,7 +14,7 @@ type RebaseResult = {
 const ANCHOR_CONTEXT_LINE_COUNT = 3;
 
 function buildConflictContent(ours: string, theirs: string): string {
-  return ["<<<<<<< noter", ours, "=======", theirs, ">>>>>>> main"].join("\n");
+  return ["<<<<<<< samebase", ours, "=======", theirs, ">>>>>>> main"].join("\n");
 }
 
 function splitLogicalLines(content: string): string[] {

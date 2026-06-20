@@ -270,7 +270,7 @@ describe("seedRepositoryWithStarter", () => {
       repo: "repo",
       branch: "main",
       message: "chore: bootstrap branch for starter seeding",
-      path: ".noter-seed-bootstrap",
+      path: ".samebase-seed-bootstrap",
       contentBase64: Buffer.from("bootstrap\n", "utf8").toString("base64"),
     });
 

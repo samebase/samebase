@@ -94,7 +94,7 @@ const providerCleanupPlan = {
       reason: union(
         literal("not_requested"),
         literal("not_managed"),
-        literal("not_noter_managed"),
+        literal("not_samebase_managed"),
         literal("not_recorded"),
       ),
     }),
@@ -117,7 +117,7 @@ const providerCleanupPlan = {
       reason: union(
         literal("not_requested"),
         literal("not_managed"),
-        literal("not_noter_managed"),
+        literal("not_samebase_managed"),
         literal("not_recorded"),
       ),
     }),
@@ -144,7 +144,7 @@ export const vVaultDeletionPlan = union(
   object({
     ...providerCleanupPlan,
     target: object({
-      kind: literal("noter_managed_repository"),
+      kind: literal("samebase_managed_repository"),
       ...githubRepositoryCoordinates,
     }),
     githubRepository: union(
@@ -165,7 +165,7 @@ export const vVaultDeletionPlan = union(
     }),
     githubRepository: object({
       action: literal("skip"),
-      reason: union(literal("not_requested"), literal("not_noter_managed")),
+      reason: union(literal("not_requested"), literal("not_samebase_managed")),
     }),
   }),
   object({

@@ -20,7 +20,7 @@ const TEST_ARGS = {
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
   rootAttribute: "data-app-auth-presentation-prehydrated",
-  styleElementId: "noter-app-auth-presentation-prehydration",
+  styleElementId: "samebase-app-auth-presentation-prehydration",
 } satisfies AppAuthPresentationPrehydrationArgs;
 
 function createJwt(payload: object) {
@@ -126,7 +126,7 @@ describe("appAuthPresentationPrehydration", () => {
   it("visually replaces the checking login account label with the JWT profile label", () => {
     writeLocalAuthSession(
       createJwt({
-        email: "nicu@noter.md",
+        email: "nicu@samebase.com",
         exp: 4100000000,
         name: "Nicu",
       }),
@@ -139,7 +139,7 @@ describe("appAuthPresentationPrehydration", () => {
       true,
     );
     const styleText = document.getElementById(
-      "noter-app-auth-presentation-prehydration",
+      "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(styleText).toContain(
       `[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] [data-vault-dashboard-account-section-label]::after`,
@@ -159,7 +159,7 @@ describe("appAuthPresentationPrehydration", () => {
 
     const styles = document.querySelectorAll("style");
     const styleText = document.getElementById(
-      "noter-app-auth-presentation-prehydration",
+      "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(styles).toHaveLength(1);
     expect(styleText).toContain('content: "a\\"b\\\\c\\a </style>";');
@@ -180,7 +180,7 @@ describe("appAuthPresentationPrehydration", () => {
       true,
     );
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).toContain('content: "Nicu";');
   });
 
@@ -198,7 +198,7 @@ describe("appAuthPresentationPrehydration", () => {
       true,
     );
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).toContain('content: "not logged in";');
   });
 
@@ -209,7 +209,7 @@ describe("appAuthPresentationPrehydration", () => {
       true,
     );
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).toContain('content: "not logged in";');
   });
 
@@ -224,7 +224,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
       false,
     );
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("keeps checking login while a refresh token may restore the session", () => {
@@ -238,7 +238,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
       false,
     );
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("uses signed-out presentation for an expired JWT without a refresh token", () => {
@@ -253,7 +253,7 @@ describe("appAuthPresentationPrehydration", () => {
     runAppAuthPresentationPrehydrationScript();
 
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).toContain('content: "not logged in";');
   });
 
@@ -263,7 +263,7 @@ describe("appAuthPresentationPrehydration", () => {
     runAppAuthPresentationPrehydrationScript();
 
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).toContain('content: "not logged in";');
   });
 
@@ -276,10 +276,10 @@ describe("appAuthPresentationPrehydration", () => {
     runAppAuthPresentationPrehydrationScript();
 
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).toContain('content: "not logged in";');
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
     ).not.toContain('content: "Nicu";');
   });
 
@@ -296,7 +296,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
       false,
     );
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("keeps checking login during an active browser auth flow", () => {
@@ -307,15 +307,15 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
       false,
     );
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("uses the browser proxy URL as the Convex Auth storage namespace when configured", () => {
-    const proxyNamespace = new URL("/__noter_convex_proxy", window.location.origin).toString();
+    const proxyNamespace = new URL("/__samebase_convex_proxy", window.location.origin).toString();
     window.localStorage.setItem(
       convexAuthJwtStorageKey(proxyNamespace),
       createJwt({
-        email: "proxy@noter.md",
+        email: "proxy@samebase.com",
         exp: 4100000000,
       }),
     );
@@ -323,7 +323,7 @@ describe("appAuthPresentationPrehydration", () => {
 
     runAppAuthPresentationPrehydrationScript({
       ...TEST_ARGS,
-      browserConvexProxyPath: "/__noter_convex_proxy",
+      browserConvexProxyPath: "/__samebase_convex_proxy",
       envConvexUrl: "https://ignored.convex.cloud",
     });
 
@@ -332,8 +332,8 @@ describe("appAuthPresentationPrehydration", () => {
       true,
     );
     expect(
-      document.getElementById("noter-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "proxy@noter.md";');
+      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
+    ).toContain('content: "proxy@samebase.com";');
   });
 
   it("removes the temporary style when hydration removes the root marker", async () => {
@@ -348,7 +348,7 @@ describe("appAuthPresentationPrehydration", () => {
     document.documentElement.removeAttribute("data-app-auth-presentation-prehydrated");
     await Promise.resolve();
 
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 
   it("clears the temporary prehydration marker and style", () => {
@@ -365,6 +365,6 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
       false,
     );
-    expect(document.getElementById("noter-app-auth-presentation-prehydration")).toBeNull();
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
   });
 });

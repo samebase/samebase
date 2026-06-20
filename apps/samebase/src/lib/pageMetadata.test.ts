@@ -314,7 +314,7 @@ describe("page metadata", () => {
     ).toBe(true);
     expect(
       rootHead.scripts.some((script) =>
-        script.children.includes("noter_app_workspace_sidebar_state"),
+        script.children.includes("samebase_app_workspace_sidebar_state"),
       ),
     ).toBe(true);
     expect(
