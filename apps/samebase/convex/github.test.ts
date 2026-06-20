@@ -33,9 +33,9 @@ describe("normalizeGitHubRepositoryListItem", () => {
   it("drops extra fields from GitHub repository payloads", () => {
     const normalized = normalizeGitHubRepositoryListItem({
       id: 1021726325,
-      name: "noter",
-      full_name: "noter-md/noter",
-      html_url: "https://github.com/noter-md/noter",
+      name: "samebase",
+      full_name: "samebase/samebase",
+      html_url: "https://github.com/samebase/samebase",
       description: null,
       private: true,
       fork: false,
@@ -45,14 +45,14 @@ describe("normalizeGitHubRepositoryListItem", () => {
       stargazers_count: 0,
       forks_count: 0,
       allow_forking: true,
-      owner: { login: "noter-md" },
+      owner: { login: "samebase" },
     });
 
     expect(normalized).toEqual({
       id: 1021726325,
-      name: "noter",
-      full_name: "noter-md/noter",
-      html_url: "https://github.com/noter-md/noter",
+      name: "samebase",
+      full_name: "samebase/samebase",
+      html_url: "https://github.com/samebase/samebase",
       description: null,
       private: true,
       fork: false,

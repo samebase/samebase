@@ -8,7 +8,7 @@ describe("readRouteUrlEditorDocumentHashSuggestionKeys", () => {
     const root = document.createElement("div");
     root.innerHTML = `
       <h2 data-landing-heading-id="deploy-a-production-app">Deploy a production app</h2>
-      <section data-vault-dashboard-repository-hash-id="noter-md/noter"></section>
+      <section data-vault-dashboard-repository-hash-id="samebase/samebase"></section>
       <section data-route-url-hash-suggestion="#connected-machines"></section>
       <h3 data-landing-heading-id="deploy-a-production-app">Duplicate heading mirror</h3>
       <section data-vault-dashboard-repository-hash-id=""></section>
@@ -16,7 +16,7 @@ describe("readRouteUrlEditorDocumentHashSuggestionKeys", () => {
 
     expect(readRouteUrlEditorDocumentHashSuggestionKeys(root)).toEqual([
       "deploy-a-production-app",
-      "noter-md/noter",
+      "samebase/samebase",
       "connected-machines",
     ]);
   });

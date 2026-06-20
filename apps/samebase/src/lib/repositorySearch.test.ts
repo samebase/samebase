@@ -9,34 +9,34 @@ import {
 
 describe("getFuzzyMatchIndices", () => {
   it("returns indices for a fuzzy match", () => {
-    expect(getFuzzyMatchIndices("ntr", "noter")).toEqual([0, 2, 4]);
+    expect(getFuzzyMatchIndices("smb", "samebase")).toEqual([0, 2, 4]);
   });
 
   it("ignores spaces in the query", () => {
-    expect(getFuzzyMatchIndices("nt r", "noter")).toEqual([0, 2, 4]);
+    expect(getFuzzyMatchIndices("sm b", "samebase")).toEqual([0, 2, 4]);
   });
 
   it("returns null when the target does not match", () => {
-    expect(getFuzzyMatchIndices("zzz", "noter")).toBeNull();
+    expect(getFuzzyMatchIndices("zzz", "samebase")).toBeNull();
   });
 });
 
 describe("repositoryMatchesSearch", () => {
   const repository = {
-    name: "noter",
-    full_name: "noter-md/noter",
+    name: "samebase",
+    full_name: "samebase/samebase",
   };
 
   it("matches by repository name", () => {
-    expect(repositoryMatchesSearch("not", repository)).toBe(true);
+    expect(repositoryMatchesSearch("sam", repository)).toBe(true);
   });
 
   it("matches by owner name", () => {
-    expect(repositoryMatchesSearch("noter-md", repository)).toBe(true);
+    expect(repositoryMatchesSearch("samebase", repository)).toBe(true);
   });
 
   it("matches by full repository name", () => {
-    expect(repositoryMatchesSearch("notermd/noter", repository)).toBe(true);
+    expect(repositoryMatchesSearch("samebase/samebase", repository)).toBe(true);
   });
 
   it("rejects unrelated queries", () => {
@@ -46,21 +46,21 @@ describe("repositoryMatchesSearch", () => {
 
 describe("findRepositorySearchMatch", () => {
   const repository = {
-    name: "noter",
-    full_name: "noter-md/noter",
+    name: "samebase",
+    full_name: "samebase/samebase",
   };
 
   it("returns repo match metadata", () => {
-    expect(findRepositorySearchMatch("not", repository)).toEqual({
+    expect(findRepositorySearchMatch("sam", repository)).toEqual({
       kind: "repo",
       indices: [0, 1, 2],
     });
   });
 
   it("returns full-name match metadata when only the combined path matches", () => {
-    expect(findRepositorySearchMatch("notermd/noter", repository)).toEqual({
+    expect(findRepositorySearchMatch("samebase/samebase", repository)).toEqual({
       kind: "full_name",
-      indices: [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13],
+      indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
     });
   });
 });
@@ -69,7 +69,7 @@ describe("splitRepositoryFullNameMatch", () => {
   it("splits full-name indices across owner, slash, and repo segments", () => {
     expect(
       splitRepositoryFullNameMatch({
-        ownerName: "noter-md",
+        ownerName: "samebase",
         indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       }),
     ).toEqual({

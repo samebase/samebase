@@ -88,7 +88,7 @@ describe("ProviderConnectionsPage", () => {
           {
             authMethod: "oauth",
             connected: true,
-            username: "noter-md",
+            username: "samebase",
           },
         ],
         [
@@ -96,14 +96,14 @@ describe("ProviderConnectionsPage", () => {
           {
             authMethod: "api_key",
             connected: true,
-            teamSlug: "noter",
+            teamSlug: "samebase",
           },
         ],
         [
           getFunctionName(api.users.getCloudflareConnectionStatus),
           {
             accountId: "account_123",
-            accountName: "noter",
+            accountName: "samebase",
             authMethod: "mcp_oauth",
             connected: true,
             mcpTokenExpiresAt: Date.now() + 60_000,
@@ -114,8 +114,8 @@ describe("ProviderConnectionsPage", () => {
       ]),
     );
 
-    expect(markup).toContain("Connected as noter-md");
-    expect(markup).toContain("Connected to noter");
+    expect(markup).toContain("Connected as samebase");
+    expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth).");
     expect(markup).toContain("Token Valid.");
     expect(markup).toContain("Manage account");

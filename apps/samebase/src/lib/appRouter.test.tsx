@@ -791,19 +791,19 @@ describe("appRouter", () => {
   });
 
   it("redirects the disabled codespace chat route back to the vault view", async () => {
-    const router = await renderRoute("/vault/noter-md/noter/codespace/main/chat");
+    const router = await renderRoute("/vault/samebase/samebase/codespace/main/chat");
 
     await act(async () => {
       await settleRouterRender();
     });
 
-    expect(router.state.location.pathname).toBe("/vault/noter-md/noter/main");
+    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/main");
     expect(rootElement?.querySelector('[data-testid="codespace-chat-page"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).not.toBeNull();
   });
 
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/vault/noter-md/noter/main/README.md");
+    await renderRoute("/vault/samebase/samebase/main/README.md");
 
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent).toBe(
       "File view page",
@@ -812,7 +812,7 @@ describe("appRouter", () => {
   });
 
   it("renders the vault repository root through the generic vault route", async () => {
-    await renderRoute("/vault/noter-md/noter");
+    await renderRoute("/vault/samebase/samebase");
 
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent).toBe(
       "File view page",

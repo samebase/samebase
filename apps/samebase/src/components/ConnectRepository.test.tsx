@@ -92,8 +92,8 @@ describe("ConnectRepositoryPageContent", () => {
   });
 
   it("renders partial repository discovery with retry copy and real rows", () => {
-    const firstRepository = buildRepository(1, "noter-md/noter");
-    const secondRepository = buildRepository(2, "noter-md/starter-kit");
+    const firstRepository = buildRepository(1, "samebase/samebase");
+    const secondRepository = buildRepository(2, "samebase/starter-kit");
 
     const markup = renderConnectRepositoryContent({
       githubConnected: true,
@@ -116,13 +116,13 @@ describe("ConnectRepositoryPageContent", () => {
       "Couldn't load the rest of your repositories. You're still seeing the most recently updated ones.",
     );
     expect(markup).toContain("Retry");
-    expect(markup).toContain("noter-md");
-    expect(markup).toContain("noter");
+    expect(markup).toContain("samebase");
+    expect(markup).toContain("samebase");
     expect(markup).toContain("starter-kit");
   });
 
   it("renders an in-button pending state for the connecting repository", () => {
-    const repository = buildRepository(1, "noter-md/noter");
+    const repository = buildRepository(1, "samebase/samebase");
 
     const markup = renderConnectRepositoryContent({
       connectingRepositoryFullName: repository.full_name,
