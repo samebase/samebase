@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PitchDeckPage } from "@/components/PitchDeckPage";
-import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/pitch/print/mobile";
@@ -14,6 +14,6 @@ function PitchPrintMobileRouteComponent() {
 }
 
 export const Route = createFileRoute("/pitch/print/mobile")({
-  staticData: SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: PitchPrintMobileRouteComponent,
 });

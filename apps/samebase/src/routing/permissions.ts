@@ -1,13 +1,13 @@
 import {
-  canAccessSamebaseRouteAvailability,
-  type SamebaseRouteAvailability,
-  type SamebaseRouteEnvironment,
+  canAccessRouteAvailability,
+  type RouteAvailability,
+  type RouteEnvironment,
 } from "@/routing/availability";
 import type { AccessKey } from "../../shared/accessModel";
 
-export type SamebaseRouteAccess = AccessKey;
+export type RouteAccess = AccessKey;
 
-export type SamebaseRouteSearchParamNumericRange =
+export type RouteSearchParamNumericRange =
   | {
       maxValue: number;
       minValue: number;
@@ -17,7 +17,7 @@ export type SamebaseRouteSearchParamNumericRange =
       minValue: number;
       rangeType: "min";
     };
-export type SamebaseRouteSearchParamValueSuggestions = readonly [string, ...string[]];
+export type RouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
 /**
  * Each value type carries only the metadata the editor can safely use for that
@@ -26,7 +26,7 @@ export type SamebaseRouteSearchParamValueSuggestions = readonly [string, ...stri
  * Numeric `valueSuggestions` are curated dropdown rows, not the accepted route
  * range; keep them `null` when the value should use only `sampleValue`.
  */
-export type SamebaseRouteSearchParamValueSemantics =
+export type RouteSearchParamValueSemantics =
   | {
       valueType: "manual";
     }
@@ -37,53 +37,53 @@ export type SamebaseRouteSearchParamValueSemantics =
   | {
       valueType: "numeric";
       numericDefaultValue: number;
-      numericRange: SamebaseRouteSearchParamNumericRange;
+      numericRange: RouteSearchParamNumericRange;
       numericStepValue: number;
       sampleValue: string;
-      valueSuggestions: SamebaseRouteSearchParamValueSuggestions | null;
+      valueSuggestions: RouteSearchParamValueSuggestions | null;
     }
   | {
       valueType: "numeric-options";
       numericDefaultValue: number;
       sampleValue: string;
-      valueSuggestions: SamebaseRouteSearchParamValueSuggestions;
+      valueSuggestions: RouteSearchParamValueSuggestions;
     }
   | {
       valueType: "options";
       sampleValue: string;
-      valueSuggestions: SamebaseRouteSearchParamValueSuggestions;
+      valueSuggestions: RouteSearchParamValueSuggestions;
     }
   | {
       valueType: "completion";
       sampleValue: string;
       valueCompletion: "tailwind-color-token";
-      valueSuggestions: SamebaseRouteSearchParamValueSuggestions;
+      valueSuggestions: RouteSearchParamValueSuggestions;
     };
 
-export type SamebaseRouteSearchParamSemantics =
+export type RouteSearchParamSemantics =
   | {
       searchParamKind: "presence";
     }
-  | (SamebaseRouteSearchParamValueSemantics & {
+  | (RouteSearchParamValueSemantics & {
       searchParamKind: "value";
     });
 
-export type SamebaseRouteSearchParamAccess<Key extends string = string> = {
+export type RouteSearchParamAccess<Key extends string = string> = {
   key: Key;
-  access: SamebaseRouteAccess;
+  access: RouteAccess;
 };
 
-export type SamebaseRouteSearchParamSuggestion<Key extends string = string> =
-  SamebaseRouteSearchParamAccess<Key> & SamebaseRouteSearchParamSemantics;
+export type RouteSearchParamSuggestion<Key extends string = string> = RouteSearchParamAccess<Key> &
+  RouteSearchParamSemantics;
 
-export type SamebaseRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
-  SamebaseRouteSearchParamSuggestion<Key>,
+export type RouteSearchParamValueSuggestion<Key extends string = string> = Extract<
+  RouteSearchParamSuggestion<Key>,
   { searchParamKind: "value" }
 >;
 
-export type SamebaseRouteStaticData = {
-  availableEnvironments?: SamebaseRouteAvailability;
-  access: SamebaseRouteAccess;
+export type RouteStaticData = {
+  availableEnvironments?: RouteAvailability;
+  access: RouteAccess;
   pathSuggestion?: "hidden";
 
   /**
@@ -95,45 +95,42 @@ export type SamebaseRouteStaticData = {
   acceptance.
   */
   acceptedSearchKeys?: readonly string[];
-  searchParamAccess?: readonly SamebaseRouteSearchParamAccess[];
-  searchParamSuggestions?: readonly SamebaseRouteSearchParamSuggestion[];
+  searchParamAccess?: readonly RouteSearchParamAccess[];
+  searchParamSuggestions?: readonly RouteSearchParamSuggestion[];
 };
 
-export type SamebaseRouteAccessViewer = {
+export type RouteAccessViewer = {
   accessKeys: readonly AccessKey[];
 };
 
-type SamebaseRouteAccessMatch = {
+type RouteAccessMatch = {
   staticData: {
-    access: SamebaseRouteAccess;
+    access: RouteAccess;
   };
 };
 
-export function canAccessSamebaseRouteAccess(
-  access: SamebaseRouteAccess,
-  viewer: SamebaseRouteAccessViewer,
-): boolean {
+export function canAccessRouteAccess(access: RouteAccess, viewer: RouteAccessViewer): boolean {
   return viewer.accessKeys.includes(access);
 }
 
-export function canAccessSamebaseRouteMatchesAccess(
-  matches: readonly SamebaseRouteAccessMatch[],
-  viewer: SamebaseRouteAccessViewer,
+export function canAccessRouteMatchesAccess(
+  matches: readonly RouteAccessMatch[],
+  viewer: RouteAccessViewer,
 ): boolean {
-  return matches.every((match) => canAccessSamebaseRouteAccess(match.staticData.access, viewer));
+  return matches.every((match) => canAccessRouteAccess(match.staticData.access, viewer));
 }
 
-export function canAccessSamebaseRouteStaticData(
-  staticData: SamebaseRouteStaticData,
-  viewer: SamebaseRouteAccessViewer,
-  routeEnvironment: SamebaseRouteEnvironment,
+export function canAccessRouteStaticData(
+  staticData: RouteStaticData,
+  viewer: RouteAccessViewer,
+  routeEnvironment: RouteEnvironment,
 ): boolean {
   return (
-    canAccessSamebaseRouteAccess(staticData.access, viewer) &&
-    canAccessSamebaseRouteAvailability(staticData.availableEnvironments, routeEnvironment)
+    canAccessRouteAccess(staticData.access, viewer) &&
+    canAccessRouteAvailability(staticData.availableEnvironments, routeEnvironment)
   );
 }
 
 declare module "@tanstack/react-router" {
-  interface StaticDataRouteOption extends SamebaseRouteStaticData {}
+  interface StaticDataRouteOption extends RouteStaticData {}
 }

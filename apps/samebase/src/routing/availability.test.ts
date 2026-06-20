@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
-  canAccessSamebaseRouteAvailability,
-  canAccessSamebaseRouteMatchesAvailability,
+  canAccessRouteAvailability,
+  canAccessRouteMatchesAvailability,
   isLocalRouteHostname,
-  readBrowserSamebaseRouteEnvironment,
-  readSamebaseRouteEnvironmentForOrigin,
-  readSamebaseRouteEnvironmentForRouteGuard,
-  resolveSamebaseRouteEnvironment,
+  readBrowserRouteEnvironment,
+  readRouteEnvironmentForOrigin,
+  readRouteEnvironmentForRouteGuard,
+  resolveRouteEnvironment,
 } from "./availability";
 
 afterEach(() => {
@@ -35,13 +35,13 @@ describe("isLocalRouteHostname", () => {
   });
 });
 
-describe("resolveSamebaseRouteEnvironment", () => {
+describe("resolveRouteEnvironment", () => {
   it("maps known hostnames to local, production, and preview environments", () => {
-    expect(resolveSamebaseRouteEnvironment({ hostname: "localhost" })).toBe("local");
-    expect(resolveSamebaseRouteEnvironment({ hostname: "samebase.com" })).toBe("production");
-    expect(resolveSamebaseRouteEnvironment({ hostname: "www.samebase.com" })).toBe("production");
-    expect(resolveSamebaseRouteEnvironment({ hostname: "preview.samebase.com" })).toBe("preview");
-    expect(resolveSamebaseRouteEnvironment({ hostname: "a3070b07.samebase-ax1.pages.dev" })).toBe(
+    expect(resolveRouteEnvironment({ hostname: "localhost" })).toBe("local");
+    expect(resolveRouteEnvironment({ hostname: "samebase.com" })).toBe("production");
+    expect(resolveRouteEnvironment({ hostname: "www.samebase.com" })).toBe("production");
+    expect(resolveRouteEnvironment({ hostname: "preview.samebase.com" })).toBe("preview");
+    expect(resolveRouteEnvironment({ hostname: "a3070b07.samebase-ax1.pages.dev" })).toBe(
       "preview",
     );
   });
@@ -49,68 +49,68 @@ describe("resolveSamebaseRouteEnvironment", () => {
   it("uses the build route environment when Cloudflare sets one", () => {
     vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "preview");
 
-    expect(resolveSamebaseRouteEnvironment({ hostname: "localhost" })).toBe("preview");
+    expect(resolveRouteEnvironment({ hostname: "localhost" })).toBe("preview");
   });
 
   it("ignores unknown build route environment values", () => {
     vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "staging");
 
-    expect(resolveSamebaseRouteEnvironment({ hostname: "localhost" })).toBe("local");
+    expect(resolveRouteEnvironment({ hostname: "localhost" })).toBe("local");
   });
 });
 
-describe("readBrowserSamebaseRouteEnvironment", () => {
+describe("readBrowserRouteEnvironment", () => {
   it("uses the build route environment before browser host fallback", () => {
     vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "production");
 
-    expect(readBrowserSamebaseRouteEnvironment()).toBe("production");
+    expect(readBrowserRouteEnvironment()).toBe("production");
   });
 
   it("fails closed when no browser host or build environment is available", () => {
     vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "");
 
-    expect(readSamebaseRouteEnvironmentForRouteGuard()).toBeNull();
-    expect(readBrowserSamebaseRouteEnvironment()).toBe("production");
+    expect(readRouteEnvironmentForRouteGuard()).toBeNull();
+    expect(readBrowserRouteEnvironment()).toBe("production");
   });
 });
 
-describe("readSamebaseRouteEnvironmentForOrigin", () => {
+describe("readRouteEnvironmentForOrigin", () => {
   it("resolves route environment from URL origins", () => {
-    expect(readSamebaseRouteEnvironmentForOrigin("http://localhost:5174")).toBe("local");
-    expect(readSamebaseRouteEnvironmentForOrigin("https://samebase.com")).toBe("production");
-    expect(readSamebaseRouteEnvironmentForOrigin("https://preview.samebase.com")).toBe("preview");
+    expect(readRouteEnvironmentForOrigin("http://localhost:5174")).toBe("local");
+    expect(readRouteEnvironmentForOrigin("https://samebase.com")).toBe("production");
+    expect(readRouteEnvironmentForOrigin("https://preview.samebase.com")).toBe("preview");
   });
 
   it("fails closed for invalid origins", () => {
-    expect(readSamebaseRouteEnvironmentForOrigin("not a url")).toBe("production");
+    expect(readRouteEnvironmentForOrigin("not a url")).toBe("production");
   });
 });
 
-describe("canAccessSamebaseRouteAvailability", () => {
+describe("canAccessRouteAvailability", () => {
   it("treats missing availability as available in every environment", () => {
-    expect(canAccessSamebaseRouteAvailability(undefined, "local")).toBe(true);
-    expect(canAccessSamebaseRouteAvailability(undefined, "preview")).toBe(true);
-    expect(canAccessSamebaseRouteAvailability(undefined, "production")).toBe(true);
+    expect(canAccessRouteAvailability(undefined, "local")).toBe(true);
+    expect(canAccessRouteAvailability(undefined, "preview")).toBe(true);
+    expect(canAccessRouteAvailability(undefined, "production")).toBe(true);
   });
 
   it("allows only named environments", () => {
-    expect(canAccessSamebaseRouteAvailability(["local"], "local")).toBe(true);
-    expect(canAccessSamebaseRouteAvailability(["local"], "preview")).toBe(false);
-    expect(canAccessSamebaseRouteAvailability(["preview", "production"], "preview")).toBe(true);
-    expect(canAccessSamebaseRouteAvailability(["preview", "production"], "local")).toBe(false);
+    expect(canAccessRouteAvailability(["local"], "local")).toBe(true);
+    expect(canAccessRouteAvailability(["local"], "preview")).toBe(false);
+    expect(canAccessRouteAvailability(["preview", "production"], "preview")).toBe(true);
+    expect(canAccessRouteAvailability(["preview", "production"], "local")).toBe(false);
   });
 });
 
-describe("canAccessSamebaseRouteMatchesAvailability", () => {
+describe("canAccessRouteMatchesAvailability", () => {
   it("requires every matched route availability policy to allow the environment", () => {
     expect(
-      canAccessSamebaseRouteMatchesAvailability(
+      canAccessRouteMatchesAvailability(
         [{ staticData: {} }, { staticData: { availableEnvironments: ["local", "preview"] } }],
         "preview",
       ),
     ).toBe(true);
     expect(
-      canAccessSamebaseRouteMatchesAvailability(
+      canAccessRouteMatchesAvailability(
         [
           { staticData: { availableEnvironments: ["local"] } },
           { staticData: { availableEnvironments: ["preview"] } },

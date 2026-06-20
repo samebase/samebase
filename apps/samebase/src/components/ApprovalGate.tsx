@@ -1,12 +1,12 @@
 import { useNoterAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
-import type { SamebaseRouteAccessViewer } from "@/routing/permissions";
+import type { RouteAccessViewer } from "@/routing/permissions";
 import { useQuery } from "convex/react";
 import { createContext, useContext, type ReactNode } from "react";
 import type { ViewerRole } from "../../shared/accessModel";
 import { api } from "../../convex/_generated/api";
 
-type ApprovalGateViewerAccess = SamebaseRouteAccessViewer & {
+type ApprovalGateViewerAccess = RouteAccessViewer & {
   role?: ViewerRole;
 };
 

@@ -1,10 +1,7 @@
-import type { SamebaseRouteStaticData } from "./routing/permissions";
+import type { RouteStaticData } from "./routing/permissions";
 import type { FileRoutesByFullPath } from "./routeTree.gen";
 
-type SamebaseRouteMetadata = Pick<
-  SamebaseRouteStaticData,
-  "access" | "availableEnvironments" | "pathSuggestion"
->;
+type RouteMetadata = Pick<RouteStaticData, "access" | "availableEnvironments" | "pathSuggestion">;
 
 /**
  * Config-time consumers need route access policy without importing route
@@ -12,7 +9,7 @@ type SamebaseRouteMetadata = Pick<
  * easier for Node to resolve than the app-only `@` alias, but Vite config
  * should still stay on metadata-only modules instead of the full route tree.
  */
-const samebaseRouteAccessMetadataByPath = {
+const routeAccessMetadataByPath = {
   "/": { access: "access_public" },
   "/connect-repo": { access: "access_repo_connect" },
   "/home": { access: "access_dashboard" },
@@ -44,9 +41,7 @@ const samebaseRouteAccessMetadataByPath = {
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo/codespace/$branch/chat": { access: "access_machines" },
   "/visual-fixture": { availableEnvironments: ["local"], access: "access_public" },
-} as const satisfies Record<keyof FileRoutesByFullPath, SamebaseRouteMetadata>;
+} as const satisfies Record<keyof FileRoutesByFullPath, RouteMetadata>;
 
-export const SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH: Record<
-  keyof FileRoutesByFullPath,
-  SamebaseRouteMetadata
-> = samebaseRouteAccessMetadataByPath;
+export const ROUTE_ACCESS_METADATA_BY_PATH: Record<keyof FileRoutesByFullPath, RouteMetadata> =
+  routeAccessMetadataByPath;

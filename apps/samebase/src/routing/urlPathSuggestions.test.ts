@@ -5,7 +5,7 @@ import {
   isRouteUrlPathReadyForNavigation,
   readRouteUrlPathSuggestions,
 } from "./urlPathSuggestions";
-import type { SamebaseRouteAccessViewer } from "@/routing/permissions";
+import type { RouteAccessViewer } from "@/routing/permissions";
 import { ROLE_ACCESS_GRANTS } from "../../shared/accessModel";
 
 const ORIGIN = "http://localhost:5174";
@@ -13,13 +13,13 @@ const DEPLOYED_ORIGIN = "https://preview.samebase.com";
 const routesByPath = getRouter().routesByPath;
 const staffViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_staff,
-} as const satisfies SamebaseRouteAccessViewer;
+} as const satisfies RouteAccessViewer;
 const memberViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_member,
-} as const satisfies SamebaseRouteAccessViewer;
+} as const satisfies RouteAccessViewer;
 const anonymousViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_anonymous,
-} as const satisfies SamebaseRouteAccessViewer;
+} as const satisfies RouteAccessViewer;
 const localEnvironment = "local";
 const prodUiEnvironment = "production";
 const deployedEnvironment = "preview";

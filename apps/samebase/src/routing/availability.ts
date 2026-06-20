@@ -1,12 +1,12 @@
 import { isProductionPublicHostname } from "@/lib/prodUiMode";
 
-export type SamebaseRouteEnvironment = "local" | "preview" | "production";
+export type RouteEnvironment = "local" | "preview" | "production";
 
-export type SamebaseRouteAvailability = readonly SamebaseRouteEnvironment[];
+export type RouteAvailability = readonly RouteEnvironment[];
 
-type SamebaseRouteAvailabilityMatch = {
+type RouteAvailabilityMatch = {
   staticData: {
-    availableEnvironments?: SamebaseRouteAvailability;
+    availableEnvironments?: RouteAvailability;
   };
 };
 
@@ -21,7 +21,7 @@ function normalizeHostname(hostname: string): string {
   return normalized;
 }
 
-function readEnvSamebaseRouteEnvironment(): SamebaseRouteEnvironment | null {
+function readEnvRouteEnvironment(): RouteEnvironment | null {
   const environment = import.meta.env.VITE_SAMEBASE_ROUTE_ENVIRONMENT;
   switch (environment) {
     case "local":
@@ -38,10 +38,8 @@ export function isLocalRouteHostname(hostname: string): boolean {
   return LOCAL_ROUTE_HOSTNAMES.some((localHostname) => localHostname === normalizedHostname);
 }
 
-export function resolveSamebaseRouteEnvironment(args: {
-  hostname: string;
-}): SamebaseRouteEnvironment {
-  const envEnvironment = readEnvSamebaseRouteEnvironment();
+export function resolveRouteEnvironment(args: { hostname: string }): RouteEnvironment {
+  const envEnvironment = readEnvRouteEnvironment();
   if (envEnvironment !== null) {
     return envEnvironment;
   }
@@ -57,34 +55,34 @@ export function resolveSamebaseRouteEnvironment(args: {
   return "preview";
 }
 
-export function readBrowserSamebaseRouteEnvironment(): SamebaseRouteEnvironment {
-  return readSamebaseRouteEnvironmentForRouteGuard() ?? "production";
+export function readBrowserRouteEnvironment(): RouteEnvironment {
+  return readRouteEnvironmentForRouteGuard() ?? "production";
 }
 
-export function readSamebaseRouteEnvironmentForRouteGuard(): SamebaseRouteEnvironment | null {
-  const envEnvironment = readEnvSamebaseRouteEnvironment();
+export function readRouteEnvironmentForRouteGuard(): RouteEnvironment | null {
+  const envEnvironment = readEnvRouteEnvironment();
   if (envEnvironment !== null) {
     return envEnvironment;
   }
 
   if (typeof window !== "undefined") {
-    return resolveSamebaseRouteEnvironment({ hostname: window.location.hostname });
+    return resolveRouteEnvironment({ hostname: window.location.hostname });
   }
 
   return null;
 }
 
-export function readSamebaseRouteEnvironmentForOrigin(origin: string): SamebaseRouteEnvironment {
+export function readRouteEnvironmentForOrigin(origin: string): RouteEnvironment {
   try {
-    return resolveSamebaseRouteEnvironment({ hostname: new URL(origin).hostname });
+    return resolveRouteEnvironment({ hostname: new URL(origin).hostname });
   } catch {
     return "production";
   }
 }
 
-export function canAccessSamebaseRouteAvailability(
-  availableEnvironments: SamebaseRouteAvailability | undefined,
-  routeEnvironment: SamebaseRouteEnvironment,
+export function canAccessRouteAvailability(
+  availableEnvironments: RouteAvailability | undefined,
+  routeEnvironment: RouteEnvironment,
 ): boolean {
   return (
     availableEnvironments === undefined ||
@@ -96,11 +94,11 @@ export function canAccessSamebaseRouteAvailability(
  * Parent route availability is restrictive: a child can only render when every
  * matched route that declares an availability policy allows the current environment.
  */
-export function canAccessSamebaseRouteMatchesAvailability(
-  matches: readonly SamebaseRouteAvailabilityMatch[],
-  routeEnvironment: SamebaseRouteEnvironment,
+export function canAccessRouteMatchesAvailability(
+  matches: readonly RouteAvailabilityMatch[],
+  routeEnvironment: RouteEnvironment,
 ): boolean {
   return matches.every((match) =>
-    canAccessSamebaseRouteAvailability(match.staticData.availableEnvironments, routeEnvironment),
+    canAccessRouteAvailability(match.staticData.availableEnvironments, routeEnvironment),
   );
 }

@@ -17,7 +17,7 @@ import {
   readRouteAddressReadiness,
   type RouteAddressReadiness,
 } from "@/routing/address";
-import type { SamebaseRouteAccessViewer } from "@/routing/permissions";
+import type { RouteAccessViewer } from "@/routing/permissions";
 import { openRouteAddressQuerySlot } from "@/routing/addressParts";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
@@ -990,7 +990,7 @@ export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEdit
   const location = useLocation();
 
   const viewerAccess = useQuery(api.users.currentViewerAccess);
-  const routeAccessViewer = useMemo<SamebaseRouteAccessViewer>(
+  const routeAccessViewer = useMemo<RouteAccessViewer>(
     () => ({ accessKeys: viewerAccess?.accessKeys ?? ["access_public"] }),
     [viewerAccess],
   );

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
-import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/test";
 
@@ -13,6 +13,6 @@ function RootTestRouteComponent() {
 }
 
 export const Route = createFileRoute("/test")({
-  staticData: SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: RootTestRouteComponent,
 });

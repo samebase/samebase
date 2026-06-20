@@ -6,7 +6,7 @@ import {
   validateMachineConnectRouteSearch,
 } from "@/routeSearch/machineConnect";
 import { MACHINE_CONNECT_ROUTE } from "@/lib/samebaseSync";
-import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = MACHINE_CONNECT_ROUTE;
 
@@ -23,7 +23,7 @@ function MachineConnectRouteComponent() {
 
 export const Route = createFileRoute("/machines/connect")({
   staticData: {
-    ...SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...MACHINE_CONNECT_ROUTE_SEARCH_STATIC_DATA,
   },
   component: MachineConnectRouteComponent,

@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import type { SamebaseRouteAccessViewer } from "@/routing/permissions";
+import type { RouteAccessViewer } from "@/routing/permissions";
 import type { ViewerRole } from "../../shared/accessModel";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ApprovalGate, ApprovalGateViewerAccessProvider } from "./ApprovalGate";
@@ -8,7 +8,7 @@ const viewerAccessState = vi.hoisted(
   (): {
     queryCalls: number;
     result:
-      | (SamebaseRouteAccessViewer & {
+      | (RouteAccessViewer & {
           role?: ViewerRole;
         })
       | undefined;

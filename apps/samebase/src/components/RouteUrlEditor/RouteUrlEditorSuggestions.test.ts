@@ -4,17 +4,17 @@ import {
   readCurrentRouteUrlEditorSuggestionIndex,
   readSuggestions,
 } from "./RouteUrlEditorSuggestions";
-import type { SamebaseRouteAccessViewer } from "@/routing/permissions";
+import type { RouteAccessViewer } from "@/routing/permissions";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 
 const prefix = "http://localhost:5174/";
 const routesByPath = getRouter().routesByPath;
 const staffViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_staff,
-} as const satisfies SamebaseRouteAccessViewer;
+} as const satisfies RouteAccessViewer;
 const memberViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_member,
-} as const satisfies SamebaseRouteAccessViewer;
+} as const satisfies RouteAccessViewer;
 
 function cursorAfter(routeTextBeforeCursor: string) {
   const position = prefix.length + routeTextBeforeCursor.length - 1;
@@ -29,7 +29,7 @@ function readValues(args: {
   pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
-  viewer?: SamebaseRouteAccessViewer;
+  viewer?: RouteAccessViewer;
 }): readonly string[] {
   return readRows(args).map((suggestion) => suggestion.value);
 }
@@ -39,7 +39,7 @@ function readRows(args: {
   pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
-  viewer?: SamebaseRouteAccessViewer;
+  viewer?: RouteAccessViewer;
 }) {
   return readSuggestions({
     currentRouteAddress: args.currentRouteAddress ?? args.routeAddress,
@@ -60,7 +60,7 @@ function readCurrentSuggestionValue(args: {
   pageHashKeys?: readonly string[];
   routeAddress: string;
   routeTextBeforeCursor?: string;
-  viewer?: SamebaseRouteAccessViewer;
+  viewer?: RouteAccessViewer;
 }): string | null {
   const suggestions = readRows(args);
   const suggestionIndex = readCurrentRouteUrlEditorSuggestionIndex({

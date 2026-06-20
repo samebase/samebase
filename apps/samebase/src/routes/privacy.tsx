@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PrivacyPolicyPage } from "@/components/PrivacyPolicyPage";
-import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/privacy";
@@ -14,6 +14,6 @@ function PrivacyRouteComponent() {
 }
 
 export const Route = createFileRoute("/privacy")({
-  staticData: SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: PrivacyRouteComponent,
 });

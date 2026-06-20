@@ -4,13 +4,13 @@ import {
   MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA,
   validateMcpConsentRouteSearch,
 } from "@/routeSearch/mcpConsent";
-import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/oauth/mcp/consent";
 
 export const Route = createFileRoute("/oauth/mcp/consent")({
   staticData: {
-    ...SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...MCP_CONSENT_ROUTE_SEARCH_STATIC_DATA,
   },
   component: McpConsentRoutePage,

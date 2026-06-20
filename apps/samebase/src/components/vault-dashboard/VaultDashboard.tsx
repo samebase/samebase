@@ -1491,7 +1491,7 @@ const REPOSITORY_EXTERNAL_LINK_ICONS: Record<
   github: GitHubProviderLogo,
 };
 
-function buildVaultDashboardBranchSamebaseRoute(args: {
+function buildVaultDashboardBranchRoute(args: {
   repositoryFullName: string;
   branchName: string;
   openChangedFiles: boolean;
@@ -1607,7 +1607,7 @@ export function VaultBranchLinkContent({
     hasPullRequestTitle ? "font-mono text-muted-foreground" : "text-muted-foreground",
     !hasPullRequestTitle && branch.isDefault && "font-medium text-foreground",
   );
-  const branchSamebaseRoute = buildVaultDashboardBranchSamebaseRoute({
+  const branchRoute = buildVaultDashboardBranchRoute({
     repositoryFullName,
     branchName: branch.name,
     openChangedFiles: !branch.isDefault,
@@ -1790,10 +1790,10 @@ export function VaultBranchLinkContent({
                 </a>
               </div>
             ) : null}
-            {branchSamebaseRoute ? (
+            {branchRoute ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <Link
-                  to={branchSamebaseRoute}
+                  to={branchRoute}
                   className={clsx(metadataLinkClassName, "gap-1.5")}
                   title={branchNoterLinkTitle}
                 >

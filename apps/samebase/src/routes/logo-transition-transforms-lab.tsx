@@ -6,7 +6,7 @@ import {
   LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
 } from "@/routeSearch/logo";
 import { LogoTransitionTransformsLabPage } from "@/components/logo/LogoTransitionTransformsLabPage";
-import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/logo/transition/transforms";
 
@@ -20,7 +20,7 @@ function LogoTransitionTransformsLabRouteComponent() {
 
 export const Route = createFileRoute("/logo/transition/transforms")({
   staticData: {
-    ...SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,
     searchParamAccess: LOGO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: LOGO_ROUTE_SEARCH_PARAM_SUGGESTIONS,
