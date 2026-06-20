@@ -420,6 +420,7 @@ describe("AppRightSidebarContent", () => {
 
   it("renders the account section after the authenticated viewer loads", async () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+    blockProviderStatusQueries();
 
     const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
       new Map([
@@ -456,7 +457,11 @@ describe("AppRightSidebarContent", () => {
     );
 
     expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).toContain("Providers");
+    expect(hydratedMarkup).toContain("New App");
+    expect(hydratedMarkup).toContain("Connect existing app");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("not logged in");
+    expectProviderStatusQueriesNotSeen();
   });
 });
