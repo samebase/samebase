@@ -1,4 +1,4 @@
-import { useSamebaseAuthActions } from "@/authClient";
+import { useAppAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import type { RouteAccessViewer } from "@/routing/permissions";
 import { useQuery } from "convex/react";
@@ -33,7 +33,7 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
     viewerAccessContext === null ? {} : "skip",
   );
   const viewerAccess = viewerAccessContext ?? queriedViewerAccess;
-  const { signOut } = useSamebaseAuthActions();
+  const { signOut } = useAppAuthActions();
 
   // Avoid flashing gated content before approval state is known.
   if (viewerAccess === undefined) {

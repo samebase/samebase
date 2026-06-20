@@ -28,7 +28,7 @@ const componentState = vi.hoisted<{
   search: {},
 }));
 vi.mock("@/authClient", () => ({
-  useSamebaseSignInActions: () => ({
+  useAppSignInActions: () => ({
     signInWithPassword: signInWithPasswordMock,
   }),
 }));

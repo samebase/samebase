@@ -741,7 +741,7 @@ function FileViewInner({
       dontCache: isDiffRequested || reviewOnMountRequested,
     },
   );
-  const stagedSamebaseFile = useQuery(
+  const stagedSimpleViewConfigFile = useQuery(
     api.fileStaging.getByNewPath,
     {
       branch,
@@ -752,9 +752,13 @@ function FileViewInner({
       dontCache: true,
     },
   );
-  const [repositorySamebaseContent, setRepositorySamebaseContent] = useState<string | null>(null);
-  const [didAttemptRepositorySamebaseLoad, setDidAttemptRepositorySamebaseLoad] = useState(false);
-  const [didResolveRepositorySamebaseLoad, setDidResolveRepositorySamebaseLoad] = useState(false);
+  const [repositorySimpleViewConfigContent, setRepositorySimpleViewConfigContent] = useState<
+    string | null
+  >(null);
+  const [didAttemptRepositorySimpleViewConfigLoad, setDidAttemptRepositorySimpleViewConfigLoad] =
+    useState(false);
+  const [didResolveRepositorySimpleViewConfigLoad, setDidResolveRepositorySimpleViewConfigLoad] =
+    useState(false);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
 
@@ -821,16 +825,18 @@ function FileViewInner({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const hasSamebaseConfigFile = hasSimpleViewConfigFile(
-    stagedSamebaseFile,
-    repositorySamebaseContent,
+  const hasSimpleViewConfig = hasSimpleViewConfigFile(
+    stagedSimpleViewConfigFile,
+    repositorySimpleViewConfigContent,
   );
-  const hasDeletedStagedSamebaseFile = isStagedSimpleViewConfigDeleted(stagedSamebaseFile);
+  const hasDeletedStagedSimpleViewConfigFile = isStagedSimpleViewConfigDeleted(
+    stagedSimpleViewConfigFile,
+  );
   const didResolveSimpleViewConfigSource =
-    stagedSamebaseFile !== undefined &&
-    (hasStagedSimpleViewConfigFile(stagedSamebaseFile) ||
-      hasDeletedStagedSamebaseFile ||
-      didResolveRepositorySamebaseLoad);
+    stagedSimpleViewConfigFile !== undefined &&
+    (hasStagedSimpleViewConfigFile(stagedSimpleViewConfigFile) ||
+      hasDeletedStagedSimpleViewConfigFile ||
+      didResolveRepositorySimpleViewConfigLoad);
 
   const sidebarModeStorageKey = useMemo(
     () => getSimpleViewPreferenceStorageKey(vault._id),
@@ -848,9 +854,9 @@ function FileViewInner({
    * scratch.
    */
   useEffect(() => {
-    setRepositorySamebaseContent(null);
-    setDidAttemptRepositorySamebaseLoad(false);
-    setDidResolveRepositorySamebaseLoad(false);
+    setRepositorySimpleViewConfigContent(null);
+    setDidAttemptRepositorySimpleViewConfigLoad(false);
+    setDidResolveRepositorySimpleViewConfigLoad(false);
     setSidebarModeHydrated(false);
   }, [vault._id, branch]);
 
@@ -887,7 +893,10 @@ function FileViewInner({
    */
   useEffect(() => {
     if (
-      !shouldLoadRepositorySimpleViewConfig(stagedSamebaseFile, didAttemptRepositorySamebaseLoad)
+      !shouldLoadRepositorySimpleViewConfig(
+        stagedSimpleViewConfigFile,
+        didAttemptRepositorySimpleViewConfigLoad,
+      )
     ) {
       return;
     }
@@ -903,17 +912,17 @@ function FileViewInner({
         if (cancelled) {
           return;
         }
-        setDidAttemptRepositorySamebaseLoad(true);
-        setRepositorySamebaseContent(result.exists ? result.content : null);
-        setDidResolveRepositorySamebaseLoad(true);
+        setDidAttemptRepositorySimpleViewConfigLoad(true);
+        setRepositorySimpleViewConfigContent(result.exists ? result.content : null);
+        setDidResolveRepositorySimpleViewConfigLoad(true);
       })
       .catch(() => {
         if (cancelled) {
           return;
         }
-        setDidAttemptRepositorySamebaseLoad(true);
-        setRepositorySamebaseContent(null);
-        setDidResolveRepositorySamebaseLoad(true);
+        setDidAttemptRepositorySimpleViewConfigLoad(true);
+        setRepositorySimpleViewConfigContent(null);
+        setDidResolveRepositorySimpleViewConfigLoad(true);
       });
 
     return () => {
@@ -921,10 +930,10 @@ function FileViewInner({
     };
   }, [
     branch,
-    didAttemptRepositorySamebaseLoad,
+    didAttemptRepositorySimpleViewConfigLoad,
     loadRepositoryFileContent,
     repositoryFullName,
-    stagedSamebaseFile,
+    stagedSimpleViewConfigFile,
   ]);
 
   /**
@@ -936,7 +945,7 @@ function FileViewInner({
     if (!didResolveSimpleViewConfigSource) {
       return;
     }
-    const defaultMode: SidebarMode = hasSamebaseConfigFile ? "simple" : "all";
+    const defaultMode: SidebarMode = hasSimpleViewConfig ? "simple" : "all";
 
     try {
       const storedMode = localStorage.getItem(sidebarModeStorageKey);
@@ -951,7 +960,7 @@ function FileViewInner({
 
     setSidebarMode(defaultMode);
     setSidebarModeHydrated(true);
-  }, [didResolveSimpleViewConfigSource, hasSamebaseConfigFile, sidebarModeStorageKey]);
+  }, [didResolveSimpleViewConfigSource, hasSimpleViewConfig, sidebarModeStorageKey]);
 
   /** Save the current sidebar mode (`simple` or `all`) after the initial load completes. */
   useEffect(() => {
@@ -965,16 +974,16 @@ function FileViewInner({
     }
   }, [didResolveSimpleViewConfigSource, sidebarMode, sidebarModeHydrated, sidebarModeStorageKey]);
 
-  const stagedSamebaseContent = hasStagedSimpleViewConfigFile(stagedSamebaseFile)
-    ? stagedSamebaseFile.content
+  const stagedSimpleViewConfigContent = hasStagedSimpleViewConfigFile(stagedSimpleViewConfigFile)
+    ? stagedSimpleViewConfigFile.content
     : null;
-  const samebaseConfigContent = hasDeletedStagedSamebaseFile
+  const simpleViewConfigContent = hasDeletedStagedSimpleViewConfigFile
     ? null
-    : (stagedSamebaseContent ?? repositorySamebaseContent);
+    : (stagedSimpleViewConfigContent ?? repositorySimpleViewConfigContent);
 
   const simpleViewConfig = useMemo(
-    () => parseSimpleViewConfig(samebaseConfigContent),
-    [samebaseConfigContent],
+    () => parseSimpleViewConfig(simpleViewConfigContent),
+    [simpleViewConfigContent],
   );
   const buildVaultFileUrl = useCallback(
     (

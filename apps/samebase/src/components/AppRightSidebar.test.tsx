@@ -108,7 +108,7 @@ vi.mock("convex/react", async (importOriginal) => {
 
 vi.mock("@/authClient", () => ({
   isInIframe: () => false,
-  useSamebaseAuthActions: () => ({
+  useAppAuthActions: () => ({
     signOut: vi.fn(),
   }),
 }));

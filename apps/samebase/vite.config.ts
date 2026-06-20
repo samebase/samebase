@@ -19,7 +19,7 @@ import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { codexAppServerResearchBridgePlugin } from "./dev/codexAppServerResearchBridge";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";
 import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
-import type { SamebaseBuildConfig } from "./src/lib/samebaseBuildConfig";
+import type { AppBuildConfig } from "./src/lib/appBuildConfig";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const gitRoot = path.resolve(currentDir, "..", "..");
@@ -108,7 +108,7 @@ const landingPageSlogan = readBuildLandingSlogan({
   buildSeed: process.env.PLAYWRIGHT === "1" ? "" : `${appCommitNumber ?? appCommit}`,
   slogansPath,
 });
-const samebaseBuildConfig: SamebaseBuildConfig = {
+const appBuildConfig: AppBuildConfig = {
   appCommit,
   appCommitNumber,
   appRepoUrl,
@@ -561,7 +561,7 @@ const browserConvexProxyServerConfig = (() => {
 // https://vitejs.dev/config/
 export default defineConfig({
   define: {
-    __SAMEBASE_BUILD_CONFIG__: JSON.stringify(samebaseBuildConfig),
+    __APP_BUILD_CONFIG__: JSON.stringify(appBuildConfig),
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),

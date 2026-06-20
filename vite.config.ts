@@ -1,21 +1,21 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
-import type { SamebaseBuildConfig } from "./apps/samebase/src/lib/samebaseBuildConfig";
+import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
-const testSamebaseBuildConfig = {
+const testAppBuildConfig = {
   appCommit: "test",
   appCommitNumber: null,
   appRepoUrl: "https://github.com/samebase/samebase",
   browserConvexProxyPath: null,
   landingPageSlogan: "test landing slogan",
-} satisfies SamebaseBuildConfig;
+} satisfies AppBuildConfig;
 
 export default defineConfig({
   define: {
-    __SAMEBASE_BUILD_CONFIG__: JSON.stringify(testSamebaseBuildConfig),
+    __APP_BUILD_CONFIG__: JSON.stringify(testAppBuildConfig),
   },
   fmt: {
     ignorePatterns: ["**/.agents/**", "**/convex/_generated/**"],

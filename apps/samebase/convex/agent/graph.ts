@@ -45,7 +45,7 @@ function createModel(provider: string, model: string) {
   }
 }
 
-function createSamebaseAgent(provider: string, model: string) {
+function createAppAgent(provider: string, model: string) {
   return new Agent(components.agent, {
     name: "samebase-chat",
     languageModel: createModel(provider, model),
@@ -186,7 +186,7 @@ export async function runAgentGraph(opts: {
     userId,
   } = opts;
 
-  const agent = createSamebaseAgent(provider, model);
+  const agent = createAppAgent(provider, model);
   const tools = toolCtx ? createTools(toolCtx) : undefined;
 
   const steps: StepSnapshot[] = [];

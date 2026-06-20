@@ -28,7 +28,7 @@ vi.mock("convex/react", () => ({
 }));
 
 vi.mock("@/authClient", () => ({
-  useSamebaseAuthActions: () => ({
+  useAppAuthActions: () => ({
     signOut: () => {},
   }),
 }));
