@@ -9,7 +9,7 @@
   - `rfcs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`
   - `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`
   - `specs/064_THIN_INSTALLABLE_WEB_APP_SPEC.md`
-  - `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`
+  - `specs/089_SAMEBASE_LOGO_IDENTITY_INVARIANT_SPEC.md`
   - `specs/090_LOGO_RENDERING_MODEL_SIMPLIFICATION_SPEC.md`
 
 ## Summary
@@ -59,7 +59,7 @@ asset layer did not have names or contracts that made treatment switching obviou
 
 ## Current Code Facts
 
-Accepted identity rules live in `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`:
+Accepted identity rules live in `specs/089_SAMEBASE_LOGO_IDENTITY_INVARIANT_SPEC.md`:
 
 1. the canonical shape is `STATIC_LOGO_VOXEL_COORDINATES`
 2. the identity views are side-primary, side-diagonal, and spatial

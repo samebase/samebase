@@ -7,7 +7,8 @@
 - Last updated: 2026-05-24
 - Related files: `rfcs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md`,
   `rfcs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`,
-  `specs/089_NOTER_LOGO_IDENTITY_INVARIANT_SPEC.md`, `apps/samebase/src/components/NLogoScene.tsx`,
+  `specs/089_SAMEBASE_LOGO_IDENTITY_INVARIANT_SPEC.md`,
+  `apps/samebase/src/components/NLogoScene.tsx`,
   `apps/samebase/src/components/logoThreeSvgRenderer.ts`,
   `apps/samebase/src/components/logoIsometricRenderer.ts`,
   `apps/samebase/src/components/logoSurfaceModel.ts`,
