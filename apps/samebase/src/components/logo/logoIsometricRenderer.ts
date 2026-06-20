@@ -12,7 +12,7 @@ import {
   voxelKey,
 } from "@/components/logo/logoVoxelState";
 import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTailwindColors";
-import { includes } from "@noter-md/dependent";
+import { includes } from "@samebase/dependent";
 import {
   parseLogoIsoCubePixelKey,
   type LogoIsoCubePixelSprite,

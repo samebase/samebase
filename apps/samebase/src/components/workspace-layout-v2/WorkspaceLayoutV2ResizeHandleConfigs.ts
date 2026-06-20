@@ -1,5 +1,5 @@
 import { clampNumber } from "@/lib/clampNumber";
-import { notEmpty } from "@noter-md/dependent";
+import { notEmpty } from "@samebase/dependent";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   type MobilePane,

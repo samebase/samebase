@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
-import { includes } from "@noter-md/dependent/main";
+import { includes } from "@samebase/dependent/main";
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(appDir, "public");
@@ -90,7 +90,7 @@ function readRecord(value: unknown, label: string): Record<string, unknown> {
   return record;
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses the export only as Function, never its call signature
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses the export only as Function, never its call signature
 function isUnknownFunction(value: unknown): value is UnknownFunction {
   return typeof value === "function";
 }

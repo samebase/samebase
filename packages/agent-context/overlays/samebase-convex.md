@@ -1,20 +1,20 @@
-# Noter Convex Overlay Draft
+# Samebase Convex Overlay Draft
 
 ## Purpose
 
-This overlay is for Convex work inside the Noter monorepo. It complements the generated Convex
+This overlay is for Convex work inside the Samebase monorepo. It complements the generated Convex
 guidelines and generic Convex skills; it is not a portable TypeScript skill and not a replacement
 for Convex's generated guidance.
 
 ## Load First
 
-- When touching Noter Convex code, read `apps/samebase/convex/_generated/ai/guidelines.md` first.
+- When touching Samebase Convex code, read `apps/samebase/convex/_generated/ai/guidelines.md` first.
 - Then load the relevant generic Convex skill when the task matches it:
   - `convex-migration-helper` for breaking schema/data migrations
   - `convex-performance-audit` for latency, read amplification, subscription cost, or OCC issues
   - `convex-create-component` only when the feature genuinely needs a Convex component boundary
   - `convex-setup-auth` for auth provider or user-identity wiring
-- This overlay overrides generic Convex quickstart/dev advice inside this repo: use Noter's
+- This overlay overrides generic Convex quickstart/dev advice inside this repo: use Samebase's
   context-aware `pnpm dev` worktree flow, not raw `npx convex dev`.
 
 ## Before Editing
@@ -27,12 +27,12 @@ for Convex's generated guidance.
   provider-boundary work, HTTP route, scheduled function, auth flow, component boundary, or pure
   helper.
 - Do not manually edit files under `apps/samebase/convex/_generated/*`. Regenerate or typecheck them
-  through the normal Noter workflow when code edits are allowed.
+  through the normal Samebase workflow when code edits are allowed.
 
 ## Local And Production Commands
 
-- In worktrees, use the Noter operator workflow: `pnpm dev --once` or `pnpm dev:worktree:once` once
-  after checkout, then context-aware `pnpm dev` for the dev flow.
+- In worktrees, use the Samebase operator workflow: `pnpm dev --once` or `pnpm dev:worktree:once`
+  once after checkout, then context-aware `pnpm dev` for the dev flow.
 - If an experiment or review explicitly forbids provider-state bootstrap, run only local checks that
   do not need Convex/provider state, such as formatting, static type checks, or unit tests with
   mocked transports. Skip backend-dependent commands and record the reason.
@@ -43,7 +43,7 @@ for Convex's generated guidance.
 - If Convex CLI output says it is ignoring `--prod` because of `CONVEX_DEPLOY_KEY`, stop and rerun
   with `CONVEX_DEPLOY_KEY=` from the primary checkout.
 
-## Noter Module And API Shape
+## Samebase Module And API Shape
 
 - Keep `apps/samebase/convex/schema.ts` as the app schema entrypoint.
 - Organize modules by product responsibility. Do not preserve old Convex function references with
@@ -53,7 +53,7 @@ for Convex's generated guidance.
 - Prefer responsibility-scoped Convex paths such as `api.vault.dashboard.*`, `api.vault.records.*`,
   and `internal.vault.deletion.*`.
 - Use Convex components only when the domain owns isolated tables or a true reusable boundary.
-  Domains that reference Noter app tables, such as Vault and Codespaces, stay app-owned unless a
+  Domains that reference Samebase app tables, such as Vault and Codespaces, stay app-owned unless a
   current spec says otherwise.
 
 ## Validators And Types
@@ -64,12 +64,12 @@ for Convex's generated guidance.
   `vProviderAuth`; name the inferred type without the prefix, such as `ProviderAuth`.
 - Runtime validators from other systems use a system-specific prefix, such as
   `ajvPlatformProjectDetails`.
-- Use the shared `notEmpty` predicate from `@noter-md/dependent` when filtering nullable arrays.
+- Use the shared `notEmpty` predicate from `@samebase/dependent` when filtering nullable arrays.
 
 ## Tests
 
 - Use the existing Vite+ project setup. Do not add a separate `vitest.config.ts` for Convex tests,
-  even when generated or generic Convex guidance suggests one; Noter owns test config in the root
+  even when generated or generic Convex guidance suggests one; Samebase owns test config in the root
   `vite.config.ts` and package manifests.
 - Add `.convex.test.ts` coverage when behavior depends on Convex auth, schema validation, function
   registration, component registration, database writes, scheduling, or HTTP routing.

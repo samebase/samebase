@@ -7,7 +7,7 @@ import {
   type RouteAccessViewer,
   type RouteStaticData,
 } from "@/routing/permissions";
-import { entries } from "@noter-md/dependent/object";
+import { entries } from "@samebase/dependent/object";
 
 type RouteUrlPathSuggestionsInput = {
   currentHref: string;

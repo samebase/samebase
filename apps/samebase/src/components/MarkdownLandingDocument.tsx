@@ -14,7 +14,7 @@ import remarkGfm from "remark-gfm";
 import { getLandingMarkdownHeadings } from "@/lib/landingMarkdownHeadings";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
 import { cn } from "@/lib/utils";
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 
 const SANITIZED_VIDEO_ATTRIBUTES: string[] = [
   "ariaLabel",

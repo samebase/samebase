@@ -1,4 +1,4 @@
-import { entries } from "@noter-md/dependent/object";
+import { entries } from "@samebase/dependent/object";
 import type { AppRouter } from "@/router";
 import { normalizeRouteUrlEditorHref } from "@/routing/urlEditor";
 import {

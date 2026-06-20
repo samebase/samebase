@@ -34,7 +34,7 @@ type ExportOptions = {
 
 function isExecutableCollectedFile(
   file: CollectedFile,
-  // eslint-disable-next-line noter/no-hand-written-type-predicate -- property-literal intersection: the check narrows the property, not the object (guard conversion fails TS2322)
+  // eslint-disable-next-line samebase/no-hand-written-type-predicate -- property-literal intersection: the check narrows the property, not the object (guard conversion fails TS2322)
 ): file is CollectedFile & { mode: "100755" } {
   return file.mode === "100755";
 }

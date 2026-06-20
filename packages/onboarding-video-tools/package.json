@@ -1,9 +1,9 @@
 {
-  "name": "@noter-md/onboarding-video-tools",
+  "name": "@samebase/onboarding-video-tools",
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "noter-onboarding-video": "./cli.ts"
+    "samebase-onboarding-video": "./cli.ts"
   },
   "files": [
     "cli.ts",
@@ -20,8 +20,8 @@
     "check": "pnpm run typecheck && pnpm run lint"
   },
   "dependencies": {
-    "@noter-md/dependent": "workspace:*",
-    "@playwright/test": "1.58.2"
+    "@playwright/test": "1.58.2",
+    "@samebase/dependent": "workspace:*"
   },
   "engines": {
     "node": ">=24.0.0"

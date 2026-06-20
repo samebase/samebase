@@ -159,9 +159,9 @@ describe("Convex Management API request helpers", () => {
               "createTime": 1710000000000,
               "id": ${LARGE_CONVEX_ID},
               "name": "Samebase",
-              "slug": "noter",
+              "slug": "samebase",
               "teamId": ${LARGE_CONVEX_PARENT_ID},
-              "teamSlug": "noter-team"
+              "teamSlug": "samebase-team"
             }
           ]`,
           {
@@ -181,9 +181,9 @@ describe("Convex Management API request helpers", () => {
         createTime: 1710000000000,
         id: LARGE_CONVEX_ID,
         name: "Samebase",
-        slug: "noter",
+        slug: "samebase",
         teamId: LARGE_CONVEX_PARENT_ID,
-        teamSlug: "noter-team",
+        teamSlug: "samebase-team",
       },
     ]);
   });
@@ -199,11 +199,11 @@ describe("Convex Management API request helpers", () => {
               "createTime": 1710000000000,
               "creator": ${LARGE_CONVEX_PARENT_ID},
               "deploymentType": "prod",
-              "deploymentUrl": "https://noter.convex.cloud",
+              "deploymentUrl": "https://samebase.convex.cloud",
               "id": ${LARGE_CONVEX_ID},
               "isDefault": true,
               "kind": "cloud",
-              "name": "noter-prod",
+              "name": "samebase-prod",
               "projectId": ${LARGE_CONVEX_PARENT_ID},
               "reference": "prod",
               "region": "aws-us-east-1"
@@ -227,11 +227,11 @@ describe("Convex Management API request helpers", () => {
         createTime: 1710000000000,
         creator: LARGE_CONVEX_PARENT_ID,
         deploymentType: "prod",
-        deploymentUrl: "https://noter.convex.cloud",
+        deploymentUrl: "https://samebase.convex.cloud",
         id: LARGE_CONVEX_ID,
         isDefault: true,
         kind: "cloud",
-        name: "noter-prod",
+        name: "samebase-prod",
         projectId: LARGE_CONVEX_PARENT_ID,
         reference: "prod",
         region: "aws-us-east-1",
@@ -503,9 +503,9 @@ describe("Convex Management API request helpers", () => {
               "createTime": ${LARGE_CONVEX_ID},
               "id": ${LARGE_CONVEX_ID},
               "name": "Samebase",
-              "slug": "noter",
+              "slug": "samebase",
               "teamId": ${LARGE_CONVEX_PARENT_ID},
-              "teamSlug": "noter-team"
+              "teamSlug": "samebase-team"
             }
           ]`,
           {
@@ -560,7 +560,7 @@ describe("Convex Management API request helpers", () => {
             "createTime": 1710000000000,
             "creator": ${LARGE_CONVEX_PARENT_ID},
             "deploymentType": "prod",
-            "deploymentUrl": "https://noter.convex.cloud",
+            "deploymentUrl": "https://samebase.convex.cloud",
             "id": ${LARGE_CONVEX_ID},
             "isDefault": true,
             "kind": "cloud",

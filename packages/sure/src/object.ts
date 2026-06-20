@@ -37,7 +37,7 @@ export type InferSchemaGood<T extends Record<string, Sure>> = Prettify<
 /**
 Necessary because `typeof x` is not a type guard.
  */
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature, so the audited gap lives here
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature, so the audited gap lives here
 export function isObject(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null;
 }

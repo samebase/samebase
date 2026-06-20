@@ -3,7 +3,7 @@ export type JsonRecord = Record<string, unknown>;
 /**
  * Checks whether the value is a non-null object that is not an array.
  */
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature; convex-side audited copy
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- record-shape-over-unknown: control flow cannot earn an index signature; convex-side audited copy
 export function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

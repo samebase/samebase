@@ -7,10 +7,10 @@ narrative accurate without dumping raw CI output into GitHub.
 
 ## Packaged Context Relationship
 
-This skill remains the Noter-specific compatibility entrypoint for creating and updating PRs. For
+This skill remains the Samebase-specific compatibility entrypoint for creating and updating PRs. For
 portable PR discovery, read-only triage, review stance, and CI interpretation, use
 `packages/agent-context/skills/pr-workflow-review/SKILL.md`. Pair it with
-`packages/agent-context/overlays/noter-operator-workflows.md` for this repo's build labels,
+`packages/agent-context/overlays/samebase-operator-workflows.md` for this repo's build labels,
 ready/draft defaults, shortcut semantics, and review-bot requirements.
 
 ## When To Use
@@ -31,7 +31,7 @@ with the current branch.
    - `Why`
    - `Summary`
    - `Validation`
-6. For research or automation PRs that started from Noter or Codex, also add:
+6. For research or automation PRs that started from Samebase or Codex, also add:
    - `First Message`
    - `Requested Codex Runtime`
 7. Explain why the change exists, not just what changed.
@@ -47,8 +47,8 @@ with the current branch.
     next_version="v$((main_count + 1))"
     ```
 12. Prefix the PR title with `${next_version}:`, replacing any existing leading `v<number>:` label.
-    A Noter PR is not complete until the current GitHub PR title starts with that freshly computed
-    label.
+    A Samebase PR is not complete until the current GitHub PR title starts with that freshly
+    computed label.
 13. Update the PR title and body when scope changes materially.
 14. Use `gh` with `--body-file` or heredoc input so real newlines are preserved.
 
@@ -75,5 +75,5 @@ with the current branch.
 - Mention the PR number as a clickable link when reporting back to the user.
 - Do not mirror full chat transcripts or raw tool-by-tool logs into the PR.
 - Treat the PR description as the canonical current summary when the branch is actively in flight.
-- Keep `docs/agent-workflows.md` as the detailed source for Noter build-label, draft/ready, and
+- Keep `docs/agent-workflows.md` as the detailed source for Samebase build-label, draft/ready, and
   merge-title rules.

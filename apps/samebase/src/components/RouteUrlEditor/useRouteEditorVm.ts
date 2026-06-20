@@ -10,7 +10,7 @@ import type {
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { includes } from "@noter-md/dependent";
+import { includes } from "@samebase/dependent";
 import { readIsomorphicOrigin } from "@/lib/isomorphic";
 import {
   readMatchingRouteAcceptedSearchKeys,

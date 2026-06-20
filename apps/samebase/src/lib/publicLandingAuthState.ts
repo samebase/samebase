@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 import {
   AUTH_FLAG_STORAGE_KEY,
   AUTH_PROVIDER_STORAGE_KEY,

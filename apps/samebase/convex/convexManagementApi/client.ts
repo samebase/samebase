@@ -9,7 +9,7 @@ import {
   type MethodResponse,
 } from "openapi-fetch";
 import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
-import { guard } from "@noter-md/dependent/main";
+import { guard } from "@samebase/dependent/main";
 import type { paths, PlatformDeploymentResponse } from "./types.generated";
 import {
   convexManagementResponseDecimalPaths,

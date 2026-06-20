@@ -52,7 +52,7 @@ pnpm test:visual:linux -- --update-snapshots=all machines-workspace-visual.spec.
 ```
 
 The command copies the repo into a temporary Linux workdir inside the container, installs
-dependencies there, builds the Noter preview in Linux, and runs Playwright against that
+dependencies there, builds the Samebase preview in Linux, and runs Playwright against that
 Linux-rendered app. This keeps Linux `node_modules` and build output away from the macOS worktree.
 
 The host wrapper is TypeScript, so it can be invoked from macOS, Linux, or Windows as long as Docker

@@ -1,4 +1,4 @@
-import { includes } from "@noter-md/dependent";
+import { includes } from "@samebase/dependent";
 
 import { trackedFilePaths, type TrackedFilePath } from "../generated/trackedFilePaths.generated.ts";
 
@@ -14,7 +14,7 @@ export function isTrackedFilePath(filePath: unknown) {
   return includes(trackedFilePaths, filePath);
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- membership is checked on the derived `apps/samebase/${filePath}` string, so control flow earns only `string`; the prefixed hit makes the suffix claim sound by construction
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- membership is checked on the derived `apps/samebase/${filePath}` string, so control flow earns only `string`; the prefixed hit makes the suffix claim sound by construction
 export function isSamebaseAppFilePath(filePath: unknown): filePath is SamebaseAppFilePath {
   return typeof filePath === "string" && isTrackedFilePath(`apps/samebase/${filePath}`);
 }

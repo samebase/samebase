@@ -54,8 +54,8 @@ research/onboarding-video-artifacts/screen-capture-demo.mp4
 
 ## Why It Lives Here
 
-The capture flow is repo-agnostic in purpose, but this package now lives in the Noter monorepo so it
-can share the repo's validation, package wiring, and operator docs. The macOS automation,
+The capture flow is repo-agnostic in purpose, but this package now lives in the Samebase monorepo so
+it can share the repo's validation, package wiring, and operator docs. The macOS automation,
 Chrome-window geometry, and video post-processing quirks still stay isolated from shipped app
 runtime code.
 

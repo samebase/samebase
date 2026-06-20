@@ -1,7 +1,7 @@
 import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
-import { guard } from "@noter-md/dependent/main";
+import { guard } from "@samebase/dependent/main";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";

@@ -1,5 +1,5 @@
-import { isRecord } from "@noter-md/dependent";
-import { keys } from "@noter-md/dependent/object";
+import { isRecord } from "@samebase/dependent";
+import { keys } from "@samebase/dependent/object";
 
 const NativeURLSearchParams = URLSearchParams;
 

@@ -1,4 +1,4 @@
-import { notEmpty } from "@noter-md/dependent";
+import { notEmpty } from "@samebase/dependent";
 import { CONVEX_QUERY_CACHE_DB_NAME } from "@/lib/convexQueryCacheStorage";
 import { ensureWindowStorageAccess } from "@/lib/storageAccess";
 

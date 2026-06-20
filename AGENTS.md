@@ -18,19 +18,19 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 
 When the user says one of these commands, execute it directly:
 
-| Command        | Action                                                                                                                                                         |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `commit`       | Stage changes and create a concise commit                                                                                                                      |
-| `push`         | Commit if needed, then push                                                                                                                                    |
-| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                             |
-| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                             |
-| `ready`        | Mark the current PR ready                                                                                                                                      |
-| `wait`         | Watch CI and report status                                                                                                                                     |
-| `squash`       | Squash-merge the current PR                                                                                                                                    |
-| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                                    |
-| `clean vaults` | Remove temporary Noter-managed vaults for the current worktree                                                                                                 |
-| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
-| `status`       | Report branch, local changes, and PR state                                                                                                                     |
+| Command        | Action                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `commit`       | Stage changes and create a concise commit                                                                                                                          |
+| `push`         | Commit if needed, then push                                                                                                                                        |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                                 |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                                 |
+| `ready`        | Mark the current PR ready                                                                                                                                          |
+| `wait`         | Watch CI and report status                                                                                                                                         |
+| `squash`       | Squash-merge the current PR                                                                                                                                        |
+| `link machine` | Run the current checkout's `samebase.ts` machine-link flow with worktree isolation when needed                                                                     |
+| `clean vaults` | Remove temporary Samebase-managed vaults for the current worktree                                                                                                  |
+| `clean`        | Run `clean vaults`, clean samebase.com PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree/branch |
+| `status`       | Report branch, local changes, and PR state                                                                                                                         |
 
 ## Workflow Rules
 
@@ -69,13 +69,13 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   Prefer squash merge by default.
 - Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for Playwright/manual test repos
   created from a worktree.
-- `link machine` must use the current checkout's `noter.ts` flow and keep every local repo checkout
-  isolated with its own `--state-dir` under `~/.noter/checkouts/<checkout-id>`. Never overwrite the
-  default `~/.noter` install as part of local dev linking or cleanup.
-- `clean vaults` must fail closed and only remove matching Noter-managed vaults through the
+- `link machine` must use the current checkout's `samebase.ts` flow and keep every local repo
+  checkout isolated with its own `--state-dir` under `~/.samebase/checkouts/<checkout-id>`. Never
+  overwrite the default `~/.samebase` install as part of local dev linking or cleanup.
+- `clean vaults` must fail closed and only remove matching Samebase-managed vaults through the
   dashboard delete flow.
 - `clean` requires a terminal PR (`MERGED`/`CLOSED`) and must follow
-  `docs/noter-pr-preview-cleanup.md` first: any branch that ever had a PR (drafts included) must
+  `docs/samebase-pr-preview-cleanup.md` first: any branch that ever had a PR (drafts included) must
   clean both Cloudflare and Convex previews before deleting the branch. Missing env files or
   metadata gaps block `clean`; they never justify skipping provider cleanup.
 
@@ -113,12 +113,12 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   the surrounding component already uses them.
 - For motion and timing, prefer Tailwind defaults unless there is a concrete product reason to
   override them.
-- Assume Cloudflare is the default front door and observability layer for `noter.md`, and keep
+- Assume Cloudflare is the default front door and observability layer for `samebase.com`, and keep
   application logic in Convex by default unless there is a clear reason not to.
 - In copy, docs, and examples: never use Vercel as an example provider or integration; use Netlify
   when a non-Cloudflare provider example is needed. Naming other providers is normal — the product
-  is provider-agnostic (it works off GitHub PRs and branches); Cloudflare is what noter itself runs
-  on and recommends via its single template.
+  is provider-agnostic (it works off GitHub PRs and branches); Cloudflare is what Samebase itself
+  runs on and recommends via its single template.
 - Prefer shell commands first and Node/ECMAScript second; do not reach for Python first in this
   repo.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
@@ -127,7 +127,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - Prefer exhaustive dispatch with `satisfies never` when it fits.
 - Assume responses may be read from a phone: every reference must be a tappable URL reachable off
   this machine — clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
-  alongside any localhost URL, and noter.md vault file URLs instead of local filesystem paths
+  alongside any localhost URL, and samebase.com vault file URLs instead of local filesystem paths
   whenever the branch is pushed.
 - When pointing the operator at code, include a precise location such as a 1-based line number or
   another unambiguous anchor unless the whole file is genuinely the subject. Do not cite only a
@@ -145,7 +145,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   a hard limit.
 - For Playwright and browser automation rules (isolated sessions, never steal OS focus, never kill
   all Chrome, mobile emulation from launch, touch-gesture anchoring), follow
-  `skills/noter-playwright-live/SKILL.md`.
+  `skills/samebase-playwright-live/SKILL.md`.
 - Worktree frontend should avoid port `5173`; prefer the worktree defaults.
 - Treat shadcn-generated files in `apps/samebase/src/components/ui/*` as read-only unless the user
   explicitly asks to update shadcn output.
@@ -267,15 +267,15 @@ Types and validation:
   disables, get a config override.
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
-  in `@noter-md/dependent`), never costume types the code cannot earn.
+  in `@samebase/dependent`), never costume types the code cannot earn.
 - Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` claim TS
   cannot check — a disconnected predicate keeps narrowing to a stale shape when the source evolves,
-  with no error. Derive predicates with `guard<Input, Target>` from `@noter-md/dependent`
+  with no error. Derive predicates with `guard<Input, Target>` from `@samebase/dependent`
   (generics-first; the callback returns the narrowed value or null; identity-checked); where a sure
   schema proves the shape, let the validator's own result narrow. Plain local boolean checks may
   rely on TS-inferred predicates ("disconnected type safety" in `docs/code-guardrails.md`).
 - Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
-  `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@noter-md/dependent`; `packages/sure`
+  `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@samebase/dependent`; `packages/sure`
   is the philosophy at its extreme). Keep that vocabulary small; no long-named one-line helpers
   sprawling through app code.
 - No `Reflect.get`/`Reflect.set` workarounds; prefer real narrows, else the narrowest
@@ -335,7 +335,7 @@ Effects and reads:
 - Avoid `"use node"` unless truly required.
 - Truthiness checks for `true | undefined` flags; existence checks when existence is the meaning —
   exact `!== undefined`/`typeof` checks only when that exact state is modeled.
-- Use `notEmpty` from `@noter-md/dependent` for filtering nullable arrays.
+- Use `notEmpty` from `@samebase/dependent` for filtering nullable arrays.
 - Repeated `?.` on one value is a correctness smell: narrow once with an explicit missing branch.
 - Direct conditions over intermediates; no `!!` or named booleans for engineering theater.
 
@@ -394,7 +394,7 @@ UI code:
   that ProseMark bug is fixed.
 - Add or update screenshot coverage whenever a patch changes shipped UI.
 - For Playwright baselines, live validation, focused-vs-full acceptance runs, session rules, and
-  fixture policy, follow `skills/noter-playwright-live/SKILL.md` and
+  fixture policy, follow `skills/samebase-playwright-live/SKILL.md` and
   `docs/playwright-visual-testing.md`. `pnpm test:visual:linux` is the canonical local acceptance
   command for visual/Playwright validation. Do not substitute host-native
   `pnpm --filter samebase test:visual`, Playwright shards, or focused specs for acceptance unless
@@ -415,20 +415,20 @@ UI code:
 - Do not manually edit generated files in `apps/samebase/src/components/ui/*` unless the user
   explicitly asks for that exact change.
 - Use the shadcn CLI via `npx` for component additions or refreshes.
-- Prefer repo-owned wrapper entrypoints outside `components/ui/*` when Noter needs shared styling or
-  behavior over a generated primitive.
+- Prefer repo-owned wrapper entrypoints outside `components/ui/*` when Samebase needs shared styling
+  or behavior over a generated primitive.
 - If a generated file is explicitly edited, keep the change minimal and call out the divergence.
 
 ## Task-Specific References
 
 - For the extracted agent context bundle and live modularization map, use
-  `packages/agent-context/manifests/noter.md` and
+  `packages/agent-context/manifests/samebase.md` and
   `research/2026-05-23-agent-context-agents-migration-map.md`. The package does not replace live
   routing yet; keep always-loaded rules until a migration proves each replacement is reachable.
 - For git/PR/shipping details, use `docs/agent-workflows.md`.
 - For safe Convex production reads, use `docs/convex-production-reads.md`.
 - For live browser validation and route-first UI repros, use
-  `skills/noter-playwright-live/SKILL.md`.
+  `skills/samebase-playwright-live/SKILL.md`.
 - For PR authoring details, use `skills/create-pr/SKILL.md`.
 - For macOS UI control, use `skills/mac-app-control/SKILL.md`.
 

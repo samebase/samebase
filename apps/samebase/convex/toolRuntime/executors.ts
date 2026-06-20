@@ -264,7 +264,7 @@ async function isPathHiddenByStagingChangeForOriginal(args: {
   return isPathHiddenByStagingChange(byOriginalPath);
 }
 
-// eslint-disable-next-line noter/no-hand-written-type-predicate -- property-presence over unknown: the in-check narrows the property reference, not the error object
+// eslint-disable-next-line samebase/no-hand-written-type-predicate -- property-presence over unknown: the in-check narrows the property reference, not the error object
 function hasStatusCode(error: unknown, status: number): error is { status: number } {
   return (
     typeof error === "object" && error !== null && "status" in error && error.status === status

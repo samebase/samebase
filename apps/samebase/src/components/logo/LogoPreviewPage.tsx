@@ -83,7 +83,7 @@ import {
   getLogoPresetSelection,
   type LogoPresetSelection,
 } from "@/components/logo/logoPresets";
-import { includes } from "@noter-md/dependent";
+import { includes } from "@samebase/dependent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";

@@ -8,7 +8,7 @@ and that the first sent message lands in the expected runtime context.
 ## Preconditions
 
 - Worktree app is running with `pnpm dev:worktree`.
-- A connected machine is available through the local `noter.ts` approval flow.
+- A connected machine is available through the local `samebase.ts` approval flow.
 - The selected machine has at least one git-backed project group in `/machines`.
 
 ## Steps
@@ -41,6 +41,6 @@ and that the first sent message lands in the expected runtime context.
 
 ## Cleanup
 
-- Restore `~/.noter/config.json` if local manual testing temporarily pointed it at a localhost
-  `noter.ts`.
+- Restore `~/.samebase/config.json` if local manual testing temporarily pointed it at a localhost
+  `samebase.ts`.
 - Stop any temporary local connector/browser sessions used only for the test.

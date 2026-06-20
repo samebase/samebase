@@ -6,7 +6,7 @@ import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
-import { notEmpty } from "@noter-md/dependent/main";
+import { notEmpty } from "@samebase/dependent/main";
 import { action } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import type { GithubTree } from "./schema";

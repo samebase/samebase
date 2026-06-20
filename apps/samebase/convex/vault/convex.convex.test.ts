@@ -28,7 +28,7 @@ async function createConvexConnectedUser() {
         credential: "test-convex-token",
       },
       teamId: "1000",
-      teamSlug: "noter-team",
+      teamSlug: "samebase-team",
       createdAt: 1,
       updatedAt: 2,
     });
@@ -57,7 +57,7 @@ async function createConvexConnectedVault() {
         credential: "test-convex-token",
       },
       teamId: "1000",
-      teamSlug: "noter-team",
+      teamSlug: "samebase-team",
       createdAt: 1,
       updatedAt: 2,
     });
@@ -134,7 +134,7 @@ describe("vault Convex deployment connection actions", () => {
               "name": "Alpha Project",
               "slug": "alpha",
               "teamId": 1000,
-              "teamSlug": "noter-team"
+              "teamSlug": "samebase-team"
             },
             {
               "createTime": 1710000000001,
@@ -142,15 +142,15 @@ describe("vault Convex deployment connection actions", () => {
               "name": "Beta Project",
               "slug": "beta",
               "teamId": 1000,
-              "teamSlug": "noter-team"
+              "teamSlug": "samebase-team"
             },
             {
               "createTime": 1710000000002,
               "id": 1003,
               "name": "Samebase",
-              "slug": "noter",
+              "slug": "samebase",
               "teamId": 1000,
-              "teamSlug": "noter-team"
+              "teamSlug": "samebase-team"
             }
           ]`);
         }
@@ -166,19 +166,19 @@ describe("vault Convex deployment connection actions", () => {
         projectId: "1001",
         projectName: "Alpha Project",
         projectSlug: "alpha",
-        teamSlug: "noter-team",
+        teamSlug: "samebase-team",
       },
       {
         projectId: "1002",
         projectName: "Beta Project",
         projectSlug: "beta",
-        teamSlug: "noter-team",
+        teamSlug: "samebase-team",
       },
       {
         projectId: "1003",
         projectName: "Samebase",
-        projectSlug: "noter",
-        teamSlug: "noter-team",
+        projectSlug: "samebase",
+        teamSlug: "samebase-team",
       },
     ]);
     expect(requests.filter((url) => url.includes("/list_deployments"))).toHaveLength(0);
@@ -211,7 +211,7 @@ describe("vault Convex deployment connection actions", () => {
             "name": "Alpha Project",
             "slug": "alpha",
             "teamId": 1000,
-            "teamSlug": "noter-team"
+            "teamSlug": "samebase-team"
           }`);
         }
 
@@ -246,7 +246,7 @@ describe("vault Convex deployment connection actions", () => {
     expect(deployment).toMatchObject({
       appRoot,
       projectId: "1001",
-      teamSlug: "noter-team",
+      teamSlug: "samebase-team",
       projectSlug: "alpha",
       deploymentName: "alpha-prod",
       deploymentType: "prod",
@@ -301,7 +301,7 @@ describe("vault Convex deployment connection actions", () => {
             "name": "Alpha Project",
             "slug": "alpha",
             "teamId": 1000,
-            "teamSlug": "noter-team"
+            "teamSlug": "samebase-team"
           }`);
         }
 
@@ -366,7 +366,7 @@ describe("vault Convex deployment connection actions", () => {
             "name": "alpha-project",
             "slug": "alpha-project",
             "teamId": 1000,
-            "teamSlug": "noter-team"
+            "teamSlug": "samebase-team"
           }`);
         }
 

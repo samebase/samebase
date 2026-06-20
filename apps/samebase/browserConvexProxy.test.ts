@@ -6,7 +6,7 @@ describe("browserConvexProxy", () => {
   it("prefers the local Convex URL when the dev frontend has a public origin", () => {
     expect(
       resolveBrowserConvexProxyTarget({
-        devOrigin: "https://preview.notermd.example",
+        devOrigin: "https://preview.samebase.example",
         envProxyTarget: "http://127.0.0.1:11310",
         localEnvConvexUrl: "http://127.0.0.1:11036",
       }),

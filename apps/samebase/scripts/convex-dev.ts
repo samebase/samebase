@@ -9,7 +9,7 @@ import {
   sleep,
   usesLocalConvexDeployment,
 } from "./convex-local-utils.ts";
-import { guard } from "@noter-md/dependent/main";
+import { guard } from "@samebase/dependent/main";
 import { normalizeEnvValue } from "./normalizeEnvValue.ts";
 import { pickAvailableAnonymousLocalPorts } from "../../../runtime/anonymousLocalPorts.ts";
 

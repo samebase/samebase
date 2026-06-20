@@ -10,13 +10,13 @@ import { samebaseAppFilePath, trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const DEFAULT_IMAGE = "mcr.microsoft.com/playwright:v1.58.2-noble";
 const DEFAULT_OUT_DIR = ".tmp/playwright-linux";
-const DEFAULT_PNPM_STORE_VOLUME = "noter-playwright-linux-pnpm-store";
-const DEFAULT_CONVEX_CACHE_VOLUME = "noter-playwright-linux-convex-cache";
+const DEFAULT_PNPM_STORE_VOLUME = "samebase-playwright-linux-pnpm-store";
+const DEFAULT_CONVEX_CACHE_VOLUME = "samebase-playwright-linux-convex-cache";
 const DEFAULT_VITE_PORT = "43121";
 const DEFAULT_PLAYWRIGHT_LINUX_WORKERS = "4";
 const FULL_GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/i;
 const ciBootstrapConvexScriptPath = `./${trackedFilePath("scripts/ci-bootstrap-convex.ts")}`;
-const noterPlaywrightConfigPath = samebaseAppFilePath("playwright.config.ts");
+const samebasePlaywrightConfigPath = samebaseAppFilePath("playwright.config.ts");
 
 const CONTAINER_SCRIPT = String.raw`set -euo pipefail
 
@@ -54,7 +54,7 @@ PLAYWRIGHT=1 pnpm --filter samebase build:ci
 set +e
 PLAYWRIGHT_SKIP_BUILD=1 \
   PLAYWRIGHT_VITE_PORT="$PLAYWRIGHT_VITE_PORT" \
-  pnpm --filter samebase exec playwright test -c ${noterPlaywrightConfigPath} "$@"
+  pnpm --filter samebase exec playwright test -c ${samebasePlaywrightConfigPath} "$@"
 status=$?
 set -e
 
@@ -204,7 +204,7 @@ function readLinuxPlaywrightArgs(args: string[]): string[] {
 }
 
 function printRunHeader(image: string, platform: string, outDir: string): void {
-  console.log(`Running Noter Playwright visuals in Linux Docker
+  console.log(`Running Samebase Playwright visuals in Linux Docker
   image:    ${image}
   platform: ${platform}
   report:   ${outDir}/playwright-report/index.html

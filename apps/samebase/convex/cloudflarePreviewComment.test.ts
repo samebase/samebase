@@ -9,10 +9,10 @@ const VALID_COMMENT = `## Deploying noter with &nbsp;<a href="https://pages.dev"
 </td></tr>
 <tr><td><strong>Status:</strong></td><td>&nbsp;✅&nbsp; Deploy successful!</td></tr>
 <tr><td><strong>Preview URL:</strong></td><td>
-<a href='https://a3070b07.noter-ax1.pages.dev'>https://a3070b07.noter-ax1.pages.dev</a>
+<a href='https://a3070b07.samebase-ax1.pages.dev'>https://a3070b07.samebase-ax1.pages.dev</a>
 </td></tr>
 <tr><td><strong>Branch Preview URL:</strong></td><td>
-<a href='https://codex-preserve-logo-transfor.noter-ax1.pages.dev'>https://codex-preserve-logo-transfor.noter-ax1.pages.dev</a>
+<a href='https://codex-preserve-logo-transfor.samebase-ax1.pages.dev'>https://codex-preserve-logo-transfor.samebase-ax1.pages.dev</a>
 </td></tr>
 </table>
 
@@ -21,8 +21,8 @@ const VALID_COMMENT = `## Deploying noter with &nbsp;<a href="https://pages.dev"
 describe("parseCloudflarePreviewComment", () => {
   it("extracts Cloudflare preview metadata from the PR comment body", () => {
     expect(parseCloudflarePreviewComment(VALID_COMMENT)).toEqual({
-      branchPreviewUrl: "https://codex-preserve-logo-transfor.noter-ax1.pages.dev/",
-      previewUrl: "https://a3070b07.noter-ax1.pages.dev/",
+      branchPreviewUrl: "https://codex-preserve-logo-transfor.samebase-ax1.pages.dev/",
+      previewUrl: "https://a3070b07.samebase-ax1.pages.dev/",
       previewCommitSha: "aa16371",
       previewStatus: "✅ Deploy successful!",
       previewLogsUrl:
@@ -32,9 +32,12 @@ describe("parseCloudflarePreviewComment", () => {
 
   it("rejects malformed or non-https URLs while keeping other parsed fields", () => {
     const parsed = parseCloudflarePreviewComment(
-      VALID_COMMENT.replace("https://a3070b07.noter-ax1.pages.dev", "javascript:alert('preview')")
+      VALID_COMMENT.replace(
+        "https://a3070b07.samebase-ax1.pages.dev",
+        "javascript:alert('preview')",
+      )
         .replace(
-          "https://codex-preserve-logo-transfor.noter-ax1.pages.dev",
+          "https://codex-preserve-logo-transfor.samebase-ax1.pages.dev",
           "/relative-branch-preview",
         )
         .replace(
@@ -64,8 +67,8 @@ describe("parseCloudflarePreviewComment", () => {
     );
 
     expect(parsed).toEqual({
-      branchPreviewUrl: "https://codex-preserve-logo-transfor.noter-ax1.pages.dev/",
-      previewUrl: "https://a3070b07.noter-ax1.pages.dev/",
+      branchPreviewUrl: "https://codex-preserve-logo-transfor.samebase-ax1.pages.dev/",
+      previewUrl: "https://a3070b07.samebase-ax1.pages.dev/",
       previewCommitSha: "aa16371",
       previewStatus: undefined,
       previewLogsUrl: undefined,
@@ -101,8 +104,8 @@ describe("parseCloudflarePreviewComment", () => {
     );
 
     expect(parsed).toEqual({
-      branchPreviewUrl: "https://codex-preserve-logo-transfor.noter-ax1.pages.dev/",
-      previewUrl: "https://a3070b07.noter-ax1.pages.dev/",
+      branchPreviewUrl: "https://codex-preserve-logo-transfor.samebase-ax1.pages.dev/",
+      previewUrl: "https://a3070b07.samebase-ax1.pages.dev/",
       previewCommitSha: "aa16371",
       previewStatus: "✅ Deploy successful!",
       previewLogsUrl:

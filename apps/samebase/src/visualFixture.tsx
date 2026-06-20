@@ -96,7 +96,7 @@ import {
 } from "@/components/RouteUrlEditor/RouteUrlEditorVisualFixture";
 import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import { includes } from "@noter-md/dependent";
+import { includes } from "@samebase/dependent";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode

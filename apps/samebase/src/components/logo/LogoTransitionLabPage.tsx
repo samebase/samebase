@@ -10,7 +10,7 @@ import {
   type Point,
 } from "@/components/logo/logoTransitionLabUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { notEmpty } from "@noter-md/dependent";
+import { notEmpty } from "@samebase/dependent";
 import { useEffect, useRef, useState } from "react";
 
 type ViewBox = {

@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 import { api } from "../../../convex/_generated/api";
 import type { GithubTree } from "../../../convex/schema";
 import type { ProsemarkMergeEditorOptions } from "@/components/ProsemarkMergeEditor";

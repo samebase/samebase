@@ -1,4 +1,4 @@
-import { isRecord } from "@noter-md/dependent";
+import { isRecord } from "@samebase/dependent";
 import { normalizeRotationDegrees } from "@/components/logo/logoVoxelState";
 
 export const PUBLIC_LANDING_LOGO_VIEW_STATE_KEY = "public-landing";

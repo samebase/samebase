@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 import { minimatch } from "minimatch";
 import { z } from "zod";
 import { parseDocument } from "yaml";

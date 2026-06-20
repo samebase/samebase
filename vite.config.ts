@@ -48,13 +48,13 @@ export default defineConfig({
         specifier: "eslint-plugin-react-refresh",
       },
       {
-        name: "noter",
-        specifier: "./scripts/lint/eslint-plugin-noter.mjs",
+        name: "samebase",
+        specifier: "./scripts/lint/eslint-plugin-samebase.mjs",
       },
     ],
     rules: {
-      "noter/no-hand-written-type-predicate": "error",
-      "noter/no-raw-public-convex-function-builders": "error",
+      "samebase/no-hand-written-type-predicate": "error",
+      "samebase/no-raw-public-convex-function-builders": "error",
       "react-refresh/only-export-components": [
         "error",
         {
@@ -115,7 +115,7 @@ export default defineConfig({
         // derived from a named source of truth, not hand-written.
         files: ["**/*.generated.ts", "**/*.generated.d.ts"],
         rules: {
-          "noter/no-hand-written-type-predicate": "off",
+          "samebase/no-hand-written-type-predicate": "off",
         },
       },
       {

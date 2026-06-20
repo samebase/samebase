@@ -224,9 +224,9 @@ describe("guard", () => {
     // catch-all turns every genuine bug inside the callback into "no match".
     function guardThrow<Value, Narrowed extends Value>(
       match: (value: Value) => Narrowed,
-      // eslint-disable-next-line noter/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
+      // eslint-disable-next-line samebase/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
     ): (value: Value) => value is Narrowed {
-      // eslint-disable-next-line noter/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
+      // eslint-disable-next-line samebase/no-hand-written-type-predicate -- exercises the rejected throw-variant shape
       return (value): value is Narrowed => {
         try {
           return Object.is(match(value), value);

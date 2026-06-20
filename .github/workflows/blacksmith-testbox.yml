@@ -43,7 +43,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Bootstrap Convex for CI
         run: node ./scripts/ci-bootstrap-convex.ts --keep-running
-      - name: Build noter preview
+      - name: Build Samebase preview
         run: PLAYWRIGHT=1 pnpm --filter samebase build:ci
       - name: Install Playwright browser
         run: pnpm --filter samebase exec playwright install --with-deps chromium

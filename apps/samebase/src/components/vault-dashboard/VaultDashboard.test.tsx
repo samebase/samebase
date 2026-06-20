@@ -228,8 +228,8 @@ describe("VaultBranchLinkContent", () => {
               appRoot: "apps/api",
               links: [
                 {
-                  href: "https://api.notermd.workers.dev",
-                  label: "api.notermd.workers.dev",
+                  href: "https://api.pfp.workers.dev",
+                  label: "api.pfp.workers.dev",
                   provider: "cloudflare",
                   title: "Open production app for apps/api",
                 },
@@ -239,8 +239,8 @@ describe("VaultBranchLinkContent", () => {
               appRoot: "apps/samebase",
               links: [
                 {
-                  href: "https://noter.notermd.workers.dev",
-                  label: "noter.notermd.workers.dev",
+                  href: "https://samebase.pfp.workers.dev",
+                  label: "samebase.pfp.workers.dev",
                   provider: "cloudflare",
                   title: "Open production app for apps/samebase",
                 },
@@ -266,9 +266,9 @@ describe("VaultBranchLinkContent", () => {
     );
 
     expect(markup).toContain("apps/api");
-    expect(markup).toContain('href="https://api.notermd.workers.dev"');
+    expect(markup).toContain('href="https://api.pfp.workers.dev"');
     expect(markup).toContain("apps/samebase");
-    expect(markup).toContain('href="https://noter.notermd.workers.dev"');
+    expect(markup).toContain('href="https://samebase.pfp.workers.dev"');
     expect(markup).toContain('href="https://dashboard.convex.dev/t/noter-md/noter/calm-swan-123"');
     expect(markup).toContain(">Production: calm-swan-123<");
     expect(markup.indexOf("apps/api")).toBeLessThan(markup.indexOf("apps/samebase"));

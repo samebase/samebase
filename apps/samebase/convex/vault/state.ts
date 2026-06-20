@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent/main";
+import { guard } from "@samebase/dependent/main";
 import type { Doc } from "../_generated/dataModel";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 

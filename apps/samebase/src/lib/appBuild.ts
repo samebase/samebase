@@ -1,4 +1,4 @@
-import { guard } from "@noter-md/dependent";
+import { guard } from "@samebase/dependent";
 
 export const APP_BUILD_STATUS_BAR_TEST_ID = "app-build-status-bar";
 export const APP_BUILD_VERSION_TEST_ID = "app-build-version";

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isRecord } from "@noter-md/dependent/main";
+import { isRecord } from "@samebase/dependent/main";
 import { describe, expect, it } from "vite-plus/test";
 import repoViteConfig from "../../vite.config.ts";
 
@@ -220,11 +220,11 @@ describe("lint config", () => {
       ]),
     );
     expect(oxlintConfig.jsPlugins).not.toContainEqual({
-      name: "noter-local",
-      specifier: "eslint-plugin-noter-local",
+      name: "samebase-local",
+      specifier: "eslint-plugin-samebase-local",
     });
     expect(oxlintConfig.rules).toMatchObject({
-      "noter/no-raw-public-convex-function-builders": "error",
+      "samebase/no-raw-public-convex-function-builders": "error",
       "react-refresh/only-export-components": ["error", { allowConstantExport: true }],
       "@typescript-eslint/await-thenable": "error",
       "@typescript-eslint/consistent-type-assertions": ["warn", { assertionStyle: "never" }],
@@ -251,7 +251,7 @@ describe("lint config", () => {
       "@convex-dev/eslint-plugin": "2.0.0",
       "eslint-plugin-react-refresh": "^0.4.7",
     });
-    expect(rootPackage.devDependencies?.["eslint-plugin-noter-local"]).toBeUndefined();
+    expect(rootPackage.devDependencies?.["eslint-plugin-samebase-local"]).toBeUndefined();
     expect(rootPackage.devDependencies?.vitest).toBeUndefined();
     expect(rootPackage.devDependencies?.oxlint).toBeUndefined();
     expect(rootPackage.devDependencies?.["oxlint-tsgolint"]).toBeUndefined();

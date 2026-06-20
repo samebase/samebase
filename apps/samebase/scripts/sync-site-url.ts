@@ -15,7 +15,7 @@
  *     to the old, dead URL. This script fixes that by reading the current
  *     container URL from the DEV_ENV_ORIGIN env var.
  *
- *   - Local development: Reuses the deterministic local Vite port that Noter
+ *   - Local development: Reuses the deterministic local Vite port that Samebase
  *     picks before startup, beginning with http://localhost:5173.
  *
  * KNOWN LIMITATION:

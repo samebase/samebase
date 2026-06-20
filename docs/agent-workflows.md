@@ -30,27 +30,29 @@ git rev-parse --abbrev-ref HEAD
 
 ## Temporary Vault Naming
 
-Temporary Noter-managed repos created for manual or Playwright validation from a worktree must use
-the prefix `tmp-<worktree-id>-<intent>`.
+Temporary Samebase-managed repos created for manual or Playwright validation from a worktree must
+use the prefix `tmp-<worktree-id>-<intent>`.
 
 - For Codex worktrees under `~/.codex/worktrees/<id>/...`, use that folder id as the worktree id.
-- `clean vaults` must only target vaults with that exact prefix and only if they are Noter-managed.
+- `clean vaults` must only target vaults with that exact prefix and only if they are
+  Samebase-managed.
 
 ## Worktree Machine Linking
 
 Use `link machine` when the operator wants the current checkout or worktree to run the real
-`noter.ts` connected-machine flow without re-explaining the details each time.
+`samebase.ts` connected-machine flow without re-explaining the details each time.
 
 - Treat `link machines` as an alias for `link machine`.
-- Never reuse the default `~/.noter` install for a local repo checkout under active development;
+- Never reuse the default `~/.samebase` install for a local repo checkout under active development;
   keep that default config available for the stable machine/phone flow.
-- Keep every local repo checkout isolated with `--state-dir ~/.noter/checkouts/<checkout-id>`.
+- Keep every local repo checkout isolated with `--state-dir ~/.samebase/checkouts/<checkout-id>`.
 - For Codex worktrees under `~/.codex/worktrees/<id>/...`, use that folder id as `<checkout-id>`.
 - For the primary local checkout or any other non-Codex checkout, use the checkout directory leaf as
   `<checkout-id>`.
-- `link machine` should use the current checkout's `noter.ts` URL, run `connect` with the matching
-  state dir, complete the browser approval flow, then run `noter-sync run` with that same state dir.
-- Never overwrite the default `~/.noter/config.json` when linking a local repo checkout.
+- `link machine` should use the current checkout's `samebase.ts` URL, run `connect` with the
+  matching state dir, complete the browser approval flow, then run `samebase-sync run` with that
+  same state dir.
+- Never overwrite the default `~/.samebase/config.json` when linking a local repo checkout.
 
 ## Git Shorthand Commands
 
@@ -60,21 +62,21 @@ When a shorthand command is delegated, tested, or handed off for execution, pres
 terse command form exactly, such as `clean`, `wait`, `create pr`, or `ship`, and avoid adding extra
 instructions or checklists.
 
-| Command        | Meaning                                                                                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `commit`       | Stage and create a concise commit on the current branch                                                                                                            |
-| `push`         | Commit if needed, then push                                                                                                                                        |
-| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                                 |
-| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                                 |
-| `ready`        | Mark the current PR ready                                                                                                                                          |
-| `wait`         | Watch CI and report status                                                                                                                                         |
-| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                                                                          |
-| `squash`       | Squash-merge the current PR                                                                                                                                        |
-| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                              |
-| `link machine` | Run the current checkout's `noter.ts` machine-link flow with worktree isolation when needed                                                                        |
-| `clean vaults` | Delete matching temporary Noter-managed vaults safely                                                                                                              |
-| `clean`        | Run `clean vaults`, clean noter.md PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree and branch |
-| `status`       | Report branch, local changes, and PR state                                                                                                                         |
+| Command        | Meaning                                                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage and create a concise commit on the current branch                                                                                                                |
+| `push`         | Commit if needed, then push                                                                                                                                            |
+| `create pr`    | Push if needed, then create or update a ready PR whose title starts with the current `v<N>:` label                                                                     |
+| `create draft` | Push if needed, then create or update a draft PR whose title starts with the current `v<N>:` label                                                                     |
+| `ready`        | Mark the current PR ready                                                                                                                                              |
+| `wait`         | Watch CI and report status                                                                                                                                             |
+| `ship`         | Commit, push, ensure a ready PR exists, clear actionable review feedback, and wait for CI                                                                              |
+| `squash`       | Squash-merge the current PR                                                                                                                                            |
+| `archive`      | Remove the current worktree/local branch after confirming a PR exists                                                                                                  |
+| `link machine` | Run the current checkout's `samebase.ts` machine-link flow with worktree isolation when needed                                                                         |
+| `clean vaults` | Delete matching temporary Samebase-managed vaults safely                                                                                                               |
+| `clean`        | Run `clean vaults`, clean samebase.com PR preview resources, remove the current worktree's local machine link, then remove the merged or closed-PR worktree and branch |
+| `status`       | Report branch, local changes, and PR state                                                                                                                             |
 
 `ship` and `archive` are retired from active vocabulary (unused since late April 2026); if the
 operator says them, confirm intent before acting.
@@ -100,7 +102,7 @@ Unless a repo template says otherwise, PR descriptions should use this shape:
 2. `Summary`
 3. `Validation`
 
-Add these sections when the PR represents research or automation initiated from Noter or Codex:
+Add these sections when the PR represents research or automation initiated from Samebase or Codex:
 
 1. `First Message`
 2. `Requested Codex Runtime`
@@ -222,7 +224,7 @@ Guidelines:
 3. if the feature depends on setup, onboarding, or approval state, include that real setup path in
    the validation unless a documented seed/bootstrap shortcut is intentionally used
 4. for non-seeded flows, prefer exercising the actual operator path end to end, for example: open
-   the local browser, configure the relevant `noter.ts` bridge or local connector state, complete
+   the local browser, configure the relevant `samebase.ts` bridge or local connector state, complete
    the approval step, then verify the resulting product behavior
 5. for flows that start a new thread, conversation, or similar empty container, the manual path is
    not complete at the blank state; send the first real message and confirm the thread materializes
@@ -268,15 +270,15 @@ Rules:
 - `clean` is only for branches whose PR is terminal: merged or closed. Draft PRs count as PRs: once
   any PR exists for a branch, assume both Cloudflare and Convex preview deployments exist and must
   be cleaned before the branch is removed. Do not clean open PR previews. Run `clean vaults` first.
-- Before deleting the remote branch, follow `docs/noter-pr-preview-cleanup.md` for the current
+- Before deleting the remote branch, follow `docs/samebase-pr-preview-cleanup.md` for the current
   branch. This is an operator/Codex workflow, not a repo script. It must not change deploy behavior
   or add tagging. Missing local seed env, missing inherited credentials, or missing first-pass
   metadata is not a reason to skip preview cleanup. Resolve the credentials/resource lookup or leave
   `clean` blocked; do not delete the branch while provider preview cleanup is incomplete.
 - If the current checkout has a linked machine install, stop that exact checkout-local
-  `noter-sync run` process before deleting its state dir.
-- `clean` should remove only the current checkout's isolated `~/.noter/checkouts/<checkout-id>`
-  state dir and never the default `~/.noter` install.
+  `samebase-sync run` process before deleting its state dir.
+- `clean` should remove only the current checkout's isolated `~/.samebase/checkouts/<checkout-id>`
+  state dir and never the default `~/.samebase` install.
 - After machine-link cleanup, remove the current non-`main` worktree, delete the local branch, and
   delete the remote branch if it still exists.
 

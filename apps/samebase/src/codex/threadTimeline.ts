@@ -1,4 +1,4 @@
-import { notEmpty } from "@noter-md/dependent";
+import { notEmpty } from "@samebase/dependent";
 import type {
   CodexAppServerThread,
   CodexAppServerThreadItem,

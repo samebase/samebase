@@ -1,4 +1,4 @@
-import { includes } from "@noter-md/dependent";
+import { includes } from "@samebase/dependent";
 
 export const LOGO_LEFT_FACE_STYLE_KINDS = ["secondary", "striped"] as const;
 export const LOGO_LEFT_FACE_STRIPE_BASIS_VALUES = [

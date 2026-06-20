@@ -1,7 +1,7 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { guard } from "@noter-md/dependent/main";
+import { guard } from "@samebase/dependent/main";
 import type { ActionCtx } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Octokit } from "@octokit/rest";

@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This note captures operator guidance for simplifying Noter-owned React components during local
+This note captures operator guidance for simplifying Samebase-owned React components during local
 refactors. It is intentionally about app-owned code, not published packages or generated primitives.
 
 ## Prefer Closed Internal Components
 
-When a component is used only in the same file or only by Noter-owned code, keep its API closed by
-default.
+When a component is used only in the same file or only by Samebase-owned code, keep its API closed
+by default.
 
 Do not add pass-through styling props such as `className` just because a component might need to
 vary later. The app owns both the component and its callers, so future changes can edit the
