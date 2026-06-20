@@ -5,8 +5,8 @@ import {
   MACHINES_ROUTE_SEARCH_STATIC_DATA,
   validateMachinesRouteSearch,
 } from "@/routeSearch/machines";
-import { MACHINES_ROUTE } from "@/lib/noterSync";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { MACHINES_ROUTE } from "@/lib/samebaseSync";
+import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = MACHINES_ROUTE;
 
@@ -23,7 +23,7 @@ function MachinesRouteComponent() {
 
 export const Route = createFileRoute("/machines")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...MACHINES_ROUTE_SEARCH_STATIC_DATA,
   },
   component: MachinesRouteComponent,

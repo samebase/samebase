@@ -1,12 +1,12 @@
 // No dependencies by design: this file should stay easy to inspect, easy to
-// reason about, and easy to mirror into hosted `/noter.ts`.
+// reason about, and easy to mirror into hosted `/samebase.ts`.
 //
 // Audit guide:
-// 1. Validate that this file was served from `/noter.ts` on `https:` (or
+// 1. Validate that this file was served from `/samebase.ts` on `https:` (or
 //    explicit localhost `http:` during local testing).
 // 2. Run `codex --version` to confirm the Codex CLI is on PATH.
-// 3. Write one JSON config file under `~/.noter/config.json` by default.
-// 4. Print Noter's `/machines/connect` approval URL.
+// 3. Write one JSON config file under `~/.samebase/config.json` by default.
+// 4. Print Samebase's `/machines/connect` approval URL.
 // 5. Reuse the stored machine credential for later heartbeat publishing.
 //
 // It does not install background services, modify project files, or download
@@ -38,13 +38,12 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
-export const NOTER_SYNC_SCRIPT_PATHNAME = "/noter.ts";
-const LEGACY_NOTER_SYNC_SCRIPT_PATHNAME = "/noter.js";
-export const NOTER_CONNECT_CONFIG_PATHNAME = "/noter-connect.json";
+export const SAMEBASE_SYNC_SCRIPT_PATHNAME = "/samebase.ts";
+export const SAMEBASE_CONNECT_CONFIG_PATHNAME = "/samebase-connect.json";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
-export const NOTER_STATE_DIRNAME = ".noter";
-export const NOTER_CONFIG_FILENAME = "config.json";
-export const NOTER_CONFIG_PATHNAME = ".noter/config.json";
+export const SAMEBASE_STATE_DIRNAME = ".samebase";
+export const SAMEBASE_CONFIG_FILENAME = "config.json";
+export const SAMEBASE_CONFIG_PATHNAME = ".samebase/config.json";
 export const CONNECTED_MACHINE_BOOTSTRAP_PATHNAME = "/connected-machines/bootstrap";
 export const CONNECTED_MACHINE_HEARTBEAT_PATHNAME = "/connected-machines/heartbeat";
 export const CONNECTED_MACHINE_HEARTBEAT_INTERVAL_MS = 15_000;
@@ -53,7 +52,7 @@ export const NETWORK_TIMEOUT_MS = 15_000;
 export const LOCAL_CODEX_CONTROL_HOST = "127.0.0.1";
 export const LOCAL_CODEX_CONTROL_PORT = 0;
 // When the command does not pass an explicit source URL, default to production.
-export const NOTER_SYNC_SOURCE_URL = "https://noter.md/noter.ts";
+export const SAMEBASE_SYNC_SOURCE_URL = "https://samebase.com/samebase.ts";
 const MACHINE_CREDENTIAL_AUTH_ERROR_NAME = "MachineCredentialAuthError";
 const MACHINE_CONTROL_AUTH_ERROR_NAME = "MachineControlAuthError";
 const MACHINE_CONTROL_SERVICE_ERROR_NAME = "MachineControlServiceError";
@@ -112,7 +111,7 @@ async function sha256Hex(input) {
 }
 
 function buildConnectorVersion(codexVersion) {
-  return `noter-sync (${codexVersion})`;
+  return `samebase-sync (${codexVersion})`;
 }
 
 function buildMachineId() {
@@ -217,20 +216,16 @@ export function parseCliArgs(argv) {
  * source URL narrow makes the browser handoff and the stored config easier to
  * reason about.
  */
-export function validateSourceUrl(value, options = {}) {
+export function validateSourceUrl(value) {
   const sourceUrl = new URL(value);
   const isLoopbackHttp = sourceUrl.protocol === "http:" && isLoopbackHostname(sourceUrl.hostname);
-  const allowLegacyInstallerPath = options.allowLegacyInstallerPath === true;
   if (sourceUrl.protocol !== "https:" && !isLoopbackHttp) {
     throw new Error(
       "The installer source URL must use https, except for explicit localhost testing.",
     );
   }
-  if (
-    sourceUrl.pathname !== NOTER_SYNC_SCRIPT_PATHNAME &&
-    (!allowLegacyInstallerPath || sourceUrl.pathname !== LEGACY_NOTER_SYNC_SCRIPT_PATHNAME)
-  ) {
-    throw new Error(`The installer source URL must point to ${NOTER_SYNC_SCRIPT_PATHNAME}.`);
+  if (sourceUrl.pathname !== SAMEBASE_SYNC_SCRIPT_PATHNAME) {
+    throw new Error(`The installer source URL must point to ${SAMEBASE_SYNC_SCRIPT_PATHNAME}.`);
   }
   if (
     sourceUrl.username.length > 0 ||
@@ -242,21 +237,16 @@ export function validateSourceUrl(value, options = {}) {
       "The installer source URL must not include credentials, query params, or hashes.",
     );
   }
-  if (sourceUrl.pathname === LEGACY_NOTER_SYNC_SCRIPT_PATHNAME) {
-    // Existing machines can still have `/noter.js` persisted locally, so
-    // normalize them to the current hosted contract before runtime fetches.
-    sourceUrl.pathname = NOTER_SYNC_SCRIPT_PATHNAME;
-  }
   return sourceUrl;
 }
 
 /**
  * The runtime config file is deploy-scoped, so it is allowed to carry the
- * Convex HTTP base even though `/noter.ts` itself stays byte-for-byte identical
+ * Convex HTTP base even though `/samebase.ts` itself stays byte-for-byte identical
  * across deploys.
  */
-export function buildNoterConnectConfigUrl(sourceUrl) {
-  return new URL(NOTER_CONNECT_CONFIG_PATHNAME, sourceUrl).toString();
+export function buildSamebaseConnectConfigUrl(sourceUrl) {
+  return new URL(SAMEBASE_CONNECT_CONFIG_PATHNAME, sourceUrl).toString();
 }
 
 export function buildMachineConnectUrl(sourceUrl, requestId) {
@@ -786,7 +776,7 @@ export function detectCodexVersion(options = {}) {
  * Normalize the selected state directory to an absolute path once so config
  * reads, writes, and printed commands all refer to the same location.
  */
-export function getNoterStateDirectory(args = {}) {
+export function getSamebaseStateDirectory(args = {}) {
   const configuredStateDirectory = args.stateDirectory?.trim();
   if (configuredStateDirectory && configuredStateDirectory.length > 0) {
     return path.isAbsolute(configuredStateDirectory)
@@ -795,35 +785,35 @@ export function getNoterStateDirectory(args = {}) {
   }
 
   const homeDirectory = args.homeDirectory ?? homedir();
-  return path.join(homeDirectory, NOTER_STATE_DIRNAME);
+  return path.join(homeDirectory, SAMEBASE_STATE_DIRNAME);
 }
 
-export function getNoterConfigPath(args = {}) {
+export function getSamebaseConfigPath(args = {}) {
   return path.join(
-    getNoterStateDirectory({
+    getSamebaseStateDirectory({
       cwd: args.cwd,
       homeDirectory: args.homeDirectory,
       stateDirectory: args.stateDirectory,
     }),
-    NOTER_CONFIG_FILENAME,
+    SAMEBASE_CONFIG_FILENAME,
   );
 }
 
-function describeNoterConfigPath(args = {}) {
+function describeSamebaseConfigPath(args = {}) {
   const configuredStateDirectory = args.stateDirectory?.trim();
   if (configuredStateDirectory && configuredStateDirectory.length > 0) {
-    return getNoterConfigPath({
+    return getSamebaseConfigPath({
       cwd: args.cwd,
       homeDirectory: args.homeDirectory,
       stateDirectory: args.stateDirectory,
     });
   }
 
-  return path.join("~", NOTER_STATE_DIRNAME, NOTER_CONFIG_FILENAME);
+  return path.join("~", SAMEBASE_STATE_DIRNAME, SAMEBASE_CONFIG_FILENAME);
 }
 
 export function readLocalConfig(args = {}) {
-  const configPath = getNoterConfigPath({
+  const configPath = getSamebaseConfigPath({
     homeDirectory: args.homeDirectory,
     stateDirectory: args.stateDirectory,
   });
@@ -839,7 +829,7 @@ export function readLocalConfig(args = {}) {
  * updates the current source URL while preserving the original install time.
  */
 export function writeLocalConfig(args) {
-  const configPath = getNoterConfigPath({
+  const configPath = getSamebaseConfigPath({
     homeDirectory: args.homeDirectory,
     stateDirectory: args.stateDirectory,
   });
@@ -883,34 +873,30 @@ function readStoredMachineConfig(args = {}) {
 
   if (typeof sourceUrl !== "string" || sourceUrl.length === 0) {
     throw new Error(
-      `Missing \`sourceUrl\` in ${describeNoterConfigPath({
+      `Missing \`sourceUrl\` in ${describeSamebaseConfigPath({
         stateDirectory: args.stateDirectory,
-      })}. Run \`noter-sync connect\` first.`,
+      })}. Run \`samebase-sync connect\` first.`,
     );
   }
   if (typeof machineId !== "string" || machineId.length === 0) {
     throw new Error(
-      `Missing \`machineId\` in ${describeNoterConfigPath({
+      `Missing \`machineId\` in ${describeSamebaseConfigPath({
         stateDirectory: args.stateDirectory,
-      })}. Run \`noter-sync connect\` first.`,
+      })}. Run \`samebase-sync connect\` first.`,
     );
   }
   if (typeof machineCredential !== "string" || machineCredential.length === 0) {
     throw new Error(
-      `Missing \`machineCredential\` in ${describeNoterConfigPath({
+      `Missing \`machineCredential\` in ${describeSamebaseConfigPath({
         stateDirectory: args.stateDirectory,
-      })}. Finish \`noter-sync connect\` first.`,
+      })}. Finish \`samebase-sync connect\` first.`,
     );
   }
 
   return {
     machineCredential,
     machineId,
-    // Treat the stored installer URL as rollout state: allow the previous
-    // pathname and normalize it in-memory so reconnects are not required.
-    sourceUrl: validateSourceUrl(sourceUrl, {
-      allowLegacyInstallerPath: true,
-    }).toString(),
+    sourceUrl: validateSourceUrl(sourceUrl).toString(),
   };
 }
 
@@ -2812,8 +2798,8 @@ export class CodexLocalControlRuntime {
           method: "initialize",
           params: {
             clientInfo: {
-              name: "noter_sync_local_control",
-              title: "Noter Sync Local Control",
+              name: "samebase_sync_local_control",
+              title: "Samebase Sync Local Control",
               version: "0.1.0",
             },
           },
@@ -2920,7 +2906,7 @@ export class CodexLocalControlRuntime {
   }
 
   /**
-   * Keep the browser contract focused on the subset Noter needs for a future
+   * Keep the browser contract focused on the subset Samebase needs for a future
    * machine connector, while preserving the raw provider payload on each thread
    * for protocol inspection.
    */
@@ -3124,7 +3110,7 @@ export class CodexLocalControlRuntime {
 
   /**
    * Surface the provider's in-memory thread inventory separately from the
-   * persisted thread list so Noter can distinguish "currently loaded in the
+   * persisted thread list so Samebase can distinguish "currently loaded in the
    * runtime" from "known on disk".
    */
   async listLoadedThreads(searchParams) {
@@ -3408,7 +3394,7 @@ export class CodexLocalControlRuntime {
   }
 
   async generateProtocol(args) {
-    const tempDir = await mkdtemp(path.join(tmpdir(), `noter-codex-${args.mode}-`));
+    const tempDir = await mkdtemp(path.join(tmpdir(), `samebase-codex-${args.mode}-`));
     try {
       const commandArgs = [
         "app-server",
@@ -3761,8 +3747,8 @@ async function fetchWithTimeout(resource, init, timeoutLabel, timeoutMs = NETWOR
   }
 }
 
-async function fetchNoterConnectConfig(sourceUrl) {
-  const configUrl = buildNoterConnectConfigUrl(sourceUrl);
+async function fetchSamebaseConnectConfig(sourceUrl) {
+  const configUrl = buildSamebaseConnectConfigUrl(sourceUrl);
   const response = await fetchWithTimeout(
     configUrl,
     {
@@ -3770,26 +3756,30 @@ async function fetchNoterConnectConfig(sourceUrl) {
         accept: "application/json",
       },
     },
-    `Could not download ${NOTER_CONNECT_CONFIG_PATHNAME}`,
+    `Could not download ${SAMEBASE_CONNECT_CONFIG_PATHNAME}`,
   );
 
   if (!response.ok) {
     throw new Error(
-      `Could not download ${NOTER_CONNECT_CONFIG_PATHNAME}: HTTP ${response.status}.`,
+      `Could not download ${SAMEBASE_CONNECT_CONFIG_PATHNAME}: HTTP ${response.status}.`,
     );
   }
 
   const { parsed, text } = await readJsonResponse(response);
   const convexSiteUrl = parsed?.convexSiteUrl;
   if (typeof convexSiteUrl !== "string" || convexSiteUrl.length === 0) {
-    throw new Error(`${NOTER_CONNECT_CONFIG_PATHNAME} is missing a valid "convexSiteUrl" string.`);
+    throw new Error(
+      `${SAMEBASE_CONNECT_CONFIG_PATHNAME} is missing a valid "convexSiteUrl" string.`,
+    );
   }
 
   try {
     return validateConvexSiteUrl(convexSiteUrl).toString();
   } catch (error) {
     throw new Error(
-      error instanceof Error ? error.message : `Invalid ${NOTER_CONNECT_CONFIG_PATHNAME}: ${text}`,
+      error instanceof Error
+        ? error.message
+        : `Invalid ${SAMEBASE_CONNECT_CONFIG_PATHNAME}: ${text}`,
     );
   }
 }
@@ -4048,7 +4038,7 @@ async function postJson(args) {
 }
 
 async function createMachineRegistration(args) {
-  const convexSiteUrl = await fetchNoterConnectConfig(args.sourceUrl);
+  const convexSiteUrl = await fetchSamebaseConnectConfig(args.sourceUrl);
   const requestId = `mreq_${randomToken(16)}`;
   const machineCredential = `mmc_${randomToken(24)}`;
   const credentialHash = await sha256Hex(machineCredential);
@@ -4084,7 +4074,7 @@ async function publishMachineHeartbeat(args) {
   } catch (error) {
     if (error instanceof Error && error.message === "invalid machine credential") {
       const authError = new Error(
-        "This machine is not approved yet. Finish approval in Noter and retry `noter-sync run`.",
+        "This machine is not approved yet. Finish approval in Samebase and retry `samebase-sync run`.",
       );
       authError.name = MACHINE_CREDENTIAL_AUTH_ERROR_NAME;
       throw authError;
@@ -4132,27 +4122,27 @@ export function buildDirectRunCommand(
 
 export function formatHelpText() {
   return `Usage:
-  noter-sync connect [--state-dir <path>] [source-url]
-  noter-sync run [--state-dir <path>]
+  samebase-sync connect [--state-dir <path>] [source-url]
+  samebase-sync run [--state-dir <path>]
 
 Examples:
   # published package path (after publish)
-  npx @noter-md/sync connect
-  npx @noter-md/sync run
+  npx @samebase/sync connect
+  npx @samebase/sync run
   # local file
-  node ./noter.ts connect
-  node ./noter.ts run
+  node ./samebase.ts connect
+  node ./samebase.ts run
   # direct hosted file in production (macOS/Linux shell)
-  ${buildDirectConnectCommand("https://noter.md/noter.ts", "darwin")}
-  ${buildDirectRunCommand("https://noter.md/noter.ts", "darwin")}
+  ${buildDirectConnectCommand("https://samebase.com/samebase.ts", "darwin")}
+  ${buildDirectRunCommand("https://samebase.com/samebase.ts", "darwin")}
   # direct hosted file in production (Windows PowerShell)
-  ${buildDirectConnectCommand("https://noter.md/noter.ts", "win32")}
-  ${buildDirectRunCommand("https://noter.md/noter.ts", "win32")}
+  ${buildDirectConnectCommand("https://samebase.com/samebase.ts", "win32")}
+  ${buildDirectRunCommand("https://samebase.com/samebase.ts", "win32")}
   # preview or local explicit override
-  ${buildDirectConnectCommand("https://preview.noter.md/noter.ts", "darwin")}
-  ${buildDirectConnectCommand("https://preview.noter.md/noter.ts", "win32")}
+  ${buildDirectConnectCommand("https://preview.samebase.com/samebase.ts", "darwin")}
+  ${buildDirectConnectCommand("https://preview.samebase.com/samebase.ts", "win32")}
   # worktree-isolated state
-  ${buildDirectRunCommand("https://preview.noter.md/noter.ts", "darwin", "/home/you/.noter/worktrees/ceff")}`;
+  ${buildDirectRunCommand("https://preview.samebase.com/samebase.ts", "darwin", "/home/you/.samebase/worktrees/ceff")}`;
 }
 
 /**
@@ -4160,7 +4150,7 @@ Examples:
  * an LLM can explain what happened from a terminal transcript.
  */
 export function formatBootstrapReadyMarkdown(args) {
-  return `# noter sync bootstrap ready
+  return `# samebase sync bootstrap ready
 
 - source: ${args.sourceUrl}
 - codex: ${args.codexVersion}
@@ -4180,7 +4170,7 @@ export function formatConnectorRunningMarkdown(args) {
       ? `\n- live-control-detail: ${args.liveControlDetail}`
       : "";
 
-  return `# noter sync connector running
+  return `# samebase sync connector running
 
 - source: ${args.sourceUrl}
 - machine: ${args.machineId}
@@ -4190,7 +4180,7 @@ export function formatConnectorRunningMarkdown(args) {
 }
 
 async function runConnectCommand(parsedArgs) {
-  const sourceUrl = validateSourceUrl(parsedArgs.sourceUrl ?? NOTER_SYNC_SOURCE_URL).toString();
+  const sourceUrl = validateSourceUrl(parsedArgs.sourceUrl ?? SAMEBASE_SYNC_SOURCE_URL).toString();
   const codexVersion = detectCodexVersion();
   const existingRecord = readLocalConfig({
     stateDirectory: parsedArgs.stateDirectory,
@@ -4310,7 +4300,7 @@ async function runConnectorCommand(parsedArgs) {
   const storedConfig = readStoredMachineConfig({
     stateDirectory: parsedArgs.stateDirectory,
   });
-  const convexSiteUrl = await fetchNoterConnectConfig(storedConfig.sourceUrl);
+  const convexSiteUrl = await fetchSamebaseConnectConfig(storedConfig.sourceUrl);
   const displayName = hostname();
   const os = normalizeMachineOs(platform());
   const connectorVersion = buildConnectorVersion(codexVersion);
@@ -4421,7 +4411,7 @@ export async function main(argv) {
 }
 
 /**
- * Support both `node ./noter.ts` and stdin execution from
+ * Support both `node ./samebase.ts` and stdin execution from
  * `curl ... | node --input-type=module -`.
  */
 export function resolveEntrypointUrl(entrypoint) {
@@ -4433,7 +4423,7 @@ export function resolveEntrypointUrl(entrypoint) {
 }
 
 /**
- * Support both `node ./noter.ts` and stdin execution from
+ * Support both `node ./samebase.ts` and stdin execution from
  * `curl ... | node --input-type=module -`.
  */
 function isDirectExecution() {

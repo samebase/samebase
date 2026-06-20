@@ -2,25 +2,25 @@ import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebar
 import { appAuthPresentationPrehydrationScript } from "@/lib/appAuthPresentationPrehydration";
 import { publicLandingLogoPrehydrationScript } from "@/lib/publicLandingLogoPrehydration";
 
-const appTitle = "noter | GitHub-backed markdown notes and AI workspace";
+const appTitle = "Samebase | GitHub-backed workspace for notes, code, and AI";
 const appDescription =
-  "GitHub-backed markdown notes and AI workspace. Keep notes and code in a real repository, collaborate in real time, and ship small apps from the same workspace.";
+  "GitHub-backed workspace for notes, code, and AI. Keep work in a real repository, collaborate in real time, and ship small apps from the same workspace.";
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
-      name: "noter",
-      alternateName: "noter.md",
-      url: "https://noter.md/",
-      logo: "https://noter.md/logo-static.svg",
-      sameAs: ["https://github.com/noter-md/noter"],
+      name: "Samebase",
+      alternateName: "samebase.com",
+      url: "https://samebase.com/",
+      logo: "https://samebase.com/logo-static.svg",
+      sameAs: ["https://github.com/samebase/samebase"],
     },
     {
       "@type": "WebSite",
-      name: "noter",
-      alternateName: "noter.md",
-      url: "https://noter.md/",
+      name: "Samebase",
+      alternateName: "samebase.com",
+      url: "https://samebase.com/",
     },
   ],
 } as const;
@@ -104,7 +104,7 @@ export function buildRootHead() {
       },
       {
         rel: "canonical",
-        href: "https://noter.md/",
+        href: "https://samebase.com/",
       },
     ],
     meta: [
@@ -136,7 +136,7 @@ export function buildRootHead() {
       },
       {
         property: "og:site_name",
-        content: "noter",
+        content: "Samebase",
       },
       {
         property: "og:type",
@@ -152,11 +152,11 @@ export function buildRootHead() {
       },
       {
         property: "og:url",
-        content: "https://noter.md/",
+        content: "https://samebase.com/",
       },
       {
         property: "og:image",
-        content: "https://noter.md/noter-social-card.png",
+        content: "https://samebase.com/samebase-social-card.png",
       },
       {
         name: "twitter:card",
@@ -172,7 +172,7 @@ export function buildRootHead() {
       },
       {
         name: "twitter:image",
-        content: "https://noter.md/noter-social-card.png",
+        content: "https://samebase.com/samebase-social-card.png",
       },
     ],
     scripts: [

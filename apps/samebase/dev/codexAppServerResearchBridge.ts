@@ -32,7 +32,7 @@ type CodexLocalControlBridgeModule = {
 
 const currentDirectoryPath = path.dirname(fileURLToPath(import.meta.url));
 const codexLocalControlBridgeModuleUrl = pathToFileURL(
-  path.resolve(currentDirectoryPath, "../../../packages/sync/noter.ts"),
+  path.resolve(currentDirectoryPath, "../../../packages/sync/samebase.ts"),
 ).href;
 
 function isCodexLocalControlRuntimeConstructor(
@@ -50,16 +50,16 @@ function isCodexLocalControlRouterFactory(value: unknown): value is CodexLocalCo
 async function loadCodexLocalControlBridgeModule(): Promise<CodexLocalControlBridgeModule> {
   const candidateModule = await import(codexLocalControlBridgeModuleUrl);
   if (!isRecord(candidateModule)) {
-    throw new Error("Expected noter.ts bridge module exports to be an object.");
+    throw new Error("Expected samebase.ts bridge module exports to be an object.");
   }
 
   const runtimeConstructor = candidateModule["CodexLocalControlRuntime"];
   const routerFactory = candidateModule["createCodexLocalControlRouter"];
   if (!isCodexLocalControlRuntimeConstructor(runtimeConstructor)) {
-    throw new Error("Expected noter.ts bridge module to export CodexLocalControlRuntime.");
+    throw new Error("Expected samebase.ts bridge module to export CodexLocalControlRuntime.");
   }
   if (!isCodexLocalControlRouterFactory(routerFactory)) {
-    throw new Error("Expected noter.ts bridge module to export createCodexLocalControlRouter.");
+    throw new Error("Expected samebase.ts bridge module to export createCodexLocalControlRouter.");
   }
 
   return {

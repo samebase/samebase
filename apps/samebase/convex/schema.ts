@@ -468,7 +468,7 @@ export default defineSchema({
 
   /**
    * User-selected app root, provider names, and early provider identities for
-   * Noter-managed infrastructure. The single app root is shared across
+   * Samebase-managed infrastructure. The single app root is shared across
    * provider resources so one target cannot split Convex and Cloudflare.
    */
   vaultInfrastructureTargets: defineTable({
@@ -522,7 +522,7 @@ export default defineSchema({
     .index("by_run", ["runId"]),
 
   /**
-   * App-owned Workflow run identity for Noter-managed provisioning.
+   * App-owned Workflow run identity for Samebase-managed provisioning.
    */
   appProvisioningRuns: defineTable({
     userId: id("users"),
@@ -552,7 +552,7 @@ export default defineSchema({
     .index("by_workflow_id", ["workflowId"]),
 
   /**
-   * User-visible provisioning events for Noter-managed app creation.
+   * User-visible provisioning events for Samebase-managed app creation.
    */
   appProvisioningEvents: defineTable({
     userId: id("users"),
@@ -815,7 +815,7 @@ export default defineSchema({
     .index("by_user", ["userId"]),
 
   /**
-   * MCP OAuth clients registered against noter.md.
+   * MCP OAuth clients registered against samebase.com.
    */
   mcpOauthClients: defineTable({
     clientId: string(),

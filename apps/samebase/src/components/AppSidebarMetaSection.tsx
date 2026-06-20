@@ -17,7 +17,7 @@ import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
 import { readRootRouteSearch } from "@/routeSearch/root";
-import { noterBuildConfig } from "@/lib/noterBuildConfig";
+import { samebaseBuildConfig } from "@/lib/samebaseBuildConfig";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -106,7 +106,7 @@ export function AppSidebarMetaSection({
 }: {
   linkAlignment?: AppSidebarMetaLinkAlignment;
 }) {
-  const { appCommit, appCommitNumber, appRepoUrl } = noterBuildConfig;
+  const { appCommit, appCommitNumber, appRepoUrl } = samebaseBuildConfig;
   const location = useLocation();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
 

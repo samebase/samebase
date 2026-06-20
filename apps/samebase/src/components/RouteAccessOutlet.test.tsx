@@ -4,15 +4,18 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { NoterRouteAccess, NoterRouteSearchParamSuggestion } from "@/routing/permissions";
+import type {
+  SamebaseRouteAccess,
+  SamebaseRouteSearchParamSuggestion,
+} from "@/routing/permissions";
 import { RouteAccessOutlet } from "./RouteAccessOutlet";
 
 const routeMatchState = vi.hoisted(
   (): {
     matches: Array<{
       staticData: {
-        access: NoterRouteAccess;
-        searchParamSuggestions?: NoterRouteSearchParamSuggestion[];
+        access: SamebaseRouteAccess;
+        searchParamSuggestions?: SamebaseRouteSearchParamSuggestion[];
       };
     }>;
   } => ({

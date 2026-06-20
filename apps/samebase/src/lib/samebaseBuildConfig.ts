@@ -1,4 +1,4 @@
-export type NoterBuildConfig = {
+export type SamebaseBuildConfig = {
   readonly appCommit: string;
   readonly appCommitNumber: number | null;
   readonly appRepoUrl: string;
@@ -6,4 +6,4 @@ export type NoterBuildConfig = {
   readonly landingPageSlogan: string;
 };
 
-export const noterBuildConfig: NoterBuildConfig = __NOTER_BUILD_CONFIG__;
+export const samebaseBuildConfig: SamebaseBuildConfig = __SAMEBASE_BUILD_CONFIG__;

@@ -1,21 +1,21 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
-import type { NoterBuildConfig } from "./apps/samebase/src/lib/noterBuildConfig";
+import type { SamebaseBuildConfig } from "./apps/samebase/src/lib/samebaseBuildConfig";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
-const testNoterBuildConfig = {
+const testSamebaseBuildConfig = {
   appCommit: "test",
   appCommitNumber: null,
-  appRepoUrl: "https://github.com/noter-md/noter",
+  appRepoUrl: "https://github.com/samebase/samebase",
   browserConvexProxyPath: null,
   landingPageSlogan: "test landing slogan",
-} satisfies NoterBuildConfig;
+} satisfies SamebaseBuildConfig;
 
 export default defineConfig({
   define: {
-    __NOTER_BUILD_CONFIG__: JSON.stringify(testNoterBuildConfig),
+    __SAMEBASE_BUILD_CONFIG__: JSON.stringify(testSamebaseBuildConfig),
   },
   fmt: {
     ignorePatterns: ["**/.agents/**", "**/convex/_generated/**"],
@@ -35,7 +35,7 @@ export default defineConfig({
       "**/dist",
       "**/.codespace-agent/**",
       "**/convex/_generated",
-      "apps/samebase/public/noter.ts",
+      "apps/samebase/public/samebase.ts",
       "**/src/components/ui",
     ],
     jsPlugins: [

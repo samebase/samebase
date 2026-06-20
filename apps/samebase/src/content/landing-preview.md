@@ -16,7 +16,7 @@ For the fastest Codex Cloud startup, add this environment setup script:
 curl -fsSL https://vite.plus | bash
 ```
 
-"notermd" organization name was choose with "-" because default Android keyboard makes it hard
+"samebase" organization name was choose with "-" because default Android keyboard makes it hard
 typing a "-".
 
 We need just 1 `CONVEX_DEPLOY_KEY` for **Production** and one for **Preview**, That way each PR has
@@ -56,7 +56,7 @@ It's fine if you signed up differently, as long as you have these 4 accounts you
 
 ## 2: Copy the app code to your GitHub account
 
-Visit https://github.com/notermd/app
+Visit https://github.com/samebase/app
 
 - [ ] click big green "Use this template"
 - [ ] make it private or leave it public
@@ -66,7 +66,7 @@ Visit https://github.com/notermd/app
 <details>
 <summary>"Fork" if you want to preserver the git history</summary>
 
-Check the full Git History here: https://github.com/notermd/app/commits/main/
+Check the full Git History here: https://github.com/samebase/app/commits/main/
 
 It is manually made so it's as small, clear and simple as possible.
 
@@ -165,9 +165,9 @@ To delete an app you deployed you'll have to
 - [ ] Delete Convex project
 - [ ] Delete GitHub repository
 
-## 9: Create an app in a single step using noter.md
+## 9: Create an app in a single step using samebase.com
 
-noter.md connects with Github, Cloudflare & Convex once, then allows you to create an app with a
+samebase.com connects with Github, Cloudflare & Convex once, then allows you to create an app with a
 single click of a button It also allows you to completely removed as easily.
 
 So apps become disposable, you can create an app and to create a game and use it for night-out with
@@ -177,7 +177,7 @@ your friends
 
 you can decide to continue maintaining it and based your business on it since it's
 
-### Why is noter.md free?
+### Why is samebase.com free?
 
 I already have this functionality and much more for my own apps, it doesn't cost me much to share it
 with everybody. If you want more things, like editing files on the go, monitoring multiple apps or

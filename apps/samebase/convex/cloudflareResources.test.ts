@@ -144,7 +144,7 @@ describe("cloudflare resources", () => {
             cloudflareTokenId: "old-token-id",
           },
           {
-            name: "noter build token",
+            name: "samebase build token",
             uuid: "current-build-token",
             cloudflareTokenId: "current-token-id",
           },
@@ -160,12 +160,12 @@ describe("cloudflare resources", () => {
         preferredBuildTokenUuids: ["trigger-build-token"],
         tokens: [
           {
-            name: "noter build token",
+            name: "samebase build token",
             uuid: "current-build-token",
             cloudflareTokenId: "current-token-id",
           },
           {
-            name: "older noter build token",
+            name: "older samebase build token",
             uuid: "trigger-build-token",
             cloudflareTokenId: "current-token-id",
           },
@@ -184,7 +184,7 @@ describe("cloudflare resources", () => {
             cloudflareTokenId: "other-token-id",
           },
           {
-            name: "noter build token",
+            name: "samebase build token",
             uuid: "noter-build-token",
             cloudflareTokenId: "oauth-unverifiable-token-id",
           },
@@ -198,12 +198,12 @@ describe("cloudflare resources", () => {
       selectReusableBuildTokenUuid({
         tokens: [
           {
-            name: "noter build token",
+            name: "samebase build token",
             uuid: "z-noter-build-token",
             cloudflareTokenId: "oauth-unverifiable-token-id",
           },
           {
-            name: "noter build token",
+            name: "samebase build token",
             uuid: "a-noter-build-token",
             cloudflareTokenId: "older-oauth-unverifiable-token-id",
           },
@@ -218,12 +218,12 @@ describe("cloudflare resources", () => {
         preferredBuildTokenUuids: ["trigger-build-token"],
         tokens: [
           {
-            name: "noter build token",
+            name: "samebase build token",
             uuid: "current-build-token",
             cloudflareTokenId: "oauth-unverifiable-token-id",
           },
           {
-            name: "older noter build token",
+            name: "older samebase build token",
             uuid: "trigger-build-token",
             cloudflareTokenId: "oauth-unverifiable-token-id",
           },
@@ -261,7 +261,7 @@ describe("cloudflare resources", () => {
         cloudflareTokenId: "current-token-id",
         tokens: [
           {
-            name: "noter build token",
+            name: "samebase build token",
             uuid: "stale-build-token",
             cloudflareTokenId: "old-token-id",
           },

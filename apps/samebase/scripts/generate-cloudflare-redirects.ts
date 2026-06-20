@@ -7,8 +7,8 @@ import { createServer } from "vite";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
-export const GENERATED_REDIRECTS_START_TAG = "# @noter-md/cloudflare-prerender-redirects:start";
-export const GENERATED_REDIRECTS_END_TAG = "# @noter-md/cloudflare-prerender-redirects:end";
+export const GENERATED_REDIRECTS_START_TAG = "# @samebase/cloudflare-prerender-redirects:start";
+export const GENERATED_REDIRECTS_END_TAG = "# @samebase/cloudflare-prerender-redirects:end";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(currentDir, "..");

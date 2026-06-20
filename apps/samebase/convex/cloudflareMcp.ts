@@ -20,12 +20,12 @@ type JsonRpcMessage = {
 function resolveOriginHeader(): string {
   const siteUrl = process.env.SITE_URL ?? process.env.CONVEX_SITE_URL;
   if (!siteUrl) {
-    return "https://noter.md";
+    return "https://samebase.com";
   }
   try {
     return new URL(siteUrl).origin;
   } catch {
-    return "https://noter.md";
+    return "https://samebase.com";
   }
 }
 
@@ -227,7 +227,7 @@ async function initializeSession(args: {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
       clientInfo: {
-        name: "noter",
+        name: "samebase",
         version: "0.0.0",
       },
     },

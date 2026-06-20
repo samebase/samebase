@@ -13,19 +13,19 @@ import {
   validateRootRouteSearch,
 } from "@/routeSearch/root";
 import {
-  canAccessNoterRouteAccess,
-  canAccessNoterRouteStaticData,
-  type NoterRouteAccessViewer,
-  type NoterRouteSearchParamSuggestion,
-  type NoterRouteSearchParamValueSuggestion,
-  type NoterRouteStaticData,
+  canAccessSamebaseRouteAccess,
+  canAccessSamebaseRouteStaticData,
+  type SamebaseRouteAccessViewer,
+  type SamebaseRouteSearchParamSuggestion,
+  type SamebaseRouteSearchParamValueSuggestion,
+  type SamebaseRouteStaticData,
 } from "@/routing/permissions";
 import {
   parseRouteAddress,
   readRouteAddressSearchTokenText,
   type RouteAddressSearchToken,
 } from "@/routing/addressParts";
-import { type NoterRouteEnvironment } from "@/routing/availability";
+import { type SamebaseRouteEnvironment } from "@/routing/availability";
 
 type RouteAddressReadinessInput = {
   currentRouteAddress: string;
@@ -33,7 +33,7 @@ type RouteAddressReadinessInput = {
   origin: string;
   readCanonicalRouteAddress?: (routeAddress: string) => string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 };
 
 type RouteAddressRouteUpdateDraftInput = {
@@ -41,7 +41,7 @@ type RouteAddressRouteUpdateDraftInput = {
   draftRouteAddress: string;
   origin: string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 };
 
 type RouteAddressSearchParamSuggestionsInput = RouteAddressRouteUpdateDraftInput & {
@@ -125,7 +125,7 @@ function readRouteAddressRouteUpdateDraft(args: RouteAddressRouteUpdateDraftInpu
 
 function isRouteAddressSearchTokenReady(
   token: RouteAddressSearchToken,
-  suggestions: readonly NoterRouteSearchParamSuggestion[],
+  suggestions: readonly SamebaseRouteSearchParamSuggestion[],
   acceptedSearchKeys: readonly string[],
 ): boolean {
   // A destination route accepts only root-owned keys plus its own schema keys.
@@ -160,7 +160,7 @@ function isRouteAddressSearchTokenReady(
 }
 
 function readRouteAddressValueSuggestions(
-  suggestion: NoterRouteSearchParamValueSuggestion,
+  suggestion: SamebaseRouteSearchParamValueSuggestion,
 ): readonly string[] {
   switch (suggestion.valueType) {
     case "completion":
@@ -176,7 +176,7 @@ function readRouteAddressValueSuggestions(
 
 function readRouteAddressSearchParamSuggestions(
   args: RouteAddressSearchParamSuggestionsInput,
-): readonly NoterRouteSearchParamSuggestion[] {
+): readonly SamebaseRouteSearchParamSuggestion[] {
   const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
     path: args.path,
     routeEnvironment: readRouteUrlPathSuggestionEnvironment({
@@ -192,10 +192,10 @@ function readRouteAddressSearchParamSuggestions(
     ...ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
   ];
   const keys = new Set<string>();
-  const uniqueValues: NoterRouteSearchParamSuggestion[] = [];
+  const uniqueValues: SamebaseRouteSearchParamSuggestion[] = [];
 
   for (const value of searchParamSuggestions) {
-    if (!canAccessNoterRouteAccess(value.access, args.viewer) || keys.has(value.key)) {
+    if (!canAccessSamebaseRouteAccess(value.access, args.viewer) || keys.has(value.key)) {
       continue;
     }
 
@@ -246,10 +246,10 @@ route address is `/vault/acme/demo/main/README.md?d`, the path matches the
 */
 function readMatchingRouteSearchParamSuggestions(args: {
   path: string;
-  routeEnvironment: NoterRouteEnvironment;
+  routeEnvironment: SamebaseRouteEnvironment;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRouteAccessViewer;
-}): readonly NoterRouteSearchParamSuggestion[] {
+  viewer: SamebaseRouteAccessViewer;
+}): readonly SamebaseRouteSearchParamSuggestion[] {
   const matches = entries(args.routesByPath)
     .filter(
       ([routePath, route]) =>
@@ -271,13 +271,13 @@ function readMatchingRouteSearchParamSuggestions(args: {
 
 function isUserFacingAccessibleRoute(
   path: string,
-  staticData: NoterRouteStaticData,
-  viewer: NoterRouteAccessViewer,
-  routeEnvironment: NoterRouteEnvironment,
+  staticData: SamebaseRouteStaticData,
+  viewer: SamebaseRouteAccessViewer,
+  routeEnvironment: SamebaseRouteEnvironment,
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    canAccessNoterRouteStaticData(staticData, viewer, routeEnvironment)
+    canAccessSamebaseRouteStaticData(staticData, viewer, routeEnvironment)
   );
 }
 

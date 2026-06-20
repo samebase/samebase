@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
-  canAccessNoterRouteAvailability,
-  canAccessNoterRouteMatchesAvailability,
+  canAccessSamebaseRouteAvailability,
+  canAccessSamebaseRouteMatchesAvailability,
   isLocalRouteHostname,
-  readBrowserNoterRouteEnvironment,
-  readNoterRouteEnvironmentForOrigin,
-  readNoterRouteEnvironmentForRouteGuard,
-  resolveNoterRouteEnvironment,
+  readBrowserSamebaseRouteEnvironment,
+  readSamebaseRouteEnvironmentForOrigin,
+  readSamebaseRouteEnvironmentForRouteGuard,
+  resolveSamebaseRouteEnvironment,
 } from "./availability";
 
 afterEach(() => {
@@ -24,91 +24,93 @@ describe("isLocalRouteHostname", () => {
   });
 
   it("rejects production and preview hostnames", () => {
-    expect(isLocalRouteHostname("noter.md")).toBe(false);
-    expect(isLocalRouteHostname("www.noter.md")).toBe(false);
-    expect(isLocalRouteHostname("preview.noter.md")).toBe(false);
-    expect(isLocalRouteHostname("codex-dashboard-main-pane-spacing.noter.pages.dev")).toBe(false);
-    expect(isLocalRouteHostname("a3070b07.noter-ax1.pages.dev")).toBe(false);
+    expect(isLocalRouteHostname("samebase.com")).toBe(false);
+    expect(isLocalRouteHostname("www.samebase.com")).toBe(false);
+    expect(isLocalRouteHostname("preview.samebase.com")).toBe(false);
+    expect(isLocalRouteHostname("codex-dashboard-main-pane-spacing.samebase.pages.dev")).toBe(
+      false,
+    );
+    expect(isLocalRouteHostname("a3070b07.samebase-ax1.pages.dev")).toBe(false);
     expect(isLocalRouteHostname("")).toBe(false);
   });
 });
 
-describe("resolveNoterRouteEnvironment", () => {
+describe("resolveSamebaseRouteEnvironment", () => {
   it("maps known hostnames to local, production, and preview environments", () => {
-    expect(resolveNoterRouteEnvironment({ hostname: "localhost" })).toBe("local");
-    expect(resolveNoterRouteEnvironment({ hostname: "noter.md" })).toBe("production");
-    expect(resolveNoterRouteEnvironment({ hostname: "www.noter.md" })).toBe("production");
-    expect(resolveNoterRouteEnvironment({ hostname: "preview.noter.md" })).toBe("preview");
-    expect(resolveNoterRouteEnvironment({ hostname: "a3070b07.noter-ax1.pages.dev" })).toBe(
+    expect(resolveSamebaseRouteEnvironment({ hostname: "localhost" })).toBe("local");
+    expect(resolveSamebaseRouteEnvironment({ hostname: "samebase.com" })).toBe("production");
+    expect(resolveSamebaseRouteEnvironment({ hostname: "www.samebase.com" })).toBe("production");
+    expect(resolveSamebaseRouteEnvironment({ hostname: "preview.samebase.com" })).toBe("preview");
+    expect(resolveSamebaseRouteEnvironment({ hostname: "a3070b07.samebase-ax1.pages.dev" })).toBe(
       "preview",
     );
   });
 
   it("uses the build route environment when Cloudflare sets one", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "preview");
+    vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "preview");
 
-    expect(resolveNoterRouteEnvironment({ hostname: "localhost" })).toBe("preview");
+    expect(resolveSamebaseRouteEnvironment({ hostname: "localhost" })).toBe("preview");
   });
 
   it("ignores unknown build route environment values", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "staging");
+    vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "staging");
 
-    expect(resolveNoterRouteEnvironment({ hostname: "localhost" })).toBe("local");
+    expect(resolveSamebaseRouteEnvironment({ hostname: "localhost" })).toBe("local");
   });
 });
 
-describe("readBrowserNoterRouteEnvironment", () => {
+describe("readBrowserSamebaseRouteEnvironment", () => {
   it("uses the build route environment before browser host fallback", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "production");
+    vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "production");
 
-    expect(readBrowserNoterRouteEnvironment()).toBe("production");
+    expect(readBrowserSamebaseRouteEnvironment()).toBe("production");
   });
 
   it("fails closed when no browser host or build environment is available", () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "");
+    vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "");
 
-    expect(readNoterRouteEnvironmentForRouteGuard()).toBeNull();
-    expect(readBrowserNoterRouteEnvironment()).toBe("production");
+    expect(readSamebaseRouteEnvironmentForRouteGuard()).toBeNull();
+    expect(readBrowserSamebaseRouteEnvironment()).toBe("production");
   });
 });
 
-describe("readNoterRouteEnvironmentForOrigin", () => {
+describe("readSamebaseRouteEnvironmentForOrigin", () => {
   it("resolves route environment from URL origins", () => {
-    expect(readNoterRouteEnvironmentForOrigin("http://localhost:5174")).toBe("local");
-    expect(readNoterRouteEnvironmentForOrigin("https://noter.md")).toBe("production");
-    expect(readNoterRouteEnvironmentForOrigin("https://preview.noter.md")).toBe("preview");
+    expect(readSamebaseRouteEnvironmentForOrigin("http://localhost:5174")).toBe("local");
+    expect(readSamebaseRouteEnvironmentForOrigin("https://samebase.com")).toBe("production");
+    expect(readSamebaseRouteEnvironmentForOrigin("https://preview.samebase.com")).toBe("preview");
   });
 
   it("fails closed for invalid origins", () => {
-    expect(readNoterRouteEnvironmentForOrigin("not a url")).toBe("production");
+    expect(readSamebaseRouteEnvironmentForOrigin("not a url")).toBe("production");
   });
 });
 
-describe("canAccessNoterRouteAvailability", () => {
+describe("canAccessSamebaseRouteAvailability", () => {
   it("treats missing availability as available in every environment", () => {
-    expect(canAccessNoterRouteAvailability(undefined, "local")).toBe(true);
-    expect(canAccessNoterRouteAvailability(undefined, "preview")).toBe(true);
-    expect(canAccessNoterRouteAvailability(undefined, "production")).toBe(true);
+    expect(canAccessSamebaseRouteAvailability(undefined, "local")).toBe(true);
+    expect(canAccessSamebaseRouteAvailability(undefined, "preview")).toBe(true);
+    expect(canAccessSamebaseRouteAvailability(undefined, "production")).toBe(true);
   });
 
   it("allows only named environments", () => {
-    expect(canAccessNoterRouteAvailability(["local"], "local")).toBe(true);
-    expect(canAccessNoterRouteAvailability(["local"], "preview")).toBe(false);
-    expect(canAccessNoterRouteAvailability(["preview", "production"], "preview")).toBe(true);
-    expect(canAccessNoterRouteAvailability(["preview", "production"], "local")).toBe(false);
+    expect(canAccessSamebaseRouteAvailability(["local"], "local")).toBe(true);
+    expect(canAccessSamebaseRouteAvailability(["local"], "preview")).toBe(false);
+    expect(canAccessSamebaseRouteAvailability(["preview", "production"], "preview")).toBe(true);
+    expect(canAccessSamebaseRouteAvailability(["preview", "production"], "local")).toBe(false);
   });
 });
 
-describe("canAccessNoterRouteMatchesAvailability", () => {
+describe("canAccessSamebaseRouteMatchesAvailability", () => {
   it("requires every matched route availability policy to allow the environment", () => {
     expect(
-      canAccessNoterRouteMatchesAvailability(
+      canAccessSamebaseRouteMatchesAvailability(
         [{ staticData: {} }, { staticData: { availableEnvironments: ["local", "preview"] } }],
         "preview",
       ),
     ).toBe(true);
     expect(
-      canAccessNoterRouteMatchesAvailability(
+      canAccessSamebaseRouteMatchesAvailability(
         [
           { staticData: { availableEnvironments: ["local"] } },
           { staticData: { availableEnvironments: ["preview"] } },

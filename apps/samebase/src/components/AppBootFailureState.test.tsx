@@ -28,7 +28,7 @@ describe("AppBootFailureState", () => {
       <AppBootFailureState error={new Error("Failed to fetch dynamically imported module")} />,
     );
 
-    expect(markup).toContain("Noter updated while this tab was open.");
+    expect(markup).toContain("Samebase updated while this tab was open.");
     expect(markup).toContain("Reset local data");
     expect(markup).toContain("Build:");
   });
@@ -38,7 +38,7 @@ describe("AppBootFailureState", () => {
       <AppBootFailureState error={new Error("Unexpected token")} />,
     );
 
-    expect(markup).toContain("Noter could not finish loading.");
+    expect(markup).toContain("Samebase could not finish loading.");
     expect(markup).toContain("Error: Unexpected token");
   });
 });

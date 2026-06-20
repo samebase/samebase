@@ -18,9 +18,9 @@ const previewProfile = {
 
 describe("prodUiMode", () => {
   it("recognizes the public production hostnames", () => {
-    expect(isProductionPublicHostname("noter.md")).toBe(true);
-    expect(isProductionPublicHostname("WWW.NOTER.MD")).toBe(true);
-    expect(isProductionPublicHostname("preview.noter.md")).toBe(false);
+    expect(isProductionPublicHostname("samebase.com")).toBe(true);
+    expect(isProductionPublicHostname("WWW.SAMEBASE.COM")).toBe(true);
+    expect(isProductionPublicHostname("preview.samebase.com")).toBe(false);
   });
 
   it("activates prod UI by default on production surfaces", () => {

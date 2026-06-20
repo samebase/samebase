@@ -8,7 +8,7 @@ Examples: `/logo`, `/logo?top=red-500`, `/logo?top=red-500#preview`.
 
 `path` = only the pathname before `?` or `#`. Example: `/logo`.
 
-`origin` = protocol and domain. Example: `https://noter.md`.
+`origin` = protocol and domain. Example: `https://samebase.com`.
 
 `prefix` = the visible locked editor prefix, `${origin}/`.
 

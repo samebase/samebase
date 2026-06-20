@@ -828,7 +828,7 @@ describe("appRouter", () => {
   });
 
   it("renders local-only routes as not found in deployed route environments", async () => {
-    vi.stubEnv("VITE_NOTER_ROUTE_ENVIRONMENT", "production");
+    vi.stubEnv("VITE_SAMEBASE_ROUTE_ENVIRONMENT", "production");
 
     await renderRoute("/test");
 

@@ -22,7 +22,7 @@ import {
   buildCodexRuntimeSpawnInvocation,
   detectCodexVersion,
   buildMachineHeartbeatBody,
-  buildNoterConnectConfigUrl,
+  buildSamebaseConnectConfigUrl,
   CodexLocalControlRuntime,
   buildCodexSpawnOptions,
   buildDirectConnectCommand,
@@ -32,10 +32,10 @@ import {
   formatBootstrapReadyMarkdown,
   formatConnectorRunningMarkdown,
   formatHelpText,
-  getNoterConfigPath,
-  getNoterStateDirectory,
+  getSamebaseConfigPath,
+  getSamebaseStateDirectory,
   localControlStatusIsReady,
-  NOTER_SYNC_SOURCE_URL,
+  SAMEBASE_SYNC_SOURCE_URL,
   parseCliArgs,
   parseCloudflaredQuickTunnelUrl,
   readLocalConfig,
@@ -45,7 +45,7 @@ import {
   validateConvexSiteUrl,
   validateSourceUrl,
   writeLocalConfig,
-} from "./noter.ts";
+} from "./samebase.ts";
 
 function readLocalGitEnvKeys() {
   const result = spawnSync("git", ["rev-parse", "--local-env-vars"], {
@@ -115,11 +115,11 @@ function buildThreadSummaryFixture(
     id: "thread-fixture",
     name: null,
     preview: "Fixture thread",
-    cwd: "/tmp/noter",
+    cwd: "/tmp/samebase",
     project: {
-      id: "/tmp/noter",
-      label: "noter",
-      rootCwd: "/tmp/noter",
+      id: "/tmp/samebase",
+      label: "samebase",
+      rootCwd: "/tmp/samebase",
     },
     workspace: {
       label: null,
@@ -137,7 +137,7 @@ function buildThreadSummaryFixture(
       raw: { type: "idle" },
     },
     gitInfo: null,
-    path: "/tmp/noter/thread.jsonl",
+    path: "/tmp/samebase/thread.jsonl",
     agentNickname: null,
     agentRole: null,
     turns: [],
@@ -146,9 +146,9 @@ function buildThreadSummaryFixture(
   };
 }
 
-describe("@noter-md/sync", () => {
+describe("@samebase/sync", () => {
   it("clears every repo-local git env var before spawning isolated repos", () => {
-    const keepKey = "NOTER_TEST_KEEP_ENV";
+    const keepKey = "SAMEBASE_TEST_KEEP_ENV";
     const previousKeepValue = process.env[keepKey];
     const previousGitValues = new Map(LOCAL_GIT_ENV_KEYS.map((key) => [key, process.env[key]]));
 
@@ -181,13 +181,13 @@ describe("@noter-md/sync", () => {
     }
   });
 
-  it("defaults the public connect command to noter.md with no extra CLI override", () => {
+  it("defaults the public connect command to samebase.com with no extra CLI override", () => {
     expect(parseCliArgs(["connect"])).toEqual({
       command: "connect",
       stateDirectory: null,
       sourceUrl: null,
     });
-    expect(NOTER_SYNC_SOURCE_URL).toBe("https://noter.md/noter.ts");
+    expect(SAMEBASE_SYNC_SOURCE_URL).toBe("https://samebase.com/samebase.ts");
   });
 
   it("accepts the run command with no extra CLI override", () => {
@@ -198,10 +198,10 @@ describe("@noter-md/sync", () => {
   });
 
   it("accepts an optional explicit source URL argument for direct hosted execution", () => {
-    expect(parseCliArgs(["connect", "https://preview.noter.md/noter.ts"])).toEqual({
+    expect(parseCliArgs(["connect", "https://preview.samebase.com/samebase.ts"])).toEqual({
       command: "connect",
       stateDirectory: null,
-      sourceUrl: "https://preview.noter.md/noter.ts",
+      sourceUrl: "https://preview.samebase.com/samebase.ts",
     });
   });
 
@@ -210,17 +210,17 @@ describe("@noter-md/sync", () => {
       parseCliArgs([
         "connect",
         "--state-dir",
-        "/tmp/noter-worktree",
-        "https://preview.noter.md/noter.ts",
+        "/tmp/samebase-worktree",
+        "https://preview.samebase.com/samebase.ts",
       ]),
     ).toEqual({
       command: "connect",
-      sourceUrl: "https://preview.noter.md/noter.ts",
-      stateDirectory: "/tmp/noter-worktree",
+      sourceUrl: "https://preview.samebase.com/samebase.ts",
+      stateDirectory: "/tmp/samebase-worktree",
     });
-    expect(parseCliArgs(["run", "--state-dir", "/tmp/noter-worktree"])).toEqual({
+    expect(parseCliArgs(["run", "--state-dir", "/tmp/samebase-worktree"])).toEqual({
       command: "run",
-      stateDirectory: "/tmp/noter-worktree",
+      stateDirectory: "/tmp/samebase-worktree",
     });
   });
 
@@ -230,9 +230,9 @@ describe("@noter-md/sync", () => {
       parseCliArgs([
         "connect",
         "--state-dir",
-        "/tmp/noter-worktree",
+        "/tmp/samebase-worktree",
         "--state-dir",
-        "/tmp/noter-worktree-2",
+        "/tmp/samebase-worktree-2",
       ]),
     ).toThrow("Duplicate option: --state-dir");
     expect(() => parseCliArgs(["run", "--state-dir", ""])).toThrow(
@@ -245,27 +245,22 @@ describe("@noter-md/sync", () => {
   });
 
   it("accepts https deploy URLs and localhost http URLs", () => {
-    expect(validateSourceUrl("https://preview.noter.md/noter.ts").toString()).toBe(
-      "https://preview.noter.md/noter.ts",
+    expect(validateSourceUrl("https://preview.samebase.com/samebase.ts").toString()).toBe(
+      "https://preview.samebase.com/samebase.ts",
     );
-    expect(validateSourceUrl("http://127.0.0.1:5174/noter.ts").toString()).toBe(
-      "http://127.0.0.1:5174/noter.ts",
+    expect(validateSourceUrl("http://127.0.0.1:5174/samebase.ts").toString()).toBe(
+      "http://127.0.0.1:5174/samebase.ts",
     );
   });
 
-  it("normalizes legacy stored installer URLs only when explicitly allowed", () => {
-    expect(() => validateSourceUrl("https://preview.noter.md/noter.js")).toThrow(
-      "The installer source URL must point to /noter.ts.",
+  it("rejects non-current installer paths", () => {
+    expect(() => validateSourceUrl("https://preview.samebase.com/samebase.js")).toThrow(
+      "The installer source URL must point to /samebase.ts.",
     );
-    expect(
-      validateSourceUrl("https://preview.noter.md/noter.js", {
-        allowLegacyInstallerPath: true,
-      }).toString(),
-    ).toBe("https://preview.noter.md/noter.ts");
   });
 
   it("rejects non-https non-localhost source URLs", () => {
-    expect(() => validateSourceUrl("http://example.com/noter.ts")).toThrow(
+    expect(() => validateSourceUrl("http://example.com/samebase.ts")).toThrow(
       "The installer source URL must use https, except for explicit localhost testing.",
     );
   });
@@ -289,10 +284,10 @@ describe("@noter-md/sync", () => {
   });
 
   it("rejects installer source URLs with query params or hashes", () => {
-    expect(() => validateSourceUrl("https://noter.md/noter.ts?preview=1")).toThrow(
+    expect(() => validateSourceUrl("https://samebase.com/samebase.ts?preview=1")).toThrow(
       "The installer source URL must not include credentials, query params, or hashes.",
     );
-    expect(() => validateSourceUrl("https://noter.md/noter.ts#branch")).toThrow(
+    expect(() => validateSourceUrl("https://samebase.com/samebase.ts#branch")).toThrow(
       "The installer source URL must not include credentials, query params, or hashes.",
     );
   });
@@ -372,7 +367,7 @@ describe("@noter-md/sync", () => {
     const previousCodexHome = process.env.CODEX_HOME;
     const codexHomePath = path.join(
       tmpdir(),
-      `noter-codex-home-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-codex-home-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
@@ -391,7 +386,7 @@ describe("@noter-md/sync", () => {
     process.env.CODEX_HOME = codexHomePath;
 
     try {
-      const runtime = new CodexLocalControlRuntime("/tmp/noter");
+      const runtime = new CodexLocalControlRuntime("/tmp/samebase");
 
       await expect(runtime.threadPin({ threadId: "thread-new" })).resolves.toMatchObject({
         pinnedThreadIds: ["thread-new", "thread-existing", "thread-target"],
@@ -421,12 +416,12 @@ describe("@noter-md/sync", () => {
     const previousCodexHome = process.env.CODEX_HOME;
     const codexHomePath = path.join(
       tmpdir(),
-      `noter-codex-home-empty-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-codex-home-empty-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     process.env.CODEX_HOME = codexHomePath;
 
     try {
-      const runtime = new CodexLocalControlRuntime("/tmp/noter");
+      const runtime = new CodexLocalControlRuntime("/tmp/samebase");
 
       await expect(runtime.threadPin({ threadId: "thread-first" })).resolves.toMatchObject({
         pinnedThreadIds: ["thread-first"],
@@ -451,7 +446,7 @@ describe("@noter-md/sync", () => {
     const previousCodexHome = process.env.CODEX_HOME;
     const codexHomePath = path.join(
       tmpdir(),
-      `noter-codex-home-invalid-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-codex-home-invalid-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
@@ -459,7 +454,7 @@ describe("@noter-md/sync", () => {
     process.env.CODEX_HOME = codexHomePath;
 
     try {
-      const runtime = new CodexLocalControlRuntime("/tmp/noter");
+      const runtime = new CodexLocalControlRuntime("/tmp/samebase");
 
       await expect(runtime.threadPin({ threadId: "thread-invalid" })).rejects.toThrow(
         ".codex-global-state.json must contain a JSON object",
@@ -479,7 +474,7 @@ describe("@noter-md/sync", () => {
     const previousCodexHome = process.env.CODEX_HOME;
     const codexHomePath = path.join(
       tmpdir(),
-      `noter-codex-home-concurrent-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-codex-home-concurrent-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
@@ -498,7 +493,7 @@ describe("@noter-md/sync", () => {
     process.env.CODEX_HOME = codexHomePath;
 
     try {
-      const runtime = new CodexLocalControlRuntime("/tmp/noter");
+      const runtime = new CodexLocalControlRuntime("/tmp/samebase");
 
       await Promise.all([
         runtime.threadPin({ threadId: "thread-first" }),
@@ -523,12 +518,12 @@ describe("@noter-md/sync", () => {
     const previousCodexHome = process.env.CODEX_HOME;
     const codexHomePath = path.join(
       tmpdir(),
-      `noter-codex-home-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-codex-home-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     process.env.CODEX_HOME = codexHomePath;
 
-    const runtime = new CodexLocalControlRuntime("/tmp/noter");
+    const runtime = new CodexLocalControlRuntime("/tmp/samebase");
     const router = createCodexLocalControlRouter({ runtime });
     const server = createServer((req, res) => {
       void router(req, res, () => {
@@ -604,11 +599,11 @@ describe("@noter-md/sync", () => {
     const previousCodexHome = process.env.CODEX_HOME;
     const codexHomePath = path.join(
       tmpdir(),
-      `noter-codex-home-worktree-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-codex-home-worktree-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     const repoPath = path.join(
       tmpdir(),
-      `noter-worktree-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-worktree-router-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     process.env.CODEX_HOME = codexHomePath;
     mkdirSync(repoPath, { recursive: true });
@@ -616,18 +611,18 @@ describe("@noter-md/sync", () => {
 
     expect(spawnSync("git", ["init", "-b", "main"], { cwd: repoPath, env: gitEnv }).status).toBe(0);
     expect(
-      spawnSync("git", ["config", "user.email", "noter-tests@example.com"], {
+      spawnSync("git", ["config", "user.email", "samebase-tests@example.com"], {
         cwd: repoPath,
         env: gitEnv,
       }).status,
     ).toBe(0);
     expect(
-      spawnSync("git", ["config", "user.name", "Noter Tests"], {
+      spawnSync("git", ["config", "user.name", "Samebase Tests"], {
         cwd: repoPath,
         env: gitEnv,
       }).status,
     ).toBe(0);
-    writeFileSync(path.join(repoPath, "README.md"), "# Noter\n", "utf8");
+    writeFileSync(path.join(repoPath, "README.md"), "# Samebase\n", "utf8");
     expect(spawnSync("git", ["add", "README.md"], { cwd: repoPath, env: gitEnv }).status).toBe(0);
     expect(
       spawnSync("git", ["commit", "-m", "Initial commit"], {
@@ -704,7 +699,7 @@ describe("@noter-md/sync", () => {
   });
 
   it("pages thread-list recovery until the requested thread is found", async () => {
-    const runtime = new CodexLocalControlRuntime("/tmp/noter");
+    const runtime = new CodexLocalControlRuntime("/tmp/samebase");
     const listThreadsMock = vi
       .spyOn(runtime, "listThreads")
       .mockResolvedValueOnce({
@@ -732,7 +727,7 @@ describe("@noter-md/sync", () => {
     const previousCodexHome = process.env.CODEX_HOME;
     const codexHomePath = path.join(
       tmpdir(),
-      `noter-codex-home-pinned-fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      `samebase-codex-home-pinned-fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     );
     const globalStatePath = path.join(codexHomePath, ".codex-global-state.json");
     mkdirSync(codexHomePath, { recursive: true });
@@ -744,7 +739,7 @@ describe("@noter-md/sync", () => {
     process.env.CODEX_HOME = codexHomePath;
 
     try {
-      const runtime = new CodexLocalControlRuntime("/tmp/noter");
+      const runtime = new CodexLocalControlRuntime("/tmp/samebase");
       vi.spyOn(runtime, "sendRequestNoEnsure").mockResolvedValue({
         data: [buildThreadSummaryFixture({ id: "thread-other" })],
         nextCursor: null,
@@ -769,7 +764,7 @@ describe("@noter-md/sync", () => {
   });
 
   it("searches archived pages when thread-list recovery misses the active inventory", async () => {
-    const runtime = new CodexLocalControlRuntime("/tmp/noter");
+    const runtime = new CodexLocalControlRuntime("/tmp/samebase");
     const listThreadsMock = vi
       .spyOn(runtime, "listThreads")
       .mockResolvedValueOnce({
@@ -785,7 +780,7 @@ describe("@noter-md/sync", () => {
         threads: [
           buildThreadSummaryFixture({
             id: "thread-target",
-            path: "/tmp/noter/archived_sessions/thread-target.jsonl",
+            path: "/tmp/samebase/archived_sessions/thread-target.jsonl",
           }),
         ],
       });
@@ -799,11 +794,11 @@ describe("@noter-md/sync", () => {
   });
 
   it("falls back to thread-list summaries when thread/read omits createdAt", async () => {
-    const runtime = new CodexLocalControlRuntime("/tmp/noter");
+    const runtime = new CodexLocalControlRuntime("/tmp/samebase");
     vi.spyOn(runtime, "sendRequestNoEnsure").mockResolvedValue({
       thread: {
         id: "thread-target",
-        cwd: "/tmp/noter",
+        cwd: "/tmp/samebase",
         updatedAt: 20,
         turns: [
           {
@@ -862,33 +857,33 @@ describe("@noter-md/sync", () => {
 
   it("stores bootstrap state in one local config file", () => {
     expect(
-      getNoterStateDirectory({
-        homeDirectory: "/Users/noter",
+      getSamebaseStateDirectory({
+        homeDirectory: "/Users/samebase",
       }),
-    ).toBe(path.join("/Users/noter", ".noter"));
+    ).toBe(path.join("/Users/samebase", ".samebase"));
     expect(
-      getNoterConfigPath({
-        homeDirectory: "/Users/noter",
+      getSamebaseConfigPath({
+        homeDirectory: "/Users/samebase",
       }),
-    ).toBe(path.join("/Users/noter", ".noter", "config.json"));
+    ).toBe(path.join("/Users/samebase", ".samebase", "config.json"));
   });
 
   it("supports an explicit state directory for config storage", () => {
     expect(
-      getNoterConfigPath({
-        stateDirectory: "/tmp/noter/worktrees/ceff",
+      getSamebaseConfigPath({
+        stateDirectory: "/tmp/samebase/worktrees/ceff",
       }),
-    ).toBe(path.join("/tmp/noter/worktrees/ceff", "config.json"));
+    ).toBe(path.join("/tmp/samebase/worktrees/ceff", "config.json"));
     expect(
-      getNoterConfigPath({
-        cwd: "/Users/noter/projects/noter",
+      getSamebaseConfigPath({
+        cwd: "/Users/samebase/projects/samebase",
         stateDirectory: "./tmp/worktree-state",
       }),
-    ).toBe(path.resolve("/Users/noter/projects/noter", "tmp/worktree-state", "config.json"));
+    ).toBe(path.resolve("/Users/samebase/projects/samebase", "tmp/worktree-state", "config.json"));
   });
 
   it("reads and writes local config data inside an explicit state directory", () => {
-    const stateDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`);
+    const stateDirectory = path.join(tmpdir(), `samebase-sync-${Date.now()}`);
     const configPath = path.join(stateDirectory, "config.json");
 
     try {
@@ -897,7 +892,7 @@ describe("@noter-md/sync", () => {
           codexVersion: "codex 0.1.2",
           machineCredential: "mmc_123",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.ts",
+          sourceUrl: "https://preview.samebase.com/samebase.ts",
           stateDirectory,
         }),
       ).toBe(configPath);
@@ -906,7 +901,7 @@ describe("@noter-md/sync", () => {
         codexVersion: "codex 0.1.2",
         machineCredential: "mmc_123",
         machineId: "machine_123",
-        sourceUrl: "https://preview.noter.md/noter.ts",
+        sourceUrl: "https://preview.samebase.com/samebase.ts",
       });
     } finally {
       rmSync(stateDirectory, { force: true, recursive: true });
@@ -914,8 +909,8 @@ describe("@noter-md/sync", () => {
   });
 
   it("keeps the first install timestamp when rewriting the local config file", () => {
-    const homeDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`);
-    const configPath = getNoterConfigPath({ homeDirectory });
+    const homeDirectory = path.join(tmpdir(), `samebase-sync-${Date.now()}`);
+    const configPath = getSamebaseConfigPath({ homeDirectory });
     mkdirSync(path.dirname(configPath), { recursive: true });
     writeFileSync(
       configPath,
@@ -930,7 +925,7 @@ describe("@noter-md/sync", () => {
           homeDirectory,
           machineCredential: "mmc_123",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.ts",
+          sourceUrl: "https://preview.samebase.com/samebase.ts",
         }),
       ).toBe(configPath);
 
@@ -939,7 +934,7 @@ describe("@noter-md/sync", () => {
         installedAt: "2026-03-01T00:00:00.000Z",
         machineCredential: "mmc_123",
         machineId: "machine_123",
-        sourceUrl: "https://preview.noter.md/noter.ts",
+        sourceUrl: "https://preview.samebase.com/samebase.ts",
       });
     } finally {
       rmSync(homeDirectory, { force: true, recursive: true });
@@ -949,8 +944,8 @@ describe("@noter-md/sync", () => {
   it.runIf(process.platform !== "win32")(
     "writes the local config file with owner-only permissions, including rewrites",
     () => {
-      const homeDirectory = path.join(tmpdir(), `noter-sync-${Date.now()}`);
-      const configPath = getNoterConfigPath({ homeDirectory });
+      const homeDirectory = path.join(tmpdir(), `samebase-sync-${Date.now()}`);
+      const configPath = getSamebaseConfigPath({ homeDirectory });
 
       try {
         writeLocalConfig({
@@ -958,7 +953,7 @@ describe("@noter-md/sync", () => {
           homeDirectory,
           machineCredential: "mmc_123",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.ts",
+          sourceUrl: "https://preview.samebase.com/samebase.ts",
         });
         expect(statSync(configPath).mode & 0o777).toBe(0o600);
 
@@ -968,7 +963,7 @@ describe("@noter-md/sync", () => {
           homeDirectory,
           machineCredential: "mmc_456",
           machineId: "machine_123",
-          sourceUrl: "https://preview.noter.md/noter.ts",
+          sourceUrl: "https://preview.samebase.com/samebase.ts",
         });
         expect(statSync(configPath).mode & 0o777).toBe(0o600);
       } finally {
@@ -978,92 +973,104 @@ describe("@noter-md/sync", () => {
   );
 
   it("builds the browser handoff URL for the current deploy and request id", () => {
-    expect(buildMachineConnectUrl("https://preview.noter.md/noter.ts", "request_123")).toBe(
-      "https://preview.noter.md/machines/connect?openedByCli&requestId=request_123",
+    expect(buildMachineConnectUrl("https://preview.samebase.com/samebase.ts", "request_123")).toBe(
+      "https://preview.samebase.com/machines/connect?openedByCli&requestId=request_123",
     );
   });
 
   it("includes the state-dir flag in direct commands when requested", () => {
     expect(
       buildDirectConnectCommand(
-        "https://preview.noter.md/noter.ts",
+        "https://preview.samebase.com/samebase.ts",
         "darwin",
-        "/tmp/noter/worktrees/ceff",
+        "/tmp/samebase/worktrees/ceff",
       ),
-    ).toContain("--state-dir '/tmp/noter/worktrees/ceff'");
+    ).toContain("--state-dir '/tmp/samebase/worktrees/ceff'");
     expect(
       buildDirectRunCommand(
-        "https://preview.noter.md/noter.ts",
+        "https://preview.samebase.com/samebase.ts",
         "darwin",
-        "/tmp/noter/worktrees/ceff",
+        "/tmp/samebase/worktrees/ceff",
       ),
-    ).toContain("--state-dir '/tmp/noter/worktrees/ceff'");
+    ).toContain("--state-dir '/tmp/samebase/worktrees/ceff'");
   });
 
   it("escapes explicit state-dir paths for Windows direct commands", () => {
     expect(
-      buildDirectConnectCommand("https://noter.md/noter.ts", "win32", "C:\\Users\\O'Brien\\.noter"),
-    ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'");
+      buildDirectConnectCommand(
+        "https://samebase.com/samebase.ts",
+        "win32",
+        "C:\\Users\\O'Brien\\.samebase",
+      ),
+    ).toContain("--state-dir 'C:\\Users\\O''Brien\\.samebase'");
     expect(
-      buildDirectRunCommand("https://noter.md/noter.ts", "win32", "C:\\Users\\O'Brien\\.noter"),
-    ).toContain("--state-dir 'C:\\Users\\O''Brien\\.noter'");
+      buildDirectRunCommand(
+        "https://samebase.com/samebase.ts",
+        "win32",
+        "C:\\Users\\O'Brien\\.samebase",
+      ),
+    ).toContain("--state-dir 'C:\\Users\\O''Brien\\.samebase'");
   });
 
   it("escapes explicit state-dir paths for Unix direct commands", () => {
     expect(
-      buildDirectConnectCommand("https://noter.md/noter.ts", "darwin", "/tmp/O'Brien/.noter"),
-    ).toContain(`--state-dir '/tmp/O'"'"'Brien/.noter'`);
+      buildDirectConnectCommand(
+        "https://samebase.com/samebase.ts",
+        "darwin",
+        "/tmp/O'Brien/.samebase",
+      ),
+    ).toContain(`--state-dir '/tmp/O'"'"'Brien/.samebase'`);
     expect(
-      buildDirectRunCommand("https://noter.md/noter.ts", "darwin", "/tmp/O'Brien/.noter"),
-    ).toContain(`--state-dir '/tmp/O'"'"'Brien/.noter'`);
+      buildDirectRunCommand("https://samebase.com/samebase.ts", "darwin", "/tmp/O'Brien/.samebase"),
+    ).toContain(`--state-dir '/tmp/O'"'"'Brien/.samebase'`);
   });
 
   it("builds the deploy-scoped runtime config URL", () => {
-    expect(buildNoterConnectConfigUrl("https://preview.noter.md/noter.ts")).toBe(
-      "https://preview.noter.md/noter-connect.json",
+    expect(buildSamebaseConnectConfigUrl("https://preview.samebase.com/samebase.ts")).toBe(
+      "https://preview.samebase.com/samebase-connect.json",
     );
   });
 
   it("documents the simple npm commands and advanced direct-file flows", () => {
-    expect(formatHelpText()).toContain("noter-sync connect [--state-dir <path>] [source-url]");
-    expect(formatHelpText()).toContain("noter-sync run [--state-dir <path>]");
-    expect(formatHelpText()).toContain("npx @noter-md/sync connect");
-    expect(formatHelpText()).toContain("npx @noter-md/sync run");
-    expect(formatHelpText()).toContain("node ./noter.ts connect");
-    expect(formatHelpText()).toContain("node ./noter.ts run");
+    expect(formatHelpText()).toContain("samebase-sync connect [--state-dir <path>] [source-url]");
+    expect(formatHelpText()).toContain("samebase-sync run [--state-dir <path>]");
+    expect(formatHelpText()).toContain("npx @samebase/sync connect");
+    expect(formatHelpText()).toContain("npx @samebase/sync run");
+    expect(formatHelpText()).toContain("node ./samebase.ts connect");
+    expect(formatHelpText()).toContain("node ./samebase.ts run");
     expect(formatHelpText()).toContain(
-      `curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
+      `curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'`,
     );
     expect(formatHelpText()).toContain(
-      `curl -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
+      `curl -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run`,
     );
     expect(formatHelpText()).toContain(
-      `curl -fsSL 'https://preview.noter.md/noter.ts' | node --input-type=module - connect 'https://preview.noter.md/noter.ts'`,
+      `curl -fsSL 'https://preview.samebase.com/samebase.ts' | node --input-type=module - connect 'https://preview.samebase.com/samebase.ts'`,
     );
     expect(formatHelpText()).toContain(
-      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
+      `curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'`,
     );
     expect(formatHelpText()).toContain(
-      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
+      `curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run`,
     );
     expect(formatHelpText()).toContain(
-      `curl.exe -fsSL 'https://preview.noter.md/noter.ts' | node --input-type=module - connect 'https://preview.noter.md/noter.ts'`,
+      `curl.exe -fsSL 'https://preview.samebase.com/samebase.ts' | node --input-type=module - connect 'https://preview.samebase.com/samebase.ts'`,
     );
-    expect(formatHelpText()).toContain(`/home/you/.noter/worktrees/ceff`);
+    expect(formatHelpText()).toContain(`/home/you/.samebase/worktrees/ceff`);
   });
 
   it("builds Windows-safe direct hosted-file commands", () => {
-    expect(buildDirectConnectCommand("https://noter.md/noter.ts", "win32")).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
+    expect(buildDirectConnectCommand("https://samebase.com/samebase.ts", "win32")).toBe(
+      `curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'`,
     );
-    expect(buildDirectConnectCommand("https://noter.md/noter.ts", "windows")).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - connect 'https://noter.md/noter.ts'`,
+    expect(buildDirectConnectCommand("https://samebase.com/samebase.ts", "windows")).toBe(
+      `curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - connect 'https://samebase.com/samebase.ts'`,
     );
-    expect(buildDirectRunCommand("https://noter.md/noter.ts", "win32")).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
+    expect(buildDirectRunCommand("https://samebase.com/samebase.ts", "win32")).toBe(
+      `curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run`,
     );
-    expect(buildDirectRunCommand("https://noter.md/noter.ts", "windows")).toBe(
-      `curl.exe -fsSL 'https://noter.md/noter.ts' | node --input-type=module - run`,
+    expect(buildDirectRunCommand("https://samebase.com/samebase.ts", "windows")).toBe(
+      `curl.exe -fsSL 'https://samebase.com/samebase.ts' | node --input-type=module - run`,
     );
   });
 
@@ -1076,19 +1083,19 @@ describe("@noter-md/sync", () => {
       args: ["--version"],
       command: "codex",
     });
-    expect(buildCodexSpawnOptions({ cwd: "/tmp/noter" })).toEqual({
-      cwd: "/tmp/noter",
+    expect(buildCodexSpawnOptions({ cwd: "/tmp/samebase" })).toEqual({
+      cwd: "/tmp/samebase",
     });
   });
 
   it("forwards detectCodexVersion env and cwd to the spawned Codex process", () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-version-${Date.now()}`);
+    const tempRoot = path.join(tmpdir(), `samebase-codex-version-${Date.now()}`);
     const workspaceRoot = path.join(tempRoot, "workspace");
     const binDirectory = path.join(tempRoot, "bin");
     const originalPath = process.env.PATH;
     const originalWindowsPath = process.env.Path;
     const originalPathext = process.env.PATHEXT;
-    const customEnvVar = "NOTER_TEST_CODEX_VERSION";
+    const customEnvVar = "SAMEBASE_TEST_CODEX_VERSION";
     const customEnvValue = "codex-custom-version";
 
     mkdirSync(workspaceRoot, { recursive: true });
@@ -1168,7 +1175,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   });
 
   it("routes Windows one-off and runtime Codex launches through the shim-selected Node runtime", () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-shim-${Date.now()}`);
+    const tempRoot = path.join(tmpdir(), `samebase-codex-shim-${Date.now()}`);
     const binDirectory = path.join(tempRoot, "bin");
     const shimPath = path.join(binDirectory, "codex.cmd");
     const bundledNodePath = path.join(binDirectory, "node.exe");
@@ -1229,7 +1236,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   });
 
   it("resolves Windows Volta-managed Codex shims from the caller workspace cwd", async () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-volta-${Date.now()}`);
+    const tempRoot = path.join(tmpdir(), `samebase-codex-volta-${Date.now()}`);
     const binDirectory = path.join(tempRoot, "bin");
     const topLevelCodexShimPath = path.join(binDirectory, "codex.cmd");
     const voltaPath = path.join(binDirectory, "volta.exe");
@@ -1301,7 +1308,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       const {
         buildCodexSpawnInvocation: buildCodexSpawnInvocationWithMock,
         buildCodexRuntimeSpawnInvocation: buildCodexRuntimeSpawnInvocationWithMock,
-      } = await import("./noter.ts");
+      } = await import("./samebase.ts");
 
       expect(
         buildCodexSpawnInvocationWithMock(["--version"], "win32", {
@@ -1366,7 +1373,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   });
 
   it("surfaces stale Windows Codex shims as missing CLI diagnostics", () => {
-    const tempRoot = path.join(tmpdir(), `noter-codex-stale-${Date.now()}`);
+    const tempRoot = path.join(tmpdir(), `samebase-codex-stale-${Date.now()}`);
     const binDirectory = path.join(tempRoot, "bin");
     const shimPath = path.join(binDirectory, "codex.cmd");
     const bundledNodePath = path.join(binDirectory, "node.exe");
@@ -1408,7 +1415,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   it.runIf(process.platform === "win32")(
     "preserves literal Windows Codex args that contain cmd metacharacters",
     () => {
-      const tempRoot = path.join(tmpdir(), `noter-codex-literal-${Date.now()}`);
+      const tempRoot = path.join(tmpdir(), `samebase-codex-literal-${Date.now()}`);
       const binDirectory = path.join(tempRoot, "bin");
       const shimPath = path.join(binDirectory, "codex.cmd");
       const scriptPath = path.join(binDirectory, "codex-script.js");
@@ -1477,15 +1484,15 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   it.runIf(process.platform !== "win32")(
     "resolves symlinked entrypoints before checking direct execution",
     () => {
-      const tempDirectory = path.join(tmpdir(), `noter-sync-link-${Date.now()}`);
+      const tempDirectory = path.join(tmpdir(), `samebase-sync-link-${Date.now()}`);
       mkdirSync(tempDirectory, { recursive: true });
-      const symlinkPath = path.join(tempDirectory, "noter-sync");
+      const symlinkPath = path.join(tempDirectory, "samebase-sync");
 
       try {
-        symlinkSync(path.resolve("packages/sync/noter.ts"), symlinkPath);
+        symlinkSync(path.resolve("packages/sync/samebase.ts"), symlinkPath);
 
         expect(resolveEntrypointUrl(symlinkPath)).toBe(
-          pathToFileURL(path.resolve("packages/sync/noter.ts")).href,
+          pathToFileURL(path.resolve("packages/sync/samebase.ts")).href,
         );
       } finally {
         rmSync(tempDirectory, { force: true, recursive: true });
@@ -1494,23 +1501,24 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   );
 
   it("formats bootstrap status as markdown for terminal and LLM consumption", () => {
-    const runCommand = buildDirectRunCommand("https://noter.md/noter.ts");
+    const runCommand = buildDirectRunCommand("https://samebase.com/samebase.ts");
     expect(
       formatBootstrapReadyMarkdown({
         codexVersion: "codex 0.1.2",
-        configPath: "/Users/noter/.noter/config.json",
-        machineConnectUrl: "https://noter.md/machines/connect?openedByCli&requestId=request_123",
+        configPath: "/Users/samebase/.samebase/config.json",
+        machineConnectUrl:
+          "https://samebase.com/machines/connect?openedByCli&requestId=request_123",
         machineId: "machine_123",
         runCommand,
-        sourceUrl: "https://noter.md/noter.ts",
+        sourceUrl: "https://samebase.com/samebase.ts",
       }),
-    ).toBe(`# noter sync bootstrap ready
+    ).toBe(`# samebase sync bootstrap ready
 
-- source: https://noter.md/noter.ts
+- source: https://samebase.com/samebase.ts
 - codex: codex 0.1.2
 - machine: machine_123
-- state: /Users/noter/.noter/config.json
-- next: https://noter.md/machines/connect?openedByCli&requestId=request_123
+- state: /Users/samebase/.samebase/config.json
+- next: https://samebase.com/machines/connect?openedByCli&requestId=request_123
 - run: ${runCommand}`);
   });
 
@@ -1522,11 +1530,11 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         liveControlStatus: "unavailable",
         localControlOrigin: "http://127.0.0.1:57479",
         machineId: "machine_123",
-        sourceUrl: "https://noter.md/noter.ts",
+        sourceUrl: "https://samebase.com/samebase.ts",
       }),
-    ).toBe(`# noter sync connector running
+    ).toBe(`# samebase sync connector running
 
-- source: https://noter.md/noter.ts
+- source: https://samebase.com/samebase.ts
 - machine: machine_123
 - local-control: http://127.0.0.1:57479
 - live-control: unavailable
@@ -1537,7 +1545,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
   it("builds heartbeat payloads that advertise live-control readiness", () => {
     expect(
       buildMachineHeartbeatBody({
-        connectorVersion: "noter-sync (codex 0.1.2)",
+        connectorVersion: "samebase-sync (codex 0.1.2)",
         displayName: "Research MacBook Pro",
         hostname: "research-mbp.local",
         machineId: "machine_123",
@@ -1553,7 +1561,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     ).toEqual({
       allowedRoots: [],
       capabilities: ["presence", "liveControl"],
-      connectorVersion: "noter-sync (codex 0.1.2)",
+      connectorVersion: "samebase-sync (codex 0.1.2)",
       controlStatus: "ready",
       controlStatusDetail: "Live control ready.",
       controlUrl: "https://research-machine.trycloudflare.com",
@@ -1583,7 +1591,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       try {
         await expect(
           runHeartbeatLoop({
-            connectorVersion: "noter-sync (codex 0.1.2)",
+            connectorVersion: "samebase-sync (codex 0.1.2)",
             displayName: "Research MacBook Pro",
             heartbeatUrl: "https://demo.convex.site/connected-machines/heartbeat",
             hostname: "research-mbp.local",
@@ -1592,7 +1600,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
             os: "macos",
           }),
         ).rejects.toThrow(
-          "This machine is not approved yet. Finish approval in Noter and retry `noter-sync run`.",
+          "This machine is not approved yet. Finish approval in Samebase and retry `samebase-sync run`.",
         );
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -1604,7 +1612,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
   it("routes prefixed status requests through the shared local control router", async () => {
     const statusPayload = {
-      workspaceRoot: "/tmp/noter",
+      workspaceRoot: "/tmp/samebase",
       codexInstalled: true,
       codexVersion: "codex 0.1.2",
       codexInstallError: null,
@@ -1692,8 +1700,8 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     };
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
-        allowedOrigins: ["https://noter.md"],
-        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
+        allowedOrigins: ["https://samebase.com"],
+        introspectionUrl: "https://samebase.com/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -1718,7 +1726,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
       const response = await fetch(`http://127.0.0.1:${address.port}/threads`, {
         headers: {
-          Origin: "https://noter.md",
+          Origin: "https://samebase.com",
         },
       });
       expect(response.status).toBe(401);
@@ -1727,7 +1735,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       });
       expect(runtime.ensureRuntime).not.toHaveBeenCalled();
       expect(runtime.listThreads).not.toHaveBeenCalled();
-      expect(response.headers.get("access-control-allow-origin")).toBe("https://noter.md");
+      expect(response.headers.get("access-control-allow-origin")).toBe("https://samebase.com");
     } finally {
       await new Promise((resolve, reject) => {
         server.close((error) => {
@@ -1755,7 +1763,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
         allowedOrigins: ["http://localhost:5198"],
-        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
+        introspectionUrl: "https://samebase.com/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -1810,7 +1818,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
         allowedOrigins: ["http://localhost:5198"],
-        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
+        introspectionUrl: "https://samebase.com/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -1890,8 +1898,8 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
     };
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
-        allowedOrigins: ["https://noter.md"],
-        introspectionUrl: "https://noter.md/connected-machines/control/introspect",
+        allowedOrigins: ["https://samebase.com"],
+        introspectionUrl: "https://samebase.com/connected-machines/control/introspect",
         machineId: "machine_123",
       },
       runtime,
@@ -1916,7 +1924,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
       const response = await fetch(`http://127.0.0.1:${address.port}/status`, {
         headers: {
-          Origin: "https://noter.md",
+          Origin: "https://samebase.com",
         },
       });
       expect(response.status).toBe(200);
@@ -1932,7 +1940,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
         },
       });
       expect(runtime.getStatus).not.toHaveBeenCalled();
-      expect(response.headers.get("access-control-allow-origin")).toBe("https://noter.md");
+      expect(response.headers.get("access-control-allow-origin")).toBe("https://samebase.com");
     } finally {
       await new Promise((resolve, reject) => {
         server.close((error) => {
@@ -1980,7 +1988,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
-        allowedOrigins: ["https://noter.md"],
+        allowedOrigins: ["https://samebase.com"],
         introspectionUrl: `http://127.0.0.1:${introspectionAddress.port}/introspect`,
         machineId: "machine_123",
       },
@@ -2007,7 +2015,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       const response = await fetch(`http://127.0.0.1:${address.port}/status`, {
         headers: {
           Authorization: "Bearer mmct_readiness_probe",
-          Origin: "https://noter.md",
+          Origin: "https://samebase.com",
         },
       });
       expect(response.status).toBe(401);
@@ -2068,7 +2076,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
-        allowedOrigins: ["https://noter.md"],
+        allowedOrigins: ["https://samebase.com"],
         introspectionUrl: `http://127.0.0.1:${introspectionAddress.port}/introspect`,
         machineId: "machine_123",
       },
@@ -2095,7 +2103,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       const response = await fetch(`http://127.0.0.1:${address.port}/status`, {
         headers: {
           Authorization: "Bearer mmct_readiness_probe",
-          Origin: "https://noter.md",
+          Origin: "https://samebase.com",
         },
       });
       expect(response.status).toBe(503);
@@ -2184,7 +2192,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
-        allowedOrigins: ["https://noter.md"],
+        allowedOrigins: ["https://samebase.com"],
         introspectionUrl: `http://127.0.0.1:${introspectionAddress.port}/introspect`,
         machineId: "machine_123",
       },
@@ -2210,7 +2218,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
       const headers = {
         Authorization: "Bearer mmct_fixture",
-        Origin: "https://noter.md",
+        Origin: "https://samebase.com",
       };
 
       const firstResponse = await fetch(`http://127.0.0.1:${address.port}/threads`, { headers });
@@ -2276,7 +2284,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
-        allowedOrigins: ["https://noter.md"],
+        allowedOrigins: ["https://samebase.com"],
         introspectionUrl: `http://127.0.0.1:${introspectionAddress.port}/introspect`,
         machineId: "machine_123",
       },
@@ -2303,7 +2311,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       const response = await fetch(`http://127.0.0.1:${address.port}/threads`, {
         headers: {
           Authorization: "Bearer mmct_fixture",
-          Origin: "https://noter.md",
+          Origin: "https://samebase.com",
         },
       });
       expect(response.status).toBe(503);
@@ -2365,7 +2373,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
 
     const router = createCodexLocalControlRouter({
       machineControlAuth: {
-        allowedOrigins: ["https://noter.md"],
+        allowedOrigins: ["https://samebase.com"],
         introspectionUrl: `http://127.0.0.1:${introspectionAddress.port}/introspect`,
         machineId: "machine_123",
       },
@@ -2392,7 +2400,7 @@ printf '%s|%s\\n' "$PWD" "$${customEnvVar}"`,
       const response = await fetch(`http://127.0.0.1:${address.port}/threads`, {
         headers: {
           Authorization: "Bearer mmct_fixture",
-          Origin: "https://noter.md",
+          Origin: "https://samebase.com",
         },
       });
       expect(response.status).toBe(401);

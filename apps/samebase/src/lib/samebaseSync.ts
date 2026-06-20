@@ -4,8 +4,8 @@ import { stringifyTanStackSearch } from "./tanstackSearchParams";
 
 export const MACHINES_ROUTE = "/machines";
 export const MACHINE_CONNECT_ROUTE = "/machines/connect";
-export const NOTER_SYNC_PUBLIC_SCRIPT_PATH = "/noter.ts";
-export type NoterSyncCommandTargetOs = "linux" | "macos" | "windows";
+export const SAMEBASE_SYNC_PUBLIC_SCRIPT_PATH = "/samebase.ts";
+export type SamebaseSyncCommandTargetOs = "linux" | "macos" | "windows";
 
 function quoteShellArg(value: string): string {
   return "'" + value.replace(/'/g, `'"'"'`) + "'";
@@ -15,12 +15,12 @@ function quoteShellArg(value: string): string {
  * PowerShell aliases `curl` to `Invoke-WebRequest`, so the direct-download
  * bootstrap needs `curl.exe` when the machine is Windows.
  */
-function readDirectDownloadCommand(targetOs?: NoterSyncCommandTargetOs | null) {
+function readDirectDownloadCommand(targetOs?: SamebaseSyncCommandTargetOs | null) {
   return targetOs === "windows" ? "curl.exe -fsSL" : "curl -fsSL";
 }
 
-export function buildNoterSyncScriptUrl(origin: string): string {
-  return new URL(NOTER_SYNC_PUBLIC_SCRIPT_PATH, origin).toString();
+export function buildSamebaseSyncScriptUrl(origin: string): string {
+  return new URL(SAMEBASE_SYNC_PUBLIC_SCRIPT_PATH, origin).toString();
 }
 
 export function buildMachinesWorkspacePath(args?: {
@@ -41,25 +41,25 @@ export function buildMachinesWorkspaceLinkOptions(args?: {
   });
 }
 
-export function buildPublishedNoterSyncConnectCommand(): string {
-  return "npx @noter-md/sync connect";
+export function buildPublishedSamebaseSyncConnectCommand(): string {
+  return "npx @samebase/sync connect";
 }
 
-export function buildPublishedNoterSyncRunCommand(): string {
-  return "npx @noter-md/sync run";
+export function buildPublishedSamebaseSyncRunCommand(): string {
+  return "npx @samebase/sync run";
 }
 
-export function buildDirectNoterSyncConnectCommand(
+export function buildDirectSamebaseSyncConnectCommand(
   scriptUrl: string,
-  targetOs?: NoterSyncCommandTargetOs | null,
+  targetOs?: SamebaseSyncCommandTargetOs | null,
 ): string {
   const quotedScriptUrl = quoteShellArg(scriptUrl);
   return `${readDirectDownloadCommand(targetOs)} ${quotedScriptUrl} | node --input-type=module - connect ${quotedScriptUrl}`;
 }
 
-export function buildDirectNoterSyncRunCommand(
+export function buildDirectSamebaseSyncRunCommand(
   scriptUrl: string,
-  targetOs?: NoterSyncCommandTargetOs | null,
+  targetOs?: SamebaseSyncCommandTargetOs | null,
 ): string {
   const quotedScriptUrl = quoteShellArg(scriptUrl);
   return `${readDirectDownloadCommand(targetOs)} ${quotedScriptUrl} | node --input-type=module - run`;

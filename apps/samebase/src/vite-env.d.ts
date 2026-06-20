@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-declare const __NOTER_BUILD_CONFIG__: import("./lib/noterBuildConfig").NoterBuildConfig;
+declare const __SAMEBASE_BUILD_CONFIG__: import("./lib/samebaseBuildConfig").SamebaseBuildConfig;
 declare var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 
 interface Navigation extends EventTarget {
@@ -18,5 +18,5 @@ interface Window {
 interface ImportMetaEnv {
   readonly VITE_LOCAL_WORKTREE_PASSWORD_EMAIL?: string;
   readonly VITE_LOCAL_WORKTREE_PASSWORD_VALUE?: string;
-  readonly VITE_NOTER_ROUTE_ENVIRONMENT?: string;
+  readonly VITE_SAMEBASE_ROUTE_ENVIRONMENT?: string;
 }

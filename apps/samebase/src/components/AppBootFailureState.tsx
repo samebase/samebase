@@ -45,13 +45,13 @@ export function AppBootFailureState({ error }: AppBootFailureStateProps) {
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">App Recovery</p>
           <h1 className="text-xl font-medium">
             {isStaleAssetFailure
-              ? "Noter updated while this tab was open."
-              : "Noter could not finish loading."}
+              ? "Samebase updated while this tab was open."
+              : "Samebase could not finish loading."}
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
             {isStaleAssetFailure
-              ? "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for noter on this device."
-              : "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for noter on this device."}
+              ? "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for Samebase on this device."
+              : "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for Samebase on this device."}
           </p>
         </div>
 
@@ -78,8 +78,8 @@ export function AppBootFailureState({ error }: AppBootFailureStateProps) {
 
         <div className="space-y-2 border px-4 py-3 text-sm leading-6">
           <p>
-            Reset local data clears saved browser storage for noter on this device and may sign you
-            out.
+            Reset local data clears saved browser storage for Samebase on this device and may sign
+            you out.
           </p>
           <p className="text-muted-foreground">Build: {buildCommit}</p>
           {errorMessage ? (

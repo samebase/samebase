@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const DEPLOYED_HOSTNAME = "noter.md";
+const DEPLOYED_HOSTNAME = "samebase.com";
 const deployedHostLaunchOptions = {
   args: [
     "--disable-session-crashed-bubble",

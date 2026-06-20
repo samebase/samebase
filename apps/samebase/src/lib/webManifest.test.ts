@@ -11,8 +11,8 @@ describe("web manifest", () => {
 
     expect(manifest).toMatchObject({
       id: "/",
-      name: "noter",
-      short_name: "noter",
+      name: "samebase",
+      short_name: "samebase",
       start_url: "/home",
       scope: "/",
       display: "standalone",

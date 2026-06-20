@@ -81,7 +81,7 @@ describe("MachinesWorkspaceView", () => {
             machineId: "machine-linux",
             machineStatus: "offline",
             machineStatusReason:
-              "This machine is offline. Start `noter-sync run` on the machine first.",
+              "This machine is offline. Start `samebase-sync run` on the machine first.",
             pinnedThreadIds: [],
             threads: [THREAD_FIXTURE],
           },
@@ -90,7 +90,7 @@ describe("MachinesWorkspaceView", () => {
         selectedMachineId="machine-linux"
         selectedMachineDisplayName="Offline Linux Box"
         selectedMachineHostname="linux-box.local"
-        selectedMachineStatusReason="This machine is offline. Start `noter-sync run` on the machine first."
+        selectedMachineStatusReason="This machine is offline. Start `samebase-sync run` on the machine first."
         selectedThread={null}
         selectedThreadError={null}
         selectedThreadLoading={false}
@@ -103,7 +103,7 @@ describe("MachinesWorkspaceView", () => {
     );
 
     expect(markup).toContain(
-      "This machine is offline. Start `noter-sync run` on the machine first.",
+      "This machine is offline. Start `samebase-sync run` on the machine first.",
     );
     expect(markup).toContain("Offline machine thread");
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*Offline machine thread/s);

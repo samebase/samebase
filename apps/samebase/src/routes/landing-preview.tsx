@@ -7,7 +7,7 @@ import {
 } from "@/routeSearch/landingPreview";
 import { LANDING_MARKDOWN_PREVIEW_PAGE_METADATA } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/landing-preview";
 
@@ -20,7 +20,7 @@ function LandingPreviewRouteComponent() {
 
 export const Route = createFileRoute("/landing-preview")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
   },
   component: LandingPreviewRouteComponent,

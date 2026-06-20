@@ -144,7 +144,7 @@ async function registerCloudflareMcpClient(args: { redirectUri: string }) {
       token_endpoint_auth_method: "none",
       response_types: ["code"],
       grant_types: ["authorization_code", "refresh_token"],
-      client_name: "noter",
+      client_name: "samebase",
     }),
   });
 

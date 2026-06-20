@@ -303,8 +303,8 @@ describe("useAutoSignIn", () => {
     let messageHandler: ((event: MessageEvent) => void) | undefined;
     const locationReloadMock = vi.fn();
     const locationState = {
-      href: "https://noter.md/",
-      origin: "https://noter.md",
+      href: "https://samebase.com/",
+      origin: "https://samebase.com",
       reload: locationReloadMock,
     };
     const popupSource = new MessageChannel().port1;
@@ -341,7 +341,7 @@ describe("useAutoSignIn", () => {
           },
           type: "convex-auth-tokens",
         },
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         source: popupSource,
       }),
     );
@@ -356,8 +356,8 @@ describe("useAutoSignIn", () => {
     let messageHandler: ((event: MessageEvent) => void) | undefined;
     const locationReloadMock = vi.fn();
     const locationState = {
-      href: "https://noter.md/",
-      origin: "https://noter.md",
+      href: "https://samebase.com/",
+      origin: "https://samebase.com",
       reload: locationReloadMock,
     };
     const popupSource = new MessageChannel().port1;
@@ -394,13 +394,13 @@ describe("useAutoSignIn", () => {
           },
           type: "convex-auth-tokens",
         },
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         source: popupSource,
       }),
     );
 
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
-    expect(locationState.href).toBe("https://noter.md/");
+    expect(locationState.href).toBe("https://samebase.com/");
     expect(locationReloadMock).toHaveBeenCalledTimes(1);
   });
 
@@ -408,8 +408,8 @@ describe("useAutoSignIn", () => {
     let messageHandler: ((event: MessageEvent) => void) | undefined;
     const locationReloadMock = vi.fn();
     const locationState = {
-      href: "https://noter.md/",
-      origin: "https://noter.md",
+      href: "https://samebase.com/",
+      origin: "https://samebase.com",
       reload: locationReloadMock,
     };
     const popupSource = new MessageChannel().port1;
@@ -452,7 +452,7 @@ describe("useAutoSignIn", () => {
           },
           type: "convex-auth-tokens",
         },
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         source: popupSource,
       }),
     );
@@ -463,7 +463,7 @@ describe("useAutoSignIn", () => {
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthRefreshToken");
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("__convexAuthAccessToken");
     expect(localStorageRemoveItemMock).toHaveBeenCalledWith("noter_auth_provider");
-    expect(locationState.href).toBe("https://noter.md/");
+    expect(locationState.href).toBe("https://samebase.com/");
     expect(locationReloadMock).not.toHaveBeenCalled();
   });
 
@@ -474,8 +474,8 @@ describe("useAutoSignIn", () => {
       clearInterval: vi.fn(),
       clearTimeout: vi.fn(),
       location: {
-        href: "https://noter.md/",
-        origin: "https://noter.md",
+        href: "https://samebase.com/",
+        origin: "https://samebase.com",
         reload: locationReloadMock,
       },
       open: vi.fn(() => null),

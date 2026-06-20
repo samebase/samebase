@@ -108,7 +108,7 @@ function validateReturnUrlPair(args: {
   }
 
   if (args.server === "production") {
-    if (success.origin !== "https://noter.md") {
+    if (success.origin !== "https://samebase.com") {
       throw new Error("Checkout return URL origin is not allowed.");
     }
   } else {

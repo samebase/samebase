@@ -1,13 +1,13 @@
 import {
-  canAccessNoterRouteAvailability,
-  type NoterRouteAvailability,
-  type NoterRouteEnvironment,
+  canAccessSamebaseRouteAvailability,
+  type SamebaseRouteAvailability,
+  type SamebaseRouteEnvironment,
 } from "@/routing/availability";
 import type { AccessKey } from "../../shared/accessModel";
 
-export type NoterRouteAccess = AccessKey;
+export type SamebaseRouteAccess = AccessKey;
 
-export type NoterRouteSearchParamNumericRange =
+export type SamebaseRouteSearchParamNumericRange =
   | {
       maxValue: number;
       minValue: number;
@@ -17,7 +17,7 @@ export type NoterRouteSearchParamNumericRange =
       minValue: number;
       rangeType: "min";
     };
-export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[]];
+export type SamebaseRouteSearchParamValueSuggestions = readonly [string, ...string[]];
 
 /**
  * Each value type carries only the metadata the editor can safely use for that
@@ -26,7 +26,7 @@ export type NoterRouteSearchParamValueSuggestions = readonly [string, ...string[
  * Numeric `valueSuggestions` are curated dropdown rows, not the accepted route
  * range; keep them `null` when the value should use only `sampleValue`.
  */
-export type NoterRouteSearchParamValueSemantics =
+export type SamebaseRouteSearchParamValueSemantics =
   | {
       valueType: "manual";
     }
@@ -37,53 +37,53 @@ export type NoterRouteSearchParamValueSemantics =
   | {
       valueType: "numeric";
       numericDefaultValue: number;
-      numericRange: NoterRouteSearchParamNumericRange;
+      numericRange: SamebaseRouteSearchParamNumericRange;
       numericStepValue: number;
       sampleValue: string;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions | null;
+      valueSuggestions: SamebaseRouteSearchParamValueSuggestions | null;
     }
   | {
       valueType: "numeric-options";
       numericDefaultValue: number;
       sampleValue: string;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueSuggestions: SamebaseRouteSearchParamValueSuggestions;
     }
   | {
       valueType: "options";
       sampleValue: string;
-      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueSuggestions: SamebaseRouteSearchParamValueSuggestions;
     }
   | {
       valueType: "completion";
       sampleValue: string;
       valueCompletion: "tailwind-color-token";
-      valueSuggestions: NoterRouteSearchParamValueSuggestions;
+      valueSuggestions: SamebaseRouteSearchParamValueSuggestions;
     };
 
-export type NoterRouteSearchParamSemantics =
+export type SamebaseRouteSearchParamSemantics =
   | {
       searchParamKind: "presence";
     }
-  | (NoterRouteSearchParamValueSemantics & {
+  | (SamebaseRouteSearchParamValueSemantics & {
       searchParamKind: "value";
     });
 
-export type NoterRouteSearchParamAccess<Key extends string = string> = {
+export type SamebaseRouteSearchParamAccess<Key extends string = string> = {
   key: Key;
-  access: NoterRouteAccess;
+  access: SamebaseRouteAccess;
 };
 
-export type NoterRouteSearchParamSuggestion<Key extends string = string> =
-  NoterRouteSearchParamAccess<Key> & NoterRouteSearchParamSemantics;
+export type SamebaseRouteSearchParamSuggestion<Key extends string = string> =
+  SamebaseRouteSearchParamAccess<Key> & SamebaseRouteSearchParamSemantics;
 
-export type NoterRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
-  NoterRouteSearchParamSuggestion<Key>,
+export type SamebaseRouteSearchParamValueSuggestion<Key extends string = string> = Extract<
+  SamebaseRouteSearchParamSuggestion<Key>,
   { searchParamKind: "value" }
 >;
 
-export type NoterRouteStaticData = {
-  availableEnvironments?: NoterRouteAvailability;
-  access: NoterRouteAccess;
+export type SamebaseRouteStaticData = {
+  availableEnvironments?: SamebaseRouteAvailability;
+  access: SamebaseRouteAccess;
   pathSuggestion?: "hidden";
 
   /**
@@ -95,45 +95,45 @@ export type NoterRouteStaticData = {
   acceptance.
   */
   acceptedSearchKeys?: readonly string[];
-  searchParamAccess?: readonly NoterRouteSearchParamAccess[];
-  searchParamSuggestions?: readonly NoterRouteSearchParamSuggestion[];
+  searchParamAccess?: readonly SamebaseRouteSearchParamAccess[];
+  searchParamSuggestions?: readonly SamebaseRouteSearchParamSuggestion[];
 };
 
-export type NoterRouteAccessViewer = {
+export type SamebaseRouteAccessViewer = {
   accessKeys: readonly AccessKey[];
 };
 
-type NoterRouteAccessMatch = {
+type SamebaseRouteAccessMatch = {
   staticData: {
-    access: NoterRouteAccess;
+    access: SamebaseRouteAccess;
   };
 };
 
-export function canAccessNoterRouteAccess(
-  access: NoterRouteAccess,
-  viewer: NoterRouteAccessViewer,
+export function canAccessSamebaseRouteAccess(
+  access: SamebaseRouteAccess,
+  viewer: SamebaseRouteAccessViewer,
 ): boolean {
   return viewer.accessKeys.includes(access);
 }
 
-export function canAccessNoterRouteMatchesAccess(
-  matches: readonly NoterRouteAccessMatch[],
-  viewer: NoterRouteAccessViewer,
+export function canAccessSamebaseRouteMatchesAccess(
+  matches: readonly SamebaseRouteAccessMatch[],
+  viewer: SamebaseRouteAccessViewer,
 ): boolean {
-  return matches.every((match) => canAccessNoterRouteAccess(match.staticData.access, viewer));
+  return matches.every((match) => canAccessSamebaseRouteAccess(match.staticData.access, viewer));
 }
 
-export function canAccessNoterRouteStaticData(
-  staticData: NoterRouteStaticData,
-  viewer: NoterRouteAccessViewer,
-  routeEnvironment: NoterRouteEnvironment,
+export function canAccessSamebaseRouteStaticData(
+  staticData: SamebaseRouteStaticData,
+  viewer: SamebaseRouteAccessViewer,
+  routeEnvironment: SamebaseRouteEnvironment,
 ): boolean {
   return (
-    canAccessNoterRouteAccess(staticData.access, viewer) &&
-    canAccessNoterRouteAvailability(staticData.availableEnvironments, routeEnvironment)
+    canAccessSamebaseRouteAccess(staticData.access, viewer) &&
+    canAccessSamebaseRouteAvailability(staticData.availableEnvironments, routeEnvironment)
   );
 }
 
 declare module "@tanstack/react-router" {
-  interface StaticDataRouteOption extends NoterRouteStaticData {}
+  interface StaticDataRouteOption extends SamebaseRouteStaticData {}
 }

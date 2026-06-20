@@ -65,7 +65,9 @@ describe("appBootRecovery", () => {
   });
 
   it("adds a cache-busting recovery query param", () => {
-    const reloadedUrl = new URL(buildRecoveryReloadUrl(new URL("https://noter.md/?devtools=true")));
+    const reloadedUrl = new URL(
+      buildRecoveryReloadUrl(new URL("https://samebase.com/?devtools=true")),
+    );
 
     expect(reloadedUrl.searchParams.get("devtools")).toBe("true");
     expect(reloadedUrl.searchParams.has("__noter-reload")).toBe(true);
@@ -73,7 +75,7 @@ describe("appBootRecovery", () => {
 
   it("removes the cache-busting recovery query param without dropping others", () => {
     const strippedUrl = new URL(
-      stripRecoveryReloadParam(new URL("https://noter.md/?devtools=true&__noter-reload=123")),
+      stripRecoveryReloadParam(new URL("https://samebase.com/?devtools=true&__noter-reload=123")),
     );
 
     expect(strippedUrl.searchParams.get("devtools")).toBe("true");

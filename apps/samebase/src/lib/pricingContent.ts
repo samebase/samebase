@@ -17,10 +17,10 @@ export const PLAN_FEATURES = {
   free: [
     "Use your own GitHub, Convex, and Cloudflare accounts",
     "Bring your own AI usage and provider costs",
-    "No Noter-hosted agent compute included",
+    "No Samebase-hosted agent compute included",
   ],
   pro: [
-    "Managed Noter experience",
+    "Managed Samebase experience",
     "Priority for paid billing features",
     "Credits-ready path when usage metering ships",
   ],

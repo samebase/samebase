@@ -11,10 +11,10 @@ import {
 
 describe("buildMcpProtectedResourceMetadata", () => {
   it("returns canonical same-origin metadata for /mcp", () => {
-    const metadata = buildMcpProtectedResourceMetadata("https://noter.md/");
+    const metadata = buildMcpProtectedResourceMetadata("https://samebase.com/");
 
-    expect(metadata.resource).toBe("https://noter.md/mcp");
-    expect(metadata.authorization_servers).toEqual(["https://noter.md"]);
+    expect(metadata.resource).toBe("https://samebase.com/mcp");
+    expect(metadata.authorization_servers).toEqual(["https://samebase.com"]);
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
     expect(metadata.scopes_supported).toContain("vaults.read");
   });
@@ -22,11 +22,11 @@ describe("buildMcpProtectedResourceMetadata", () => {
 
 describe("buildMcpAuthorizationServerMetadata", () => {
   it("returns oauth metadata endpoints for v1", () => {
-    const metadata = buildMcpAuthorizationServerMetadata("https://noter.md");
+    const metadata = buildMcpAuthorizationServerMetadata("https://samebase.com");
 
-    expect(metadata.issuer).toBe("https://noter.md");
-    expect(metadata.authorization_endpoint).toBe("https://noter.md/oauth/mcp/authorize");
-    expect(metadata.registration_endpoint).toBe("https://noter.md/oauth/mcp/register");
+    expect(metadata.issuer).toBe("https://samebase.com");
+    expect(metadata.authorization_endpoint).toBe("https://samebase.com/oauth/mcp/authorize");
+    expect(metadata.registration_endpoint).toBe("https://samebase.com/oauth/mcp/register");
     expect(metadata.token_endpoint_auth_methods_supported).toEqual(["none"]);
     expect(metadata.code_challenge_methods_supported).toEqual(["S256"]);
   });
@@ -35,9 +35,9 @@ describe("buildMcpAuthorizationServerMetadata", () => {
 describe("validateDynamicClientRegistrationPayload", () => {
   it("accepts a valid v1 public-client payload", () => {
     const result = validateDynamicClientRegistrationPayload({
-      client_name: "Noter Manual Test",
+      client_name: "Samebase Manual Test",
       redirect_uris: ["https://example.com/callback"],
-      contacts: ["founders@noter.md"],
+      contacts: ["founders@samebase.com"],
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
@@ -47,7 +47,7 @@ describe("validateDynamicClientRegistrationPayload", () => {
     if (result.ok) {
       expect(result.value.tokenEndpointAuthMethod).toBe("none");
       expect(result.value.redirectUris).toHaveLength(1);
-      expect(result.value.contacts).toEqual(["founders@noter.md"]);
+      expect(result.value.contacts).toEqual(["founders@samebase.com"]);
     }
   });
 
@@ -111,11 +111,11 @@ describe("validateDynamicClientRegistrationPayload", () => {
 
 describe("validateAuthorizeRequestFromUrl", () => {
   it("accepts valid authorization request params", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
-    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("resource", "https://samebase.com/mcp");
     url.searchParams.set("scope", "vaults.read files.read");
     url.searchParams.set("state", "state_abc");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
@@ -131,7 +131,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
   });
 
   it("defaults missing resource to same-origin /mcp", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
@@ -142,12 +142,12 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.resource).toBe("https://noter.md/mcp");
+      expect(result.value.resource).toBe("https://samebase.com/mcp");
     }
   });
 
   it("defaults blank resource to same-origin /mcp", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
@@ -159,15 +159,15 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.resource).toBe("https://noter.md/mcp");
+      expect(result.value.resource).toBe("https://samebase.com/mcp");
     }
   });
   it("defaults missing scope to vaults.read", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
-    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("resource", "https://samebase.com/mcp");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
@@ -179,11 +179,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
   });
 
   it("defaults blank scope to vaults.read", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
-    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("resource", "https://samebase.com/mcp");
     url.searchParams.set("scope", "   ");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
@@ -195,11 +195,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
     }
   });
   it("rejects unsupported scopes", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
-    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("resource", "https://samebase.com/mcp");
     url.searchParams.set("scope", "admin");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
@@ -212,11 +212,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
   });
 
   it("rejects loopback redirect_uri when development mode is disabled", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
-    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("resource", "https://samebase.com/mcp");
     url.searchParams.set("scope", "vaults.read");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
@@ -229,11 +229,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
   });
 
   it("accepts loopback redirect_uri when development mode is enabled", () => {
-    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
-    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("resource", "https://samebase.com/mcp");
     url.searchParams.set("scope", "vaults.read");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");

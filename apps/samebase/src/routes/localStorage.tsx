@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
 import { LocalStorageWorkspacePage } from "@/components/LocalStorageWorkspacePage";
 import { LOCAL_STORAGE_ROUTE } from "@/lib/localStorageRoute";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = LOCAL_STORAGE_ROUTE;
 
@@ -15,6 +15,6 @@ function LocalStorageRouteComponent() {
 }
 
 export const Route = createFileRoute("/localStorage")({
-  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: LocalStorageRouteComponent,
 });

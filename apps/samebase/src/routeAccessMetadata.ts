@@ -1,8 +1,8 @@
-import type { NoterRouteStaticData } from "./routing/permissions";
+import type { SamebaseRouteStaticData } from "./routing/permissions";
 import type { FileRoutesByFullPath } from "./routeTree.gen";
 
-type NoterRouteMetadata = Pick<
-  NoterRouteStaticData,
+type SamebaseRouteMetadata = Pick<
+  SamebaseRouteStaticData,
   "access" | "availableEnvironments" | "pathSuggestion"
 >;
 
@@ -12,7 +12,7 @@ type NoterRouteMetadata = Pick<
  * easier for Node to resolve than the app-only `@` alias, but Vite config
  * should still stay on metadata-only modules instead of the full route tree.
  */
-const noterRouteAccessMetadataByPath = {
+const samebaseRouteAccessMetadataByPath = {
   "/": { access: "access_public" },
   "/connect-repo": { access: "access_repo_connect" },
   "/home": { access: "access_dashboard" },
@@ -44,9 +44,9 @@ const noterRouteAccessMetadataByPath = {
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo/codespace/$branch/chat": { access: "access_machines" },
   "/visual-fixture": { availableEnvironments: ["local"], access: "access_public" },
-} as const satisfies Record<keyof FileRoutesByFullPath, NoterRouteMetadata>;
+} as const satisfies Record<keyof FileRoutesByFullPath, SamebaseRouteMetadata>;
 
-export const NOTER_ROUTE_ACCESS_METADATA_BY_PATH: Record<
+export const SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH: Record<
   keyof FileRoutesByFullPath,
-  NoterRouteMetadata
-> = noterRouteAccessMetadataByPath;
+  SamebaseRouteMetadata
+> = samebaseRouteAccessMetadataByPath;

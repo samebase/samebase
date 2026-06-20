@@ -11,8 +11,8 @@ import { pick } from "@noter-md/dependent/object";
 import { AppBootErrorBoundary } from "@/components/AppBootErrorBoundary";
 import { AppRootClient } from "@/components/AppRootClient";
 import {
-  canAccessNoterRouteMatchesAvailability,
-  readNoterRouteEnvironmentForRouteGuard,
+  canAccessSamebaseRouteMatchesAvailability,
+  readSamebaseRouteEnvironmentForRouteGuard,
 } from "@/routing/availability";
 import {
   RETAINED_ROOT_SEARCH_KEYS,
@@ -21,7 +21,7 @@ import {
   type RootRouteSearch,
   validateRootRouteSearch,
 } from "@/routeSearch/root";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
 import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
 import { type AppQueryClients } from "@/lib/appQueryClient";
@@ -70,7 +70,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 export const Route = createRootRouteWithContext<AppQueryClients>()({
-  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   beforeLoad: ({ location, matches }) => {
     const rootCanonicalRouteAddress = readCanonicalRouteAddressForRootSearch({
       acceptedSearchKeys: matches.flatMap((match) => match.staticData.acceptedSearchKeys ?? []),
@@ -86,10 +86,10 @@ export const Route = createRootRouteWithContext<AppQueryClients>()({
       });
     }
 
-    const routeEnvironment = readNoterRouteEnvironmentForRouteGuard();
+    const routeEnvironment = readSamebaseRouteEnvironmentForRouteGuard();
     if (
       routeEnvironment !== null &&
-      !canAccessNoterRouteMatchesAvailability(matches, routeEnvironment)
+      !canAccessSamebaseRouteMatchesAvailability(matches, routeEnvironment)
     ) {
       throw notFound({ routeId: rootRouteId });
     }

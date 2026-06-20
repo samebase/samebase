@@ -11,18 +11,18 @@ import {
   type Sure,
 } from "@samebase/sure";
 import {
-  type NoterRouteAccess,
-  type NoterRouteSearchParamSemantics,
-  type NoterRouteSearchParamAccess,
-  type NoterRouteSearchParamValueSemantics,
-  type NoterRouteSearchParamValueSuggestions,
-  type NoterRouteSearchParamSuggestion,
+  type SamebaseRouteAccess,
+  type SamebaseRouteSearchParamSemantics,
+  type SamebaseRouteSearchParamAccess,
+  type SamebaseRouteSearchParamValueSemantics,
+  type SamebaseRouteSearchParamValueSuggestions,
+  type SamebaseRouteSearchParamSuggestion,
 } from "@/routing/permissions";
 
 type RouteSearchParamSuggestionSurface = "global" | "hidden" | "route";
 
 type RouteSearchParamMetadataBase = {
-  access: NoterRouteAccess;
+  access: SamebaseRouteAccess;
 
   /**
   Controls how the route URL editor exposes this param.
@@ -33,7 +33,7 @@ type RouteSearchParamMetadataBase = {
 };
 
 export type RouteSearchParamMetadata = RouteSearchParamMetadataBase &
-  NoterRouteSearchParamSemantics;
+  SamebaseRouteSearchParamSemantics;
 
 export type RouteSearchParamMetadataByKey<Search extends object> = Readonly<
   Record<keyof Search & string, RouteSearchParamMetadata>
@@ -87,9 +87,9 @@ export function routeSearchNormalizedFiniteNumber(normalizeValue: (value: number
   });
 }
 
-export function routeSearchStringValue<const Values extends NoterRouteSearchParamValueSuggestions>(
-  values: Values,
-) {
+export function routeSearchStringValue<
+  const Values extends SamebaseRouteSearchParamValueSuggestions,
+>(values: Values) {
   return after(routeSearchString, (value) => {
     const trimmedValue = value.trim();
     return includes(values, trimmedValue) ? good(trimmedValue) : bad("unsupported-value");
@@ -98,7 +98,7 @@ export function routeSearchStringValue<const Values extends NoterRouteSearchPara
 
 export function routeSearchValueParam<Bad, Value>(
   schema: Sure<Bad, Value, unknown>,
-  args: RouteSearchParamMetadataBase & NoterRouteSearchParamValueSemantics,
+  args: RouteSearchParamMetadataBase & SamebaseRouteSearchParamValueSemantics,
 ): RouteSearchParam<Value> {
   return sure((value) => schema(value), {
     ...args,
@@ -171,8 +171,8 @@ export function readRouteSearchParamSuggestions<
 >(
   metadata: Metadata,
   surface: RouteSearchParamSuggestionSurface,
-): readonly NoterRouteSearchParamSuggestion<keyof Metadata & string>[] {
-  const suggestions: NoterRouteSearchParamSuggestion<keyof Metadata & string>[] = [];
+): readonly SamebaseRouteSearchParamSuggestion<keyof Metadata & string>[] {
+  const suggestions: SamebaseRouteSearchParamSuggestion<keyof Metadata & string>[] = [];
 
   for (const [key, paramMetadata] of entries(metadata)) {
     if (paramMetadata.suggestion !== surface) {
@@ -192,8 +192,8 @@ export function readRouteSearchParamSuggestions<
 
 export function readRouteSearchParamAccess<
   const Metadata extends Readonly<Record<string, RouteSearchParamMetadata>>,
->(metadata: Metadata): readonly NoterRouteSearchParamAccess<keyof Metadata & string>[] {
-  const accessEntries: NoterRouteSearchParamAccess<keyof Metadata & string>[] = [];
+>(metadata: Metadata): readonly SamebaseRouteSearchParamAccess<keyof Metadata & string>[] {
+  const accessEntries: SamebaseRouteSearchParamAccess<keyof Metadata & string>[] = [];
 
   for (const [key, paramMetadata] of entries(metadata)) {
     accessEntries.push({

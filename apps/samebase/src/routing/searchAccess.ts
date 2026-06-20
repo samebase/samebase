@@ -1,20 +1,20 @@
 import { ROOT_ROUTE_SEARCH_PARAM_ACCESS } from "@/routeSearch/root";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
-  canAccessNoterRouteAccess,
-  type NoterRouteAccess,
-  type NoterRouteAccessViewer,
-  type NoterRouteSearchParamAccess,
+  canAccessSamebaseRouteAccess,
+  type SamebaseRouteAccess,
+  type SamebaseRouteAccessViewer,
+  type SamebaseRouteSearchParamAccess,
 } from "@/routing/permissions";
 
-type NoterRouteSearchAccessMatch = {
+type SamebaseRouteSearchAccessMatch = {
   staticData: {
-    access: NoterRouteAccess;
-    searchParamAccess?: readonly NoterRouteSearchParamAccess[];
+    access: SamebaseRouteAccess;
+    searchParamAccess?: readonly SamebaseRouteSearchParamAccess[];
   };
 };
 
-type NoterRouteSearchLocation = {
+type SamebaseRouteSearchLocation = {
   hash: string;
   pathname: string;
   searchStr: string;
@@ -22,8 +22,8 @@ type NoterRouteSearchLocation = {
 
 function readRouteSearchParamAccess(args: {
   key: string;
-  matches: readonly NoterRouteSearchAccessMatch[];
-}): NoterRouteAccess | null {
+  matches: readonly SamebaseRouteSearchAccessMatch[];
+}): SamebaseRouteAccess | null {
   const rootSearchAccess = readMatchingSearchParamAccess(args.key, ROOT_ROUTE_SEARCH_PARAM_ACCESS);
   if (rootSearchAccess !== null) {
     return rootSearchAccess;
@@ -44,8 +44,8 @@ function readRouteSearchParamAccess(args: {
 
 function readMatchingSearchParamAccess(
   key: string,
-  accessEntries: readonly NoterRouteSearchParamAccess[],
-): NoterRouteAccess | null {
+  accessEntries: readonly SamebaseRouteSearchParamAccess[],
+): SamebaseRouteAccess | null {
   for (const accessEntry of accessEntries) {
     if (accessEntry.key === key) {
       return accessEntry.access;
@@ -56,7 +56,7 @@ function readMatchingSearchParamAccess(
 }
 
 export function routeSearchNeedsViewerAccess(args: {
-  matches: readonly NoterRouteSearchAccessMatch[];
+  matches: readonly SamebaseRouteSearchAccessMatch[];
   searchStr: string;
 }): boolean {
   const search = parseTanStackSearch(args.searchStr);
@@ -75,9 +75,9 @@ export function routeSearchNeedsViewerAccess(args: {
 }
 
 export function readRouteSearchAccessCanonicalRouteAddress(args: {
-  location: NoterRouteSearchLocation;
-  matches: readonly NoterRouteSearchAccessMatch[];
-  viewer: NoterRouteAccessViewer;
+  location: SamebaseRouteSearchLocation;
+  matches: readonly SamebaseRouteSearchAccessMatch[];
+  viewer: SamebaseRouteAccessViewer;
 }): string | null {
   const search = parseTanStackSearch(args.location.searchStr);
   const canonicalSearch = { ...search };
@@ -88,7 +88,7 @@ export function readRouteSearchAccessCanonicalRouteAddress(args: {
       key,
       matches: args.matches,
     });
-    if (access === null || canAccessNoterRouteAccess(access, args.viewer)) {
+    if (access === null || canAccessSamebaseRouteAccess(access, args.viewer)) {
       continue;
     }
 

@@ -9,7 +9,7 @@ import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { NEW_APP_ROUTE } from "./lib/newAppRoute";
-import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/noterSync";
+import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/samebaseSync";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { PROVIDERS_ROUTE } from "./lib/providersRoute";
 

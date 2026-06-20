@@ -6,9 +6,9 @@
   role="img"
   aria-labelledby="title desc"
 >
-  <title id="title">noter.md social card</title>
+  <title id="title">samebase.com social card</title>
   <desc id="desc">
-    noter.md logo and the text GitHub-backed workspace for AI agents.
+    Samebase logo and the text GitHub-backed workspace for notes, code, and AI.
   </desc>
 
   <rect width="1200" height="630" fill="#ffffff" />
@@ -26,7 +26,7 @@
     font-weight="650"
     letter-spacing="0"
   >
-    noter.md
+    samebase.com
   </text>
   <text
     x="560"
@@ -37,6 +37,6 @@
     font-weight="430"
     letter-spacing="0"
   >
-    GitHub-backed workspace for AI agents
+    GitHub-backed workspace for notes, code, and AI
   </text>
 </svg>

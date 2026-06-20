@@ -7,7 +7,7 @@ describe("McpConsentSignInNotice", () => {
     const markup = renderToStaticMarkup(<McpConsentSignInNotice />);
 
     expect(markup).toContain("Temporary MCP sign-in note");
-    expect(markup).toContain("already signed in to Noter in this same browser");
+    expect(markup).toContain("already signed in to Samebase in this same browser");
     expect(markup).toContain("click Authenticate in Codex");
     expect(markup).toContain("press Authenticate again");
   });

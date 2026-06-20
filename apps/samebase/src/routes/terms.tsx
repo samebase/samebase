@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TermsOfServicePage } from "@/components/TermsOfServicePage";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/terms";
@@ -14,6 +14,6 @@ function TermsRouteComponent() {
 }
 
 export const Route = createFileRoute("/terms")({
-  staticData: NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   component: TermsRouteComponent,
 });

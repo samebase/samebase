@@ -7,7 +7,7 @@ import {
   readLogoRouteSearchParamSuggestionsForRenderer,
   validateLogoIsoRouteSearch,
 } from "@/routeSearch/logo";
-import { NOTER_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
+import { SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/logo/iso";
 
@@ -33,7 +33,7 @@ function LogoIsoRouteComponent() {
 
 export const Route = createFileRoute("/logo/iso")({
   staticData: {
-    ...NOTER_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    ...SAMEBASE_ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ISO_ROUTE_SEARCH_KEYS,
     searchParamAccess: LOGO_ISO_ROUTE_SEARCH_PARAM_ACCESS,
     searchParamSuggestions: readLogoRouteSearchParamSuggestionsForRenderer("iso"),

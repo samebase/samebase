@@ -43,15 +43,15 @@ describe("useCloseOAuthPopup", () => {
   it("redirects the opener to the dashboard after popup auth completes on the dashboard route", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
     const openerLocation = {
-      href: "https://noter.md/",
-      origin: "https://noter.md",
+      href: "https://samebase.com/",
+      origin: "https://samebase.com",
       reload: openerReloadMock,
     };
     vi.stubGlobal("window", {
       close: closeMock,
       location: {
         hash: "#ready",
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/home",
         search: "?prod-ui",
       },
@@ -79,8 +79,8 @@ describe("useCloseOAuthPopup", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
     const opener = {
       location: {
-        href: "https://noter.md/",
-        origin: "https://noter.md",
+        href: "https://samebase.com/",
+        origin: "https://samebase.com",
         reload: openerReloadMock,
       },
       postMessage: openerPostMessageMock,
@@ -95,7 +95,7 @@ describe("useCloseOAuthPopup", () => {
       close: closeMock,
       location: {
         hash: "",
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/home",
         search: "?prod-ui",
       },
@@ -116,7 +116,7 @@ describe("useCloseOAuthPopup", () => {
           __convexAuthAccessToken: "token",
         },
       },
-      "https://noter.md",
+      "https://samebase.com",
     );
     expect(openerReloadMock).not.toHaveBeenCalled();
     expect(closeMock).toHaveBeenCalledTimes(1);
@@ -128,7 +128,7 @@ describe("useCloseOAuthPopup", () => {
       close: closeMock,
       location: {
         hash: "",
-        origin: "https://noter.md",
+        origin: "https://samebase.com",
         pathname: "/home",
         search: "",
       },

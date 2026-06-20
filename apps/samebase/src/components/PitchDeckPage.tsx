@@ -9,12 +9,12 @@ const pdfDownloads = [
   {
     label: "Desktop PDF",
     href: "/pitch-deck.pdf",
-    download: "noter-pitch-deck.pdf",
+    download: "samebase-pitch-deck.pdf",
   },
   {
     label: "Mobile PDF",
     href: "/pitch-deck-mobile.pdf",
-    download: "noter-pitch-deck-mobile.pdf",
+    download: "samebase-pitch-deck-mobile.pdf",
   },
 ] as const;
 
@@ -178,9 +178,9 @@ function PrintDesktopSurface() {
             <span>App-owned</span>
           </div>
           <img
-            alt="Noter visual surface"
+            alt="Samebase visual surface"
             className="border-border block h-[220px] w-full border object-cover"
-            src="/noter-social-card.png"
+            src="/samebase-social-card.png"
           />
         </div>
 
@@ -236,8 +236,8 @@ function PrintMobileSurface() {
             One route. Two print presets. Zero slide framework.
           </h1>
           <p className="text-muted-foreground max-w-[34ch] text-[16px] leading-[1.45]">
-            The deck lives inside Noter as normal UI and exports direct desktop and mobile PDFs from
-            fixed print surfaces.
+            The deck lives inside Samebase as normal UI and exports direct desktop and mobile PDFs
+            from fixed print surfaces.
           </p>
         </div>
       </section>
@@ -248,9 +248,9 @@ function PrintMobileSurface() {
           <span>App-owned</span>
         </div>
         <img
-          alt="Noter visual surface"
+          alt="Samebase visual surface"
           className="border-border block h-[210px] w-full border object-cover"
-          src="/noter-social-card.png"
+          src="/samebase-social-card.png"
         />
       </div>
 
@@ -371,7 +371,7 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
           <div className="space-y-4">
             <h1 className={classes.title}>One route. Two print presets. Zero slide framework.</h1>
             <p className={classes.subtitle}>
-              This placeholder slide proves the deck can live inside Noter as normal UI, stay
+              This placeholder slide proves the deck can live inside Samebase as normal UI, stay
               responsive on <code>/pitch</code>, and expose direct desktop and mobile PDF downloads
               generated from the export pipeline.
             </p>
@@ -413,9 +413,9 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
             <span>App-owned</span>
           </div>
           <img
-            alt="Noter visual surface"
+            alt="Samebase visual surface"
             className="border-border block w-full border object-cover"
-            src="/noter-social-card.png"
+            src="/samebase-social-card.png"
           />
         </div>
 

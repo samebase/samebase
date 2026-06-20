@@ -1,10 +1,10 @@
 import { entries } from "@noter-md/dependent/object";
 import {
-  canAccessNoterRouteAccess,
-  canAccessNoterRouteStaticData,
-  type NoterRouteAccessViewer,
-  type NoterRouteSearchParamSuggestion,
-  type NoterRouteSearchParamValueSuggestion,
+  canAccessSamebaseRouteAccess,
+  canAccessSamebaseRouteStaticData,
+  type SamebaseRouteAccessViewer,
+  type SamebaseRouteSearchParamSuggestion,
+  type SamebaseRouteSearchParamValueSuggestion,
 } from "@/routing/permissions";
 import {
   hasRouteAddressNonEmptySearchTokenAfter,
@@ -169,13 +169,13 @@ index.
 
 Example:
 
-`prefix = "https://noter.md/"`
+`prefix = "https://samebase.com/"`
 
-`inputValue = "https://noter.md/logo?"`
+`inputValue = "https://samebase.com/logo?"`
 
 `routeAddress = "/logo?"`
 
-`selection.start = 16` means `inputValue.slice(0, 16) === "https://noter.md"`.
+`selection.start = 16` means `inputValue.slice(0, 16) === "https://samebase.com"`.
 That maps to route boundary `0`, before the shared `/`.
 
 `selection.start = 17` means `inputValue.slice(0, 17) === prefix`.
@@ -264,18 +264,18 @@ suggested in `/logo?`, and a route-specific duplicate wins after access
 filtering.
 */
 function readSearchParams(
-  routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[],
-  viewer: NoterRouteAccessViewer,
-): NoterRouteSearchParamSuggestion[] {
+  routeSearchParamSuggestions: readonly SamebaseRouteSearchParamSuggestion[],
+  viewer: SamebaseRouteAccessViewer,
+): SamebaseRouteSearchParamSuggestion[] {
   const searchParamSuggestions = [
     ...routeSearchParamSuggestions,
     ...ROOT_ROUTE_GLOBAL_SEARCH_PARAM_SUGGESTIONS,
   ];
   const seenKeys = new Set<string>();
-  const uniqueSuggestions: NoterRouteSearchParamSuggestion[] = [];
+  const uniqueSuggestions: SamebaseRouteSearchParamSuggestion[] = [];
 
   for (const searchParamSuggestion of searchParamSuggestions) {
-    if (!canAccessNoterRouteAccess(searchParamSuggestion.access, viewer)) {
+    if (!canAccessSamebaseRouteAccess(searchParamSuggestion.access, viewer)) {
       continue;
     }
 
@@ -291,7 +291,7 @@ function readSearchParams(
 }
 
 function readSearchParamSampleValue(
-  searchParamSuggestion: NoterRouteSearchParamValueSuggestion,
+  searchParamSuggestion: SamebaseRouteSearchParamValueSuggestion,
 ): string | null {
   switch (searchParamSuggestion.valueType) {
     case "manual":
@@ -315,9 +315,9 @@ still choose a different value.
 */
 function readSearchRows(args: {
   routeAddress: string;
-  routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
+  routeSearchParamSuggestions: readonly SamebaseRouteSearchParamSuggestion[];
   searchKeyToken: RouteAddressSearchToken;
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 }): Suggestion[] {
   const suggestions: Suggestion[] = [];
   const existingKeys = readRouteAddressSearchKeysOutsideToken(
@@ -398,10 +398,10 @@ the `blue` family. Selecting `500` uses `/logo?top=blue-500`.
 */
 function readValueRows(args: {
   routeAddress: string;
-  routeSearchParamSuggestions: readonly NoterRouteSearchParamSuggestion[];
+  routeSearchParamSuggestions: readonly SamebaseRouteSearchParamSuggestion[];
   token: Extract<RouteAddressSearchToken, { kind: "value" }>;
   valuePrefix: string;
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 }): Suggestion[] {
   const searchParamSuggestion = readSearchParams(
     args.routeSearchParamSuggestions,
@@ -534,7 +534,7 @@ function readRouteHashKeys(args: {
   origin: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 }): readonly string[] {
   const parsedRouteAddress = parseRouteAddress(args.routeAddress);
   const routeEnvironment = readRouteUrlPathSuggestionEnvironment({
@@ -545,7 +545,7 @@ function readRouteHashKeys(args: {
   const routeEntry = entries(args.routesByPath).find(
     ([routePath, route]) =>
       routePath === parsedRouteAddress.path &&
-      canAccessNoterRouteStaticData(route.options.staticData, args.viewer, routeEnvironment),
+      canAccessSamebaseRouteStaticData(route.options.staticData, args.viewer, routeEnvironment),
   );
 
   return typeof routeEntry === "undefined"
@@ -560,7 +560,7 @@ function readHashRows(args: {
   prefix: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
   const routeAddressParts = parseRouteAddress(args.routeAddress);
@@ -602,7 +602,7 @@ function readPathRows(args: {
   prefix: string;
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 }): Suggestion[] {
   const origin = args.prefix.slice(0, -1);
 
@@ -651,7 +651,7 @@ export function readSuggestions(args: {
   routeAddress: string;
   routesByPath: AppRouter["routesByPath"];
   selection: Selection | null;
-  viewer: NoterRouteAccessViewer;
+  viewer: SamebaseRouteAccessViewer;
 }): Suggestion[] {
   const routeAddressParts = parseRouteAddress(args.routeAddress);
 
