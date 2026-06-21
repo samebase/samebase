@@ -1,6 +1,7 @@
 import {
   AppAuthPresentationContext,
   readLocalAppAuthPresentationHint,
+  type AppAuthPresentationProfile,
   type AppAuthPresentationState,
 } from "@/lib/appAuthPresentationState";
 import { clearAppAuthPresentationPrehydration } from "@/lib/appAuthPresentationPrehydration";
@@ -8,6 +9,33 @@ import { useConvexAuth } from "convex/react";
 import { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
 type LocalAuthHintState = { kind: "unread" } | ReturnType<typeof readLocalAppAuthPresentationHint>;
+
+function readInitialLocalAuthHint(storageNamespace: string): LocalAuthHintState {
+  if (typeof window === "undefined") {
+    return { kind: "unread" };
+  }
+
+  return readLocalAppAuthPresentationHint(storageNamespace);
+}
+
+function areProfilesEqual(left: AppAuthPresentationProfile, right: AppAuthPresentationProfile) {
+  return left.email === right.email && left.name === right.name;
+}
+
+function areLocalAuthHintsEqual(left: LocalAuthHintState, right: LocalAuthHintState) {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+
+  switch (left.kind) {
+    case "pending":
+    case "signedOut":
+    case "unread":
+      return true;
+    case "present":
+      return right.kind === "present" && areProfilesEqual(left.profile, right.profile);
+  }
+}
 
 export function AppAuthPresentationProvider({
   children,
@@ -17,11 +45,18 @@ export function AppAuthPresentationProvider({
   storageNamespace: string;
 }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const [localAuthHint, setLocalAuthHint] = useState<LocalAuthHintState>({ kind: "unread" });
+  const [localAuthHint, setLocalAuthHint] = useState<LocalAuthHintState>(() =>
+    readInitialLocalAuthHint(storageNamespace),
+  );
 
-  // The local JWT hint has to land before paint so hydration preserves the head prehydration label.
+  // Re-read when the deployment namespace changes after the initial browser render.
   useLayoutEffect(() => {
-    setLocalAuthHint(readLocalAppAuthPresentationHint(storageNamespace));
+    const nextLocalAuthHint = readLocalAppAuthPresentationHint(storageNamespace);
+    setLocalAuthHint((currentLocalAuthHint) =>
+      areLocalAuthHintsEqual(currentLocalAuthHint, nextLocalAuthHint)
+        ? currentLocalAuthHint
+        : nextLocalAuthHint,
+    );
   }, [storageNamespace]);
 
   const presentationState = useMemo((): AppAuthPresentationState => {
