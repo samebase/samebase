@@ -19,12 +19,14 @@ import {
   isProdUiModeEnabled,
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
-import { readRootRouteSearch } from "@/routeSearch/root";
+import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
+
+type PasswordAuthFlow = "signIn" | "signUp";
 
 /**
  * SSG cannot read per-browser auth preferences. Password auth controls that
@@ -54,6 +56,10 @@ function readLocalWorktreePasswordCredentials(): {
     return null;
   }
   return { email, password };
+}
+
+function resolvePasswordAuthFlow(routeSearch: RootRouteSearch): PasswordAuthFlow {
+  return routeSearch["create-account"] === true ? "signUp" : "signIn";
 }
 
 function usePublicLandingPasswordAuthControls(): {
@@ -179,7 +185,11 @@ export function PublicLandingAuthControls() {
         markPublicSignupReturn={markPublicSignupReturn}
       />
       {passwordAuthSurface !== "hidden" ? (
-        <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
+        <PasswordAuthForm
+          flow={resolvePasswordAuthFlow(rootRouteSearch)}
+          onSignIn={onPasswordSignIn}
+          surface={passwordAuthSurface}
+        />
       ) : null}
     </div>
   );
@@ -188,6 +198,10 @@ export function PublicLandingAuthControls() {
 export function PublicLandingPasswordAuthControls() {
   const { isAuthenticated } = useConvexAuth();
   const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+  const searchStr = useLocation({
+    select: (location) => location.searchStr,
+  });
+  const rootRouteSearch = readRootRouteSearch(searchStr);
 
   if (isAuthenticated || passwordAuthSurface === "hidden") {
     return null;
@@ -198,25 +212,35 @@ export function PublicLandingPasswordAuthControls() {
       data-testid={PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
-      <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
+      <PasswordAuthForm
+        flow={resolvePasswordAuthFlow(rootRouteSearch)}
+        onSignIn={onPasswordSignIn}
+        surface={passwordAuthSurface}
+      />
     </div>
   );
 }
 
 export function PasswordAuthForm({
+  flow,
   onSignIn,
   surface,
 }: {
+  flow: PasswordAuthFlow;
   onSignIn?: () => Promise<unknown> | void;
   surface: Exclude<PasswordAuthSurface, "hidden">;
 }) {
   const { signInWithPassword } = useAppSignInActions();
-  const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
+  const [selectedFlow, setSelectedFlow] = useState<PasswordAuthFlow>(flow);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const effectiveFlow = surface === "preview" ? "signIn" : flow;
+  const effectiveFlow = selectedFlow;
+
+  useEffect(() => {
+    setSelectedFlow(flow);
+  }, [flow]);
 
   const submitLabel = pending
     ? effectiveFlow === "signIn"
@@ -263,11 +287,11 @@ export function PasswordAuthForm({
             className="h-auto px-2 py-1 text-xs"
             onClick={() => {
               setError(null);
-              setFlow((current) => (current === "signIn" ? "signUp" : "signIn"));
+              setSelectedFlow((current) => (current === "signIn" ? "signUp" : "signIn"));
             }}
             disabled={pending}
           >
-            {flow === "signIn" ? "Need an account?" : "Have an account?"}
+            {selectedFlow === "signIn" ? "Need an account?" : "Have an account?"}
           </Button>
         ) : null}
       </div>
@@ -314,7 +338,7 @@ export function PasswordAuthForm({
                 const nextFlow = "signIn";
                 const nextEmail = credentials.email;
                 const nextPassword = credentials.password;
-                setFlow(nextFlow);
+                setSelectedFlow(nextFlow);
                 setError(null);
                 setEmail(nextEmail);
                 setPassword(nextPassword);

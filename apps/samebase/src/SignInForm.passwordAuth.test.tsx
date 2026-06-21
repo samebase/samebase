@@ -56,7 +56,7 @@ vi.mock("convex/react", () => ({
 }));
 
 function renderPasswordAuthForm(surface: "local_worktree" | "preview"): string {
-  return renderToStaticMarkup(<PasswordAuthForm surface={surface} />);
+  return renderToStaticMarkup(<PasswordAuthForm flow="signIn" surface={surface} />);
 }
 
 async function settleHydrationUpdate() {
@@ -197,7 +197,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PasswordAuthForm surface="local_worktree" />);
+      localRoot.render(<PasswordAuthForm flow="signIn" surface="local_worktree" />);
     });
 
     const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
@@ -228,7 +228,9 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PasswordAuthForm surface="local_worktree" onSignIn={onSignIn} />);
+      localRoot.render(
+        <PasswordAuthForm flow="signIn" surface="local_worktree" onSignIn={onSignIn} />,
+      );
     });
 
     const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
