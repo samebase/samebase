@@ -20,28 +20,15 @@ import {
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
 import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
+import { readBrowserRouteEnvironment, type RouteEnvironment } from "@/routing/availability";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
 type PasswordAuthFlow = "signIn" | "signUp";
-
-/**
- * SSG cannot read per-browser auth preferences. Password auth controls that
- * come from localStorage or cached deployment policy therefore wait until
- * hydration has attached to the anonymous static shell.
- */
-function useHasHydrated() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  return hasHydrated;
-}
 
 function readLocalWorktreePasswordCredentials(): {
   email: string;
@@ -58,6 +45,30 @@ function readLocalWorktreePasswordCredentials(): {
   return { email, password };
 }
 
+function resolveRouteEnvironmentPasswordAuthMode(
+  routeEnvironment: RouteEnvironment,
+): PublicPasswordAuthMode | undefined {
+  switch (routeEnvironment) {
+    case "local":
+      return readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : undefined;
+    case "preview":
+      return "preview_seed";
+    case "production":
+      return undefined;
+    default:
+      routeEnvironment satisfies never;
+      return undefined;
+  }
+}
+
+function readInitialPasswordAuthMode(): PublicPasswordAuthMode | undefined {
+  if (readLocalWorktreePasswordCredentials()) {
+    return "local_worktree_seed";
+  }
+
+  return resolveRouteEnvironmentPasswordAuthMode(readBrowserRouteEnvironment());
+}
+
 function resolvePasswordAuthFlow(routeSearch: RootRouteSearch): PasswordAuthFlow {
   return routeSearch["create-account"] === true ? "signUp" : "signIn";
 }
@@ -68,7 +79,6 @@ function usePublicLandingPasswordAuthControls(): {
 } {
   const navigate = useNavigate();
   const { isAuthenticated } = useConvexAuth();
-  const hasHydrated = useHasHydrated();
   const [passwordSignInReadyForDashboard, setPasswordSignInReadyForDashboard] = useState(false);
   const searchStr = useLocation({
     select: (location) => location.searchStr,
@@ -84,15 +94,12 @@ function usePublicLandingPasswordAuthControls(): {
     search: rootRouteSearch,
   });
   const passwordAuthMode = resolvePublicLandingPasswordAuthMode(
-    deploymentAuthPolicy?.passwordAuthMode ??
-      (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : undefined),
+    deploymentAuthPolicy?.passwordAuthMode ?? readInitialPasswordAuthMode(),
   );
-  const passwordAuthSurface = hasHydrated
-    ? getVisiblePasswordAuthSurface({
-        passwordAuthMode,
-        prodUiModeEnabled,
-      })
-    : "hidden";
+  const passwordAuthSurface = getVisiblePasswordAuthSurface({
+    passwordAuthMode,
+    prodUiModeEnabled,
+  });
 
   useEffect(() => {
     const nextPasswordAuthMode = deploymentAuthPolicy?.passwordAuthMode;
@@ -195,28 +202,53 @@ export function PublicLandingAuthControls() {
   );
 }
 
-export function PublicLandingPasswordAuthControls() {
+export function PublicLandingSidebarAuthControls() {
   const { isAuthenticated } = useConvexAuth();
-  const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
-  const searchStr = useLocation({
-    select: (location) => location.searchStr,
+  const location = useLocation({
+    select: (currentLocation) => ({
+      pathname: currentLocation.pathname,
+      searchStr: currentLocation.searchStr,
+    }),
   });
-  const rootRouteSearch = readRootRouteSearch(searchStr);
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
+  const showAuthRoute =
+    location.pathname === "/" &&
+    (rootRouteSearch["sign-in"] === true || rootRouteSearch["create-account"] === true);
+  const showGoogleAuth =
+    showAuthRoute && shouldShowGoogleAuthForPathname(location.pathname, rootRouteSearch);
+  const markPublicSignupReturn = shouldRenderPublicLandingWithoutAuthGate(
+    location.pathname,
+    rootRouteSearch,
+  );
+  const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
+  const showPasswordAuth = showAuthRoute && passwordAuthSurface !== "hidden";
 
-  if (isAuthenticated || passwordAuthSurface === "hidden") {
+  if (isAuthenticated || (!showGoogleAuth && !showPasswordAuth)) {
     return null;
   }
+
+  const authReturn = location.pathname === "/" ? "dashboard" : undefined;
 
   return (
     <div
       data-testid={PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
-      <PasswordAuthForm
-        flow={resolvePasswordAuthFlow(rootRouteSearch)}
-        onSignIn={onPasswordSignIn}
-        surface={passwordAuthSurface}
-      />
+      <div className="flex flex-col gap-2">
+        {showGoogleAuth ? (
+          <SignInWithGoogle
+            authReturn={authReturn}
+            markPublicSignupReturn={markPublicSignupReturn}
+          />
+        ) : null}
+        {showPasswordAuth ? (
+          <PasswordAuthForm
+            flow={resolvePasswordAuthFlow(rootRouteSearch)}
+            onSignIn={onPasswordSignIn}
+            surface={passwordAuthSurface}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
