@@ -204,6 +204,14 @@ function GitHubConnectionDetails({
   );
 }
 
+function GitHubDisconnectedDetails({ notice }: { notice: string | null }) {
+  if (!notice) {
+    return null;
+  }
+
+  return <div className="space-y-1 text-xs leading-5 text-muted-foreground">{notice}</div>;
+}
+
 function ProviderConnectionRows({
   providerRows,
 }: {
@@ -506,6 +514,7 @@ export function ProviderConnectionsPage() {
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
   const [githubHealth, setGithubHealth] = useState<AppGithubConnectionHealth | null>(null);
   const [githubHealthError, setGithubHealthError] = useState<string | null>(null);
+  const [githubDisconnectedNotice, setGithubDisconnectedNotice] = useState<string | null>(null);
   const [isCheckingGithubAccess, setIsCheckingGithubAccess] = useState(false);
   const [isReauthorizingGithub, setIsReauthorizingGithub] = useState(false);
   const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] = useState(false);
@@ -655,6 +664,7 @@ export function ProviderConnectionsPage() {
         return;
       }
       clearGithubReauthorizePopupCloseTimer();
+      setGithubDisconnectedNotice(null);
       setIsReauthorizingGithub(false);
     },
     [clearGithubReauthorizePopupCloseTimer],
@@ -693,7 +703,8 @@ export function ProviderConnectionsPage() {
       githubPopupRef.current = null;
       githubPopupOriginRef.current = null;
       setGithubHealth(null);
-      setGithubHealthError("GitHub was disconnected. Finish reauthorizing to reconnect.");
+      setGithubHealthError(null);
+      setGithubDisconnectedNotice("GitHub was disconnected. Finish reauthorizing to reconnect.");
       setIsReauthorizingGithub(false);
     }, 500);
   };
@@ -763,6 +774,9 @@ export function ProviderConnectionsPage() {
   const handleConnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
     const providerMetadata = PROVIDER_METADATA[provider];
+    if (provider === "github") {
+      setGithubDisconnectedNotice(null);
+    }
     try {
       const oauthUrl =
         provider === "github"
@@ -793,6 +807,7 @@ export function ProviderConnectionsPage() {
     }
 
     setGithubHealthError(null);
+    setGithubDisconnectedNotice(null);
     setIsReauthorizingGithub(true);
     try {
       const oauthUrl = await reauthorizeGithubOAuth({
@@ -826,6 +841,7 @@ export function ProviderConnectionsPage() {
         clearGithubReauthorizePopupCloseTimer();
         setGithubHealth(null);
         setGithubHealthError(null);
+        setGithubDisconnectedNotice(null);
         setIsCheckingGithubAccess(false);
         setIsReauthorizingGithub(false);
       }
@@ -977,7 +993,8 @@ export function ProviderConnectionsPage() {
         ]
       : [
           {
-            disabled: disconnectingProvider !== null,
+            disabled:
+              disconnectingProvider !== null || (provider === "github" && isReauthorizingGithub),
             key: "oauth",
             label: providerMetadata.oauthButtonLabel,
             onClick: () => {
@@ -987,7 +1004,9 @@ export function ProviderConnectionsPage() {
           ...(apiKeyProvider
             ? [
                 {
-                  disabled: disconnectingProvider !== null,
+                  disabled:
+                    disconnectingProvider !== null ||
+                    (provider === "github" && isReauthorizingGithub),
                   key: "api-key",
                   label: "Use API key",
                   onClick: () => openApiKeyDialog(apiKeyProvider),
@@ -999,14 +1018,18 @@ export function ProviderConnectionsPage() {
     return {
       actions,
       details:
-        provider === "github" && githubProviderSummary?.connected === true ? (
-          <GitHubConnectionDetails
-            error={githubHealthError}
-            health={githubHealth}
-            isChecking={isCheckingGithubAccess}
-            now={now}
-            summary={githubProviderSummary}
-          />
+        provider === "github" ? (
+          githubProviderSummary?.connected === true ? (
+            <GitHubConnectionDetails
+              error={githubHealthError}
+              health={githubHealth}
+              isChecking={isCheckingGithubAccess}
+              now={now}
+              summary={githubProviderSummary}
+            />
+          ) : githubDisconnectedNotice ? (
+            <GitHubDisconnectedDetails notice={githubDisconnectedNotice} />
+          ) : undefined
         ) : undefined,
       icon: providerMetadata.icon,
       key: provider,

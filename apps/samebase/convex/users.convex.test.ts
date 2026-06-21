@@ -396,6 +396,156 @@ describe("users Convex contract", () => {
     }
   });
 
+  it("reports rejected GitHub credentials and skips repository checks", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId: insertedUserId,
+        auth: {
+          method: "oauth",
+          credential: "github-oauth-token",
+        },
+        username: "stored-login",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      return insertedUserId;
+    });
+    const requestedUrls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        requestedUrls.push(url);
+
+        if (url === "https://api.github.com/user") {
+          return new Response("denied", { status: 401 });
+        }
+
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    try {
+      const asUser = t.withIdentity({
+        subject: `${userId}|test-session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+
+      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+
+      expect(requestedUrls).toEqual(["https://api.github.com/user"]);
+      expect(health.checks).toMatchObject([
+        {
+          key: "profile",
+          status: "error",
+          message: "GitHub rejected this credential. Reconnect GitHub.",
+        },
+        {
+          key: "repositories",
+          status: "unknown",
+          message: "Skipped because the profile check failed.",
+        },
+      ]);
+      expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reports GitHub repository listing authorization failures", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId: insertedUserId,
+        auth: {
+          method: "oauth",
+          credential: "github-oauth-token",
+        },
+        username: "stored-login",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      return insertedUserId;
+    });
+    const requestedUrls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        requestedUrls.push(url);
+
+        if (url === "https://api.github.com/user") {
+          return new Response(JSON.stringify({ login: "live-login" }), {
+            headers: {
+              "x-oauth-scopes": "repo",
+            },
+          });
+        }
+        if (url.startsWith("https://api.github.com/user/repos")) {
+          return new Response("denied", { status: 403 });
+        }
+
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    try {
+      const asUser = t.withIdentity({
+        subject: `${userId}|test-session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+
+      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+
+      expect(requestedUrls).toEqual([
+        "https://api.github.com/user",
+        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner,collaborator,organization_member",
+      ]);
+      expect(health.checks).toMatchObject([
+        {
+          key: "profile",
+          status: "ok",
+          message: "Authenticated as live-login.",
+        },
+        {
+          key: "repositories",
+          status: "error",
+          message: "GitHub denied this request. Check org approval, SSO, or rate limits.",
+        },
+      ]);
+      expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
+        "granted",
+        "missing",
+        "missing",
+        "missing",
+        "missing",
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("reports whether the Cloudflare connection still needs account selection", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

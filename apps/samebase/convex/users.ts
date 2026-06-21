@@ -215,7 +215,6 @@ function isGitHubOAuthScopeGranted(scope: string, grantedScopes: Set<string>): b
 }
 
 export function buildGithubRequiredScopeHealth(args: {
-  authMethod: "oauth" | "api_key";
   grantedScopes: readonly string[];
   scopeReportAvailable: boolean;
 }): GithubConnectionHealth["requiredScopes"] {
@@ -558,7 +557,6 @@ export const checkGithubConnectionHealth = action({
         checkedAt,
         grantedScopes: [],
         requiredScopes: buildGithubRequiredScopeHealth({
-          authMethod: "oauth",
           grantedScopes: [],
           scopeReportAvailable: false,
         }),
@@ -661,7 +659,6 @@ export const checkGithubConnectionHealth = action({
       checkedAt,
       grantedScopes,
       requiredScopes: buildGithubRequiredScopeHealth({
-        authMethod: connection.auth.method,
         grantedScopes,
         scopeReportAvailable,
       }),
