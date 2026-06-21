@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
+import { type WorkspaceLayoutV2LeftPaneMode } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
 import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
@@ -37,10 +38,12 @@ function WorkspaceLayoutV2TestSidebarProvider({
 function renderFullPageMarkup({
   includeLeftPane = true,
   includeRightPane = true,
+  leftPaneMode,
   mainHeader = OMIT_HEADER,
 }: {
   includeLeftPane?: boolean;
   includeRightPane?: boolean;
+  leftPaneMode?: WorkspaceLayoutV2LeftPaneMode;
   mainHeader?: ReactNode | typeof OMIT_HEADER;
 }) {
   const mainProps =
@@ -65,6 +68,7 @@ function renderFullPageMarkup({
               }
             : undefined
         }
+        leftPaneMode={leftPaneMode}
         main={mainProps}
         right={
           includeRightPane
@@ -150,6 +154,32 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("right pane");
     expect(markup).not.toContain("left pane");
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
+    expect(markup).toContain('aria-label="Toggle Right Sidebar"');
+  });
+
+  it("reserves a desktop left pane without exposing a left toggle", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceLayoutV2TestSidebarProvider rightOpen>
+        <WorkspaceLayoutV2FullPage
+          left={{}}
+          leftPaneMode="reserved"
+          main={{
+            header: <div data-testid="main-header-actions">/landing</div>,
+            content: <div>main pane</div>,
+          }}
+          right={{
+            content: <div>right pane</div>,
+          }}
+        />
+      </WorkspaceLayoutV2TestSidebarProvider>,
+    );
+
+    expect(markup).toContain("main pane");
+    expect(markup).not.toContain("left pane");
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).toContain('data-workspace-layout-v2-mobile-absent=""');
+    expect(markup).toContain('data-workspace-layout-v2-toggle-spacer="left"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
   });

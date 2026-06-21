@@ -6,7 +6,10 @@ import {
   type WorkspaceLayoutV2PaneFrameProps,
 } from "./WorkspaceLayoutV2PaneFrame";
 import { type WorkspaceLayoutV2BottomPanelProps } from "./WorkspaceLayoutV2BottomPanel";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
+import {
+  type WorkspaceLayoutV2LeftPaneMode,
+  type WorkspaceLayoutV2MobileMinResizeBehavior,
+} from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2 } from "./WorkspaceLayoutV2";
 import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
 
@@ -16,12 +19,15 @@ import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
  * desktop = shows sidebar toggle on desktop only
  *
  * hidden = hides sidebar toggle on both desktop and mobile
+ *
+ * reserved = keeps the desktop toggle slot without exposing a control
  */
-type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
+type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden" | "reserved";
 
 const TOGGLE_BUTTON_CLASS_NAMES = {
   all: "h-8 w-8 rounded-none",
   desktop: "hidden h-8 w-8 md:inline-flex",
+  reserved: "pointer-events-none invisible hidden h-8 w-8 shrink-0 md:block",
 } as const satisfies Record<Exclude<WorkspaceLayoutV2ToggleVisibility, "hidden">, string>;
 const WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID = "workspace-layout-v2-main-pane-header";
 
@@ -42,7 +48,13 @@ function WorkspaceLayoutV2MainPaneHeader({
 
   return (
     <div className="flex h-full items-center">
-      {leftToggleButtonClassName !== null ? (
+      {leftToggleVisibility === "reserved" ? (
+        <div
+          aria-hidden="true"
+          data-workspace-layout-v2-toggle-spacer="left"
+          className={TOGGLE_BUTTON_CLASS_NAMES.reserved}
+        />
+      ) : leftToggleButtonClassName !== null ? (
         <Button
           type="button"
           variant="ghost"
@@ -59,7 +71,13 @@ function WorkspaceLayoutV2MainPaneHeader({
           toggles stay desktop-only in the v2 main pane shell. */}
       <div className="min-w-0 flex-1">{children}</div>
 
-      {rightToggleButtonClassName !== null ? (
+      {rightToggleVisibility === "reserved" ? (
+        <div
+          aria-hidden="true"
+          data-workspace-layout-v2-toggle-spacer="right"
+          className={TOGGLE_BUTTON_CLASS_NAMES.reserved}
+        />
+      ) : rightToggleButtonClassName !== null ? (
         <Button
           type="button"
           variant="ghost"
@@ -78,6 +96,7 @@ function WorkspaceLayoutV2MainPaneHeader({
 export function WorkspaceLayoutV2FullPage({
   dataTestId,
   left,
+  leftPaneMode = "visible",
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
   panel,
@@ -87,6 +106,7 @@ export function WorkspaceLayoutV2FullPage({
 }: {
   dataTestId?: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
+  leftPaneMode?: WorkspaceLayoutV2LeftPaneMode;
   main: WorkspaceLayoutV2PaneFrameProps;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   panel?: WorkspaceLayoutV2BottomPanelProps;
@@ -97,7 +117,8 @@ export function WorkspaceLayoutV2FullPage({
   const hasDesktopHeaderToggle =
     (left && leftToggleVisibility !== "hidden") || (right && rightToggleVisibility !== "hidden");
   const hasMobileHeaderToggle =
-    (left && leftToggleVisibility === "all") || (right && rightToggleVisibility === "all");
+    (left && leftPaneMode === "visible" && leftToggleVisibility === "all") ||
+    (right && rightToggleVisibility === "all");
   const shouldRenderMainHeader = !!main.header || hasDesktopHeaderToggle || hasMobileHeaderToggle;
   const mainHeaderVisibility =
     !main.header && !hasMobileHeaderToggle && hasDesktopHeaderToggle ? "desktop" : "all";
@@ -113,7 +134,13 @@ export function WorkspaceLayoutV2FullPage({
           header={
             shouldRenderMainHeader ? (
               <WorkspaceLayoutV2MainPaneHeader
-                leftToggleVisibility={left ? leftToggleVisibility : "hidden"}
+                leftToggleVisibility={
+                  left
+                    ? leftPaneMode === "reserved"
+                      ? "reserved"
+                      : leftToggleVisibility
+                    : "hidden"
+                }
                 rightToggleVisibility={right ? rightToggleVisibility : "hidden"}
               >
                 {main.header}
@@ -122,6 +149,7 @@ export function WorkspaceLayoutV2FullPage({
           }
         />
       }
+      leftPaneMode={leftPaneMode}
       mobileMinResizeBehavior={mobileMinResizeBehavior}
       panel={panel}
       right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}

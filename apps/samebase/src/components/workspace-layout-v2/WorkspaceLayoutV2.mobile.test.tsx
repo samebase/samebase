@@ -9,7 +9,10 @@ import {
 } from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
+import {
+  type WorkspaceLayoutV2LeftPaneMode,
+  type WorkspaceLayoutV2MobileMinResizeBehavior,
+} from "./WorkspaceLayoutV2Geometry";
 import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";
 import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
 import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
@@ -66,6 +69,7 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 type RenderMobileLayoutArgs = {
   includeLeftPane?: boolean;
   includeRightPane?: boolean;
+  leftPaneMode?: WorkspaceLayoutV2LeftPaneMode;
   leftMobileWidthPx?: number;
   leftToggleVisibility?: "all" | "desktop" | "hidden";
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
@@ -98,6 +102,7 @@ function createMobileSidebarState({
 function renderMobileLayoutContent({
   includeLeftPane = true,
   includeRightPane = true,
+  leftPaneMode,
   leftToggleVisibility,
   mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
@@ -124,6 +129,7 @@ function renderMobileLayoutContent({
             }
           : undefined
       }
+      leftPaneMode={leftPaneMode}
       main={mainProps}
       mobileMinResizeBehavior={mobileMinResizeBehavior}
       right={
@@ -279,6 +285,31 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
     ).toBeNull();
+  });
+
+  it("treats reserved left panes as absent on mobile", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+
+    act(() => {
+      mountedRoot.render(renderMobileLayout({ leftPaneMode: "reserved", mobilePane: "left" }));
+    });
+
+    const layoutRoot = getRequiredElement(rootElement, "[data-workspace-layout-v2]");
+    const leftPane = getRequiredElement(
+      rootElement,
+      '[data-testid="workspace-layout-v2-pane-left"]',
+    );
+
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "0px",
+    );
+    expect(leftPane.hasAttribute("data-workspace-layout-v2-mobile-absent")).toBe(true);
+    expect(leftPane.classList.contains("hidden")).toBe(true);
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
   });
 
   it("boots mobile routes onto the persisted pane when one is provided", () => {

@@ -23,6 +23,7 @@ export type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
 export type WorkspaceLayoutV2MobileMinResizeBehavior =
   | "min_resize_to_slide"
   | "min_resize_to_merge";
+export type WorkspaceLayoutV2LeftPaneMode = "visible" | "reserved";
 export type WorkspaceLayoutV2MobileMergedSide = "left" | "right";
 export type WorkspaceLayoutV2ActiveResizeSide = "left" | "right" | "top" | null;
 export type WorkspaceLayoutV2MobileSurface = WorkspaceMobileSurface;

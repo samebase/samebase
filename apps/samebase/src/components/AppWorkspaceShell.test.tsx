@@ -134,7 +134,31 @@ describe("AppWorkspaceShell", () => {
     );
   }
 
-  function renderClientShell() {
+  function OmittedLeftRouteChromeProbe() {
+    return (
+      <AppWorkspaceRouteChrome right={null}>
+        <div data-testid="omitted-left-route-content">Omitted left route</div>
+      </AppWorkspaceRouteChrome>
+    );
+  }
+
+  function BlankLeftRouteChromeProbe() {
+    return (
+      <AppWorkspaceRouteChrome left="blank" right={null}>
+        <div data-testid="blank-left-route-content">Blank left route</div>
+      </AppWorkspaceRouteChrome>
+    );
+  }
+
+  function ReservedLeftRouteChromeProbe() {
+    return (
+      <AppWorkspaceRouteChrome left="reserved" right={null}>
+        <div data-testid="reserved-left-route-content">Reserved left route</div>
+      </AppWorkspaceRouteChrome>
+    );
+  }
+
+  function renderClientShellWith(children: React.ReactNode) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
@@ -142,12 +166,14 @@ describe("AppWorkspaceShell", () => {
     act(() => {
       root?.render(
         <TestRouterProvider initialEntries={["/machines"]}>
-          <AppWorkspaceShell>
-            <RouteChromeProbe />
-          </AppWorkspaceShell>
+          <AppWorkspaceShell>{children}</AppWorkspaceShell>
         </TestRouterProvider>,
       );
     });
+  }
+
+  function renderClientShell() {
+    renderClientShellWith(<RouteChromeProbe />);
   }
 
   function runAppWorkspaceSidebarPrehydrationScript(
@@ -202,9 +228,11 @@ describe("AppWorkspaceShell", () => {
   function appendMobilePrehydrationCarousel({
     includeLeftPane = true,
     includeRightPane = true,
+    leftPaneMobileAbsent = false,
   }: {
     includeLeftPane?: boolean;
     includeRightPane?: boolean;
+    leftPaneMobileAbsent?: boolean;
   }) {
     const container = document.createElement("div");
     rootElement = container;
@@ -222,6 +250,9 @@ describe("AppWorkspaceShell", () => {
       leftPane.setAttribute("data-workspace-layout-v2-mobile-pane", "left");
       leftPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "left");
       leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
+      if (leftPaneMobileAbsent) {
+        leftPane.setAttribute("data-workspace-layout-v2-mobile-absent", "");
+      }
       carousel.append(leftPane);
     }
 
@@ -376,6 +407,8 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain('data-testid="app-workspace"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).toContain('data-workspace-layout-v2-toggle-spacer="left"');
+    expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain("workspace route content");
   });
 
@@ -408,6 +441,51 @@ describe("AppWorkspaceShell", () => {
     expect(getRequiredElement('[data-testid="route-chrome-accessory"]').textContent).toBe(
       "Updated route chrome",
     );
+  });
+
+  it("keeps omitted route chrome left panes in the visible blank mode", () => {
+    renderClientShellWith(<OmittedLeftRouteChromeProbe />);
+
+    expect(getRequiredElement('[data-testid="omitted-left-route-content"]').textContent).toBe(
+      "Omitted left route",
+    );
+    expect(getRequiredElement('[data-testid="workspace-layout-v2-pane-left"]').textContent).toBe(
+      "",
+    );
+    expect(getRequiredElement('[aria-label="Toggle Left Sidebar"]')).not.toBeNull();
+    expect(
+      rootElement?.querySelector('[data-workspace-layout-v2-toggle-spacer="left"]'),
+    ).toBeNull();
+  });
+
+  it("accepts explicit blank route chrome left panes", () => {
+    renderClientShellWith(<BlankLeftRouteChromeProbe />);
+
+    expect(getRequiredElement('[data-testid="blank-left-route-content"]').textContent).toBe(
+      "Blank left route",
+    );
+    expect(getRequiredElement('[aria-label="Toggle Left Sidebar"]')).not.toBeNull();
+    expect(
+      rootElement?.querySelector('[data-workspace-layout-v2-toggle-spacer="left"]'),
+    ).toBeNull();
+  });
+
+  it("accepts explicit reserved route chrome left panes", () => {
+    renderClientShellWith(<ReservedLeftRouteChromeProbe />);
+
+    expect(getRequiredElement('[data-testid="reserved-left-route-content"]').textContent).toBe(
+      "Reserved left route",
+    );
+    expect(getRequiredElement('[data-testid="workspace-layout-v2-pane-left"]').textContent).toBe(
+      "",
+    );
+    expect(rootElement?.querySelector('[aria-label="Toggle Left Sidebar"]')).toBeNull();
+    expect(getRequiredElement('[data-workspace-layout-v2-toggle-spacer="left"]')).not.toBeNull();
+    expect(
+      getRequiredElement('[data-testid="workspace-layout-v2-pane-left"]').hasAttribute(
+        "data-workspace-layout-v2-mobile-absent",
+      ),
+    ).toBe(true);
   });
 
   it("mirrors hydrated Convex sidebar state into localStorage", () => {
@@ -590,6 +668,42 @@ describe("AppWorkspaceShell", () => {
         .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
         ?.classList.contains("snap-center"),
     ).toBe(true);
+  });
+
+  it("treats reserved left panes as absent during mobile prehydration", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
+          mobilePane: "left",
+          mobileSurface: { kind: "unmerged" },
+          rightMobileWidthPx: 340,
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({
+      leftPaneMobileAbsent: true,
+    });
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "0px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "390px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "340px",
+    );
+    expect(carousel.scrollLeft).toBe(0);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
   });
 
   it("prehydrates a valid merged mobile pane before hydration", () => {

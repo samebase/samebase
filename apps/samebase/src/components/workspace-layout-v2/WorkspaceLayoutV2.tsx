@@ -18,6 +18,7 @@ import {
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
+  type WorkspaceLayoutV2LeftPaneMode,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
@@ -32,6 +33,7 @@ import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLa
 
 type WorkspaceLayoutV2Props = {
   left?: ReactElement;
+  leftPaneMode?: WorkspaceLayoutV2LeftPaneMode;
   main: ReactElement;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   panel?: WorkspaceLayoutV2BottomPanelProps;
@@ -73,6 +75,7 @@ function getAvailableMobilePane({
 
 export function WorkspaceLayoutV2({
   left,
+  leftPaneMode = "visible",
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
   panel,
@@ -103,16 +106,17 @@ export function WorkspaceLayoutV2({
     setRightDesktopWidthPx,
     setRightMobileWidthPx,
   } = useWorkspacePaneActions();
-  const hasLeftPane = !!left;
+  const hasDesktopLeftPane = !!left;
+  const hasMobileLeftPane = hasDesktopLeftPane && leftPaneMode === "visible";
   const hasRightPane = !!right;
   const hasMeasuredViewport = viewportSize.widthPx > 0;
   const mobilePane = getAvailableMobilePane({
-    hasLeftPane,
+    hasLeftPane: hasMobileLeftPane,
     hasRightPane,
     mobilePane: rawMobilePane,
   });
 
-  const desktopLeftWidthPx = hasLeftPane
+  const desktopLeftWidthPx = hasDesktopLeftPane
     ? getDesktopSidebarWidthPx({
         isOpen: leftDesktopOpen,
         storedWidthPx: leftDesktopWidthPx,
@@ -132,7 +136,7 @@ export function WorkspaceLayoutV2({
     configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     maxWidthPx: mobileSidebarMaxWidthPx,
   });
-  const mobileLeftWidthPx = hasLeftPane
+  const mobileLeftWidthPx = hasMobileLeftPane
     ? getMobileSidebarWidthPx({
         maxWidthPx: mobileSidebarMaxWidthPx,
         minWidthPx: mobileSidebarMinWidthPx,
@@ -150,7 +154,7 @@ export function WorkspaceLayoutV2({
   const mobileGripResize = useWorkspaceLayoutV2MobileGripResizeController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
-    hasLeftPane,
+    hasLeftPane: hasMobileLeftPane,
     hasRightPane,
     isMobile,
     leftWidthPx: mobileLeftWidthPx,
@@ -180,7 +184,7 @@ export function WorkspaceLayoutV2({
   useWorkspaceLayoutV2MobileCarouselController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
-    hasLeftPane,
+    hasLeftPane: hasMobileLeftPane,
     hasRightPane,
     isMobile,
     leftWidthPx: mobileLeftWidthPx,
@@ -195,7 +199,7 @@ export function WorkspaceLayoutV2({
     desktopLeftWidthPx,
     desktopRightWidthPx,
     desktopSidebarMaxWidthPx,
-    hasLeftPane,
+    hasLeftPane: hasDesktopLeftPane && leftPaneMode === "visible",
     hasRightPane,
     leftDesktopOpen,
     rightDesktopOpen,
@@ -204,7 +208,7 @@ export function WorkspaceLayoutV2({
     viewportWidthPx: viewportSize.widthPx,
   });
   const mobileResizeHandles = getWorkspaceLayoutV2MobileResizeHandles({
-    hasLeftPane,
+    hasLeftPane: hasMobileLeftPane,
     hasRightPane,
     isMobilePaneSettled,
     mobileLeftWidthPx,
@@ -310,7 +314,7 @@ export function WorkspaceLayoutV2({
           paneWidthPx={mobileMainWidthPx}
           rightContent={right}
           rightWidthPx={mobileRightWidthPx}
-          showLeftPane={hasLeftPane}
+          leftPaneMode={hasDesktopLeftPane ? leftPaneMode : "absent"}
           showRightPane={hasRightPane}
         />
         {isMobile

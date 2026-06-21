@@ -19,7 +19,10 @@ import {
   type WorkspacePaneSide,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { type WorkspaceLayoutV2BottomPanelProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
+import {
+  type WorkspaceLayoutV2LeftPaneMode,
+  type WorkspaceLayoutV2MobileMinResizeBehavior,
+} from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
@@ -31,16 +34,22 @@ import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPref
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
-type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
+type AppWorkspaceRouteChromeLeftPane =
+  | WorkspaceLayoutV2PaneFrameProps
+  | "absent"
+  | "blank"
+  | "reserved"
+  | null;
+type AppWorkspaceRouteChromeRightPane = WorkspaceLayoutV2PaneFrameProps | null;
 
 type AppWorkspaceRouteChromeConfig = {
   dataTestId?: string;
   headerAccessory?: ReactNode;
-  left?: AppWorkspaceRouteChromePane;
+  left?: AppWorkspaceRouteChromeLeftPane;
   leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   panel?: WorkspaceLayoutV2BottomPanelProps;
-  right?: AppWorkspaceRouteChromePane;
+  right?: AppWorkspaceRouteChromeRightPane;
   shortcutPaneSide?: WorkspacePaneSide;
 };
 
@@ -233,7 +242,19 @@ function AppWorkspaceShellFrame({
     header: <AppWorkspaceMainHeader accessory={chrome?.headerAccessory} />,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies WorkspaceLayoutV2PaneFrameProps;
-  const leftPane = chrome?.left === null ? undefined : (chrome?.left ?? {});
+  const routeLeftPane = chrome?.left;
+  let leftPane: WorkspaceLayoutV2PaneFrameProps | undefined;
+  let leftPaneMode: WorkspaceLayoutV2LeftPaneMode = "visible";
+  if (chrome === null || routeLeftPane === "reserved") {
+    leftPane = {};
+    leftPaneMode = "reserved";
+  } else if (routeLeftPane === null || routeLeftPane === "absent") {
+    leftPane = undefined;
+  } else if (routeLeftPane === undefined || routeLeftPane === "blank") {
+    leftPane = {};
+  } else {
+    leftPane = routeLeftPane;
+  }
   const rightPane = chrome?.right === null ? undefined : (chrome?.right ?? appRightSidebarPane);
 
   return (
@@ -244,6 +265,7 @@ function AppWorkspaceShellFrame({
       <WorkspaceLayoutV2FullPage
         dataTestId={chrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID}
         left={leftPane}
+        leftPaneMode={leftPaneMode}
         leftToggleVisibility={chrome?.leftToggleVisibility ?? "desktop"}
         main={mainPane}
         mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}

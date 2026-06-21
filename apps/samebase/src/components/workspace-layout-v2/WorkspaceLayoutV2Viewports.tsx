@@ -1,6 +1,9 @@
 import { type CSSProperties, type ReactElement, type RefObject } from "react";
 import { cn } from "@/lib/utils";
-import { type WorkspaceLayoutV2ActiveResizeSide } from "./WorkspaceLayoutV2Geometry";
+import {
+  type WorkspaceLayoutV2ActiveResizeSide,
+  type WorkspaceLayoutV2LeftPaneMode,
+} from "./WorkspaceLayoutV2Geometry";
 
 type WorkspaceLayoutV2ResolvedPaneContent = {
   leftContent: ReactElement | undefined;
@@ -12,6 +15,7 @@ type WorkspaceLayoutV2ViewportStyle = CSSProperties & {
   "--workspace-layout-v2-left-desktop-width": string;
   "--workspace-layout-v2-right-desktop-width": string;
 };
+type WorkspaceLayoutV2ViewportLeftPaneMode = WorkspaceLayoutV2LeftPaneMode | "absent";
 
 type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
@@ -21,9 +25,9 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   hasMeasuredViewport: boolean;
   leftWidthPx: number;
   lockCarouselScroll: boolean;
+  leftPaneMode: WorkspaceLayoutV2ViewportLeftPaneMode;
   paneWidthPx: number;
   rightWidthPx: number;
-  showLeftPane: boolean;
   showRightPane: boolean;
 };
 
@@ -36,11 +40,11 @@ export function WorkspaceLayoutV2Viewport({
   leftContent,
   leftWidthPx,
   lockCarouselScroll,
+  leftPaneMode,
   mainContent,
   paneWidthPx,
   rightContent,
   rightWidthPx,
-  showLeftPane,
   showRightPane,
 }: WorkspaceLayoutV2ViewportProps) {
   const viewportStyle: WorkspaceLayoutV2ViewportStyle = {
@@ -58,23 +62,27 @@ export function WorkspaceLayoutV2Viewport({
     : "var(--workspace-layout-v2-right-mobile-width, 0px)";
 
   function renderLeftPane() {
-    if (!showLeftPane) {
+    if (leftPaneMode === "absent") {
       return null;
     }
 
     return (
       <div
         data-workspace-layout-v2-mobile-pane="left"
+        data-workspace-layout-v2-mobile-absent={leftPaneMode === "reserved" ? "" : undefined}
         data-workspace-layout-v2-mobile-separator-pane="left"
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
-          "workspace-layout-v2-responsive-left-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
+          "workspace-layout-v2-responsive-left-pane relative h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
+          leftPaneMode === "reserved" ? "hidden md:flex" : "flex",
           "snap-start snap-always",
-          desktopLeftWidthPx > 0
-            ? activeResizeSide === "left"
-              ? "md:border-r md:border-primary"
-              : "md:border-r md:border-border"
-            : "md:border-r-0",
+          leftPaneMode === "reserved"
+            ? "md:border-r-0"
+            : desktopLeftWidthPx > 0
+              ? activeResizeSide === "left"
+                ? "md:border-r md:border-primary"
+                : "md:border-r md:border-border"
+              : "md:border-r-0",
         )}
         style={{
           width: leftPaneWidth,

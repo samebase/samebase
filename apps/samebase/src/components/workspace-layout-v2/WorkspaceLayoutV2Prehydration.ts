@@ -352,7 +352,9 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     if (state === null) return;
 
     const hasLeftPane =
-      carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]') !== null;
+      carouselNode.querySelector(
+        '[data-testid="workspace-layout-v2-pane-left"]:not([data-workspace-layout-v2-mobile-absent])',
+      ) !== null;
     const hasRightPane =
       carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-right"]') !== null;
     const mobilePane = getAvailableMobilePane({
