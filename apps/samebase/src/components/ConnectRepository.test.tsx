@@ -109,11 +109,13 @@ describe("ConnectRepositoryPageContent", () => {
 
     expect(markup).toContain("Owner docs");
     expect(markup).toContain("Member docs");
+    expect(markup).toContain("Review GitHub access");
+    expect(markup).toContain("to check granted scopes and repository listing");
     expect(markup).toContain(
       "Showing the 10 most recently updated repositories while we load the rest.",
     );
     expect(markup).toContain(
-      "Couldn't load the rest of your repositories. You're still seeing the most recently updated ones.",
+      "Couldn't load the rest of your repositories. You're still seeing the most recently updated ones. Review GitHub access from Providers if this keeps failing.",
     );
     expect(markup).toContain("Retry");
     expect(markup).toContain("samebase");

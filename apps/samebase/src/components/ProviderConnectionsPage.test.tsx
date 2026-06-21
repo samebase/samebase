@@ -66,7 +66,14 @@ describe("ProviderConnectionsPage", () => {
   it("renders disconnected provider connection actions", () => {
     const markup = renderProviderConnectionsPage(
       new Map([
-        [getFunctionName(api.users.getGithubConnectionStatus), { connected: false }],
+        [
+          getFunctionName(api.users.getGithubProviderSummary),
+          {
+            connected: false,
+            requiredScopes: [],
+            reauthorizeAvailable: false,
+          },
+        ],
         [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
         [getFunctionName(api.users.viewer), { _id: "user_123" }],
@@ -84,10 +91,16 @@ describe("ProviderConnectionsPage", () => {
     const markup = renderProviderConnectionsPage(
       new Map([
         [
-          getFunctionName(api.users.getGithubConnectionStatus),
+          getFunctionName(api.users.getGithubProviderSummary),
           {
             authMethod: "oauth",
             connected: true,
+            manageUrl: "https://github.com/settings/connections/applications/client_123",
+            requiredScopes: [
+              { scope: "repo", label: "List and edit repositories" },
+              { scope: "delete_repo", label: "Delete Samebase-managed repositories" },
+            ],
+            reauthorizeAvailable: true,
             username: "samebase",
           },
         ],
@@ -115,6 +128,12 @@ describe("ProviderConnectionsPage", () => {
     );
 
     expect(markup).toContain("Connected as samebase");
+    expect(markup).toContain("OAuth scopes requested: repo, delete_repo");
+    expect(markup).toContain("Granted scopes: Not checked");
+    expect(markup).toContain("Required access: repo Not checked; delete_repo Not checked");
+    expect(markup).toContain("Check access");
+    expect(markup).toContain("Manage access");
+    expect(markup).toContain("Reauthorize");
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth).");
     expect(markup).toContain("Token Valid.");
