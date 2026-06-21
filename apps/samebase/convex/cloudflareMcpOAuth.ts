@@ -53,6 +53,15 @@ type OAuthContext = ActionCtx | MutationCtx;
 type CloudflareOAuthTokenOperation =
   | "exchange Cloudflare OAuth code"
   | "refresh Cloudflare OAuth token";
+type CloudflareMcpAuthorizeSearchParams = {
+  response_type: "code";
+  client_id: string;
+  redirect_uri: string;
+  state: string;
+  code_challenge: string;
+  code_challenge_method: "S256";
+  scope: string;
+};
 const nonEmptyString = z.string().min(1);
 const cloudflareMcpClientRegistrationResponseSchema = z.object({
   client_id: nonEmptyString,
@@ -151,21 +160,48 @@ function parseCloudflareMcpTokenResponse(
   return result.data;
 }
 
+function createUrlSearchParams<const Params extends { readonly [Key in keyof Params]: string }>(
+  params: Params,
+): URLSearchParams {
+  return new FormEncodedParams(Object.entries(params));
+}
+
+function buildUrlWithSearchParams<const Params extends { readonly [Key in keyof Params]: string }>(
+  baseUrl: string,
+  searchParams: Params,
+): string {
+  const url = new URL(baseUrl);
+  url.search = createUrlSearchParams(searchParams).toString();
+  return url.toString();
+}
+
+export function buildCloudflareMcpAuthorizeSearchParams(args: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  codeChallenge: string;
+}): CloudflareMcpAuthorizeSearchParams {
+  return {
+    response_type: "code",
+    client_id: args.clientId,
+    redirect_uri: args.redirectUri,
+    state: args.state,
+    code_challenge: args.codeChallenge,
+    code_challenge_method: "S256",
+    scope: CLOUDFLARE_MCP_OAUTH_SCOPES.join(" "),
+  };
+}
+
 export function buildCloudflareMcpAuthorizeUrl(args: {
   clientId: string;
   redirectUri: string;
   state: string;
   codeChallenge: string;
 }): string {
-  const authorizeUrl = new URL(CLOUDFLARE_MCP_AUTHORIZATION_URL);
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("client_id", args.clientId);
-  authorizeUrl.searchParams.set("redirect_uri", args.redirectUri);
-  authorizeUrl.searchParams.set("state", args.state);
-  authorizeUrl.searchParams.set("code_challenge", args.codeChallenge);
-  authorizeUrl.searchParams.set("code_challenge_method", "S256");
-  authorizeUrl.searchParams.set("scope", CLOUDFLARE_MCP_OAUTH_SCOPES.join(" "));
-  return authorizeUrl.toString();
+  return buildUrlWithSearchParams(
+    CLOUDFLARE_MCP_AUTHORIZATION_URL,
+    buildCloudflareMcpAuthorizeSearchParams(args),
+  );
 }
 
 async function registerCloudflareMcpClient(args: { redirectUri: string }) {
