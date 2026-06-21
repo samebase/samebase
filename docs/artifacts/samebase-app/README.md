@@ -170,6 +170,12 @@ For a Workers version of the artifact:
 - Keep Convex deploy-key names aligned with Samebase production and Samebase-provisioned generated
   apps: `PROD_CONVEX_DEPLOY_KEY` for `main`, `PREVIEW_CONVEX_DEPLOY_KEY` for non-production
   branches, and no generic `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
+- Document Convex deploy-key permissions with the current least-privilege split: production
+  `PROD_CONVEX_DEPLOY_KEY` is a production deployment key with exactly `deployment:deploy`,
+  `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; do not add data write,
+  function-run, logs, backups, or integrations permissions. Preview `PREVIEW_CONVEX_DEPLOY_KEY` is
+  Convex's separate project-level Preview deploy key flow and does not use the production permission
+  list.
 - Keep Workers request handlers, server functions, and SSR complexity out of the first app unless
   the template truly needs them.
 

@@ -74,8 +74,14 @@ function readDeployKey(args: {
     return deployKey;
   }
 
+  if (args.deployKeyName === PROD_CONVEX_DEPLOY_KEY) {
+    throw new Error(
+      `Set ${PROD_CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.`,
+    );
+  }
+
   throw new Error(
-    `Set ${args.deployKeyName} in Cloudflare Workers build variables for ${args.branch}.`,
+    `Set ${PREVIEW_CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex project Preview deploy key.`,
   );
 }
 
