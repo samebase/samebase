@@ -7,8 +7,17 @@ import { action } from "../functions";
 import type { Id } from "../_generated/dataModel";
 import { isRecord, readString } from "../jsonUtils";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
+import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 
 type PortVisibility = "public" | "private";
+type TunnelPortSearchParams = {
+  includePorts: "true";
+  "api-version": string;
+};
+type CodespaceMetadataSearchParams = {
+  internal: "true";
+  refresh: "true";
+};
 
 const tunnelsApiVersion = "2023-09-27-preview";
 const githubApiVersion = "2022-11-28";
@@ -97,13 +106,16 @@ function buildTunnelPortUrl(args: {
   tunnelId: string;
   portNumber: number;
 }): string {
-  const url = new URL(
-    `/tunnels/${encodeURIComponent(args.tunnelId)}/ports/${args.portNumber}`,
-    args.tunnelsBaseUrl,
+  return buildUrlWithSearchParams(
+    new URL(
+      `/tunnels/${encodeURIComponent(args.tunnelId)}/ports/${args.portNumber}`,
+      args.tunnelsBaseUrl,
+    ),
+    {
+      includePorts: "true",
+      "api-version": tunnelsApiVersion,
+    } satisfies TunnelPortSearchParams,
   );
-  url.searchParams.set("includePorts", "true");
-  url.searchParams.set("api-version", tunnelsApiVersion);
-  return url.toString();
 }
 
 async function readResponseBodyTextTruncated(
@@ -140,13 +152,15 @@ async function fetchCodespaceTunnelAuth(args: {
   githubAccessToken: string;
   codespaceName: string;
 }): Promise<CodespaceTunnelAuth> {
-  const url = new URL(
+  const url = buildUrlWithSearchParams(
     `https://api.github.com/user/codespaces/${encodeURIComponent(args.codespaceName)}`,
+    {
+      internal: "true",
+      refresh: "true",
+    } satisfies CodespaceMetadataSearchParams,
   );
-  url.searchParams.set("internal", "true");
-  url.searchParams.set("refresh", "true");
 
-  const response = await fetch(url.toString(), {
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${args.githubAccessToken}`,

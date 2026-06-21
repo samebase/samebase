@@ -8,6 +8,7 @@ import { action } from "../functions";
 import { isRecord, readBoolean, readNumber, readString } from "../jsonUtils";
 import { starterTemplateManifest } from "../starterSeedManifest.generated";
 import { assertCodespacesEnabled } from "../../shared/featureFlags";
+import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 
 const executeCommandResult = v.object({
   stdout: v.string(),
@@ -15,6 +16,9 @@ const executeCommandResult = v.object({
   exitCode: v.number(),
   success: v.boolean(),
 });
+type ListFilesSearchParams = {
+  dirPath: string | undefined;
+};
 
 function jsonStringifySafe(value: unknown): string {
   try {
@@ -255,12 +259,11 @@ export const listFiles = action({
       throw new Error(`Codespace is not running (current state: ${codespace.state})`);
     }
 
-    const url = new URL(`${codespace.agentUrl}/files/list`);
-    if (args.dirPath) {
-      url.searchParams.set("dirPath", args.dirPath);
-    }
+    const url = buildUrlWithSearchParams(`${codespace.agentUrl}/files/list`, {
+      dirPath: args.dirPath,
+    } satisfies ListFilesSearchParams);
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${codespace.agentToken}`,
       },

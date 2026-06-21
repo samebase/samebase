@@ -8,6 +8,7 @@ import { mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import { GITHUB_OAUTH_POPUP_NAME, isSafeGithubOAuthReturnToPath } from "../shared/githubOAuth";
 import { CODESPACES_ENABLED } from "../shared/featureFlags";
+import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
@@ -16,6 +17,31 @@ const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 const BASE_GITHUB_OAUTH_SCOPES = ["repo", "delete_repo", "user", "user:email", "read:packages"];
 
 type OAuthContext = ActionCtx | MutationCtx;
+type GithubOAuthAuthorizeSearchParams = {
+  client_id: string;
+  redirect_uri: string;
+  scope: string;
+  state: string;
+};
+type GithubOAuthTokenSearchParams = {
+  client_id: string;
+  client_secret: string;
+  code: string;
+  redirect_uri: string;
+};
+
+function buildGithubOAuthAuthorizeSearchParams(args: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+}): GithubOAuthAuthorizeSearchParams {
+  return {
+    client_id: args.clientId,
+    redirect_uri: args.redirectUri,
+    scope: [...BASE_GITHUB_OAUTH_SCOPES, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
+    state: args.state,
+  };
+}
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -59,15 +85,10 @@ async function buildGithubOAuthUrl(
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
 
-  const authorizeUrl = new URL(GITHUB_AUTHORIZE_URL);
-  authorizeUrl.searchParams.set("client_id", clientId);
-  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-  authorizeUrl.searchParams.set(
-    "scope",
-    [...BASE_GITHUB_OAUTH_SCOPES, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
+  return buildUrlWithSearchParams(
+    GITHUB_AUTHORIZE_URL,
+    buildGithubOAuthAuthorizeSearchParams({ clientId, redirectUri, state }),
   );
-  authorizeUrl.searchParams.set("state", state);
-  return authorizeUrl.toString();
 }
 
 async function exchangeGithubOAuthCode(args: {
@@ -80,12 +101,12 @@ async function exchangeGithubOAuthCode(args: {
   refreshToken?: string;
   expiresIn?: number;
 }> {
-  const payload = new URLSearchParams({
+  const payload = createUrlSearchParams({
     client_id: args.clientId,
     client_secret: args.clientSecret,
     code: args.code,
     redirect_uri: args.redirectUri,
-  });
+  } satisfies GithubOAuthTokenSearchParams);
 
   const response = await fetchWithTimeout(GITHUB_TOKEN_URL, {
     method: "POST",

@@ -33,6 +33,7 @@ import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { resolveConnectedMachineStatus } from "../../../shared/connectedMachinePresence";
 import { api } from "../../../convex/_generated/api";
+import { buildUrlWithSearchParams } from "../../../shared/urlSearchParams";
 
 type RuntimeFormState = {
   cwd: string;
@@ -60,6 +61,11 @@ type ThreadListQueryState = {
   searchTerm: string;
   sortKey: CodexAppServerThreadListSortKey;
 };
+type ThreadListSearchParams = {
+  limit: string;
+  searchTerm: string | undefined;
+  sortKey: CodexAppServerThreadListSortKey;
+};
 
 type ThreadActionResponse = {
   result?: unknown;
@@ -73,6 +79,9 @@ const DEFAULT_THREAD_LIST_QUERY: ThreadListQueryState = {
   sortKey: "updated_at",
 };
 type ProtocolMode = "json-schema" | "ts";
+type ProtocolRequestSearchParams = {
+  experimental: "true" | undefined;
+};
 
 const codexResearchRouteApi = getRouteApi(CODEX_APP_SERVER_RESEARCH_ROUTE);
 
@@ -131,13 +140,9 @@ function getThreadStatusLabel(thread: CodexAppServerThread): string {
 
 function readProtocolRequestPath(args: { mode: ProtocolMode; experimental: boolean }): string {
   const pathname = args.mode === "json-schema" ? "/protocol/json-schema" : "/protocol/ts";
-  if (!args.experimental) {
-    return pathname;
-  }
-
-  const searchParams = new URLSearchParams();
-  searchParams.set("experimental", "true");
-  return `${pathname}?${searchParams.toString()}`;
+  return buildUrlWithSearchParams(pathname, {
+    experimental: args.experimental ? "true" : undefined,
+  } satisfies ProtocolRequestSearchParams);
 }
 
 function buildCodexThreadBrowserLinkOptions(selectedThreadId: string | null) {
@@ -538,14 +543,12 @@ export function CodexAppServerResearchPage() {
   };
 
   function buildThreadsPath(query: ThreadListQueryState): string {
-    const searchParams = new URLSearchParams();
     const trimmedSearchTerm = query.searchTerm.trim();
-    searchParams.set("limit", `${THREAD_LIST_LIMIT}`);
-    searchParams.set("sortKey", query.sortKey);
-    if (trimmedSearchTerm.length > 0) {
-      searchParams.set("searchTerm", trimmedSearchTerm);
-    }
-    return `/threads?${searchParams.toString()}`;
+    return buildUrlWithSearchParams("/threads", {
+      limit: `${THREAD_LIST_LIMIT}`,
+      searchTerm: trimmedSearchTerm.length > 0 ? trimmedSearchTerm : undefined,
+      sortKey: query.sortKey,
+    } satisfies ThreadListSearchParams);
   }
 
   const refreshThreads = async (query: ThreadListQueryState = DEFAULT_THREAD_LIST_QUERY) => {

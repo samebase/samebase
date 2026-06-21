@@ -21,10 +21,17 @@ import { dedupeCodexThreadsById } from "@/codex/threadSidebar";
 import { useCodexThreadSidebarViewModel } from "@/hooks/useCodexThreadSidebarViewModel";
 import { getRouteApi, linkOptions, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildUrlWithSearchParams } from "../../../shared/urlSearchParams";
 
 const THREAD_LIST_LIMIT = 100;
 const ACTIVE_THREAD_REFRESH_INTERVAL_MS = 1_500;
 const codexThreadBrowserRouteApi = getRouteApi(CODEX_APP_SERVER_THREAD_BROWSER_ROUTE);
+type ThreadListSearchParams = {
+  archived: "true" | "false";
+  limit: string;
+  searchTerm: string | undefined;
+  sortKey: "updated_at";
+};
 
 type ThreadActionResponse = {
   result?: unknown;
@@ -32,15 +39,13 @@ type ThreadActionResponse = {
 };
 
 function buildThreadsPath(args: { mode: CodexThreadBrowserMode; searchTerm: string }): string {
-  const searchParams = new URLSearchParams();
   const trimmedSearchTerm = args.searchTerm.trim();
-  searchParams.set("archived", args.mode === "archived" ? "true" : "false");
-  searchParams.set("limit", `${THREAD_LIST_LIMIT}`);
-  searchParams.set("sortKey", "updated_at");
-  if (trimmedSearchTerm.length > 0) {
-    searchParams.set("searchTerm", trimmedSearchTerm);
-  }
-  return `/threads?${searchParams.toString()}`;
+  return buildUrlWithSearchParams("/threads", {
+    archived: args.mode === "archived" ? "true" : "false",
+    limit: `${THREAD_LIST_LIMIT}`,
+    searchTerm: trimmedSearchTerm.length > 0 ? trimmedSearchTerm : undefined,
+    sortKey: "updated_at",
+  } satisfies ThreadListSearchParams);
 }
 
 function buildCodexResearchLinkOptions(selectedThreadId: string | null) {

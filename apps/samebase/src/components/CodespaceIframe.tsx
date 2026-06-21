@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "../lib/utils";
+import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 
 interface CodespaceIframeProps {
   vaultId: Id<"vaults">;
@@ -16,16 +17,19 @@ interface CodespaceIframeProps {
 const IFRAME_LOAD_TIMEOUT_MS = 20_000;
 const LOADING_INDICATOR_DELAY_MS = 500;
 const IFRAME_SUSPICIOUS_QUICK_LOAD_MS = 600;
+type CodespaceWebSearchParams = {
+  file: string;
+};
 
 function buildCodespaceUrl(webUrl: string, filePath?: string): string {
   if (!filePath) {
     return webUrl;
   }
 
-  const url = new URL(webUrl);
   const normalizedPath = filePath.startsWith("/") ? filePath : `/workspaces/${filePath}`;
-  url.searchParams.set("file", normalizedPath);
-  return url.toString();
+  return buildUrlWithSearchParams(webUrl, {
+    file: normalizedPath,
+  } satisfies CodespaceWebSearchParams);
 }
 
 export function CodespaceIframe({
