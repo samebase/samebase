@@ -172,7 +172,7 @@ function buildGithubProviderSummary(
     authMethod: connection.auth.method,
     requiredScopes,
     ...(manageUrl ? { manageUrl } : {}),
-    reauthorizeAvailable: connection.auth.method === "oauth" && manageUrl !== undefined,
+    reauthorizeAvailable: connection.auth.method === "oauth",
   };
 }
 
@@ -217,18 +217,16 @@ function isGitHubOAuthScopeGranted(scope: string, grantedScopes: Set<string>): b
 export function buildGithubRequiredScopeHealth(args: {
   authMethod: "oauth" | "api_key";
   grantedScopes: readonly string[];
+  scopeReportAvailable: boolean;
 }): GithubConnectionHealth["requiredScopes"] {
   const grantedScopeSet = new Set(args.grantedScopes);
-  const hasReportedScopes = args.grantedScopes.length > 0;
   return getGitHubOAuthScopeRequirements().map((scopeRequirement) => ({
     ...scopeRequirement,
-    status: hasReportedScopes
+    status: args.scopeReportAvailable
       ? isGitHubOAuthScopeGranted(scopeRequirement.scope, grantedScopeSet)
         ? "granted"
         : "missing"
-      : args.authMethod === "oauth"
-        ? "missing"
-        : "unknown",
+      : "unknown",
   }));
 }
 
@@ -562,6 +560,7 @@ export const checkGithubConnectionHealth = action({
         requiredScopes: buildGithubRequiredScopeHealth({
           authMethod: "oauth",
           grantedScopes: [],
+          scopeReportAvailable: false,
         }),
         checks: [
           {
@@ -585,10 +584,10 @@ export const checkGithubConnectionHealth = action({
       token: connection.auth.credential,
       url: `${GITHUB_API_BASE}/user`,
     });
-    const profileScopes = parseGitHubOAuthScopesHeader(
-      profileResponse.headers.get("x-oauth-scopes"),
-    );
+    const profileScopesHeader = profileResponse.headers.get("x-oauth-scopes");
+    const profileScopes = parseGitHubOAuthScopesHeader(profileScopesHeader);
     let grantedScopes = profileScopes;
+    let scopeReportAvailable = profileScopesHeader !== null;
     let username = connection.username;
     const checks: GithubConnectionHealth["checks"] = [];
 
@@ -625,9 +624,11 @@ export const checkGithubConnectionHealth = action({
         token: connection.auth.credential,
         url: `${GITHUB_API_BASE}/user/repos?sort=updated&per_page=1&affiliation=owner,collaborator,organization_member`,
       });
+      const repositoryScopesHeader = repositoryResponse.headers.get("x-oauth-scopes");
+      scopeReportAvailable = scopeReportAvailable || repositoryScopesHeader !== null;
       grantedScopes = mergeGithubScopes(
         grantedScopes,
-        parseGitHubOAuthScopesHeader(repositoryResponse.headers.get("x-oauth-scopes")),
+        parseGitHubOAuthScopesHeader(repositoryScopesHeader),
       );
       checks.push(
         repositoryResponse.ok
@@ -662,6 +663,7 @@ export const checkGithubConnectionHealth = action({
       requiredScopes: buildGithubRequiredScopeHealth({
         authMethod: connection.auth.method,
         grantedScopes,
+        scopeReportAvailable,
       }),
       checks,
       ...(summary.manageUrl ? { manageUrl: summary.manageUrl } : {}),

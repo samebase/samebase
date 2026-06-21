@@ -131,6 +131,9 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("OAuth scopes requested: repo, delete_repo");
     expect(markup).toContain("Granted scopes: Not checked");
     expect(markup).toContain("Required access: repo Not checked; delete_repo Not checked");
+    expect(markup).toContain(
+      "Need more org access? Reauthorize revokes the current GitHub grant before opening OAuth again; closing the OAuth window leaves GitHub disconnected until you reconnect.",
+    );
     expect(markup).toContain("Check access");
     expect(markup).toContain("Manage access");
     expect(markup).toContain("Reauthorize");
@@ -140,5 +143,33 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("Manage account");
     expect(markup).toContain("Check token");
     expect(markup).toContain("Disconnect");
+  });
+
+  it("renders GitHub API key connections without OAuth scope wording", () => {
+    const markup = renderProviderConnectionsPage(
+      new Map([
+        [
+          getFunctionName(api.users.getGithubProviderSummary),
+          {
+            authMethod: "api_key",
+            connected: true,
+            requiredScopes: [
+              { scope: "repo", label: "List and edit repositories" },
+              { scope: "delete_repo", label: "Delete Samebase-managed repositories" },
+            ],
+            reauthorizeAvailable: false,
+            username: "samebase",
+          },
+        ],
+        [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.viewer), { _id: "user_123" }],
+      ]),
+    );
+
+    expect(markup).toContain("Connected as samebase");
+    expect(markup).toContain("Repository access is checked with live GitHub requests.");
+    expect(markup).not.toContain("OAuth scopes requested");
+    expect(markup).not.toContain("Reauthorize");
   });
 });

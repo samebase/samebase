@@ -241,13 +241,14 @@ export const reauthorizeGithubOAuth = action({
       throw new Error("GitHub OAuth is not connected.");
     }
 
+    const authorizeUrl = await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
     await revokeGithubOAuthGrant(connection.auth.credential);
     await ctx.runMutation(internal.providerConnections.removeByUserAndKind, {
       userId: ctx.viewer.userId,
       kind: "github",
     });
 
-    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
+    return authorizeUrl;
   },
 });
 

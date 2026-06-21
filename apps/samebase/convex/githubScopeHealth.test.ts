@@ -17,11 +17,12 @@ describe("parseGitHubOAuthScopesHeader", () => {
 });
 
 describe("buildGithubRequiredScopeHealth", () => {
-  it("marks granted and missing OAuth scopes", () => {
+  it("marks granted and missing OAuth scopes when GitHub reports scopes", () => {
     expect(
       buildGithubRequiredScopeHealth({
         authMethod: "oauth",
         grantedScopes: ["repo", "user", "read:packages"],
+        scopeReportAvailable: true,
       }),
     ).toEqual([
       {
@@ -52,12 +53,42 @@ describe("buildGithubRequiredScopeHealth", () => {
     ]);
   });
 
+  it("does not treat user:email as granted when only that narrower scope is present", () => {
+    const health = buildGithubRequiredScopeHealth({
+      authMethod: "oauth",
+      grantedScopes: ["repo", "user:email", "read:packages"],
+      scopeReportAvailable: true,
+    });
+
+    expect(health.find((scope) => scope.scope === "user")?.status).toBe("missing");
+    expect(health.find((scope) => scope.scope === "user:email")?.status).toBe("granted");
+  });
+
+  it("treats absent OAuth scope reports as unknown", () => {
+    expect(
+      buildGithubRequiredScopeHealth({
+        authMethod: "oauth",
+        grantedScopes: [],
+        scopeReportAvailable: false,
+      }).map((scope) => scope.status),
+    ).toEqual(["unknown", "unknown", "unknown", "unknown", "unknown"]);
+  });
+
   it("treats API key scope headers as optional signal", () => {
     expect(
       buildGithubRequiredScopeHealth({
         authMethod: "api_key",
         grantedScopes: [],
+        scopeReportAvailable: false,
       }).map((scope) => scope.status),
     ).toEqual(["unknown", "unknown", "unknown", "unknown", "unknown"]);
+
+    expect(
+      buildGithubRequiredScopeHealth({
+        authMethod: "api_key",
+        grantedScopes: ["repo"],
+        scopeReportAvailable: true,
+      }).map((scope) => scope.status),
+    ).toEqual(["granted", "missing", "missing", "missing", "missing"]);
   });
 });

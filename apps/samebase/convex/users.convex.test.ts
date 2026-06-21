@@ -196,6 +196,40 @@ describe("users Convex contract", () => {
     });
   });
 
+  it("keeps OAuth reauthorize available when the manage URL env is absent", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId: insertedUserId,
+        auth: {
+          method: "oauth",
+          credential: "github-oauth-token",
+        },
+        username: "ada",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      return insertedUserId;
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${userId}|test-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asUser.query(api.users.getGithubProviderSummary)).resolves.toMatchObject({
+      connected: true,
+      authMethod: "oauth",
+      reauthorizeAvailable: true,
+    });
+  });
+
   it("checks GitHub OAuth health from live GitHub responses", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
@@ -298,6 +332,64 @@ describe("users Convex contract", () => {
           label: "Read packages",
           status: "missing",
         },
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("treats absent GitHub scope headers as unknown access", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId: insertedUserId,
+        auth: {
+          method: "oauth",
+          credential: "github-oauth-token",
+        },
+        username: "stored-login",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      return insertedUserId;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        if (url === "https://api.github.com/user") {
+          return new Response(JSON.stringify({ login: "live-login" }));
+        }
+        if (url.startsWith("https://api.github.com/user/repos")) {
+          return new Response("[]");
+        }
+
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    try {
+      const asUser = t.withIdentity({
+        subject: `${userId}|test-session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+
+      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+
+      expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
       ]);
     } finally {
       vi.unstubAllGlobals();
