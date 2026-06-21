@@ -169,20 +169,6 @@ async function renderLandingAccountSectionAfterEffects(initialEntry: string) {
   return markup;
 }
 
-function normalizeRenderedMarkup(markup: string) {
-  const element = document.createElement("div");
-  element.innerHTML = markup;
-  return element.innerHTML;
-}
-
-async function expectLandingAccountSectionHydratesWithoutMarkupChange(initialEntry: string) {
-  const markup = normalizeRenderedMarkup(renderLandingAccountSection(initialEntry));
-  const hydratedMarkup = await renderLandingAccountSectionAfterEffects(initialEntry);
-
-  expect(markup).toBe(hydratedMarkup);
-  return markup;
-}
-
 describe("PublicLandingAccountSection", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
@@ -198,25 +184,29 @@ describe("PublicLandingAccountSection", () => {
   it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {
     authState.isLoading = true;
 
-    const markup = await expectLandingAccountSectionHydratesWithoutMarkupChange("/");
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("not logged in");
+    expect(markup).toContain("checking login");
     expect(markup).toContain("data-vault-dashboard-account-section-label");
-    expect(markup).toContain("?sign-in");
-    expect(markup).toContain("?create-account");
-    expect(markup).not.toContain("checking login");
+    expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).toContain("?sign-in");
+    expect(hydratedMarkup).toContain("?create-account");
   });
 
   it("uses local JWT profile claims after hydration while auth state loads", async () => {
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    const markup = await expectLandingAccountSectionHydratesWithoutMarkupChange("/");
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("nicu@noter.md");
-    expect(markup).toContain("Sign out");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("not logged in");
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Sign out");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("not logged in");
     expect(queryState.index).toBe(0);
   });
 
@@ -227,10 +217,12 @@ describe("PublicLandingAccountSection", () => {
       "refresh-token",
     );
 
-    const markup = await expectLandingAccountSectionHydratesWithoutMarkupChange("/");
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("not logged in");
     expect(queryState.index).toBe(0);
   });
 
@@ -238,11 +230,13 @@ describe("PublicLandingAccountSection", () => {
     authState.isAuthenticated = true;
     queryState.results = [undefined];
 
-    const markup = await expectLandingAccountSectionHydratesWithoutMarkupChange("/");
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(markup).not.toContain("Account");
-    expect(markup).not.toContain("not logged in");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
   it("keeps local JWT profile claims after hydration while the signed-in viewer loads", async () => {
@@ -250,12 +244,14 @@ describe("PublicLandingAccountSection", () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
     queryState.results = [undefined];
 
-    const markup = await expectLandingAccountSectionHydratesWithoutMarkupChange("/");
+    const markup = renderLandingAccountSection("/");
+    const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(markup).toContain("nicu@noter.md");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Account");
-    expect(markup).not.toContain("not logged in");
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("not logged in");
   });
 
   it("shows the signed-in account email after the viewer loads", async () => {

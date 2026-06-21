@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
@@ -91,6 +91,37 @@ async function renderPresentationProviderAfterEffects() {
   return markup;
 }
 
+async function hydratePresentationProviderAfterServerRender() {
+  const rootElement = document.createElement("div");
+  rootElement.innerHTML = renderPresentationProvider();
+  document.body.append(rootElement);
+  const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const root = await act(() =>
+    hydrateRoot(
+      rootElement,
+      <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
+        <AuthPresentationProbe />
+      </AppAuthPresentationProvider>,
+    ),
+  );
+
+  try {
+    const hydrationErrors = consoleErrorSpy.mock.calls
+      .map((call) => call.map((value) => String(value)).join(" "))
+      .filter((message) => /hydrat|did not match|#418/i.test(message));
+    return {
+      hydrationErrors,
+      markup: rootElement.innerHTML,
+    };
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    consoleErrorSpy.mockRestore();
+    rootElement.remove();
+  }
+}
+
 describe("app auth presentation", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
@@ -114,10 +145,8 @@ describe("app auth presentation", () => {
 
   it("uses signed-out presentation after hydration when there is no local auth material", async () => {
     expect(readLocalAppAuthPresentationHint(TEST_STORAGE_NAMESPACE)).toEqual({ kind: "signedOut" });
-    const markup = renderPresentationProvider();
-
-    expect(markup).toBe("<span>signedOut</span>");
-    expect(await renderPresentationProviderAfterEffects()).toBe(markup);
+    expect(renderPresentationProvider()).toBe("<span>unknown</span>");
+    expect(await renderPresentationProviderAfterEffects()).toBe("<span>signedOut</span>");
   });
 
   it("treats a profiled future local JWT as a temporary auth hint after hydration while Convex loads", async () => {
@@ -130,10 +159,19 @@ describe("app auth presentation", () => {
         name: "Nicu",
       },
     });
-    const markup = renderPresentationProvider();
+    expect(renderPresentationProvider()).toBe("<span>unknown</span>");
+    expect(await renderPresentationProviderAfterEffects()).toBe(
+      "<span>temporaryAuthenticated</span>",
+    );
+  });
 
-    expect(markup).toBe("<span>temporaryAuthenticated</span>");
-    expect(await renderPresentationProviderAfterEffects()).toBe(markup);
+  it("hydrates the local JWT presentation without a React mismatch", async () => {
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const result = await hydratePresentationProviderAfterServerRender();
+
+    expect(result.hydrationErrors).toEqual([]);
+    expect(result.markup).toBe("<span>temporaryAuthenticated</span>");
   });
 
   it("clears the head prehydration marker and style after the auth hint resolves", async () => {
@@ -250,10 +288,10 @@ describe("app auth presentation", () => {
     authState.isLoading = false;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    const markup = renderPresentationProvider();
-
-    expect(markup).toBe("<span>confirmedAuthenticated</span>");
-    expect(await renderPresentationProviderAfterEffects()).toBe(markup);
+    expect(renderPresentationProvider()).toBe("<span>unknown</span>");
+    expect(await renderPresentationProviderAfterEffects()).toBe(
+      "<span>confirmedAuthenticated</span>",
+    );
   });
 
   it("lets confirmed Convex sign-out override the local hint", () => {

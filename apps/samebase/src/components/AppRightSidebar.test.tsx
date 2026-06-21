@@ -191,20 +191,6 @@ async function renderRightSidebarAfterEffects(queryResults: unknown[]) {
   return markup;
 }
 
-function normalizeRenderedMarkup(markup: string) {
-  const element = document.createElement("div");
-  element.innerHTML = markup;
-  return element.innerHTML;
-}
-
-async function expectRightSidebarHydratesWithoutMarkupChange(queryResults: unknown[]) {
-  const markup = normalizeRenderedMarkup(renderRightSidebar(queryResults));
-  const hydratedMarkup = await renderRightSidebarAfterEffects(queryResults);
-
-  expect(markup).toBe(hydratedMarkup);
-  return markup;
-}
-
 async function renderRightSidebarAfterEffectsWithNamedQueries(
   queryResults: ReadonlyMap<string, unknown>,
 ) {
@@ -269,14 +255,14 @@ describe("AppRightSidebarContent", () => {
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), FUTURE_JWT);
 
-    const markup = await expectRightSidebarHydratesWithoutMarkupChange([]);
+    const markup = renderRightSidebar([]);
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
-    expect(markup).toContain("not logged in");
-    expect(markup).toContain("?sign-in");
-    expect(markup).toContain("?create-account");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Providers");
-    expect(markup).not.toContain("Account");
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Providers");
+    expect(hydratedMarkup).not.toContain("Account");
   });
 
   it("shows the public signed-out account row without provider controls", () => {
@@ -296,13 +282,15 @@ describe("AppRightSidebarContent", () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
 
-    const markup = await expectRightSidebarHydratesWithoutMarkupChange([]);
+    const markup = renderRightSidebar([]);
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
-    expect(markup).toContain("not logged in");
-    expect(markup).toContain("?sign-in");
-    expect(markup).toContain("?create-account");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Providers");
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).toContain("?sign-in");
+    expect(hydratedMarkup).toContain("?create-account");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Providers");
   });
 
   it("keeps checking login while a refresh token may restore the session", async () => {
@@ -313,10 +301,12 @@ describe("AppRightSidebarContent", () => {
       "refresh-token",
     );
 
-    const markup = await expectRightSidebarHydratesWithoutMarkupChange([]);
+    const markup = renderRightSidebar([]);
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(markup).not.toContain("Providers");
+    expect(hydratedMarkup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Providers");
   });
 
   it("uses local JWT profile claims after hydration for the temporary signed-in account row", async () => {
@@ -324,12 +314,14 @@ describe("AppRightSidebarContent", () => {
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    const markup = await expectRightSidebarHydratesWithoutMarkupChange([]);
+    const markup = renderRightSidebar([]);
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
-    expect(markup).toContain("nicu@noter.md");
-    expect(markup).toContain("Sign out");
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Providers");
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Sign out");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Providers");
   });
 
   it("renders the temporary signed-in account row without an accordion trigger", async () => {
@@ -350,13 +342,15 @@ describe("AppRightSidebarContent", () => {
   it("keeps local JWT profile claims after hydration while authenticated app access loads", async () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    const markup = await expectRightSidebarHydratesWithoutMarkupChange([]);
-    const accountIndex = markup.indexOf("nicu@noter.md");
+    const markup = renderRightSidebar([]);
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
+    const accountIndex = hydratedMarkup.indexOf("nicu@noter.md");
 
     expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(markup).not.toContain("checking login");
-    expect(markup).not.toContain("Account");
-    expect(markup).not.toContain("Providers");
+    expect(markup).toContain("checking login");
+    expect(hydratedMarkup).not.toContain("checking login");
+    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("Providers");
   });
 
   it("keeps provider controls hidden while authenticated app access loads", async () => {

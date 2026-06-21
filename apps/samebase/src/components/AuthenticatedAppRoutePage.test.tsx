@@ -6,7 +6,7 @@ import {
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
 import { act } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AuthenticatedAppRoutePage } from "./AuthenticatedAppRoutePage";
@@ -131,20 +131,6 @@ async function renderAuthenticatedRoutePageAfterEffects() {
   return markup;
 }
 
-function normalizeRenderedMarkup(markup: string) {
-  const element = document.createElement("div");
-  element.innerHTML = markup;
-  return element.innerHTML;
-}
-
-async function expectAuthenticatedRoutePageHydratesWithoutMarkupChange() {
-  const markup = normalizeRenderedMarkup(renderAuthenticatedRoutePage());
-  const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
-
-  expect(markup).toBe(hydratedMarkup);
-  return markup;
-}
-
 describe("AuthenticatedAppRoutePage", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
@@ -161,9 +147,11 @@ describe("AuthenticatedAppRoutePage", () => {
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    const markup = await expectAuthenticatedRoutePageHydratesWithoutMarkupChange();
+    const markup = renderAuthenticatedRoutePage();
+    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
 
-    expect(markup).toContain("temporary-auth-route-shell");
+    expect(markup).not.toContain("temporary-auth-route-shell");
+    expect(hydratedMarkup).toContain("temporary-auth-route-shell");
     expect(markup).not.toContain("Route child");
     expect(markup).not.toContain("Sign in");
     expect(markup).not.toContain("approval-gate");
@@ -172,11 +160,14 @@ describe("AuthenticatedAppRoutePage", () => {
   it("renders the sign-in form after hydration when loading without local auth material", async () => {
     authState.isLoading = true;
 
-    const markup = await expectAuthenticatedRoutePageHydratesWithoutMarkupChange();
+    const markup = renderAuthenticatedRoutePage();
+    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
 
     expect(markup).not.toContain("temporary-auth-route-shell");
-    expect(markup).toContain("Sign in");
+    expect(hydratedMarkup).toContain("Sign in");
+    expect(hydratedMarkup).not.toContain("temporary-auth-route-shell");
     expect(markup).not.toContain("Route child");
+    expect(markup).not.toContain("Sign in");
   });
 
   it("keeps the route pending while a refresh token may restore the session", async () => {
@@ -186,11 +177,35 @@ describe("AuthenticatedAppRoutePage", () => {
       "refresh-token",
     );
 
-    const markup = await expectAuthenticatedRoutePageHydratesWithoutMarkupChange();
+    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
 
-    expect(markup).not.toContain("temporary-auth-route-shell");
-    expect(markup).not.toContain("Route child");
-    expect(markup).not.toContain("Sign in");
+    expect(hydratedMarkup).not.toContain("temporary-auth-route-shell");
+    expect(hydratedMarkup).not.toContain("Route child");
+    expect(hydratedMarkup).not.toContain("Sign in");
+  });
+
+  it("hydrates temporary auth without a React mismatch", async () => {
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = renderAuthenticatedRoutePage();
+    document.body.append(rootElement);
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const root = await act(() => hydrateRoot(rootElement, createAuthenticatedRoutePageElement()));
+
+    try {
+      const hydrationErrors = consoleErrorSpy.mock.calls
+        .map((call) => call.map((value) => String(value)).join(" "))
+        .filter((message) => /hydrat|did not match|#418/i.test(message));
+      expect(hydrationErrors).toEqual([]);
+      expect(rootElement.innerHTML).toContain("temporary-auth-route-shell");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      consoleErrorSpy.mockRestore();
+      rootElement.remove();
+    }
   });
 
   it("keeps the normal signed-out form when Convex is signed out and there is no hint", () => {
