@@ -84,11 +84,11 @@ changing `draftRouteAddress`, so suggestions stay anchored to the text the user 
 `previewRoute.suggestionIndex` is the single current suggestion row. `previewRoute.source` says whether
 pointer hover, keyboard navigation, or mobile touch scroll created it.
 
-Mobile touch scroll also uses `previewRoute`, not `draftRouteAddress`. Example: `draftRouteAddress` is `/logo?`, the
-user scrolls the fixed slate over `?top=sky-500`, and `previewRoute.routeAddress` becomes
-`/logo?top=sky-500`. The visible input shows `/logo?top=sky-500`, but suggestions still come from
-`/logo?` until the row is tapped. Tapping that row keeps `/logo?top=sky-500` and places the cursor
-after `top=`. Tapping outside cancels the scroll preview and restores `/logo`.
+Mobile touch scroll also uses `previewRoute`, not `draftRouteAddress`. Example: `draftRouteAddress`
+is `/logo?`, the user scrolls the fixed slate over `?top=sky-500`, and `previewRoute.routeAddress`
+becomes `/logo?top=sky-500`. The visible input shows `/logo?top=sky-500`, but suggestions still
+come from `/logo?` until the row is tapped. Tapping that row keeps `/logo?top=sky-500` and places
+the cursor after `top=`. Tapping outside cancels the scroll preview and restores `/logo`.
 
 expectedRouteAddress = the route address this focused state expects TanStack to report, and the
 restore target when `previewRoute` is canceled. Blurred display reads
@@ -161,6 +161,7 @@ export type RouteEditorState =
 export type RouteEditorVmProps = {
   onDebugStateChange?: (state: RouteEditorState) => void;
   pageHashKeys: readonly string[];
+  touchPreviewRouteChanges: boolean;
 };
 
 type RouteEditorPreventNativeEditContext = {
@@ -284,11 +285,13 @@ type RouteEditorEvent =
   // Pointer, keyboard, or touch scroll moved to a suggestion row. This sets
   // `previewRoute` without changing `draftRouteAddress`. `previewSelectionRouteIndex`
   // keeps the visible preview cursor at the start of the changed token, not at
-  // the end of the preview text.
+  // the end of the preview text. `replaceRoutePreview` lets touch previews keep
+  // side-pane mobile routes visually stable until the row is applied.
   | {
       type: "previewedSuggestion";
       context: RouteEditorReplaceRouteContext;
       previewSelectionRouteIndex: number;
+      replaceRoutePreview: boolean;
       source: RouteEditorSuggestionPreview["source"];
       suggestionIndex: number;
       routeAddress: string;
@@ -407,6 +410,7 @@ function previewRouteEditorSuggestion(
   event: {
     context: RouteEditorReplaceRouteContext;
     previewSelectionRouteIndex: number;
+    replaceRoutePreview: boolean;
     routeAddress: string;
     source: RouteEditorSuggestionPreview["source"];
     suggestionIndex: number;
@@ -439,7 +443,7 @@ function previewRouteEditorSuggestion(
   const actions: RouteEditorAction[] = [
     { brand: "setInputSelection", selection, timing: "afterRender" },
   ];
-  if (expectedRouteAddress !== activeExpectedRouteAddress) {
+  if (event.replaceRoutePreview && expectedRouteAddress !== activeExpectedRouteAddress) {
     actions.push({
       brand: "replaceRoute",
       routeAddress: expectedRouteAddress,
@@ -658,10 +662,9 @@ const routeEditorTransition: RouteEditorTransitionTable = {
     },
 
     lostEditorFocus: (prev, event) => {
-      // Root blur leaves `"focused"`. If `previewRoute.expectedRouteAddress`
-      // replaced the route through pointer, keyboard, or touch-scroll preview,
-      // restore `prev.expectedRouteAddress` before the blurred editor reads
-      // `committedRouteAddress`. Only selectedSuggestion commits `previewRoute`.
+      // Root blur leaves `"focused"`. If a suggestion preview moved to a different ready route,
+      // restore `prev.expectedRouteAddress` before the blurred editor reads `committedRouteAddress`.
+      // This is a no-op when touch preview kept the browser on the base route.
       const actions: RouteEditorAction[] = [];
       if (
         prev.focusMode === "suggestion" &&
@@ -760,6 +763,7 @@ const routeEditorTransition: RouteEditorTransitionTable = {
       return previewRouteEditorSuggestion(prev, {
         context: event.context,
         previewSelectionRouteIndex: suggestion.previewSelectionRouteIndex,
+        replaceRoutePreview: true,
         routeAddress: suggestion.previewRouteAddress,
         source: "keyboard",
         suggestionIndex: nextSuggestionIndex,
@@ -985,7 +989,11 @@ function readRouteEditorNavigationOptions(args: {
   };
 }
 
-export function useRouteEditorVm({ onDebugStateChange, pageHashKeys }: RouteEditorVmProps) {
+export function useRouteEditorVm({
+  onDebugStateChange,
+  pageHashKeys,
+  touchPreviewRouteChanges,
+}: RouteEditorVmProps) {
   const router = useRouter();
   const location = useLocation();
 
@@ -1127,9 +1135,9 @@ Effect part: browser Back/Forward can happen through toolbar buttons, gestures, 
 shortcuts outside our input handlers. This has to run on the Navigation API `navigate` event before
 the browser traverses history; a normal FSM event after traversal would be too late.
 
-Example: start `/logo`, focus the editor, touch-scroll to preview `?top=sky-500`, then press Back.
-Before leaving the entry, this rewrites the entry from `/logo?top=sky-500` back to
-`expectedRouteAddress` (`/logo`), so Forward does not return to an unapplied suggestion.
+Example: start `/logo`, focus the editor, preview `?top=sky-500`, then press Back. Before leaving
+the entry, this rewrites the entry from `/logo?top=sky-500` back to `expectedRouteAddress`
+(`/logo`), so Forward does not return to an unapplied suggestion.
   */
   useEffect(() => {
     const currentEntryIsUnappliedSuggestionPreview =
@@ -1416,6 +1424,7 @@ reload, so an unapplied suggestion preview does not become durable.
           replaceRoute,
         },
         previewSelectionRouteIndex: suggestion.previewSelectionRouteIndex,
+        replaceRoutePreview: true,
         source: "pointer",
         suggestionIndex,
         routeAddress: suggestion.previewRouteAddress,
@@ -1433,12 +1442,13 @@ reload, so an unapplied suggestion preview does not become durable.
           replaceRoute,
         },
         previewSelectionRouteIndex: suggestion.previewSelectionRouteIndex,
+        replaceRoutePreview: touchPreviewRouteChanges,
         source: "touch",
         suggestionIndex,
         routeAddress: suggestion.previewRouteAddress,
       });
     },
-    [readRouteAddressReadinessForRoute, replaceRoute, sendEvent],
+    [readRouteAddressReadinessForRoute, replaceRoute, sendEvent, touchPreviewRouteChanges],
   );
 
   const handleSuggestionsMouseLeave = useCallback(() => {

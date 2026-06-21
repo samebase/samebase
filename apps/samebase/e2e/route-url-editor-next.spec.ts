@@ -324,6 +324,59 @@ async function scrollTouchPickerTo(page: Page, scrollTop: number): Promise<void>
     }, scrollTop);
 }
 
+async function expectAppWorkspaceMobilePane(page: Page, pane: "left" | "main" | "right") {
+  await expect(page.locator("[data-workspace-layout-v2]").first()).toHaveAttribute(
+    "data-mobile-pane",
+    pane,
+  );
+}
+
+async function expectWorkspaceCarouselScrollLeft(page: Page, scrollLeft: number) {
+  await expect
+    .poll(async () =>
+      page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+        return Math.round(element.scrollLeft);
+      }),
+    )
+    .toBe(scrollLeft);
+}
+
+async function scrollAppWorkspaceCarouselToPane(page: Page, pane: "left" | "main" | "right") {
+  if (pane === "left") {
+    await expect
+      .poll(async () =>
+        page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+          const leftPane = element.querySelector('[data-testid="workspace-layout-v2-pane-left"]');
+          return leftPane instanceof HTMLElement ? Math.round(leftPane.offsetWidth) : 0;
+        }),
+      )
+      .toBeGreaterThan(0);
+  }
+
+  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element, nextPane) => {
+    const mainPane = element.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+    if (!(mainPane instanceof HTMLElement)) {
+      throw new Error("Expected mobile carousel main pane.");
+    }
+
+    const panePeekPx = Number.parseFloat(window.getComputedStyle(element).paddingLeft);
+    const previousScrollSnapType = element.style.scrollSnapType;
+    element.style.scrollSnapType = "none";
+    element.scrollLeft =
+      nextPane === "left"
+        ? 0
+        : nextPane === "main"
+          ? mainPane.offsetLeft - panePeekPx
+          : element.scrollWidth - element.clientWidth;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    window.setTimeout(() => {
+      element.style.scrollSnapType = previousScrollSnapType;
+    }, 0);
+  }, pane);
+
+  await expectAppWorkspaceMobilePane(page, pane);
+}
+
 test.describe("route URL editor touch scroll picker", () => {
   test.use({
     hasTouch: true,
@@ -425,6 +478,56 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(page).toHaveURL(/\/logo$/);
     await expectInputSelection(input, `${prefix}logo?`.length);
     await expect(page.getByRole("option", { exact: true, name: "?top=sky-500" })).toBeVisible();
+  });
+
+  test("touch path previews do not recenter an open mobile sidebar before apply", async ({
+    page,
+  }) => {
+    const displayInput = await openRouteUrlEditor(page, "/logo");
+
+    await scrollAppWorkspaceCarouselToPane(page, "left");
+    await expectAppWorkspaceMobilePane(page, "left");
+    await expectWorkspaceCarouselScrollLeft(page, 0);
+
+    const displayInputBox = await displayInput.boundingBox();
+    const viewportSize = page.viewportSize();
+    if (!displayInputBox || !viewportSize) {
+      throw new Error("Expected visible route URL editor display.");
+    }
+
+    await page.touchscreen.tap(
+      Math.min(displayInputBox.x + displayInputBox.width / 2, viewportSize.width - 2),
+      displayInputBox.y + displayInputBox.height / 2,
+    );
+
+    const input = page.getByTestId("route-url-editor-input");
+    await expect(input).toBeFocused();
+    await input.press("Home");
+    await expect(page.getByRole("option", { exact: true, name: "/visual-fixture" })).toBeVisible();
+    await expect(page.getByTestId("route-url-editor-suggestions")).toHaveClass(/touch-pan-y/);
+    await expectTouchSlateAlignedToSuggestion(page, "/logo");
+
+    const visualFixtureSuggestion = await scrollTouchPickerToSuggestion(page, "/visual-fixture");
+
+    await expect.poll(async () => input.inputValue()).toContain("/visual-fixture");
+    await expect(page).toHaveURL(/\/logo$/);
+    await expectAppWorkspaceMobilePane(page, "left");
+    await expectWorkspaceCarouselScrollLeft(page, 0);
+
+    const visualFixtureSuggestionBox = await visualFixtureSuggestion.boundingBox();
+    if (!visualFixtureSuggestionBox) {
+      throw new Error("Expected visible /visual-fixture suggestion.");
+    }
+
+    await page.touchscreen.tap(
+      Math.min(
+        visualFixtureSuggestionBox.x + visualFixtureSuggestionBox.width / 2,
+        viewportSize.width - 2,
+      ),
+      visualFixtureSuggestionBox.y + visualFixtureSuggestionBox.height / 2,
+    );
+
+    await expect(page).toHaveURL(/\/visual-fixture/);
   });
 
   test("touch scroll keeps query-key suggestions anchored until tap", async ({ page }) => {

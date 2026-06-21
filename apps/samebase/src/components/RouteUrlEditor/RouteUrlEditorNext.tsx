@@ -26,7 +26,7 @@ const routeUrlEditorNextTouchSuggestionsPopoverClassName =
 const routeUrlEditorNextSuggestionsScrollportClassName = "relative max-h-72 overflow-y-auto py-1";
 
 const routeUrlEditorNextTouchSuggestionsScrollportClassName =
-  "relative h-[min(18rem,calc(100dvh-4rem))] snap-y snap-mandatory overflow-y-auto overscroll-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "relative h-[min(18rem,calc(100dvh-4rem))] touch-pan-y snap-y snap-mandatory overflow-y-auto overscroll-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 const routeUrlEditorNextSuggestionButtonClassName =
   "group flex h-7 w-full min-w-0 snap-start snap-always items-center px-2 font-mono text-sm text-foreground outline-none focus-visible:bg-accent focus-visible:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground";
@@ -60,9 +60,13 @@ function renderRouteUrlEditorNextSuggestionValue(suggestion: {
   );
 }
 
-export function RouteUrlEditorNext() {
+export function RouteUrlEditorNext({
+  touchPreviewRouteChanges = true,
+}: {
+  touchPreviewRouteChanges?: boolean;
+}) {
   const pageHashKeys = useRouteUrlEditorPageHashSuggestions();
-  const vm = useRouteEditorVm({ pageHashKeys });
+  const vm = useRouteEditorVm({ pageHashKeys, touchPreviewRouteChanges });
   const { canGoBack, canGoForward } = useNavigationControls();
   const touchScrollPicker = useRouteUrlEditorTouchScrollPicker({
     currentSuggestionIndex: vm.currentSuggestionIndex,

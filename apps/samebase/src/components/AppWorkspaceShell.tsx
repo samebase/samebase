@@ -16,6 +16,7 @@ import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNe
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
   WorkspacePaneRuntimeProvider,
+  useWorkspacePaneState,
   type WorkspacePaneSide,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { type WorkspaceLayoutV2BottomPanelProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2BottomPanel";
@@ -25,6 +26,7 @@ import {
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
+import { MOBILE_BREAKPOINT } from "@/hooks/use-mobile";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 import {
   appWorkspaceMobilePanePrehydrationScript,
@@ -185,10 +187,15 @@ const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
 });
 
 function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
+  const { mobilePane } = useWorkspacePaneState();
+  const isMobileViewport =
+    typeof window === "undefined" ? false : window.innerWidth < MOBILE_BREAKPOINT;
+  const touchPreviewRouteChanges = !isMobileViewport || mobilePane === "main";
+
   return (
     <div className="flex h-full min-w-0 items-center gap-2">
       <div className="min-w-0 flex-1">
-        <RouteUrlEditorNext />
+        <RouteUrlEditorNext touchPreviewRouteChanges={touchPreviewRouteChanges} />
       </div>
       {accessory ? <div className="min-w-0 shrink-0">{accessory}</div> : null}
     </div>
