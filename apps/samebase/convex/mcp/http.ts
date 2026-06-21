@@ -11,8 +11,8 @@ import {
 import type { ToolJsonSchema } from "../toolRuntime/types";
 import { normalizeOptionalString } from "../toolRuntime/utils";
 import {
-  buildMcpAuthorizationSuccessRedirectUrl,
   MCP_CONSENT_APP_PATH,
+  type McpAuthorizationSuccessSearchParams,
 } from "../../shared/mcpOAuth";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import {
@@ -440,11 +440,10 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   }
 
   return Response.redirect(
-    buildMcpAuthorizationSuccessRedirectUrl({
-      redirectUri: issueResult.redirectUri,
-      authorizationCode,
+    buildUrlWithSearchParams(issueResult.redirectUri, {
+      code: authorizationCode,
       state: issueResult.state,
-    }),
+    } satisfies McpAuthorizationSuccessSearchParams),
     302,
   );
 });

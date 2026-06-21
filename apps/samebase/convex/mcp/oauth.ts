@@ -5,8 +5,9 @@ import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
 import {
   applyMcpDenyErrorParamsToRedirectUrl,
-  buildMcpAuthorizationSuccessRedirectUrl,
+  type McpAuthorizationSuccessSearchParams,
 } from "../../shared/mcpOAuth";
+import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "../schema";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import {
@@ -664,11 +665,10 @@ export const completeAuthorizationRequestForCurrentUser = action({
     }
 
     return {
-      redirectUrl: buildMcpAuthorizationSuccessRedirectUrl({
-        redirectUri: issueResult.redirectUri,
-        authorizationCode,
+      redirectUrl: buildUrlWithSearchParams(issueResult.redirectUri, {
+        code: authorizationCode,
         state: issueResult.state,
-      }),
+      } satisfies McpAuthorizationSuccessSearchParams),
     };
   },
 });
