@@ -12,7 +12,10 @@ import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import {
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
+} from "@/lib/publicLanding";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
@@ -21,7 +24,10 @@ const TEST_ARGS = {
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
+  productionPublicHostname: "samebase.com",
   rootAttribute: "data-app-auth-presentation-prehydrated",
+  sidebarAuthPlaceholderTestId: PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
+  staticRouteEnvironment: "preview",
   styleElementId: "samebase-app-auth-presentation-prehydration",
 } satisfies AppAuthPresentationPrehydrationArgs;
 
@@ -239,6 +245,50 @@ describe("appAuthPresentationPrehydration", () => {
     )?.textContent;
     expect(styleText).toContain('content: "not logged in";');
     expect(styleText).toContain("[data-app-auth-prehydration-signed-out]");
+  });
+
+  it("reveals the sign-in sidebar auth placeholder before hydration", () => {
+    window.history.replaceState({}, "", "/?sign-in");
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).toContain(
+      `[data-testid="${PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID}"]`,
+    );
+    expect(styleText).toContain('[data-app-auth-prehydration-sidebar-auth="signIn-preview"]');
+  });
+
+  it("reveals the create-account sidebar auth placeholder before hydration", () => {
+    window.history.replaceState({}, "", "/?create-account");
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).toContain(
+      `[data-testid="${PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID}"]`,
+    );
+    expect(styleText).toContain('[data-app-auth-prehydration-sidebar-auth="signUp-preview"]');
+  });
+
+  it("reveals the local-worktree sidebar auth placeholder before hydration locally", () => {
+    window.history.replaceState({}, "", "/?sign-in");
+
+    runAppAuthPresentationPrehydrationScript({
+      ...TEST_ARGS,
+      staticRouteEnvironment: "local",
+    });
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).toContain(
+      '[data-app-auth-prehydration-sidebar-auth="signIn-local_worktree"]',
+    );
   });
 
   it("does not prehydrate ignored paths", () => {

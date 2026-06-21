@@ -11,6 +11,7 @@ import {
 import {
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+  PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
 } from "@/lib/publicLanding";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { type PublicDeploymentAuthPolicy } from "../convex/deploymentProfile";
@@ -119,7 +120,7 @@ describe("PasswordAuthForm", () => {
     expect(markup).toContain(">Sign in</button>");
   });
 
-  it("renders the create-account sidebar password auth from prerendered preview markup", () => {
+  it("renders the sidebar auth placeholder from prerendered markup", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
@@ -128,13 +129,11 @@ describe("PasswordAuthForm", () => {
 
     const markup = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
 
-    expect(markup).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(markup).toContain("Password auth (dev)");
-    expect(markup).toContain("Create account");
-    expect(markup).not.toContain("Google");
+    expect(markup).toContain(PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID);
+    expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
   });
 
-  it("keeps prerendered and hydrated preview create-account auth markup identical", async () => {
+  it("hydrates preview create-account auth without a recoverable error", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
@@ -142,7 +141,6 @@ describe("PasswordAuthForm", () => {
     componentState.search = { "create-account": true };
     const rootElement = document.createElement("div");
     rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
-    const preHydrationMarkup = rootElement.innerHTML;
     document.body.append(rootElement);
     const recoverableErrors: Array<unknown> = [];
 
@@ -156,7 +154,6 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).toBe(preHydrationMarkup);
     expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
     expect(rootElement.innerHTML).toContain("Password auth (dev)");
     expect(rootElement.innerHTML).toContain('placeholder="you@example.com"');
@@ -170,7 +167,6 @@ describe("PasswordAuthForm", () => {
     window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
     const rootElement = document.createElement("div");
     rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
-    const preHydrationMarkup = rootElement.innerHTML;
     document.body.append(rootElement);
     const recoverableErrors: Array<unknown> = [];
 
@@ -184,13 +180,12 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).toBe(preHydrationMarkup);
     expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
     expect(rootElement.textContent).toContain("Google");
     expect(rootElement.innerHTML).toContain("Password auth (dev)");
   });
 
-  it("keeps sidebar sign-in auth controls identical across hydration", async () => {
+  it("hydrates sidebar sign-in auth controls without a recoverable error", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
@@ -198,7 +193,6 @@ describe("PasswordAuthForm", () => {
     componentState.search = { "sign-in": true };
     const rootElement = document.createElement("div");
     rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
-    const preHydrationMarkup = rootElement.innerHTML;
     document.body.append(rootElement);
     const recoverableErrors: Array<unknown> = [];
 
@@ -212,14 +206,13 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).toBe(preHydrationMarkup);
     expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
     expect(rootElement.textContent).toContain("Google");
     expect(rootElement.textContent).toContain("Password auth (dev)");
     expect(rootElement.textContent).toContain("Sign in");
   });
 
-  it("keeps sidebar create-account auth controls identical across hydration", async () => {
+  it("hydrates sidebar create-account auth controls without a recoverable error", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
@@ -227,7 +220,6 @@ describe("PasswordAuthForm", () => {
     componentState.search = { "create-account": true };
     const rootElement = document.createElement("div");
     rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
-    const preHydrationMarkup = rootElement.innerHTML;
     document.body.append(rootElement);
     const recoverableErrors: Array<unknown> = [];
 
@@ -241,25 +233,30 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).toBe(preHydrationMarkup);
     expect(rootElement.innerHTML).not.toContain(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
     expect(rootElement.textContent).toContain("Password auth (dev)");
     expect(rootElement.textContent).toContain("Create account");
   });
 
-  it("hides only the landing sidebar password auth in prod-ui mode", () => {
+  it("hides only the landing sidebar password auth in prod-ui mode", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
     };
     componentState.search = { "prod-ui": true, "sign-in": true };
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
+    document.body.append(rootElement);
 
-    const markup = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
+    await act(async () => {
+      root = hydrateRoot(rootElement, <PublicLandingSidebarAuthControls />);
+      await settleHydrationUpdate();
+    });
 
-    expect(markup).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(markup).toContain(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
-    expect(markup).toContain("Google");
-    expect(markup).not.toContain("Password auth (dev)");
+    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
+    expect(rootElement.textContent).toContain("Google");
+    expect(rootElement.textContent).not.toContain("Password auth (dev)");
   });
 
   it("hides the landing sidebar password auth after sign-in", () => {
@@ -273,7 +270,6 @@ describe("PasswordAuthForm", () => {
     const markup = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
 
     expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(markup).not.toContain("Password auth (dev)");
   });
 
   it("shows actionable copy when local worktree autofill credentials are missing", async () => {

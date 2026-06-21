@@ -1,4 +1,12 @@
-import { devices, expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  devices,
+  expect,
+  test,
+  type Browser,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { PNG } from "pngjs";
 import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
@@ -14,7 +22,9 @@ import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
+  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
+  PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
 } from "../src/lib/publicLanding";
 import {
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
@@ -119,6 +129,147 @@ type LandingReloadFrame = {
     height: number;
   } | null;
 };
+
+type PublicLandingAuthPrehydrationScenario = {
+  id: string;
+  path: string;
+};
+
+const PUBLIC_LANDING_AUTH_PREHYDRATION_SCENARIOS = [
+  {
+    id: "sign-in",
+    path: "/?sign-in",
+  },
+  {
+    id: "create-account",
+    path: "/?create-account",
+  },
+] satisfies PublicLandingAuthPrehydrationScenario[];
+
+async function blockExternalScripts(page: Page) {
+  await page.route("**/*", async (route) => {
+    if (route.request().resourceType() !== "script") {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      body: "",
+      contentType: "text/javascript",
+      status: 200,
+    });
+  });
+}
+
+async function openPublicLandingAuthPrehydrationPage({
+  browser,
+  hydrate,
+  path,
+}: {
+  browser: Browser;
+  hydrate: boolean;
+  path: string;
+}) {
+  const page = await browser.newPage();
+  if (!hydrate) {
+    await blockExternalScripts(page);
+  }
+
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  if (hydrate) {
+    await page.waitForLoadState("networkidle");
+  }
+
+  return page;
+}
+
+async function waitForPublicLandingAuthPrehydrationReady(page: Page) {
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-app-auth-presentation-prehydrated",
+    "signed-out",
+  );
+  await expect
+    .poll(async () => {
+      const box = await page
+        .getByTestId(PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID)
+        .boundingBox();
+      return box !== null && box.height > 0;
+    })
+    .toBe(true);
+}
+
+async function waitForPublicLandingAuthHydrationReady({
+  page,
+  scenario,
+}: {
+  page: Page;
+  scenario: PublicLandingAuthPrehydrationScenario;
+}) {
+  await expect(page.getByTestId(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID)).toBeVisible();
+  if (scenario.id === "sign-in") {
+    await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
+  } else {
+    await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
+  }
+}
+
+async function readPublicLandingAccountAuthClip(page: Page) {
+  return page.evaluate(
+    ({ accountSectionTestId, passwordAuthSectionTestId, placeholderTestId }) => {
+      const accountSection = document.querySelector(`[data-testid="${accountSectionTestId}"]`);
+      const authSection = document.querySelector(
+        `[data-testid="${passwordAuthSectionTestId}"], [data-testid="${placeholderTestId}"]`,
+      );
+      if (!(accountSection instanceof HTMLElement) || !(authSection instanceof HTMLElement)) {
+        return null;
+      }
+
+      const accountBox = accountSection.getBoundingClientRect();
+      const authBox = authSection.getBoundingClientRect();
+      if (
+        accountBox.width === 0 ||
+        accountBox.height === 0 ||
+        authBox.width === 0 ||
+        authBox.height === 0
+      ) {
+        return null;
+      }
+
+      const x = Math.floor(Math.min(accountBox.left, authBox.left));
+      const y = Math.floor(Math.min(accountBox.top, authBox.top));
+      const right = Math.ceil(Math.max(accountBox.right, authBox.right));
+      const bottom = Math.ceil(Math.max(accountBox.bottom, authBox.bottom));
+
+      return {
+        height: bottom - y,
+        width: right - x,
+        x,
+        y,
+      };
+    },
+    {
+      accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+      passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+      placeholderTestId: PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
+    },
+  );
+}
+
+async function capturePublicLandingAccountAuthClip(page: Page) {
+  await expect.poll(async () => readPublicLandingAccountAuthClip(page)).not.toBeNull();
+  const clip = await readPublicLandingAccountAuthClip(page);
+  if (clip === null) {
+    throw new Error("Expected public landing account auth clip to be readable.");
+  }
+
+  return page.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    clip,
+    scale: "css",
+  });
+}
 
 type LandingFontStableSidebarLinkLabel = (typeof LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS)[number];
 
@@ -955,8 +1106,58 @@ test("landing sign-in state keeps the account route links visible", async ({ pag
   await expect(
     accountSection.getByRole("link", { name: "?create-account", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
 });
+
+for (const scenario of PUBLIC_LANDING_AUTH_PREHYDRATION_SCENARIOS) {
+  test(`public landing ${scenario.id} account auth prehydration matches hydration`, async ({
+    browser,
+  }, testInfo: TestInfo) => {
+    let prehydratedPage: Page | null = null;
+    let hydratedPage: Page | null = null;
+
+    try {
+      prehydratedPage = await openPublicLandingAuthPrehydrationPage({
+        browser,
+        hydrate: false,
+        path: scenario.path,
+      });
+      hydratedPage = await openPublicLandingAuthPrehydrationPage({
+        browser,
+        hydrate: true,
+        path: scenario.path,
+      });
+
+      await waitForPublicLandingAuthPrehydrationReady(prehydratedPage);
+      await waitForPublicLandingAuthHydrationReady({ page: hydratedPage, scenario });
+
+      const prehydratedScreenshot = await capturePublicLandingAccountAuthClip(prehydratedPage);
+      const hydratedScreenshot = await capturePublicLandingAccountAuthClip(hydratedPage);
+      const artifactPrefix = `public-landing-auth-prehydration-${scenario.id}`;
+
+      await expectScreenshotsToMatch({
+        actual: prehydratedScreenshot,
+        artifactPrefix,
+        artifactWritePaths: {
+          actual: testInfo.outputPath(`${artifactPrefix}-prehydrated.png`),
+          diff: testInfo.outputPath(`${artifactPrefix}-diff.png`),
+          diffMask: testInfo.outputPath(`${artifactPrefix}-diff-mask.png`),
+          expected: testInfo.outputPath(`${artifactPrefix}-hydrated.png`),
+        },
+        expected: hydratedScreenshot,
+        maxDiffPixelRatio: 0,
+        pixelmatchOptions: {
+          includeAA: true,
+          threshold: 0,
+        },
+        testInfo,
+      });
+    } finally {
+      await prehydratedPage?.close();
+      await hydratedPage?.close();
+    }
+  });
+}
 
 test("public landing interactive elements use pointer cursors", async ({ page }) => {
   await page.goto("/?sign-in", { waitUntil: "networkidle" });
@@ -1663,6 +1864,18 @@ test("public landing still renders when localStorage access is denied", async ({
   expect(pageErrors).toEqual([]);
 });
 
+test("public landing sign-in state reports no page errors", async ({ page }) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error);
+  });
+
+  await page.goto("/?sign-in", { waitUntil: "networkidle" });
+
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
+  expect(pageErrors).toEqual([]);
+});
+
 test("public landing stays within the navigation budget", async ({ page }) => {
   await page.goto("/", { waitUntil: "load" });
 
@@ -1684,9 +1897,9 @@ test("prod-ui mode hides developer password auth controls", async ({ page }) => 
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
 
-  await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
+  await expect(page.getByText("Password auth (dev)").filter({ visible: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Autofill & sign in" })).toHaveCount(0);
-  await expect(page.getByPlaceholder("you@example.com")).toHaveCount(0);
+  await expect(page.getByPlaceholder("you@example.com").filter({ visible: true })).toHaveCount(0);
 });
 
 test("prod-ui mode does not override landing dev editing", async ({ page }) => {
@@ -1696,7 +1909,7 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
+  await expect(page.getByText("Password auth (dev)").filter({ visible: true })).toHaveCount(0);
   const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
   await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
 
