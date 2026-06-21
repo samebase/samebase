@@ -3,7 +3,10 @@ import { internal } from "../_generated/api";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
-import { applyMcpDenyErrorParamsToRedirectUrl } from "../../shared/mcpOAuth";
+import {
+  applyMcpDenyErrorParamsToRedirectUrl,
+  buildMcpAuthorizationSuccessRedirectUrl,
+} from "../../shared/mcpOAuth";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "../schema";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import {
@@ -660,13 +663,13 @@ export const completeAuthorizationRequestForCurrentUser = action({
       throw new Error(`${issueResult.error}: ${issueResult.errorDescription}`);
     }
 
-    const redirectUrl = new URL(issueResult.redirectUri);
-    redirectUrl.searchParams.set("code", authorizationCode);
-    if (issueResult.state !== undefined) {
-      redirectUrl.searchParams.set("state", issueResult.state);
-    }
-
-    return { redirectUrl: redirectUrl.toString() };
+    return {
+      redirectUrl: buildMcpAuthorizationSuccessRedirectUrl({
+        redirectUri: issueResult.redirectUri,
+        authorizationCode,
+        state: issueResult.state,
+      }),
+    };
   },
 });
 

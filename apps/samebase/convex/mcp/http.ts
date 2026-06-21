@@ -10,7 +10,11 @@ import {
 } from "../toolRuntime/catalog";
 import type { ToolJsonSchema } from "../toolRuntime/types";
 import { normalizeOptionalString } from "../toolRuntime/utils";
-import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
+import {
+  buildMcpAuthorizationSuccessRedirectUrl,
+  MCP_CONSENT_APP_PATH,
+} from "../../shared/mcpOAuth";
+import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import {
   createAccessTokenValue,
   createAuthorizationCodeValue,
@@ -36,6 +40,10 @@ import {
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
+type McpConsentRedirectSearchParams = {
+  mcp_consent_request: string;
+  mcp_login_required: "1" | undefined;
+};
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -112,13 +120,12 @@ function buildMcpConsentRedirectUrl(args: {
   consentUrl.pathname = MCP_CONSENT_APP_PATH;
   consentUrl.search = "";
   consentUrl.hash = "";
-  consentUrl.searchParams.set("mcp_consent_request", args.requestId);
-  if (args.loginRequired) {
-    consentUrl.searchParams.set("mcp_login_required", "1");
-  }
   return {
     ok: true,
-    value: consentUrl.toString(),
+    value: buildUrlWithSearchParams(consentUrl, {
+      mcp_consent_request: args.requestId,
+      mcp_login_required: args.loginRequired ? "1" : undefined,
+    } satisfies McpConsentRedirectSearchParams),
   };
 }
 
@@ -432,13 +439,14 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     });
   }
 
-  const redirectUrl = new URL(issueResult.redirectUri);
-  redirectUrl.searchParams.set("code", authorizationCode);
-  if (issueResult.state !== undefined) {
-    redirectUrl.searchParams.set("state", issueResult.state);
-  }
-
-  return Response.redirect(redirectUrl.toString(), 302);
+  return Response.redirect(
+    buildMcpAuthorizationSuccessRedirectUrl({
+      redirectUri: issueResult.redirectUri,
+      authorizationCode,
+      state: issueResult.state,
+    }),
+    302,
+  );
 });
 
 export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {

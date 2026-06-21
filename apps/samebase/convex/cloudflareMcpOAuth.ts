@@ -15,13 +15,13 @@ import {
 import { isRecord } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
 import { vCloudflareDefaultAccount } from "./schema";
+import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
 const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const FormEncodedParams = URLSearchParams;
 /**
  * Samebase needs the Cloudflare MCP Code Mode scopes that cover account
  * discovery, Worker management, and Workers Builds setup without the full
@@ -61,6 +61,18 @@ type CloudflareMcpAuthorizeSearchParams = {
   code_challenge: string;
   code_challenge_method: "S256";
   scope: string;
+};
+type CloudflareMcpTokenExchangeSearchParams = {
+  grant_type: "authorization_code";
+  client_id: string;
+  code: string;
+  redirect_uri: string;
+  code_verifier: string;
+};
+type CloudflareMcpTokenRefreshSearchParams = {
+  grant_type: "refresh_token";
+  client_id: string;
+  refresh_token: string;
 };
 const nonEmptyString = z.string().min(1);
 const cloudflareMcpClientRegistrationResponseSchema = z.object({
@@ -160,21 +172,6 @@ function parseCloudflareMcpTokenResponse(
   return result.data;
 }
 
-function createUrlSearchParams<const Params extends { readonly [Key in keyof Params]: string }>(
-  params: Params,
-): URLSearchParams {
-  return new FormEncodedParams(Object.entries(params));
-}
-
-function buildUrlWithSearchParams<const Params extends { readonly [Key in keyof Params]: string }>(
-  baseUrl: string,
-  searchParams: Params,
-): string {
-  const url = new URL(baseUrl);
-  url.search = createUrlSearchParams(searchParams).toString();
-  return url.toString();
-}
-
 export function buildCloudflareMcpAuthorizeSearchParams(args: {
   clientId: string;
   redirectUri: string;
@@ -244,13 +241,13 @@ async function exchangeCloudflareMcpOAuthCode(args: {
   clientId: string;
   redirectUri: string;
 }): Promise<CloudflareMcpTokenResponse> {
-  const payload = new FormEncodedParams({
+  const payload = createUrlSearchParams({
     grant_type: "authorization_code",
     client_id: args.clientId,
     code: args.code,
     redirect_uri: args.redirectUri,
     code_verifier: args.codeVerifier,
-  });
+  } satisfies CloudflareMcpTokenExchangeSearchParams);
 
   const response = await fetchWithTimeout(CLOUDFLARE_MCP_TOKEN_URL, {
     method: "POST",
@@ -307,11 +304,11 @@ async function refreshCloudflareMcpOAuthToken(args: {
   refreshToken: string;
   clientId: string;
 }): Promise<CloudflareMcpTokenResponse> {
-  const payload = new FormEncodedParams({
+  const payload = createUrlSearchParams({
     grant_type: "refresh_token",
     client_id: args.clientId,
     refresh_token: args.refreshToken,
-  });
+  } satisfies CloudflareMcpTokenRefreshSearchParams);
 
   const response = await fetchWithTimeout(CLOUDFLARE_MCP_TOKEN_URL, {
     method: "POST",

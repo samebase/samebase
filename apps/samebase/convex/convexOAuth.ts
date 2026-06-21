@@ -17,6 +17,7 @@ import {
   parseConvexOAuthTokenResponse,
   type ConvexOAuthTokenResponse,
 } from "./convexManagementApi/oauthToken";
+import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const CONVEX_AUTHORIZE_URL = "https://dashboard.convex.dev/oauth/authorize/team";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
@@ -153,16 +154,14 @@ async function requestConvexOAuthToken(
 }
 
 function encodeConvexOAuthTokenRequest(request: ConvexOAuthTokenRequest): string {
-  return new URLSearchParams(convexOAuthTokenRequestSchema.parse(request)).toString();
+  return createUrlSearchParams(convexOAuthTokenRequestSchema.parse(request)).toString();
 }
 
 function encodeConvexOAuthAuthorizeUrl(request: ConvexOAuthAuthorizeRequest): string {
-  const search = convexOAuthAuthorizeRequestSchema.parse(request);
-  const authorizeUrl = new URL(CONVEX_AUTHORIZE_URL);
-  for (const [name, value] of Object.entries(search)) {
-    authorizeUrl.searchParams.set(name, value);
-  }
-  return authorizeUrl.toString();
+  return buildUrlWithSearchParams(
+    CONVEX_AUTHORIZE_URL,
+    convexOAuthAuthorizeRequestSchema.parse(request),
+  );
 }
 
 export const storeConvexOauthTokens = internalMutation({

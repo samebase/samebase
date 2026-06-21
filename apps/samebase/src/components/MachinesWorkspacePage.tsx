@@ -23,10 +23,16 @@ import type { ConnectedMachineView } from "../../convex/connectedMachineModel";
 import { api } from "../../convex/_generated/api";
 import { MACHINES_ROUTE } from "@/lib/samebaseSync";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
+import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 
 const THREAD_LIST_LIMIT = 100;
 const THREAD_REFRESH_INTERVAL_MS = 1_500;
 const MACHINE_CONTROL_TOKEN_REFRESH_BUFFER_MS = 30_000;
+type ThreadListSearchParams = {
+  archived: "false";
+  limit: string;
+  sortKey: "updated_at";
+};
 
 type MachineControlTokenState = {
   expiresAt: number;
@@ -76,11 +82,11 @@ const machinesRouteApi = getRouteApi(MACHINES_ROUTE);
 
 /** Keep the thread list request aligned with the existing Codex sidebar sort order. */
 function buildThreadsPath(): string {
-  const searchParams = new URLSearchParams();
-  searchParams.set("archived", "false");
-  searchParams.set("limit", `${THREAD_LIST_LIMIT}`);
-  searchParams.set("sortKey", "updated_at");
-  return `/threads?${searchParams.toString()}`;
+  return buildUrlWithSearchParams("/threads", {
+    archived: "false",
+    limit: `${THREAD_LIST_LIMIT}`,
+    sortKey: "updated_at",
+  } satisfies ThreadListSearchParams);
 }
 
 /** Explain why a connected machine still cannot be used as an interactive Codex host. */
