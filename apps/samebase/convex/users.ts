@@ -7,6 +7,7 @@ import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { action, mutation, query } from "./functions";
 import { isRecord, readString } from "./jsonUtils";
+import { readOptionalEnv } from "./oauthUtils";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import {
@@ -15,6 +16,7 @@ import {
   type McpTokenHealth,
 } from "./mcpTokenHealth";
 import type { CloudflareDefaultAccount } from "./schema";
+import { buildGitHubOAuthManageUrl, getGitHubOAuthScopeRequirements } from "../shared/githubOAuth";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
@@ -44,6 +46,47 @@ const providerAuthMethodValidator = union(
   literal("mcp_oauth"),
   literal("api_key"),
 );
+const githubOAuthScopeRequirementValidator = object({
+  scope: string(),
+  label: string(),
+});
+const githubScopeStatusValidator = union(
+  literal("granted"),
+  literal("missing"),
+  literal("unknown"),
+);
+const githubRequiredScopeHealthValidator = object({
+  scope: string(),
+  label: string(),
+  status: githubScopeStatusValidator,
+});
+const githubProviderSummaryValidator = object({
+  connected: boolean(),
+  username: optional(string()),
+  authMethod: optional(providerAuthMethodValidator),
+  requiredScopes: array(githubOAuthScopeRequirementValidator),
+  manageUrl: optional(string()),
+  reauthorizeAvailable: boolean(),
+});
+const githubHealthCheckKeyValidator = union(literal("profile"), literal("repositories"));
+const githubHealthCheckStatusValidator = union(literal("ok"), literal("error"), literal("unknown"));
+const githubHealthCheckValidator = object({
+  key: githubHealthCheckKeyValidator,
+  label: string(),
+  status: githubHealthCheckStatusValidator,
+  message: optional(string()),
+});
+const githubConnectionHealthValidator = object({
+  connected: boolean(),
+  username: optional(string()),
+  authMethod: optional(providerAuthMethodValidator),
+  checkedAt: number(),
+  grantedScopes: array(string()),
+  requiredScopes: array(githubRequiredScopeHealthValidator),
+  checks: array(githubHealthCheckValidator),
+  manageUrl: optional(string()),
+  reauthorizeAvailable: boolean(),
+});
 const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
   accountId: optional(string()),
@@ -58,6 +101,8 @@ const cloudflareConnectionStatusValidator = object({
   mcpTokenNextAutoCheckAt: optional(number()),
 });
 type CloudflareConnectionStatus = Infer<typeof cloudflareConnectionStatusValidator>;
+type GithubProviderSummary = Infer<typeof githubProviderSummaryValidator>;
+type GithubConnectionHealth = Infer<typeof githubConnectionHealthValidator>;
 type CloudflareConnectionStatusInput = {
   defaultAccount: CloudflareDefaultAccount;
   auth:
@@ -98,6 +143,118 @@ function normalizeApiToken(token: string): string {
     throw new Error("API key is required");
   }
   return normalized;
+}
+
+function getGithubOAuthManageUrl(): string | undefined {
+  const clientId = readOptionalEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+  if (!clientId) {
+    return undefined;
+  }
+  return buildGitHubOAuthManageUrl(clientId);
+}
+
+function buildGithubProviderSummary(
+  connection: Awaited<ReturnType<typeof getConnectionByUserAndKind>>,
+): GithubProviderSummary {
+  const requiredScopes = getGitHubOAuthScopeRequirements();
+  if (connection?.kind !== "github") {
+    return {
+      connected: false,
+      requiredScopes,
+      reauthorizeAvailable: false,
+    };
+  }
+
+  const manageUrl = connection.auth.method === "oauth" ? getGithubOAuthManageUrl() : undefined;
+  return {
+    connected: true,
+    username: connection.username,
+    authMethod: connection.auth.method,
+    requiredScopes,
+    ...(manageUrl ? { manageUrl } : {}),
+    reauthorizeAvailable: connection.auth.method === "oauth" && manageUrl !== undefined,
+  };
+}
+
+export function parseGitHubOAuthScopesHeader(header: string | null | undefined): string[] {
+  if (!header) {
+    return [];
+  }
+
+  const scopes: string[] = [];
+  const seen = new Set<string>();
+  for (const rawScope of header.split(",")) {
+    const scope = rawScope.trim();
+    if (!scope || seen.has(scope)) {
+      continue;
+    }
+    seen.add(scope);
+    scopes.push(scope);
+  }
+  return scopes;
+}
+
+function mergeGithubScopes(first: readonly string[], second: readonly string[]): string[] {
+  const scopes: string[] = [];
+  const seen = new Set<string>();
+  for (const scope of [...first, ...second]) {
+    if (seen.has(scope)) {
+      continue;
+    }
+    seen.add(scope);
+    scopes.push(scope);
+  }
+  return scopes;
+}
+
+function isGitHubOAuthScopeGranted(scope: string, grantedScopes: Set<string>): boolean {
+  if (scope === "user:email") {
+    return grantedScopes.has("user:email") || grantedScopes.has("user");
+  }
+  return grantedScopes.has(scope);
+}
+
+export function buildGithubRequiredScopeHealth(args: {
+  authMethod: "oauth" | "api_key";
+  grantedScopes: readonly string[];
+}): GithubConnectionHealth["requiredScopes"] {
+  const grantedScopeSet = new Set(args.grantedScopes);
+  const hasReportedScopes = args.grantedScopes.length > 0;
+  return getGitHubOAuthScopeRequirements().map((scopeRequirement) => ({
+    ...scopeRequirement,
+    status: hasReportedScopes
+      ? isGitHubOAuthScopeGranted(scopeRequirement.scope, grantedScopeSet)
+        ? "granted"
+        : "missing"
+      : args.authMethod === "oauth"
+        ? "missing"
+        : "unknown",
+  }));
+}
+
+function formatGithubHealthFailure(response: Response): string {
+  if (response.status === 401) {
+    return "GitHub rejected this credential. Reconnect GitHub.";
+  }
+  if (response.status === 403) {
+    return "GitHub denied this request. Check org approval, SSO, or rate limits.";
+  }
+  if (response.status === 404) {
+    return "GitHub could not find this resource for the current credential.";
+  }
+  return `GitHub returned ${response.status} ${response.statusText || "error"}.`;
+}
+
+async function fetchGithubHealthEndpoint(args: { token: string; url: string }): Promise<Response> {
+  return await fetchWithTimeout(args.url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${args.token}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "samebase-app",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
 }
 
 function computeCloudflareRefreshWindowStartAt(expiresAt: number): number {
@@ -372,6 +529,143 @@ export const getGithubConnectionStatus = query({
       connected: true,
       username: connection.username,
       authMethod: connection.auth.method,
+    };
+  },
+});
+
+export const getGithubProviderSummary = query({
+  access: "access_provider_connections",
+  args: {},
+  returns: githubProviderSummaryValidator,
+  handler: async (ctx) => {
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
+    return buildGithubProviderSummary(connection);
+  },
+});
+
+export const checkGithubConnectionHealth = action({
+  access: "access_provider_connections",
+  args: {},
+  returns: githubConnectionHealthValidator,
+  handler: async (ctx): Promise<GithubConnectionHealth> => {
+    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "github",
+    });
+    const summary = buildGithubProviderSummary(connection);
+    const checkedAt = Date.now();
+    if (connection?.kind !== "github") {
+      return {
+        connected: false,
+        checkedAt,
+        grantedScopes: [],
+        requiredScopes: buildGithubRequiredScopeHealth({
+          authMethod: "oauth",
+          grantedScopes: [],
+        }),
+        checks: [
+          {
+            key: "profile",
+            label: "Profile",
+            status: "unknown",
+            message: "GitHub is not connected.",
+          },
+          {
+            key: "repositories",
+            label: "Repository listing",
+            status: "unknown",
+            message: "GitHub is not connected.",
+          },
+        ],
+        reauthorizeAvailable: false,
+      };
+    }
+
+    const profileResponse = await fetchGithubHealthEndpoint({
+      token: connection.auth.credential,
+      url: `${GITHUB_API_BASE}/user`,
+    });
+    const profileScopes = parseGitHubOAuthScopesHeader(
+      profileResponse.headers.get("x-oauth-scopes"),
+    );
+    let grantedScopes = profileScopes;
+    let username = connection.username;
+    const checks: GithubConnectionHealth["checks"] = [];
+
+    if (profileResponse.ok) {
+      const profilePayload = await profileResponse.json().catch(() => null);
+      const login = isRecord(profilePayload) ? readString(profilePayload, "login") : null;
+      if (login) {
+        username = login;
+        checks.push({
+          key: "profile",
+          label: "Profile",
+          status: "ok",
+          message: `Authenticated as ${login}.`,
+        });
+      } else {
+        checks.push({
+          key: "profile",
+          label: "Profile",
+          status: "error",
+          message: "GitHub profile response did not include a username.",
+        });
+      }
+    } else {
+      checks.push({
+        key: "profile",
+        label: "Profile",
+        status: "error",
+        message: formatGithubHealthFailure(profileResponse),
+      });
+    }
+
+    if (profileResponse.ok) {
+      const repositoryResponse = await fetchGithubHealthEndpoint({
+        token: connection.auth.credential,
+        url: `${GITHUB_API_BASE}/user/repos?sort=updated&per_page=1&affiliation=owner,collaborator,organization_member`,
+      });
+      grantedScopes = mergeGithubScopes(
+        grantedScopes,
+        parseGitHubOAuthScopesHeader(repositoryResponse.headers.get("x-oauth-scopes")),
+      );
+      checks.push(
+        repositoryResponse.ok
+          ? {
+              key: "repositories",
+              label: "Repository listing",
+              status: "ok",
+              message: "GitHub returned repositories visible to this credential.",
+            }
+          : {
+              key: "repositories",
+              label: "Repository listing",
+              status: "error",
+              message: formatGithubHealthFailure(repositoryResponse),
+            },
+      );
+    } else {
+      checks.push({
+        key: "repositories",
+        label: "Repository listing",
+        status: "unknown",
+        message: "Skipped because the profile check failed.",
+      });
+    }
+
+    return {
+      connected: true,
+      username,
+      authMethod: connection.auth.method,
+      checkedAt,
+      grantedScopes,
+      requiredScopes: buildGithubRequiredScopeHealth({
+        authMethod: connection.auth.method,
+        grantedScopes,
+      }),
+      checks,
+      ...(summary.manageUrl ? { manageUrl: summary.manageUrl } : {}),
+      reauthorizeAvailable: summary.reauthorizeAvailable,
     };
   },
 });

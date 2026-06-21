@@ -1,40 +1,63 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { hasAppAccess, isAdminUser } from "./userAccess";
+import { buildGithubRequiredScopeHealth, parseGitHubOAuthScopesHeader } from "./users";
 
-describe("isAdminUser", () => {
-  it("matches admin emails case-insensitively", () => {
-    expect(isAdminUser("NICU@SAMEBASE.COM")).toBe(true);
+describe("parseGitHubOAuthScopesHeader", () => {
+  it("normalizes GitHub OAuth scope headers", () => {
+    expect(parseGitHubOAuthScopesHeader("repo, user, repo, read:packages")).toEqual([
+      "repo",
+      "user",
+      "read:packages",
+    ]);
   });
 
-  it("does not give staff access to the member test account by email", () => {
-    expect(isAdminUser("nicu.dev@gmail.com")).toBe(false);
+  it("returns no scopes for missing headers", () => {
+    expect(parseGitHubOAuthScopesHeader(null)).toEqual([]);
   });
 });
 
-describe("hasAppAccess", () => {
-  it("allows explicitly approved users", () => {
+describe("buildGithubRequiredScopeHealth", () => {
+  it("marks granted and missing OAuth scopes", () => {
     expect(
-      hasAppAccess({
-        email: "samebase.guest@gmail.com",
-        isApproved: true,
+      buildGithubRequiredScopeHealth({
+        authMethod: "oauth",
+        grantedScopes: ["repo", "user", "read:packages"],
       }),
-    ).toBe(true);
+    ).toEqual([
+      {
+        scope: "repo",
+        label: "List and edit repositories",
+        status: "granted",
+      },
+      {
+        scope: "delete_repo",
+        label: "Delete Samebase-managed repositories",
+        status: "missing",
+      },
+      {
+        scope: "user",
+        label: "Read GitHub profile",
+        status: "granted",
+      },
+      {
+        scope: "user:email",
+        label: "Read GitHub email addresses",
+        status: "granted",
+      },
+      {
+        scope: "read:packages",
+        label: "Read packages",
+        status: "granted",
+      },
+    ]);
   });
 
-  it("allows admins without a stored approval flag", () => {
+  it("treats API key scope headers as optional signal", () => {
     expect(
-      hasAppAccess({
-        email: "nicu@samebase.com",
-      }),
-    ).toBe(true);
-  });
-
-  it("blocks unapproved non-admin users", () => {
-    expect(
-      hasAppAccess({
-        email: "samebase.guest@gmail.com",
-      }),
-    ).toBe(false);
+      buildGithubRequiredScopeHealth({
+        authMethod: "api_key",
+        grantedScopes: [],
+      }).map((scope) => scope.status),
+    ).toEqual(["unknown", "unknown", "unknown", "unknown", "unknown"]);
   });
 });

@@ -4,17 +4,21 @@ import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { mutation } from "./functions";
+import { action, mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
-import { GITHUB_OAUTH_POPUP_NAME, isSafeGithubOAuthReturnToPath } from "../shared/githubOAuth";
+import {
+  GITHUB_OAUTH_POPUP_NAME,
+  getGitHubOAuthScopeRequirements,
+  isSafeGithubOAuthReturnToPath,
+} from "../shared/githubOAuth";
 import { CODESPACES_ENABLED } from "../shared/featureFlags";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const GITHUB_API_URL = "https://api.github.com/user";
+const GITHUB_API_BASE = "https://api.github.com";
+const GITHUB_API_USER_URL = `${GITHUB_API_BASE}/user`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const BASE_GITHUB_OAUTH_SCOPES = ["repo", "delete_repo", "user", "user:email", "read:packages"];
 
 type OAuthContext = ActionCtx | MutationCtx;
 type GithubOAuthAuthorizeSearchParams = {
@@ -35,10 +39,13 @@ function buildGithubOAuthAuthorizeSearchParams(args: {
   redirectUri: string;
   state: string;
 }): GithubOAuthAuthorizeSearchParams {
+  const requiredScopes = getGitHubOAuthScopeRequirements().map(
+    (scopeRequirement) => scopeRequirement.scope,
+  );
   return {
     client_id: args.clientId,
     redirect_uri: args.redirectUri,
-    scope: [...BASE_GITHUB_OAUTH_SCOPES, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
+    scope: [...requiredScopes, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
     state: args.state,
   };
 }
@@ -130,7 +137,7 @@ async function exchangeGithubOAuthCode(args: {
 }
 
 async function fetchGithubUser(accessToken: string): Promise<{ username: string }> {
-  const response = await fetchWithTimeout(GITHUB_API_URL, {
+  const response = await fetchWithTimeout(GITHUB_API_USER_URL, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -143,6 +150,43 @@ async function fetchGithubUser(accessToken: string): Promise<{ username: string 
     throw new Error(`Failed to fetch GitHub user profile (${response.status}).`);
   }
   return { username: payload.login };
+}
+
+function base64Encode(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  if (typeof btoa === "function") {
+    let binary = "";
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    return btoa(binary);
+  }
+  return Buffer.from(bytes).toString("base64");
+}
+
+async function revokeGithubOAuthGrant(accessToken: string): Promise<void> {
+  const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET");
+  const response = await fetchWithTimeout(
+    `${GITHUB_API_BASE}/applications/${encodeURIComponent(clientId)}/grant`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Basic ${base64Encode(`${clientId}:${clientSecret}`)}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "User-Agent": "samebase-app",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: JSON.stringify({ access_token: accessToken }),
+    },
+  );
+
+  if (response.status === 204 || response.status === 404) {
+    return;
+  }
+
+  throw new Error(`Failed to revoke GitHub OAuth grant (${response.status}).`);
 }
 
 export const storeGithubOauthConnection = internalMutation({
@@ -178,6 +222,31 @@ export const getGithubOAuthUrl = mutation({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
+  },
+});
+
+export const reauthorizeGithubOAuth = action({
+  access: "access_provider_connections",
+  args: {
+    returnToPath: v.optional(v.string()),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "github",
+    });
+    if (connection?.kind !== "github" || connection.auth.method !== "oauth") {
+      throw new Error("GitHub OAuth is not connected.");
+    }
+
+    await revokeGithubOAuthGrant(connection.auth.credential);
+    await ctx.runMutation(internal.providerConnections.removeByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "github",
+    });
+
     return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
   },
 });

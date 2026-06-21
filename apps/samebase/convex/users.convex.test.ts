@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
@@ -127,6 +127,9 @@ describe("users Convex contract", () => {
     await expect(asViewer.query(api.users.getGithubConnectionStatus)).rejects.toThrowError(
       "Access denied",
     );
+    await expect(asViewer.query(api.users.getGithubProviderSummary)).rejects.toThrowError(
+      "Access denied",
+    );
     await expect(asViewer.mutation(api.users.disconnectGithub)).rejects.toThrowError(
       "Access denied",
     );
@@ -152,6 +155,12 @@ describe("users Convex contract", () => {
       connected: true,
       username: "owner-login",
       authMethod: "api_key",
+    });
+    await expect(asOwner.query(api.users.getGithubProviderSummary)).resolves.toMatchObject({
+      connected: true,
+      username: "owner-login",
+      authMethod: "api_key",
+      reauthorizeAvailable: false,
     });
   });
 
@@ -185,6 +194,114 @@ describe("users Convex contract", () => {
     await expect(asUser.query(api.users.currentViewerRole)).resolves.toEqual({
       role: "role_member",
     });
+  });
+
+  it("checks GitHub OAuth health from live GitHub responses", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "github",
+        userId: insertedUserId,
+        auth: {
+          method: "oauth",
+          credential: "github-oauth-token",
+        },
+        username: "stored-login",
+        createdAt: 1,
+        updatedAt: 2,
+      });
+      return insertedUserId;
+    });
+    const requestedUrls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        requestedUrls.push(url);
+
+        if (url === "https://api.github.com/user") {
+          return new Response(JSON.stringify({ login: "live-login" }), {
+            headers: {
+              "x-oauth-scopes": "repo, user",
+            },
+          });
+        }
+        if (url.startsWith("https://api.github.com/user/repos")) {
+          return new Response("[]", {
+            headers: {
+              "x-oauth-scopes": "repo, user",
+            },
+          });
+        }
+
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    try {
+      const asUser = t.withIdentity({
+        subject: `${userId}|test-session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+
+      const health = await asUser.action(api.users.checkGithubConnectionHealth);
+
+      expect(requestedUrls).toEqual([
+        "https://api.github.com/user",
+        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner,collaborator,organization_member",
+      ]);
+      expect(health).toMatchObject({
+        connected: true,
+        username: "live-login",
+        authMethod: "oauth",
+        grantedScopes: ["repo", "user"],
+        checks: [
+          {
+            key: "profile",
+            status: "ok",
+          },
+          {
+            key: "repositories",
+            status: "ok",
+          },
+        ],
+      });
+      expect(health.requiredScopes).toEqual([
+        {
+          scope: "repo",
+          label: "List and edit repositories",
+          status: "granted",
+        },
+        {
+          scope: "delete_repo",
+          label: "Delete Samebase-managed repositories",
+          status: "missing",
+        },
+        {
+          scope: "user",
+          label: "Read GitHub profile",
+          status: "granted",
+        },
+        {
+          scope: "user:email",
+          label: "Read GitHub email addresses",
+          status: "granted",
+        },
+        {
+          scope: "read:packages",
+          label: "Read packages",
+          status: "missing",
+        },
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("reports whether the Cloudflare connection still needs account selection", async () => {
