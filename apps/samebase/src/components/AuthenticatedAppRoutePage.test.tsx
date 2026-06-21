@@ -131,6 +131,20 @@ async function renderAuthenticatedRoutePageAfterEffects() {
   return markup;
 }
 
+function normalizeRenderedMarkup(markup: string) {
+  const element = document.createElement("div");
+  element.innerHTML = markup;
+  return element.innerHTML;
+}
+
+async function expectAuthenticatedRoutePageHydratesWithoutMarkupChange() {
+  const markup = normalizeRenderedMarkup(renderAuthenticatedRoutePage());
+  const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
+
+  expect(markup).toBe(hydratedMarkup);
+  return markup;
+}
+
 describe("AuthenticatedAppRoutePage", () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
@@ -147,11 +161,9 @@ describe("AuthenticatedAppRoutePage", () => {
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
-    const markup = renderAuthenticatedRoutePage();
-    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
+    const markup = await expectAuthenticatedRoutePageHydratesWithoutMarkupChange();
 
-    expect(markup).not.toContain("temporary-auth-route-shell");
-    expect(hydratedMarkup).toContain("temporary-auth-route-shell");
+    expect(markup).toContain("temporary-auth-route-shell");
     expect(markup).not.toContain("Route child");
     expect(markup).not.toContain("Sign in");
     expect(markup).not.toContain("approval-gate");
@@ -160,14 +172,11 @@ describe("AuthenticatedAppRoutePage", () => {
   it("renders the sign-in form after hydration when loading without local auth material", async () => {
     authState.isLoading = true;
 
-    const markup = renderAuthenticatedRoutePage();
-    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
+    const markup = await expectAuthenticatedRoutePageHydratesWithoutMarkupChange();
 
     expect(markup).not.toContain("temporary-auth-route-shell");
-    expect(hydratedMarkup).toContain("Sign in");
-    expect(hydratedMarkup).not.toContain("temporary-auth-route-shell");
+    expect(markup).toContain("Sign in");
     expect(markup).not.toContain("Route child");
-    expect(markup).not.toContain("Sign in");
   });
 
   it("keeps the route pending while a refresh token may restore the session", async () => {
@@ -177,11 +186,11 @@ describe("AuthenticatedAppRoutePage", () => {
       "refresh-token",
     );
 
-    const hydratedMarkup = await renderAuthenticatedRoutePageAfterEffects();
+    const markup = await expectAuthenticatedRoutePageHydratesWithoutMarkupChange();
 
-    expect(hydratedMarkup).not.toContain("temporary-auth-route-shell");
-    expect(hydratedMarkup).not.toContain("Route child");
-    expect(hydratedMarkup).not.toContain("Sign in");
+    expect(markup).not.toContain("temporary-auth-route-shell");
+    expect(markup).not.toContain("Route child");
+    expect(markup).not.toContain("Sign in");
   });
 
   it("keeps the normal signed-out form when Convex is signed out and there is no hint", () => {
