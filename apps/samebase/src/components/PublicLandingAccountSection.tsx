@@ -1,5 +1,6 @@
 import { useAppAuthActions } from "@/authClient";
 import {
+  VaultDashboardAccountPrehydrationPlaceholders,
   VaultDashboardAccountSection,
   VaultDashboardAccountSectionFrame,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
@@ -80,7 +81,11 @@ export function PublicLandingAccountLoadingSection() {
     <VaultDashboardAccountSectionFrame
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       label="checking login"
-    />
+    >
+      <VaultDashboardAccountPrehydrationPlaceholders
+        signedOutLinks={<PublicLandingLoggedOutAccountLinks />}
+      />
+    </VaultDashboardAccountSectionFrame>
   );
 }
 

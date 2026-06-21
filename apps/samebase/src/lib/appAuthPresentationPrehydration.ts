@@ -1,4 +1,5 @@
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import { AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 
@@ -8,6 +9,7 @@ const APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE = "data-app-auth-present
 
 export type AppAuthPresentationPrehydrationArgs = {
   accountSectionTestId: string;
+  authProviderStorageKey: string;
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
@@ -17,6 +19,7 @@ export type AppAuthPresentationPrehydrationArgs = {
 
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  authProviderStorageKey: AUTH_PROVIDER_STORAGE_KEY,
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
@@ -58,24 +61,50 @@ function InlineScript_prehydrateAppAuthPresentation(
     return '"' + escaped + '"';
   }
 
-  function installPrehydrationStyle(label: string) {
+  function formatAuthProviderLabel(provider: string) {
+    if (provider === "google") return "Google";
+    if (provider === "github") return "GitHub";
+    return provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
+
+  function readAuthProviderLabel() {
+    const provider = window.localStorage.getItem(args.authProviderStorageKey)?.trim();
+    if (!provider || provider.length > 64) {
+      return null;
+    }
+
+    return formatAuthProviderLabel(provider);
+  }
+
+  function installPrehydrationStyle(presentation: {
+    kind: "signed-in" | "signed-out";
+    label: string;
+    providerLabel: string | null;
+  }) {
     if (document.getElementById(args.styleElementId) !== null) return;
 
     const accountSectionSelector =
       "[data-testid=" + cssStringLiteral(args.accountSectionTestId) + "]";
     const accountLabelSelector =
       accountSectionSelector + " [data-vault-dashboard-account-section-label]";
+    const accountContentSelector =
+      accountSectionSelector + " [data-vault-dashboard-account-section-content]";
+    const signedOutSelector = accountSectionSelector + " [data-app-auth-prehydration-signed-out]";
+    const signedInSelector = accountSectionSelector + " [data-app-auth-prehydration-signed-in]";
+    const signedInEmailSelector = accountSectionSelector + " [data-app-auth-prehydration-email]";
+    const signedInProviderSelector =
+      accountSectionSelector + " [data-app-auth-prehydration-provider]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
-html[${args.rootAttribute}] ${accountLabelSelector} {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector} {
   color: transparent !important;
   position: relative !important;
 }
 
-html[${args.rootAttribute}] ${accountLabelSelector}::after {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after {
   color: hsl(var(--foreground));
-  content: ${cssStringLiteral(label)};
+  content: ${cssStringLiteral(presentation.label)};
   display: block;
   font-size: 0.875rem;
   inset-block-start: 0;
@@ -85,9 +114,42 @@ html[${args.rootAttribute}] ${accountLabelSelector}::after {
   overflow-wrap: anywhere;
   position: absolute;
 }
+
+html[${args.rootAttribute}="signed-out"] ${signedOutSelector} {
+  display: block !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${accountLabelSelector} {
+  display: none !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${accountContentSelector} {
+  margin-top: 0 !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
+  display: block !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${signedInEmailSelector}::after {
+  content: ${cssStringLiteral(presentation.label)};
+}
+${
+  presentation.kind === "signed-in" && presentation.providerLabel !== null
+    ? `
+html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector} {
+  display: block !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
+  content: ${cssStringLiteral(`Signed in with ${presentation.providerLabel}`)};
+}
+`
+    : ""
+}
     `;
     document.head.append(styleElement);
-    document.documentElement.setAttribute(args.rootAttribute, "");
+    document.documentElement.setAttribute(args.rootAttribute, presentation.kind);
     if (typeof window.MutationObserver !== "function") return;
 
     const observer = new window.MutationObserver(() => {
@@ -115,9 +177,17 @@ html[${args.rootAttribute}] ${accountLabelSelector}::after {
     });
 
     if (authPresentationHint.kind === "present") {
-      installPrehydrationStyle(authPresentationHint.label);
+      installPrehydrationStyle({
+        kind: "signed-in",
+        label: authPresentationHint.label,
+        providerLabel: readAuthProviderLabel(),
+      });
     } else if (authPresentationHint.kind === "signedOut") {
-      installPrehydrationStyle("not logged in");
+      installPrehydrationStyle({
+        kind: "signed-out",
+        label: "not logged in",
+        providerLabel: null,
+      });
     }
   } catch {}
 }

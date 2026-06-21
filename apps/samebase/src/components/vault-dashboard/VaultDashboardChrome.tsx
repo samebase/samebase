@@ -68,8 +68,58 @@ export function VaultDashboardAccountSectionFrame({
       >
         {label}
       </div>
-      {children ? <div className="mt-3">{children}</div> : null}
+      {children ? (
+        <div data-vault-dashboard-account-section-content className="mt-3">
+          {children}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+export function VaultDashboardAccountPrehydrationPlaceholders({
+  signedOutLinks,
+}: {
+  signedOutLinks: ReactNode;
+}) {
+  return (
+    <>
+      <div data-app-auth-prehydration-signed-out className="hidden">
+        {signedOutLinks}
+      </div>
+      <div data-app-auth-prehydration-signed-in className="hidden">
+        <div className="flex flex-wrap items-start gap-3">
+          <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+            <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+              <PersonIcon className="h-4 w-4" />
+            </div>
+            <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+              <div
+                data-app-auth-prehydration-email
+                className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+              />
+              <div
+                data-app-auth-prehydration-provider
+                className={clsx(
+                  SIDEBAR_METADATA_TEXT_CLASS,
+                  "hidden text-xs leading-5 text-muted-foreground",
+                )}
+              />
+            </div>
+          </div>
+          <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-auto max-w-full whitespace-normal py-2 text-left"
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

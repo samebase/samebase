@@ -7,6 +7,7 @@ import {
   clearAppAuthPresentationPrehydration,
   type AppAuthPresentationPrehydrationArgs,
 } from "@/lib/appAuthPresentationPrehydration";
+import { AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
 import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
@@ -16,6 +17,7 @@ import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  authProviderStorageKey: AUTH_PROVIDER_STORAGE_KEY,
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
@@ -147,6 +149,30 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "nicu@samebase.com";');
   });
 
+  it("visually fills the signed-in account row with the stored provider label", () => {
+    window.localStorage.setItem(AUTH_PROVIDER_STORAGE_KEY, "password");
+    writeLocalAuthSession(
+      createJwt({
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-in",
+    );
+    expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
+    expect(styleText).toContain("[data-app-auth-prehydration-email]::after");
+    expect(styleText).toContain('content: "nicu@samebase.com";');
+    expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
+    expect(styleText).toContain('content: "Signed in with Password";');
+  });
+
   it("escapes hostile JWT profile labels inside CSS content", () => {
     writeLocalAuthSession(
       createJwt({
@@ -205,12 +231,14 @@ describe("appAuthPresentationPrehydration", () => {
   it("visually replaces the checking login account label with signed-out presentation without local auth material", () => {
     runAppAuthPresentationPrehydrationScript();
 
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      true,
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
     );
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "not logged in";');
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).toContain('content: "not logged in";');
+    expect(styleText).toContain("[data-app-auth-prehydration-signed-out]");
   });
 
   it("does not prehydrate ignored paths", () => {

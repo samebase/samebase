@@ -189,6 +189,9 @@ describe("PublicLandingAccountSection", () => {
 
     expect(markup).toContain("checking login");
     expect(markup).toContain("data-vault-dashboard-account-section-label");
+    expect(markup).toContain("data-app-auth-prehydration-signed-out");
+    expect(markup).toContain("?sign-in");
+    expect(markup).toContain("?create-account");
     expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).toContain("?sign-in");
@@ -203,6 +206,10 @@ describe("PublicLandingAccountSection", () => {
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
+    expect(markup).toContain("data-app-auth-prehydration-signed-in");
+    expect(markup).toContain("dashboard-sidebar-account-icon");
+    expect(markup).toContain("data-app-auth-prehydration-provider");
+    expect(markup).toContain("Sign out");
     expect(hydratedMarkup).toContain("nicu@noter.md");
     expect(hydratedMarkup).toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
