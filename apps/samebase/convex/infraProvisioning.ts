@@ -14,7 +14,7 @@ import {
   type ConvexCloudDeployment,
 } from "./convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
-import type { PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
+import type { components, PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
 import {
   ensureCloudflareResources,
   type CloudflareBuildConfig,
@@ -37,6 +37,19 @@ import {
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
+
+type ConvexDeployKeyAllowedAction = NonNullable<
+  components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
+>[number];
+type ConvexProvisioningAuthMethod = "api_key" | "oauth";
+
+const CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS = [
+  "deployment:deploy",
+  "deployment:env:view",
+  "deployment:env:write",
+  "deployment:data:view",
+] satisfies ConvexDeployKeyAllowedAction[];
+
 const activeProvisioningRunResult = v.object({ active: v.boolean() });
 const infrastructurePatchResult = v.object({ applied: v.boolean() });
 const vConvexDeployKeyDeployment = v.union(v.literal("production"), v.literal("preview"));
@@ -521,29 +534,39 @@ async function ensureConvexPreviewResources(args: {
   };
 }
 
+/**
+ * Creates the production deploy key used by Cloudflare builds.
+ *
+ * Convex deploy keys created through OAuth reuse the OAuth-granted token, so
+ * Convex rejects request-scoped allowedActions for that auth method.
+ *
+ * @see https://docs.convex.dev/management-api/create-deploy-key
+ */
 async function createConvexDeployKey(args: {
   convexToken: string;
+  convexAuthMethod: ConvexProvisioningAuthMethod;
   deploymentName: string;
   name: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexDeployKeyResult> {
   // Create deploy-key secrets inside provider steps so Workflow journals only
   // safe app metadata, never key material.
+  const body =
+    args.convexAuthMethod === "api_key"
+      ? {
+          allowedActions: CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS,
+          name: args.name,
+        }
+      : {
+          name: args.name,
+        };
   const { deployKey } = await requestConvexManagementApi(
     args.convexToken,
     "POST",
     "/deployments/{deployment_name}/create_deploy_key",
     {
       params: { path: { deployment_name: args.deploymentName } },
-      body: {
-        allowedActions: [
-          "deployment:deploy",
-          "deployment:env:view",
-          "deployment:env:write",
-          "deployment:data:view",
-        ],
-        name: args.name,
-      },
+      body,
       recordApiCall: args.recordApiCall,
     },
   );
@@ -783,14 +806,23 @@ export function resolveConnectionFailureProvider(message: string): ProviderFailu
 export async function resolveConvexProvisioningConnection(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
-): Promise<{ convexToken: string; convexTeamId: string }> {
+): Promise<{
+  convexToken: string;
+  convexAuthMethod: ConvexProvisioningAuthMethod;
+  convexTeamId: string;
+}> {
   const convexConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
     userId,
     kind: "convex",
   });
-  const convexToken =
-    convexConnection?.kind === "convex" ? convexConnection.auth.credential.trim() : "";
-  const convexTeamId = convexConnection?.kind === "convex" ? convexConnection.teamId.trim() : "";
+  if (convexConnection?.kind !== "convex") {
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
+  }
+
+  const convexToken = convexConnection.auth.credential.trim();
+  const convexTeamId = convexConnection.teamId.trim();
 
   if (!convexToken || !convexTeamId) {
     throw new Error(
@@ -798,7 +830,7 @@ export async function resolveConvexProvisioningConnection(
     );
   }
 
-  return { convexToken, convexTeamId };
+  return { convexToken, convexAuthMethod: convexConnection.auth.method, convexTeamId };
 }
 
 async function resolveGitHubProvisioningConnection(
@@ -1603,10 +1635,8 @@ export const ensureCloudflareInfrastructure = internalAction({
     });
     const defaultBranch = vault.defaultBranch;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(ctx, vault.userId);
-    const { convexToken, convexTeamId } = await resolveConvexProvisioningConnection(
-      ctx,
-      vault.userId,
-    );
+    const { convexToken, convexAuthMethod, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, vault.userId);
     const { cloudflareToken, cloudflareAuthMethod, cloudflareAccountId } =
       await resolveCloudflareProvisioningConnection(ctx, vault.userId);
     const recordApiCall = createProviderApiCallRecorder(ctx, {
@@ -1641,6 +1671,7 @@ export const ensureCloudflareInfrastructure = internalAction({
     });
     const productionDeployKey = await createConvexDeployKey({
       convexToken,
+      convexAuthMethod,
       deploymentName: existing.deploymentName,
       name: `samebase-${vaultSuffix(args.vaultId)}`,
       recordApiCall,
