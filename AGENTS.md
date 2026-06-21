@@ -405,6 +405,11 @@ UI code:
   show or approve a behavior screenshot; a fixture must mount the exact production component tree
   without invented chrome, and a failing route-level or honest production-component repro comes
   before narrower fixture coverage (`docs/agent-workflows.md`, Route-First UI Regression Policy).
+- Match visual coverage to the owned surface. Page-specific UI changes must be validated on that
+  page's real route or a page-level production mount. Do not add page-specific copy, state, or
+  actions to shared shell/sidebar fixtures just because the page reuses a component; those fixtures
+  protect the shell surface only. If a route needs richer presentation than a shared shell primitive
+  should support, make route-owned UI instead of widening the shared primitive.
 - Use rectangular app chrome by default.
 - Disable async destructive triggers while pending and show an in-button pending state.
 - Persist user-visible UI state in Convex by default unless per-device behavior is explicitly

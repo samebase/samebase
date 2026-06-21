@@ -292,4 +292,5 @@ behavior:
 3. Only add a narrower fixture after the real repro exists.
 
 If a fixture is used, it must mount the exact shipped component tree without invented layout or
-placeholder chrome.
+placeholder chrome. Its ownership must also match the changed surface: a shell/sidebar fixture is
+not acceptable coverage for a separate page route that happens to reuse one component.
