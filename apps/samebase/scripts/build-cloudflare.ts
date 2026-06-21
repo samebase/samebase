@@ -76,7 +76,7 @@ function readDeployKey(args: {
 
   if (args.deployKeyName === PROD_CONVEX_DEPLOY_KEY) {
     throw new Error(
-      `Set ${PROD_CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex production deploy key with exactly deployment:deploy and deployment:data:view.`,
+      `Set ${PROD_CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.`,
     );
   }
 

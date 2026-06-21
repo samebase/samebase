@@ -91,7 +91,7 @@ describe("build-cloudflare", () => {
         WORKERS_CI_BRANCH: "main",
       }),
     ).toThrow(
-      "Use a Convex production deploy key with exactly deployment:deploy and deployment:data:view.",
+      "Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.",
     );
   });
 

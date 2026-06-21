@@ -695,7 +695,12 @@ describe("infrastructure provisioning ownership", () => {
     expect(convexKeyRequests).toEqual([
       expect.objectContaining({
         body: expect.objectContaining({
-          allowedActions: ["deployment:deploy", "deployment:data:view"],
+          allowedActions: [
+            "deployment:deploy",
+            "deployment:env:view",
+            "deployment:env:write",
+            "deployment:data:view",
+          ],
         }),
         path: "/v1/deployments/deploy-keys-prod/create_deploy_key",
       }),

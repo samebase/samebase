@@ -73,12 +73,14 @@ the matching Convex deployment before producing static assets.
 `PROD_CONVEX_DEPLOY_KEY` must contain a Convex production deploy key with exactly these permissions:
 
 - `deployment:deploy`
+- `deployment:env:view`
+- `deployment:env:write`
 - `deployment:data:view`
 
-Do not grant `deployment:data:write`, environment variable permissions, function-run permissions,
-logs, backups, or integrations to this key. `PREVIEW_CONVEX_DEPLOY_KEY` must contain Convex's
-project-level Preview deploy key from project settings; preview deploy keys use their own flow and
-do not take the production permission list.
+Do not grant `deployment:data:write`, function-run permissions, logs, backups, or integrations to
+this key. `PREVIEW_CONVEX_DEPLOY_KEY` must contain Convex's project-level Preview deploy key from
+project settings; preview deploy keys use their own flow and do not take the production permission
+list.
 
 ## Template Decision
 
@@ -125,7 +127,7 @@ Recommended dashboard values for the artifact:
 - Non-production branch deploy command: `pnpm run deploy:preview`.
 - Path: keep `/`.
 - Build secret: add `PROD_CONVEX_DEPLOY_KEY` with the production key that has only
-  `deployment:deploy` and `deployment:data:view`.
+  `deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`.
 - Build secret: add `PREVIEW_CONVEX_DEPLOY_KEY` with the project Preview deploy key.
 
 ## Sources
