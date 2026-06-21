@@ -147,7 +147,7 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(linksSidebar).toBeVisible();
   const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
+  await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
   await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
     "href",
     "/home",
@@ -188,7 +188,7 @@ test("logo routes share the public account right sidebar", async ({ page }) => {
     const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
     const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
     await expect(accountSection).toBeVisible();
-    await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
+    await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
   }
 });
 

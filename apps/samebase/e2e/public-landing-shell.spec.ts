@@ -937,9 +937,7 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
-  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toHaveCount(0);
-  await accountSection.getByRole("button", { name: "not logged in" }).click();
+  await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
   await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
   await expect(
     accountSection.getByRole("link", { name: "?create-account", exact: true }),
@@ -947,22 +945,26 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
 });
 
-test("landing sign-in state shows Google sign-in", async ({ page }) => {
+test("landing sign-in state keeps the account route links visible", async ({ page }) => {
   await page.goto("/?sign-in", { waitUntil: "networkidle" });
 
-  const googleButton = page.getByRole("button", { name: "Google" });
+  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 
-  await expect(googleButton).toBeVisible();
-  await expect(googleButton).toHaveScreenshot(
-    "public-landing-google-button.png",
-    strictScreenshotOptions,
-  );
+  await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
+  await expect(
+    accountSection.getByRole("link", { name: "?create-account", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
 });
 
 test("public landing interactive elements use pointer cursors", async ({ page }) => {
   await page.goto("/?sign-in", { waitUntil: "networkidle" });
 
-  await expect(page.getByRole("button", { name: "Google" })).toHaveCSS("cursor", "pointer");
+  await expect(page.getByRole("link", { name: "?sign-in", exact: true })).toHaveCSS(
+    "cursor",
+    "pointer",
+  );
   await expect(page.getByRole("link", { name: "?create-account", exact: true })).toHaveCSS(
     "cursor",
     "pointer",
@@ -976,14 +978,16 @@ test("public landing renders the closed Google signup return state", async ({ pa
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByText("The app is still internal.")).toBeVisible();
+  await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
   await expect(accountSection.getByRole("link", { name: "?sign-in" })).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "?create-account" })).toBeVisible();
+  await expect(accountSection.getByText("The app is still internal.")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Google", exact: true, includeHidden: true }),
   ).toHaveCount(0);
 
   await expect(accountSection).toHaveScreenshot(
-    "public-landing-google-signup-closed.png",
+    "public-landing-signup-return-account-links.png",
     strictScreenshotOptions,
   );
 });

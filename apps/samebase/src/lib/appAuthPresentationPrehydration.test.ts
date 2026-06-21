@@ -123,7 +123,7 @@ describe("appAuthPresentationPrehydration", () => {
     window.localStorage.clear();
   });
 
-  it("visually replaces the checking login account label with the JWT profile label", () => {
+  it("visually replaces the checking login account label with the JWT profile email", () => {
     writeLocalAuthSession(
       createJwt({
         email: "nicu@samebase.com",
@@ -144,7 +144,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain(
       `[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] [data-vault-dashboard-account-section-label]::after`,
     );
-    expect(styleText).toContain('content: "Nicu";');
+    expect(styleText).toContain('content: "nicu@samebase.com";');
   });
 
   it("escapes hostile JWT profile labels inside CSS content", () => {

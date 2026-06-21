@@ -165,7 +165,7 @@ export function Inlineable_createAppAuthPresentationRuntime(
   }
 
   function readProfileLabel(profile: AuthTokenProfileClaims) {
-    return profile.name ?? profile.email ?? null;
+    return profile.email ?? profile.name ?? null;
   }
 
   function readJwtPresentation(token: string) {

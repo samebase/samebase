@@ -44,7 +44,7 @@ describe("app auth presentation runtime", () => {
           name: "Nicu",
         }),
       ),
-    ).toBe("Nicu");
+    ).toBe("nicu@samebase.com");
     expect(
       runtime.readJwtPresentationLabel(
         createJwt({

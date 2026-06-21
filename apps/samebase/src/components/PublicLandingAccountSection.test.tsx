@@ -191,8 +191,8 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain("data-vault-dashboard-account-section-label");
     expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("?sign-in");
-    expect(hydratedMarkup).not.toContain("?create-account");
+    expect(hydratedMarkup).toContain("?sign-in");
+    expect(hydratedMarkup).toContain("?create-account");
   });
 
   it("uses local JWT profile claims after hydration while auth state loads", async () => {
@@ -203,7 +203,7 @@ describe("PublicLandingAccountSection", () => {
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).toContain("nicu@noter.md");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("not logged in");
     expect(queryState.index).toBe(0);
@@ -247,13 +247,13 @@ describe("PublicLandingAccountSection", () => {
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).toContain("nicu@noter.md");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("shows the signed-in account name after the viewer loads", async () => {
+  it("shows the signed-in account email after the viewer loads", async () => {
     authState.isAuthenticated = true;
     queryState.results = [
       {
@@ -272,7 +272,8 @@ describe("PublicLandingAccountSection", () => {
 
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).toContain("nicu@example.com");
+    expect(hydratedMarkup).not.toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");
@@ -296,30 +297,32 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("shows the logged-out account summary collapsed by default", () => {
+  it("shows the logged-out account links by default", () => {
     const markup = renderLandingAccountSection("/");
 
     expect(markup).toContain("not logged in");
-    expect(markup).not.toContain("?sign-in");
-    expect(markup).not.toContain("?create-account");
+    expect(markup).toContain("?sign-in");
+    expect(markup).toContain("?create-account");
     expect(markup).not.toContain("Google");
   });
 
-  it("shows Google auth from the sign-in route state", () => {
+  it("keeps the logged-out account links from the sign-in route state", () => {
     const markup = renderLandingAccountSection("/?sign-in");
 
     expect(markup).toContain("not logged in");
-    expect(markup).toContain("Google");
+    expect(markup).toContain("?sign-in");
     expect(markup).toContain("?create-account");
+    expect(markup).not.toContain("Google");
     expect(markup).not.toContain("The app is still internal.");
   });
 
-  it("shows the internal-app message from the create-account route state", () => {
+  it("keeps the logged-out account links from the create-account route state", () => {
     const markup = renderLandingAccountSection("/?create-account");
 
     expect(markup).toContain("not logged in");
-    expect(markup).toContain("The app is still internal.");
+    expect(markup).toContain("?create-account");
     expect(markup).toContain("?sign-in");
+    expect(markup).not.toContain("The app is still internal.");
     expect(markup).not.toContain("Google");
   });
 });

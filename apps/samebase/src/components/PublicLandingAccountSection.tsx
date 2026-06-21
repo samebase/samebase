@@ -1,5 +1,4 @@
 import { useAppAuthActions } from "@/authClient";
-import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
 import {
   VaultDashboardAccountSection,
   VaultDashboardAccountSectionFrame,
@@ -10,38 +9,23 @@ import {
 } from "@/lib/appAuthPresentationState";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
-import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { applySearchPatch, type SearchPatch } from "@/routing/searchFlags";
-import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
-import { SignInWithGoogle } from "@/SignInWithGoogle";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { type RootRouteSearch } from "@/routeSearch/root";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 
-type PublicLandingAccountMode = "links" | "sign-in" | "create-account";
+type PublicLandingAccountMode = "sign-in" | "create-account";
 type PublicLandingSignedInViewer = NonNullable<
   GetFunctionReferenceReturnType<typeof api.users.viewer>
 >;
 
 const ACCOUNT_LINK_CLASS_NAME = "text-base underline underline-offset-4";
 
-function resolvePublicLandingAccountMode(
-  pathname: string,
-  rootRouteSearch: RootRouteSearch,
-): PublicLandingAccountMode {
-  if (shouldRenderGoogleSignupClosedState(pathname, rootRouteSearch)) {
-    return "create-account";
-  }
-  if (pathname === "/" && rootRouteSearch["sign-in"]) {
-    return "sign-in";
-  }
-  return "links";
-}
-
 function buildPublicAccountModeSearchPatch(
-  mode: Exclude<PublicLandingAccountMode, "links">,
+  mode: PublicLandingAccountMode,
 ): SearchPatch<RootRouteSearch> {
   return {
     auth: null,
@@ -52,19 +36,9 @@ function buildPublicAccountModeSearchPatch(
   };
 }
 
-function publicAccountModeLink(mode: Exclude<PublicLandingAccountMode, "links">) {
+function publicAccountModeLink(mode: PublicLandingAccountMode) {
   return (currentSearch: RootRouteSearch) =>
     applySearchPatch(currentSearch, buildPublicAccountModeSearchPatch(mode));
-}
-
-function clearPublicAccountModeSearch(currentSearch: RootRouteSearch) {
-  return applySearchPatch(currentSearch, {
-    auth: null,
-    "auth-return": null,
-    "create-account": null,
-    signup: null,
-    "sign-in": null,
-  });
 }
 
 function PublicAccountRouteLink({
@@ -72,7 +46,7 @@ function PublicAccountRouteLink({
   mode,
 }: {
   children: ReactNode;
-  mode: Exclude<PublicLandingAccountMode, "links">;
+  mode: PublicLandingAccountMode;
 }) {
   return (
     <Link className={ACCOUNT_LINK_CLASS_NAME} to="/" search={publicAccountModeLink(mode)}>
@@ -81,24 +55,7 @@ function PublicAccountRouteLink({
   );
 }
 
-function PublicLandingLoggedOutAccountContent({ mode }: { mode: PublicLandingAccountMode }) {
-  if (mode === "create-account") {
-    return (
-      <PublicSignupClosedNotice
-        footer={<PublicAccountRouteLink mode="sign-in">?sign-in</PublicAccountRouteLink>}
-      />
-    );
-  }
-
-  if (mode === "sign-in") {
-    return (
-      <div className="flex flex-col gap-3">
-        <SignInWithGoogle authReturn="dashboard" visible markPublicSignupReturn />
-        <PublicAccountRouteLink mode="create-account">?create-account</PublicAccountRouteLink>
-      </div>
-    );
-  }
-
+function PublicLandingLoggedOutAccountLinks() {
   return (
     <div className="flex flex-col items-start gap-3">
       <PublicAccountRouteLink mode="sign-in">?sign-in</PublicAccountRouteLink>
@@ -108,52 +65,21 @@ function PublicLandingLoggedOutAccountContent({ mode }: { mode: PublicLandingAcc
 }
 
 function PublicLandingLoggedOutAccountSection() {
-  const location = useLocation({
-    select: (currentLocation) => ({
-      pathname: currentLocation.pathname,
-      searchStr: currentLocation.searchStr,
-    }),
-  });
-  const navigate = useNavigate();
-  const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const mode = resolvePublicLandingAccountMode(location.pathname, rootRouteSearch);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const open = mode === "links" ? accountOpen : true;
-
   return (
     <VaultDashboardAccountSectionFrame
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       label="not logged in"
-      open={open}
-      onOpenChange={(isOpen) => {
-        setAccountOpen(isOpen);
-        if (!isOpen && mode !== "links") {
-          void navigate({
-            replace: true,
-            search: clearPublicAccountModeSearch,
-            state: true,
-            to: "/",
-          });
-        }
-      }}
     >
-      <PublicLandingLoggedOutAccountContent mode={mode} />
+      <PublicLandingLoggedOutAccountLinks />
     </VaultDashboardAccountSectionFrame>
   );
 }
 
 export function PublicLandingAccountLoadingSection() {
   return (
-    <VaultDashboardAccountSection
+    <VaultDashboardAccountSectionFrame
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName="checking login"
-      email="checking login"
-      isSignOutPending={false}
-      open={false}
-      onOpenChange={() => {}}
-      onSignOut={() => {}}
-      providerLabel={null}
-      signOutDisabled
+      label="checking login"
     />
   );
 }
@@ -165,26 +91,22 @@ function PublicLandingResolvedSignedInAccountSection({
 }) {
   const authProviders = useQuery(api.users.getViewerAuthProviders);
   const { signOut } = useAppAuthActions();
-  const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const providerLabel = useMemo(() => {
     const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
     return formatAuthProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
   const accountEmail = viewer.email ?? viewer.githubUsername ?? viewer.name;
-  const accountDisplayName = viewer.name ?? viewer.email ?? viewer.githubUsername;
 
-  if (accountDisplayName === undefined || accountEmail === undefined) {
+  if (accountEmail === undefined) {
     return <PublicLandingAccountLoadingSection />;
   }
 
   return (
     <VaultDashboardAccountSection
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName={accountDisplayName}
       email={accountEmail}
       isSignOutPending={isSigningOut}
-      onOpenChange={setAccountOpen}
       onSignOut={() => {
         if (isSigningOut) {
           return;
@@ -198,7 +120,6 @@ function PublicLandingResolvedSignedInAccountSection({
             setIsSigningOut(false);
           });
       }}
-      open={accountOpen}
       providerLabel={providerLabel}
       signOutDisabled={false}
     />
@@ -211,22 +132,18 @@ function PublicLandingPresentedSignedInAccountSection({
   profile: AppAuthPresentationProfile;
 }) {
   const { signOut } = useAppAuthActions();
-  const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const accountDisplayName = profile.name ?? profile.email;
   const accountEmail = profile.email ?? profile.name;
 
-  if (accountDisplayName === undefined || accountEmail === undefined) {
+  if (accountEmail === undefined) {
     return <PublicLandingAccountLoadingSection />;
   }
 
   return (
     <VaultDashboardAccountSection
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      displayName={accountDisplayName}
       email={accountEmail}
       isSignOutPending={isSigningOut}
-      onOpenChange={setAccountOpen}
       onSignOut={() => {
         if (isSigningOut) {
           return;
@@ -240,7 +157,6 @@ function PublicLandingPresentedSignedInAccountSection({
             setIsSigningOut(false);
           });
       }}
-      open={accountOpen}
       providerLabel={null}
       signOutDisabled={false}
     />

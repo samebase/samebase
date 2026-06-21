@@ -21,7 +21,7 @@ import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useQuery as useConvexQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -48,39 +48,30 @@ function PublicAppRightSidebarContent() {
 function AppRightSidebarSignedInAccountSection({
   authProviders,
   isSignOutPending,
-  onOpenChange,
   onSignOut,
-  open,
   profile,
   user,
 }: {
   authProviders: AppRightSidebarAuthProviders | undefined;
   isSignOutPending: boolean;
-  onOpenChange: (isOpen: boolean) => void;
   onSignOut: () => void;
-  open: boolean;
   profile: AppAuthPresentationProfile | null;
   user: AppRightSidebarViewer | null | undefined;
 }) {
   const accountEmail = user?.email ?? user?.githubUsername ?? profile?.email ?? profile?.name;
-  const accountDisplayName =
-    user?.name ?? user?.email ?? user?.githubUsername ?? profile?.name ?? profile?.email;
   const accountProviderLabel = authProviders?.primaryProvider
     ? formatAuthProviderLabel(authProviders.primaryProvider)
     : null;
 
-  if (accountDisplayName === undefined || accountEmail === undefined) {
+  if (accountEmail === undefined) {
     return <PublicLandingAccountLoadingSection />;
   }
 
   return (
     <VaultDashboardAccountSection
-      displayName={accountDisplayName}
       email={accountEmail}
       isSignOutPending={isSignOutPending}
-      onOpenChange={onOpenChange}
       onSignOut={onSignOut}
-      open={open}
       providerLabel={accountProviderLabel}
       signOutDisabled={false}
     />
@@ -97,7 +88,6 @@ function GenericSignedInAccountSection({
   user?: AppRightSidebarViewer | null;
 }) {
   const { signOut } = useAppAuthActions();
-  const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -122,9 +112,7 @@ function GenericSignedInAccountSection({
     <AppRightSidebarSignedInAccountSection
       authProviders={authProviders}
       isSignOutPending={isSigningOut}
-      onOpenChange={setAccountOpen}
       onSignOut={handleSignOut}
-      open={accountOpen}
       profile={profile}
       user={user}
     />
@@ -200,26 +188,8 @@ function AuthenticatedAppRightSidebarContent({
 }) {
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
-  const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
-  const persistAccountPanelOpen = useMutation(
-    api.dashboardSettings.setAccountPanelOpen,
-  ).withOptimisticUpdate((localStore, args) => {
-    const currentSettings = localStore.getQuery(api.dashboardSettings.getDashboardSettings, {});
-    if (!currentSettings) {
-      return;
-    }
-    localStore.setQuery(
-      api.dashboardSettings.getDashboardSettings,
-      {},
-      {
-        ...currentSettings,
-        accountPanelOpen: args.isOpen,
-      },
-    );
-  });
   const { signOut } = useAppAuthActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const resolvedAccountPanelOpen = dashboardSettings?.accountPanelOpen ?? false;
 
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -245,17 +215,7 @@ function AuthenticatedAppRightSidebarContent({
       <AppRightSidebarSignedInAccountSection
         authProviders={user ? authProviders : undefined}
         isSignOutPending={isSigningOut}
-        onOpenChange={(isOpen) => {
-          if (!user) {
-            return;
-          }
-
-          void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
-            console.error("Failed to persist account panel state:", error);
-          });
-        }}
         onSignOut={handleSignOut}
-        open={user ? resolvedAccountPanelOpen : false}
         profile={profile}
         user={user}
       />

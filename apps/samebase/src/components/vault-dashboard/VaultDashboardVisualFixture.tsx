@@ -1108,9 +1108,6 @@ function FixtureDashboardSidebarAccountClamp() {
       rightContent={
         <VaultDashboardSidebarContent>
           <VaultDashboardAccountSection
-            open={true}
-            onOpenChange={() => {}}
-            displayName="Alexandria Example With A Very Long Pane Account Name"
             email="alexandria.very.long.operator.email-address@samebase-example-workspace.dev"
             providerLabel="Google Workspace Enterprise"
             isSignOutPending={false}
@@ -1145,9 +1142,6 @@ function FixtureDashboardCreateControl() {
       rightContent={
         <VaultDashboardSidebarContent>
           <VaultDashboardAccountSection
-            open={true}
-            onOpenChange={() => {}}
-            displayName="Nicu Example With A Very Long Pane Account Name"
             email="nicu@samebase.md"
             providerLabel="Google"
             isSignOutPending={false}

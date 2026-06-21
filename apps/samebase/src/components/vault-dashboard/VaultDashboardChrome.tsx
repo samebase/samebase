@@ -41,12 +41,9 @@ export type VaultDashboardProviderRowViewModel = {
 
 export type VaultDashboardAccountSectionProps = {
   dataTestId?: string;
-  displayName: ReactNode;
   email: string;
   isSignOutPending: boolean;
-  onOpenChange: (isOpen: boolean) => void;
   onSignOut: () => void;
-  open: boolean;
   providerLabel: string | null;
   signOutDisabled?: boolean;
 };
@@ -55,64 +52,43 @@ export function VaultDashboardAccountSectionFrame({
   children,
   dataTestId = "dashboard-sidebar-account-section",
   label,
-  onOpenChange,
-  open,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
   dataTestId?: string;
   label: ReactNode;
-  onOpenChange: (isOpen: boolean) => void;
-  open: boolean;
 }) {
   return (
     <div
       data-testid={dataTestId}
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
-      <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild nativeButton>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
-          >
-            <span
-              data-vault-dashboard-account-section-label
-              className="min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]"
-            >
-              {label}
-            </span>
-            <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 transition-transform" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>{children}</CollapsibleContent>
-      </Collapsible>
+      <div
+        data-vault-dashboard-account-section-label
+        className="min-w-0 line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]"
+      >
+        {label}
+      </div>
+      {children ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 }
 
 /**
  * The account controls use the same section and row geometry as providers so
- * the right rail reads as one accordion stack.
+ * the right rail keeps one shared sidebar rhythm.
  */
 export function VaultDashboardAccountSection({
   dataTestId,
-  displayName,
   email,
   isSignOutPending,
-  onOpenChange,
   onSignOut,
-  open,
   providerLabel,
   signOutDisabled,
 }: VaultDashboardAccountSectionProps) {
   return (
-    <VaultDashboardAccountSectionFrame
-      dataTestId={dataTestId}
-      label={displayName}
-      open={open}
-      onOpenChange={onOpenChange}
+    <div
+      data-testid={dataTestId ?? "dashboard-sidebar-account-section"}
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
       <div className="flex flex-wrap items-start gap-3">
         <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
@@ -156,7 +132,7 @@ export function VaultDashboardAccountSection({
           </Button>
         </div>
       </div>
-    </VaultDashboardAccountSectionFrame>
+    </div>
   );
 }
 

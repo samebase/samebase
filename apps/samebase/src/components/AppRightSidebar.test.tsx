@@ -234,16 +234,6 @@ async function mountRightSidebarAfterEffects(queryResults: unknown[]) {
   };
 }
 
-function findButtonByText(rootElement: HTMLElement, text: string) {
-  for (const button of rootElement.querySelectorAll("button")) {
-    if (button.textContent.includes(text)) {
-      return button;
-    }
-  }
-
-  return null;
-}
-
 describe("AppRightSidebarContent", () => {
   beforeEach(() => {
     authState.isAuthenticated = true;
@@ -282,6 +272,8 @@ describe("AppRightSidebarContent", () => {
     const markup = renderRightSidebar([]);
 
     expect(markup).toContain("not logged in");
+    expect(markup).toContain("?sign-in");
+    expect(markup).toContain("?create-account");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("Providers");
   });
@@ -295,6 +287,8 @@ describe("AppRightSidebarContent", () => {
 
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).toContain("not logged in");
+    expect(hydratedMarkup).toContain("?sign-in");
+    expect(hydratedMarkup).toContain("?create-account");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
   });
@@ -324,30 +318,21 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).toContain("nicu@noter.md");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
   });
 
-  it("allows the temporary signed-in account row to open", async () => {
+  it("renders the temporary signed-in account row without an accordion trigger", async () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     const mounted = await mountRightSidebarAfterEffects([]);
     try {
-      const accountButton = findButtonByText(mounted.rootElement, "Nicu");
-      if (accountButton === null) {
-        throw new Error("Missing temporary signed-in account button.");
-      }
-
-      expect(accountButton.getAttribute("aria-expanded")).toBe("false");
-
-      await act(async () => {
-        accountButton.click();
-      });
-
-      expect(accountButton.getAttribute("aria-expanded")).toBe("true");
+      expect(mounted.rootElement.textContent).toContain("nicu@noter.md");
+      expect(mounted.rootElement.textContent).toContain("Sign out");
+      expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
     } finally {
       await mounted.unmount();
     }
@@ -358,7 +343,7 @@ describe("AppRightSidebarContent", () => {
 
     const markup = renderRightSidebar([]);
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-    const accountIndex = hydratedMarkup.indexOf("Nicu");
+    const accountIndex = hydratedMarkup.indexOf("nicu@noter.md");
 
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(markup).toContain("checking login");
@@ -411,7 +396,8 @@ describe("AppRightSidebarContent", () => {
       ]),
     );
 
-    expect(hydratedMarkup).toContain("Pending Access User");
+    expect(hydratedMarkup).toContain("pending-access@example.com");
+    expect(hydratedMarkup).not.toContain("Pending Access User");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
     expect(hydratedMarkup).not.toContain("New App");
@@ -446,17 +432,11 @@ describe("AppRightSidebarContent", () => {
           },
         ],
         [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
-        [
-          getFunctionName(api.dashboardSettings.getDashboardSettings),
-          {
-            accountPanelOpen: false,
-            providersPanelOpen: false,
-          },
-        ],
       ]),
     );
 
-    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).toContain("nicu@samebase.md");
+    expect(hydratedMarkup).not.toContain("Nicu");
     expect(hydratedMarkup).toContain("Providers");
     expect(hydratedMarkup).toContain("New App");
     expect(hydratedMarkup).toContain("Connect existing app");
