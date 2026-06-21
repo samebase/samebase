@@ -22,6 +22,24 @@ const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 const FormEncodedParams = URLSearchParams;
+/**
+ * Samebase needs the Cloudflare MCP Code Mode scopes that cover account
+ * discovery, Worker management, and Workers Builds setup without the full
+ * access template.
+ *
+ * Cloudflare MCP scope registry:
+ * https://github.com/cloudflare/mcp/blob/main/src/auth/scopes.ts
+ */
+export const CLOUDFLARE_MCP_OAUTH_SCOPES = [
+  "user:read",
+  "account:read",
+  "offline_access",
+  "workers:read",
+  "workers:write",
+  "workers_scripts:write",
+  "workers_builds:read",
+  "workers_builds:write",
+] as const;
 const CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS = [
   "error",
   "error_description",
@@ -131,6 +149,23 @@ function parseCloudflareMcpTokenResponse(
     );
   }
   return result.data;
+}
+
+export function buildCloudflareMcpAuthorizeUrl(args: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  codeChallenge: string;
+}): string {
+  const authorizeUrl = new URL(CLOUDFLARE_MCP_AUTHORIZATION_URL);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("client_id", args.clientId);
+  authorizeUrl.searchParams.set("redirect_uri", args.redirectUri);
+  authorizeUrl.searchParams.set("state", args.state);
+  authorizeUrl.searchParams.set("code_challenge", args.codeChallenge);
+  authorizeUrl.searchParams.set("code_challenge_method", "S256");
+  authorizeUrl.searchParams.set("scope", CLOUDFLARE_MCP_OAUTH_SCOPES.join(" "));
+  return authorizeUrl.toString();
 }
 
 async function registerCloudflareMcpClient(args: { redirectUri: string }) {
@@ -290,15 +325,12 @@ async function buildCloudflareMcpOAuthUrl(ctx: OAuthContext, userId: Id<"users">
     oauthStateExpiresAt: now + OAUTH_STATE_TTL_MS,
   });
 
-  const authorizeUrl = new URL(CLOUDFLARE_MCP_AUTHORIZATION_URL);
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("client_id", clientId);
-  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-  authorizeUrl.searchParams.set("state", state);
-  authorizeUrl.searchParams.set("code_challenge", codeChallenge);
-  authorizeUrl.searchParams.set("code_challenge_method", "S256");
-
-  return authorizeUrl.toString();
+  return buildCloudflareMcpAuthorizeUrl({
+    clientId,
+    redirectUri,
+    state,
+    codeChallenge,
+  });
 }
 
 const storeCloudflareMcpOauthConnectionArgs = {
