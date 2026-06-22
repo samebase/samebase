@@ -201,8 +201,9 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("delete_repo Missing");
     expect(markup).toContain("samebase · Admin");
     expect(markup).toContain("acme-product · Member");
+    expect(markup).toContain("Repository listing: Needs attention");
     expect(markup).toContain(
-      "Repository listing: Needs attention - Some organization repositories are not visible to this OAuth grant.",
+      "GitHub could not list repositories for this credential. Reauthorize GitHub and approve organization access if prompted.",
     );
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth). Account Samebase Preview.");

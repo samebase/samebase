@@ -39,7 +39,8 @@ const providerConnectionsVisualFixtureState = {
       {
         key: "repositories",
         label: "Repository listing",
-        message: "Some organization repositories are not visible to this OAuth grant.",
+        message:
+          "GitHub could not list repositories for this credential. Reauthorize GitHub and approve organization access if prompted.",
         status: "error",
       },
       {
