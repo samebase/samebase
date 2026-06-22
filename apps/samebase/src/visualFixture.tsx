@@ -179,7 +179,6 @@ const LOGO_VISUAL_MODES = ["logo-three-reference", "logo-snap-angles"] as const 
 )[];
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
-  "vault-create-control",
   "vault-dashboard-dev-tools-hidden",
   "vault-dashboard-dev-tools-visible",
   "vault-dashboard-add-first-app-root-open",
@@ -197,8 +196,6 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-branch-filters",
   "vault-branch-pr-labels",
   "vault-branch-mobile-alignment",
-  "vault-sidebar-account-clamp",
-  "vault-sidebar-account-mobile-min",
 ] as const satisfies readonly VaultDashboardVisualMode[];
 
 const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
@@ -379,7 +376,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   }
 
   if (
-    mode === "vault-create-control" ||
     mode === "vault-dashboard-dev-tools-hidden" ||
     mode === "vault-dashboard-dev-tools-visible" ||
     mode === "vault-dashboard-add-first-app-root-open" ||
@@ -396,9 +392,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||
-    mode === "vault-branch-mobile-alignment" ||
-    mode === "vault-sidebar-account-clamp" ||
-    mode === "vault-sidebar-account-mobile-min"
+    mode === "vault-branch-mobile-alignment"
   ) {
     return <VaultDashboardVisualFixture mode={mode} />;
   }

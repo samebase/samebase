@@ -1,18 +1,10 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
-import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
-import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import {
-  VaultDashboardAccountSection,
-  VaultDashboardEmptyState,
-  VaultDashboardProvidersSection,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
   VaultDashboardScrollTargetEndPadding,
@@ -43,7 +35,6 @@ import { validateRootRouteSearch } from "@/routeSearch/root";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export type VaultDashboardVisualMode =
-  | "vault-create-control"
   | "vault-dashboard-dev-tools-hidden"
   | "vault-dashboard-dev-tools-visible"
   | "vault-dashboard-add-first-app-root-open"
@@ -60,9 +51,7 @@ export type VaultDashboardVisualMode =
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
-  | "vault-branch-mobile-alignment"
-  | "vault-sidebar-account-clamp"
-  | "vault-sidebar-account-mobile-min";
+  | "vault-branch-mobile-alignment";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
@@ -1102,83 +1091,7 @@ function FixtureDashboardShell({
   );
 }
 
-function FixtureDashboardSidebarAccountClamp() {
-  return (
-    <FixtureDashboardShell
-      rightContent={
-        <VaultDashboardSidebarContent>
-          <VaultDashboardAccountSection
-            email="alexandria.very.long.operator.email-address@samebase-example-workspace.dev"
-            providerLabel="Google Workspace Enterprise"
-            isSignOutPending={false}
-            onSignOut={() => {}}
-          />
-          <VaultDashboardProvidersSection
-            open={true}
-            onOpenChange={() => {}}
-            providerRows={[
-              {
-                key: "github",
-                icon: <GitHubLogoIcon className="h-4 w-4" />,
-                label: "GitHub",
-                status: "Connected as alexandria-super-long-github-operator (OAuth)",
-                actions: [],
-              },
-            ]}
-          />
-          <div className="mt-auto">
-            <AppSidebarMetaSection linkAlignment="left" />
-          </div>
-        </VaultDashboardSidebarContent>
-      }
-      mainContent={<VaultDashboardEmptyState logoRouteSearch={{}} />}
-    />
-  );
-}
-
-function FixtureDashboardCreateControl() {
-  return (
-    <FixtureDashboardShell
-      rightContent={
-        <VaultDashboardSidebarContent>
-          <VaultDashboardAccountSection
-            email="nicu@samebase.md"
-            providerLabel="Google"
-            isSignOutPending={false}
-            onSignOut={() => {}}
-          />
-          <VaultDashboardProvidersSection open={true} onOpenChange={() => {}} providerRows={[]} />
-          <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-            <Button className="w-full" asChild>
-              <Link to={NEW_APP_ROUTE}>New App</Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto min-h-8 w-full whitespace-normal py-2"
-              asChild
-            >
-              <Link to={CONNECT_REPO_ROUTE}>
-                <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-                  Connect existing app
-                </span>
-              </Link>
-            </Button>
-          </div>
-          <div className="mt-auto">
-            <AppSidebarMetaSection linkAlignment="left" />
-          </div>
-        </VaultDashboardSidebarContent>
-      }
-      mainContent={<VaultDashboardEmptyState logoRouteSearch={{}} />}
-    />
-  );
-}
-
 export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisualMode }) {
-  if (mode === "vault-create-control") {
-    return <FixtureDashboardCreateControl />;
-  }
-
   if (mode === "vault-dashboard-dev-tools-hidden") {
     return <VaultDashboardDeveloperToolsFixture visible={false} />;
   }
@@ -1237,14 +1150,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-sticky-header") {
     return <VaultDashboardStickyHeaderFixture />;
-  }
-
-  if (mode === "vault-sidebar-account-clamp") {
-    return <FixtureDashboardSidebarAccountClamp />;
-  }
-
-  if (mode === "vault-sidebar-account-mobile-min") {
-    return <FixtureDashboardSidebarAccountClamp />;
   }
 
   if (mode === "vault-branch-mobile-alignment") {
