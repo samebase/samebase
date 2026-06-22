@@ -136,33 +136,33 @@ type GitHubProfileHealthResult =
   | {
       ok: true;
       login: string;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     }
   | {
       ok: false;
       failure: GitHubApiFailure;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     };
 type GitHubRepositoryHealthResult =
   | {
       ok: true;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     }
   | {
       ok: false;
       failure: GitHubApiFailure;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     };
 type GitHubOrganizationHealthResult =
   | {
       ok: true;
       organizations: GithubConnectionHealth["organizations"];
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     }
   | {
       ok: false;
       failure: GitHubApiFailure;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     };
 
 function buildDisconnectedCloudflareConnectionStatus() {
@@ -204,11 +204,21 @@ function readGitHubResponseHeader(
   return typeof value === "string" ? value : null;
 }
 
-function readGitHubErrorScopesHeader(error: RequestError): string | null {
+/**
+Reads GitHub's `x-oauth-scopes` response header from a failed Octokit request.
+GitHub sends values like `"repo, user, read:org"` to report the scopes on the credential used for
+that request.
+*/
+function readGitHubErrorOAuthScopesHeader(error: RequestError): string | null {
   return readGitHubResponseHeader(error.response?.headers ?? {}, "x-oauth-scopes");
 }
 
-function readGitHubSuccessScopesHeader(response: {
+/**
+Reads GitHub's `x-oauth-scopes` response header from a successful Octokit response.
+Example: a header value of `"repo, user"` means GitHub reports that this token currently has the
+`repo` and `user` OAuth scopes.
+*/
+function readGitHubSuccessOAuthScopesHeader(response: {
   headers: Record<string, string | number | undefined>;
 }): string | null {
   return readGitHubResponseHeader(response.headers, "x-oauth-scopes");
@@ -253,6 +263,12 @@ function buildGithubProviderSummary(
   };
 }
 
+/**
+Parses GitHub's comma-separated `x-oauth-scopes` response header into first-seen scope names.
+Examples:
+`parseGitHubOAuthScopesHeader("repo, user, repo")` returns `["repo", "user"]`.
+`parseGitHubOAuthScopesHeader(null)` returns `[]`.
+*/
 export function parseGitHubOAuthScopesHeader(header: string | null | undefined): string[] {
   if (!header) {
     return [];
@@ -271,7 +287,12 @@ export function parseGitHubOAuthScopesHeader(header: string | null | undefined):
   return scopes;
 }
 
-function mergeGithubScopes(first: readonly string[], second: readonly string[]): string[] {
+/**
+Merges OAuth scope lists while preserving first-seen order.
+Example: merging `["repo", "user"]` and `["read:org", "repo"]` returns
+`["repo", "user", "read:org"]`.
+*/
+function mergeGitHubOAuthScopes(first: readonly string[], second: readonly string[]): string[] {
   const scopes: string[] = [];
   const seen = new Set<string>();
   for (const scope of [...first, ...second]) {
@@ -291,6 +312,13 @@ function isGitHubOAuthScopeGranted(scope: string, grantedScopes: Set<string>): b
   return grantedScopes.has(scope);
 }
 
+/**
+Maps Samebase's required GitHub OAuth scopes to granted, missing, or unknown status.
+Examples:
+`repo` is granted only when GitHub reports `repo`.
+`user:email` is granted when GitHub reports either `user:email` or the broader `user` scope.
+If GitHub did not send an `x-oauth-scopes` header, every required scope is `unknown`.
+*/
 export function buildGithubRequiredScopeHealth(args: {
   grantedScopes: readonly string[];
   scopeReportAvailable: boolean;
@@ -319,6 +347,11 @@ function formatGithubHealthFailure(failure: GitHubApiFailure): string {
   return `GitHub returned ${failure.status} ${failure.statusText || "error"}.`;
 }
 
+/**
+Checks whether the credential can read the authenticated GitHub profile.
+Example: a successful `/user` response with `{ login: "octo" }` returns
+`{ ok: true, login: "octo" }` plus the `x-oauth-scopes` header when GitHub sends it.
+*/
 async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileHealthResult> {
   try {
     const response = await runGitHubRequestWithTimeout((signal) =>
@@ -329,7 +362,7 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
     return {
       ok: true,
       login: response.data.login,
-      scopesHeader: readGitHubSuccessScopesHeader(response),
+      oauthScopesHeader: readGitHubSuccessOAuthScopesHeader(response),
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -339,13 +372,18 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
           status: error.status,
           statusText: error.message,
         },
-        scopesHeader: readGitHubErrorScopesHeader(error),
+        oauthScopesHeader: readGitHubErrorOAuthScopesHeader(error),
       };
     }
     throw error;
   }
 }
 
+/**
+Checks whether GitHub accepts repository listing for the credential.
+Example: a `200` response from `/user/repos?per_page=1` returns `ok: true`; a `403` response
+returns `ok: false` so the UI can point users at org approval, SSO, or rate-limit issues.
+*/
 async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepositoryHealthResult> {
   try {
     const response = await runGitHubRequestWithTimeout((signal) =>
@@ -358,7 +396,7 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
     );
     return {
       ok: true,
-      scopesHeader: readGitHubSuccessScopesHeader(response),
+      oauthScopesHeader: readGitHubSuccessOAuthScopesHeader(response),
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -368,18 +406,26 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
           status: error.status,
           statusText: error.message,
         },
-        scopesHeader: readGitHubErrorScopesHeader(error),
+        oauthScopesHeader: readGitHubErrorOAuthScopesHeader(error),
       };
     }
     throw error;
   }
 }
 
+/**
+Lists active GitHub organization memberships visible to the current credential.
+Examples:
+an org membership with `{ role: "member", permissions: { can_create_repository: false } }`
+returns `{ role: "member", canCreateRepository: false }`.
+an org membership with `{ role: "admin" }` falls back to `canCreateRepository: true` when GitHub
+omits the explicit permission field.
+*/
 async function readGithubOrganizationHealth(
   octokit: Octokit,
 ): Promise<GitHubOrganizationHealthResult> {
   try {
-    let scopesHeader: string | null = null;
+    let oauthScopesHeader: string | null = null;
     const organizationAccess: GithubConnectionHealth["organizations"] = [];
     const seenOrganizationLogins = new Set<string>();
     for (let page = 1; ; page += 1) {
@@ -391,7 +437,7 @@ async function readGithubOrganizationHealth(
           request: { signal },
         }),
       );
-      scopesHeader = scopesHeader ?? readGitHubSuccessScopesHeader(response);
+      oauthScopesHeader = oauthScopesHeader ?? readGitHubSuccessOAuthScopesHeader(response);
       for (const membership of response.data) {
         const login = membership.organization.login;
         if (!login || seenOrganizationLogins.has(login)) {
@@ -415,7 +461,7 @@ async function readGithubOrganizationHealth(
       organizations: organizationAccess.sort((left, right) =>
         left.login.localeCompare(right.login),
       ),
-      scopesHeader,
+      oauthScopesHeader,
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -425,7 +471,7 @@ async function readGithubOrganizationHealth(
           status: error.status,
           statusText: error.message,
         },
-        scopesHeader: readGitHubErrorScopesHeader(error),
+        oauthScopesHeader: readGitHubErrorOAuthScopesHeader(error),
       };
     }
     throw error;
@@ -764,10 +810,10 @@ export const checkGithubConnectionHealth = action({
 
     const octokit = createGitHubOctokit(connection.auth.credential);
     const profileResponse = await readGithubProfileHealth(octokit);
-    const profileScopesHeader = profileResponse.scopesHeader;
-    const profileScopes = parseGitHubOAuthScopesHeader(profileScopesHeader);
+    const profileOAuthScopesHeader = profileResponse.oauthScopesHeader;
+    const profileScopes = parseGitHubOAuthScopesHeader(profileOAuthScopesHeader);
     let grantedScopes = profileScopes;
-    let scopeReportAvailable = profileScopesHeader !== null;
+    let scopeReportAvailable = profileOAuthScopesHeader !== null;
     let username = connection.username;
     let organizations: GithubConnectionHealth["organizations"] = [];
     const checks: GithubConnectionHealth["checks"] = [];
@@ -800,11 +846,11 @@ export const checkGithubConnectionHealth = action({
 
     if (profileResponse.ok) {
       const repositoryResponse = await readGithubRepositoryHealth(octokit);
-      const repositoryScopesHeader = repositoryResponse.scopesHeader;
-      scopeReportAvailable = scopeReportAvailable || repositoryScopesHeader !== null;
-      grantedScopes = mergeGithubScopes(
+      const repositoryOAuthScopesHeader = repositoryResponse.oauthScopesHeader;
+      scopeReportAvailable = scopeReportAvailable || repositoryOAuthScopesHeader !== null;
+      grantedScopes = mergeGitHubOAuthScopes(
         grantedScopes,
-        parseGitHubOAuthScopesHeader(repositoryScopesHeader),
+        parseGitHubOAuthScopesHeader(repositoryOAuthScopesHeader),
       );
       checks.push(
         repositoryResponse.ok
@@ -823,11 +869,11 @@ export const checkGithubConnectionHealth = action({
       );
 
       const organizationResponse = await readGithubOrganizationHealth(octokit);
-      const organizationScopesHeader = organizationResponse.scopesHeader;
-      scopeReportAvailable = scopeReportAvailable || organizationScopesHeader !== null;
-      grantedScopes = mergeGithubScopes(
+      const organizationOAuthScopesHeader = organizationResponse.oauthScopesHeader;
+      scopeReportAvailable = scopeReportAvailable || organizationOAuthScopesHeader !== null;
+      grantedScopes = mergeGitHubOAuthScopes(
         grantedScopes,
-        parseGitHubOAuthScopesHeader(organizationScopesHeader),
+        parseGitHubOAuthScopesHeader(organizationOAuthScopesHeader),
       );
       if (organizationResponse.ok) {
         organizations = organizationResponse.organizations;
