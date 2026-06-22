@@ -14,6 +14,7 @@ import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
+  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "../src/lib/publicLanding";
 import {
@@ -209,6 +210,60 @@ async function readLandingToggleLayout(
       authRowHeight: Number(accountSectionRect.height.toFixed(3)),
     };
   }, PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+}
+
+async function readLandingAccountGoogleClip(page: Page) {
+  return page.evaluate(
+    ({ accountSectionTestId, googleAuthSlotTestId }) => {
+      const accountSection = document.querySelector(`[data-testid="${accountSectionTestId}"]`);
+      const googleAuthSlot = document.querySelector(`[data-testid="${googleAuthSlotTestId}"]`);
+      if (!(accountSection instanceof HTMLElement) || !(googleAuthSlot instanceof HTMLElement)) {
+        return null;
+      }
+
+      const accountBox = accountSection.getBoundingClientRect();
+      const googleBox = googleAuthSlot.getBoundingClientRect();
+      if (
+        accountBox.width === 0 ||
+        accountBox.height === 0 ||
+        googleBox.width === 0 ||
+        googleBox.height === 0
+      ) {
+        return null;
+      }
+
+      const x = Math.floor(Math.min(accountBox.left, googleBox.left));
+      const y = Math.floor(Math.min(accountBox.top, googleBox.top));
+      const right = Math.ceil(Math.max(accountBox.right, googleBox.right));
+      const bottom = Math.ceil(Math.max(accountBox.bottom, googleBox.bottom));
+
+      return {
+        height: bottom - y,
+        width: right - x,
+        x,
+        y,
+      };
+    },
+    {
+      accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+      googleAuthSlotTestId: PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
+    },
+  );
+}
+
+async function captureLandingAccountGoogleClip(page: Page) {
+  await expect.poll(async () => readLandingAccountGoogleClip(page)).not.toBeNull();
+  const clip = await readLandingAccountGoogleClip(page);
+  if (clip === null) {
+    throw new Error("Expected public landing account and Google auth clip to be readable.");
+  }
+
+  return page.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    clip,
+    scale: "css",
+  });
 }
 
 async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
@@ -955,10 +1010,12 @@ test("landing sign-in state keeps the account route links visible", async ({ pag
   await expect(
     accountSection.getByRole("link", { name: "?create-account", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
 });
 
-test("landing account route links do not add sidebar auth content", async ({ page }) => {
+test("landing account route links reveal sidebar auth without resizing account content", async ({
+  page,
+}) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
@@ -971,7 +1028,8 @@ test("landing account route links do not add sidebar auth content", async ({ pag
   await expect(
     accountSection.getByRole("link", { name: "?create-account", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(accountSection.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
 
   const signInLayout = await readLandingToggleLayout(page);
   expect(Math.abs(signInLayout.authRowHeight - initialLayout.authRowHeight)).toBeLessThanOrEqual(1);
@@ -984,7 +1042,8 @@ test("landing account route links do not add sidebar auth content", async ({ pag
   await expect(
     accountSection.getByRole("link", { name: "?create-account", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(accountSection.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
 
   const createAccountLayout = await readLandingToggleLayout(page);
   expect(
@@ -994,6 +1053,63 @@ test("landing account route links do not add sidebar auth content", async ({ pag
     1,
   );
 });
+
+for (const scenario of [
+  { id: "sign-in", path: "/?prod-ui&sign-in" },
+  { id: "create-account", path: "/?prod-ui&create-account" },
+]) {
+  test(`landing ${scenario.id} sidebar auth prehydration matches hydration`, async ({
+    browser,
+  }, testInfo) => {
+    let prehydratedPage: Page | null = null;
+    let hydratedPage: Page | null = null;
+
+    try {
+      prehydratedPage = await browser.newPage();
+      await prehydratedPage.route("**/*", async (route) => {
+        if (route.request().resourceType() !== "script") {
+          await route.continue();
+          return;
+        }
+
+        await route.fulfill({
+          body: "",
+          contentType: "text/javascript",
+          status: 200,
+        });
+      });
+      hydratedPage = await browser.newPage();
+
+      await prehydratedPage.goto(scenario.path, { waitUntil: "domcontentloaded" });
+      await hydratedPage.goto(scenario.path, { waitUntil: "networkidle" });
+
+      const prehydratedScreenshot = await captureLandingAccountGoogleClip(prehydratedPage);
+      const hydratedScreenshot = await captureLandingAccountGoogleClip(hydratedPage);
+      const artifactPrefix = `public-landing-sidebar-auth-prehydration-${scenario.id}`;
+
+      await expectScreenshotsToMatch({
+        actual: prehydratedScreenshot,
+        artifactPrefix,
+        artifactWritePaths: {
+          actual: testInfo.outputPath(`${artifactPrefix}-prehydrated.png`),
+          diff: testInfo.outputPath(`${artifactPrefix}-diff.png`),
+          diffMask: testInfo.outputPath(`${artifactPrefix}-diff-mask.png`),
+          expected: testInfo.outputPath(`${artifactPrefix}-hydrated.png`),
+        },
+        expected: hydratedScreenshot,
+        maxDiffPixelRatio: 0,
+        pixelmatchOptions: {
+          includeAA: true,
+          threshold: 0,
+        },
+        testInfo,
+      });
+    } finally {
+      await prehydratedPage?.close();
+      await hydratedPage?.close();
+    }
+  });
+}
 
 test("public landing interactive elements use pointer cursors", async ({ page }) => {
   await page.goto("/?sign-in", { waitUntil: "networkidle" });

@@ -203,6 +203,33 @@ export function PublicLandingPasswordAuthControls() {
   );
 }
 
+export function PublicLandingSidebarGoogleAuthControls() {
+  const { isAuthenticated } = useConvexAuth();
+  const location = useLocation({
+    select: (currentLocation) => ({
+      pathname: currentLocation.pathname,
+      searchStr: currentLocation.searchStr,
+    }),
+  });
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
+  const showSidebarGoogleAuth =
+    location.pathname === "/" &&
+    (rootRouteSearch["sign-in"] === true || rootRouteSearch["create-account"] === true);
+
+  if (isAuthenticated || !showSidebarGoogleAuth) {
+    return null;
+  }
+
+  return (
+    <div className="vault-dashboard-sidebar-inset border-b border-border/50 py-3">
+      <SignInWithGoogle
+        authReturn="dashboard"
+        markPublicSignupReturn={rootRouteSearch["create-account"] === true}
+      />
+    </div>
+  );
+}
+
 export function PasswordAuthForm({
   onSignIn,
   surface,
