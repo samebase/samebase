@@ -867,7 +867,7 @@ export const retryInfrastructureProvisioning = action({
 });
 
 export const deleteVault = action({
-  access: "access_admin",
+  access: "access_app_create",
   args: {
     vaultId: v.id("vaults"),
     removeCodespaces: v.optional(v.boolean()),
@@ -905,7 +905,7 @@ export const deleteVault = action({
 });
 
 export const retryDeleteVault = action({
-  access: "access_admin",
+  access: "access_app_create",
   args: {
     runId: v.id("vaultDeletionRuns"),
   },
