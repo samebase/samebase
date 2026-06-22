@@ -13,12 +13,8 @@ const providerConnectionsVisualFixtureState = {
   cloudflareConnection: {
     accountId: "cloudflare-account-1",
     accountName: "Samebase Preview",
-    authMethod: "mcp_oauth",
+    authMethod: "oauth",
     connected: true,
-    mcpTokenCheckedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 3 * 60_000,
-    mcpTokenExpiresAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW + 60 * 60_000,
-    mcpTokenNextAutoCheckAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW + 30 * 60_000,
-    mcpTokenStatus: "valid",
   },
   convexConnection: {
     authMethod: "api_key",
@@ -151,7 +147,6 @@ export function ProviderConnectionsPageVisualFixture() {
         selectedAccountId: "",
       }}
       cloudflareConnection={providerConnectionsVisualFixtureState.cloudflareConnection}
-      cloudflarePollingPaused={false}
       convexConnection={providerConnectionsVisualFixtureState.convexConnection}
       disconnectingProvider={null}
       githubDisconnectedNotice={null}
@@ -159,11 +154,9 @@ export function ProviderConnectionsPageVisualFixture() {
       githubHealthError={null}
       githubProviderSummary={providerConnectionsVisualFixtureState.githubProviderSummary}
       isAutoCheckingCloudflareToken={false}
-      isCheckingCloudflareToken={false}
       isCheckingGithubAccess={false}
       isReauthorizingGithub={false}
       now={providerConnectionsVisualFixtureState.now}
-      onCheckCloudflareToken={noop}
       onCheckGithubAccess={noop}
       onCloudflareAccountChange={noop}
       onCloudflareAccountOpenChange={noop}
