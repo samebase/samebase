@@ -53,6 +53,11 @@ const vGithubRequiredScopeHealth = object({
   label: string(),
   status: vGithubScopeStatus,
 });
+const vGithubOrganizationAccess = object({
+  login: string(),
+  role: string(),
+  canCreateRepository: boolean(),
+});
 const vGithubProviderSummary = object({
   connected: boolean(),
   username: optional(string()),
@@ -61,7 +66,11 @@ const vGithubProviderSummary = object({
   manageUrl: optional(string()),
   reauthorizeAvailable: boolean(),
 });
-const vGithubHealthCheckKey = union(literal("profile"), literal("repositories"));
+const vGithubHealthCheckKey = union(
+  literal("profile"),
+  literal("repositories"),
+  literal("organizations"),
+);
 const vGithubHealthCheckStatus = union(literal("ok"), literal("error"), literal("unknown"));
 const vGithubHealthCheck = object({
   key: vGithubHealthCheckKey,
@@ -76,12 +85,16 @@ const vGithubConnectionHealth = object({
   checkedAt: number(),
   grantedScopes: array(string()),
   requiredScopes: array(vGithubRequiredScopeHealth),
+  organizations: array(vGithubOrganizationAccess),
   checks: array(vGithubHealthCheck),
   manageUrl: optional(string()),
   reauthorizeAvailable: boolean(),
 });
-const vCloudflareConnectionStatus = object({
-  connected: boolean(),
+const vCloudflareDisconnectedConnectionStatus = object({
+  connected: literal(false),
+});
+const vCloudflareConnectedConnectionStatus = object({
+  connected: literal(true),
   accountId: optional(string()),
   accountName: optional(string()),
   authMethod: optional(vProviderAuthMethod),
@@ -93,6 +106,11 @@ const vCloudflareConnectionStatus = object({
   mcpTokenLastRefreshAt: optional(number()),
   mcpTokenNextAutoCheckAt: optional(number()),
 });
+const vCloudflareConnectionStatus = union(
+  vCloudflareDisconnectedConnectionStatus,
+  vCloudflareConnectedConnectionStatus,
+);
+type ConnectedCloudflareConnectionStatus = Infer<typeof vCloudflareConnectedConnectionStatus>;
 type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
 type GithubProviderSummary = Infer<typeof vGithubProviderSummary>;
 type GithubConnectionHealth = Infer<typeof vGithubConnectionHealth>;
@@ -118,22 +136,34 @@ type GitHubProfileHealthResult =
   | {
       ok: true;
       login: string;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     }
   | {
       ok: false;
       failure: GitHubApiFailure;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     };
 type GitHubRepositoryHealthResult =
   | {
       ok: true;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
     }
   | {
       ok: false;
       failure: GitHubApiFailure;
-      scopesHeader: string | null;
+      oauthScopesHeader: string | null;
+    };
+
+type GitHubOrganizationHealthResult =
+  | {
+      ok: true;
+      organizations: GithubConnectionHealth["organizations"];
+      oauthScopesHeader: string | null;
+    }
+  | {
+      ok: false;
+      failure: GitHubApiFailure;
+      oauthScopesHeader: string | null;
     };
 
 async function runGitHubRequestWithTimeout<T>(
@@ -161,38 +191,12 @@ function createGitHubOctokit(token: string): Octokit {
   });
 }
 
-function readGitHubResponseHeader(
-  headers: Record<string, string | number | undefined>,
-  key: string,
-): string | null {
-  const value = headers[key.toLowerCase()];
-  return typeof value === "string" ? value : null;
-}
-
-function readGitHubErrorScopesHeader(error: RequestError): string | null {
-  return readGitHubResponseHeader(error.response?.headers ?? {}, "x-oauth-scopes");
-}
-
-function readGitHubSuccessScopesHeader(response: {
-  headers: Record<string, string | number | undefined>;
-}): string | null {
-  return readGitHubResponseHeader(response.headers, "x-oauth-scopes");
-}
-
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();
   if (!normalized) {
     throw new Error("API key is required");
   }
   return normalized;
-}
-
-function getGithubOAuthManageUrl(): string | undefined {
-  const clientId = readOptionalEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
-  if (!clientId) {
-    return undefined;
-  }
-  return buildGitHubOAuthManageUrl(clientId);
 }
 
 function buildGithubProviderSummary(
@@ -207,7 +211,13 @@ function buildGithubProviderSummary(
     };
   }
 
-  const manageUrl = connection.auth.method === "oauth" ? getGithubOAuthManageUrl() : undefined;
+  let manageUrl: string | undefined;
+  if (connection.auth.method === "oauth") {
+    const clientId = readOptionalEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+    if (clientId) {
+      manageUrl = buildGitHubOAuthManageUrl(clientId);
+    }
+  }
   return {
     connected: true,
     username: connection.username,
@@ -218,6 +228,7 @@ function buildGithubProviderSummary(
   };
 }
 
+/** Parses GitHub's comma-separated `x-oauth-scopes` response header into first-seen scope names. */
 export function parseGitHubOAuthScopesHeader(header: string | null | undefined): string[] {
   if (!header) {
     return [];
@@ -236,39 +247,29 @@ export function parseGitHubOAuthScopesHeader(header: string | null | undefined):
   return scopes;
 }
 
-function mergeGithubScopes(first: readonly string[], second: readonly string[]): string[] {
-  const scopes: string[] = [];
-  const seen = new Set<string>();
-  for (const scope of [...first, ...second]) {
-    if (seen.has(scope)) {
-      continue;
-    }
-    seen.add(scope);
-    scopes.push(scope);
-  }
-  return scopes;
-}
-
-function isGitHubOAuthScopeGranted(scope: string, grantedScopes: Set<string>): boolean {
-  if (scope === "user:email") {
-    return grantedScopes.has("user:email") || grantedScopes.has("user");
-  }
-  return grantedScopes.has(scope);
-}
-
+/** Maps required GitHub OAuth scopes; `user` covers `user:email`, and absent reports stay unknown. */
 export function buildGithubRequiredScopeHealth(args: {
   grantedScopes: readonly string[];
   scopeReportAvailable: boolean;
 }): GithubConnectionHealth["requiredScopes"] {
   const grantedScopeSet = new Set(args.grantedScopes);
-  return getGitHubOAuthScopeRequirements().map((scopeRequirement) => ({
-    ...scopeRequirement,
-    status: args.scopeReportAvailable
-      ? isGitHubOAuthScopeGranted(scopeRequirement.scope, grantedScopeSet)
-        ? "granted"
-        : "missing"
-      : "unknown",
-  }));
+  return getGitHubOAuthScopeRequirements().map((scopeRequirement) => {
+    if (!args.scopeReportAvailable) {
+      return {
+        ...scopeRequirement,
+        status: "unknown",
+      };
+    }
+
+    const isGranted =
+      scopeRequirement.scope === "user:email"
+        ? grantedScopeSet.has("user:email") || grantedScopeSet.has("user")
+        : grantedScopeSet.has(scopeRequirement.scope);
+    return {
+      ...scopeRequirement,
+      status: isGranted ? "granted" : "missing",
+    };
+  });
 }
 
 function formatGithubHealthFailure(failure: GitHubApiFailure): string {
@@ -294,7 +295,7 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
     return {
       ok: true,
       login: response.data.login,
-      scopesHeader: readGitHubSuccessScopesHeader(response),
+      oauthScopesHeader: response.headers["x-oauth-scopes"] ?? null,
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -304,7 +305,7 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
           status: error.status,
           statusText: error.message,
         },
-        scopesHeader: readGitHubErrorScopesHeader(error),
+        oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
     }
     throw error;
@@ -323,7 +324,7 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
     );
     return {
       ok: true,
-      scopesHeader: readGitHubSuccessScopesHeader(response),
+      oauthScopesHeader: response.headers["x-oauth-scopes"] ?? null,
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -333,19 +334,74 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
           status: error.status,
           statusText: error.message,
         },
-        scopesHeader: readGitHubErrorScopesHeader(error),
+        oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
     }
     throw error;
   }
 }
 
-function computeCloudflareRefreshWindowStartAt(expiresAt: number): number {
-  return expiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
+/**
+Lists active GitHub organization memberships visible to the current credential.
+GitHub may omit `permissions`; the admin fallback matches the production owner picker.
+*/
+async function readGithubOrganizationHealth(
+  octokit: Octokit,
+): Promise<GitHubOrganizationHealthResult> {
+  try {
+    let oauthScopesHeader: string | null = null;
+    const organizationAccess: GithubConnectionHealth["organizations"] = [];
+    for (let page = 1; ; page += 1) {
+      const response = await runGitHubRequestWithTimeout((signal) =>
+        octokit.rest.orgs.listMembershipsForAuthenticatedUser({
+          state: "active",
+          per_page: 100,
+          page,
+          request: { signal },
+        }),
+      );
+      oauthScopesHeader = oauthScopesHeader ?? response.headers["x-oauth-scopes"] ?? null;
+      for (const membership of response.data) {
+        const login = membership.organization.login;
+        if (!login) {
+          continue;
+        }
+        organizationAccess.push({
+          login,
+          role: membership.role,
+          canCreateRepository:
+            membership.permissions?.can_create_repository ?? membership.role === "admin",
+        });
+      }
+      if (response.data.length < 100) {
+        break;
+      }
+    }
+
+    return {
+      ok: true,
+      organizations: organizationAccess.sort((left, right) =>
+        left.login.localeCompare(right.login),
+      ),
+      oauthScopesHeader,
+    };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return {
+        ok: false,
+        failure: {
+          status: error.status,
+          statusText: error.message,
+        },
+        oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
+      };
+    }
+    throw error;
+  }
 }
 
 function computeCloudflareNextAutoCheckAt(args: { expiresAt: number; now: number }): number {
-  const refreshWindowStartAt = computeCloudflareRefreshWindowStartAt(args.expiresAt);
+  const refreshWindowStartAt = args.expiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
   if (args.now < refreshWindowStartAt) {
     return refreshWindowStartAt;
   }
@@ -372,20 +428,15 @@ function computeCloudflareRetryDelayMs(previousCheckedAt: number | undefined, no
   return CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS;
 }
 
-function computeCloudflareRetryDueAt(previousCheckedAt: number | undefined, now: number): number {
-  const retryDelayMs = computeCloudflareRetryDelayMs(previousCheckedAt, now);
-  return (previousCheckedAt ?? now) + retryDelayMs;
-}
-
 function buildCloudflareConnectionStatus(
   connection: CloudflareConnectionStatusInput,
   options?: {
     now?: number;
     nextAutoCheckAt?: number;
   },
-): CloudflareConnectionStatus {
+): ConnectedCloudflareConnectionStatus {
   const now = options?.now ?? Date.now();
-  const baseStatus: CloudflareConnectionStatus = {
+  const baseStatus: ConnectedCloudflareConnectionStatus = {
     connected: true,
     ...(connection.defaultAccount.state === "selected"
       ? {
@@ -416,9 +467,10 @@ function buildCloudflareConnectionStatus(
       : shouldUseDerivedStatus
         ? derivedStatus
         : (storedStatus ?? derivedStatus);
+  const runtimeErrorCheckedAt = connection.tokenHealth?.checkedAt;
   const derivedNextAutoCheckAt =
     connection.tokenHealth?.source === "runtime_error"
-      ? computeCloudflareRetryDueAt(connection.tokenHealth.checkedAt, now)
+      ? (runtimeErrorCheckedAt ?? now) + computeCloudflareRetryDelayMs(runtimeErrorCheckedAt, now)
       : computeCloudflareNextAutoCheckAt({
           expiresAt: effectiveExpiresAt,
           now,
@@ -645,6 +697,7 @@ export const checkGithubConnectionHealth = action({
           grantedScopes: [],
           scopeReportAvailable: false,
         }),
+        organizations: [],
         checks: [
           {
             key: "profile",
@@ -658,6 +711,12 @@ export const checkGithubConnectionHealth = action({
             status: "unknown",
             message: "GitHub is not connected.",
           },
+          {
+            key: "organizations",
+            label: "Organization access",
+            status: "unknown",
+            message: "GitHub is not connected.",
+          },
         ],
         reauthorizeAvailable: false,
       };
@@ -665,11 +724,12 @@ export const checkGithubConnectionHealth = action({
 
     const octokit = createGitHubOctokit(connection.auth.credential);
     const profileResponse = await readGithubProfileHealth(octokit);
-    const profileScopesHeader = profileResponse.scopesHeader;
-    const profileScopes = parseGitHubOAuthScopesHeader(profileScopesHeader);
+    const profileOAuthScopesHeader = profileResponse.oauthScopesHeader;
+    const profileScopes = parseGitHubOAuthScopesHeader(profileOAuthScopesHeader);
     let grantedScopes = profileScopes;
-    let scopeReportAvailable = profileScopesHeader !== null;
+    let scopeReportAvailable = profileOAuthScopesHeader !== null;
     let username = connection.username;
+    let organizations: GithubConnectionHealth["organizations"] = [];
     const checks: GithubConnectionHealth["checks"] = [];
 
     if (profileResponse.ok) {
@@ -700,12 +760,14 @@ export const checkGithubConnectionHealth = action({
 
     if (profileResponse.ok) {
       const repositoryResponse = await readGithubRepositoryHealth(octokit);
-      const repositoryScopesHeader = repositoryResponse.scopesHeader;
-      scopeReportAvailable = scopeReportAvailable || repositoryScopesHeader !== null;
-      grantedScopes = mergeGithubScopes(
-        grantedScopes,
-        parseGitHubOAuthScopesHeader(repositoryScopesHeader),
-      );
+      const repositoryOAuthScopesHeader = repositoryResponse.oauthScopesHeader;
+      scopeReportAvailable = scopeReportAvailable || repositoryOAuthScopesHeader !== null;
+      grantedScopes = [
+        ...new Set([
+          ...grantedScopes,
+          ...parseGitHubOAuthScopesHeader(repositoryOAuthScopesHeader),
+        ]),
+      ];
       checks.push(
         repositoryResponse.ok
           ? {
@@ -721,10 +783,45 @@ export const checkGithubConnectionHealth = action({
               message: formatGithubHealthFailure(repositoryResponse.failure),
             },
       );
+
+      const organizationResponse = await readGithubOrganizationHealth(octokit);
+      const organizationOAuthScopesHeader = organizationResponse.oauthScopesHeader;
+      scopeReportAvailable = scopeReportAvailable || organizationOAuthScopesHeader !== null;
+      grantedScopes = [
+        ...new Set([
+          ...grantedScopes,
+          ...parseGitHubOAuthScopesHeader(organizationOAuthScopesHeader),
+        ]),
+      ];
+      if (organizationResponse.ok) {
+        organizations = organizationResponse.organizations;
+        checks.push({
+          key: "organizations",
+          label: "Organization access",
+          status: "ok",
+          message:
+            organizations.length > 0
+              ? `GitHub returned ${organizations.length} organization${organizations.length === 1 ? "" : "s"} visible to this credential.`
+              : "No organizations are visible to this credential.",
+        });
+      } else {
+        checks.push({
+          key: "organizations",
+          label: "Organization access",
+          status: "error",
+          message: formatGithubHealthFailure(organizationResponse.failure),
+        });
+      }
     } else {
       checks.push({
         key: "repositories",
         label: "Repository listing",
+        status: "unknown",
+        message: "Skipped because the profile check failed.",
+      });
+      checks.push({
+        key: "organizations",
+        label: "Organization access",
         status: "unknown",
         message: "Skipped because the profile check failed.",
       });
@@ -740,6 +837,7 @@ export const checkGithubConnectionHealth = action({
         grantedScopes,
         scopeReportAvailable,
       }),
+      organizations,
       checks,
       ...(summary.manageUrl ? { manageUrl: summary.manageUrl } : {}),
       reauthorizeAvailable: summary.reauthorizeAvailable,
@@ -802,7 +900,7 @@ export const getCloudflareConnectionStatus = query({
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "cloudflare");
     if (connection?.kind !== "cloudflare") {
-      return { connected: false };
+      return { connected: false } satisfies CloudflareConnectionStatus;
     }
 
     return buildCloudflareConnectionStatus(connection);
@@ -829,7 +927,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     kind: "cloudflare",
   });
   if (connection?.kind !== "cloudflare") {
-    return { connected: false };
+    return { connected: false } satisfies CloudflareConnectionStatus;
   }
   if (connection.auth.method !== "mcp_oauth") {
     return buildCloudflareConnectionStatus(connection);
@@ -855,7 +953,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       nextAutoCheckAt,
     });
   }
-  const refreshDueAt = computeCloudflareRefreshWindowStartAt(effectiveExpiresAt);
+  const refreshDueAt = effectiveExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
 
   if (!forceRefresh && now < refreshDueAt) {
     return buildCloudflareConnectionStatus(connection, {
@@ -885,7 +983,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       },
     );
     if (refreshedConnection?.kind !== "cloudflare") {
-      return { connected: false };
+      return { connected: false } satisfies CloudflareConnectionStatus;
     }
     const nowAfterClaim = Date.now();
     if (refreshedConnection.auth.method !== "mcp_oauth") {
@@ -916,7 +1014,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       },
     );
     if (resolvedConnection === null) {
-      return { connected: false };
+      return { connected: false } satisfies CloudflareConnectionStatus;
     }
     shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();
@@ -943,10 +1041,9 @@ async function runCloudflareMcpTokenRefresh(args: {
     );
     if (refreshedConnection?.kind === "cloudflare") {
       const nowAfterFailure = Date.now();
-      const retryDueAt = computeCloudflareRetryDueAt(
-        refreshedConnection.tokenHealth?.checkedAt,
-        nowAfterFailure,
-      );
+      const checkedAt = refreshedConnection.tokenHealth?.checkedAt;
+      const retryDueAt =
+        (checkedAt ?? nowAfterFailure) + computeCloudflareRetryDelayMs(checkedAt, nowAfterFailure);
       if (
         refreshedConnection.auth.method === "mcp_oauth" &&
         refreshedConnection.tokenHealth?.status === "invalid"

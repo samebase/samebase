@@ -3118,6 +3118,8 @@ export function VaultDashboard() {
     api.vault.dashboard.getUserVaultResourceLinksState,
   );
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
+  const connectedCloudflareConnection =
+    cloudflareConnection?.connected === true ? cloudflareConnection : null;
   const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const addAppRootModeActive = rootRouteSearch[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM] === true;
@@ -3773,11 +3775,11 @@ export function VaultDashboard() {
         provider: "cloudflare",
       }),
     );
-    void loadCloudflareDialogResources(cloudflareConnection?.accountId);
+    void loadCloudflareDialogResources(connectedCloudflareConnection?.accountId);
   }, [
     addCloudflareWorkerModeActive,
     clearAddCloudflareWorkerSearchParam,
-    cloudflareConnection?.accountId,
+    connectedCloudflareConnection?.accountId,
     loadCloudflareDialogResources,
     resetCloudflareDialogState,
     setCloudflareConnectDialogAppRoot,
