@@ -219,13 +219,18 @@ Use this production app configuration:
 - Visibility: public, after `samebase.com` domain verification succeeds
 
 Use `GET /oauth/scopes` to derive the exact API permission scope IDs before finalizing the client.
-Do not reuse the current colon-delimited MCP scopes or protocol scopes that Cloudflare derives from
-client metadata. The target scope set should cover only the Cloudflare API paths Samebase calls
-today:
+Do not reuse the current colon-delimited MCP scopes. The target API permission scope set should
+cover only the Cloudflare API paths Samebase calls today:
 
 - `/accounts`
 - `/accounts/{account_id}/workers...`
 - `/accounts/{account_id}/builds...`
+
+`offline_access` is not returned by `GET /oauth/scopes` because it is a protocol scope rather than a
+Cloudflare API permission scope. Samebase must still request it in the authorization URL: a live
+production callback without `offline_access` exchanged successfully for an access token and expiry
+but did not include `refresh_token`, which Samebase requires for stored Cloudflare OAuth
+connections.
 
 The implementation should fail closed if the OAuth token cannot list accounts or cannot call the
 covered Workers and Workers Builds endpoints.
@@ -338,9 +343,8 @@ Docs and setup:
 1. Create a private OAuth client first, then promote to public after domain verification and scope
    confirmation.
 2. Use `GET /oauth/scopes` with an operator token to pin the exact API permission scope IDs for
-   Workers and Workers Builds. Do not include protocol scopes such as `offline_access` in the
-   application-requested permission scope list; Cloudflare adds or removes those automatically from
-   the OAuth client based on `grant_types` and `response_types`.
+   Workers and Workers Builds. Keep `offline_access` in the authorization request as the protocol
+   scope that causes Cloudflare to return a refresh token.
 3. Confirm the authorization consent screen allows selecting the intended user accounts and shows
    only the intended permissions.
 
@@ -379,7 +383,8 @@ Optional smoke:
 
 1. Exact Cloudflare OAuth API permission scope IDs for Workers Builds and script writes must be
    confirmed with `GET /oauth/scopes`. The docs intentionally make that endpoint the source of truth
-   for API permission scopes; protocol scopes such as `offline_access` are not returned there.
+   for API permission scopes; protocol scopes such as `offline_access` are not returned there but
+   may still be required by the OAuth protocol behavior.
 2. Cloudflare's OAuth App token response schema is not fully shown in the high-level docs.
    Implementation should validate the live response before assuming refresh token and expiry
    behavior.
