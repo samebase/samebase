@@ -166,12 +166,6 @@ type GitHubOrganizationHealthResult =
       oauthScopesHeader: string | null;
     };
 
-function buildDisconnectedCloudflareConnectionStatus() {
-  return {
-    connected: false,
-  } satisfies CloudflareConnectionStatus;
-}
-
 async function runGitHubRequestWithTimeout<T>(
   request: (signal: AbortSignal) => Promise<T>,
   timeoutMs = DEFAULT_PROVIDER_TIMEOUT_MS,
@@ -205,14 +199,6 @@ function normalizeApiToken(token: string): string {
   return normalized;
 }
 
-function getGithubOAuthManageUrl(): string | undefined {
-  const clientId = readOptionalEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
-  if (!clientId) {
-    return undefined;
-  }
-  return buildGitHubOAuthManageUrl(clientId);
-}
-
 function buildGithubProviderSummary(
   connection: Awaited<ReturnType<typeof getConnectionByUserAndKind>>,
 ): GithubProviderSummary {
@@ -225,7 +211,13 @@ function buildGithubProviderSummary(
     };
   }
 
-  const manageUrl = connection.auth.method === "oauth" ? getGithubOAuthManageUrl() : undefined;
+  let manageUrl: string | undefined;
+  if (connection.auth.method === "oauth") {
+    const clientId = readOptionalEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+    if (clientId) {
+      manageUrl = buildGitHubOAuthManageUrl(clientId);
+    }
+  }
   return {
     connected: true,
     username: connection.username,
@@ -261,31 +253,6 @@ export function parseGitHubOAuthScopesHeader(header: string | null | undefined):
 }
 
 /**
-Merges OAuth scope lists while preserving first-seen order.
-Example: merging `["repo", "user"]` and `["read:org", "repo"]` returns
-`["repo", "user", "read:org"]`.
-*/
-function mergeGitHubOAuthScopes(first: readonly string[], second: readonly string[]): string[] {
-  const scopes: string[] = [];
-  const seen = new Set<string>();
-  for (const scope of [...first, ...second]) {
-    if (seen.has(scope)) {
-      continue;
-    }
-    seen.add(scope);
-    scopes.push(scope);
-  }
-  return scopes;
-}
-
-function isGitHubOAuthScopeGranted(scope: string, grantedScopes: Set<string>): boolean {
-  if (scope === "user:email") {
-    return grantedScopes.has("user:email") || grantedScopes.has("user");
-  }
-  return grantedScopes.has(scope);
-}
-
-/**
 Maps Samebase's required GitHub OAuth scopes to granted, missing, or unknown status.
 Examples:
 `repo` is granted only when GitHub reports `repo`.
@@ -297,14 +264,23 @@ export function buildGithubRequiredScopeHealth(args: {
   scopeReportAvailable: boolean;
 }): GithubConnectionHealth["requiredScopes"] {
   const grantedScopeSet = new Set(args.grantedScopes);
-  return getGitHubOAuthScopeRequirements().map((scopeRequirement) => ({
-    ...scopeRequirement,
-    status: args.scopeReportAvailable
-      ? isGitHubOAuthScopeGranted(scopeRequirement.scope, grantedScopeSet)
-        ? "granted"
-        : "missing"
-      : "unknown",
-  }));
+  return getGitHubOAuthScopeRequirements().map((scopeRequirement) => {
+    if (!args.scopeReportAvailable) {
+      return {
+        ...scopeRequirement,
+        status: "unknown",
+      };
+    }
+
+    const isGranted =
+      scopeRequirement.scope === "user:email"
+        ? grantedScopeSet.has("user:email") || grantedScopeSet.has("user")
+        : grantedScopeSet.has(scopeRequirement.scope);
+    return {
+      ...scopeRequirement,
+      status: isGranted ? "granted" : "missing",
+    };
+  });
 }
 
 function formatGithubHealthFailure(failure: GitHubApiFailure): string {
@@ -451,12 +427,8 @@ async function readGithubOrganizationHealth(
   }
 }
 
-function computeCloudflareRefreshWindowStartAt(expiresAt: number): number {
-  return expiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
-}
-
 function computeCloudflareNextAutoCheckAt(args: { expiresAt: number; now: number }): number {
-  const refreshWindowStartAt = computeCloudflareRefreshWindowStartAt(args.expiresAt);
+  const refreshWindowStartAt = args.expiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
   if (args.now < refreshWindowStartAt) {
     return refreshWindowStartAt;
   }
@@ -481,11 +453,6 @@ function computeCloudflareRetryDelayMs(previousCheckedAt: number | undefined, no
     );
   }
   return CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS;
-}
-
-function computeCloudflareRetryDueAt(previousCheckedAt: number | undefined, now: number): number {
-  const retryDelayMs = computeCloudflareRetryDelayMs(previousCheckedAt, now);
-  return (previousCheckedAt ?? now) + retryDelayMs;
 }
 
 function buildCloudflareConnectionStatus(
@@ -527,9 +494,10 @@ function buildCloudflareConnectionStatus(
       : shouldUseDerivedStatus
         ? derivedStatus
         : (storedStatus ?? derivedStatus);
+  const runtimeErrorCheckedAt = connection.tokenHealth?.checkedAt;
   const derivedNextAutoCheckAt =
     connection.tokenHealth?.source === "runtime_error"
-      ? computeCloudflareRetryDueAt(connection.tokenHealth.checkedAt, now)
+      ? (runtimeErrorCheckedAt ?? now) + computeCloudflareRetryDelayMs(runtimeErrorCheckedAt, now)
       : computeCloudflareNextAutoCheckAt({
           expiresAt: effectiveExpiresAt,
           now,
@@ -821,10 +789,12 @@ export const checkGithubConnectionHealth = action({
       const repositoryResponse = await readGithubRepositoryHealth(octokit);
       const repositoryOAuthScopesHeader = repositoryResponse.oauthScopesHeader;
       scopeReportAvailable = scopeReportAvailable || repositoryOAuthScopesHeader !== null;
-      grantedScopes = mergeGitHubOAuthScopes(
-        grantedScopes,
-        parseGitHubOAuthScopesHeader(repositoryOAuthScopesHeader),
-      );
+      grantedScopes = [
+        ...new Set([
+          ...grantedScopes,
+          ...parseGitHubOAuthScopesHeader(repositoryOAuthScopesHeader),
+        ]),
+      ];
       checks.push(
         repositoryResponse.ok
           ? {
@@ -844,10 +814,12 @@ export const checkGithubConnectionHealth = action({
       const organizationResponse = await readGithubOrganizationHealth(octokit);
       const organizationOAuthScopesHeader = organizationResponse.oauthScopesHeader;
       scopeReportAvailable = scopeReportAvailable || organizationOAuthScopesHeader !== null;
-      grantedScopes = mergeGitHubOAuthScopes(
-        grantedScopes,
-        parseGitHubOAuthScopesHeader(organizationOAuthScopesHeader),
-      );
+      grantedScopes = [
+        ...new Set([
+          ...grantedScopes,
+          ...parseGitHubOAuthScopesHeader(organizationOAuthScopesHeader),
+        ]),
+      ];
       if (organizationResponse.ok) {
         organizations = organizationResponse.organizations;
         checks.push({
@@ -955,7 +927,7 @@ export const getCloudflareConnectionStatus = query({
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "cloudflare");
     if (connection?.kind !== "cloudflare") {
-      return buildDisconnectedCloudflareConnectionStatus();
+      return { connected: false } satisfies CloudflareConnectionStatus;
     }
 
     return buildCloudflareConnectionStatus(connection);
@@ -982,7 +954,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     kind: "cloudflare",
   });
   if (connection?.kind !== "cloudflare") {
-    return buildDisconnectedCloudflareConnectionStatus();
+    return { connected: false } satisfies CloudflareConnectionStatus;
   }
   if (connection.auth.method !== "mcp_oauth") {
     return buildCloudflareConnectionStatus(connection);
@@ -1008,7 +980,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       nextAutoCheckAt,
     });
   }
-  const refreshDueAt = computeCloudflareRefreshWindowStartAt(effectiveExpiresAt);
+  const refreshDueAt = effectiveExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
 
   if (!forceRefresh && now < refreshDueAt) {
     return buildCloudflareConnectionStatus(connection, {
@@ -1038,7 +1010,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       },
     );
     if (refreshedConnection?.kind !== "cloudflare") {
-      return buildDisconnectedCloudflareConnectionStatus();
+      return { connected: false } satisfies CloudflareConnectionStatus;
     }
     const nowAfterClaim = Date.now();
     if (refreshedConnection.auth.method !== "mcp_oauth") {
@@ -1069,7 +1041,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       },
     );
     if (resolvedConnection === null) {
-      return buildDisconnectedCloudflareConnectionStatus();
+      return { connected: false } satisfies CloudflareConnectionStatus;
     }
     shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();
@@ -1096,10 +1068,9 @@ async function runCloudflareMcpTokenRefresh(args: {
     );
     if (refreshedConnection?.kind === "cloudflare") {
       const nowAfterFailure = Date.now();
-      const retryDueAt = computeCloudflareRetryDueAt(
-        refreshedConnection.tokenHealth?.checkedAt,
-        nowAfterFailure,
-      );
+      const checkedAt = refreshedConnection.tokenHealth?.checkedAt;
+      const retryDueAt =
+        (checkedAt ?? nowAfterFailure) + computeCloudflareRetryDelayMs(checkedAt, nowAfterFailure);
       if (
         refreshedConnection.auth.method === "mcp_oauth" &&
         refreshedConnection.tokenHealth?.status === "invalid"
