@@ -197,8 +197,6 @@ export const vMcpRefreshTokenStatus = union(
 export const vOAuthAuth = object({
   method: literal("oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
 });
 export const vCloudflareOAuthAuth = object({
   method: literal("oauth"),

@@ -21,8 +21,6 @@ export type ProviderKind = Infer<typeof vProviderKind>;
 const vOAuthAuth = object({
   method: literal("oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
 });
 const vCloudflareOAuthAuth = object({
   method: literal("oauth"),

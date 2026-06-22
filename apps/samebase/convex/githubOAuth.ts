@@ -131,8 +131,6 @@ async function exchangeGithubOAuthCode(args: {
   redirectUri: string;
 }): Promise<{
   accessToken: string;
-  refreshToken?: string;
-  expiresIn?: number;
 }> {
   const payload = createUrlSearchParams({
     client_id: args.clientId,
@@ -157,8 +155,6 @@ async function exchangeGithubOAuthCode(args: {
 
   return {
     accessToken: data.access_token,
-    refreshToken: typeof data.refresh_token === "string" ? data.refresh_token : undefined,
-    expiresIn: typeof data.expires_in === "number" ? data.expires_in : undefined,
   };
 }
 
@@ -211,8 +207,6 @@ export const storeGithubOauthConnection = internalMutation({
   args: {
     userId: v.id("users"),
     accessToken: v.string(),
-    refreshToken: v.optional(v.string()),
-    expiresAt: v.optional(v.number()),
     username: v.string(),
     oauthStateId: v.id("oauthStates"),
   },
@@ -223,8 +217,6 @@ export const storeGithubOauthConnection = internalMutation({
       auth: {
         method: "oauth",
         credential: args.accessToken,
-        refreshCredential: args.refreshToken,
-        credentialExpiresAt: args.expiresAt,
       },
       username: args.username,
     });
@@ -314,14 +306,10 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
       redirectUri,
     });
     const githubUser = await fetchGithubUser(token.accessToken);
-    const expiresAt =
-      typeof token.expiresIn === "number" ? Date.now() + token.expiresIn * 1000 : undefined;
 
     await ctx.runMutation(internal.githubOAuth.storeGithubOauthConnection, {
       userId: oauthState.userId,
       accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      expiresAt,
       username: githubUser.username,
       oauthStateId: oauthState._id,
     });
