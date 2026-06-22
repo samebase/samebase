@@ -871,7 +871,7 @@ function useCloudflareMcpTokenAutoCheck({
   ]);
 }
 
-function ProviderConnectionsPageLive() {
+export function ProviderConnectionsPage() {
   const location = useLocation();
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const reauthorizeGithubOAuth = useAction(api.githubOAuth.reauthorizeGithubOAuth);
@@ -1240,8 +1240,4 @@ function ProviderConnectionsPageLive() {
       }}
     />
   );
-}
-
-export function ProviderConnectionsPage() {
-  return <ProviderConnectionsPageLive />;
 }

@@ -228,12 +228,7 @@ function buildGithubProviderSummary(
   };
 }
 
-/**
-Parses GitHub's comma-separated `x-oauth-scopes` response header into first-seen scope names.
-Examples:
-`parseGitHubOAuthScopesHeader("repo, user, repo")` returns `["repo", "user"]`.
-`parseGitHubOAuthScopesHeader(null)` returns `[]`.
-*/
+/** Parses GitHub's comma-separated `x-oauth-scopes` response header into first-seen scope names. */
 export function parseGitHubOAuthScopesHeader(header: string | null | undefined): string[] {
   if (!header) {
     return [];
@@ -252,13 +247,7 @@ export function parseGitHubOAuthScopesHeader(header: string | null | undefined):
   return scopes;
 }
 
-/**
-Maps Samebase's required GitHub OAuth scopes to granted, missing, or unknown status.
-Examples:
-`repo` is granted only when GitHub reports `repo`.
-`user:email` is granted when GitHub reports either `user:email` or the broader `user` scope.
-If GitHub did not send an `x-oauth-scopes` header, every required scope is `unknown`.
-*/
+/** Maps required GitHub OAuth scopes; `user` covers `user:email`, and absent reports stay unknown. */
 export function buildGithubRequiredScopeHealth(args: {
   grantedScopes: readonly string[];
   scopeReportAvailable: boolean;
@@ -296,11 +285,6 @@ function formatGithubHealthFailure(failure: GitHubApiFailure): string {
   return `GitHub returned ${failure.status} ${failure.statusText || "error"}.`;
 }
 
-/**
-Checks whether the credential can read the authenticated GitHub profile.
-Example: a successful `/user` response with `{ login: "octo" }` returns
-`{ ok: true, login: "octo" }` plus the `x-oauth-scopes` header when GitHub sends it.
-*/
 async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileHealthResult> {
   try {
     const response = await runGitHubRequestWithTimeout((signal) =>
@@ -328,11 +312,6 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
   }
 }
 
-/**
-Checks whether GitHub accepts repository listing for the credential.
-Example: a `200` response from `/user/repos?per_page=1` returns `ok: true`; a `403` response
-returns `ok: false` so the UI can point users at org approval, SSO, or rate-limit issues.
-*/
 async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepositoryHealthResult> {
   try {
     const response = await runGitHubRequestWithTimeout((signal) =>
@@ -364,11 +343,7 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
 
 /**
 Lists active GitHub organization memberships visible to the current credential.
-Examples:
-an org membership with `{ role: "member", permissions: { can_create_repository: false } }`
-returns `{ role: "member", canCreateRepository: false }`.
-an org membership with `{ role: "admin" }` falls back to `canCreateRepository: true` when GitHub
-omits the explicit permission field.
+GitHub may omit `permissions`; the admin fallback matches the production owner picker.
 */
 async function readGithubOrganizationHealth(
   octokit: Octokit,
@@ -376,7 +351,6 @@ async function readGithubOrganizationHealth(
   try {
     let oauthScopesHeader: string | null = null;
     const organizationAccess: GithubConnectionHealth["organizations"] = [];
-    const seenOrganizationLogins = new Set<string>();
     for (let page = 1; ; page += 1) {
       const response = await runGitHubRequestWithTimeout((signal) =>
         octokit.rest.orgs.listMembershipsForAuthenticatedUser({
@@ -389,10 +363,9 @@ async function readGithubOrganizationHealth(
       oauthScopesHeader = oauthScopesHeader ?? response.headers["x-oauth-scopes"] ?? null;
       for (const membership of response.data) {
         const login = membership.organization.login;
-        if (!login || seenOrganizationLogins.has(login)) {
+        if (!login) {
           continue;
         }
-        seenOrganizationLogins.add(login);
         organizationAccess.push({
           login,
           role: membership.role,

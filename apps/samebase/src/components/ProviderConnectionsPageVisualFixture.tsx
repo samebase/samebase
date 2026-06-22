@@ -136,7 +136,7 @@ const providerConnectionsVisualFixtureState = {
   now: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW,
 } satisfies ProviderConnectionsPageConnectionState;
 
-function ignoreProviderConnectionsFixtureAction() {}
+const noop = () => {};
 
 export function ProviderConnectionsPageVisualFixture() {
   return (
@@ -163,16 +163,16 @@ export function ProviderConnectionsPageVisualFixture() {
       isCheckingGithubAccess={false}
       isReauthorizingGithub={false}
       now={providerConnectionsVisualFixtureState.now}
-      onCheckCloudflareToken={ignoreProviderConnectionsFixtureAction}
-      onCheckGithubAccess={ignoreProviderConnectionsFixtureAction}
-      onCloudflareAccountChange={ignoreProviderConnectionsFixtureAction}
-      onCloudflareAccountOpenChange={ignoreProviderConnectionsFixtureAction}
-      onCloudflareAccountSubmit={ignoreProviderConnectionsFixtureAction}
-      onConnect={ignoreProviderConnectionsFixtureAction}
-      onDisconnect={ignoreProviderConnectionsFixtureAction}
-      onOpenApiKeyDialog={ignoreProviderConnectionsFixtureAction}
-      onOpenCloudflareAccountDialog={ignoreProviderConnectionsFixtureAction}
-      onReauthorizeGithub={ignoreProviderConnectionsFixtureAction}
+      onCheckCloudflareToken={noop}
+      onCheckGithubAccess={noop}
+      onCloudflareAccountChange={noop}
+      onCloudflareAccountOpenChange={noop}
+      onCloudflareAccountSubmit={noop}
+      onConnect={noop}
+      onDisconnect={noop}
+      onOpenApiKeyDialog={noop}
+      onOpenCloudflareAccountDialog={noop}
+      onReauthorizeGithub={noop}
     />
   );
 }
