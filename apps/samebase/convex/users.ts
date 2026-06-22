@@ -3,10 +3,11 @@ import { internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
+import { Octokit } from "@octokit/rest";
+import { RequestError } from "@octokit/request-error";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { action, mutation, query } from "./functions";
-import { isRecord, readString } from "./jsonUtils";
 import { readOptionalEnv } from "./oauthUtils";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
@@ -28,7 +29,7 @@ import {
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
-const GITHUB_API_BASE = "https://api.github.com";
+const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member" as const;
 
 const vAuthProviderSummary = object({
   providers: array(string()),
@@ -109,16 +110,40 @@ type CloudflareConnectionStatusInput = {
   tokenRefreshStartedAt?: number;
   lastTokenRefreshAt?: number;
 };
+type GitHubApiFailure = {
+  status: number;
+  statusText: string;
+};
+type GitHubProfileHealthResult =
+  | {
+      ok: true;
+      login: string;
+      scopesHeader: string | null;
+    }
+  | {
+      ok: false;
+      failure: GitHubApiFailure;
+      scopesHeader: string | null;
+    };
+type GitHubRepositoryHealthResult =
+  | {
+      ok: true;
+      scopesHeader: string | null;
+    }
+  | {
+      ok: false;
+      failure: GitHubApiFailure;
+      scopesHeader: string | null;
+    };
 
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
+async function runGitHubRequestWithTimeout<T>(
+  request: (signal: AbortSignal) => Promise<T>,
   timeoutMs = DEFAULT_PROVIDER_TIMEOUT_MS,
-): Promise<Response> {
+): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    return await request(controller.signal);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Provider request timed out after ${timeoutMs}ms.`);
@@ -127,6 +152,31 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function createGitHubOctokit(token: string): Octokit {
+  return new Octokit({
+    auth: token,
+    userAgent: "samebase-app",
+  });
+}
+
+function readGitHubResponseHeader(
+  headers: Record<string, string | number | undefined>,
+  key: string,
+): string | null {
+  const value = headers[key.toLowerCase()];
+  return typeof value === "string" ? value : null;
+}
+
+function readGitHubErrorScopesHeader(error: RequestError): string | null {
+  return readGitHubResponseHeader(error.response?.headers ?? {}, "x-oauth-scopes");
+}
+
+function readGitHubSuccessScopesHeader(response: {
+  headers: Record<string, string | number | undefined>;
+}): string | null {
+  return readGitHubResponseHeader(response.headers, "x-oauth-scopes");
 }
 
 function normalizeApiToken(token: string): string {
@@ -221,29 +271,73 @@ export function buildGithubRequiredScopeHealth(args: {
   }));
 }
 
-function formatGithubHealthFailure(response: Response): string {
-  if (response.status === 401) {
+function formatGithubHealthFailure(failure: GitHubApiFailure): string {
+  if (failure.status === 401) {
     return "GitHub rejected this credential. Reconnect GitHub.";
   }
-  if (response.status === 403) {
+  if (failure.status === 403) {
     return "GitHub denied this request. Check org approval, SSO, or rate limits.";
   }
-  if (response.status === 404) {
+  if (failure.status === 404) {
     return "GitHub could not find this resource for the current credential.";
   }
-  return `GitHub returned ${response.status} ${response.statusText || "error"}.`;
+  return `GitHub returned ${failure.status} ${failure.statusText || "error"}.`;
 }
 
-async function fetchGithubHealthEndpoint(args: { token: string; url: string }): Promise<Response> {
-  return await fetchWithTimeout(args.url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${args.token}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "samebase-app",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-  });
+async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileHealthResult> {
+  try {
+    const response = await runGitHubRequestWithTimeout((signal) =>
+      octokit.rest.users.getAuthenticated({
+        request: { signal },
+      }),
+    );
+    return {
+      ok: true,
+      login: response.data.login,
+      scopesHeader: readGitHubSuccessScopesHeader(response),
+    };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return {
+        ok: false,
+        failure: {
+          status: error.status,
+          statusText: error.message,
+        },
+        scopesHeader: readGitHubErrorScopesHeader(error),
+      };
+    }
+    throw error;
+  }
+}
+
+async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepositoryHealthResult> {
+  try {
+    const response = await runGitHubRequestWithTimeout((signal) =>
+      octokit.rest.repos.listForAuthenticatedUser({
+        sort: "updated",
+        per_page: 1,
+        affiliation: GITHUB_REPOSITORY_DISCOVERY_AFFILIATION,
+        request: { signal },
+      }),
+    );
+    return {
+      ok: true,
+      scopesHeader: readGitHubSuccessScopesHeader(response),
+    };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return {
+        ok: false,
+        failure: {
+          status: error.status,
+          statusText: error.message,
+        },
+        scopesHeader: readGitHubErrorScopesHeader(error),
+      };
+    }
+    throw error;
+  }
 }
 
 function computeCloudflareRefreshWindowStartAt(expiresAt: number): number {
@@ -344,26 +438,25 @@ function buildCloudflareConnectionStatus(
 async function fetchGithubIdentity(token: string): Promise<{
   username: string;
 }> {
-  const response = await fetchWithTimeout(`${GITHUB_API_BASE}/user`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "samebase-app",
-    },
-  });
+  let response: Awaited<ReturnType<Octokit["rest"]["users"]["getAuthenticated"]>>;
+  try {
+    response = await runGitHubRequestWithTimeout((signal) =>
+      createGitHubOctokit(token).rest.users.getAuthenticated({
+        request: { signal },
+      }),
+    );
+  } catch (error) {
+    if (error instanceof RequestError) {
+      throw new Error("Invalid GitHub API key");
+    }
+    throw error;
+  }
 
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !isRecord(payload)) {
+  if (!response.data.login) {
     throw new Error("Invalid GitHub API key");
   }
 
-  const username = readString(payload, "login");
-  if (!username) {
-    throw new Error("GitHub API key response is missing user login");
-  }
-
-  return { username };
+  return { username: response.data.login };
 }
 
 async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
@@ -570,11 +663,9 @@ export const checkGithubConnectionHealth = action({
       };
     }
 
-    const profileResponse = await fetchGithubHealthEndpoint({
-      token: connection.auth.credential,
-      url: `${GITHUB_API_BASE}/user`,
-    });
-    const profileScopesHeader = profileResponse.headers.get("x-oauth-scopes");
+    const octokit = createGitHubOctokit(connection.auth.credential);
+    const profileResponse = await readGithubProfileHealth(octokit);
+    const profileScopesHeader = profileResponse.scopesHeader;
     const profileScopes = parseGitHubOAuthScopesHeader(profileScopesHeader);
     let grantedScopes = profileScopes;
     let scopeReportAvailable = profileScopesHeader !== null;
@@ -582,15 +673,13 @@ export const checkGithubConnectionHealth = action({
     const checks: GithubConnectionHealth["checks"] = [];
 
     if (profileResponse.ok) {
-      const profilePayload = await profileResponse.json().catch(() => null);
-      const login = isRecord(profilePayload) ? readString(profilePayload, "login") : null;
-      if (login) {
-        username = login;
+      if (profileResponse.login) {
+        username = profileResponse.login;
         checks.push({
           key: "profile",
           label: "Profile",
           status: "ok",
-          message: `Authenticated as ${login}.`,
+          message: `Authenticated as ${profileResponse.login}.`,
         });
       } else {
         checks.push({
@@ -605,16 +694,13 @@ export const checkGithubConnectionHealth = action({
         key: "profile",
         label: "Profile",
         status: "error",
-        message: formatGithubHealthFailure(profileResponse),
+        message: formatGithubHealthFailure(profileResponse.failure),
       });
     }
 
     if (profileResponse.ok) {
-      const repositoryResponse = await fetchGithubHealthEndpoint({
-        token: connection.auth.credential,
-        url: `${GITHUB_API_BASE}/user/repos?sort=updated&per_page=1&affiliation=owner,collaborator,organization_member`,
-      });
-      const repositoryScopesHeader = repositoryResponse.headers.get("x-oauth-scopes");
+      const repositoryResponse = await readGithubRepositoryHealth(octokit);
+      const repositoryScopesHeader = repositoryResponse.scopesHeader;
       scopeReportAvailable = scopeReportAvailable || repositoryScopesHeader !== null;
       grantedScopes = mergeGithubScopes(
         grantedScopes,
@@ -632,7 +718,7 @@ export const checkGithubConnectionHealth = action({
               key: "repositories",
               label: "Repository listing",
               status: "error",
-              message: formatGithubHealthFailure(repositoryResponse),
+              message: formatGithubHealthFailure(repositoryResponse.failure),
             },
       );
     } else {

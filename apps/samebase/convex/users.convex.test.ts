@@ -262,6 +262,7 @@ describe("users Convex contract", () => {
         if (url === "https://api.github.com/user") {
           return new Response(JSON.stringify({ login: "live-login" }), {
             headers: {
+              "content-type": "application/json",
               "x-oauth-scopes": "repo, user",
             },
           });
@@ -269,6 +270,7 @@ describe("users Convex contract", () => {
         if (url.startsWith("https://api.github.com/user/repos")) {
           return new Response("[]", {
             headers: {
+              "content-type": "application/json",
               "x-oauth-scopes": "repo, user",
             },
           });
@@ -288,7 +290,7 @@ describe("users Convex contract", () => {
 
       expect(requestedUrls).toEqual([
         "https://api.github.com/user",
-        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner,collaborator,organization_member",
+        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
       ]);
       expect(health).toMatchObject({
         connected: true,
@@ -366,10 +368,18 @@ describe("users Convex contract", () => {
           typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
         if (url === "https://api.github.com/user") {
-          return new Response(JSON.stringify({ login: "live-login" }));
+          return new Response(JSON.stringify({ login: "live-login" }), {
+            headers: {
+              "content-type": "application/json",
+            },
+          });
         }
         if (url.startsWith("https://api.github.com/user/repos")) {
-          return new Response("[]");
+          return new Response("[]", {
+            headers: {
+              "content-type": "application/json",
+            },
+          });
         }
 
         return new Response("not found", { status: 404 });
@@ -498,6 +508,7 @@ describe("users Convex contract", () => {
         if (url === "https://api.github.com/user") {
           return new Response(JSON.stringify({ login: "live-login" }), {
             headers: {
+              "content-type": "application/json",
               "x-oauth-scopes": "repo",
             },
           });
@@ -520,7 +531,7 @@ describe("users Convex contract", () => {
 
       expect(requestedUrls).toEqual([
         "https://api.github.com/user",
-        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner,collaborator,organization_member",
+        "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
       ]);
       expect(health.checks).toMatchObject([
         {

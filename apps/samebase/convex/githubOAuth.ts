@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import { Octokit } from "@octokit/rest";
+import { RequestError } from "@octokit/request-error";
 import { httpAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -17,8 +19,6 @@ import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSe
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const GITHUB_API_BASE = "https://api.github.com";
-const GITHUB_API_USER_URL = `${GITHUB_API_BASE}/user`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
 type OAuthContext = ActionCtx | MutationCtx;
@@ -68,6 +68,31 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function runGithubOAuthRequestWithTimeout<T>(
+  request: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = DEFAULT_OAUTH_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await request(controller.signal);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`GitHub OAuth request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function createGitHubOctokit(accessToken: string): Octokit {
+  return new Octokit({
+    auth: accessToken,
+    userAgent: "samebase-app",
+  });
 }
 
 async function buildGithubOAuthUrl(
@@ -138,44 +163,48 @@ async function exchangeGithubOAuthCode(args: {
 }
 
 async function fetchGithubUser(accessToken: string): Promise<{ username: string }> {
-  const response = await fetchWithTimeout(GITHUB_API_USER_URL, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "samebase-app",
-    },
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload || typeof payload.login !== "string") {
-    throw new Error(`Failed to fetch GitHub user profile (${response.status}).`);
+  try {
+    const response = await runGithubOAuthRequestWithTimeout((signal) =>
+      createGitHubOctokit(accessToken).rest.users.getAuthenticated({
+        request: { signal },
+      }),
+    );
+    if (!response.data.login) {
+      throw new Error("Failed to fetch GitHub user profile.");
+    }
+    return { username: response.data.login };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      throw new Error(`Failed to fetch GitHub user profile (${error.status}).`);
+    }
+    throw error;
   }
-  return { username: payload.login };
 }
 
 async function revokeGithubOAuthGrant(accessToken: string): Promise<void> {
   const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
   const clientSecret = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET");
-  const response = await fetchWithTimeout(
-    `${GITHUB_API_BASE}/applications/${encodeURIComponent(clientId)}/grant`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Basic ${utf8ToBase64(`${clientId}:${clientSecret}`)}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "User-Agent": "samebase-app",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      body: JSON.stringify({ access_token: accessToken }),
-    },
-  );
-
-  if (response.status === 204 || response.status === 404) {
-    return;
+  const octokit = new Octokit({ userAgent: "samebase-app" });
+  try {
+    await runGithubOAuthRequestWithTimeout((signal) =>
+      octokit.request("DELETE /applications/{client_id}/grant", {
+        client_id: clientId,
+        access_token: accessToken,
+        headers: {
+          authorization: `Basic ${utf8ToBase64(`${clientId}:${clientSecret}`)}`,
+        },
+        request: { signal },
+      }),
+    );
+  } catch (error) {
+    if (error instanceof RequestError) {
+      if (error.status === 404) {
+        return;
+      }
+      throw new Error(`Failed to revoke GitHub OAuth grant (${error.status}).`);
+    }
+    throw error;
   }
-
-  throw new Error(`Failed to revoke GitHub OAuth grant (${response.status}).`);
 }
 
 export const storeGithubOauthConnection = internalMutation({
