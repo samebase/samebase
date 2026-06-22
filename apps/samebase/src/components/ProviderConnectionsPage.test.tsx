@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import { ProviderConnectionsPage } from "./ProviderConnectionsPage";
+import { ProviderConnectionsPageVisualFixture } from "./ProviderConnectionsPageVisualFixture";
 
 const { act } = React;
 
@@ -190,6 +191,18 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("Manage account");
     expect(markup).toContain("Check token");
     expect(markup).toContain("Disconnect");
+  });
+
+  it("renders the provider page visual fixture from mock connection state", () => {
+    const markup = renderToStaticMarkup(<ProviderConnectionsPageVisualFixture />);
+
+    expect(markup).toContain("Connected as octo-operator");
+    expect(markup).toContain("Required access: repo Granted; delete_repo Missing");
+    expect(markup).toContain(
+      "Repository listing: Needs attention - Some organization repositories are not visible to this OAuth grant.",
+    );
+    expect(markup).toContain("Connected to samebase");
+    expect(markup).toContain("Connected (OAuth). Account Samebase Preview.");
   });
 
   it("renders GitHub API key connections without OAuth scope wording", () => {

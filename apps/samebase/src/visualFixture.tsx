@@ -94,6 +94,10 @@ import {
   RouteUrlEditorVisualFixture,
   type RouteUrlEditorVisualMode,
 } from "@/components/RouteUrlEditor/RouteUrlEditorVisualFixture";
+import {
+  ProviderConnectionsPageVisualFixture,
+  type ProviderConnectionsPageVisualMode,
+} from "@/components/ProviderConnectionsPageVisualFixture";
 import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@samebase/dependent";
@@ -119,6 +123,7 @@ type VisualFixtureMode =
   | CodexAppServerResearchVisualMode
   | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
+  | ProviderConnectionsPageVisualMode
   | RouteUrlEditorVisualMode
   | "machines-workspace"
   | "machine-connect"
@@ -240,6 +245,9 @@ const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
 const ROUTE_URL_EDITOR_VISUAL_MODES = [
   "route-url-editor",
 ] as const satisfies readonly RouteUrlEditorVisualMode[];
+const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
+  "providers-page-connected",
+] as const satisfies readonly ProviderConnectionsPageVisualMode[];
 const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
@@ -307,6 +315,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Route URL",
     modes: ROUTE_URL_EDITOR_VISUAL_MODES,
+  },
+  {
+    label: "Providers",
+    modes: PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -476,6 +488,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "route-url-editor") {
     return <RouteUrlEditorVisualFixture />;
+  }
+
+  if (mode === "providers-page-connected") {
+    return <ProviderConnectionsPageVisualFixture />;
   }
 
   if (mode === "button") {
