@@ -203,12 +203,7 @@ describe("PublicLandingAccountSection", () => {
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(markup).toContain("data-app-auth-prehydration-signed-in");
-    expect(markup).toContain("dashboard-sidebar-account-icon");
-    expect(markup).toContain("data-app-auth-prehydration-provider");
-    expect(markup).toContain("Sign out");
-    expect(hydratedMarkup).toContain("nicu@noter.md");
-    expect(hydratedMarkup).toContain("Sign out");
+    expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("not logged in");
     expect(queryState.index).toBe(0);
@@ -252,13 +247,13 @@ describe("PublicLandingAccountSection", () => {
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("shows the signed-in account email after the viewer loads", async () => {
+  it("shows the signed-in account name after the viewer loads", async () => {
     authState.isAuthenticated = true;
     queryState.results = [
       {
@@ -277,8 +272,7 @@ describe("PublicLandingAccountSection", () => {
 
     const hydratedMarkup = await renderLandingAccountSectionAfterEffects("/");
 
-    expect(hydratedMarkup).toContain("nicu@example.com");
-    expect(hydratedMarkup).not.toContain("Nicu");
+    expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Account");
     expect(hydratedMarkup).not.toContain("not logged in");

@@ -2,6 +2,8 @@ AGENTS.md
 apps/domain-router/wrangler.jsonc
 apps/samebase/AGENTS.md
 apps/samebase/CLAUDE.md
+apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-mobile-right-pane-min.png
+apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-narrow.png
 apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-section.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing-dev.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing.png

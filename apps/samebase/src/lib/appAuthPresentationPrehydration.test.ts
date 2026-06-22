@@ -12,7 +12,11 @@ import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+} from "@/lib/publicLanding";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
@@ -21,9 +25,10 @@ const TEST_ARGS = {
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
   passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-  productionPublicHostnames: ["samebase.com", "www.samebase.com"],
+  passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "samebase-app-auth-presentation-prehydration",
+  staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
 
 function createJwt(payload: object) {
@@ -167,6 +172,8 @@ describe("appAuthPresentationPrehydration", () => {
     expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
       "signed-in",
     );
+    expect(styleText).toContain(`[data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"]`);
+    expect(styleText).toContain(`[data-testid="${PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}"]`);
     expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
     expect(styleText).toContain("[data-app-auth-prehydration-email]::after");
     expect(styleText).toContain('content: "nicu@samebase.com";');
@@ -192,45 +199,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "Signed in with Password";');
   });
 
-  it("defaults missing provider markers to password on non-production origins", () => {
-    writeLocalAuthSession(
-      createJwt({
-        email: "nicu@samebase.com",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript();
-
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
-    expect(styleText).toContain('content: "Signed in with Password";');
-  });
-
-  it("does not default missing provider markers to password on production public origins", () => {
-    writeLocalAuthSession(
-      createJwt({
-        email: "nicu@samebase.com",
-        exp: 4100000000,
-      }),
-    );
-
-    runAppAuthPresentationPrehydrationScript({
-      ...TEST_ARGS,
-      productionPublicHostnames: [window.location.hostname],
-    });
-
-    const styleText = document.getElementById(
-      "samebase-app-auth-presentation-prehydration",
-    )?.textContent;
-    expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
-    expect(styleText).not.toContain('content: "Signed in with Password";');
-  });
-
   it("does not invent a password provider label without password auth evidence", () => {
-    window.localStorage.setItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY, "off");
     writeLocalAuthSession(
       createJwt({
         email: "nicu@samebase.com",

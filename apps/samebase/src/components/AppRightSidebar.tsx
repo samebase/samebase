@@ -1,15 +1,13 @@
 import { useAppAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import {
-  PublicLandingAccountLoadingSection,
-  PublicLandingAccountSection,
-} from "@/components/PublicLandingAccountSection";
+import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
-  VaultDashboardAccountSection,
   VaultDashboardSidebarContent,
+  VaultDashboardStaticAccountLoadingSection,
+  VaultDashboardStaticAccountSection,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import {
@@ -19,6 +17,7 @@ import {
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
+import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { useQuery as useConvexQuery } from "convex/react";
@@ -33,10 +32,19 @@ function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | un
   return viewerAccess?.accessKeys.includes("access_provider_connections") ?? false;
 }
 
-function PublicAppRightSidebarContent() {
+function AppRightSidebarAccountLoadingSection() {
+  return (
+    <VaultDashboardStaticAccountLoadingSection
+      dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
+      label="checking login"
+    />
+  );
+}
+
+function PublicAppRightSidebarContent({ accountPending }: { accountPending: boolean }) {
   return (
     <VaultDashboardSidebarContent>
-      <PublicLandingAccountSection />
+      {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
       <PublicLandingPasswordAuthControls />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
@@ -63,11 +71,12 @@ function AppRightSidebarSignedInAccountSection({
   const accountProviderLabel = accountProvider ? formatAuthProviderLabel(accountProvider) : null;
 
   if (accountEmail === undefined) {
-    return <PublicLandingAccountLoadingSection />;
+    return <AppRightSidebarAccountLoadingSection />;
   }
 
   return (
-    <VaultDashboardAccountSection
+    <VaultDashboardStaticAccountSection
+      dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
       email={accountEmail}
       isSignOutPending={isSignOutPending}
       onSignOut={onSignOut}
@@ -249,5 +258,5 @@ export function AppRightSidebarContent() {
     return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 
-  return <PublicAppRightSidebarContent />;
+  return <PublicAppRightSidebarContent accountPending={authPresentation.kind === "unknown"} />;
 }

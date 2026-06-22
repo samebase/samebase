@@ -1,8 +1,11 @@
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+} from "@/lib/publicLanding";
 import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
-import { PRODUCTION_PUBLIC_HOSTNAMES } from "@/lib/prodUiMode";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-auth-presentation-prehydration";
@@ -14,9 +17,10 @@ export type AppAuthPresentationPrehydrationArgs = {
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
   passwordAuthModeStorageKey: string;
-  productionPublicHostnames: readonly string[];
+  passwordAuthSectionTestId: string;
   rootAttribute: string;
   styleElementId: string;
+  staticAccountSectionTestId: string;
 };
 
 const appAuthPresentationPrehydrationArgs = {
@@ -25,9 +29,10 @@ const appAuthPresentationPrehydrationArgs = {
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
   passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-  productionPublicHostnames: PRODUCTION_PUBLIC_HOSTNAMES,
+  passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
+  staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
 
 function InlineScript_prehydrateAppAuthPresentation(
@@ -84,15 +89,7 @@ function InlineScript_prehydrateAppAuthPresentation(
     if (passwordAuthMode === "local_worktree_seed" || passwordAuthMode === "preview_seed") {
       return "Password";
     }
-    if (passwordAuthMode !== null) {
-      return null;
-    }
-
-    const hostname = window.location.hostname.trim().toLowerCase();
-    const productionPublicHostname = args.productionPublicHostnames.some(
-      (productionHostname) => productionHostname === hostname,
-    );
-    return productionPublicHostname ? null : "Password";
+    return null;
   }
 
   function installPrehydrationStyle(presentation: {
@@ -106,23 +103,31 @@ function InlineScript_prehydrateAppAuthPresentation(
       "[data-testid=" + cssStringLiteral(args.accountSectionTestId) + "]";
     const accountLabelSelector =
       accountSectionSelector + " [data-vault-dashboard-account-section-label]";
-    const accountContentSelector =
-      accountSectionSelector + " [data-vault-dashboard-account-section-content]";
-    const loadingAccountSelector =
-      accountSectionSelector + " [data-app-auth-prehydration-loading-account]";
-    const signedInSelector = accountSectionSelector + " [data-app-auth-prehydration-signed-in]";
-    const signedInEmailSelector = accountSectionSelector + " [data-app-auth-prehydration-email]";
+    const staticAccountSectionSelector =
+      "[data-testid=" + cssStringLiteral(args.staticAccountSectionTestId) + "]";
+    const staticAccountLabelSelector =
+      staticAccountSectionSelector + " [data-vault-dashboard-account-section-label]";
+    const staticAccountContentSelector =
+      staticAccountSectionSelector + " [data-vault-dashboard-account-section-content]";
+    const signedInSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
+    const signedInEmailSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-email]";
     const signedInProviderSelector =
-      accountSectionSelector + " [data-app-auth-prehydration-provider]";
+      staticAccountSectionSelector + " [data-app-auth-prehydration-provider]";
+    const passwordAuthSectionSelector =
+      "[data-testid=" + cssStringLiteral(args.passwordAuthSectionTestId) + "]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
-html[${args.rootAttribute}="signed-out"] ${accountLabelSelector} {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector},
+html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector} {
   color: transparent !important;
   position: relative !important;
 }
 
-html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after,
+html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector}::after {
   color: hsl(var(--foreground));
   content: ${cssStringLiteral(presentation.label)};
   display: block;
@@ -136,14 +141,28 @@ html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after {
 }
 
 html[${args.rootAttribute}="signed-in"] ${accountLabelSelector} {
+  color: transparent !important;
+  position: relative !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${accountLabelSelector}::after {
+  color: hsl(var(--foreground));
+  content: ${cssStringLiteral(presentation.label)};
+  display: block;
+  font-size: 0.875rem;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inset-inline-start: 0;
+  line-height: 1.25rem;
+  overflow-wrap: anywhere;
+  position: absolute;
+}
+
+html[${args.rootAttribute}="signed-in"] ${staticAccountLabelSelector} {
   display: none !important;
 }
 
-html[${args.rootAttribute}="signed-in"] ${loadingAccountSelector} {
-  display: none !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${accountContentSelector} {
+html[${args.rootAttribute}="signed-in"] ${staticAccountContentSelector} {
   display: block !important;
   margin-top: 0 !important;
 }
@@ -154,6 +173,10 @@ html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
 
 html[${args.rootAttribute}="signed-in"] ${signedInEmailSelector}::after {
   content: ${cssStringLiteral(presentation.label)};
+}
+
+html[${args.rootAttribute}="signed-in"] ${passwordAuthSectionSelector} {
+  display: none !important;
 }
 ${
   presentation.kind === "signed-in" && presentation.providerLabel !== null

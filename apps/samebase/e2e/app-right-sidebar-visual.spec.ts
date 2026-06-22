@@ -1,8 +1,23 @@
-import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { devices, expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
+import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "../src/lib/authStorageKeys";
+import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 import { expectScreenshotsToMatch } from "./visualDiff";
+
+const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
+const APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE = {
+  leftDesktopOpen: true,
+  leftDesktopWidthPx: 240,
+  leftMobileWidthPx: 240,
+  mobilePane: "main",
+  mobileSurface: { kind: "unmerged" },
+  rightDesktopOpen: true,
+  rightDesktopWidthPx: 288,
+  rightMobileWidthPx: 288,
+} satisfies WorkspaceSidebarState;
 
 const appRightSidebarScreenshotOptions = {
   animations: "disabled",
@@ -10,6 +25,19 @@ const appRightSidebarScreenshotOptions = {
   scale: "css",
   maxDiffPixelRatio: 0.03,
 } as const;
+
+async function seedAppWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
+  await page.addInitScript(
+    ({ state, storageKey, version }) => {
+      window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
+    },
+    {
+      state,
+      storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
+    },
+  );
+}
 
 async function blockHydrationScripts(page: Page) {
   await page.route("**/*", async (route) => {
@@ -36,8 +64,63 @@ function getRightSidebar(page: Page) {
   return page.locator('[data-workspace-layout-v2-mobile-pane="right"]');
 }
 
+function getRightPane(page: Page) {
+  return page.getByTestId("workspace-layout-v2-pane-right");
+}
+
 function getSignedInAccountSection(page: Page) {
   return getRightSidebar(page).locator(".vault-dashboard-sidebar-inset").first();
+}
+
+async function openSignedInApp(page: Page) {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/");
+  await page.waitForLoadState("networkidle");
+}
+
+async function expectNoHorizontalOverflow(locator: Locator) {
+  await expect
+    .poll(() => locator.evaluate((element) => element.scrollWidth <= element.clientWidth))
+    .toBe(true);
+}
+
+async function expectSidebarTextOwnsWrappedLine({
+  iconTestId,
+  row,
+  textTestId,
+}: {
+  iconTestId: string;
+  row: Locator;
+  textTestId: string;
+}) {
+  await expect
+    .poll(() =>
+      row.evaluate(
+        (rowElement, testIds) => {
+          if (!(rowElement instanceof HTMLElement)) {
+            return false;
+          }
+
+          const iconElement = rowElement.querySelector(`[data-testid="${testIds.iconTestId}"]`);
+          const textElement = rowElement.querySelector(`[data-testid="${testIds.textTestId}"]`);
+          if (!(iconElement instanceof HTMLElement) || !(textElement instanceof HTMLElement)) {
+            return false;
+          }
+
+          const rowRect = rowElement.getBoundingClientRect();
+          const iconRect = iconElement.getBoundingClientRect();
+          const textRect = textElement.getBoundingClientRect();
+
+          return (
+            textRect.top >= iconRect.bottom - 1 &&
+            Math.abs(textRect.left - rowRect.left) <= 1 &&
+            Math.abs(textRect.width - rowRect.width) <= 1
+          );
+        },
+        { iconTestId, textTestId },
+      ),
+    )
+    .toBe(true);
 }
 
 async function readAccountTextEvidence(accountSection: Locator) {
@@ -69,9 +152,7 @@ function accountTextEvidenceIncludes(
 
 test("signed-in app right sidebar renders a static account section", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/");
-  await page.waitForLoadState("networkidle");
+  await openSignedInApp(page);
 
   const rightSidebar = getRightSidebar(page);
   const accountSection = getSignedInAccountSection(page);
@@ -94,13 +175,84 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
   );
 });
 
+test("signed-in app right sidebar keeps the account row inside a narrow desktop rail", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 760 });
+  await seedAppWorkspaceSidebarState(page, {
+    ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
+    rightDesktopWidthPx: 160,
+  });
+  await openSignedInApp(page);
+
+  const rightPane = getRightPane(page);
+  const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
+  await expect(rightPane).toHaveCSS("width", "160px");
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expectNoHorizontalOverflow(rightPane);
+  await expectSidebarTextOwnsWrappedLine({
+    iconTestId: "dashboard-sidebar-account-icon",
+    row: accountSection.getByTestId("dashboard-sidebar-account-row"),
+    textTestId: "dashboard-sidebar-account-text",
+  });
+  await expect(accountSection).toHaveScreenshot(
+    "app-right-sidebar-signed-in-account-narrow.png",
+    appRightSidebarScreenshotOptions,
+  );
+});
+
+test("signed-in app right sidebar keeps the account row inside the minimum mobile right pane", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile app right-sidebar tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+
+  try {
+    await seedAppWorkspaceSidebarState(page, {
+      ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
+      mobilePane: "right",
+      rightMobileWidthPx: 96,
+    });
+    await openSignedInApp(page);
+
+    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+      "data-mobile-pane",
+      "right",
+    );
+    const rightPane = getRightPane(page);
+    const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
+    await expect(rightPane).toHaveCSS("width", "96px");
+    await expect(accountSection).toBeVisible();
+    await expectNoHorizontalOverflow(rightPane);
+    await expectSidebarTextOwnsWrappedLine({
+      iconTestId: "dashboard-sidebar-account-icon",
+      row: accountSection.getByTestId("dashboard-sidebar-account-row"),
+      textTestId: "dashboard-sidebar-account-text",
+    });
+    await expect(rightPane).toHaveScreenshot(
+      "app-right-sidebar-mobile-right-pane-min.png",
+      appRightSidebarScreenshotOptions,
+    );
+  } finally {
+    await context.close();
+  }
+});
+
 test("signed-in app right sidebar prehydration includes the password provider label", async ({
   page,
 }, testInfo: TestInfo) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/");
-  await page.waitForLoadState("networkidle");
+  await openSignedInApp(page);
   await waitForFonts(page);
 
   const hydratedAccountSection = getSignedInAccountSection(page);
@@ -130,9 +282,7 @@ test("signed-in app right sidebar prehydration includes password provider for ex
   page,
 }, testInfo: TestInfo) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/");
-  await page.waitForLoadState("networkidle");
+  await openSignedInApp(page);
   await waitForFonts(page);
 
   const hydratedAccountSection = getSignedInAccountSection(page);
