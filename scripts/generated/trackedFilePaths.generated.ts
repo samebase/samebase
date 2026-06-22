@@ -1367,6 +1367,7 @@ export const trackedFilePaths = [
   "research/2026-06-11-agents-md-truncation-audit.md",
   "research/2026-06-12-guardby-prior-art.md",
   "research/2026-06-18-workos-authorization-model.md",
+  "research/2026-06-22-cloudflare-oauth-apps-mcp-fit.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",
