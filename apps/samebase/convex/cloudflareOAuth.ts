@@ -51,7 +51,6 @@ export const CLOUDFLARE_OAUTH_SCOPES = [
   "workers-scripts.read",
   "workers-scripts.write",
   "account-settings.read",
-  "offline_access",
 ] as const;
 
 const nonEmptyString = z.string().min(1);

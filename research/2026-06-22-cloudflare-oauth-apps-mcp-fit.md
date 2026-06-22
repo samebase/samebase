@@ -218,9 +218,10 @@ Use this production app configuration:
 - Token endpoint auth method: `client_secret_basic`
 - Visibility: public, after `samebase.com` domain verification succeeds
 
-Use `GET /oauth/scopes` to derive the exact OAuth scope IDs before finalizing the client. Do not
-reuse the current colon-delimited MCP scopes. The target scope set should cover only the Cloudflare
-API paths Samebase calls today:
+Use `GET /oauth/scopes` to derive the exact API permission scope IDs before finalizing the client.
+Do not reuse the current colon-delimited MCP scopes or protocol scopes that Cloudflare derives from
+client metadata. The target scope set should cover only the Cloudflare API paths Samebase calls
+today:
 
 - `/accounts`
 - `/accounts/{account_id}/workers...`
@@ -336,8 +337,10 @@ Docs and setup:
 
 1. Create a private OAuth client first, then promote to public after domain verification and scope
    confirmation.
-2. Use `GET /oauth/scopes` with an operator token to pin the exact scope IDs for Workers and Workers
-   Builds.
+2. Use `GET /oauth/scopes` with an operator token to pin the exact API permission scope IDs for
+   Workers and Workers Builds. Do not include protocol scopes such as `offline_access` in the
+   application-requested permission scope list; Cloudflare adds or removes those automatically from
+   the OAuth client based on `grant_types` and `response_types`.
 3. Confirm the authorization consent screen allows selecting the intended user accounts and shows
    only the intended permissions.
 
@@ -374,8 +377,9 @@ Optional smoke:
 
 ## Open Questions
 
-1. Exact Cloudflare OAuth scope IDs for Workers Builds and script writes must be confirmed with
-   `GET /oauth/scopes`. The docs intentionally make that endpoint the source of truth.
+1. Exact Cloudflare OAuth API permission scope IDs for Workers Builds and script writes must be
+   confirmed with `GET /oauth/scopes`. The docs intentionally make that endpoint the source of truth
+   for API permission scopes; protocol scopes such as `offline_access` are not returned there.
 2. Cloudflare's OAuth App token response schema is not fully shown in the high-level docs.
    Implementation should validate the live response before assuming refresh token and expiry
    behavior.
