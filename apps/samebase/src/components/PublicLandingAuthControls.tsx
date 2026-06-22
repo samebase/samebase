@@ -1,12 +1,8 @@
 import { useAppSignInActions } from "@/authClient";
-import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import {
-  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
-  PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID,
-} from "@/lib/publicLanding";
+import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
@@ -23,12 +19,11 @@ import {
   isProdUiModeEnabled,
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
-import { applySearchPatch, type SearchPatch } from "@/routing/searchFlags";
-import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
+import { readRootRouteSearch } from "@/routeSearch/root";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 
 /**
@@ -151,31 +146,6 @@ function usePublicLandingPasswordAuthControls(): {
   };
 }
 
-function buildPublicSidebarSignInSearchPatch(): SearchPatch<RootRouteSearch> {
-  return {
-    auth: null,
-    "auth-return": null,
-    "create-account": null,
-    signup: null,
-    "sign-in": true,
-  };
-}
-
-function publicSidebarSignInLink(currentSearch: RootRouteSearch) {
-  return applySearchPatch(currentSearch, buildPublicSidebarSignInSearchPatch());
-}
-
-function PublicLandingSidebarAuthRouteFrame({ children }: { children: ReactNode }) {
-  return (
-    <div
-      data-testid={PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID}
-      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
-    >
-      {children}
-    </div>
-  );
-}
-
 export function PublicLandingAuthControls() {
   const location = useLocation({
     select: (currentLocation) => ({
@@ -230,49 +200,6 @@ export function PublicLandingPasswordAuthControls() {
     >
       <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
     </div>
-  );
-}
-
-export function PublicLandingSidebarAuthRouteControls() {
-  const { isAuthenticated } = useConvexAuth();
-  const location = useLocation({
-    select: (currentLocation) => ({
-      pathname: currentLocation.pathname,
-      searchStr: currentLocation.searchStr,
-    }),
-  });
-  const rootRouteSearch = readRootRouteSearch(location.searchStr);
-
-  if (isAuthenticated || location.pathname !== "/") {
-    return null;
-  }
-
-  if (shouldRenderGoogleSignupClosedState(location.pathname, rootRouteSearch)) {
-    return (
-      <PublicLandingSidebarAuthRouteFrame>
-        <PublicSignupClosedNotice
-          footer={
-            <Link
-              className="text-base underline underline-offset-4"
-              to="/"
-              search={publicSidebarSignInLink}
-            >
-              ?sign-in
-            </Link>
-          }
-        />
-      </PublicLandingSidebarAuthRouteFrame>
-    );
-  }
-
-  if (rootRouteSearch["sign-in"] !== true) {
-    return null;
-  }
-
-  return (
-    <PublicLandingSidebarAuthRouteFrame>
-      <SignInWithGoogle authReturn="dashboard" />
-    </PublicLandingSidebarAuthRouteFrame>
   );
 }
 

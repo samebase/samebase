@@ -17,7 +17,10 @@ test("public account checking login fixture", async ({ page }) => {
 
   const fixture = page.getByTestId("public-account-checking-login-visual-fixture");
   const loadingAccountSection = fixture.getByTestId("public-landing-account-section");
-  await expect(loadingAccountSection.getByText("checking login", { exact: true })).toBeVisible();
+  const loadingAccountTrigger = loadingAccountSection.getByRole("button", {
+    name: "checking login",
+  });
+  await expect(loadingAccountTrigger).toBeVisible();
   await expect(fixture.locator(".animate-spin")).toHaveCount(0);
   await expect(fixture).toHaveScreenshot(
     "public-account-checking-login.png",

@@ -272,8 +272,6 @@ describe("AppRightSidebarContent", () => {
     const markup = renderRightSidebar([]);
 
     expect(markup).toContain("not logged in");
-    expect(markup).toContain("?sign-in");
-    expect(markup).toContain("?create-account");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("Providers");
   });
@@ -286,12 +284,7 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(markup).toContain("data-app-auth-prehydration-signed-out");
-    expect(markup).toContain("?sign-in");
-    expect(markup).toContain("?create-account");
     expect(hydratedMarkup).toContain("not logged in");
-    expect(hydratedMarkup).toContain("?sign-in");
-    expect(hydratedMarkup).toContain("?create-account");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
   });

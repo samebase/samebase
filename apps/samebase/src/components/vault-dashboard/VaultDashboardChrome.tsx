@@ -52,11 +52,53 @@ export function VaultDashboardAccountSectionFrame({
   children,
   dataTestId = "dashboard-sidebar-account-section",
   label,
+  onOpenChange,
+  open,
+  prehydrationContent,
 }: {
   children?: ReactNode;
   dataTestId?: string;
   label: ReactNode;
+  onOpenChange?: (isOpen: boolean) => void;
+  open?: boolean;
+  prehydrationContent?: ReactNode;
 }) {
+  if (open !== undefined && onOpenChange !== undefined) {
+    return (
+      <div
+        data-testid={dataTestId}
+        className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+      >
+        <div data-app-auth-prehydration-loading-account>
+          <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
+            <CollapsibleTrigger asChild nativeButton>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
+              >
+                <span
+                  data-vault-dashboard-account-section-label
+                  className="min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]"
+                >
+                  {label}
+                </span>
+                <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 transition-transform" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>{children}</CollapsibleContent>
+          </Collapsible>
+        </div>
+        {prehydrationContent ? (
+          <div data-vault-dashboard-account-section-content className="hidden">
+            {prehydrationContent}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid={dataTestId}
@@ -77,49 +119,40 @@ export function VaultDashboardAccountSectionFrame({
   );
 }
 
-export function VaultDashboardAccountPrehydrationPlaceholders({
-  signedOutLinks,
-}: {
-  signedOutLinks: ReactNode;
-}) {
+export function VaultDashboardAccountPrehydrationPlaceholders() {
   return (
-    <>
-      <div data-app-auth-prehydration-signed-out className="hidden">
-        {signedOutLinks}
-      </div>
-      <div data-app-auth-prehydration-signed-in className="hidden">
-        <div className="flex flex-wrap items-start gap-3">
-          <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
-            <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
-              <PersonIcon className="h-4 w-4" />
-            </div>
-            <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-              <div
-                data-app-auth-prehydration-email
-                className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
-              />
-              <div
-                data-app-auth-prehydration-provider
-                className={clsx(
-                  SIDEBAR_METADATA_TEXT_CLASS,
-                  "hidden text-xs leading-5 text-muted-foreground",
-                )}
-              />
-            </div>
+    <div data-app-auth-prehydration-signed-in className="hidden">
+      <div className="flex flex-wrap items-start gap-3">
+        <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+          <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+            <PersonIcon className="h-4 w-4" />
           </div>
-          <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto max-w-full whitespace-normal py-2 text-left"
-            >
-              Sign out
-            </Button>
+          <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+            <div
+              data-app-auth-prehydration-email
+              className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+            />
+            <div
+              data-app-auth-prehydration-provider
+              className={clsx(
+                SIDEBAR_METADATA_TEXT_CLASS,
+                "hidden text-xs leading-5 text-muted-foreground",
+              )}
+            />
           </div>
         </div>
+        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-auto max-w-full whitespace-normal py-2 text-left"
+          >
+            Sign out
+          </Button>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 

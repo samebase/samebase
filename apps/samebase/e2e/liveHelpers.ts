@@ -84,10 +84,11 @@ async function isAnyVisible(locators: Locator[]): Promise<boolean> {
 }
 
 function getSignedInMarkers(page: Page): Locator[] {
+  const accountSection = page.getByTestId("dashboard-sidebar-account-section");
+
   return [
-    page.getByRole("button", {
-      name: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
-    }),
+    accountSection.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, { exact: true }),
+    accountSection.getByRole("button", { name: "Sign out" }),
     page.getByText("Your Vaults", { exact: true }).first(),
     page.getByRole("button", { name: "Providers" }),
     page.getByRole("heading", {

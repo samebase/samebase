@@ -89,7 +89,8 @@ function InlineScript_prehydrateAppAuthPresentation(
       accountSectionSelector + " [data-vault-dashboard-account-section-label]";
     const accountContentSelector =
       accountSectionSelector + " [data-vault-dashboard-account-section-content]";
-    const signedOutSelector = accountSectionSelector + " [data-app-auth-prehydration-signed-out]";
+    const loadingAccountSelector =
+      accountSectionSelector + " [data-app-auth-prehydration-loading-account]";
     const signedInSelector = accountSectionSelector + " [data-app-auth-prehydration-signed-in]";
     const signedInEmailSelector = accountSectionSelector + " [data-app-auth-prehydration-email]";
     const signedInProviderSelector =
@@ -115,15 +116,16 @@ html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after {
   position: absolute;
 }
 
-html[${args.rootAttribute}="signed-out"] ${signedOutSelector} {
-  display: block !important;
-}
-
 html[${args.rootAttribute}="signed-in"] ${accountLabelSelector} {
   display: none !important;
 }
 
+html[${args.rootAttribute}="signed-in"] ${loadingAccountSelector} {
+  display: none !important;
+}
+
 html[${args.rootAttribute}="signed-in"] ${accountContentSelector} {
+  display: block !important;
   margin-top: 0 !important;
 }
 

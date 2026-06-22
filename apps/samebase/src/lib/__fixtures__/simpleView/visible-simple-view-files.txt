@@ -69,9 +69,10 @@ apps/samebase/e2e/machines-workspace-visual.spec.ts-snapshots/machines-workspace
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png
 apps/samebase/e2e/public-account-loading-visual.spec.ts-snapshots/public-account-checking-login.png
+apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-button.png
+apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-signup-closed.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-mobile-sidebar-toggle.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-right-sidebar-account-links.png
-apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-signup-return-account-links.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-status-bar-no-logo-link.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/public-route-right-sidebar-account.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/terms-shell.png
