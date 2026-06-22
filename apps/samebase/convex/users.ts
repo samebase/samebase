@@ -153,6 +153,7 @@ type GitHubRepositoryHealthResult =
       failure: GitHubApiFailure;
       oauthScopesHeader: string | null;
     };
+
 type GitHubOrganizationHealthResult =
   | {
       ok: true;
@@ -194,34 +195,6 @@ function createGitHubOctokit(token: string): Octokit {
     auth: token,
     userAgent: "samebase-app",
   });
-}
-
-function readGitHubResponseHeader(
-  headers: Record<string, string | number | undefined>,
-  key: string,
-): string | null {
-  const value = headers[key.toLowerCase()];
-  return typeof value === "string" ? value : null;
-}
-
-/**
-Reads GitHub's `x-oauth-scopes` response header from a failed Octokit request.
-GitHub sends values like `"repo, user, read:org"` to report the scopes on the credential used for
-that request.
-*/
-function readGitHubErrorOAuthScopesHeader(error: RequestError): string | null {
-  return readGitHubResponseHeader(error.response?.headers ?? {}, "x-oauth-scopes");
-}
-
-/**
-Reads GitHub's `x-oauth-scopes` response header from a successful Octokit response.
-Example: a header value of `"repo, user"` means GitHub reports that this token currently has the
-`repo` and `user` OAuth scopes.
-*/
-function readGitHubSuccessOAuthScopesHeader(response: {
-  headers: Record<string, string | number | undefined>;
-}): string | null {
-  return readGitHubResponseHeader(response.headers, "x-oauth-scopes");
 }
 
 function normalizeApiToken(token: string): string {
@@ -362,7 +335,7 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
     return {
       ok: true,
       login: response.data.login,
-      oauthScopesHeader: readGitHubSuccessOAuthScopesHeader(response),
+      oauthScopesHeader: response.headers["x-oauth-scopes"] ?? null,
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -372,7 +345,7 @@ async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileH
           status: error.status,
           statusText: error.message,
         },
-        oauthScopesHeader: readGitHubErrorOAuthScopesHeader(error),
+        oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
     }
     throw error;
@@ -396,7 +369,7 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
     );
     return {
       ok: true,
-      oauthScopesHeader: readGitHubSuccessOAuthScopesHeader(response),
+      oauthScopesHeader: response.headers["x-oauth-scopes"] ?? null,
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -406,7 +379,7 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
           status: error.status,
           statusText: error.message,
         },
-        oauthScopesHeader: readGitHubErrorOAuthScopesHeader(error),
+        oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
     }
     throw error;
@@ -437,7 +410,7 @@ async function readGithubOrganizationHealth(
           request: { signal },
         }),
       );
-      oauthScopesHeader = oauthScopesHeader ?? readGitHubSuccessOAuthScopesHeader(response);
+      oauthScopesHeader = oauthScopesHeader ?? response.headers["x-oauth-scopes"] ?? null;
       for (const membership of response.data) {
         const login = membership.organization.login;
         if (!login || seenOrganizationLogins.has(login)) {
@@ -471,7 +444,7 @@ async function readGithubOrganizationHealth(
           status: error.status,
           statusText: error.message,
         },
-        oauthScopesHeader: readGitHubErrorOAuthScopesHeader(error),
+        oauthScopesHeader: error.response?.headers["x-oauth-scopes"] ?? null,
       };
     }
     throw error;
