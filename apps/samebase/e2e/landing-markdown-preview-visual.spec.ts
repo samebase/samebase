@@ -187,10 +187,18 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
 
   const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
   const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
+  const screenshotHeading = page
+    .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
+    .locator('[id="9-create-an-app-in-a-single-step-using-samebase-com"]');
   await expect(sidebar).toBeVisible();
   await expectSidebarLinksToMatchMarkdown(sidebar);
   await expect(firstVideo).toBeVisible();
+  await expect(screenshotHeading).toBeInViewport();
   await hideLandingPreviewVideosForScreenshot(page);
+  await expect(screenshotHeading).toBeInViewport();
+  await expect
+    .poll(() => screenshotHeading.evaluate((element) => element.getBoundingClientRect().top))
+    .toBeLessThan(80);
   await expect(page).toHaveScreenshot("landing-markdown-preview-mobile.png", {
     animations: "disabled",
     caret: "hide",
