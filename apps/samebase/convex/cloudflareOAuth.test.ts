@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  CLOUDFLARE_OAUTH_SCOPES,
   buildCloudflareOAuthAuthorizeSearchParams,
   buildCloudflareOAuthAuthorizeUrl,
 } from "./cloudflareOAuth";
@@ -17,13 +18,14 @@ describe("buildCloudflareOAuthAuthorizeSearchParams", () => {
       response_type: "code",
       client_id: "client-id",
       redirect_uri: "https://samebase.com/oauth/cloudflare/callback",
+      scope: CLOUDFLARE_OAUTH_SCOPES.join(" "),
       state: "state-token",
     });
   });
 });
 
 describe("buildCloudflareOAuthAuthorizeUrl", () => {
-  it("uses the dashboard OAuth endpoint without MCP-only parameters", () => {
+  it("uses the dashboard OAuth endpoint with the standard app scopes", () => {
     const url = new URL(
       buildCloudflareOAuthAuthorizeUrl({
         clientId: "client-id",
@@ -39,8 +41,8 @@ describe("buildCloudflareOAuthAuthorizeUrl", () => {
       "https://samebase.com/oauth/cloudflare/callback",
     );
     expect(url.searchParams.get("state")).toBe("state-token");
+    expect(url.searchParams.get("scope")).toBe(CLOUDFLARE_OAUTH_SCOPES.join(" "));
     expect(url.searchParams.has("code_challenge")).toBe(false);
     expect(url.searchParams.has("code_challenge_method")).toBe(false);
-    expect(url.searchParams.has("scope")).toBe(false);
   });
 });

@@ -27,6 +27,7 @@ type CloudflareOAuthAuthorizeSearchParams = {
   response_type: "code";
   client_id: string;
   redirect_uri: string;
+  scope: string;
   state: string;
 };
 type CloudflareOAuthTokenExchangeSearchParams = {
@@ -43,6 +44,15 @@ type CloudflareOAuthTokenResponse = {
   refreshToken?: string;
   expiresIn: number;
 };
+
+export const CLOUDFLARE_OAUTH_SCOPES = [
+  "workers-ci.read",
+  "workers-ci.write",
+  "workers-scripts.read",
+  "workers-scripts.write",
+  "account-settings.read",
+  "offline_access",
+] as const;
 
 const nonEmptyString = z.string().min(1);
 const cloudflareOauthTokenResponseSchema = z.object({
@@ -116,6 +126,7 @@ export function buildCloudflareOAuthAuthorizeSearchParams(args: {
     response_type: "code",
     client_id: args.clientId,
     redirect_uri: args.redirectUri,
+    scope: CLOUDFLARE_OAUTH_SCOPES.join(" "),
     state: args.state,
   };
 }
