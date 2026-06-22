@@ -416,12 +416,22 @@ const cloudflareMcpOauthAuthValidator = object({
   credentialExpiresAt: number(),
   clientId: string(),
 });
+const cloudflareOauthAuthValidator = object({
+  method: literal("oauth"),
+  credential: string(),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
+});
 const cloudflareApiKeyAuthValidator = object({
   method: literal("api_key"),
   credential: string(),
 });
 const resolvedCloudflareConnectionValidator = object({
-  auth: union(cloudflareMcpOauthAuthValidator, cloudflareApiKeyAuthValidator),
+  auth: union(
+    cloudflareOauthAuthValidator,
+    cloudflareMcpOauthAuthValidator,
+    cloudflareApiKeyAuthValidator,
+  ),
   defaultAccount: vCloudflareDefaultAccount,
   tokenHealth: optional(vMcpTokenHealth),
 });
@@ -719,6 +729,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       internal.cloudflareAccountDiscovery.resolveDefaultAccountForToken,
       {
         token: token.access_token,
+        transport: "mcp",
       },
     );
 

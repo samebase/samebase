@@ -12,6 +12,7 @@ import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
+import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   resolveCloudflareProvisioningConnection,
   resolveConvexProvisioningConnection,
@@ -476,6 +477,7 @@ async function checkConvexProjectNameAvailability(
 
 async function buildAvailableCloudflareWorkerNameSuggestion(args: {
   token: string;
+  transport: "mcp" | "direct";
   accountId: string;
   baseName: string;
 }): Promise<string | null> {
@@ -488,6 +490,7 @@ async function buildAvailableCloudflareWorkerNameSuggestion(args: {
     if (
       await isCloudflareWorkerNameAvailable({
         token: args.token,
+        transport: args.transport,
         accountId: args.accountId,
         workerName: candidate,
       })
@@ -504,6 +507,7 @@ async function readCloudflareWorkerNameAvailability(args: {
 }): Promise<AppResourceNameAvailability> {
   const available = await isCloudflareWorkerNameAvailable({
     token: args.connection.cloudflareToken,
+    transport: resolveCloudflareApiTransport(args.connection.cloudflareAuthMethod),
     accountId: args.connection.cloudflareAccountId,
     workerName: args.workerName,
   });
@@ -515,6 +519,7 @@ async function readCloudflareWorkerNameAvailability(args: {
     providerLabel: "Cloudflare Worker",
     suggestion: await buildAvailableCloudflareWorkerNameSuggestion({
       token: args.connection.cloudflareToken,
+      transport: resolveCloudflareApiTransport(args.connection.cloudflareAuthMethod),
       accountId: args.connection.cloudflareAccountId,
       baseName: args.workerName,
     }),
@@ -543,7 +548,7 @@ async function checkCloudflareWorkerNameAvailability(
       });
     } catch (error) {
       if (
-        connection.cloudflareAuthMethod === "mcp_oauth" &&
+        connection.cloudflareAuthMethod !== "api_key" &&
         isCloudflareMcpInvalidAccessTokenError(error)
       ) {
         const refreshedConnection = await resolveCloudflareProvisioningConnection(

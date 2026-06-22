@@ -951,7 +951,7 @@ async function resolveCloudflareWorkersInventoryAccountId(
   }
 
   const cloudflareConnection = await context.ctx.runAction(
-    internal.cloudflareMcpOAuth.resolveConnectionForUser,
+    internal.cloudflareOAuth.resolveConnectionForUser,
     {
       userId: context.userId,
     },

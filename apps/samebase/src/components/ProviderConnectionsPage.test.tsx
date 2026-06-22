@@ -165,10 +165,8 @@ describe("ProviderConnectionsPage", () => {
           {
             accountId: "account_123",
             accountName: "samebase",
-            authMethod: "mcp_oauth",
+            authMethod: "oauth",
             connected: true,
-            mcpTokenExpiresAt: Date.now() + 60_000,
-            mcpTokenStatus: "valid",
           },
         ],
         [getFunctionName(api.users.viewer), { _id: "user_123" }],
@@ -188,9 +186,9 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("Reauthorize");
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth).");
-    expect(markup).toContain("Token Valid.");
     expect(markup).toContain("Manage account");
-    expect(markup).toContain("Check token");
+    expect(markup).not.toContain("Token Valid.");
+    expect(markup).not.toContain("Check token");
     expect(markup).toContain("Disconnect");
   });
 

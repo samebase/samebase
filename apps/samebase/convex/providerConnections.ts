@@ -21,8 +21,12 @@ export type ProviderKind = Infer<typeof vProviderKind>;
 const vOAuthAuth = object({
   method: literal("oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
+});
+const vCloudflareOAuthAuth = object({
+  method: literal("oauth"),
+  credential: string(),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
 });
 const vMcpOauthAuth = object({
   method: literal("mcp_oauth"),
@@ -39,7 +43,7 @@ const vProviderAuth = union(vOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;
 
 const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
-const vCloudflareProviderAuth = union(vMcpOauthAuth, vApiKeyAuth);
+const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
 
 const vGithubConnectionUpsert = object({
   userId: id("users"),

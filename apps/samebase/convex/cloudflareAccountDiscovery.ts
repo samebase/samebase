@@ -4,8 +4,10 @@ import { notEmpty } from "@samebase/dependent/main";
 import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";
-import { requestCloudflareApi } from "./cloudflareApi/client";
+import { requestCloudflareApi, type CloudflareApiTransport } from "./cloudflareApi/client";
 import { vCloudflareDefaultAccount } from "./schema";
+
+const vCloudflareApiTransport = v.union(v.literal("mcp"), v.literal("direct"));
 
 type CloudflareAccountIdentity = {
   id?: string | null;
@@ -65,9 +67,11 @@ export function selectSingleCloudflareDefaultAccount(
 export async function listCloudflareAccountsForToken(args: {
   token: string;
   perPage: number;
+  transport: CloudflareApiTransport;
 }): Promise<CloudflareAccount[]> {
   const accounts = await requestCloudflareApi({
     token: args.token,
+    transport: args.transport,
     method: "GET",
     path: "/accounts",
     params: {
@@ -86,11 +90,13 @@ export async function listCloudflareAccountsForToken(args: {
 export const resolveDefaultAccountForToken = internalAction({
   args: {
     token: v.string(),
+    transport: vCloudflareApiTransport,
   },
   returns: vCloudflareDefaultAccount,
   handler: async (_ctx, args) => {
     const accounts = await listCloudflareAccountsForToken({
       token: args.token,
+      transport: args.transport,
       perPage: 2,
     });
     return selectSingleCloudflareDefaultAccount(accounts);

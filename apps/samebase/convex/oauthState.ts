@@ -4,6 +4,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 export const vOAuthProvider = v.union(
   v.literal("github"),
   v.literal("convex"),
+  v.literal("cloudflare"),
   v.literal("cloudflare_mcp"),
 );
 

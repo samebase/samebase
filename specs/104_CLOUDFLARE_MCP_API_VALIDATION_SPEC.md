@@ -4,10 +4,11 @@ Status: Accepted
 
 ## Problem
 
-Samebase calls Cloudflare through Cloudflare MCP because user-facing Cloudflare connections use
-`mcp_oauth`, not a standard Cloudflare API token. The MCP server accepts that credential and
-executes `cloudflare.request()` on Samebase's behalf, but direct Cloudflare REST token introspection
-can reject it as an invalid API token.
+Samebase can call Cloudflare through two transports. Legacy `mcp_oauth` connections use Cloudflare
+MCP, where the MCP server accepts that credential and executes `cloudflare.request()` on Samebase's
+behalf. Standard Cloudflare OAuth app connections use direct `api.cloudflare.com` REST requests with
+the OAuth bearer token. Direct Cloudflare REST token introspection can reject `mcp_oauth`
+credentials as invalid API tokens, so the transport choice is part of the auth-method contract.
 
 Current Cloudflare provisioning code still treats each request as an untyped string path and then
 reads provider JSON with fallback helpers. That leaves the Workers and Workers Builds boundary
@@ -16,8 +17,8 @@ path parameters, invalid request bodies, or changed response fields before featu
 
 ## Decision
 
-Use Cloudflare's OpenAPI schema as the contract source while keeping Cloudflare MCP as the
-transport:
+Use Cloudflare's OpenAPI schema as the contract source while making the Cloudflare transport
+explicit at the typed request boundary:
 
 1. Generate a checked-in OpenAPI subset for the Cloudflare API families Samebase currently owns, not
    only the exact endpoints called today. Do not generate the full Cloudflare schema into the app
@@ -32,10 +33,11 @@ transport:
 4. Expose one typed Cloudflare request helper that accepts literal OpenAPI path templates, typed
    `params.path` / `params.query`, and typed request bodies.
 5. The helper formats the typed path and query into a concrete Cloudflare API path, sends that path
-   through Cloudflare MCP's `execute` tool using `cloudflare.request()`, validates the provider
+   through the explicit transport selected by the Cloudflare auth method, validates the provider
    envelope and success payload, then returns the typed `result` value to feature code.
-6. `mcp_oauth` calls must not switch to direct `api.cloudflare.com` fetches. Seeded `api_key`
-   connections may use the same MCP transport for a single Cloudflare integration surface.
+6. `oauth` uses direct `api.cloudflare.com` fetches. `mcp_oauth` calls must not switch to direct
+   fetches. Seeded `api_key` connections may use the same MCP transport for a single Cloudflare
+   integration surface.
 7. Feature code should stop parsing Cloudflare provider records with `asRecord`, `readString`, and
    similar fallback readers for endpoints covered by the generated subset. Missing required provider
    fields should fail closed at the typed boundary.
@@ -61,7 +63,9 @@ that addition.
 - Cloudflare provisioning callsites pass literal OpenAPI path templates and typed params instead of
   interpolated API paths.
 - Covered Cloudflare responses are validated before feature code reads them.
-- `mcp_oauth` remains MCP-only transport.
+- The typed Cloudflare request helper requires an explicit transport; no callsite may rely on an
+  implicit MCP default.
+- `oauth` uses direct REST transport and `mcp_oauth` remains MCP-only transport.
 - Cloudflare schema drift can be checked by regenerating the family subset, generated types, and
   standalone validators, including new endpoints added inside selected families.
 - Existing Workers provisioning, status, logs, inventory, and deletion behavior stays unchanged

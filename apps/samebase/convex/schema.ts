@@ -197,8 +197,12 @@ export const vMcpRefreshTokenStatus = union(
 export const vOAuthAuth = object({
   method: literal("oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
+});
+export const vCloudflareOAuthAuth = object({
+  method: literal("oauth"),
+  credential: string(),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
 });
 export const vMcpOAuthAuth = object({
   method: literal("mcp_oauth"),
@@ -213,7 +217,7 @@ export const vApiKeyAuth = object({
 });
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
 export type StandardProviderAuth = Infer<typeof vStandardProviderAuth>;
-export const vCloudflareProviderAuth = union(vMcpOAuthAuth, vApiKeyAuth);
+export const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof vCloudflareProviderAuth>;
 export const vProviderAuth = union(vOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;
@@ -793,7 +797,12 @@ export default defineSchema({
    * OAuth state records for provider integrations.
    */
   oauthStates: defineTable({
-    provider: union(literal("github"), literal("convex"), literal("cloudflare_mcp")),
+    provider: union(
+      literal("github"),
+      literal("convex"),
+      literal("cloudflare"),
+      literal("cloudflare_mcp"),
+    ),
     userId: id("users"),
     state: string(),
     returnToPath: optional(string()),

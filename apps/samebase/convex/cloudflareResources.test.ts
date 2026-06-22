@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   buildCloudflareWorkerCreateBody,
   buildCloudflareWorkersEnvVars,
+  CloudflareApiError,
+  ensureCloudflareResources,
   isCloudflareMcpInvalidAccessTokenError,
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerTag,
@@ -13,6 +15,11 @@ import {
   normalizeCloudflareAccounts,
   selectSingleCloudflareDefaultAccount,
 } from "./cloudflareAccountDiscovery";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("cloudflare resources", () => {
   it("omits trace propagation policy when creating Workers with traces disabled", () => {
@@ -107,6 +114,18 @@ describe("cloudflare resources", () => {
         new Error(
           'Cloudflare MCP request failed (401): {"error":"invalid_token","error_description":"Invalid access token"}',
         ),
+      ),
+    ).toBe(true);
+  });
+
+  it("recognizes invalid direct Cloudflare API tokens", () => {
+    expect(
+      isCloudflareMcpInvalidAccessTokenError(
+        new CloudflareApiError({
+          method: "GET",
+          path: "/accounts",
+          details: [{ code: "10000", message: "Authentication error" }],
+        }),
       ),
     ).toBe(true);
   });
@@ -268,6 +287,123 @@ describe("cloudflare resources", () => {
         ],
       }),
     ).toBe(undefined);
+  });
+
+  it("uses direct transport when OAuth provisioning reuses a Workers build token", async () => {
+    const requestedUrls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = input instanceof Request ? input.url : String(input);
+        requestedUrls.push(url);
+        const endpoint = new URL(url).pathname;
+        let result: unknown;
+        switch (endpoint) {
+          case "/client/v4/accounts/account-id/workers/workers/samebase-app":
+            result = {
+              created_on: "2026-06-22T00:00:00Z",
+              id: "worker-tag",
+              logpush: false,
+              name: "samebase-app",
+              observability: {
+                enabled: false,
+                head_sampling_rate: 1,
+              },
+              references: {
+                dispatch_namespace_outbounds: [],
+                domains: [],
+                durable_objects: [],
+                queues: [],
+                workers: [],
+              },
+              subdomain: {
+                enabled: false,
+              },
+              tags: [],
+              tail_consumers: [],
+              updated_on: "2026-06-22T00:00:00Z",
+            };
+            break;
+          case "/client/v4/accounts/account-id/workers/scripts/samebase-app/subdomain":
+            result = { enabled: false };
+            break;
+          case "/client/v4/accounts/account-id/builds/repos/connections":
+            result = { repo_connection_uuid: "repo-connection" };
+            break;
+          case "/client/v4/accounts/account-id/builds/workers/worker-tag/triggers":
+            result = [];
+            break;
+          case "/client/v4/accounts/account-id/builds/tokens":
+            result = [
+              {
+                build_token_uuid: "reusable-build-token",
+                build_token_name: "samebase build token",
+                cloudflare_token_id: "opaque-oauth-token-id",
+              },
+            ];
+            break;
+          case "/client/v4/accounts/account-id/builds/triggers":
+            result = { trigger_uuid: "trigger-id" };
+            break;
+          case "/client/v4/accounts/account-id/builds/triggers/trigger-id/environment_variables":
+          case "/client/v4/accounts/account-id/builds/triggers/trigger-id/builds":
+            result = {};
+            break;
+        }
+        if (result === undefined) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              errors: [{ code: 1000, message: `Unexpected endpoint ${endpoint}` }],
+            }),
+            { status: 404 },
+          );
+        }
+        return new Response(JSON.stringify({ success: true, errors: [], messages: [], result }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await ensureCloudflareResources({
+      owner: "ada",
+      repo: "samebase-app",
+      ghRepoId: "123",
+      ghRepoOwnerId: "456",
+      defaultBranch: "main",
+      vaultId: "vault-id",
+      workerName: "samebase-app",
+      cloudflareToken: "oauth-token",
+      cloudflareAuthMethod: "oauth",
+      accountId: "account-id",
+      buildConfig: {
+        rootDir: ".",
+        buildCommand: "pnpm build",
+        deployCommand: "pnpm deploy",
+        previewDeployCommand: "pnpm deploy:preview",
+        pathIncludes: ["**/*"],
+        pathExcludes: [],
+      },
+      existingWorker: { state: "planned" },
+      convex: {
+        production: {
+          cloudUrl: "https://prod.convex.cloud",
+          deployKey: "prod-key",
+        },
+        preview: {
+          cloudUrl: "https://preview.convex.cloud",
+          deployKey: "preview-key",
+        },
+      },
+      onWorkerResolved: async () => {},
+    });
+
+    expect(
+      requestedUrls.some(
+        (url) => new URL(url).pathname === "/client/v4/accounts/account-id/builds/tokens",
+      ),
+    ).toBe(true);
   });
 
   it("chooses a stable current build token when Cloudflare has duplicates", () => {
