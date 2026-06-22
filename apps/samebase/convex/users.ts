@@ -388,7 +388,7 @@ async function readGithubOrganizationHealth(
           login,
           role: membership.role,
           canCreateRepository:
-            membership.permissions?.can_create_repository === true || membership.role === "admin",
+            membership.permissions?.can_create_repository ?? membership.role === "admin",
         });
       }
       if (response.data.length < 100) {

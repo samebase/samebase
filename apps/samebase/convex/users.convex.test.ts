@@ -281,7 +281,7 @@ describe("users Convex contract", () => {
               {
                 role: "admin",
                 permissions: {
-                  can_create_repository: true,
+                  can_create_repository: false,
                 },
                 organization: {
                   login: "samebase",
@@ -337,7 +337,7 @@ describe("users Convex contract", () => {
           {
             login: "samebase",
             role: "admin",
-            canCreateRepository: true,
+            canCreateRepository: false,
           },
         ],
         checks: [

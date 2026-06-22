@@ -199,8 +199,9 @@ describe("ProviderConnectionsPage", () => {
 
     expect(markup).toContain("Connected as octo-operator");
     expect(markup).toContain("delete_repo Missing");
-    expect(markup).toContain("samebase · Admin");
-    expect(markup).toContain("acme-product · Member");
+    expect(markup).toContain("samebase · Admin · Can create repos");
+    expect(markup).toContain("acme-product · Member · No repo creation");
+    expect(markup.indexOf("acme-product")).toBeLessThan(markup.indexOf("samebase"));
     expect(markup).toContain("Repository listing: Needs attention");
     expect(markup).toContain(
       "GitHub could not list repositories for this credential. Reauthorize GitHub and approve organization access if prompted.",

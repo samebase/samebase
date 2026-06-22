@@ -1,6 +1,6 @@
 import {
-  ProviderConnectionsPage,
-  type ProviderConnectionsPageMockConnectionState,
+  ProviderConnectionsPageView,
+  type ProviderConnectionsPageConnectionState,
 } from "@/components/ProviderConnectionsPage";
 
 export type ProviderConnectionsPageVisualMode = "providers-page-connected";
@@ -55,14 +55,14 @@ const providerConnectionsVisualFixtureState = {
     manageUrl: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_GITHUB_MANAGE_URL,
     organizations: [
       {
-        canCreateRepository: true,
-        login: "samebase",
-        role: "admin",
-      },
-      {
         canCreateRepository: false,
         login: "acme-product",
         role: "member",
+      },
+      {
+        canCreateRepository: true,
+        login: "samebase",
+        role: "admin",
       },
     ],
     reauthorizeAvailable: true,
@@ -134,8 +134,45 @@ const providerConnectionsVisualFixtureState = {
     username: "octo-operator",
   },
   now: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW,
-} satisfies ProviderConnectionsPageMockConnectionState;
+} satisfies ProviderConnectionsPageConnectionState;
+
+function ignoreProviderConnectionsFixtureAction() {}
 
 export function ProviderConnectionsPageVisualFixture() {
-  return <ProviderConnectionsPage mockConnectionState={providerConnectionsVisualFixtureState} />;
+  return (
+    <ProviderConnectionsPageView
+      apiKeyDialog={null}
+      cloudflareAccountDialog={{
+        error: null,
+        isLoadingAccounts: false,
+        isOpen: false,
+        isSubmitting: false,
+        options: [],
+        selectedAccountId: "",
+      }}
+      cloudflareConnection={providerConnectionsVisualFixtureState.cloudflareConnection}
+      cloudflarePollingPaused={false}
+      convexConnection={providerConnectionsVisualFixtureState.convexConnection}
+      disconnectingProvider={null}
+      githubDisconnectedNotice={null}
+      githubHealth={providerConnectionsVisualFixtureState.githubHealth}
+      githubHealthError={null}
+      githubProviderSummary={providerConnectionsVisualFixtureState.githubProviderSummary}
+      isAutoCheckingCloudflareToken={false}
+      isCheckingCloudflareToken={false}
+      isCheckingGithubAccess={false}
+      isReauthorizingGithub={false}
+      now={providerConnectionsVisualFixtureState.now}
+      onCheckCloudflareToken={ignoreProviderConnectionsFixtureAction}
+      onCheckGithubAccess={ignoreProviderConnectionsFixtureAction}
+      onCloudflareAccountChange={ignoreProviderConnectionsFixtureAction}
+      onCloudflareAccountOpenChange={ignoreProviderConnectionsFixtureAction}
+      onCloudflareAccountSubmit={ignoreProviderConnectionsFixtureAction}
+      onConnect={ignoreProviderConnectionsFixtureAction}
+      onDisconnect={ignoreProviderConnectionsFixtureAction}
+      onOpenApiKeyDialog={ignoreProviderConnectionsFixtureAction}
+      onOpenCloudflareAccountDialog={ignoreProviderConnectionsFixtureAction}
+      onReauthorizeGithub={ignoreProviderConnectionsFixtureAction}
+    />
+  );
 }

@@ -80,17 +80,14 @@ type CloudflareAccountDialogState = {
   options: CloudflareAccountOption[];
   selectedAccountId: string;
 };
-export type ProviderConnectionsPageMockConnectionState = {
+export type ProviderConnectionsPageConnectionState = {
   cloudflareConnection: AppCloudflareConnection | undefined;
   convexConnection: AppConvexConnection | undefined;
   githubHealth: AppGithubConnectionHealth | null;
   githubProviderSummary: AppGithubProviderSummary | undefined;
   now: number;
 };
-type ProviderConnectionsPageProps = {
-  mockConnectionState?: ProviderConnectionsPageMockConnectionState;
-};
-type ProviderConnectionsPageViewProps = ProviderConnectionsPageMockConnectionState & {
+type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
   apiKeyDialog: ReactNode;
   cloudflareAccountDialog: CloudflareAccountDialogState;
   cloudflarePollingPaused: boolean;
@@ -173,7 +170,12 @@ function formatGithubCheckStatus(status: "ok" | "error" | "unknown") {
 function formatGithubOrganizationRole(role: string) {
   if (role === "admin") return "Admin";
   if (role === "member") return "Member";
+  if (role === "billing_manager") return "Billing manager";
   return role;
+}
+
+function formatGithubOrganizationRepositoryAccess(canCreateRepository: boolean) {
+  return canCreateRepository ? "Can create repos" : "No repo creation";
 }
 
 function githubScopeStatusClassName(status: "granted" | "missing" | "unknown") {
@@ -288,13 +290,9 @@ function GitHubConnectionDetails({
                   <span
                     key={organization.login}
                     className="rounded-sm border border-border bg-background px-2 py-0.5 text-foreground"
-                    title={
-                      organization.canCreateRepository
-                        ? "Can create repositories"
-                        : "Repository creation unavailable"
-                    }
                   >
-                    {organization.login} · {formatGithubOrganizationRole(organization.role)}
+                    {organization.login} · {formatGithubOrganizationRole(organization.role)} ·{" "}
+                    {formatGithubOrganizationRepositoryAccess(organization.canCreateRepository)}
                   </span>
                 ))}
               </div>
@@ -423,7 +421,7 @@ function ProviderConnectionRows({
   );
 }
 
-function ProviderConnectionsPageView({
+export function ProviderConnectionsPageView({
   apiKeyDialog,
   cloudflareAccountDialog,
   cloudflareConnection,
@@ -1258,57 +1256,6 @@ function ProviderConnectionsPageLive() {
   );
 }
 
-function ignoreProviderConnectionsFixtureAction() {}
-
-function ProviderConnectionsPageMock({
-  mockConnectionState,
-}: {
-  mockConnectionState: ProviderConnectionsPageMockConnectionState;
-}) {
-  return (
-    <ProviderConnectionsPageView
-      apiKeyDialog={null}
-      cloudflareAccountDialog={{
-        error: null,
-        isLoadingAccounts: false,
-        isOpen: false,
-        isSubmitting: false,
-        options: [],
-        selectedAccountId: "",
-      }}
-      cloudflareConnection={mockConnectionState.cloudflareConnection}
-      cloudflarePollingPaused={false}
-      convexConnection={mockConnectionState.convexConnection}
-      disconnectingProvider={null}
-      githubDisconnectedNotice={null}
-      githubHealth={mockConnectionState.githubHealth}
-      githubHealthError={null}
-      githubProviderSummary={mockConnectionState.githubProviderSummary}
-      isAutoCheckingCloudflareToken={false}
-      isCheckingCloudflareToken={false}
-      isCheckingGithubAccess={false}
-      isReauthorizingGithub={false}
-      now={mockConnectionState.now}
-      onCheckCloudflareToken={ignoreProviderConnectionsFixtureAction}
-      onCheckGithubAccess={ignoreProviderConnectionsFixtureAction}
-      onCloudflareAccountChange={ignoreProviderConnectionsFixtureAction}
-      onCloudflareAccountOpenChange={ignoreProviderConnectionsFixtureAction}
-      onCloudflareAccountSubmit={ignoreProviderConnectionsFixtureAction}
-      onConnect={ignoreProviderConnectionsFixtureAction}
-      onDisconnect={ignoreProviderConnectionsFixtureAction}
-      onOpenApiKeyDialog={ignoreProviderConnectionsFixtureAction}
-      onOpenCloudflareAccountDialog={ignoreProviderConnectionsFixtureAction}
-      onReauthorizeGithub={ignoreProviderConnectionsFixtureAction}
-    />
-  );
-}
-
-export function ProviderConnectionsPage({
-  mockConnectionState,
-}: ProviderConnectionsPageProps = {}) {
-  if (mockConnectionState) {
-    return <ProviderConnectionsPageMock mockConnectionState={mockConnectionState} />;
-  }
-
+export function ProviderConnectionsPage() {
   return <ProviderConnectionsPageLive />;
 }
