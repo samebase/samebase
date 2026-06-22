@@ -141,6 +141,12 @@ describe("rootRouteSearch", () => {
     });
   });
 
+  it("parses the Convex Auth callback code as hidden root search", () => {
+    expect(readRootRouteSearch("?code= oauth-code ")).toEqual({
+      code: "oauth-code",
+    });
+  });
+
   it("parses the global swipe debug flag", () => {
     expect(readRootRouteSearch("?swipe-debug")).toEqual({
       "swipe-debug": true,
