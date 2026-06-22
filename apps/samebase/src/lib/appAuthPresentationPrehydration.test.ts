@@ -7,7 +7,10 @@ import {
   clearAppAuthPresentationPrehydration,
   type AppAuthPresentationPrehydrationArgs,
 } from "@/lib/appAuthPresentationPrehydration";
-import { AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
+import {
+  AUTH_PROVIDER_STORAGE_KEY,
+  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
+} from "@/lib/authStorageKeys";
 import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
@@ -21,6 +24,7 @@ const TEST_ARGS = {
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
+  passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "samebase-app-auth-presentation-prehydration",
 } satisfies AppAuthPresentationPrehydrationArgs;
@@ -171,6 +175,42 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "nicu@samebase.com";');
     expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
     expect(styleText).toContain('content: "Signed in with Password";');
+  });
+
+  it("falls back to the remembered password auth mode when the provider marker is absent", () => {
+    window.localStorage.setItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY, "preview_seed");
+    writeLocalAuthSession(
+      createJwt({
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
+    expect(styleText).toContain('content: "Signed in with Password";');
+  });
+
+  it("does not invent a password provider label without password auth evidence", () => {
+    window.localStorage.setItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY, "off");
+    writeLocalAuthSession(
+      createJwt({
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
+    expect(styleText).not.toContain('content: "Signed in with Password";');
   });
 
   it("escapes hostile JWT profile labels inside CSS content", () => {

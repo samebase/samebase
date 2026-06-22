@@ -1,5 +1,8 @@
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
-import { AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
+import {
+  AUTH_PROVIDER_STORAGE_KEY,
+  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
+} from "@/lib/authStorageKeys";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 
@@ -13,6 +16,7 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
+  passwordAuthModeStorageKey: string;
   rootAttribute: string;
   styleElementId: string;
 };
@@ -23,6 +27,7 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
+  passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
@@ -69,11 +74,14 @@ function InlineScript_prehydrateAppAuthPresentation(
 
   function readAuthProviderLabel() {
     const provider = window.localStorage.getItem(args.authProviderStorageKey)?.trim();
-    if (!provider || provider.length > 64) {
-      return null;
+    if (provider && provider.length <= 64) {
+      return formatAuthProviderLabel(provider);
     }
 
-    return formatAuthProviderLabel(provider);
+    const passwordAuthMode = window.localStorage.getItem(args.passwordAuthModeStorageKey);
+    return passwordAuthMode === "local_worktree_seed" || passwordAuthMode === "preview_seed"
+      ? "Password"
+      : null;
   }
 
   function installPrehydrationStyle(presentation: {
