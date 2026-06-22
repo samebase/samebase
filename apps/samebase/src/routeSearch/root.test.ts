@@ -315,6 +315,18 @@ describe("rootRouteSearch", () => {
     ).toBe("/home");
   });
 
+  it("preserves the Convex Auth callback code for the auth provider", () => {
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: [],
+        pathname: "/home",
+        searchStr: "?code=oauth-code&unknownKey=1",
+        hash: "",
+        stripProdUi: false,
+      }),
+    ).toBe("/home?code=oauth-code");
+  });
+
   it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({

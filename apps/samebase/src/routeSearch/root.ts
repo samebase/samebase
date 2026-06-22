@@ -297,6 +297,11 @@ export function readCanonicalRouteAddressForRootSearch(args: {
   const keptRawSearch: Record<string, unknown> = {};
   let hasDroppedSearchKey = false;
   for (const [key, value] of Object.entries(rawSearch)) {
+    if (key === "code") {
+      keptRawSearch[key] = value;
+      continue;
+    }
+
     if (isRootRouteOwnedSearchKey(key)) {
       // The validated root search is the canonical form of root-owned keys,
       // matching the route URL editor's readCanonicalRouteAddress.
