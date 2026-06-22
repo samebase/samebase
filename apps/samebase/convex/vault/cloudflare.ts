@@ -8,6 +8,7 @@ import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
 import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
+import type { CloudflareApiTransport } from "../cloudflareApi/client";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
@@ -37,6 +38,12 @@ type CloudflareActionConnection = {
         credential: string;
       }
     | {
+        method: "oauth";
+        credential: string;
+        refreshCredential?: string;
+        credentialExpiresAt?: number;
+      }
+    | {
         method: "mcp_oauth";
         credential: string;
         refreshCredential: string;
@@ -44,6 +51,7 @@ type CloudflareActionConnection = {
         clientId: string;
       };
   token: string;
+  transport: CloudflareApiTransport;
   tokenHealth?: McpTokenHealth;
 };
 
@@ -51,7 +59,7 @@ async function resolveCloudflareConnection(
   ctx: ActionCtx,
   userId: Id<"users">,
 ): Promise<CloudflareActionConnection> {
-  const connection = await ctx.runAction(internal.cloudflareMcpOAuth.resolveConnectionForUser, {
+  const connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForUser, {
     userId,
   });
   const token = connection?.auth.credential.trim();
@@ -62,19 +70,27 @@ async function resolveCloudflareConnection(
   return {
     auth: connection.auth,
     token,
+    transport: connection.auth.method === "oauth" ? "direct" : "mcp",
     tokenHealth: connection.tokenHealth,
   };
 }
 
-async function listAccountsForConnection(token: string): Promise<CloudflareAccountResult[]> {
+async function listAccountsForConnection(args: {
+  token: string;
+  transport: CloudflareApiTransport;
+}): Promise<CloudflareAccountResult[]> {
   return await listCloudflareAccountsForToken({
-    token,
+    token: args.token,
+    transport: args.transport,
     perPage: 100,
   });
 }
 
-async function resolveAccount(ctx: ActionCtx, args: { token: string; accountId: string }) {
-  const accounts = await listAccountsForConnection(args.token);
+async function resolveAccount(
+  ctx: ActionCtx,
+  args: { token: string; transport: CloudflareApiTransport; accountId: string },
+) {
+  const accounts = await listAccountsForConnection(args);
   const account = accounts.find((candidate) => candidate.accountId === args.accountId);
   if (!account) {
     throw new Error("Cloudflare account is not available for this connection.");
@@ -103,9 +119,15 @@ async function rememberDefaultAccount(
   });
 }
 
-async function resolveListedWorker(args: { token: string; accountId: string; workerName: string }) {
+async function resolveListedWorker(args: {
+  token: string;
+  transport: CloudflareApiTransport;
+  accountId: string;
+  workerName: string;
+}) {
   const workers = await listCloudflareWorkers({
     token: args.token,
+    transport: args.transport,
     accountId: args.accountId,
     limit: 100,
   });
@@ -118,6 +140,7 @@ async function resolveListedWorker(args: { token: string; accountId: string; wor
     workerTag: worker.workerTag,
     workersDevUrl: await readOptionalWorkersDevUrl({
       token: args.token,
+      transport: args.transport,
       accountId: args.accountId,
       workerName: worker.workerName,
     }),
@@ -188,7 +211,10 @@ export const listAccounts = action({
   handler: async (ctx): Promise<CloudflareAccountResult[]> => {
     const userId = ctx.viewer.userId;
     const connection = await resolveCloudflareConnection(ctx, userId);
-    return await listAccountsForConnection(connection.token);
+    return await listAccountsForConnection({
+      token: connection.token,
+      transport: connection.transport,
+    });
   },
 });
 
@@ -203,6 +229,7 @@ export const selectDefaultAccount = action({
     const connection = await resolveCloudflareConnection(ctx, userId);
     const account = await resolveAccount(ctx, {
       token: connection.token,
+      transport: connection.transport,
       accountId: args.accountId,
     });
     await rememberDefaultAccount(ctx, {
@@ -227,10 +254,12 @@ export const listWorkers = action({
     const connection = await resolveCloudflareConnection(ctx, userId);
     const account = await resolveAccount(ctx, {
       token: connection.token,
+      transport: connection.transport,
       accountId: args.accountId,
     });
     return await listCloudflareWorkers({
       token: connection.token,
+      transport: connection.transport,
       accountId: account.accountId,
       limit: 100,
     });
@@ -345,6 +374,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
     const connection = await resolveCloudflareConnection(ctx, args.userId);
     const account = await resolveAccount(ctx, {
       token: connection.token,
+      transport: connection.transport,
       accountId: args.accountId,
     });
 
@@ -352,6 +382,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
       case "selected_existing": {
         const worker = await resolveListedWorker({
           token: connection.token,
+          transport: connection.transport,
           accountId: account.accountId,
           workerName: args.workerName,
         });
@@ -393,6 +424,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
         try {
           worker = await createCloudflareWorker({
             token: connection.token,
+            transport: connection.transport,
             accountId: account.accountId,
             workerName: validation.value,
           });
@@ -439,6 +471,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
           if (shouldDelete) {
             await deleteCloudflareResources({
               cloudflareToken: connection.token,
+              transport: connection.transport,
               accountId: account.accountId,
               workerName: worker.workerName,
               workerTag: worker.workerTag,

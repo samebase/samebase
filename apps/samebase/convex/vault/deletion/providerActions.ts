@@ -175,6 +175,7 @@ export const deleteCloudflare = internalAction({
     if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
+    const cloudflareTransport = cloudflareConnection.auth.method === "oauth" ? "direct" : "mcp";
 
     const workers =
       plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
@@ -188,6 +189,7 @@ export const deleteCloudflare = internalAction({
           workerName: worker.workerName,
           workerTag: worker.workerTag,
           cloudflareToken: cloudflareConnection.auth.credential,
+          transport: cloudflareTransport,
         });
       } catch (error) {
         if (!isCloudflareWorkerNotFoundError(error)) {

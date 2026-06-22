@@ -39,7 +39,7 @@ const vProviderAuth = union(vOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;
 
 const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
-const vCloudflareProviderAuth = union(vMcpOauthAuth, vApiKeyAuth);
+const vCloudflareProviderAuth = union(vOAuthAuth, vMcpOauthAuth, vApiKeyAuth);
 
 const vGithubConnectionUpsert = object({
   userId: id("users"),
@@ -323,7 +323,10 @@ export const claimCloudflareTokenRefresh = internalMutation({
   handler: async (ctx, args) => {
     const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
 
-    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
+    if (
+      connection?.kind !== "cloudflare" ||
+      (connection.auth.method !== "oauth" && connection.auth.method !== "mcp_oauth")
+    ) {
       return { claimed: false };
     }
 
@@ -373,7 +376,10 @@ export const releaseCloudflareTokenRefresh = internalMutation({
   }),
   handler: async (ctx, args) => {
     const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
-    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
+    if (
+      connection?.kind !== "cloudflare" ||
+      (connection.auth.method !== "oauth" && connection.auth.method !== "mcp_oauth")
+    ) {
       return {};
     }
 

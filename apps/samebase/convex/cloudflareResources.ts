@@ -1,6 +1,10 @@
 import { notEmpty } from "@samebase/dependent/main";
 
-import { requestCloudflareApi, CloudflareApiError } from "./cloudflareApi/client";
+import {
+  requestCloudflareApi,
+  CloudflareApiError,
+  type CloudflareApiTransport,
+} from "./cloudflareApi/client";
 import type { components, Readable, Writable } from "./cloudflareApi/types.generated";
 import { clamp, toErrorMessage } from "./jsonUtils";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
@@ -43,6 +47,7 @@ type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTok
 type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
 type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
 type CloudflareApiCallOptions = {
+  transport?: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
 };
 
@@ -183,6 +188,7 @@ async function readAccountSubdomain(
     token: args.token,
     method: "GET",
     path: "/accounts/{account_id}/workers/subdomain",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -212,6 +218,7 @@ async function readWorkerSubdomainEnabled(
     token: args.token,
     method: "GET",
     path: "/accounts/{account_id}/workers/scripts/{script_name}/subdomain",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -235,6 +242,7 @@ async function readWorker(
       token: args.token,
       method: "GET",
       path: "/accounts/{account_id}/workers/workers/{worker_id}",
+      transport: args.transport,
       params: {
         path: {
           account_id: args.accountId,
@@ -277,6 +285,7 @@ export async function isCloudflareWorkerNameAvailable(args: {
   token: string;
   accountId: string;
   workerName: string;
+  transport?: CloudflareApiTransport;
 }): Promise<boolean> {
   const worker = await readWorker(args);
   return !worker;
@@ -302,9 +311,11 @@ export async function listCloudflareWorkers(args: {
   token: string;
   accountId: string;
   limit: number;
+  transport?: CloudflareApiTransport;
 }): Promise<CloudflareWorkerInventoryItem[]> {
   const workers = await requestCloudflareApi({
     token: args.token,
+    transport: args.transport,
     method: "GET",
     path: "/accounts/{account_id}/workers/scripts",
     params: {
@@ -334,11 +345,13 @@ export async function createCloudflareWorker(args: {
   token: string;
   accountId: string;
   workerName: string;
+  transport?: CloudflareApiTransport;
 }): Promise<CloudflareWorkerIdentity> {
   return await ensureWorker({
     token: args.token,
     accountId: args.accountId,
     workerName: args.workerName,
+    transport: args.transport,
     existingWorker: {
       state: "created",
       workerTag: "",
@@ -358,6 +371,7 @@ async function ensureWorker(
     token: args.token,
     accountId: args.accountId,
     workerName: args.workerName,
+    transport: args.transport,
     recordApiCall: args.recordApiCall,
   });
   if (existing) {
@@ -379,6 +393,7 @@ async function ensureWorker(
 
   const createdRaw = await requestCloudflareApi({
     token: args.token,
+    transport: args.transport,
     method: "POST",
     path: "/accounts/{account_id}/workers/workers",
     params: {
@@ -415,6 +430,7 @@ async function ensureRepositoryConnection(
     token: args.token,
     method: "PUT",
     path: "/accounts/{account_id}/builds/repos/connections",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -443,9 +459,9 @@ async function resolveBuildTokenUuid(
     authMethod: CloudflareAuthMethod;
   } & CloudflareApiCallOptions,
 ): Promise<string> {
-  if (args.authMethod === "mcp_oauth") {
-    // Cloudflare MCP OAuth tokens can manage Builds resources, but they are not
-    // API tokens, so /user/tokens/verify rejects them. Reuse an existing build
+  if (args.authMethod !== "api_key") {
+    // Cloudflare OAuth tokens can manage Builds resources, but they are not API
+    // tokens, so /user/tokens/verify rejects them. Reuse an existing build
     // token instead of trying to prove the OAuth token's token id.
     return await resolveOAuthBuildTokenUuid({
       token: args.token,
@@ -511,6 +527,7 @@ async function findCurrentBuildTokenUuid(
       token: args.token,
       method: "GET",
       path: "/accounts/{account_id}/builds/tokens",
+      transport: args.transport,
       params: {
         path: {
           account_id: args.accountId,
@@ -550,6 +567,7 @@ async function findReusableBuildTokenUuid(
       token: args.token,
       method: "GET",
       path: "/accounts/{account_id}/builds/tokens",
+      transport: args.transport,
       params: {
         path: {
           account_id: args.accountId,
@@ -693,6 +711,7 @@ async function resolveCurrentCloudflareTokenId(
     token: args.token,
     method: "GET",
     path: "/user/tokens/verify",
+    transport: args.transport,
     recordApiCall: args.recordApiCall,
   });
   return requireCloudflareString(
@@ -712,6 +731,7 @@ async function createBuildToken(
     token: args.token,
     method: "POST",
     path: "/accounts/{account_id}/builds/tokens",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -761,6 +781,7 @@ async function listBuildTriggers(
     token: args.token,
     method: "GET",
     path: "/accounts/{account_id}/builds/workers/{external_script_id}/triggers",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -817,6 +838,7 @@ async function upsertBuildTrigger(
       token: args.token,
       method: "PATCH",
       path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
+      transport: args.transport,
       params: {
         path: {
           account_id: args.accountId,
@@ -836,6 +858,7 @@ async function upsertBuildTrigger(
     token: args.token,
     method: "POST",
     path: "/accounts/{account_id}/builds/triggers",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -863,6 +886,7 @@ async function setTriggerEnvironmentVariables(
     token: args.token,
     method: "PATCH",
     path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -886,6 +910,7 @@ async function triggerInitialBuild(
     token: args.token,
     method: "POST",
     path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
+    transport: args.transport,
     params: {
       path: {
         account_id: args.accountId,
@@ -940,7 +965,11 @@ type EnsureCloudflareResourcesArgs = {
   onWorkerResolved: (worker: CloudflareWorkerIdentity) => Promise<void>;
 };
 
-type CloudflareAuthMethod = "api_key" | "mcp_oauth";
+type CloudflareAuthMethod = "api_key" | "oauth" | "mcp_oauth";
+
+function resolveCloudflareApiTransport(authMethod: CloudflareAuthMethod): CloudflareApiTransport {
+  return authMethod === "oauth" ? "direct" : "mcp";
+}
 
 export async function ensureCloudflareResources(
   args: EnsureCloudflareResourcesArgs,
@@ -955,6 +984,7 @@ export async function ensureCloudflareResources(
     defaultBranch: args.defaultBranch,
   });
 
+  const transport = resolveCloudflareApiTransport(args.cloudflareAuthMethod);
   let step = "resolve_worker";
   try {
     const worker = await ensureWorker({
@@ -962,6 +992,7 @@ export async function ensureCloudflareResources(
       accountId: args.accountId,
       workerName: args.workerName,
       existingWorker: args.existingWorker,
+      transport,
       recordApiCall: args.recordApiCall,
     });
     workerName = worker.workerName;
@@ -977,6 +1008,7 @@ export async function ensureCloudflareResources(
       ghRepoOwnerId: args.ghRepoOwnerId,
       owner: args.owner,
       repo: args.repo,
+      transport,
       recordApiCall: args.recordApiCall,
     });
 
@@ -985,6 +1017,7 @@ export async function ensureCloudflareResources(
       token: args.cloudflareToken,
       accountId: args.accountId,
       workerTag: worker.workerTag,
+      transport,
       recordApiCall: args.recordApiCall,
     });
 
@@ -994,6 +1027,7 @@ export async function ensureCloudflareResources(
       accountId: args.accountId,
       existingTriggers,
       authMethod: args.cloudflareAuthMethod,
+      transport,
       recordApiCall: args.recordApiCall,
     });
 
@@ -1008,6 +1042,7 @@ export async function ensureCloudflareResources(
       defaultBranch: args.defaultBranch,
       existingTriggers,
       kind: "production",
+      transport,
       recordApiCall: args.recordApiCall,
     });
     const previewTriggerUuid = await upsertBuildTrigger({
@@ -1020,6 +1055,7 @@ export async function ensureCloudflareResources(
       defaultBranch: args.defaultBranch,
       existingTriggers,
       kind: "preview",
+      transport,
       recordApiCall: args.recordApiCall,
     });
 
@@ -1034,6 +1070,7 @@ export async function ensureCloudflareResources(
           convexDeployKey: args.convex.production.deployKey,
           convexUrl: args.convex.production.cloudUrl,
         }),
+        transport,
         recordApiCall: args.recordApiCall,
       }),
       setTriggerEnvironmentVariables({
@@ -1045,6 +1082,7 @@ export async function ensureCloudflareResources(
           convexDeployKey: args.convex.preview.deployKey,
           convexUrl: args.convex.preview.cloudUrl,
         }),
+        transport,
         recordApiCall: args.recordApiCall,
       }),
     ]);
@@ -1055,6 +1093,7 @@ export async function ensureCloudflareResources(
       accountId: args.accountId,
       triggerUuid: productionTriggerUuid,
       branch: args.defaultBranch,
+      transport,
       recordApiCall: args.recordApiCall,
     });
 
@@ -1119,6 +1158,7 @@ export type CloudflareLogsReadResult = {
 
 type ReadCloudflareWorkerStatusArgs = {
   cloudflareToken: string;
+  transport?: CloudflareApiTransport;
   accountId: string;
   workerName: string;
   workerTag?: string;
@@ -1130,6 +1170,7 @@ export async function readCloudflareWorkerStatus(
   const workerEndpoint = `/accounts/${encodeURIComponent(args.accountId)}/workers/workers/${encodeURIComponent(args.workerName)}`;
   const worker = await requestCloudflareApi({
     token: args.cloudflareToken,
+    transport: args.transport,
     method: "GET",
     path: "/accounts/{account_id}/workers/workers/{worker_id}",
     params: {
@@ -1148,6 +1189,7 @@ export async function readCloudflareWorkerStatus(
     token: args.cloudflareToken,
     accountId: args.accountId,
     workerTag,
+    transport: args.transport,
   });
 
   return {
@@ -1160,6 +1202,7 @@ export async function readCloudflareWorkerStatus(
 
 type ReadCloudflareLogsArgs = {
   cloudflareToken: string;
+  transport?: CloudflareApiTransport;
   accountId: string;
   workerName: string;
   workerTag: string;
@@ -1173,6 +1216,7 @@ export async function readCloudflareBuildLogs(
   const buildsEndpoint = `/accounts/${encodeURIComponent(args.accountId)}/builds/workers/${encodeURIComponent(args.workerTag)}/builds`;
   const buildsPayload = await requestCloudflareApi({
     token: args.cloudflareToken,
+    transport: args.transport,
     method: "GET",
     path: "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
     params: {
@@ -1205,6 +1249,7 @@ export async function readCloudflareBuildLogs(
       const logsEndpoint = `/accounts/${encodeURIComponent(args.accountId)}/builds/builds/${encodeURIComponent(buildUuid)}/logs`;
       const logsPayload = await requestCloudflareApi({
         token: args.cloudflareToken,
+        transport: args.transport,
         method: "GET",
         path: "/accounts/{account_id}/builds/builds/{build_uuid}/logs",
         params: {
@@ -1238,16 +1283,19 @@ type DeleteCloudflareResourcesArgs = {
   workerName: string;
   workerTag: string;
   cloudflareToken: string;
+  transport?: CloudflareApiTransport;
 };
 
 async function deleteCloudflareBuildTrigger(args: {
   accountId: string;
   triggerUuid: string;
   cloudflareToken: string;
+  transport?: CloudflareApiTransport;
 }): Promise<void> {
   try {
     await requestCloudflareApi({
       token: args.cloudflareToken,
+      transport: args.transport,
       method: "DELETE",
       path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
       params: {
@@ -1271,6 +1319,7 @@ export async function deleteCloudflareResources(
     token: args.cloudflareToken,
     accountId: args.accountId,
     workerTag: args.workerTag,
+    transport: args.transport,
   }).catch((error: unknown) => {
     if (isCloudflareWorkerNotFoundError(error)) {
       return [];
@@ -1287,11 +1336,13 @@ export async function deleteCloudflareResources(
         accountId: args.accountId,
         triggerUuid,
         cloudflareToken: args.cloudflareToken,
+        transport: args.transport,
       });
     }),
   );
   await requestCloudflareApi({
     token: args.cloudflareToken,
+    transport: args.transport,
     method: "DELETE",
     path: "/accounts/{account_id}/workers/workers/{worker_id}",
     params: {

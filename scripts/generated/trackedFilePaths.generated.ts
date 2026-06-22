@@ -161,6 +161,8 @@ export const trackedFilePaths = [
   "apps/samebase/convex/cloudflareMcp.ts",
   "apps/samebase/convex/cloudflareMcpOAuth.test.ts",
   "apps/samebase/convex/cloudflareMcpOAuth.ts",
+  "apps/samebase/convex/cloudflareOAuth.test.ts",
+  "apps/samebase/convex/cloudflareOAuth.ts",
   "apps/samebase/convex/cloudflarePreviewComment.test.ts",
   "apps/samebase/convex/cloudflarePreviewComment.ts",
   "apps/samebase/convex/cloudflareResources.test.ts",

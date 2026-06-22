@@ -213,7 +213,7 @@ export const vApiKeyAuth = object({
 });
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
 export type StandardProviderAuth = Infer<typeof vStandardProviderAuth>;
-export const vCloudflareProviderAuth = union(vMcpOAuthAuth, vApiKeyAuth);
+export const vCloudflareProviderAuth = union(vOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof vCloudflareProviderAuth>;
 export const vProviderAuth = union(vOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;
@@ -793,7 +793,12 @@ export default defineSchema({
    * OAuth state records for provider integrations.
    */
   oauthStates: defineTable({
-    provider: union(literal("github"), literal("convex"), literal("cloudflare_mcp")),
+    provider: union(
+      literal("github"),
+      literal("convex"),
+      literal("cloudflare"),
+      literal("cloudflare_mcp"),
+    ),
     userId: id("users"),
     state: string(),
     returnToPath: optional(string()),
