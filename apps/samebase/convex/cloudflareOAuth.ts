@@ -51,6 +51,9 @@ export const CLOUDFLARE_OAUTH_SCOPES = [
   "workers-scripts.read",
   "workers-scripts.write",
   "account-settings.read",
+  // Cloudflare does not list protocol scopes from GET /oauth/scopes, but live
+  // token exchange omits refresh_token unless offline_access is requested.
+  "offline_access",
 ] as const;
 
 const nonEmptyString = z.string().min(1);

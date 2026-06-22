@@ -22,6 +22,10 @@ describe("buildCloudflareOAuthAuthorizeSearchParams", () => {
       state: "state-token",
     });
   });
+
+  it("requests offline access so Cloudflare returns a refresh token", () => {
+    expect(CLOUDFLARE_OAUTH_SCOPES).toContain("offline_access");
+  });
 });
 
 describe("buildCloudflareOAuthAuthorizeUrl", () => {
