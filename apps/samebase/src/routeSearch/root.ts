@@ -57,6 +57,12 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     suggestion: "route",
     valueType: "manual",
   }),
+  code: routeSearchValueParam(routeSearchNonEmptyString, {
+    access: "access_public",
+    sampleValue: "oauth-code",
+    suggestion: "hidden",
+    valueType: "freeform",
+  }),
   "create-account": routeSearchPresenceParam({
     access: "access_public",
     suggestion: "route",
@@ -121,6 +127,7 @@ const rootRouteSearchParamMetadata = {
   "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
+  code: rootRouteSearchOwnParamMetadata.code,
   "create-account": rootRouteSearchOwnParamMetadata["create-account"],
   [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM],

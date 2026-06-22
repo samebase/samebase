@@ -1,17 +1,9 @@
+import { bytesToBase64 } from "../shared/base64";
+
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
 function base64UrlEncode(bytes: Uint8Array): string {
-  let base64: string;
-  if (typeof btoa === "function") {
-    let binary = "";
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    base64 = btoa(binary);
-  } else {
-    base64 = Buffer.from(bytes).toString("base64");
-  }
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 export function randomToken(size = 32): string {

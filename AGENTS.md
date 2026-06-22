@@ -404,7 +404,8 @@ UI code:
   behavior, reproduce and test the real app route first. Do not create fake visual fixtures just to
   show or approve a behavior screenshot; a fixture must mount the exact production component tree
   without invented chrome, and a failing route-level or honest production-component repro comes
-  before narrower fixture coverage (`docs/agent-workflows.md`, Route-First UI Regression Policy).
+  before narrower fixture coverage. Fixture ownership must match the changed product surface
+  (`docs/agent-workflows.md`, Route-First UI Regression Policy).
 - Use rectangular app chrome by default.
 - Disable async destructive triggers while pending and show an in-button pending state.
 - Persist user-visible UI state in Convex by default unless per-device behavior is explicitly

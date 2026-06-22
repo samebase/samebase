@@ -116,6 +116,12 @@ needs a browser. Prefer this order:
    coverage.
 4. Full `pnpm test:visual:linux` before calling a Playwright fix complete.
 
+Fixture ownership must match the product surface being changed. A dashboard, sidebar, or shell
+fixture may only cover that dashboard, sidebar, or shell behavior. It is not valid screenshot
+coverage for an independent route that happens to reuse one component. For page-owned UI, use the
+real page route or a page-level production mount; do not add page-specific copy, state, or actions
+to an unrelated shared fixture.
+
 Every spec should survive the wrapper's default full-parallel run. If a test file intentionally
 drives shared browser history, focus, or route-shell state in a way that cannot be parallelized,
 mark that file serial with `test.describe.configure({ mode: "serial" })` and leave a comment naming

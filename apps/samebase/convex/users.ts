@@ -3,10 +3,12 @@ import { internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
+import { Octokit } from "@octokit/rest";
+import { RequestError } from "@octokit/request-error";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { action, mutation, query } from "./functions";
-import { isRecord, readString } from "./jsonUtils";
+import { readOptionalEnv } from "./oauthUtils";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import {
@@ -15,6 +17,7 @@ import {
   type McpTokenHealth,
 } from "./mcpTokenHealth";
 import type { CloudflareDefaultAccount } from "./schema";
+import { buildGitHubOAuthManageUrl, getGitHubOAuthScopeRequirements } from "../shared/githubOAuth";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
@@ -26,9 +29,9 @@ import {
 const { array, boolean, literal, number, object, optional, string, union } = v;
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
-const GITHUB_API_BASE = "https://api.github.com";
+const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member" as const;
 
-const authProviderSummaryValidator = object({
+const vAuthProviderSummary = object({
   providers: array(string()),
   primaryProvider: optional(string()),
 });
@@ -39,16 +42,49 @@ type AuthProviderAccountSummary = {
   provider: string;
 };
 
-const providerAuthMethodValidator = union(
-  literal("oauth"),
-  literal("mcp_oauth"),
-  literal("api_key"),
-);
-const cloudflareConnectionStatusValidator = object({
+const vProviderAuthMethod = union(literal("oauth"), literal("mcp_oauth"), literal("api_key"));
+const vGithubOAuthScopeRequirement = object({
+  scope: string(),
+  label: string(),
+});
+const vGithubScopeStatus = union(literal("granted"), literal("missing"), literal("unknown"));
+const vGithubRequiredScopeHealth = object({
+  scope: string(),
+  label: string(),
+  status: vGithubScopeStatus,
+});
+const vGithubProviderSummary = object({
+  connected: boolean(),
+  username: optional(string()),
+  authMethod: optional(vProviderAuthMethod),
+  requiredScopes: array(vGithubOAuthScopeRequirement),
+  manageUrl: optional(string()),
+  reauthorizeAvailable: boolean(),
+});
+const vGithubHealthCheckKey = union(literal("profile"), literal("repositories"));
+const vGithubHealthCheckStatus = union(literal("ok"), literal("error"), literal("unknown"));
+const vGithubHealthCheck = object({
+  key: vGithubHealthCheckKey,
+  label: string(),
+  status: vGithubHealthCheckStatus,
+  message: optional(string()),
+});
+const vGithubConnectionHealth = object({
+  connected: boolean(),
+  username: optional(string()),
+  authMethod: optional(vProviderAuthMethod),
+  checkedAt: number(),
+  grantedScopes: array(string()),
+  requiredScopes: array(vGithubRequiredScopeHealth),
+  checks: array(vGithubHealthCheck),
+  manageUrl: optional(string()),
+  reauthorizeAvailable: boolean(),
+});
+const vCloudflareConnectionStatus = object({
   connected: boolean(),
   accountId: optional(string()),
   accountName: optional(string()),
-  authMethod: optional(providerAuthMethodValidator),
+  authMethod: optional(vProviderAuthMethod),
   mcpTokenStatus: optional(vMcpTokenHealthStatus),
   mcpTokenExpiresAt: optional(number()),
   mcpTokenCheckedAt: optional(number()),
@@ -57,7 +93,9 @@ const cloudflareConnectionStatusValidator = object({
   mcpTokenLastRefreshAt: optional(number()),
   mcpTokenNextAutoCheckAt: optional(number()),
 });
-type CloudflareConnectionStatus = Infer<typeof cloudflareConnectionStatusValidator>;
+type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
+type GithubProviderSummary = Infer<typeof vGithubProviderSummary>;
+type GithubConnectionHealth = Infer<typeof vGithubConnectionHealth>;
 type CloudflareConnectionStatusInput = {
   defaultAccount: CloudflareDefaultAccount;
   auth:
@@ -72,16 +110,40 @@ type CloudflareConnectionStatusInput = {
   tokenRefreshStartedAt?: number;
   lastTokenRefreshAt?: number;
 };
+type GitHubApiFailure = {
+  status: number;
+  statusText: string;
+};
+type GitHubProfileHealthResult =
+  | {
+      ok: true;
+      login: string;
+      scopesHeader: string | null;
+    }
+  | {
+      ok: false;
+      failure: GitHubApiFailure;
+      scopesHeader: string | null;
+    };
+type GitHubRepositoryHealthResult =
+  | {
+      ok: true;
+      scopesHeader: string | null;
+    }
+  | {
+      ok: false;
+      failure: GitHubApiFailure;
+      scopesHeader: string | null;
+    };
 
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
+async function runGitHubRequestWithTimeout<T>(
+  request: (signal: AbortSignal) => Promise<T>,
   timeoutMs = DEFAULT_PROVIDER_TIMEOUT_MS,
-): Promise<Response> {
+): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    return await request(controller.signal);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Provider request timed out after ${timeoutMs}ms.`);
@@ -92,12 +154,190 @@ async function fetchWithTimeout(
   }
 }
 
+function createGitHubOctokit(token: string): Octokit {
+  return new Octokit({
+    auth: token,
+    userAgent: "samebase-app",
+  });
+}
+
+function readGitHubResponseHeader(
+  headers: Record<string, string | number | undefined>,
+  key: string,
+): string | null {
+  const value = headers[key.toLowerCase()];
+  return typeof value === "string" ? value : null;
+}
+
+function readGitHubErrorScopesHeader(error: RequestError): string | null {
+  return readGitHubResponseHeader(error.response?.headers ?? {}, "x-oauth-scopes");
+}
+
+function readGitHubSuccessScopesHeader(response: {
+  headers: Record<string, string | number | undefined>;
+}): string | null {
+  return readGitHubResponseHeader(response.headers, "x-oauth-scopes");
+}
+
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();
   if (!normalized) {
     throw new Error("API key is required");
   }
   return normalized;
+}
+
+function getGithubOAuthManageUrl(): string | undefined {
+  const clientId = readOptionalEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+  if (!clientId) {
+    return undefined;
+  }
+  return buildGitHubOAuthManageUrl(clientId);
+}
+
+function buildGithubProviderSummary(
+  connection: Awaited<ReturnType<typeof getConnectionByUserAndKind>>,
+): GithubProviderSummary {
+  const requiredScopes = getGitHubOAuthScopeRequirements();
+  if (connection?.kind !== "github") {
+    return {
+      connected: false,
+      requiredScopes,
+      reauthorizeAvailable: false,
+    };
+  }
+
+  const manageUrl = connection.auth.method === "oauth" ? getGithubOAuthManageUrl() : undefined;
+  return {
+    connected: true,
+    username: connection.username,
+    authMethod: connection.auth.method,
+    requiredScopes,
+    ...(manageUrl ? { manageUrl } : {}),
+    reauthorizeAvailable: connection.auth.method === "oauth",
+  };
+}
+
+export function parseGitHubOAuthScopesHeader(header: string | null | undefined): string[] {
+  if (!header) {
+    return [];
+  }
+
+  const scopes: string[] = [];
+  const seen = new Set<string>();
+  for (const rawScope of header.split(",")) {
+    const scope = rawScope.trim();
+    if (!scope || seen.has(scope)) {
+      continue;
+    }
+    seen.add(scope);
+    scopes.push(scope);
+  }
+  return scopes;
+}
+
+function mergeGithubScopes(first: readonly string[], second: readonly string[]): string[] {
+  const scopes: string[] = [];
+  const seen = new Set<string>();
+  for (const scope of [...first, ...second]) {
+    if (seen.has(scope)) {
+      continue;
+    }
+    seen.add(scope);
+    scopes.push(scope);
+  }
+  return scopes;
+}
+
+function isGitHubOAuthScopeGranted(scope: string, grantedScopes: Set<string>): boolean {
+  if (scope === "user:email") {
+    return grantedScopes.has("user:email") || grantedScopes.has("user");
+  }
+  return grantedScopes.has(scope);
+}
+
+export function buildGithubRequiredScopeHealth(args: {
+  grantedScopes: readonly string[];
+  scopeReportAvailable: boolean;
+}): GithubConnectionHealth["requiredScopes"] {
+  const grantedScopeSet = new Set(args.grantedScopes);
+  return getGitHubOAuthScopeRequirements().map((scopeRequirement) => ({
+    ...scopeRequirement,
+    status: args.scopeReportAvailable
+      ? isGitHubOAuthScopeGranted(scopeRequirement.scope, grantedScopeSet)
+        ? "granted"
+        : "missing"
+      : "unknown",
+  }));
+}
+
+function formatGithubHealthFailure(failure: GitHubApiFailure): string {
+  if (failure.status === 401) {
+    return "GitHub rejected this credential. Reconnect GitHub.";
+  }
+  if (failure.status === 403) {
+    return "GitHub denied this request. Check org approval, SSO, or rate limits.";
+  }
+  if (failure.status === 404) {
+    return "GitHub could not find this resource for the current credential.";
+  }
+  return `GitHub returned ${failure.status} ${failure.statusText || "error"}.`;
+}
+
+async function readGithubProfileHealth(octokit: Octokit): Promise<GitHubProfileHealthResult> {
+  try {
+    const response = await runGitHubRequestWithTimeout((signal) =>
+      octokit.rest.users.getAuthenticated({
+        request: { signal },
+      }),
+    );
+    return {
+      ok: true,
+      login: response.data.login,
+      scopesHeader: readGitHubSuccessScopesHeader(response),
+    };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return {
+        ok: false,
+        failure: {
+          status: error.status,
+          statusText: error.message,
+        },
+        scopesHeader: readGitHubErrorScopesHeader(error),
+      };
+    }
+    throw error;
+  }
+}
+
+async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepositoryHealthResult> {
+  try {
+    const response = await runGitHubRequestWithTimeout((signal) =>
+      octokit.rest.repos.listForAuthenticatedUser({
+        sort: "updated",
+        per_page: 1,
+        affiliation: GITHUB_REPOSITORY_DISCOVERY_AFFILIATION,
+        request: { signal },
+      }),
+    );
+    return {
+      ok: true,
+      scopesHeader: readGitHubSuccessScopesHeader(response),
+    };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return {
+        ok: false,
+        failure: {
+          status: error.status,
+          statusText: error.message,
+        },
+        scopesHeader: readGitHubErrorScopesHeader(error),
+      };
+    }
+    throw error;
+  }
 }
 
 function computeCloudflareRefreshWindowStartAt(expiresAt: number): number {
@@ -198,26 +438,25 @@ function buildCloudflareConnectionStatus(
 async function fetchGithubIdentity(token: string): Promise<{
   username: string;
 }> {
-  const response = await fetchWithTimeout(`${GITHUB_API_BASE}/user`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "samebase-app",
-    },
-  });
+  let response: Awaited<ReturnType<Octokit["rest"]["users"]["getAuthenticated"]>>;
+  try {
+    response = await runGitHubRequestWithTimeout((signal) =>
+      createGitHubOctokit(token).rest.users.getAuthenticated({
+        request: { signal },
+      }),
+    );
+  } catch (error) {
+    if (error instanceof RequestError) {
+      throw new Error("Invalid GitHub API key");
+    }
+    throw error;
+  }
 
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !isRecord(payload)) {
+  if (!response.data.login) {
     throw new Error("Invalid GitHub API key");
   }
 
-  const username = readString(payload, "login");
-  if (!username) {
-    throw new Error("GitHub API key response is missing user login");
-  }
-
-  return { username };
+  return { username: response.data.login };
 }
 
 async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
@@ -285,7 +524,7 @@ export const viewer = query({
 export const getViewerAuthProviders = query({
   access: "access_public",
   args: {},
-  returns: authProviderSummaryValidator,
+  returns: vAuthProviderSummary,
   handler: async (ctx) => {
     const userId = ctx.viewer.userId;
     if (userId === null) {
@@ -360,7 +599,7 @@ export const getGithubConnectionStatus = query({
   returns: v.object({
     connected: boolean(),
     username: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
+    authMethod: v.optional(vProviderAuthMethod),
   }),
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
@@ -372,6 +611,138 @@ export const getGithubConnectionStatus = query({
       connected: true,
       username: connection.username,
       authMethod: connection.auth.method,
+    };
+  },
+});
+
+export const getGithubProviderSummary = query({
+  access: "access_provider_connections",
+  args: {},
+  returns: vGithubProviderSummary,
+  handler: async (ctx) => {
+    const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
+    return buildGithubProviderSummary(connection);
+  },
+});
+
+export const checkGithubConnectionHealth = action({
+  access: "access_provider_connections",
+  args: {},
+  returns: vGithubConnectionHealth,
+  handler: async (ctx): Promise<GithubConnectionHealth> => {
+    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "github",
+    });
+    const summary = buildGithubProviderSummary(connection);
+    const checkedAt = Date.now();
+    if (connection?.kind !== "github") {
+      return {
+        connected: false,
+        checkedAt,
+        grantedScopes: [],
+        requiredScopes: buildGithubRequiredScopeHealth({
+          grantedScopes: [],
+          scopeReportAvailable: false,
+        }),
+        checks: [
+          {
+            key: "profile",
+            label: "Profile",
+            status: "unknown",
+            message: "GitHub is not connected.",
+          },
+          {
+            key: "repositories",
+            label: "Repository listing",
+            status: "unknown",
+            message: "GitHub is not connected.",
+          },
+        ],
+        reauthorizeAvailable: false,
+      };
+    }
+
+    const octokit = createGitHubOctokit(connection.auth.credential);
+    const profileResponse = await readGithubProfileHealth(octokit);
+    const profileScopesHeader = profileResponse.scopesHeader;
+    const profileScopes = parseGitHubOAuthScopesHeader(profileScopesHeader);
+    let grantedScopes = profileScopes;
+    let scopeReportAvailable = profileScopesHeader !== null;
+    let username = connection.username;
+    const checks: GithubConnectionHealth["checks"] = [];
+
+    if (profileResponse.ok) {
+      if (profileResponse.login) {
+        username = profileResponse.login;
+        checks.push({
+          key: "profile",
+          label: "Profile",
+          status: "ok",
+          message: `Authenticated as ${profileResponse.login}.`,
+        });
+      } else {
+        checks.push({
+          key: "profile",
+          label: "Profile",
+          status: "error",
+          message: "GitHub profile response did not include a username.",
+        });
+      }
+    } else {
+      checks.push({
+        key: "profile",
+        label: "Profile",
+        status: "error",
+        message: formatGithubHealthFailure(profileResponse.failure),
+      });
+    }
+
+    if (profileResponse.ok) {
+      const repositoryResponse = await readGithubRepositoryHealth(octokit);
+      const repositoryScopesHeader = repositoryResponse.scopesHeader;
+      scopeReportAvailable = scopeReportAvailable || repositoryScopesHeader !== null;
+      grantedScopes = mergeGithubScopes(
+        grantedScopes,
+        parseGitHubOAuthScopesHeader(repositoryScopesHeader),
+      );
+      checks.push(
+        repositoryResponse.ok
+          ? {
+              key: "repositories",
+              label: "Repository listing",
+              status: "ok",
+              message: "GitHub returned repositories visible to this credential.",
+            }
+          : {
+              key: "repositories",
+              label: "Repository listing",
+              status: "error",
+              message: formatGithubHealthFailure(repositoryResponse.failure),
+            },
+      );
+    } else {
+      checks.push({
+        key: "repositories",
+        label: "Repository listing",
+        status: "unknown",
+        message: "Skipped because the profile check failed.",
+      });
+    }
+
+    return {
+      connected: true,
+      username,
+      authMethod: connection.auth.method,
+      checkedAt,
+      grantedScopes,
+      requiredScopes: buildGithubRequiredScopeHealth({
+        grantedScopes,
+        scopeReportAvailable,
+      }),
+      checks,
+      ...(summary.manageUrl ? { manageUrl: summary.manageUrl } : {}),
+      reauthorizeAvailable: summary.reauthorizeAvailable,
     };
   },
 });
@@ -395,7 +766,7 @@ export const getConvexConnectionStatus = query({
     connected: boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
+    authMethod: v.optional(vProviderAuthMethod),
   }),
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "convex");
@@ -427,7 +798,7 @@ export const disconnectConvex = mutation({
 export const getCloudflareConnectionStatus = query({
   access: "access_provider_connections",
   args: {},
-  returns: cloudflareConnectionStatusValidator,
+  returns: vCloudflareConnectionStatus,
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "cloudflare");
     if (connection?.kind !== "cloudflare") {
@@ -438,14 +809,14 @@ export const getCloudflareConnectionStatus = query({
   },
 });
 
-const cloudflareAutoRefreshTriggerValidator = union(
+const vCloudflareAutoRefreshTrigger = union(
   literal("focus"),
   literal("visibility"),
   literal("page_load"),
   literal("poll"),
   literal("manual"),
 );
-type CloudflareAutoRefreshTrigger = Infer<typeof cloudflareAutoRefreshTriggerValidator>;
+type CloudflareAutoRefreshTrigger = Infer<typeof vCloudflareAutoRefreshTrigger>;
 
 async function runCloudflareMcpTokenRefresh(args: {
   ctx: ActionCtx;
@@ -612,10 +983,10 @@ async function runCloudflareMcpTokenRefresh(args: {
 export const refreshCloudflareMcpTokenIfNeeded = action({
   access: "access_provider_connections",
   args: {
-    trigger: optional(cloudflareAutoRefreshTriggerValidator),
+    trigger: optional(vCloudflareAutoRefreshTrigger),
     force: optional(boolean()),
   },
-  returns: cloudflareConnectionStatusValidator,
+  returns: vCloudflareConnectionStatus,
   handler: async (ctx, args) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
@@ -629,7 +1000,7 @@ export const refreshCloudflareMcpTokenIfNeeded = action({
 export const checkCloudflareMcpTokenHealth = action({
   access: "access_provider_connections",
   args: {},
-  returns: cloudflareConnectionStatusValidator,
+  returns: vCloudflareConnectionStatus,
   handler: async (ctx) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
@@ -652,11 +1023,11 @@ export const disconnectCloudflare = mutation({
   },
 });
 
-const githubApiKeyConnectionResultValidator = v.object({
+const vGithubApiKeyConnectionResult = v.object({
   username: v.string(),
 });
 
-const convexApiKeyConnectionResultValidator = v.object({
+const vConvexApiKeyConnectionResult = v.object({
   teamId: v.string(),
 });
 
@@ -665,7 +1036,7 @@ export const connectGithubWithApiKey = action({
   args: {
     token: v.string(),
   },
-  returns: githubApiKeyConnectionResultValidator,
+  returns: vGithubApiKeyConnectionResult,
   handler: async (ctx, args) => {
     const token = normalizeApiToken(args.token);
     const identity = await fetchGithubIdentity(token);
@@ -688,7 +1059,7 @@ export const connectConvexWithApiKey = action({
   args: {
     token: v.string(),
   },
-  returns: convexApiKeyConnectionResultValidator,
+  returns: vConvexApiKeyConnectionResult,
   handler: async (ctx, args) => {
     const token = normalizeApiToken(args.token);
     const details = await fetchConvexApiKeyTeamDetails(token);

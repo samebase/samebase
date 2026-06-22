@@ -1,7 +1,7 @@
 import { GitHubLogoIcon, ClockIcon } from "@/lib/radixIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/repositorySearch";
 import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
+import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
@@ -342,10 +343,15 @@ export function ConnectRepositoryPageContent({
         {githubConnected && (
           <>
             <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-              Missing a private org repo? GitHub may be blocking Samebase's OAuth app. If you're an
-              org owner, approve Samebase in the org's Settings, then Third-party Access, then OAuth
-              app policy. Otherwise request access from GitHub's Authorized OAuth Apps page if
-              GitHub offers that option, or ask an org owner to approve Samebase.{" "}
+              Missing a private org repo?{" "}
+              <Link to={PROVIDERS_ROUTE} className={linkStyle}>
+                Review GitHub access
+              </Link>{" "}
+              to check granted scopes and repository listing. GitHub org policy can still block
+              Samebase even when the token has the right scopes. If you're an org owner, approve
+              Samebase in the org's Settings, then Third-party Access, then OAuth app policy.
+              Otherwise request access from GitHub's Authorized OAuth Apps page if GitHub offers
+              that option, or ask an org owner to approve Samebase.{" "}
               <a
                 href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
                 target="_blank"
@@ -376,7 +382,8 @@ export function ConnectRepositoryPageContent({
               <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
                 <div>
                   Couldn&apos;t load the rest of your repositories. You&apos;re still seeing the
-                  most recently updated ones.
+                  most recently updated ones. Review GitHub access from Providers if this keeps
+                  failing.
                 </div>
                 <Button
                   variant="outline"

@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 
 import { getFunctionName } from "convex/server";
+import * as React from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
 import { ProviderConnectionsPage } from "./ProviderConnectionsPage";
 
+const { act } = React;
+
 const queryState = vi.hoisted(() => ({
+  handlersByFunctionName: new Map<string, (args?: unknown) => Promise<unknown>>(),
   resultsByQueryName: new Map<string, unknown>(),
 }));
 
@@ -19,8 +24,14 @@ vi.mock("convex/react", async (importOriginal) => {
 
   return {
     ...actual,
-    useAction: createAsyncHandler,
-    useMutation: createAsyncHandler,
+    useAction: (action: Parameters<typeof actual.useAction>[0]) => {
+      return queryState.handlersByFunctionName.get(getFunctionName(action)) ?? createAsyncHandler();
+    },
+    useMutation: (mutation: Parameters<typeof actual.useMutation>[0]) => {
+      return (
+        queryState.handlersByFunctionName.get(getFunctionName(mutation)) ?? createAsyncHandler()
+      );
+    },
     useQuery: (query: Parameters<typeof actual.useQuery>[0]) => {
       const queryName = getFunctionName(query);
       return queryState.resultsByQueryName.get(queryName);
@@ -58,15 +69,58 @@ function renderProviderConnectionsPage(queryResults: ReadonlyMap<string, unknown
   return renderToStaticMarkup(<ProviderConnectionsPage />);
 }
 
+let mountedRootElement: HTMLDivElement | null = null;
+let mountedRoot: Root | null = null;
+
+function renderMountedProviderConnectionsPage(queryResults: ReadonlyMap<string, unknown>) {
+  queryState.resultsByQueryName = new Map(queryResults);
+  mountedRootElement = document.createElement("div");
+  document.body.append(mountedRootElement);
+  mountedRoot = createRoot(mountedRootElement);
+
+  act(() => {
+    mountedRoot?.render(<ProviderConnectionsPage />);
+  });
+
+  return mountedRootElement;
+}
+
+function findButtonByText(container: HTMLElement, text: string) {
+  return [...container.querySelectorAll("button")].find((button) =>
+    button.textContent.includes(text),
+  );
+}
+
 describe("ProviderConnectionsPage", () => {
   beforeEach(() => {
+    queryState.handlersByFunctionName = new Map();
     queryState.resultsByQueryName = new Map();
+  });
+
+  afterEach(() => {
+    if (mountedRoot !== null) {
+      const root = mountedRoot;
+      act(() => {
+        root.unmount();
+      });
+      mountedRoot = null;
+    }
+
+    mountedRootElement?.remove();
+    mountedRootElement = null;
   });
 
   it("renders disconnected provider connection actions", () => {
     const markup = renderProviderConnectionsPage(
       new Map([
-        [getFunctionName(api.users.getGithubConnectionStatus), { connected: false }],
+        [
+          getFunctionName(api.users.getGithubProviderSummary),
+          {
+            connected: false,
+            requiredScopes: [],
+            reauthorizeAvailable: false,
+          },
+        ],
         [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
         [getFunctionName(api.users.viewer), { _id: "user_123" }],
@@ -84,10 +138,16 @@ describe("ProviderConnectionsPage", () => {
     const markup = renderProviderConnectionsPage(
       new Map([
         [
-          getFunctionName(api.users.getGithubConnectionStatus),
+          getFunctionName(api.users.getGithubProviderSummary),
           {
             authMethod: "oauth",
             connected: true,
+            manageUrl: "https://github.com/settings/connections/applications/client_123",
+            requiredScopes: [
+              { scope: "repo", label: "List and edit repositories" },
+              { scope: "delete_repo", label: "Delete Samebase-managed repositories" },
+            ],
+            reauthorizeAvailable: true,
             username: "samebase",
           },
         ],
@@ -115,11 +175,121 @@ describe("ProviderConnectionsPage", () => {
     );
 
     expect(markup).toContain("Connected as samebase");
+    expect(markup).toContain("OAuth scopes requested: repo, delete_repo");
+    expect(markup).toContain("Granted scopes: Not checked");
+    expect(markup).toContain("Required access: repo Not checked; delete_repo Not checked");
+    expect(markup).toContain(
+      "Need more org access? Reauthorize revokes the current GitHub grant before opening OAuth again; closing the OAuth window leaves GitHub disconnected until you reconnect.",
+    );
+    expect(markup).toContain("Check access");
+    expect(markup).toContain("Manage access");
+    expect(markup).toContain("Reauthorize");
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth).");
     expect(markup).toContain("Token Valid.");
     expect(markup).toContain("Manage account");
     expect(markup).toContain("Check token");
     expect(markup).toContain("Disconnect");
+  });
+
+  it("renders GitHub API key connections without OAuth scope wording", () => {
+    const markup = renderProviderConnectionsPage(
+      new Map([
+        [
+          getFunctionName(api.users.getGithubProviderSummary),
+          {
+            authMethod: "api_key",
+            connected: true,
+            requiredScopes: [
+              { scope: "repo", label: "List and edit repositories" },
+              { scope: "delete_repo", label: "Delete Samebase-managed repositories" },
+            ],
+            reauthorizeAvailable: false,
+            username: "samebase",
+          },
+        ],
+        [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.viewer), { _id: "user_123" }],
+      ]),
+    );
+
+    expect(markup).toContain("Connected as samebase");
+    expect(markup).toContain("Repository access is checked with live GitHub requests.");
+    expect(markup).not.toContain("OAuth scopes requested");
+    expect(markup).not.toContain("Reauthorize");
+  });
+
+  it("runs the GitHub access check and renders live health rows", async () => {
+    const checkGithubConnectionHealth = vi.fn(async () => ({
+      authMethod: "oauth",
+      checkedAt: Date.now(),
+      checks: [
+        {
+          key: "profile",
+          label: "Profile",
+          message: "Authenticated as samebase.",
+          status: "ok",
+        },
+        {
+          key: "repositories",
+          label: "Repository listing",
+          message: "GitHub denied this request. Check org approval, SSO, or rate limits.",
+          status: "error",
+        },
+      ],
+      connected: true,
+      grantedScopes: ["repo"],
+      reauthorizeAvailable: true,
+      requiredScopes: [
+        { scope: "repo", label: "List and edit repositories", status: "granted" },
+        {
+          scope: "delete_repo",
+          label: "Delete Samebase-managed repositories",
+          status: "missing",
+        },
+      ],
+      username: "samebase",
+    }));
+    queryState.handlersByFunctionName.set(
+      getFunctionName(api.users.checkGithubConnectionHealth),
+      checkGithubConnectionHealth,
+    );
+    const container = renderMountedProviderConnectionsPage(
+      new Map([
+        [
+          getFunctionName(api.users.getGithubProviderSummary),
+          {
+            authMethod: "oauth",
+            connected: true,
+            requiredScopes: [
+              { scope: "repo", label: "List and edit repositories" },
+              { scope: "delete_repo", label: "Delete Samebase-managed repositories" },
+            ],
+            reauthorizeAvailable: true,
+            username: "samebase",
+          },
+        ],
+        [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.viewer), { _id: "user_123" }],
+      ]),
+    );
+    const checkAccessButton = findButtonByText(container, "Check access");
+    if (!checkAccessButton) {
+      throw new Error("Expected Check access button.");
+    }
+
+    await act(async () => {
+      checkAccessButton.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+      await Promise.resolve();
+    });
+
+    expect(checkGithubConnectionHealth).toHaveBeenCalledWith({});
+    expect(container.textContent).toContain("Required access: repo Granted; delete_repo Missing");
+    expect(container.textContent).toContain("Profile: OK - Authenticated as samebase.");
+    expect(container.textContent).toContain(
+      "Repository listing: Needs attention - GitHub denied this request. Check org approval, SSO, or rate limits.",
+    );
   });
 });

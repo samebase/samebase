@@ -141,6 +141,12 @@ describe("rootRouteSearch", () => {
     });
   });
 
+  it("parses the Convex Auth callback code as hidden root search", () => {
+    expect(readRootRouteSearch("?code= oauth-code ")).toEqual({
+      code: "oauth-code",
+    });
+  });
+
   it("parses the global swipe debug flag", () => {
     expect(readRootRouteSearch("?swipe-debug")).toEqual({
       "swipe-debug": true,
@@ -313,6 +319,18 @@ describe("rootRouteSearch", () => {
         stripProdUi: false,
       }),
     ).toBe("/home");
+  });
+
+  it("preserves the Convex Auth callback code for the auth provider", () => {
+    expect(
+      readCanonicalRouteAddressForRootSearch({
+        acceptedSearchKeys: [],
+        pathname: "/home",
+        searchStr: "?code=oauth-code&unknownKey=1",
+        hash: "",
+        stripProdUi: false,
+      }),
+    ).toBe("/home?code=oauth-code");
   });
 
   it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {

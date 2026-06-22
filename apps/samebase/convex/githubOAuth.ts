@@ -1,20 +1,25 @@
 import { v } from "convex/values";
+import { Octokit } from "@octokit/rest";
+import { RequestError } from "@octokit/request-error";
 import { httpAction, internalMutation } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { mutation } from "./functions";
+import { action, mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
-import { GITHUB_OAUTH_POPUP_NAME, isSafeGithubOAuthReturnToPath } from "../shared/githubOAuth";
+import {
+  GITHUB_OAUTH_POPUP_NAME,
+  getGitHubOAuthScopeRequirements,
+  isSafeGithubOAuthReturnToPath,
+} from "../shared/githubOAuth";
 import { CODESPACES_ENABLED } from "../shared/featureFlags";
+import { utf8ToBase64 } from "../shared/base64";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const GITHUB_API_URL = "https://api.github.com/user";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const BASE_GITHUB_OAUTH_SCOPES = ["repo", "delete_repo", "user", "user:email", "read:packages"];
 
 type OAuthContext = ActionCtx | MutationCtx;
 type GithubOAuthAuthorizeSearchParams = {
@@ -35,10 +40,13 @@ function buildGithubOAuthAuthorizeSearchParams(args: {
   redirectUri: string;
   state: string;
 }): GithubOAuthAuthorizeSearchParams {
+  const requiredScopes = getGitHubOAuthScopeRequirements().map(
+    (scopeRequirement) => scopeRequirement.scope,
+  );
   return {
     client_id: args.clientId,
     redirect_uri: args.redirectUri,
-    scope: [...BASE_GITHUB_OAUTH_SCOPES, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
+    scope: [...requiredScopes, ...(CODESPACES_ENABLED ? ["codespace"] : [])].join(" "),
     state: args.state,
   };
 }
@@ -60,6 +68,31 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function runGithubOAuthRequestWithTimeout<T>(
+  request: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = DEFAULT_OAUTH_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await request(controller.signal);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`GitHub OAuth request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function createGitHubOctokit(accessToken: string): Octokit {
+  return new Octokit({
+    auth: accessToken,
+    userAgent: "samebase-app",
+  });
 }
 
 async function buildGithubOAuthUrl(
@@ -130,19 +163,48 @@ async function exchangeGithubOAuthCode(args: {
 }
 
 async function fetchGithubUser(accessToken: string): Promise<{ username: string }> {
-  const response = await fetchWithTimeout(GITHUB_API_URL, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "samebase-app",
-    },
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload || typeof payload.login !== "string") {
-    throw new Error(`Failed to fetch GitHub user profile (${response.status}).`);
+  try {
+    const response = await runGithubOAuthRequestWithTimeout((signal) =>
+      createGitHubOctokit(accessToken).rest.users.getAuthenticated({
+        request: { signal },
+      }),
+    );
+    if (!response.data.login) {
+      throw new Error("Failed to fetch GitHub user profile.");
+    }
+    return { username: response.data.login };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      throw new Error(`Failed to fetch GitHub user profile (${error.status}).`);
+    }
+    throw error;
   }
-  return { username: payload.login };
+}
+
+async function revokeGithubOAuthGrant(accessToken: string): Promise<void> {
+  const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET");
+  const octokit = new Octokit({ userAgent: "samebase-app" });
+  try {
+    await runGithubOAuthRequestWithTimeout((signal) =>
+      octokit.request("DELETE /applications/{client_id}/grant", {
+        client_id: clientId,
+        access_token: accessToken,
+        headers: {
+          authorization: `Basic ${utf8ToBase64(`${clientId}:${clientSecret}`)}`,
+        },
+        request: { signal },
+      }),
+    );
+  } catch (error) {
+    if (error instanceof RequestError) {
+      if (error.status === 404) {
+        return;
+      }
+      throw new Error(`Failed to revoke GitHub OAuth grant (${error.status}).`);
+    }
+    throw error;
+  }
 }
 
 export const storeGithubOauthConnection = internalMutation({
@@ -179,6 +241,32 @@ export const getGithubOAuthUrl = mutation({
   returns: v.string(),
   handler: async (ctx, args) => {
     return await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
+  },
+});
+
+export const reauthorizeGithubOAuth = action({
+  access: "access_provider_connections",
+  args: {
+    returnToPath: v.optional(v.string()),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "github",
+    });
+    if (connection?.kind !== "github" || connection.auth.method !== "oauth") {
+      throw new Error("GitHub OAuth is not connected.");
+    }
+
+    const authorizeUrl = await buildGithubOAuthUrl(ctx, ctx.viewer.userId, args.returnToPath);
+    await revokeGithubOAuthGrant(connection.auth.credential);
+    await ctx.runMutation(internal.providerConnections.removeByUserAndKind, {
+      userId: ctx.viewer.userId,
+      kind: "github",
+    });
+
+    return authorizeUrl;
   },
 });
 
