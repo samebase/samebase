@@ -25,15 +25,17 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS,
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
 } from "../shared/cloudflareTokenRefresh";
+import type { AuthTokenAuthProvider } from "../shared/authTokenClaims";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member" as const;
 
+const vAuthTokenAuthProvider = union(literal("google"), literal("github"), literal("password"));
 const vAuthProviderSummary = object({
-  providers: array(string()),
-  primaryProvider: optional(string()),
+  providers: array(vAuthTokenAuthProvider),
+  primaryProvider: optional(vAuthTokenAuthProvider),
 });
 
 type AuthProviderAccountSummary = {
@@ -41,6 +43,17 @@ type AuthProviderAccountSummary = {
   _id: string;
   provider: string;
 };
+
+function readAuthTokenAuthProvider(provider: string): AuthTokenAuthProvider | null {
+  switch (provider) {
+    case "google":
+    case "github":
+    case "password":
+      return provider;
+    default:
+      return null;
+  }
+}
 
 const vProviderAuthMethod = union(literal("oauth"), literal("mcp_oauth"), literal("api_key"));
 const vGithubOAuthScopeRequirement = object({
@@ -591,19 +604,19 @@ export const getViewerAuthProviders = query({
       compareAuthProviderAccountSummary(first, second),
     );
 
-    const providers: string[] = [];
+    const providers: AuthTokenAuthProvider[] = [];
     const seen = new Set<string>();
     for (const account of orderedAccounts) {
-      if (seen.has(account.provider)) {
+      const provider = readAuthTokenAuthProvider(account.provider);
+      if (provider === null || seen.has(provider)) {
         continue;
       }
-      seen.add(account.provider);
-      providers.push(account.provider);
+      seen.add(provider);
+      providers.push(provider);
     }
 
-    const primaryProvider = orderedAccounts[0]?.provider;
-    if (primaryProvider) {
-      return { providers, primaryProvider };
+    if (providers.length > 0) {
+      return { providers, primaryProvider: providers[0] };
     }
     return { providers };
   },
@@ -613,7 +626,7 @@ export const getPrimaryAuthProviderForToken = internalQuery({
   args: {
     userId: id("users"),
   },
-  returns: v.union(string(), v.null()),
+  returns: v.union(vAuthTokenAuthProvider, v.null()),
   handler: async (ctx, args) => {
     const accounts = await ctx.db
       .query("authAccounts")
@@ -623,7 +636,13 @@ export const getPrimaryAuthProviderForToken = internalQuery({
       compareAuthProviderAccountSummary(first, second),
     );
 
-    return orderedAccounts[0]?.provider ?? null;
+    for (const account of orderedAccounts) {
+      const provider = readAuthTokenAuthProvider(account.provider);
+      if (provider !== null) {
+        return provider;
+      }
+    }
+    return null;
   },
 });
 

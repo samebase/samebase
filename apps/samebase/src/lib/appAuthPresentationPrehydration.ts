@@ -67,13 +67,17 @@ function InlineScript_prehydrateAppAuthPresentation(
   function formatAuthProviderLabel(provider: string) {
     if (provider === "google") return "Google";
     if (provider === "github") return "GitHub";
-    return provider.charAt(0).toUpperCase() + provider.slice(1);
+    if (provider === "password") return "Password";
+    return null;
   }
 
   function readAuthProviderLabel(profile: { authProvider?: string }) {
     const provider = profile.authProvider?.trim();
     if (provider && provider.length <= 64) {
-      return formatAuthProviderLabel(provider);
+      const providerLabel = formatAuthProviderLabel(provider);
+      if (providerLabel !== null) {
+        return providerLabel;
+      }
     }
 
     const passwordAuthMode = window.localStorage.getItem(args.passwordAuthModeStorageKey);

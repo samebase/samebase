@@ -1,4 +1,7 @@
-import { type AuthTokenProfileClaims } from "../../shared/authTokenClaims";
+import {
+  type AuthTokenAuthProvider,
+  type AuthTokenProfileClaims,
+} from "../../shared/authTokenClaims";
 
 type AppAuthPresentationSearchParams = {
   get(name: string): string | null;
@@ -112,9 +115,37 @@ export function Inlineable_createAppAuthPresentationRuntime(
     };
   }
 
+  function readAuthProviderClaim(source: object):
+    | { kind: "absent" }
+    | { kind: "invalid" }
+    | {
+        kind: "present";
+        value: AuthTokenAuthProvider;
+      } {
+    const claim = readProfileClaim(source, "authProvider");
+    if (claim.kind === "absent") {
+      return { kind: "absent" };
+    }
+    if (claim.kind === "invalid") {
+      return { kind: "invalid" };
+    }
+
+    switch (claim.value) {
+      case "google":
+      case "github":
+      case "password":
+        return {
+          kind: "present",
+          value: claim.value,
+        };
+      default:
+        return { kind: "invalid" };
+    }
+  }
+
   function readProfileClaims(source: object): AuthTokenProfileClaims | null {
     const profileClaims: AuthTokenProfileClaims = {};
-    const authProvider = readProfileClaim(source, "authProvider");
+    const authProvider = readAuthProviderClaim(source);
     const name = readProfileClaim(source, "name");
     const email = readProfileClaim(source, "email");
 

@@ -1,6 +1,21 @@
-import { after, bad, good, object, optional, string, type InferGood } from "@samebase/sure";
+import {
+  after,
+  bad,
+  good,
+  literal,
+  object,
+  optional,
+  string,
+  union,
+  type InferGood,
+} from "@samebase/sure";
 
 export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
+
+const authTokenAuthProviderSchema = union(
+  literal("google"),
+  union(literal("github"), literal("password")),
+);
 
 const authTokenProfileClaimValueSchema = after(string, (value) => {
   const trimmedValue = value.trim();
@@ -14,7 +29,7 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
 });
 
 const authTokenProfileClaimFieldsSchema = object({
-  authProvider: optional(authTokenProfileClaimValueSchema),
+  authProvider: optional(authTokenAuthProviderSchema),
   email: optional(authTokenProfileClaimValueSchema),
   name: optional(authTokenProfileClaimValueSchema),
 });
@@ -27,6 +42,7 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
   return good(claims);
 });
 
+export type AuthTokenAuthProvider = InferGood<typeof authTokenAuthProviderSchema>;
 export type AuthTokenProfileClaims = InferGood<typeof authTokenProfileClaimsSchema>;
 
 export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileClaims | null {
@@ -36,7 +52,7 @@ export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileCl
 
 export function buildAuthTokenProfileCustomClaims(
   source: unknown,
-  authProvider?: string,
+  authProvider?: AuthTokenAuthProvider | null,
 ): Record<string, string> {
   const profileClaims = readAuthTokenProfileClaims(source);
   if (profileClaims === null) {
@@ -44,16 +60,14 @@ export function buildAuthTokenProfileCustomClaims(
   }
 
   const claims: Record<string, string> = {};
-  const authProviderClaim =
-    authProvider === undefined ? undefined : authTokenProfileClaimValueSchema(authProvider);
   if (profileClaims.name !== undefined) {
     claims.name = profileClaims.name;
   }
   if (profileClaims.email !== undefined) {
     claims.email = profileClaims.email;
   }
-  if (authProviderClaim !== undefined && authProviderClaim[0]) {
-    claims.authProvider = authProviderClaim[1];
+  if (authProvider !== undefined && authProvider !== null) {
+    claims.authProvider = authProvider;
   } else if (profileClaims.authProvider !== undefined) {
     claims.authProvider = profileClaims.authProvider;
   }

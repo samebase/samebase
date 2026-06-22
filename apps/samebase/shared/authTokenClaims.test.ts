@@ -3,6 +3,7 @@ import {
   AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
   buildAuthTokenProfileCustomClaims,
   readAuthTokenProfileClaims,
+  type AuthTokenAuthProvider,
   type AuthTokenProfileClaims,
 } from "./authTokenClaims";
 
@@ -13,6 +14,8 @@ const CLAIM_VALUES = {
   trimmed: "  Nicu  ",
   valid: "Nicu",
 } as const;
+
+const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "github", "password"];
 
 const PROFILE_CLAIM_CASES: {
   expected: AuthTokenProfileClaims | null;
@@ -103,11 +106,31 @@ const PROFILE_CLAIM_CASES: {
     },
     expected: null,
   },
+  {
+    name: "rejects unknown auth providers",
+    input: {
+      authProvider: "netlify",
+      email: "nicu@samebase.com",
+    },
+    expected: null,
+  },
 ];
 
 describe("auth token claims", () => {
   it.each(PROFILE_CLAIM_CASES)("$name", ({ expected, input }) => {
     expect(readAuthTokenProfileClaims(input)).toEqual(expected);
+  });
+
+  it.each(AUTH_TOKEN_AUTH_PROVIDERS)("keeps supported %s auth provider claims", (provider) => {
+    expect(
+      readAuthTokenProfileClaims({
+        authProvider: provider,
+        email: "nicu@samebase.com",
+      }),
+    ).toEqual({
+      authProvider: provider,
+      email: "nicu@samebase.com",
+    });
   });
 
   it("builds flat Convex Auth custom claims without avatar fields", () => {

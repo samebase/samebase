@@ -141,6 +141,12 @@ describe("app auth presentation runtime", () => {
         name: 123,
       },
       {
+        authProvider: "netlify",
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+        name: "Nicu",
+      },
+      {
         email: " ",
         exp: 4100000000,
         name: "",
