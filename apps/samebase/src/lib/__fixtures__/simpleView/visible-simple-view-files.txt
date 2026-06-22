@@ -2,6 +2,7 @@ AGENTS.md
 apps/domain-router/wrangler.jsonc
 apps/samebase/AGENTS.md
 apps/samebase/CLAUDE.md
+apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-section.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing-dev.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing.png
 apps/samebase/e2e/button-visual.spec.ts-snapshots/button-overrides.png
@@ -38,7 +39,6 @@ apps/samebase/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open
 apps/samebase/e2e/indexed-db-route-visual.spec.ts-snapshots/indexed-db-workspace.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-mobile.png
-apps/samebase/e2e/local-storage-route-visual.spec.ts-snapshots/local-storage-signed-in-account-section.png
 apps/samebase/e2e/local-storage-route-visual.spec.ts-snapshots/local-storage-workspace.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-controls.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-picker-popover.png

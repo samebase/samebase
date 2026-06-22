@@ -153,20 +153,7 @@ test("localStorage right sidebar omits the route shortcut", async ({ page }) => 
   const publicLinks = rightSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const accountSection = rightSidebar.getByTestId(AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByText("not logged in", { exact: true })).toHaveCount(0);
-  await expect(accountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
-  await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
-  await expect(rightSidebar.getByRole("link", { name: "Providers", exact: true })).toHaveAttribute(
-    "href",
-    "/providers",
-  );
-  await expect(rightSidebar.getByTestId("dashboard-sidebar-providers-section")).toHaveCount(0);
-  await expect(accountSection).toHaveScreenshot("local-storage-signed-in-account-section.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toHaveCount(0);
   await expect(publicLinks.locator("#public-local-storage-route-link")).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", {

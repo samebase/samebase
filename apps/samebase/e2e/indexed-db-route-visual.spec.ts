@@ -84,8 +84,7 @@ test("indexedDB route shows database store keys and formatted values", async ({ 
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
   const accountSection = rightSidebar.getByTestId(AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByText("not logged in", { exact: true })).toHaveCount(0);
-  await expect(accountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toHaveCount(0);
   await expect(rightSidebar.getByRole("link", { name: "/terms", exact: true })).toHaveAttribute(
     "href",
     "/terms",
