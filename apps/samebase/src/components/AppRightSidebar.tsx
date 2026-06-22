@@ -6,7 +6,7 @@ import {
 } from "@/components/PublicLandingAccountSection";
 import {
   PublicLandingPasswordAuthControls,
-  PublicLandingSidebarGoogleAuthControls,
+  PublicLandingSidebarAuthRouteControls,
 } from "@/components/PublicLandingAuthControls";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
@@ -40,7 +40,7 @@ function PublicAppRightSidebarContent() {
   return (
     <VaultDashboardSidebarContent>
       <PublicLandingAccountSection />
-      <PublicLandingSidebarGoogleAuthControls />
+      <PublicLandingSidebarAuthRouteControls />
       <PublicLandingPasswordAuthControls />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />

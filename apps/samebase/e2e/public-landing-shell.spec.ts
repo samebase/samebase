@@ -14,7 +14,7 @@ import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
 import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_COPY_TEST_ID,
-  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
+  PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID,
   PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
 } from "../src/lib/publicLanding";
 import {
@@ -212,30 +212,30 @@ async function readLandingToggleLayout(
   }, PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 }
 
-async function readLandingAccountGoogleClip(page: Page) {
+async function readLandingAccountRouteAuthClip(page: Page) {
   return page.evaluate(
-    ({ accountSectionTestId, googleAuthSlotTestId }) => {
+    ({ accountSectionTestId, sidebarAuthRouteTestId }) => {
       const accountSection = document.querySelector(`[data-testid="${accountSectionTestId}"]`);
-      const googleAuthSlot = document.querySelector(`[data-testid="${googleAuthSlotTestId}"]`);
-      if (!(accountSection instanceof HTMLElement) || !(googleAuthSlot instanceof HTMLElement)) {
+      const sidebarAuthRoute = document.querySelector(`[data-testid="${sidebarAuthRouteTestId}"]`);
+      if (!(accountSection instanceof HTMLElement) || !(sidebarAuthRoute instanceof HTMLElement)) {
         return null;
       }
 
       const accountBox = accountSection.getBoundingClientRect();
-      const googleBox = googleAuthSlot.getBoundingClientRect();
+      const routeAuthBox = sidebarAuthRoute.getBoundingClientRect();
       if (
         accountBox.width === 0 ||
         accountBox.height === 0 ||
-        googleBox.width === 0 ||
-        googleBox.height === 0
+        routeAuthBox.width === 0 ||
+        routeAuthBox.height === 0
       ) {
         return null;
       }
 
-      const x = Math.floor(Math.min(accountBox.left, googleBox.left));
-      const y = Math.floor(Math.min(accountBox.top, googleBox.top));
-      const right = Math.ceil(Math.max(accountBox.right, googleBox.right));
-      const bottom = Math.ceil(Math.max(accountBox.bottom, googleBox.bottom));
+      const x = Math.floor(Math.min(accountBox.left, routeAuthBox.left));
+      const y = Math.floor(Math.min(accountBox.top, routeAuthBox.top));
+      const right = Math.ceil(Math.max(accountBox.right, routeAuthBox.right));
+      const bottom = Math.ceil(Math.max(accountBox.bottom, routeAuthBox.bottom));
 
       return {
         height: bottom - y,
@@ -246,16 +246,16 @@ async function readLandingAccountGoogleClip(page: Page) {
     },
     {
       accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-      googleAuthSlotTestId: PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
+      sidebarAuthRouteTestId: PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID,
     },
   );
 }
 
-async function captureLandingAccountGoogleClip(page: Page) {
-  await expect.poll(async () => readLandingAccountGoogleClip(page)).not.toBeNull();
-  const clip = await readLandingAccountGoogleClip(page);
+async function captureLandingAccountRouteAuthClip(page: Page) {
+  await expect.poll(async () => readLandingAccountRouteAuthClip(page)).not.toBeNull();
+  const clip = await readLandingAccountRouteAuthClip(page);
   if (clip === null) {
-    throw new Error("Expected public landing account and Google auth clip to be readable.");
+    throw new Error("Expected public landing account and route auth clip to be readable.");
   }
 
   return page.screenshot({
@@ -1013,9 +1013,7 @@ test("landing sign-in state keeps the account route links visible", async ({ pag
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
 });
 
-test("landing account route links reveal sidebar auth without resizing account content", async ({
-  page,
-}) => {
+test("landing account route links keep account content static", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
@@ -1030,6 +1028,7 @@ test("landing account route links reveal sidebar auth without resizing account c
   ).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "Google" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
+  await expect(page.getByText("The app is still internal.")).toHaveCount(0);
 
   const signInLayout = await readLandingToggleLayout(page);
   expect(Math.abs(signInLayout.authRowHeight - initialLayout.authRowHeight)).toBeLessThanOrEqual(1);
@@ -1043,7 +1042,9 @@ test("landing account route links reveal sidebar auth without resizing account c
     accountSection.getByRole("link", { name: "?create-account", exact: true }),
   ).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "Google" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Google", includeHidden: true })).toHaveCount(0);
+  await expect(page.getByText("The app is still internal.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "@samebasecom" })).toBeVisible();
 
   const createAccountLayout = await readLandingToggleLayout(page);
   expect(
@@ -1083,8 +1084,8 @@ for (const scenario of [
       await prehydratedPage.goto(scenario.path, { waitUntil: "domcontentloaded" });
       await hydratedPage.goto(scenario.path, { waitUntil: "networkidle" });
 
-      const prehydratedScreenshot = await captureLandingAccountGoogleClip(prehydratedPage);
-      const hydratedScreenshot = await captureLandingAccountGoogleClip(hydratedPage);
+      const prehydratedScreenshot = await captureLandingAccountRouteAuthClip(prehydratedPage);
+      const hydratedScreenshot = await captureLandingAccountRouteAuthClip(hydratedPage);
       const artifactPrefix = `public-landing-sidebar-auth-prehydration-${scenario.id}`;
 
       await expectScreenshotsToMatch({
@@ -1134,7 +1135,8 @@ test("public landing renders the closed Google signup return state", async ({ pa
   await expect(accountSection.getByText("not logged in", { exact: true })).toBeVisible();
   await expect(accountSection.getByRole("link", { name: "?sign-in" })).toBeVisible();
   await expect(accountSection.getByRole("link", { name: "?create-account" })).toBeVisible();
-  await expect(accountSection.getByText("The app is still internal.")).toHaveCount(0);
+  await expect(page.getByText("The app is still internal.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "@samebasecom" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Google", exact: true, includeHidden: true }),
   ).toHaveCount(0);

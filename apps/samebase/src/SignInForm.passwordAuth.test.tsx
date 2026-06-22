@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   PasswordAuthForm,
   PublicLandingPasswordAuthControls,
-  PublicLandingSidebarGoogleAuthControls,
+  PublicLandingSidebarAuthRouteControls,
 } from "@/components/PublicLandingAuthControls";
-import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
+import {
+  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+  PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID,
+} from "@/lib/publicLanding";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { type PublicDeploymentAuthPolicy } from "../convex/deploymentProfile";
 
@@ -50,6 +53,20 @@ vi.mock("@/routeSearch/root", () => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
+  Link: ({
+    children,
+    className,
+    to,
+  }: {
+    children?: ReactNode;
+    className?: string;
+    search?: unknown;
+    to: string;
+  }) => (
+    <a className={className} href={to}>
+      {children}
+    </a>
+  ),
   useLocation: ({
     select,
   }: {
@@ -222,36 +239,53 @@ describe("PasswordAuthForm", () => {
     expect(markup).not.toContain("Password auth (dev)");
   });
 
-  it("renders sidebar Google auth for the public sign-in route", () => {
+  it("renders sidebar auth route controls for the public sign-in route", () => {
     componentState.search = { "sign-in": true };
 
-    const markup = renderToStaticMarkup(<PublicLandingSidebarGoogleAuthControls />);
+    const markup = renderToStaticMarkup(<PublicLandingSidebarAuthRouteControls />);
 
+    expect(markup).toContain(PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID);
     expect(markup).toContain("Google");
     expect(markup).toContain('data-signup-return="false"');
   });
 
-  it("renders sidebar Google auth for the public create-account route", () => {
+  it("renders the closed signup copy for the public create-account route", () => {
     componentState.search = { "create-account": true };
 
-    const markup = renderToStaticMarkup(<PublicLandingSidebarGoogleAuthControls />);
+    const markup = renderToStaticMarkup(<PublicLandingSidebarAuthRouteControls />);
 
-    expect(markup).toContain("Google");
-    expect(markup).toContain('data-signup-return="true"');
+    expect(markup).toContain(PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID);
+    expect(markup).toContain("The app is still internal.");
+    expect(markup).toContain("@samebasecom");
+    expect(markup).toContain("?sign-in");
+    expect(markup).not.toContain("Google");
   });
 
-  it("omits sidebar Google auth off the public auth routes", () => {
-    const defaultMarkup = renderToStaticMarkup(<PublicLandingSidebarGoogleAuthControls />);
+  it("renders the closed signup copy for the public Google signup return route", () => {
+    componentState.search = { signup: "google" };
+
+    const markup = renderToStaticMarkup(<PublicLandingSidebarAuthRouteControls />);
+
+    expect(markup).toContain("The app is still internal.");
+    expect(markup).toContain("?sign-in");
+    expect(markup).not.toContain("Google");
+  });
+
+  it("omits sidebar auth route controls off the public auth routes", () => {
+    const defaultMarkup = renderToStaticMarkup(<PublicLandingSidebarAuthRouteControls />);
     componentState.pathname = "/dashboard";
     componentState.search = { "sign-in": true };
-    const dashboardMarkup = renderToStaticMarkup(<PublicLandingSidebarGoogleAuthControls />);
+    const dashboardMarkup = renderToStaticMarkup(<PublicLandingSidebarAuthRouteControls />);
     componentState.pathname = "/";
     componentState.isAuthenticated = true;
-    const authenticatedMarkup = renderToStaticMarkup(<PublicLandingSidebarGoogleAuthControls />);
+    const authenticatedMarkup = renderToStaticMarkup(<PublicLandingSidebarAuthRouteControls />);
 
     expect(defaultMarkup).not.toContain("Google");
+    expect(defaultMarkup).not.toContain(PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID);
     expect(dashboardMarkup).not.toContain("Google");
+    expect(dashboardMarkup).not.toContain(PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID);
     expect(authenticatedMarkup).not.toContain("Google");
+    expect(authenticatedMarkup).not.toContain(PUBLIC_LANDING_SIDEBAR_AUTH_ROUTE_TEST_ID);
   });
 
   it("shows actionable copy when local worktree autofill credentials are missing", async () => {
