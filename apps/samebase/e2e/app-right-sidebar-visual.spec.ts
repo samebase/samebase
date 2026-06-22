@@ -116,10 +116,42 @@ test("signed-in app right sidebar prehydration includes the password provider la
     scale: "css",
   });
 
+  await blockHydrationScripts(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
+  await waitForFonts(page);
+
+  await expectPrehydratedAccountSectionToMatchHydrated({
+    artifactPrefix: "app-right-sidebar-signed-in-account-prehydration",
+    hydratedScreenshot,
+    page,
+    testInfo,
+  });
+});
+
+test("signed-in app right sidebar prehydration includes password provider for existing sessions without provider markers", async ({
+  page,
+}, testInfo: TestInfo) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/");
+  await page.waitForLoadState("networkidle");
+  await waitForFonts(page);
+
+  const hydratedAccountSection = getSignedInAccountSection(page);
+  await expect(
+    hydratedAccountSection.getByText("Signed in with Password", { exact: true }),
+  ).toBeVisible();
+  const hydratedScreenshot = await hydratedAccountSection.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+
   await page.evaluate(
     ({ authProviderStorageKey, passwordAuthModeStorageKey }) => {
       window.localStorage.removeItem(authProviderStorageKey);
-      window.localStorage.setItem(passwordAuthModeStorageKey, "local_worktree_seed");
+      window.localStorage.removeItem(passwordAuthModeStorageKey);
     },
     {
       authProviderStorageKey: AUTH_PROVIDER_STORAGE_KEY,
@@ -131,6 +163,25 @@ test("signed-in app right sidebar prehydration includes the password provider la
   await page.waitForLoadState("networkidle");
   await waitForFonts(page);
 
+  await expectPrehydratedAccountSectionToMatchHydrated({
+    artifactPrefix: "app-right-sidebar-signed-in-account-legacy-prehydration",
+    hydratedScreenshot,
+    page,
+    testInfo,
+  });
+});
+
+async function expectPrehydratedAccountSectionToMatchHydrated({
+  artifactPrefix,
+  hydratedScreenshot,
+  page,
+  testInfo,
+}: {
+  artifactPrefix: string;
+  hydratedScreenshot: Buffer;
+  page: Page;
+  testInfo: TestInfo;
+}) {
   const prehydratedAccountSection = getSignedInAccountSection(page);
   await expect(prehydratedAccountSection).toBeVisible();
   await expect(prehydratedAccountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
@@ -159,18 +210,12 @@ test("signed-in app right sidebar prehydration includes the password provider la
 
   await expectScreenshotsToMatch({
     actual: prehydratedScreenshot,
-    artifactPrefix: "app-right-sidebar-signed-in-account-prehydration",
+    artifactPrefix,
     artifactWritePaths: {
-      actual: testInfo.outputPath(
-        "app-right-sidebar-signed-in-account-prehydration-prehydrated.png",
-      ),
-      diff: testInfo.outputPath("app-right-sidebar-signed-in-account-prehydration-diff.png"),
-      diffMask: testInfo.outputPath(
-        "app-right-sidebar-signed-in-account-prehydration-diff-mask.png",
-      ),
-      expected: testInfo.outputPath(
-        "app-right-sidebar-signed-in-account-prehydration-hydrated.png",
-      ),
+      actual: testInfo.outputPath(`${artifactPrefix}-prehydrated.png`),
+      diff: testInfo.outputPath(`${artifactPrefix}-diff.png`),
+      diffMask: testInfo.outputPath(`${artifactPrefix}-diff-mask.png`),
+      expected: testInfo.outputPath(`${artifactPrefix}-hydrated.png`),
     },
     expected: hydratedScreenshot,
     maxDiffPixelRatio: 0,
@@ -180,4 +225,4 @@ test("signed-in app right sidebar prehydration includes the password provider la
     },
     testInfo,
   });
-});
+}

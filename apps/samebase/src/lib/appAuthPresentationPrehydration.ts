@@ -5,6 +5,7 @@ import {
 } from "@/lib/authStorageKeys";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
+import { PRODUCTION_PUBLIC_HOSTNAMES } from "@/lib/prodUiMode";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-auth-presentation-prehydration";
@@ -17,6 +18,7 @@ export type AppAuthPresentationPrehydrationArgs = {
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
   passwordAuthModeStorageKey: string;
+  productionPublicHostnames: readonly string[];
   rootAttribute: string;
   styleElementId: string;
 };
@@ -28,6 +30,7 @@ const appAuthPresentationPrehydrationArgs = {
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
   passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
+  productionPublicHostnames: PRODUCTION_PUBLIC_HOSTNAMES,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
@@ -79,9 +82,18 @@ function InlineScript_prehydrateAppAuthPresentation(
     }
 
     const passwordAuthMode = window.localStorage.getItem(args.passwordAuthModeStorageKey);
-    return passwordAuthMode === "local_worktree_seed" || passwordAuthMode === "preview_seed"
-      ? "Password"
-      : null;
+    if (passwordAuthMode === "local_worktree_seed" || passwordAuthMode === "preview_seed") {
+      return "Password";
+    }
+    if (passwordAuthMode !== null) {
+      return null;
+    }
+
+    const hostname = window.location.hostname.trim().toLowerCase();
+    const productionPublicHostname = args.productionPublicHostnames.some(
+      (productionHostname) => productionHostname === hostname,
+    );
+    return productionPublicHostname ? null : "Password";
   }
 
   function installPrehydrationStyle(presentation: {

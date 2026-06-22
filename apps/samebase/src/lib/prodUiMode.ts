@@ -4,7 +4,10 @@ import { type DeploymentProfile } from "../../convex/deploymentProfile";
 
 export const FORCE_PROD_UI_QUERY_PARAM = "prod-ui";
 export const PRODUCTION_PUBLIC_HOSTNAME = "samebase.com";
-const PRODUCTION_PUBLIC_HOSTNAMES = [PRODUCTION_PUBLIC_HOSTNAME, "www.samebase.com"] as const;
+export const PRODUCTION_PUBLIC_HOSTNAMES = [
+  PRODUCTION_PUBLIC_HOSTNAME,
+  "www.samebase.com",
+] as const;
 
 export function isProdUiModeEnabled(search: Readonly<Record<string, unknown>>): boolean {
   const value = search[FORCE_PROD_UI_QUERY_PARAM];
