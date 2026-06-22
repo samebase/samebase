@@ -30,7 +30,7 @@ const { array, boolean, literal, number, object, optional, string, union } = v;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
 
-const authProviderSummaryValidator = object({
+const vAuthProviderSummary = object({
   providers: array(string()),
   primaryProvider: optional(string()),
 });
@@ -41,57 +41,49 @@ type AuthProviderAccountSummary = {
   provider: string;
 };
 
-const providerAuthMethodValidator = union(
-  literal("oauth"),
-  literal("mcp_oauth"),
-  literal("api_key"),
-);
-const githubOAuthScopeRequirementValidator = object({
+const vProviderAuthMethod = union(literal("oauth"), literal("mcp_oauth"), literal("api_key"));
+const vGithubOAuthScopeRequirement = object({
   scope: string(),
   label: string(),
 });
-const githubScopeStatusValidator = union(
-  literal("granted"),
-  literal("missing"),
-  literal("unknown"),
-);
-const githubRequiredScopeHealthValidator = object({
+const vGithubScopeStatus = union(literal("granted"), literal("missing"), literal("unknown"));
+const vGithubRequiredScopeHealth = object({
   scope: string(),
   label: string(),
-  status: githubScopeStatusValidator,
+  status: vGithubScopeStatus,
 });
-const githubProviderSummaryValidator = object({
+const vGithubProviderSummary = object({
   connected: boolean(),
   username: optional(string()),
-  authMethod: optional(providerAuthMethodValidator),
-  requiredScopes: array(githubOAuthScopeRequirementValidator),
+  authMethod: optional(vProviderAuthMethod),
+  requiredScopes: array(vGithubOAuthScopeRequirement),
   manageUrl: optional(string()),
   reauthorizeAvailable: boolean(),
 });
-const githubHealthCheckKeyValidator = union(literal("profile"), literal("repositories"));
-const githubHealthCheckStatusValidator = union(literal("ok"), literal("error"), literal("unknown"));
-const githubHealthCheckValidator = object({
-  key: githubHealthCheckKeyValidator,
+const vGithubHealthCheckKey = union(literal("profile"), literal("repositories"));
+const vGithubHealthCheckStatus = union(literal("ok"), literal("error"), literal("unknown"));
+const vGithubHealthCheck = object({
+  key: vGithubHealthCheckKey,
   label: string(),
-  status: githubHealthCheckStatusValidator,
+  status: vGithubHealthCheckStatus,
   message: optional(string()),
 });
-const githubConnectionHealthValidator = object({
+const vGithubConnectionHealth = object({
   connected: boolean(),
   username: optional(string()),
-  authMethod: optional(providerAuthMethodValidator),
+  authMethod: optional(vProviderAuthMethod),
   checkedAt: number(),
   grantedScopes: array(string()),
-  requiredScopes: array(githubRequiredScopeHealthValidator),
-  checks: array(githubHealthCheckValidator),
+  requiredScopes: array(vGithubRequiredScopeHealth),
+  checks: array(vGithubHealthCheck),
   manageUrl: optional(string()),
   reauthorizeAvailable: boolean(),
 });
-const cloudflareConnectionStatusValidator = object({
+const vCloudflareConnectionStatus = object({
   connected: boolean(),
   accountId: optional(string()),
   accountName: optional(string()),
-  authMethod: optional(providerAuthMethodValidator),
+  authMethod: optional(vProviderAuthMethod),
   mcpTokenStatus: optional(vMcpTokenHealthStatus),
   mcpTokenExpiresAt: optional(number()),
   mcpTokenCheckedAt: optional(number()),
@@ -100,9 +92,9 @@ const cloudflareConnectionStatusValidator = object({
   mcpTokenLastRefreshAt: optional(number()),
   mcpTokenNextAutoCheckAt: optional(number()),
 });
-type CloudflareConnectionStatus = Infer<typeof cloudflareConnectionStatusValidator>;
-type GithubProviderSummary = Infer<typeof githubProviderSummaryValidator>;
-type GithubConnectionHealth = Infer<typeof githubConnectionHealthValidator>;
+type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
+type GithubProviderSummary = Infer<typeof vGithubProviderSummary>;
+type GithubConnectionHealth = Infer<typeof vGithubConnectionHealth>;
 type CloudflareConnectionStatusInput = {
   defaultAccount: CloudflareDefaultAccount;
   auth:
@@ -439,7 +431,7 @@ export const viewer = query({
 export const getViewerAuthProviders = query({
   access: "access_public",
   args: {},
-  returns: authProviderSummaryValidator,
+  returns: vAuthProviderSummary,
   handler: async (ctx) => {
     const userId = ctx.viewer.userId;
     if (userId === null) {
@@ -514,7 +506,7 @@ export const getGithubConnectionStatus = query({
   returns: v.object({
     connected: boolean(),
     username: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
+    authMethod: v.optional(vProviderAuthMethod),
   }),
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
@@ -533,7 +525,7 @@ export const getGithubConnectionStatus = query({
 export const getGithubProviderSummary = query({
   access: "access_provider_connections",
   args: {},
-  returns: githubProviderSummaryValidator,
+  returns: vGithubProviderSummary,
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "github");
     return buildGithubProviderSummary(connection);
@@ -543,7 +535,7 @@ export const getGithubProviderSummary = query({
 export const checkGithubConnectionHealth = action({
   access: "access_provider_connections",
   args: {},
-  returns: githubConnectionHealthValidator,
+  returns: vGithubConnectionHealth,
   handler: async (ctx): Promise<GithubConnectionHealth> => {
     const connection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
       userId: ctx.viewer.userId,
@@ -688,7 +680,7 @@ export const getConvexConnectionStatus = query({
     connected: boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
+    authMethod: v.optional(vProviderAuthMethod),
   }),
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "convex");
@@ -720,7 +712,7 @@ export const disconnectConvex = mutation({
 export const getCloudflareConnectionStatus = query({
   access: "access_provider_connections",
   args: {},
-  returns: cloudflareConnectionStatusValidator,
+  returns: vCloudflareConnectionStatus,
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "cloudflare");
     if (connection?.kind !== "cloudflare") {
@@ -731,14 +723,14 @@ export const getCloudflareConnectionStatus = query({
   },
 });
 
-const cloudflareAutoRefreshTriggerValidator = union(
+const vCloudflareAutoRefreshTrigger = union(
   literal("focus"),
   literal("visibility"),
   literal("page_load"),
   literal("poll"),
   literal("manual"),
 );
-type CloudflareAutoRefreshTrigger = Infer<typeof cloudflareAutoRefreshTriggerValidator>;
+type CloudflareAutoRefreshTrigger = Infer<typeof vCloudflareAutoRefreshTrigger>;
 
 async function runCloudflareMcpTokenRefresh(args: {
   ctx: ActionCtx;
@@ -905,10 +897,10 @@ async function runCloudflareMcpTokenRefresh(args: {
 export const refreshCloudflareMcpTokenIfNeeded = action({
   access: "access_provider_connections",
   args: {
-    trigger: optional(cloudflareAutoRefreshTriggerValidator),
+    trigger: optional(vCloudflareAutoRefreshTrigger),
     force: optional(boolean()),
   },
-  returns: cloudflareConnectionStatusValidator,
+  returns: vCloudflareConnectionStatus,
   handler: async (ctx, args) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
@@ -922,7 +914,7 @@ export const refreshCloudflareMcpTokenIfNeeded = action({
 export const checkCloudflareMcpTokenHealth = action({
   access: "access_provider_connections",
   args: {},
-  returns: cloudflareConnectionStatusValidator,
+  returns: vCloudflareConnectionStatus,
   handler: async (ctx) => {
     return await runCloudflareMcpTokenRefresh({
       ctx,
@@ -945,11 +937,11 @@ export const disconnectCloudflare = mutation({
   },
 });
 
-const githubApiKeyConnectionResultValidator = v.object({
+const vGithubApiKeyConnectionResult = v.object({
   username: v.string(),
 });
 
-const convexApiKeyConnectionResultValidator = v.object({
+const vConvexApiKeyConnectionResult = v.object({
   teamId: v.string(),
 });
 
@@ -958,7 +950,7 @@ export const connectGithubWithApiKey = action({
   args: {
     token: v.string(),
   },
-  returns: githubApiKeyConnectionResultValidator,
+  returns: vGithubApiKeyConnectionResult,
   handler: async (ctx, args) => {
     const token = normalizeApiToken(args.token);
     const identity = await fetchGithubIdentity(token);
@@ -981,7 +973,7 @@ export const connectConvexWithApiKey = action({
   args: {
     token: v.string(),
   },
-  returns: convexApiKeyConnectionResultValidator,
+  returns: vConvexApiKeyConnectionResult,
   handler: async (ctx, args) => {
     const token = normalizeApiToken(args.token);
     const details = await fetchConvexApiKeyTeamDetails(token);
