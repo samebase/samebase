@@ -28,6 +28,7 @@ const CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
 
 type CloudflareApiRequestMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 export type CloudflareApiTransport = "mcp" | "direct";
+export type CloudflareApiAuthMethod = "api_key" | "oauth" | "mcp_oauth";
 type CloudflareApiErrorDetail = {
   code?: string;
   message?: string;
@@ -173,7 +174,7 @@ type CloudflareApiResult =
     };
 type CloudflareApiRequestBase = {
   token: string;
-  transport?: CloudflareApiTransport;
+  transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
 };
 
@@ -196,6 +197,21 @@ export class CloudflareApiError extends Error {
     this.method = args.method;
     this.path = args.path;
     this.details = args.details;
+  }
+}
+
+export function resolveCloudflareApiTransport(
+  authMethod: CloudflareApiAuthMethod,
+): CloudflareApiTransport {
+  switch (authMethod) {
+    case "oauth":
+      return "direct";
+    case "api_key":
+    case "mcp_oauth":
+      return "mcp";
+    default:
+      authMethod satisfies never;
+      throw new Error("Unsupported Cloudflare auth method.");
   }
 }
 
@@ -306,7 +322,7 @@ export async function requestCloudflareApi(
     path: args.path,
     params,
   });
-  const transport = args.transport ?? "mcp";
+  const transport = args.transport;
   const result =
     transport === "direct"
       ? await executeCloudflareApiDirectRequest({
@@ -382,6 +398,16 @@ export function isWorkersBuildsInvalidTokenMessage(args: {
 }
 
 export function isCloudflareMcpInvalidAccessTokenError(error: unknown): boolean {
+  if (error instanceof CloudflareApiError) {
+    return error.details.some((detail) => {
+      const message = detail.message?.toLowerCase() ?? "";
+      return (
+        detail.code === "10000" ||
+        message.includes("authentication error") ||
+        message.includes("invalid api token")
+      );
+    });
+  }
   const message = toErrorMessage(error).toLowerCase();
   return message.includes("invalid_token") || message.includes("invalid access token");
 }

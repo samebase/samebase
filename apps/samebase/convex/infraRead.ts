@@ -17,6 +17,7 @@ import { readCloudflareBuildLogs, readCloudflareWorkerStatus } from "./cloudflar
 import {
   formatCloudflareApiEndpoint,
   requestCloudflareApi,
+  resolveCloudflareApiTransport,
   type CloudflareApiTransport,
 } from "./cloudflareApi/client";
 import { clamp } from "./jsonUtils";
@@ -126,7 +127,7 @@ function resolveCloudflareRequest(
   if (connection) {
     return {
       token: connection.auth.credential,
-      transport: connection.auth.method === "oauth" ? "direct" : "mcp",
+      transport: resolveCloudflareApiTransport(connection.auth.method),
     };
   }
   throw new Error("Cloudflare is not connected");

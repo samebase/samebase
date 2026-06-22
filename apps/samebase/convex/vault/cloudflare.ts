@@ -8,7 +8,10 @@ import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
 import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
-import type { CloudflareApiTransport } from "../cloudflareApi/client";
+import {
+  resolveCloudflareApiTransport,
+  type CloudflareApiTransport,
+} from "../cloudflareApi/client";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
@@ -70,7 +73,7 @@ async function resolveCloudflareConnection(
   return {
     auth: connection.auth,
     token,
-    transport: connection.auth.method === "oauth" ? "direct" : "mcp",
+    transport: resolveCloudflareApiTransport(connection.auth.method),
     tokenHealth: connection.tokenHealth,
   };
 }

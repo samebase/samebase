@@ -729,6 +729,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       internal.cloudflareAccountDiscovery.resolveDefaultAccountForToken,
       {
         token: token.access_token,
+        transport: "mcp",
       },
     );
 

@@ -12,6 +12,7 @@ import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
+import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   resolveCloudflareProvisioningConnection,
   resolveConvexProvisioningConnection,
@@ -506,7 +507,7 @@ async function readCloudflareWorkerNameAvailability(args: {
 }): Promise<AppResourceNameAvailability> {
   const available = await isCloudflareWorkerNameAvailable({
     token: args.connection.cloudflareToken,
-    transport: args.connection.cloudflareAuthMethod === "oauth" ? "direct" : "mcp",
+    transport: resolveCloudflareApiTransport(args.connection.cloudflareAuthMethod),
     accountId: args.connection.cloudflareAccountId,
     workerName: args.workerName,
   });
@@ -518,7 +519,7 @@ async function readCloudflareWorkerNameAvailability(args: {
     providerLabel: "Cloudflare Worker",
     suggestion: await buildAvailableCloudflareWorkerNameSuggestion({
       token: args.connection.cloudflareToken,
-      transport: args.connection.cloudflareAuthMethod === "oauth" ? "direct" : "mcp",
+      transport: resolveCloudflareApiTransport(args.connection.cloudflareAuthMethod),
       accountId: args.connection.cloudflareAccountId,
       baseName: args.workerName,
     }),

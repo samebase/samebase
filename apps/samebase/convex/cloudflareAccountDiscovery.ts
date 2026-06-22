@@ -67,7 +67,7 @@ export function selectSingleCloudflareDefaultAccount(
 export async function listCloudflareAccountsForToken(args: {
   token: string;
   perPage: number;
-  transport?: CloudflareApiTransport;
+  transport: CloudflareApiTransport;
 }): Promise<CloudflareAccount[]> {
   const accounts = await requestCloudflareApi({
     token: args.token,
@@ -90,7 +90,7 @@ export async function listCloudflareAccountsForToken(args: {
 export const resolveDefaultAccountForToken = internalAction({
   args: {
     token: v.string(),
-    transport: v.optional(vCloudflareApiTransport),
+    transport: vCloudflareApiTransport,
   },
   returns: vCloudflareDefaultAccount,
   handler: async (_ctx, args) => {

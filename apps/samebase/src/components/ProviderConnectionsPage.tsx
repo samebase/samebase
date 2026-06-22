@@ -691,7 +691,6 @@ function useProviderOAuthPopupCompletionReload({
 function useCloudflareMcpTokenAutoCheck({
   cloudflareConnection,
   refreshCloudflareMcpTokenIfNeeded,
-  setCloudflarePollingPaused,
   setIsAutoCheckingCloudflareToken,
   userId,
 }: {
@@ -700,7 +699,6 @@ function useCloudflareMcpTokenAutoCheck({
     force: false;
     trigger: CloudflareTokenAutoCheckTrigger;
   }) => Promise<unknown>;
-  setCloudflarePollingPaused: (isPaused: boolean) => void;
   setIsAutoCheckingCloudflareToken: (isChecking: boolean) => void;
   userId: Id<"users"> | undefined;
 }) {
@@ -710,7 +708,6 @@ function useCloudflareMcpTokenAutoCheck({
 
   useEffect(() => {
     if (connectedCloudflareConnection?.authMethod !== "mcp_oauth") {
-      setCloudflarePollingPaused(false);
       return;
     }
 
@@ -746,13 +743,11 @@ function useCloudflareMcpTokenAutoCheck({
       if (document.visibilityState !== "visible") {
         return;
       }
-      setCloudflarePollingPaused(false);
       runAutoCheck("focus");
     };
 
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === "visible";
-      setCloudflarePollingPaused(!isVisible);
       if (isVisible) {
         runAutoCheck("visibility");
       }
@@ -762,7 +757,6 @@ function useCloudflareMcpTokenAutoCheck({
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const isVisible = document.visibilityState === "visible";
-    setCloudflarePollingPaused(!isVisible);
     if (isVisible) {
       runAutoCheck("page_load");
     }
@@ -790,7 +784,6 @@ function useCloudflareMcpTokenAutoCheck({
     connectedCloudflareConnection?.authMethod,
     connectedCloudflareConnection?.mcpTokenNextAutoCheckAt,
     refreshCloudflareMcpTokenIfNeeded,
-    setCloudflarePollingPaused,
     setIsAutoCheckingCloudflareToken,
     userId,
   ]);
@@ -823,9 +816,6 @@ export function ProviderConnectionsPage() {
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const cloudflareAccountDialogRequestIdRef = useRef(0);
   const githubReauthorizePopupCloseTimerRef = useRef<number | null>(null);
-  const [, setCloudflarePollingPaused] = useState(
-    () => typeof document !== "undefined" && document.visibilityState !== "visible",
-  );
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
   const [githubHealth, setGithubHealth] = useState<AppGithubConnectionHealth | null>(null);
   const [githubHealthError, setGithubHealthError] = useState<string | null>(null);
@@ -900,7 +890,6 @@ export function ProviderConnectionsPage() {
   useCloudflareMcpTokenAutoCheck({
     cloudflareConnection,
     refreshCloudflareMcpTokenIfNeeded,
-    setCloudflarePollingPaused,
     setIsAutoCheckingCloudflareToken,
     userId: user?._id,
   });

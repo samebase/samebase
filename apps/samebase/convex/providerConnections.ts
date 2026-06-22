@@ -323,10 +323,7 @@ export const claimCloudflareTokenRefresh = internalMutation({
   handler: async (ctx, args) => {
     const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
 
-    if (
-      connection?.kind !== "cloudflare" ||
-      (connection.auth.method !== "oauth" && connection.auth.method !== "mcp_oauth")
-    ) {
+    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
       return { claimed: false };
     }
 
@@ -376,10 +373,7 @@ export const releaseCloudflareTokenRefresh = internalMutation({
   }),
   handler: async (ctx, args) => {
     const connection = await getConnectionByUserAndKind(ctx.db, args.userId, "cloudflare");
-    if (
-      connection?.kind !== "cloudflare" ||
-      (connection.auth.method !== "oauth" && connection.auth.method !== "mcp_oauth")
-    ) {
+    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
       return {};
     }
 

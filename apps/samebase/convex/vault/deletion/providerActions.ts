@@ -12,6 +12,7 @@ import {
   deleteCloudflareResources,
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
+import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
 import { readRetainedSnapshot } from "./runs";
 import {
   type VaultDeletionEventLevel,
@@ -168,14 +169,16 @@ export const deleteCloudflare = internalAction({
       return null;
     }
 
-    const cloudflareConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: args.userId,
-      kind: "cloudflare",
-    });
-    if (cloudflareConnection?.kind !== "cloudflare") {
+    const cloudflareConnection = await ctx.runAction(
+      internal.cloudflareOAuth.resolveConnectionForUser,
+      {
+        userId: args.userId,
+      },
+    );
+    if (!cloudflareConnection) {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
-    const cloudflareTransport = cloudflareConnection.auth.method === "oauth" ? "direct" : "mcp";
+    const cloudflareTransport = resolveCloudflareApiTransport(cloudflareConnection.auth.method);
 
     const workers =
       plan.cloudflare.action === "delete_worker" ? [plan.cloudflare] : plan.cloudflare.workers;
