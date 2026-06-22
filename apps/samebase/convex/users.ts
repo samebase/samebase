@@ -135,7 +135,7 @@ type CloudflareConnectionStatusInput = {
       }
     | {
         method: "oauth";
-        credentialExpiresAt?: number;
+        credentialExpiresAt: number;
       }
     | {
         method: "mcp_oauth";

@@ -200,6 +200,12 @@ export const vOAuthAuth = object({
   refreshCredential: optional(string()),
   credentialExpiresAt: optional(number()),
 });
+export const vCloudflareOAuthAuth = object({
+  method: literal("oauth"),
+  credential: string(),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
+});
 export const vMcpOAuthAuth = object({
   method: literal("mcp_oauth"),
   credential: string(),
@@ -213,7 +219,7 @@ export const vApiKeyAuth = object({
 });
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
 export type StandardProviderAuth = Infer<typeof vStandardProviderAuth>;
-export const vCloudflareProviderAuth = union(vOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
+export const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof vCloudflareProviderAuth>;
 export const vProviderAuth = union(vOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;

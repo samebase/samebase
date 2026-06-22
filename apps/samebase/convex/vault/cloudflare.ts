@@ -43,8 +43,8 @@ type CloudflareActionConnection = {
     | {
         method: "oauth";
         credential: string;
-        refreshCredential?: string;
-        credentialExpiresAt?: number;
+        refreshCredential: string;
+        credentialExpiresAt: number;
       }
     | {
         method: "mcp_oauth";

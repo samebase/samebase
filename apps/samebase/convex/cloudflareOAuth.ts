@@ -287,8 +287,8 @@ export const storeCloudflareOauthConnection = internalMutation({
 const cloudflareOauthAuthValidator = object({
   method: literal("oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
 });
 const cloudflareMcpOauthAuthValidator = object({
   method: literal("mcp_oauth"),
@@ -372,35 +372,32 @@ export const resolveConnectionForUser = internalAction({
 
     const expiresAt = connection.auth.credentialExpiresAt;
     const checkedAt = Date.now();
-    const derivedTokenHealth =
-      typeof expiresAt === "number"
-        ? {
-            status: deriveMcpTokenStatusFromExpiry(expiresAt, checkedAt),
-            checkedAt,
-            expiresAt,
-            source: "expiry_metadata" as const,
-          }
-        : undefined;
+    const derivedTokenHealth: Infer<typeof vMcpTokenHealth> = {
+      status: deriveMcpTokenStatusFromExpiry(expiresAt, checkedAt),
+      checkedAt,
+      expiresAt,
+      source: "expiry_metadata",
+    };
     const effectiveTokenHealth = connection.tokenHealth ?? derivedTokenHealth;
     const shouldRefresh =
       args.forceRefresh === true ||
-      derivedTokenHealth?.status === "expiring_soon" ||
-      derivedTokenHealth?.status === "expired";
+      derivedTokenHealth.status === "expiring_soon" ||
+      derivedTokenHealth.status === "expired";
     if (!shouldRefresh) {
       return {
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
-        ...(effectiveTokenHealth ? { tokenHealth: effectiveTokenHealth } : {}),
+        tokenHealth: effectiveTokenHealth,
       };
     }
 
-    const refreshToken = connection.auth.refreshCredential?.trim();
+    const refreshToken = connection.auth.refreshCredential.trim();
     if (!refreshToken) {
       const message = "Cloudflare OAuth refresh token is empty. Reconnect Cloudflare and retry.";
       const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: "invalid",
         checkedAt: Date.now(),
-        ...(typeof expiresAt === "number" ? { expiresAt } : {}),
+        expiresAt,
         source: "refresh_attempt",
         errorMessage: message,
       };
@@ -425,9 +422,9 @@ export const resolveConnectionForUser = internalAction({
     } catch (error) {
       const invalidToken = isLikelyInvalidCloudflareTokenError(error);
       const tokenHealth: Infer<typeof vMcpTokenHealth> = {
-        status: invalidToken ? "invalid" : (derivedTokenHealth?.status ?? "unknown"),
+        status: invalidToken ? "invalid" : derivedTokenHealth.status,
         checkedAt: Date.now(),
-        ...(typeof expiresAt === "number" ? { expiresAt } : {}),
+        expiresAt,
         source: invalidToken ? "refresh_attempt" : "runtime_error",
         errorMessage: sanitizeTokenHealthError(error),
       };

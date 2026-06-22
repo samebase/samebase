@@ -419,8 +419,8 @@ const cloudflareMcpOauthAuthValidator = object({
 const cloudflareOauthAuthValidator = object({
   method: literal("oauth"),
   credential: string(),
-  refreshCredential: optional(string()),
-  credentialExpiresAt: optional(number()),
+  refreshCredential: string(),
+  credentialExpiresAt: number(),
 });
 const cloudflareApiKeyAuthValidator = object({
   method: literal("api_key"),
