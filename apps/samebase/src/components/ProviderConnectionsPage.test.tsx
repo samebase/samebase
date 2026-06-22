@@ -176,9 +176,10 @@ describe("ProviderConnectionsPage", () => {
     );
 
     expect(markup).toContain("Connected as samebase");
-    expect(markup).toContain("OAuth scopes requested: repo, delete_repo");
+    expect(markup).toContain("Required access");
+    expect(markup).toContain("repo Unknown");
+    expect(markup).toContain("delete_repo Unknown");
     expect(markup).toContain("Granted scopes: Not checked");
-    expect(markup).toContain("Required access: repo Not checked; delete_repo Not checked");
     expect(markup).toContain(
       "Need more org access? Reauthorize revokes the current GitHub grant before opening OAuth again; closing the OAuth window leaves GitHub disconnected until you reconnect.",
     );
@@ -197,7 +198,9 @@ describe("ProviderConnectionsPage", () => {
     const markup = renderToStaticMarkup(<ProviderConnectionsPageVisualFixture />);
 
     expect(markup).toContain("Connected as octo-operator");
-    expect(markup).toContain("Required access: repo Granted; delete_repo Missing");
+    expect(markup).toContain("delete_repo Missing");
+    expect(markup).toContain("samebase · Admin");
+    expect(markup).toContain("acme-product · Member");
     expect(markup).toContain(
       "Repository listing: Needs attention - Some organization repositories are not visible to this OAuth grant.",
     );
@@ -250,9 +253,22 @@ describe("ProviderConnectionsPage", () => {
           message: "GitHub denied this request. Check org approval, SSO, or rate limits.",
           status: "error",
         },
+        {
+          key: "organizations",
+          label: "Organization access",
+          message: "GitHub returned 1 organization visible to this credential.",
+          status: "ok",
+        },
       ],
       connected: true,
       grantedScopes: ["repo"],
+      organizations: [
+        {
+          canCreateRepository: true,
+          login: "samebase",
+          role: "admin",
+        },
+      ],
       reauthorizeAvailable: true,
       requiredScopes: [
         { scope: "repo", label: "List and edit repositories", status: "granted" },
@@ -299,10 +315,15 @@ describe("ProviderConnectionsPage", () => {
     });
 
     expect(checkGithubConnectionHealth).toHaveBeenCalledWith({});
-    expect(container.textContent).toContain("Required access: repo Granted; delete_repo Missing");
+    expect(container.textContent).toContain("repo Granted");
+    expect(container.textContent).toContain("delete_repo Missing");
+    expect(container.textContent).toContain("samebase · Admin");
     expect(container.textContent).toContain("Profile: OK - Authenticated as samebase.");
     expect(container.textContent).toContain(
       "Repository listing: Needs attention - GitHub denied this request. Check org approval, SSO, or rate limits.",
+    );
+    expect(container.textContent).toContain(
+      "Organization access: OK - GitHub returned 1 organization visible to this credential.",
     );
   });
 });

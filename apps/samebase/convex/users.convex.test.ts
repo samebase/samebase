@@ -263,7 +263,7 @@ describe("users Convex contract", () => {
           return new Response(JSON.stringify({ login: "live-login" }), {
             headers: {
               "content-type": "application/json",
-              "x-oauth-scopes": "repo, user",
+              "x-oauth-scopes": "repo, user, read:org",
             },
           });
         }
@@ -271,9 +271,39 @@ describe("users Convex contract", () => {
           return new Response("[]", {
             headers: {
               "content-type": "application/json",
-              "x-oauth-scopes": "repo, user",
+              "x-oauth-scopes": "repo, user, read:org",
             },
           });
+        }
+        if (url.startsWith("https://api.github.com/user/memberships/orgs")) {
+          return new Response(
+            JSON.stringify([
+              {
+                role: "admin",
+                permissions: {
+                  can_create_repository: true,
+                },
+                organization: {
+                  login: "samebase",
+                },
+              },
+              {
+                role: "member",
+                permissions: {
+                  can_create_repository: false,
+                },
+                organization: {
+                  login: "acme-product",
+                },
+              },
+            ]),
+            {
+              headers: {
+                "content-type": "application/json",
+                "x-oauth-scopes": "repo, user, read:org",
+              },
+            },
+          );
         }
 
         return new Response("not found", { status: 404 });
@@ -291,12 +321,25 @@ describe("users Convex contract", () => {
       expect(requestedUrls).toEqual([
         "https://api.github.com/user",
         "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
+        "https://api.github.com/user/memberships/orgs?state=active&per_page=100&page=1",
       ]);
       expect(health).toMatchObject({
         connected: true,
         username: "live-login",
         authMethod: "oauth",
-        grantedScopes: ["repo", "user"],
+        grantedScopes: ["repo", "user", "read:org"],
+        organizations: [
+          {
+            login: "acme-product",
+            role: "member",
+            canCreateRepository: false,
+          },
+          {
+            login: "samebase",
+            role: "admin",
+            canCreateRepository: true,
+          },
+        ],
         checks: [
           {
             key: "profile",
@@ -304,6 +347,10 @@ describe("users Convex contract", () => {
           },
           {
             key: "repositories",
+            status: "ok",
+          },
+          {
+            key: "organizations",
             status: "ok",
           },
         ],
@@ -327,6 +374,11 @@ describe("users Convex contract", () => {
         {
           scope: "user:email",
           label: "Read GitHub email addresses",
+          status: "granted",
+        },
+        {
+          scope: "read:org",
+          label: "Read organization memberships",
           status: "granted",
         },
         {
@@ -381,6 +433,13 @@ describe("users Convex contract", () => {
             },
           });
         }
+        if (url.startsWith("https://api.github.com/user/memberships/orgs")) {
+          return new Response("[]", {
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        }
 
         return new Response("not found", { status: 404 });
       }),
@@ -395,6 +454,7 @@ describe("users Convex contract", () => {
       const health = await asUser.action(api.users.checkGithubConnectionHealth);
 
       expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
+        "unknown",
         "unknown",
         "unknown",
         "unknown",
@@ -463,8 +523,14 @@ describe("users Convex contract", () => {
           status: "unknown",
           message: "Skipped because the profile check failed.",
         },
+        {
+          key: "organizations",
+          status: "unknown",
+          message: "Skipped because the profile check failed.",
+        },
       ]);
       expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
+        "unknown",
         "unknown",
         "unknown",
         "unknown",
@@ -516,6 +582,14 @@ describe("users Convex contract", () => {
         if (url.startsWith("https://api.github.com/user/repos")) {
           return new Response("denied", { status: 403 });
         }
+        if (url.startsWith("https://api.github.com/user/memberships/orgs")) {
+          return new Response("[]", {
+            headers: {
+              "content-type": "application/json",
+              "x-oauth-scopes": "repo, read:org",
+            },
+          });
+        }
 
         return new Response("not found", { status: 404 });
       }),
@@ -532,6 +606,7 @@ describe("users Convex contract", () => {
       expect(requestedUrls).toEqual([
         "https://api.github.com/user",
         "https://api.github.com/user/repos?sort=updated&per_page=1&affiliation=owner%2Ccollaborator%2Corganization_member",
+        "https://api.github.com/user/memberships/orgs?state=active&per_page=100&page=1",
       ]);
       expect(health.checks).toMatchObject([
         {
@@ -544,12 +619,18 @@ describe("users Convex contract", () => {
           status: "error",
           message: "GitHub denied this request. Check org approval, SSO, or rate limits.",
         },
+        {
+          key: "organizations",
+          status: "ok",
+          message: "No organizations are visible to this credential.",
+        },
       ]);
       expect(health.requiredScopes.map((scope) => scope.status)).toEqual([
         "granted",
         "missing",
         "missing",
         "missing",
+        "granted",
         "missing",
       ]);
     } finally {

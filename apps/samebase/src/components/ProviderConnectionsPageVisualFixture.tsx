@@ -42,10 +42,28 @@ const providerConnectionsVisualFixtureState = {
         message: "Some organization repositories are not visible to this OAuth grant.",
         status: "error",
       },
+      {
+        key: "organizations",
+        label: "Organization access",
+        message: "GitHub returned 2 organizations visible to this credential.",
+        status: "ok",
+      },
     ],
     connected: true,
-    grantedScopes: ["repo"],
+    grantedScopes: ["repo", "user", "read:org"],
     manageUrl: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_GITHUB_MANAGE_URL,
+    organizations: [
+      {
+        canCreateRepository: true,
+        login: "samebase",
+        role: "admin",
+      },
+      {
+        canCreateRepository: false,
+        login: "acme-product",
+        role: "member",
+      },
+    ],
     reauthorizeAvailable: true,
     requiredScopes: [
       {
@@ -56,6 +74,26 @@ const providerConnectionsVisualFixtureState = {
       {
         label: "Delete Samebase-managed repositories",
         scope: "delete_repo",
+        status: "missing",
+      },
+      {
+        label: "Read GitHub profile",
+        scope: "user",
+        status: "granted",
+      },
+      {
+        label: "Read GitHub email addresses",
+        scope: "user:email",
+        status: "granted",
+      },
+      {
+        label: "Read organization memberships",
+        scope: "read:org",
+        status: "granted",
+      },
+      {
+        label: "Read packages",
+        scope: "read:packages",
         status: "missing",
       },
     ],
@@ -74,6 +112,22 @@ const providerConnectionsVisualFixtureState = {
       {
         label: "Delete Samebase-managed repositories",
         scope: "delete_repo",
+      },
+      {
+        label: "Read GitHub profile",
+        scope: "user",
+      },
+      {
+        label: "Read GitHub email addresses",
+        scope: "user:email",
+      },
+      {
+        label: "Read organization memberships",
+        scope: "read:org",
+      },
+      {
+        label: "Read packages",
+        scope: "read:packages",
       },
     ],
     username: "octo-operator",

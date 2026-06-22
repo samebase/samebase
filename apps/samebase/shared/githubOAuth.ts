@@ -20,6 +20,10 @@ const BASE_GITHUB_OAUTH_SCOPES = [
     label: "Read GitHub email addresses",
   },
   {
+    scope: "read:org",
+    label: "Read organization memberships",
+  },
+  {
     scope: "read:packages",
     label: "Read packages",
   },

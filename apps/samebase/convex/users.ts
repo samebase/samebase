@@ -53,6 +53,11 @@ const vGithubRequiredScopeHealth = object({
   label: string(),
   status: vGithubScopeStatus,
 });
+const vGithubOrganizationAccess = object({
+  login: string(),
+  role: string(),
+  canCreateRepository: boolean(),
+});
 const vGithubProviderSummary = object({
   connected: boolean(),
   username: optional(string()),
@@ -61,7 +66,11 @@ const vGithubProviderSummary = object({
   manageUrl: optional(string()),
   reauthorizeAvailable: boolean(),
 });
-const vGithubHealthCheckKey = union(literal("profile"), literal("repositories"));
+const vGithubHealthCheckKey = union(
+  literal("profile"),
+  literal("repositories"),
+  literal("organizations"),
+);
 const vGithubHealthCheckStatus = union(literal("ok"), literal("error"), literal("unknown"));
 const vGithubHealthCheck = object({
   key: vGithubHealthCheckKey,
@@ -76,6 +85,7 @@ const vGithubConnectionHealth = object({
   checkedAt: number(),
   grantedScopes: array(string()),
   requiredScopes: array(vGithubRequiredScopeHealth),
+  organizations: array(vGithubOrganizationAccess),
   checks: array(vGithubHealthCheck),
   manageUrl: optional(string()),
   reauthorizeAvailable: boolean(),
@@ -128,6 +138,17 @@ type GitHubProfileHealthResult =
 type GitHubRepositoryHealthResult =
   | {
       ok: true;
+      scopesHeader: string | null;
+    }
+  | {
+      ok: false;
+      failure: GitHubApiFailure;
+      scopesHeader: string | null;
+    };
+type GitHubOrganizationHealthResult =
+  | {
+      ok: true;
+      organizations: GithubConnectionHealth["organizations"];
       scopesHeader: string | null;
     }
   | {
@@ -324,6 +345,63 @@ async function readGithubRepositoryHealth(octokit: Octokit): Promise<GitHubRepos
     return {
       ok: true,
       scopesHeader: readGitHubSuccessScopesHeader(response),
+    };
+  } catch (error) {
+    if (error instanceof RequestError) {
+      return {
+        ok: false,
+        failure: {
+          status: error.status,
+          statusText: error.message,
+        },
+        scopesHeader: readGitHubErrorScopesHeader(error),
+      };
+    }
+    throw error;
+  }
+}
+
+async function readGithubOrganizationHealth(
+  octokit: Octokit,
+): Promise<GitHubOrganizationHealthResult> {
+  try {
+    let scopesHeader: string | null = null;
+    const organizationAccess: GithubConnectionHealth["organizations"] = [];
+    const seenOrganizationLogins = new Set<string>();
+    for (let page = 1; ; page += 1) {
+      const response = await runGitHubRequestWithTimeout((signal) =>
+        octokit.rest.orgs.listMembershipsForAuthenticatedUser({
+          state: "active",
+          per_page: 100,
+          page,
+          request: { signal },
+        }),
+      );
+      scopesHeader = scopesHeader ?? readGitHubSuccessScopesHeader(response);
+      for (const membership of response.data) {
+        const login = membership.organization.login;
+        if (!login || seenOrganizationLogins.has(login)) {
+          continue;
+        }
+        seenOrganizationLogins.add(login);
+        organizationAccess.push({
+          login,
+          role: membership.role,
+          canCreateRepository:
+            membership.permissions?.can_create_repository === true || membership.role === "admin",
+        });
+      }
+      if (response.data.length < 100) {
+        break;
+      }
+    }
+
+    return {
+      ok: true,
+      organizations: organizationAccess.sort((left, right) =>
+        left.login.localeCompare(right.login),
+      ),
+      scopesHeader,
     };
   } catch (error) {
     if (error instanceof RequestError) {
@@ -645,6 +723,7 @@ export const checkGithubConnectionHealth = action({
           grantedScopes: [],
           scopeReportAvailable: false,
         }),
+        organizations: [],
         checks: [
           {
             key: "profile",
@@ -655,6 +734,12 @@ export const checkGithubConnectionHealth = action({
           {
             key: "repositories",
             label: "Repository listing",
+            status: "unknown",
+            message: "GitHub is not connected.",
+          },
+          {
+            key: "organizations",
+            label: "Organization access",
             status: "unknown",
             message: "GitHub is not connected.",
           },
@@ -670,6 +755,7 @@ export const checkGithubConnectionHealth = action({
     let grantedScopes = profileScopes;
     let scopeReportAvailable = profileScopesHeader !== null;
     let username = connection.username;
+    let organizations: GithubConnectionHealth["organizations"] = [];
     const checks: GithubConnectionHealth["checks"] = [];
 
     if (profileResponse.ok) {
@@ -721,10 +807,43 @@ export const checkGithubConnectionHealth = action({
               message: formatGithubHealthFailure(repositoryResponse.failure),
             },
       );
+
+      const organizationResponse = await readGithubOrganizationHealth(octokit);
+      const organizationScopesHeader = organizationResponse.scopesHeader;
+      scopeReportAvailable = scopeReportAvailable || organizationScopesHeader !== null;
+      grantedScopes = mergeGithubScopes(
+        grantedScopes,
+        parseGitHubOAuthScopesHeader(organizationScopesHeader),
+      );
+      if (organizationResponse.ok) {
+        organizations = organizationResponse.organizations;
+        checks.push({
+          key: "organizations",
+          label: "Organization access",
+          status: "ok",
+          message:
+            organizations.length > 0
+              ? `GitHub returned ${organizations.length} organization${organizations.length === 1 ? "" : "s"} visible to this credential.`
+              : "No organizations are visible to this credential.",
+        });
+      } else {
+        checks.push({
+          key: "organizations",
+          label: "Organization access",
+          status: "error",
+          message: formatGithubHealthFailure(organizationResponse.failure),
+        });
+      }
     } else {
       checks.push({
         key: "repositories",
         label: "Repository listing",
+        status: "unknown",
+        message: "Skipped because the profile check failed.",
+      });
+      checks.push({
+        key: "organizations",
+        label: "Organization access",
         status: "unknown",
         message: "Skipped because the profile check failed.",
       });
@@ -740,6 +859,7 @@ export const checkGithubConnectionHealth = action({
         grantedScopes,
         scopeReportAvailable,
       }),
+      organizations,
       checks,
       ...(summary.manageUrl ? { manageUrl: summary.manageUrl } : {}),
       reauthorizeAvailable: summary.reauthorizeAvailable,

@@ -170,6 +170,32 @@ function formatGithubCheckStatus(status: "ok" | "error" | "unknown") {
   return "Not checked";
 }
 
+function formatGithubOrganizationRole(role: string) {
+  if (role === "admin") return "Admin";
+  if (role === "member") return "Member";
+  return role;
+}
+
+function githubScopeStatusClassName(status: "granted" | "missing" | "unknown") {
+  if (status === "granted") {
+    return "rounded-sm border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800";
+  }
+  if (status === "missing") {
+    return "rounded-sm border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-destructive";
+  }
+  return "rounded-sm border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground";
+}
+
+function githubCheckStatusClassName(status: "ok" | "error" | "unknown") {
+  if (status === "ok") {
+    return "text-emerald-700";
+  }
+  if (status === "error") {
+    return "text-destructive";
+  }
+  return "text-muted-foreground";
+}
+
 function getRedirectOrigin(oauthUrl: string): string | null {
   try {
     const url = new URL(oauthUrl);
@@ -179,6 +205,22 @@ function getRedirectOrigin(oauthUrl: string): string | null {
   } catch {
     return null;
   }
+}
+
+function GitHubScopeStatus({
+  label,
+  scope,
+  status,
+}: {
+  label: string;
+  scope: string;
+  status: "granted" | "missing" | "unknown";
+}) {
+  return (
+    <span className={githubScopeStatusClassName(status)} title={label}>
+      {scope} {formatGithubScopeStatus(status)}
+    </span>
+  );
 }
 
 function GitHubConnectionDetails({
@@ -201,45 +243,97 @@ function GitHubConnectionDetails({
   const isOAuth = summary.authMethod === "oauth";
   const grantedScopes =
     health && health.grantedScopes.length > 0 ? health.grantedScopes.join(", ") : null;
-  const requiredScopeStatus = health
-    ? health.requiredScopes
-        .map((scope) => `${scope.scope} ${formatGithubScopeStatus(scope.status)}`)
-        .join("; ")
-    : summary.requiredScopes.map((scope) => `${scope.scope} Not checked`).join("; ");
 
   return (
-    <div className="space-y-1 text-xs leading-5 text-muted-foreground">
+    <div className="space-y-3 text-xs leading-5">
       {isOAuth ? (
-        <>
-          <div>
-            OAuth scopes requested: {summary.requiredScopes.map((scope) => scope.scope).join(", ")}
+        <div className="space-y-2">
+          <div className="font-medium text-foreground">Required access</div>
+          <div className="flex flex-wrap gap-1.5">
+            {health
+              ? health.requiredScopes.map((scope) => (
+                  <GitHubScopeStatus
+                    key={scope.scope}
+                    label={scope.label}
+                    scope={scope.scope}
+                    status={scope.status}
+                  />
+                ))
+              : summary.requiredScopes.map((scope) => (
+                  <GitHubScopeStatus
+                    key={scope.scope}
+                    label={scope.label}
+                    scope={scope.scope}
+                    status="unknown"
+                  />
+                ))}
           </div>
-          <div>Granted scopes: {grantedScopes ?? (health ? "None reported" : "Not checked")}</div>
-          <div>Required access: {requiredScopeStatus}</div>
-          <div>
-            Need more org access? Reauthorize revokes the current GitHub grant before opening OAuth
-            again; closing the OAuth window leaves GitHub disconnected until you reconnect.
+          <div className="text-muted-foreground">
+            Granted scopes: {grantedScopes ?? (health ? "None reported" : "Not checked")}
           </div>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="space-y-1 text-muted-foreground">
           <div>Repository access is checked with live GitHub requests.</div>
           {grantedScopes ? <div>Reported token scopes: {grantedScopes}</div> : null}
-        </>
+        </div>
       )}
       {health ? (
-        <>
-          {health.checks.map((check) => (
-            <div key={check.key}>
-              {check.label}: {formatGithubCheckStatus(check.status)}
-              {check.message ? ` - ${check.message}` : ""}
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <div className="font-medium text-foreground">Organizations</div>
+            {health.organizations.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {health.organizations.map((organization) => (
+                  <span
+                    key={organization.login}
+                    className="rounded-sm border border-border bg-background px-2 py-0.5 text-foreground"
+                    title={
+                      organization.canCreateRepository
+                        ? "Can create repositories"
+                        : "Repository creation unavailable"
+                    }
+                  >
+                    {organization.login} · {formatGithubOrganizationRole(organization.role)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-muted-foreground">
+                No organizations visible to this credential.
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <div className="font-medium text-foreground">Live checks</div>
+            <div className="space-y-1 text-muted-foreground">
+              {health.checks.map((check) => (
+                <div key={check.key}>
+                  <span className={githubCheckStatusClassName(check.status)}>
+                    {check.label}: {formatGithubCheckStatus(check.status)}
+                  </span>
+                  {check.message ? ` - ${check.message}` : ""}
+                </div>
+              ))}
             </div>
-          ))}
-          <div>Last checked {formatRelativeTimeAgo(health.checkedAt, now)}.</div>
-        </>
+          </div>
+          <div className="text-muted-foreground">
+            Last checked {formatRelativeTimeAgo(health.checkedAt, now)}.
+          </div>
+        </div>
       ) : (
-        <div>{isChecking ? "Checking GitHub access..." : "Live checks not run yet."}</div>
+        <div className="text-muted-foreground">
+          {isChecking
+            ? "Checking GitHub access..."
+            : "Run Check access to see live checks and organizations."}
+        </div>
       )}
+      {isOAuth ? (
+        <div className="text-muted-foreground">
+          Need more org access? Reauthorize revokes the current GitHub grant before opening OAuth
+          again; closing the OAuth window leaves GitHub disconnected until you reconnect.
+        </div>
+      ) : null}
       {error ? <div>Error: {error}</div> : null}
     </div>
   );
