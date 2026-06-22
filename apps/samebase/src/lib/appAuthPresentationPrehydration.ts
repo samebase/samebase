@@ -102,6 +102,10 @@ function InlineScript_prehydrateAppAuthPresentation(
       staticAccountSectionSelector + " [data-vault-dashboard-account-section-label]";
     const staticAccountContentSelector =
       staticAccountSectionSelector + " [data-vault-dashboard-account-section-content]";
+    const signedOutSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-signed-out]";
+    const signedOutLabelSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-signed-out-label]";
     const signedInSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
     const signedInEmailSelector =
@@ -113,14 +117,12 @@ function InlineScript_prehydrateAppAuthPresentation(
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
-html[${args.rootAttribute}="signed-out"] ${accountLabelSelector},
-html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector} {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector} {
   color: transparent !important;
   position: relative !important;
 }
 
-html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after,
-html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector}::after {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after {
   color: hsl(var(--foreground));
   content: ${cssStringLiteral(presentation.label)};
   display: block;
@@ -131,6 +133,25 @@ html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector}::after {
   line-height: 1.25rem;
   overflow-wrap: anywhere;
   position: absolute;
+}
+
+html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector} {
+  display: none !important;
+}
+
+html[${args.rootAttribute}="signed-out"] ${staticAccountContentSelector} {
+  display: block !important;
+  margin-top: 0 !important;
+}
+
+html[${args.rootAttribute}="signed-out"] ${signedOutSelector} {
+  display: block !important;
+}
+
+html[${args.rootAttribute}="signed-out"] ${signedOutLabelSelector}::after {
+  content: ${cssStringLiteral(presentation.label)};
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 html[${args.rootAttribute}="signed-in"] ${accountLabelSelector} {

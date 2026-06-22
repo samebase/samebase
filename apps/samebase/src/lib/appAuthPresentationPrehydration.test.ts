@@ -279,7 +279,8 @@ describe("appAuthPresentationPrehydration", () => {
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(styleText).toContain('content: "not logged in";');
-    expect(styleText).not.toContain("[data-app-auth-prehydration-signed-out]");
+    expect(styleText).toContain("[data-app-auth-prehydration-signed-out]");
+    expect(styleText).toContain("[data-app-auth-prehydration-signed-out-label]::after");
   });
 
   it("does not prehydrate ignored paths", () => {

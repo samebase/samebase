@@ -67,8 +67,12 @@ function getRightPane(page: Page) {
   return page.getByTestId("workspace-layout-v2-pane-right");
 }
 
-function getSignedInAccountSection(page: Page) {
+function getAccountSection(page: Page) {
   return getRightSidebar(page).locator(".vault-dashboard-sidebar-inset").first();
+}
+
+function getSignedInAccountSection(page: Page) {
+  return getAccountSection(page);
 }
 
 async function openSignedInApp(page: Page) {
@@ -136,6 +140,7 @@ async function readAccountTextEvidence(accountSection: Locator) {
     return {
       emailAfterContent: readAfterContent("[data-app-auth-prehydration-email]"),
       providerAfterContent: readAfterContent("[data-app-auth-prehydration-provider]"),
+      signedOutAfterContent: readAfterContent("[data-app-auth-prehydration-signed-out-label]"),
       textContent: element.textContent ?? "",
     };
   });
@@ -273,6 +278,69 @@ test("signed-in app right sidebar prehydration includes the password provider la
     artifactPrefix: "app-right-sidebar-signed-in-account-prehydration",
     hydratedScreenshot,
     page,
+    testInfo,
+  });
+});
+
+test("signed-out app right sidebar prehydration matches the hydrated account row", async ({
+  page,
+}, testInfo: TestInfo) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
+  await waitForFonts(page);
+
+  const hydratedAccountSection = getAccountSection(page);
+  await expect(hydratedAccountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
+  const hydratedScreenshot = await hydratedAccountSection.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+
+  await blockHydrationScripts(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
+  await waitForFonts(page);
+
+  const prehydratedAccountSection = getAccountSection(page);
+  await expect(prehydratedAccountSection).toBeVisible();
+  const prehydratedTextEvidence = await readAccountTextEvidence(prehydratedAccountSection);
+  expect(
+    accountTextEvidenceIncludes(
+      prehydratedTextEvidence,
+      "not logged in",
+      prehydratedTextEvidence.signedOutAfterContent,
+    ),
+  ).toBe(true);
+
+  const prehydratedScreenshot = await prehydratedAccountSection.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+
+  await expectScreenshotsToMatch({
+    actual: prehydratedScreenshot,
+    artifactPrefix: "app-right-sidebar-signed-out-account-prehydration",
+    artifactWritePaths: {
+      actual: testInfo.outputPath(
+        "app-right-sidebar-signed-out-account-prehydration-prehydrated.png",
+      ),
+      diff: testInfo.outputPath("app-right-sidebar-signed-out-account-prehydration-diff.png"),
+      diffMask: testInfo.outputPath(
+        "app-right-sidebar-signed-out-account-prehydration-diff-mask.png",
+      ),
+      expected: testInfo.outputPath(
+        "app-right-sidebar-signed-out-account-prehydration-hydrated.png",
+      ),
+    },
+    expected: hydratedScreenshot,
+    maxDiffPixelRatio: 0,
+    pixelmatchOptions: {
+      includeAA: true,
+      threshold: 0,
+    },
     testInfo,
   });
 });
