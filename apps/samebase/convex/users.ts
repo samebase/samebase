@@ -90,8 +90,11 @@ const vGithubConnectionHealth = object({
   manageUrl: optional(string()),
   reauthorizeAvailable: boolean(),
 });
-const vCloudflareConnectionStatus = object({
-  connected: boolean(),
+const vCloudflareDisconnectedConnectionStatus = object({
+  connected: literal(false),
+});
+const vCloudflareConnectedConnectionStatus = object({
+  connected: literal(true),
   accountId: optional(string()),
   accountName: optional(string()),
   authMethod: optional(vProviderAuthMethod),
@@ -103,6 +106,11 @@ const vCloudflareConnectionStatus = object({
   mcpTokenLastRefreshAt: optional(number()),
   mcpTokenNextAutoCheckAt: optional(number()),
 });
+const vCloudflareConnectionStatus = union(
+  vCloudflareDisconnectedConnectionStatus,
+  vCloudflareConnectedConnectionStatus,
+);
+type ConnectedCloudflareConnectionStatus = Infer<typeof vCloudflareConnectedConnectionStatus>;
 type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
 type GithubProviderSummary = Infer<typeof vGithubProviderSummary>;
 type GithubConnectionHealth = Infer<typeof vGithubConnectionHealth>;
@@ -156,6 +164,12 @@ type GitHubOrganizationHealthResult =
       failure: GitHubApiFailure;
       scopesHeader: string | null;
     };
+
+function buildDisconnectedCloudflareConnectionStatus() {
+  return {
+    connected: false,
+  } satisfies CloudflareConnectionStatus;
+}
 
 async function runGitHubRequestWithTimeout<T>(
   request: (signal: AbortSignal) => Promise<T>,
@@ -461,9 +475,9 @@ function buildCloudflareConnectionStatus(
     now?: number;
     nextAutoCheckAt?: number;
   },
-): CloudflareConnectionStatus {
+): ConnectedCloudflareConnectionStatus {
   const now = options?.now ?? Date.now();
-  const baseStatus: CloudflareConnectionStatus = {
+  const baseStatus: ConnectedCloudflareConnectionStatus = {
     connected: true,
     ...(connection.defaultAccount.state === "selected"
       ? {
@@ -922,7 +936,7 @@ export const getCloudflareConnectionStatus = query({
   handler: async (ctx) => {
     const connection = await getConnectionByUserAndKind(ctx.db, ctx.viewer.userId, "cloudflare");
     if (connection?.kind !== "cloudflare") {
-      return { connected: false };
+      return buildDisconnectedCloudflareConnectionStatus();
     }
 
     return buildCloudflareConnectionStatus(connection);
@@ -949,7 +963,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     kind: "cloudflare",
   });
   if (connection?.kind !== "cloudflare") {
-    return { connected: false };
+    return buildDisconnectedCloudflareConnectionStatus();
   }
   if (connection.auth.method !== "mcp_oauth") {
     return buildCloudflareConnectionStatus(connection);
@@ -1005,7 +1019,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       },
     );
     if (refreshedConnection?.kind !== "cloudflare") {
-      return { connected: false };
+      return buildDisconnectedCloudflareConnectionStatus();
     }
     const nowAfterClaim = Date.now();
     if (refreshedConnection.auth.method !== "mcp_oauth") {
@@ -1036,7 +1050,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       },
     );
     if (resolvedConnection === null) {
-      return { connected: false };
+      return buildDisconnectedCloudflareConnectionStatus();
     }
     shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();

@@ -566,9 +566,11 @@ export function NewAppPage() {
 
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
-  const cloudflareConnected = cloudflareConnection?.connected === true;
+  const connectedCloudflareConnection =
+    cloudflareConnection?.connected === true ? cloudflareConnection : null;
+  const cloudflareConnected = connectedCloudflareConnection !== null;
   const cloudflareAccountSelectionRequired =
-    cloudflareConnection?.connected === true && !cloudflareConnection.accountId;
+    connectedCloudflareConnection !== null && !connectedCloudflareConnection.accountId;
   const hasConnectedCreateProviders = Boolean(
     githubConnected && convexConnected && cloudflareConnected,
   );
@@ -671,9 +673,9 @@ export function NewAppPage() {
       isCloudflareWorkerNameAvailabilityBlocking),
   );
   const showCloudflareCreateWarning =
-    cloudflareConnected &&
-    (cloudflareConnection.mcpTokenStatus === "invalid" ||
-      cloudflareConnection.mcpTokenStatus === "expired");
+    connectedCloudflareConnection !== null &&
+    (connectedCloudflareConnection.mcpTokenStatus === "invalid" ||
+      connectedCloudflareConnection.mcpTokenStatus === "expired");
   const createButtonDisabled =
     isCreating ||
     createRepositoryName.length === 0 ||
@@ -759,7 +761,7 @@ export function NewAppPage() {
 
   const openCloudflareAccountDialog = () => {
     setCloudflareAccountDialogOpen(true);
-    void loadCloudflareAccountDialogResources(cloudflareConnection?.accountId);
+    void loadCloudflareAccountDialogResources(connectedCloudflareConnection?.accountId);
   };
   const handleCloudflareAccountDialogOpenChange = (isOpen: boolean) => {
     if (!isOpen) {

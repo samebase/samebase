@@ -421,6 +421,172 @@ function ProviderConnectionRows({
   );
 }
 
+type ConnectedCloudflareConnection = Extract<AppCloudflareConnection, { connected: true }>;
+
+function buildConnectedCloudflareProviderRow({
+  cloudflarePollingPaused,
+  connection,
+  disconnectingProvider,
+  isAutoCheckingCloudflareToken,
+  isCheckingCloudflareToken,
+  now,
+  onCheckCloudflareToken,
+  onDisconnect,
+  onOpenCloudflareAccountDialog,
+}: {
+  cloudflarePollingPaused: boolean;
+  connection: ConnectedCloudflareConnection;
+  disconnectingProvider: ProviderKey | null;
+  isAutoCheckingCloudflareToken: boolean;
+  isCheckingCloudflareToken: boolean;
+  now: number;
+  onCheckCloudflareToken: () => void;
+  onDisconnect: (provider: ProviderKey) => void;
+  onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
+}): ProviderConnectionRowViewModel {
+  const isMcpOAuth = connection.authMethod === "mcp_oauth";
+  const isAccountSelectionRequired = !connection.accountId;
+  const refreshWindowStartsAt =
+    typeof connection.mcpTokenExpiresAt === "number"
+      ? connection.mcpTokenExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS
+      : undefined;
+  const tokenTimeStatus = isMcpOAuth
+    ? connection.mcpTokenStatus === "valid" || connection.mcpTokenStatus === "expiring_soon"
+      ? typeof connection.mcpTokenExpiresAt === "number"
+        ? `Expires ${formatRelativeTimeUntil(connection.mcpTokenExpiresAt, now)}.`
+        : ""
+      : connection.mcpTokenStatus === "expired"
+        ? typeof connection.mcpTokenExpiresAt === "number"
+          ? `Expired ${formatRelativeTimeAgo(connection.mcpTokenExpiresAt, now)}.`
+          : ""
+        : typeof connection.mcpTokenCheckedAt === "number"
+          ? `Last checked ${formatRelativeTimeAgo(connection.mcpTokenCheckedAt, now)}.`
+          : ""
+    : "";
+  const schedulerStatus = isMcpOAuth
+    ? isCheckingCloudflareToken || isAutoCheckingCloudflareToken
+      ? "Checking..."
+      : cloudflarePollingPaused
+        ? "Auto-check paused (tab hidden)."
+        : typeof connection.mcpTokenNextAutoCheckAt === "number"
+          ? typeof refreshWindowStartsAt === "number" && now < refreshWindowStartsAt
+            ? `Auto-refresh starts ${formatRelativeTimeUntil(refreshWindowStartsAt, now)}.`
+            : `Auto-refresh ${formatRelativeTimeUntil(connection.mcpTokenNextAutoCheckAt, now)}.`
+          : ""
+    : "";
+  const tokenErrorStatus =
+    isMcpOAuth && connection.mcpTokenError ? `Error: ${connection.mcpTokenError}` : "";
+  const accountStatus = isAccountSelectionRequired
+    ? "Choose account."
+    : connection.accountName
+      ? `Account ${connection.accountName}.`
+      : "";
+  const isTokenActionPending = isCheckingCloudflareToken || isAutoCheckingCloudflareToken;
+  const providerMetadata = PROVIDER_METADATA.cloudflare;
+
+  return {
+    actions: [
+      {
+        disabled: disconnectingProvider !== null || isTokenActionPending,
+        key: "select-account",
+        label: isAccountSelectionRequired ? "Select account" : "Manage account",
+        onClick: () => onOpenCloudflareAccountDialog(connection.accountId),
+      },
+      ...(isMcpOAuth
+        ? [
+            {
+              disabled: disconnectingProvider !== null || isTokenActionPending,
+              isPending: isCheckingCloudflareToken,
+              key: "check-token",
+              label: "Check token",
+              onClick: onCheckCloudflareToken,
+              pendingLabel: "Checking...",
+            },
+          ]
+        : []),
+      {
+        disabled: disconnectingProvider !== null || (isMcpOAuth && isTokenActionPending),
+        isPending: disconnectingProvider === "cloudflare",
+        key: "disconnect",
+        label: "Disconnect",
+        onClick: () => onDisconnect("cloudflare"),
+        pendingLabel: "Disconnecting...",
+      },
+    ],
+    icon: providerMetadata.icon,
+    key: "cloudflare",
+    label: providerMetadata.label,
+    status: isMcpOAuth
+      ? [
+          "Connected (OAuth).",
+          accountStatus,
+          `Token ${formatMcpTokenStatusLabel(connection.mcpTokenStatus)}.`,
+          tokenTimeStatus,
+          schedulerStatus,
+          tokenErrorStatus,
+        ]
+          .filter((part) => part.length > 0)
+          .join(" ")
+      : [`Connected (${formatAuthMethod(connection.authMethod)}).`, accountStatus]
+          .filter((part) => part.length > 0)
+          .join(" "),
+  };
+}
+
+function buildCloudflareProviderRow({
+  cloudflareConnection,
+  cloudflarePollingPaused,
+  disconnectingProvider,
+  isAutoCheckingCloudflareToken,
+  isCheckingCloudflareToken,
+  now,
+  onCheckCloudflareToken,
+  onConnect,
+  onDisconnect,
+  onOpenCloudflareAccountDialog,
+}: {
+  cloudflareConnection: AppCloudflareConnection | undefined;
+  cloudflarePollingPaused: boolean;
+  disconnectingProvider: ProviderKey | null;
+  isAutoCheckingCloudflareToken: boolean;
+  isCheckingCloudflareToken: boolean;
+  now: number;
+  onCheckCloudflareToken: () => void;
+  onConnect: (provider: ProviderKey) => void;
+  onDisconnect: (provider: ProviderKey) => void;
+  onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
+}): ProviderConnectionRowViewModel {
+  const providerMetadata = PROVIDER_METADATA.cloudflare;
+  if (cloudflareConnection?.connected === true) {
+    return buildConnectedCloudflareProviderRow({
+      cloudflarePollingPaused,
+      connection: cloudflareConnection,
+      disconnectingProvider,
+      isAutoCheckingCloudflareToken,
+      isCheckingCloudflareToken,
+      now,
+      onCheckCloudflareToken,
+      onDisconnect,
+      onOpenCloudflareAccountDialog,
+    });
+  }
+
+  return {
+    actions: [
+      {
+        disabled: disconnectingProvider !== null,
+        key: "oauth",
+        label: providerMetadata.oauthButtonLabel,
+        onClick: () => onConnect("cloudflare"),
+      },
+    ],
+    icon: providerMetadata.icon,
+    key: "cloudflare",
+    label: providerMetadata.label,
+    status: "Not connected",
+  };
+}
+
 export function ProviderConnectionsPageView({
   apiKeyDialog,
   cloudflareAccountDialog,
@@ -448,207 +614,53 @@ export function ProviderConnectionsPageView({
   onOpenCloudflareAccountDialog,
   onReauthorizeGithub,
 }: ProviderConnectionsPageViewProps) {
-  const githubConnected = githubProviderSummary?.connected === true;
-  const convexConnected = convexConnection?.connected === true;
-  const cloudflareConnected = cloudflareConnection?.connected === true;
-  const cloudflareAccountSelectionRequired =
-    cloudflareConnection?.connected === true && !cloudflareConnection.accountId;
-  const cloudflareAuthMethod = cloudflareConnection?.authMethod;
-  const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
-  const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
-  const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
-  const cloudflareMcpTokenError = cloudflareConnection?.mcpTokenError;
-  const cloudflareMcpTokenNextAutoCheckAt = cloudflareConnection?.mcpTokenNextAutoCheckAt;
-  const cloudflareRefreshWindowStartsAt =
-    typeof cloudflareMcpTokenExpiresAt === "number"
-      ? cloudflareMcpTokenExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS
-      : undefined;
-  const cloudflareMcpTokenTimeStatus =
-    cloudflareConnection?.authMethod === "mcp_oauth"
-      ? cloudflareMcpTokenStatus === "valid" || cloudflareMcpTokenStatus === "expiring_soon"
-        ? typeof cloudflareMcpTokenExpiresAt === "number"
-          ? `Expires ${formatRelativeTimeUntil(cloudflareMcpTokenExpiresAt, now)}.`
-          : ""
-        : cloudflareMcpTokenStatus === "expired"
-          ? typeof cloudflareMcpTokenExpiresAt === "number"
-            ? `Expired ${formatRelativeTimeAgo(cloudflareMcpTokenExpiresAt, now)}.`
-            : ""
-          : typeof cloudflareMcpTokenCheckedAt === "number"
-            ? `Last checked ${formatRelativeTimeAgo(cloudflareMcpTokenCheckedAt, now)}.`
-            : ""
-      : "";
-  const cloudflareSchedulerStatus =
-    cloudflareAuthMethod === "mcp_oauth"
-      ? isCheckingCloudflareToken || isAutoCheckingCloudflareToken
-        ? "Checking..."
-        : cloudflarePollingPaused
-          ? "Auto-check paused (tab hidden)."
-          : typeof cloudflareMcpTokenNextAutoCheckAt === "number"
-            ? typeof cloudflareRefreshWindowStartsAt === "number" &&
-              now < cloudflareRefreshWindowStartsAt
-              ? `Auto-refresh starts ${formatRelativeTimeUntil(cloudflareRefreshWindowStartsAt, now)}.`
-              : `Auto-refresh ${formatRelativeTimeUntil(cloudflareMcpTokenNextAutoCheckAt, now)}.`
-            : ""
-      : "";
-  const cloudflareMcpTokenErrorStatus =
-    cloudflareAuthMethod === "mcp_oauth" && cloudflareMcpTokenError
-      ? `Error: ${cloudflareMcpTokenError}`
-      : "";
-  const cloudflareAccountStatus = cloudflareAccountSelectionRequired
-    ? "Choose account."
-    : cloudflareConnection?.accountName
-      ? `Account ${cloudflareConnection.accountName}.`
-      : "";
-  const providerConnectionState: Record<
-    ProviderKey,
-    { connected: boolean; showTokenCheck: boolean; status: string }
-  > = {
-    github: {
-      connected: githubConnected,
-      showTokenCheck: false,
-      status: githubConnected
-        ? `Connected as ${githubProviderSummary.username ?? "GitHub user"} (${formatAuthMethod(githubProviderSummary.authMethod)})`
-        : "Not connected",
-    },
-    convex: {
-      connected: convexConnected,
-      showTokenCheck: false,
-      status: convexConnected
-        ? `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`
-        : "Not connected",
-    },
-    cloudflare: {
-      connected: cloudflareConnected,
-      showTokenCheck: cloudflareConnected && cloudflareAuthMethod === "mcp_oauth",
-      status: cloudflareConnected
-        ? cloudflareAuthMethod === "mcp_oauth"
-          ? [
-              "Connected (OAuth).",
-              cloudflareAccountStatus,
-              `Token ${formatMcpTokenStatusLabel(cloudflareMcpTokenStatus)}.`,
-              cloudflareMcpTokenTimeStatus,
-              cloudflareSchedulerStatus,
-              cloudflareMcpTokenErrorStatus,
-            ]
-              .filter((part) => part.length > 0)
-              .join(" ")
-          : [`Connected (${formatAuthMethod(cloudflareAuthMethod)}).`, cloudflareAccountStatus]
-              .filter((part) => part.length > 0)
-              .join(" ")
-        : "Not connected",
-    },
-  };
-  const providerRows = PROVIDER_KEYS.map((provider) => {
-    const providerMetadata = PROVIDER_METADATA[provider];
-    const providerState = providerConnectionState[provider];
-    const apiKeyProvider = providerMetadata.apiKeyProvider;
-    const githubActionsDisabled =
-      disconnectingProvider !== null || isCheckingGithubAccess || isReauthorizingGithub;
-    const actions = providerState.connected
-      ? [
-          ...(provider === "github"
-            ? [
-                {
-                  disabled: githubActionsDisabled,
-                  isPending: isCheckingGithubAccess,
-                  key: "check-github-access",
-                  label: "Check access",
-                  onClick: onCheckGithubAccess,
-                  pendingLabel: "Checking...",
-                },
-              ]
-            : []),
-          ...(provider === "github" && githubProviderSummary?.manageUrl
-            ? [
-                {
-                  disabled: githubActionsDisabled,
-                  href: githubProviderSummary.manageUrl,
-                  key: "manage-github-access",
-                  label: "Manage access",
-                  target: "_blank" as const,
-                },
-              ]
-            : []),
-          ...(provider === "github" && githubProviderSummary?.reauthorizeAvailable
-            ? [
-                {
-                  disabled: githubActionsDisabled,
-                  isPending: isReauthorizingGithub,
-                  key: "reauthorize-github",
-                  label: "Reauthorize",
-                  onClick: onReauthorizeGithub,
-                  pendingLabel: "Reauthorizing...",
-                },
-              ]
-            : []),
-          ...(provider === "cloudflare"
-            ? [
-                {
-                  disabled:
-                    disconnectingProvider !== null ||
-                    isCheckingCloudflareToken ||
-                    isAutoCheckingCloudflareToken,
-                  key: "select-account",
-                  label: cloudflareAccountSelectionRequired ? "Select account" : "Manage account",
-                  onClick: () => onOpenCloudflareAccountDialog(cloudflareConnection?.accountId),
-                },
-              ]
-            : []),
-          ...(providerState.showTokenCheck
-            ? [
-                {
-                  disabled:
-                    disconnectingProvider !== null ||
-                    isCheckingCloudflareToken ||
-                    isAutoCheckingCloudflareToken,
-                  isPending: isCheckingCloudflareToken,
-                  key: "check-token",
-                  label: "Check token",
-                  onClick: onCheckCloudflareToken,
-                  pendingLabel: "Checking...",
-                },
-              ]
-            : []),
-          {
-            disabled:
-              disconnectingProvider !== null ||
-              (provider === "github" && (isCheckingGithubAccess || isReauthorizingGithub)) ||
-              (providerState.showTokenCheck &&
-                (isCheckingCloudflareToken || isAutoCheckingCloudflareToken)),
-            isPending: disconnectingProvider === provider,
-            key: "disconnect",
-            label: "Disconnect",
-            onClick: () => onDisconnect(provider),
-            pendingLabel: "Disconnecting...",
-          },
-        ]
-      : [
-          {
-            disabled:
-              disconnectingProvider !== null || (provider === "github" && isReauthorizingGithub),
-            key: "oauth",
-            label: providerMetadata.oauthButtonLabel,
-            onClick: () => onConnect(provider),
-          },
-          ...(apiKeyProvider
-            ? [
-                {
-                  disabled:
-                    disconnectingProvider !== null ||
-                    (provider === "github" && isReauthorizingGithub),
-                  key: "api-key",
-                  label: "Use API key",
-                  onClick: () => onOpenApiKeyDialog(apiKeyProvider),
-                },
-              ]
-            : []),
-        ];
-
-    return {
-      actions,
-      details:
-        provider === "github" ? (
-          githubProviderSummary?.connected === true ? (
+  const githubActionsDisabled =
+    disconnectingProvider !== null || isCheckingGithubAccess || isReauthorizingGithub;
+  const githubProviderRow =
+    githubProviderSummary?.connected === true
+      ? ({
+          actions: [
+            {
+              disabled: githubActionsDisabled,
+              isPending: isCheckingGithubAccess,
+              key: "check-github-access",
+              label: "Check access",
+              onClick: onCheckGithubAccess,
+              pendingLabel: "Checking...",
+            },
+            ...(githubProviderSummary.manageUrl
+              ? [
+                  {
+                    disabled: githubActionsDisabled,
+                    href: githubProviderSummary.manageUrl,
+                    key: "manage-github-access",
+                    label: "Manage access",
+                    target: "_blank" as const,
+                  },
+                ]
+              : []),
+            ...(githubProviderSummary.reauthorizeAvailable
+              ? [
+                  {
+                    disabled: githubActionsDisabled,
+                    isPending: isReauthorizingGithub,
+                    key: "reauthorize-github",
+                    label: "Reauthorize",
+                    onClick: onReauthorizeGithub,
+                    pendingLabel: "Reauthorizing...",
+                  },
+                ]
+              : []),
+            {
+              disabled: githubActionsDisabled,
+              isPending: disconnectingProvider === "github",
+              key: "disconnect",
+              label: "Disconnect",
+              onClick: () => onDisconnect("github"),
+              pendingLabel: "Disconnecting...",
+            },
+          ],
+          details: (
             <GitHubConnectionDetails
               error={githubHealthError}
               health={githubHealth}
@@ -656,16 +668,89 @@ export function ProviderConnectionsPageView({
               now={now}
               summary={githubProviderSummary}
             />
-          ) : githubDisconnectedNotice ? (
+          ),
+          icon: PROVIDER_METADATA.github.icon,
+          key: "github",
+          label: PROVIDER_METADATA.github.label,
+          status: `Connected as ${githubProviderSummary.username ?? "GitHub user"} (${formatAuthMethod(githubProviderSummary.authMethod)})`,
+        } satisfies ProviderConnectionRowViewModel)
+      : ({
+          actions: [
+            {
+              disabled: disconnectingProvider !== null || isReauthorizingGithub,
+              key: "oauth",
+              label: PROVIDER_METADATA.github.oauthButtonLabel,
+              onClick: () => onConnect("github"),
+            },
+            {
+              disabled: disconnectingProvider !== null || isReauthorizingGithub,
+              key: "api-key",
+              label: "Use API key",
+              onClick: () => onOpenApiKeyDialog("github"),
+            },
+          ],
+          details: githubDisconnectedNotice ? (
             <GitHubDisconnectedDetails notice={githubDisconnectedNotice} />
-          ) : undefined
-        ) : undefined,
-      icon: providerMetadata.icon,
-      key: provider,
-      label: providerMetadata.label,
-      status: providerState.status,
-    } satisfies ProviderConnectionRowViewModel;
-  });
+          ) : undefined,
+          icon: PROVIDER_METADATA.github.icon,
+          key: "github",
+          label: PROVIDER_METADATA.github.label,
+          status: "Not connected",
+        } satisfies ProviderConnectionRowViewModel);
+  const convexProviderRow =
+    convexConnection?.connected === true
+      ? ({
+          actions: [
+            {
+              disabled: disconnectingProvider !== null,
+              isPending: disconnectingProvider === "convex",
+              key: "disconnect",
+              label: "Disconnect",
+              onClick: () => onDisconnect("convex"),
+              pendingLabel: "Disconnecting...",
+            },
+          ],
+          icon: PROVIDER_METADATA.convex.icon,
+          key: "convex",
+          label: PROVIDER_METADATA.convex.label,
+          status: `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`,
+        } satisfies ProviderConnectionRowViewModel)
+      : ({
+          actions: [
+            {
+              disabled: disconnectingProvider !== null,
+              key: "oauth",
+              label: PROVIDER_METADATA.convex.oauthButtonLabel,
+              onClick: () => onConnect("convex"),
+            },
+            {
+              disabled: disconnectingProvider !== null,
+              key: "api-key",
+              label: "Use API key",
+              onClick: () => onOpenApiKeyDialog("convex"),
+            },
+          ],
+          icon: PROVIDER_METADATA.convex.icon,
+          key: "convex",
+          label: PROVIDER_METADATA.convex.label,
+          status: "Not connected",
+        } satisfies ProviderConnectionRowViewModel);
+  const providerRows = [
+    githubProviderRow,
+    convexProviderRow,
+    buildCloudflareProviderRow({
+      cloudflareConnection,
+      cloudflarePollingPaused,
+      disconnectingProvider,
+      isAutoCheckingCloudflareToken,
+      isCheckingCloudflareToken,
+      now,
+      onCheckCloudflareToken,
+      onConnect,
+      onDisconnect,
+      onOpenCloudflareAccountDialog,
+    }),
+  ];
 
   return (
     <div
@@ -793,11 +878,11 @@ function useCloudflareMcpTokenAutoCheck({
   userId: Id<"users"> | undefined;
 }) {
   const cloudflareAutoCheckInFlightRef = useRef(false);
+  const connectedCloudflareConnection =
+    cloudflareConnection?.connected === true ? cloudflareConnection : null;
 
   useEffect(() => {
-    const isCloudflareMcpConnected =
-      cloudflareConnection?.connected === true && cloudflareConnection.authMethod === "mcp_oauth";
-    if (!isCloudflareMcpConnected) {
+    if (connectedCloudflareConnection?.authMethod !== "mcp_oauth") {
       setCloudflarePollingPaused(false);
       return;
     }
@@ -860,8 +945,8 @@ function useCloudflareMcpTokenAutoCheck({
         return;
       }
       if (
-        typeof cloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
-        Date.now() < cloudflareConnection.mcpTokenNextAutoCheckAt
+        typeof connectedCloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
+        Date.now() < connectedCloudflareConnection.mcpTokenNextAutoCheckAt
       ) {
         return;
       }
@@ -875,9 +960,8 @@ function useCloudflareMcpTokenAutoCheck({
       cloudflareAutoCheckInFlightRef.current = false;
     };
   }, [
-    cloudflareConnection?.authMethod,
-    cloudflareConnection?.connected,
-    cloudflareConnection?.mcpTokenNextAutoCheckAt,
+    connectedCloudflareConnection?.authMethod,
+    connectedCloudflareConnection?.mcpTokenNextAutoCheckAt,
     refreshCloudflareMcpTokenIfNeeded,
     setCloudflarePollingPaused,
     setIsAutoCheckingCloudflareToken,
