@@ -81,7 +81,6 @@ function AppRightSidebarSignedInAccountSection({
       isSignOutPending={isSignOutPending}
       onSignOut={onSignOut}
       providerLabel={accountProviderLabel}
-      signOutDisabled={false}
     />
   );
 }

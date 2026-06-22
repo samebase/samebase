@@ -149,6 +149,17 @@ describe("auth token claims", () => {
     });
   });
 
+  it("only writes an auth provider claim when the provider is passed explicitly", () => {
+    expect(
+      buildAuthTokenProfileCustomClaims({
+        authProvider: "password",
+        email: "nicu@samebase.com",
+      }),
+    ).toEqual({
+      email: "nicu@samebase.com",
+    });
+  });
+
   it("omits custom claims when a profile field is outside the JWT display contract", () => {
     expect(
       buildAuthTokenProfileCustomClaims({

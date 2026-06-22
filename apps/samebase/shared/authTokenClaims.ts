@@ -68,8 +68,6 @@ export function buildAuthTokenProfileCustomClaims(
   }
   if (authProvider !== undefined && authProvider !== null) {
     claims.authProvider = authProvider;
-  } else if (profileClaims.authProvider !== undefined) {
-    claims.authProvider = profileClaims.authProvider;
   }
   return claims;
 }

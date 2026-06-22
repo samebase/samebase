@@ -3,7 +3,6 @@ import {
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
 } from "@/lib/publicLanding";
-import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 
@@ -16,7 +15,6 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
-  passwordAuthModeStorageKey: string;
   passwordAuthSectionTestId: string;
   rootAttribute: string;
   styleElementId: string;
@@ -28,7 +26,6 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
-  passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
   passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
@@ -85,10 +82,6 @@ function InlineScript_prehydrateAppAuthPresentation(
       }
     }
 
-    const passwordAuthMode = window.localStorage.getItem(args.passwordAuthModeStorageKey);
-    if (passwordAuthMode === "local_worktree_seed" || passwordAuthMode === "preview_seed") {
-      return "Password";
-    }
     return null;
   }
 

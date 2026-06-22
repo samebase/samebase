@@ -2,7 +2,6 @@ import { devices, expect, test, type Locator, type Page, type TestInfo } from "@
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/workspaceSidebarStateModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
-import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "../src/lib/authStorageKeys";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 import { expectScreenshotsToMatch } from "./visualDiff";
@@ -272,45 +271,6 @@ test("signed-in app right sidebar prehydration includes the password provider la
 
   await expectPrehydratedAccountSectionToMatchHydrated({
     artifactPrefix: "app-right-sidebar-signed-in-account-prehydration",
-    hydratedScreenshot,
-    page,
-    testInfo,
-  });
-});
-
-test("signed-in app right sidebar prehydration includes password provider for existing sessions without provider markers", async ({
-  page,
-}, testInfo: TestInfo) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await openSignedInApp(page);
-  await waitForFonts(page);
-
-  const hydratedAccountSection = getSignedInAccountSection(page);
-  await expect(
-    hydratedAccountSection.getByText("Signed in with Password", { exact: true }),
-  ).toBeVisible();
-  const hydratedScreenshot = await hydratedAccountSection.screenshot({
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-  });
-
-  await page.evaluate(
-    ({ passwordAuthModeStorageKey }) => {
-      window.localStorage.removeItem("samebase_auth_provider");
-      window.localStorage.removeItem(passwordAuthModeStorageKey);
-    },
-    {
-      passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-    },
-  );
-  await blockHydrationScripts(page);
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
-  await waitForFonts(page);
-
-  await expectPrehydratedAccountSectionToMatchHydrated({
-    artifactPrefix: "app-right-sidebar-signed-in-account-legacy-prehydration",
     hydratedScreenshot,
     page,
     testInfo,

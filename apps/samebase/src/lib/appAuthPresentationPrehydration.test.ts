@@ -7,7 +7,6 @@ import {
   clearAppAuthPresentationPrehydration,
   type AppAuthPresentationPrehydrationArgs,
 } from "@/lib/appAuthPresentationPrehydration";
-import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
@@ -24,7 +23,6 @@ const TEST_ARGS = {
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
-  passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
   passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "samebase-app-auth-presentation-prehydration",
@@ -181,8 +179,8 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "Signed in with Password";');
   });
 
-  it("falls back to the remembered password auth mode when the provider marker is absent", () => {
-    window.localStorage.setItem(PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY, "preview_seed");
+  it("does not use public landing password auth mode as session provider evidence", () => {
+    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
     writeLocalAuthSession(
       createJwt({
         email: "nicu@samebase.com",
@@ -195,11 +193,11 @@ describe("appAuthPresentationPrehydration", () => {
     const styleText = document.getElementById(
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
-    expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
-    expect(styleText).toContain('content: "Signed in with Password";');
+    expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
+    expect(styleText).not.toContain('content: "Signed in with Password";');
   });
 
-  it("does not invent a password provider label without password auth evidence", () => {
+  it("does not invent a provider label without a JWT provider claim", () => {
     writeLocalAuthSession(
       createJwt({
         email: "nicu@samebase.com",

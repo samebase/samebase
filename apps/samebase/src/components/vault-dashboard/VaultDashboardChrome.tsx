@@ -57,7 +57,6 @@ export type VaultDashboardStaticAccountSectionProps = {
   isSignOutPending: boolean;
   onSignOut: () => void;
   providerLabel: string | null;
-  signOutDisabled?: boolean;
 };
 
 export function VaultDashboardAccountSectionFrame({
@@ -237,7 +236,6 @@ export function VaultDashboardStaticAccountSection({
   isSignOutPending,
   onSignOut,
   providerLabel,
-  signOutDisabled,
 }: VaultDashboardStaticAccountSectionProps) {
   return (
     <div
@@ -273,7 +271,7 @@ export function VaultDashboardStaticAccountSection({
             size="sm"
             onClick={onSignOut}
             className="h-auto max-w-full whitespace-normal py-2 text-left"
-            disabled={signOutDisabled || isSignOutPending}
+            disabled={isSignOutPending}
           >
             {isSignOutPending ? (
               <>
@@ -348,41 +346,6 @@ export function VaultDashboardProviderRows({
         </div>
       ))}
       {footer}
-    </div>
-  );
-}
-
-export function VaultDashboardProvidersSection({
-  footer,
-  onOpenChange,
-  open,
-  providerRows,
-}: {
-  footer?: ReactNode;
-  onOpenChange: (isOpen: boolean) => void;
-  open: boolean;
-  providerRows: readonly VaultDashboardProviderRowViewModel[];
-}) {
-  return (
-    <div
-      data-testid="dashboard-sidebar-providers-section"
-      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
-    >
-      <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild nativeButton>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
-          >
-            <span>Providers</span>
-            <ChevronDownIcon className="h-4 w-4 transition-transform" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <VaultDashboardProviderRows footer={footer} providerRows={providerRows} />
-        </CollapsibleContent>
-      </Collapsible>
     </div>
   );
 }
