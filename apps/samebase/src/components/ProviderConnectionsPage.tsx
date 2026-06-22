@@ -204,11 +204,7 @@ function GitHubConnectionDetails({
   );
 }
 
-function GitHubDisconnectedDetails({ notice }: { notice: string | null }) {
-  if (!notice) {
-    return null;
-  }
-
+function GitHubDisconnectedDetails({ notice }: { notice: string }) {
   return <div className="space-y-1 text-xs leading-5 text-muted-foreground">{notice}</div>;
 }
 
