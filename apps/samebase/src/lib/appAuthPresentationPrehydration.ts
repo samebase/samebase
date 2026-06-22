@@ -1,8 +1,5 @@
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
-import {
-  AUTH_PROVIDER_STORAGE_KEY,
-  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-} from "@/lib/authStorageKeys";
+import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 import { PRODUCTION_PUBLIC_HOSTNAMES } from "@/lib/prodUiMode";
@@ -13,7 +10,6 @@ const APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE = "data-app-auth-present
 
 export type AppAuthPresentationPrehydrationArgs = {
   accountSectionTestId: string;
-  authProviderStorageKey: string;
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
@@ -25,7 +21,6 @@ export type AppAuthPresentationPrehydrationArgs = {
 
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  authProviderStorageKey: AUTH_PROVIDER_STORAGE_KEY,
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
@@ -75,8 +70,8 @@ function InlineScript_prehydrateAppAuthPresentation(
     return provider.charAt(0).toUpperCase() + provider.slice(1);
   }
 
-  function readAuthProviderLabel() {
-    const provider = window.localStorage.getItem(args.authProviderStorageKey)?.trim();
+  function readAuthProviderLabel(profile: { authProvider?: string }) {
+    const provider = profile.authProvider?.trim();
     if (provider && provider.length <= 64) {
       return formatAuthProviderLabel(provider);
     }
@@ -202,7 +197,7 @@ html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
       installPrehydrationStyle({
         kind: "signed-in",
         label: authPresentationHint.label,
-        providerLabel: readAuthProviderLabel(),
+        providerLabel: readAuthProviderLabel(authPresentationHint.profile),
       });
     } else if (authPresentationHint.kind === "signedOut") {
       installPrehydrationStyle({

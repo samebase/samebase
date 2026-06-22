@@ -59,9 +59,8 @@ function AppRightSidebarSignedInAccountSection({
   user: AppRightSidebarViewer | null | undefined;
 }) {
   const accountEmail = user?.email ?? user?.githubUsername ?? profile?.email ?? profile?.name;
-  const accountProviderLabel = authProviders?.primaryProvider
-    ? formatAuthProviderLabel(authProviders.primaryProvider)
-    : null;
+  const accountProvider = authProviders?.primaryProvider ?? profile?.authProvider;
+  const accountProviderLabel = accountProvider ? formatAuthProviderLabel(accountProvider) : null;
 
   if (accountEmail === undefined) {
     return <PublicLandingAccountLoadingSection />;

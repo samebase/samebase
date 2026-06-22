@@ -1,9 +1,6 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
-import {
-  AUTH_PROVIDER_STORAGE_KEY,
-  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-} from "../src/lib/authStorageKeys";
+import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "../src/lib/authStorageKeys";
 import { signInIfNeeded } from "./liveHelpers";
 import { expectScreenshotsToMatch } from "./visualDiff";
 
@@ -149,12 +146,11 @@ test("signed-in app right sidebar prehydration includes password provider for ex
   });
 
   await page.evaluate(
-    ({ authProviderStorageKey, passwordAuthModeStorageKey }) => {
-      window.localStorage.removeItem(authProviderStorageKey);
+    ({ passwordAuthModeStorageKey }) => {
+      window.localStorage.removeItem("samebase_auth_provider");
       window.localStorage.removeItem(passwordAuthModeStorageKey);
     },
     {
-      authProviderStorageKey: AUTH_PROVIDER_STORAGE_KEY,
       passwordAuthModeStorageKey: PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
     },
   );

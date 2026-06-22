@@ -34,11 +34,23 @@ const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
   "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+const PROFILE_PROVIDER_JWT = createJwt({
+  authProvider: "password",
+  email: "nicu@noter.md",
+  exp: 4100000000,
+  name: "Nicu",
+});
 const PROVIDER_STATUS_QUERY_NAMES = new Set([
   getFunctionName(api.users.getGithubConnectionStatus),
   getFunctionName(api.users.getConvexConnectionStatus),
   getFunctionName(api.users.getCloudflareConnectionStatus),
 ]);
+
+function createJwt(payload: object) {
+  return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
+    ".",
+  );
+}
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -337,6 +349,19 @@ describe("AppRightSidebarContent", () => {
     } finally {
       await mounted.unmount();
     }
+  });
+
+  it("uses the JWT auth provider while authenticated app access loads", async () => {
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+      PROFILE_PROVIDER_JWT,
+    );
+
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
+
+    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Signed in with Password");
+    expect(hydratedMarkup).not.toContain("checking login");
   });
 
   it("keeps local JWT profile claims after hydration while authenticated app access loads", async () => {

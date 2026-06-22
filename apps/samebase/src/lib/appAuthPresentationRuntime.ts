@@ -114,13 +114,17 @@ export function Inlineable_createAppAuthPresentationRuntime(
 
   function readProfileClaims(source: object): AuthTokenProfileClaims | null {
     const profileClaims: AuthTokenProfileClaims = {};
+    const authProvider = readProfileClaim(source, "authProvider");
     const name = readProfileClaim(source, "name");
     const email = readProfileClaim(source, "email");
 
-    if (name.kind === "invalid" || email.kind === "invalid") {
+    if (authProvider.kind === "invalid" || name.kind === "invalid" || email.kind === "invalid") {
       return null;
     }
 
+    if (authProvider.kind === "present") {
+      profileClaims.authProvider = authProvider.value;
+    }
     if (name.kind === "present") {
       profileClaims.name = name.value;
     }

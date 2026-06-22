@@ -5,6 +5,7 @@ import { guard } from "@samebase/dependent/main";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
 import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import {
   assertPasswordAuthFlowAllowed,
   resolveDeploymentProfile,
@@ -183,7 +184,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     customClaims: async (ctx, { userId }) => {
       // Convex Auth types this callback with AnyDataModel, so validate before reading claims.
       const user: unknown = await ctx.db.get("users", userId);
-      return buildAuthTokenProfileCustomClaims(user);
+      const authProvider = await ctx.runQuery(internal.users.getPrimaryAuthProviderForToken, {
+        userId,
+      });
+      return buildAuthTokenProfileCustomClaims(user, authProvider);
     },
   },
   providers: [

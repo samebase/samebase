@@ -7,10 +7,7 @@ import {
   clearAppAuthPresentationPrehydration,
   type AppAuthPresentationPrehydrationArgs,
 } from "@/lib/appAuthPresentationPrehydration";
-import {
-  AUTH_PROVIDER_STORAGE_KEY,
-  PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY,
-} from "@/lib/authStorageKeys";
+import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorageKeys";
 import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
@@ -20,7 +17,6 @@ import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  authProviderStorageKey: AUTH_PROVIDER_STORAGE_KEY,
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
@@ -154,10 +150,10 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain('content: "nicu@samebase.com";');
   });
 
-  it("visually fills the signed-in account row with the stored provider label", () => {
-    window.localStorage.setItem(AUTH_PROVIDER_STORAGE_KEY, "password");
+  it("visually fills the signed-in account row with the JWT provider label", () => {
     writeLocalAuthSession(
       createJwt({
+        authProvider: "password",
         email: "nicu@samebase.com",
         exp: 4100000000,
       }),

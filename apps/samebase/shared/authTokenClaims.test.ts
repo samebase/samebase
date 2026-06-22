@@ -17,6 +17,7 @@ const CLAIM_VALUES = {
 const PROFILE_CLAIM_CASES: {
   expected: AuthTokenProfileClaims | null;
   input: {
+    authProvider?: unknown;
     email?: unknown;
     name?: unknown;
   };
@@ -63,6 +64,17 @@ const PROFILE_CLAIM_CASES: {
     },
   },
   {
+    name: "keeps a valid auth provider with profile claims",
+    input: {
+      authProvider: "password",
+      email: "nicu@samebase.com",
+    },
+    expected: {
+      authProvider: "password",
+      email: "nicu@samebase.com",
+    },
+  },
+  {
     name: "rejects missing claims",
     input: {},
     expected: null,
@@ -100,11 +112,15 @@ describe("auth token claims", () => {
 
   it("builds flat Convex Auth custom claims without avatar fields", () => {
     expect(
-      buildAuthTokenProfileCustomClaims({
-        email: "  nicu@samebase.com  ",
-        name: "Nicu",
-      }),
+      buildAuthTokenProfileCustomClaims(
+        {
+          email: "  nicu@samebase.com  ",
+          name: "Nicu",
+        },
+        "password",
+      ),
     ).toEqual({
+      authProvider: "password",
       email: "nicu@samebase.com",
       name: "Nicu",
     });

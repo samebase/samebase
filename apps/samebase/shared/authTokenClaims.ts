@@ -14,6 +14,7 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
 });
 
 const authTokenProfileClaimFieldsSchema = object({
+  authProvider: optional(authTokenProfileClaimValueSchema),
   email: optional(authTokenProfileClaimValueSchema),
   name: optional(authTokenProfileClaimValueSchema),
 });
@@ -33,18 +34,28 @@ export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileCl
   return hasProfileClaims ? claims : null;
 }
 
-export function buildAuthTokenProfileCustomClaims(source: unknown): Record<string, string> {
+export function buildAuthTokenProfileCustomClaims(
+  source: unknown,
+  authProvider?: string,
+): Record<string, string> {
   const profileClaims = readAuthTokenProfileClaims(source);
   if (profileClaims === null) {
     return {};
   }
 
   const claims: Record<string, string> = {};
+  const authProviderClaim =
+    authProvider === undefined ? undefined : authTokenProfileClaimValueSchema(authProvider);
   if (profileClaims.name !== undefined) {
     claims.name = profileClaims.name;
   }
   if (profileClaims.email !== undefined) {
     claims.email = profileClaims.email;
+  }
+  if (authProviderClaim !== undefined && authProviderClaim[0]) {
+    claims.authProvider = authProviderClaim[1];
+  } else if (profileClaims.authProvider !== undefined) {
+    claims.authProvider = profileClaims.authProvider;
   }
   return claims;
 }

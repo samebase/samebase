@@ -26,7 +26,7 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
 } from "../shared/cloudflareTokenRefresh";
 
-const { array, boolean, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION = "owner,collaborator,organization_member" as const;
@@ -606,6 +606,24 @@ export const getViewerAuthProviders = query({
       return { providers, primaryProvider };
     }
     return { providers };
+  },
+});
+
+export const getPrimaryAuthProviderForToken = internalQuery({
+  args: {
+    userId: id("users"),
+  },
+  returns: v.union(string(), v.null()),
+  handler: async (ctx, args) => {
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", args.userId))
+      .take(32);
+    const orderedAccounts = [...accounts].sort((first, second) =>
+      compareAuthProviderAccountSummary(first, second),
+    );
+
+    return orderedAccounts[0]?.provider ?? null;
   },
 });
 

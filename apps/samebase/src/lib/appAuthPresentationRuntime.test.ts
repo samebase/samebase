@@ -66,6 +66,7 @@ describe("app auth presentation runtime", () => {
   it("reads the local auth presentation hint from storage and search", () => {
     const runtime = createRuntime();
     const jwt = createJwt({
+      authProvider: "password",
       email: "nicu@samebase.com",
       exp: 4100000000,
     });
@@ -83,6 +84,7 @@ describe("app auth presentation runtime", () => {
       kind: "present",
       label: "nicu@samebase.com",
       profile: {
+        authProvider: "password",
         email: "nicu@samebase.com",
       },
     });
@@ -112,6 +114,7 @@ describe("app auth presentation runtime", () => {
     const runtime = createRuntime();
     const payloads = [
       {
+        authProvider: "password",
         email: "nicu@samebase.com",
         exp: 4100000000,
         name: "Nicu",
@@ -132,6 +135,7 @@ describe("app auth presentation runtime", () => {
         name: "Nicu",
       },
       {
+        authProvider: 123,
         email: "nicu@samebase.com",
         exp: 4100000000,
         name: 123,
