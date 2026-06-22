@@ -14,6 +14,10 @@ const SIDEBAR_ROW_ICON_CLASS =
 const SIDEBAR_ROW_CONTENT_CLASS =
   "flex min-w-0 shrink grow basis-[11rem] flex-wrap items-start gap-x-2 gap-y-1";
 const SIDEBAR_ROW_TEXT_CLASS = "min-w-0 shrink grow basis-32 text-left";
+const ACCOUNT_SECTION_TRIGGER_CLASS_NAME =
+  "h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180";
+const ACCOUNT_SECTION_TRIGGER_LABEL_CLASS_NAME =
+  "min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]";
 const DEVELOPER_TOOLS_TRIGGER_CLASS_NAME =
   "h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
 const DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME =
@@ -83,11 +87,11 @@ export function VaultDashboardAccountSectionFrame({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-auto w-full items-start justify-between gap-2 whitespace-normal px-0 text-left text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
+            className={ACCOUNT_SECTION_TRIGGER_CLASS_NAME}
           >
             <span
               data-vault-dashboard-account-section-label
-              className="min-w-0 flex-1 line-clamp-2 text-left [overflow-wrap:anywhere]"
+              className={ACCOUNT_SECTION_TRIGGER_LABEL_CLASS_NAME}
             >
               {label}
             </span>
@@ -127,38 +131,54 @@ export function VaultDashboardStaticAccountLoadingSection({
 
 export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
   return (
-    <div data-app-auth-prehydration-signed-in className="hidden">
-      <div className="flex flex-wrap items-start gap-3">
-        <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
-          <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
-            <PersonIcon className="h-4 w-4" />
+    <>
+      <div data-app-auth-prehydration-signed-out className="hidden">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={ACCOUNT_SECTION_TRIGGER_CLASS_NAME}
+        >
+          <span
+            data-app-auth-prehydration-signed-out-label
+            className={ACCOUNT_SECTION_TRIGGER_LABEL_CLASS_NAME}
+          />
+          <ChevronDownIcon className="mt-0.5 h-4 w-4 shrink-0 transition-transform" />
+        </Button>
+      </div>
+      <div data-app-auth-prehydration-signed-in className="hidden">
+        <div className="flex flex-wrap items-start gap-3">
+          <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+            <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+              <PersonIcon className="h-4 w-4" />
+            </div>
+            <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+              <div
+                data-app-auth-prehydration-email
+                className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+              />
+              <div
+                data-app-auth-prehydration-provider
+                className={clsx(
+                  SIDEBAR_METADATA_TEXT_CLASS,
+                  "hidden text-xs leading-5 text-muted-foreground",
+                )}
+              />
+            </div>
           </div>
-          <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-            <div
-              data-app-auth-prehydration-email
-              className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
-            />
-            <div
-              data-app-auth-prehydration-provider
-              className={clsx(
-                SIDEBAR_METADATA_TEXT_CLASS,
-                "hidden text-xs leading-5 text-muted-foreground",
-              )}
-            />
+          <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-auto max-w-full whitespace-normal py-2 text-left"
+            >
+              Sign out
+            </Button>
           </div>
-        </div>
-        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-auto max-w-full whitespace-normal py-2 text-left"
-          >
-            Sign out
-          </Button>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

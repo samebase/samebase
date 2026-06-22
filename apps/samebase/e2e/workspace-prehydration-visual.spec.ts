@@ -5,6 +5,7 @@ import {
   APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } from "../src/lib/appWorkspaceSidebarPreferences";
 import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
 } from "../src/lib/publicLanding";
@@ -23,6 +24,10 @@ const STABLE_VIEWPORT_CAPTURE = {
 } as const;
 const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
 [data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] {
+  display: none !important;
+}
+
+[data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"] {
   display: none !important;
 }
 
