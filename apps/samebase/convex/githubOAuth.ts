@@ -12,6 +12,7 @@ import {
   isSafeGithubOAuthReturnToPath,
 } from "../shared/githubOAuth";
 import { CODESPACES_ENABLED } from "../shared/featureFlags";
+import { utf8ToBase64 } from "../shared/base64";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
@@ -152,18 +153,6 @@ async function fetchGithubUser(accessToken: string): Promise<{ username: string 
   return { username: payload.login };
 }
 
-function base64Encode(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  if (typeof btoa === "function") {
-    let binary = "";
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    return btoa(binary);
-  }
-  return Buffer.from(bytes).toString("base64");
-}
-
 async function revokeGithubOAuthGrant(accessToken: string): Promise<void> {
   const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
   const clientSecret = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET");
@@ -172,7 +161,7 @@ async function revokeGithubOAuthGrant(accessToken: string): Promise<void> {
     {
       method: "DELETE",
       headers: {
-        Authorization: `Basic ${base64Encode(`${clientId}:${clientSecret}`)}`,
+        Authorization: `Basic ${utf8ToBase64(`${clientId}:${clientSecret}`)}`,
         Accept: "application/vnd.github+json",
         "Content-Type": "application/json",
         "User-Agent": "samebase-app",
