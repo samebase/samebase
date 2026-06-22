@@ -191,8 +191,8 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain("data-vault-dashboard-account-section-label");
     expect(hydratedMarkup).toContain("not logged in");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("?sign-in");
-    expect(hydratedMarkup).not.toContain("?create-account");
+    expect(hydratedMarkup).toContain("?sign-in");
+    expect(hydratedMarkup).toContain("?create-account");
   });
 
   it("uses local JWT profile claims after hydration while auth state loads", async () => {
@@ -296,19 +296,20 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("not logged in");
   });
 
-  it("shows the logged-out account summary collapsed by default", () => {
+  it("shows the logged-out account links directly", () => {
     const markup = renderLandingAccountSection("/");
 
     expect(markup).toContain("not logged in");
-    expect(markup).not.toContain("?sign-in");
-    expect(markup).not.toContain("?create-account");
+    expect(markup).toContain("?sign-in");
+    expect(markup).toContain("?create-account");
+    expect(markup).not.toContain("aria-expanded");
     expect(markup).not.toContain("Google");
   });
 
   it("shows Google auth from the sign-in route state", () => {
     const markup = renderLandingAccountSection("/?sign-in");
 
-    expect(markup).toContain("not logged in");
+    expect(markup).not.toContain("not logged in");
     expect(markup).toContain("Google");
     expect(markup).toContain("?create-account");
     expect(markup).not.toContain("The app is still internal.");
@@ -317,7 +318,7 @@ describe("PublicLandingAccountSection", () => {
   it("shows the internal-app message from the create-account route state", () => {
     const markup = renderLandingAccountSection("/?create-account");
 
-    expect(markup).toContain("not logged in");
+    expect(markup).not.toContain("not logged in");
     expect(markup).toContain("The app is still internal.");
     expect(markup).toContain("?sign-in");
     expect(markup).not.toContain("Google");

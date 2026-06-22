@@ -937,9 +937,8 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
-  await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toHaveCount(0);
-  await accountSection.getByRole("button", { name: "not logged in" }).click();
+  await expect(accountSection.getByText("not logged in")).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "not logged in" })).toHaveCount(0);
   await expect(accountSection.getByRole("link", { name: "?sign-in", exact: true })).toBeVisible();
   await expect(
     accountSection.getByRole("link", { name: "?create-account", exact: true }),

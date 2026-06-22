@@ -1,9 +1,6 @@
 import { useAppAuthActions } from "@/authClient";
 import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
-import {
-  VaultDashboardAccountSection,
-  VaultDashboardAccountSectionFrame,
-} from "@/components/vault-dashboard/VaultDashboardChrome";
+import { VaultDashboardAccountSection } from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
   useAppAuthPresentation,
   type AppAuthPresentationProfile,
@@ -15,7 +12,7 @@ import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { applySearchPatch, type SearchPatch } from "@/routing/searchFlags";
 import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
@@ -55,16 +52,6 @@ function buildPublicAccountModeSearchPatch(
 function publicAccountModeLink(mode: Exclude<PublicLandingAccountMode, "links">) {
   return (currentSearch: RootRouteSearch) =>
     applySearchPatch(currentSearch, buildPublicAccountModeSearchPatch(mode));
-}
-
-function clearPublicAccountModeSearch(currentSearch: RootRouteSearch) {
-  return applySearchPatch(currentSearch, {
-    auth: null,
-    "auth-return": null,
-    "create-account": null,
-    signup: null,
-    "sign-in": null,
-  });
 }
 
 function PublicAccountRouteLink({
@@ -114,31 +101,26 @@ function PublicLandingLoggedOutAccountSection() {
       searchStr: currentLocation.searchStr,
     }),
   });
-  const navigate = useNavigate();
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
   const mode = resolvePublicLandingAccountMode(location.pathname, rootRouteSearch);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const open = mode === "links" ? accountOpen : true;
 
   return (
-    <VaultDashboardAccountSectionFrame
-      dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
-      label="not logged in"
-      open={open}
-      onOpenChange={(isOpen) => {
-        setAccountOpen(isOpen);
-        if (!isOpen && mode !== "links") {
-          void navigate({
-            replace: true,
-            search: clearPublicAccountModeSearch,
-            state: true,
-            to: "/",
-          });
-        }
-      }}
+    <div
+      data-testid={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
-      <PublicLandingLoggedOutAccountContent mode={mode} />
-    </VaultDashboardAccountSectionFrame>
+      <div className="flex flex-col gap-3">
+        {mode === "links" ? (
+          <div
+            data-vault-dashboard-account-section-label
+            className="min-w-0 line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]"
+          >
+            not logged in
+          </div>
+        ) : null}
+        <PublicLandingLoggedOutAccountContent mode={mode} />
+      </div>
+    </div>
   );
 }
 
