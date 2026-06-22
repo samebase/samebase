@@ -6,7 +6,7 @@ import {
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
 import { act } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AuthenticatedAppRoutePage } from "./AuthenticatedAppRoutePage";
@@ -182,6 +182,30 @@ describe("AuthenticatedAppRoutePage", () => {
     expect(hydratedMarkup).not.toContain("temporary-auth-route-shell");
     expect(hydratedMarkup).not.toContain("Route child");
     expect(hydratedMarkup).not.toContain("Sign in");
+  });
+
+  it("hydrates temporary auth without a React mismatch", async () => {
+    authState.isLoading = true;
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = renderAuthenticatedRoutePage();
+    document.body.append(rootElement);
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const root = await act(() => hydrateRoot(rootElement, createAuthenticatedRoutePageElement()));
+
+    try {
+      const hydrationErrors = consoleErrorSpy.mock.calls
+        .map((call) => call.map((value) => String(value)).join(" "))
+        .filter((message) => /hydrat|did not match|#418/i.test(message));
+      expect(hydrationErrors).toEqual([]);
+      expect(rootElement.innerHTML).toContain("temporary-auth-route-shell");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      consoleErrorSpy.mockRestore();
+      rootElement.remove();
+    }
   });
 
   it("keeps the normal signed-out form when Convex is signed out and there is no hint", () => {

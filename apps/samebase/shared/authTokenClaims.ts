@@ -1,6 +1,21 @@
-import { after, bad, good, object, optional, string, type InferGood } from "@samebase/sure";
+import {
+  after,
+  bad,
+  good,
+  literal,
+  object,
+  optional,
+  string,
+  union,
+  type InferGood,
+} from "@samebase/sure";
 
 export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
+
+const authTokenAuthProviderSchema = union(
+  literal("google"),
+  union(literal("github"), literal("password")),
+);
 
 const authTokenProfileClaimValueSchema = after(string, (value) => {
   const trimmedValue = value.trim();
@@ -14,6 +29,7 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
 });
 
 const authTokenProfileClaimFieldsSchema = object({
+  authProvider: optional(authTokenAuthProviderSchema),
   email: optional(authTokenProfileClaimValueSchema),
   name: optional(authTokenProfileClaimValueSchema),
 });
@@ -26,6 +42,7 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
   return good(claims);
 });
 
+export type AuthTokenAuthProvider = InferGood<typeof authTokenAuthProviderSchema>;
 export type AuthTokenProfileClaims = InferGood<typeof authTokenProfileClaimsSchema>;
 
 export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileClaims | null {
@@ -33,7 +50,10 @@ export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileCl
   return hasProfileClaims ? claims : null;
 }
 
-export function buildAuthTokenProfileCustomClaims(source: unknown): Record<string, string> {
+export function buildAuthTokenProfileCustomClaims(
+  source: unknown,
+  authProvider?: AuthTokenAuthProvider | null,
+): Record<string, string> {
   const profileClaims = readAuthTokenProfileClaims(source);
   if (profileClaims === null) {
     return {};
@@ -45,6 +65,9 @@ export function buildAuthTokenProfileCustomClaims(source: unknown): Record<strin
   }
   if (profileClaims.email !== undefined) {
     claims.email = profileClaims.email;
+  }
+  if (authProvider !== undefined && authProvider !== null) {
+    claims.authProvider = authProvider;
   }
   return claims;
 }

@@ -1,4 +1,8 @@
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+} from "@/lib/publicLanding";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
 
@@ -11,8 +15,10 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
+  passwordAuthSectionTestId: string;
   rootAttribute: string;
   styleElementId: string;
+  staticAccountSectionTestId: string;
 };
 
 const appAuthPresentationPrehydrationArgs = {
@@ -20,8 +26,10 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
+  passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
+  staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
 
 function InlineScript_prehydrateAppAuthPresentation(
@@ -58,24 +66,63 @@ function InlineScript_prehydrateAppAuthPresentation(
     return '"' + escaped + '"';
   }
 
-  function installPrehydrationStyle(label: string) {
+  function formatAuthProviderLabel(provider: string) {
+    if (provider === "google") return "Google";
+    if (provider === "github") return "GitHub";
+    if (provider === "password") return "Password";
+    return null;
+  }
+
+  function readAuthProviderLabel(profile: { authProvider?: string }) {
+    const provider = profile.authProvider?.trim();
+    if (provider && provider.length <= 64) {
+      const providerLabel = formatAuthProviderLabel(provider);
+      if (providerLabel !== null) {
+        return providerLabel;
+      }
+    }
+
+    return null;
+  }
+
+  function installPrehydrationStyle(presentation: {
+    kind: "signed-in" | "signed-out";
+    label: string;
+    providerLabel: string | null;
+  }) {
     if (document.getElementById(args.styleElementId) !== null) return;
 
     const accountSectionSelector =
       "[data-testid=" + cssStringLiteral(args.accountSectionTestId) + "]";
     const accountLabelSelector =
       accountSectionSelector + " [data-vault-dashboard-account-section-label]";
+    const staticAccountSectionSelector =
+      "[data-testid=" + cssStringLiteral(args.staticAccountSectionTestId) + "]";
+    const staticAccountLabelSelector =
+      staticAccountSectionSelector + " [data-vault-dashboard-account-section-label]";
+    const staticAccountContentSelector =
+      staticAccountSectionSelector + " [data-vault-dashboard-account-section-content]";
+    const signedInSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
+    const signedInEmailSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-email]";
+    const signedInProviderSelector =
+      staticAccountSectionSelector + " [data-app-auth-prehydration-provider]";
+    const passwordAuthSectionSelector =
+      "[data-testid=" + cssStringLiteral(args.passwordAuthSectionTestId) + "]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
-html[${args.rootAttribute}] ${accountLabelSelector} {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector},
+html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector} {
   color: transparent !important;
   position: relative !important;
 }
 
-html[${args.rootAttribute}] ${accountLabelSelector}::after {
+html[${args.rootAttribute}="signed-out"] ${accountLabelSelector}::after,
+html[${args.rootAttribute}="signed-out"] ${staticAccountLabelSelector}::after {
   color: hsl(var(--foreground));
-  content: ${cssStringLiteral(label)};
+  content: ${cssStringLiteral(presentation.label)};
   display: block;
   font-size: 0.875rem;
   inset-block-start: 0;
@@ -85,9 +132,61 @@ html[${args.rootAttribute}] ${accountLabelSelector}::after {
   overflow-wrap: anywhere;
   position: absolute;
 }
+
+html[${args.rootAttribute}="signed-in"] ${accountLabelSelector} {
+  color: transparent !important;
+  position: relative !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${accountLabelSelector}::after {
+  color: hsl(var(--foreground));
+  content: ${cssStringLiteral(presentation.label)};
+  display: block;
+  font-size: 0.875rem;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inset-inline-start: 0;
+  line-height: 1.25rem;
+  overflow-wrap: anywhere;
+  position: absolute;
+}
+
+html[${args.rootAttribute}="signed-in"] ${staticAccountLabelSelector} {
+  display: none !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${staticAccountContentSelector} {
+  display: block !important;
+  margin-top: 0 !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
+  display: block !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${signedInEmailSelector}::after {
+  content: ${cssStringLiteral(presentation.label)};
+}
+
+html[${args.rootAttribute}="signed-in"] ${passwordAuthSectionSelector} {
+  display: none !important;
+}
+${
+  presentation.kind === "signed-in" && presentation.providerLabel !== null
+    ? `
+html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector} {
+  display: block !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
+  content: ${cssStringLiteral(`Signed in with ${presentation.providerLabel}`)};
+}
+`
+    : ""
+}
     `;
     document.head.append(styleElement);
-    document.documentElement.setAttribute(args.rootAttribute, "");
+    document.documentElement.setAttribute(args.rootAttribute, presentation.kind);
     if (typeof window.MutationObserver !== "function") return;
 
     const observer = new window.MutationObserver(() => {
@@ -115,9 +214,17 @@ html[${args.rootAttribute}] ${accountLabelSelector}::after {
     });
 
     if (authPresentationHint.kind === "present") {
-      installPrehydrationStyle(authPresentationHint.label);
+      installPrehydrationStyle({
+        kind: "signed-in",
+        label: authPresentationHint.label,
+        providerLabel: readAuthProviderLabel(authPresentationHint.profile),
+      });
     } else if (authPresentationHint.kind === "signedOut") {
-      installPrehydrationStyle("not logged in");
+      installPrehydrationStyle({
+        kind: "signed-out",
+        label: "not logged in",
+        providerLabel: null,
+      });
     }
   } catch {}
 }

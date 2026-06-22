@@ -34,11 +34,23 @@ const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT =
   "header.eyJleHAiOjQxMDAwMDAwMDAsIm5hbWUiOiJOaWN1IiwiZW1haWwiOiJuaWN1QG5vdGVyLm1kIn0.signature";
+const PROFILE_PROVIDER_JWT = createJwt({
+  authProvider: "password",
+  email: "nicu@noter.md",
+  exp: 4100000000,
+  name: "Nicu",
+});
 const PROVIDER_STATUS_QUERY_NAMES = new Set([
   getFunctionName(api.users.getGithubConnectionStatus),
   getFunctionName(api.users.getConvexConnectionStatus),
   getFunctionName(api.users.getCloudflareConnectionStatus),
 ]);
+
+function createJwt(payload: object) {
+  return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
+    ".",
+  );
+}
 
 function createTestStorage(): Storage {
   const entries = new Map<string, string>();
@@ -234,16 +246,6 @@ async function mountRightSidebarAfterEffects(queryResults: unknown[]) {
   };
 }
 
-function findButtonByText(rootElement: HTMLElement, text: string) {
-  for (const button of rootElement.querySelectorAll("button")) {
-    if (button.textContent.includes(text)) {
-      return button;
-    }
-  }
-
-  return null;
-}
-
 describe("AppRightSidebarContent", () => {
   beforeEach(() => {
     authState.isAuthenticated = true;
@@ -324,33 +326,42 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(markup).toContain("checking login");
-    expect(hydratedMarkup).toContain("Nicu");
+    expect(markup).toContain("data-app-auth-prehydration-signed-in");
+    expect(markup).toContain("dashboard-sidebar-account-icon");
+    expect(markup).toContain("data-app-auth-prehydration-provider");
+    expect(markup).toContain("Sign out");
+    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
   });
 
-  it("allows the temporary signed-in account row to open", async () => {
+  it("renders the temporary signed-in account row without an accordion trigger", async () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
 
     const mounted = await mountRightSidebarAfterEffects([]);
     try {
-      const accountButton = findButtonByText(mounted.rootElement, "Nicu");
-      if (accountButton === null) {
-        throw new Error("Missing temporary signed-in account button.");
-      }
-
-      expect(accountButton.getAttribute("aria-expanded")).toBe("false");
-
-      await act(async () => {
-        accountButton.click();
-      });
-
-      expect(accountButton.getAttribute("aria-expanded")).toBe("true");
+      expect(mounted.rootElement.textContent).toContain("nicu@noter.md");
+      expect(mounted.rootElement.textContent).toContain("Sign out");
+      expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
     } finally {
       await mounted.unmount();
     }
+  });
+
+  it("uses the JWT auth provider while authenticated app access loads", async () => {
+    window.localStorage.setItem(
+      convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
+      PROFILE_PROVIDER_JWT,
+    );
+
+    const hydratedMarkup = await renderRightSidebarAfterEffects([]);
+
+    expect(hydratedMarkup).toContain("nicu@noter.md");
+    expect(hydratedMarkup).toContain("Signed in with Password");
+    expect(hydratedMarkup).not.toContain("checking login");
   });
 
   it("keeps local JWT profile claims after hydration while authenticated app access loads", async () => {
@@ -358,7 +369,7 @@ describe("AppRightSidebarContent", () => {
 
     const markup = renderRightSidebar([]);
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
-    const accountIndex = hydratedMarkup.indexOf("Nicu");
+    const accountIndex = hydratedMarkup.indexOf("nicu@noter.md");
 
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(markup).toContain("checking login");
@@ -411,7 +422,8 @@ describe("AppRightSidebarContent", () => {
       ]),
     );
 
-    expect(hydratedMarkup).toContain("Pending Access User");
+    expect(hydratedMarkup).toContain("pending-access@example.com");
+    expect(hydratedMarkup).not.toContain("Pending Access User");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Providers");
     expect(hydratedMarkup).not.toContain("New App");
@@ -446,17 +458,11 @@ describe("AppRightSidebarContent", () => {
           },
         ],
         [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
-        [
-          getFunctionName(api.dashboardSettings.getDashboardSettings),
-          {
-            accountPanelOpen: false,
-            providersPanelOpen: false,
-          },
-        ],
       ]),
     );
 
-    expect(hydratedMarkup).toContain("Nicu");
+    expect(hydratedMarkup).toContain("nicu@samebase.md");
+    expect(hydratedMarkup).not.toContain("Nicu");
     expect(hydratedMarkup).toContain("Providers");
     expect(hydratedMarkup).toContain("New App");
     expect(hydratedMarkup).toContain("Connect existing app");

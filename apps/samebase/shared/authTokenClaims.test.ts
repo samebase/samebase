@@ -3,6 +3,7 @@ import {
   AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
   buildAuthTokenProfileCustomClaims,
   readAuthTokenProfileClaims,
+  type AuthTokenAuthProvider,
   type AuthTokenProfileClaims,
 } from "./authTokenClaims";
 
@@ -14,9 +15,12 @@ const CLAIM_VALUES = {
   valid: "Nicu",
 } as const;
 
+const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "github", "password"];
+
 const PROFILE_CLAIM_CASES: {
   expected: AuthTokenProfileClaims | null;
   input: {
+    authProvider?: unknown;
     email?: unknown;
     name?: unknown;
   };
@@ -63,6 +67,17 @@ const PROFILE_CLAIM_CASES: {
     },
   },
   {
+    name: "keeps a valid auth provider with profile claims",
+    input: {
+      authProvider: "password",
+      email: "nicu@samebase.com",
+    },
+    expected: {
+      authProvider: "password",
+      email: "nicu@samebase.com",
+    },
+  },
+  {
     name: "rejects missing claims",
     input: {},
     expected: null,
@@ -91,6 +106,14 @@ const PROFILE_CLAIM_CASES: {
     },
     expected: null,
   },
+  {
+    name: "rejects unknown auth providers",
+    input: {
+      authProvider: "netlify",
+      email: "nicu@samebase.com",
+    },
+    expected: null,
+  },
 ];
 
 describe("auth token claims", () => {
@@ -98,15 +121,42 @@ describe("auth token claims", () => {
     expect(readAuthTokenProfileClaims(input)).toEqual(expected);
   });
 
+  it.each(AUTH_TOKEN_AUTH_PROVIDERS)("keeps supported %s auth provider claims", (provider) => {
+    expect(
+      readAuthTokenProfileClaims({
+        authProvider: provider,
+        email: "nicu@samebase.com",
+      }),
+    ).toEqual({
+      authProvider: provider,
+      email: "nicu@samebase.com",
+    });
+  });
+
   it("builds flat Convex Auth custom claims without avatar fields", () => {
     expect(
+      buildAuthTokenProfileCustomClaims(
+        {
+          email: "  nicu@samebase.com  ",
+          name: "Nicu",
+        },
+        "password",
+      ),
+    ).toEqual({
+      authProvider: "password",
+      email: "nicu@samebase.com",
+      name: "Nicu",
+    });
+  });
+
+  it("only writes an auth provider claim when the provider is passed explicitly", () => {
+    expect(
       buildAuthTokenProfileCustomClaims({
-        email: "  nicu@samebase.com  ",
-        name: "Nicu",
+        authProvider: "password",
+        email: "nicu@samebase.com",
       }),
     ).toEqual({
       email: "nicu@samebase.com",
-      name: "Nicu",
     });
   });
 

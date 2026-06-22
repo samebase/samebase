@@ -2,6 +2,9 @@ AGENTS.md
 apps/domain-router/wrangler.jsonc
 apps/samebase/AGENTS.md
 apps/samebase/CLAUDE.md
+apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-mobile-right-pane-min.png
+apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-narrow.png
+apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-section.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing-dev.png
 apps/samebase/e2e/app-workspace-visual.spec.ts-snapshots/app-workspace-landing.png
 apps/samebase/e2e/button-visual.spec.ts-snapshots/button-overrides.png
@@ -89,7 +92,6 @@ apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-popover.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-create-control.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-app-root-dialog.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-first-app-root-dialog.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-bottom-target-scroll.png
@@ -104,8 +106,6 @@ apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-spacing.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-provisioning-log.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-sticky-header.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-sidebar-account-clamp.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-sidebar-account-mobile-min.png
 apps/samebase/e2e/vault-last-updated-status.spec.ts-snapshots/vault-last-updated-status.png
 apps/samebase/e2e/vault-resource-rail-visual.spec.ts-snapshots/vault-resource-rail.png
 apps/samebase/e2e/vault-sync-status-visual.spec.ts-snapshots/vault-sync-status-states.png

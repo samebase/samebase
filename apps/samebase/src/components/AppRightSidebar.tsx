@@ -1,15 +1,13 @@
 import { useAppAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
-import {
-  PublicLandingAccountLoadingSection,
-  PublicLandingAccountSection,
-} from "@/components/PublicLandingAccountSection";
+import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
-  VaultDashboardAccountSection,
   VaultDashboardSidebarContent,
+  VaultDashboardStaticAccountLoadingSection,
+  VaultDashboardStaticAccountSection,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import {
@@ -19,9 +17,10 @@ import {
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
+import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
 import { clsx } from "clsx";
-import { useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useQuery as useConvexQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -33,10 +32,19 @@ function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | un
   return viewerAccess?.accessKeys.includes("access_provider_connections") ?? false;
 }
 
-function PublicAppRightSidebarContent() {
+function AppRightSidebarAccountLoadingSection() {
+  return (
+    <VaultDashboardStaticAccountLoadingSection
+      dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
+      label="checking login"
+    />
+  );
+}
+
+function PublicAppRightSidebarContent({ accountPending }: { accountPending: boolean }) {
   return (
     <VaultDashboardSidebarContent>
-      <PublicLandingAccountSection />
+      {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
       <PublicLandingPasswordAuthControls />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
@@ -48,41 +56,31 @@ function PublicAppRightSidebarContent() {
 function AppRightSidebarSignedInAccountSection({
   authProviders,
   isSignOutPending,
-  onOpenChange,
   onSignOut,
-  open,
   profile,
   user,
 }: {
   authProviders: AppRightSidebarAuthProviders | undefined;
   isSignOutPending: boolean;
-  onOpenChange: (isOpen: boolean) => void;
   onSignOut: () => void;
-  open: boolean;
   profile: AppAuthPresentationProfile | null;
   user: AppRightSidebarViewer | null | undefined;
 }) {
   const accountEmail = user?.email ?? user?.githubUsername ?? profile?.email ?? profile?.name;
-  const accountDisplayName =
-    user?.name ?? user?.email ?? user?.githubUsername ?? profile?.name ?? profile?.email;
-  const accountProviderLabel = authProviders?.primaryProvider
-    ? formatAuthProviderLabel(authProviders.primaryProvider)
-    : null;
+  const accountProvider = authProviders?.primaryProvider ?? profile?.authProvider;
+  const accountProviderLabel = accountProvider ? formatAuthProviderLabel(accountProvider) : null;
 
-  if (accountDisplayName === undefined || accountEmail === undefined) {
-    return <PublicLandingAccountLoadingSection />;
+  if (accountEmail === undefined) {
+    return <AppRightSidebarAccountLoadingSection />;
   }
 
   return (
-    <VaultDashboardAccountSection
-      displayName={accountDisplayName}
+    <VaultDashboardStaticAccountSection
+      dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
       email={accountEmail}
       isSignOutPending={isSignOutPending}
-      onOpenChange={onOpenChange}
       onSignOut={onSignOut}
-      open={open}
       providerLabel={accountProviderLabel}
-      signOutDisabled={false}
     />
   );
 }
@@ -97,7 +95,6 @@ function GenericSignedInAccountSection({
   user?: AppRightSidebarViewer | null;
 }) {
   const { signOut } = useAppAuthActions();
-  const [accountOpen, setAccountOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -122,9 +119,7 @@ function GenericSignedInAccountSection({
     <AppRightSidebarSignedInAccountSection
       authProviders={authProviders}
       isSignOutPending={isSigningOut}
-      onOpenChange={setAccountOpen}
       onSignOut={handleSignOut}
-      open={accountOpen}
       profile={profile}
       user={user}
     />
@@ -200,26 +195,8 @@ function AuthenticatedAppRightSidebarContent({
 }) {
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
-  const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
-  const persistAccountPanelOpen = useMutation(
-    api.dashboardSettings.setAccountPanelOpen,
-  ).withOptimisticUpdate((localStore, args) => {
-    const currentSettings = localStore.getQuery(api.dashboardSettings.getDashboardSettings, {});
-    if (!currentSettings) {
-      return;
-    }
-    localStore.setQuery(
-      api.dashboardSettings.getDashboardSettings,
-      {},
-      {
-        ...currentSettings,
-        accountPanelOpen: args.isOpen,
-      },
-    );
-  });
   const { signOut } = useAppAuthActions();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const resolvedAccountPanelOpen = dashboardSettings?.accountPanelOpen ?? false;
 
   const handleSignOut = () => {
     if (isSigningOut) {
@@ -245,17 +222,7 @@ function AuthenticatedAppRightSidebarContent({
       <AppRightSidebarSignedInAccountSection
         authProviders={user ? authProviders : undefined}
         isSignOutPending={isSigningOut}
-        onOpenChange={(isOpen) => {
-          if (!user) {
-            return;
-          }
-
-          void persistAccountPanelOpen({ isOpen }).catch((error: unknown) => {
-            console.error("Failed to persist account panel state:", error);
-          });
-        }}
         onSignOut={handleSignOut}
-        open={user ? resolvedAccountPanelOpen : false}
         profile={profile}
         user={user}
       />
@@ -290,5 +257,5 @@ export function AppRightSidebarContent() {
     return <TemporaryAuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
   }
 
-  return <PublicAppRightSidebarContent />;
+  return <PublicAppRightSidebarContent accountPending={authPresentation.kind === "unknown"} />;
 }

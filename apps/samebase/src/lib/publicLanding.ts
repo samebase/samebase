@@ -1,3 +1,4 @@
+export const APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID = "dashboard-sidebar-account-section";
 export const PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID = "public-landing-account-section";
 export const PUBLIC_LANDING_COPY_TEST_ID = "public-landing-copy";
 export const PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID = "public-landing-google-auth-slot";

@@ -11,7 +11,11 @@ import {
   convexAuthJwtStorageKey,
   convexAuthRefreshTokenStorageKey,
 } from "@/lib/appAuthPresentationState";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
+} from "@/lib/publicLanding";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
@@ -19,8 +23,10 @@ const TEST_ARGS = {
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
+  passwordAuthSectionTestId: PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "samebase-app-auth-presentation-prehydration",
+  staticAccountSectionTestId: APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
 
 function createJwt(payload: object) {
@@ -123,7 +129,7 @@ describe("appAuthPresentationPrehydration", () => {
     window.localStorage.clear();
   });
 
-  it("visually replaces the checking login account label with the JWT profile label", () => {
+  it("visually replaces the checking login account label with the JWT profile email", () => {
     writeLocalAuthSession(
       createJwt({
         email: "nicu@samebase.com",
@@ -144,7 +150,68 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain(
       `[data-testid="${PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}"] [data-vault-dashboard-account-section-label]::after`,
     );
-    expect(styleText).toContain('content: "Nicu";');
+    expect(styleText).toContain('content: "nicu@samebase.com";');
+  });
+
+  it("visually fills the signed-in account row with the JWT provider label", () => {
+    writeLocalAuthSession(
+      createJwt({
+        authProvider: "password",
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-in",
+    );
+    expect(styleText).toContain(`[data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"]`);
+    expect(styleText).toContain(`[data-testid="${PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}"]`);
+    expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
+    expect(styleText).toContain("[data-app-auth-prehydration-email]::after");
+    expect(styleText).toContain('content: "nicu@samebase.com";');
+    expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
+    expect(styleText).toContain('content: "Signed in with Password";');
+  });
+
+  it("does not use public landing password auth mode as session provider evidence", () => {
+    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
+    writeLocalAuthSession(
+      createJwt({
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
+    expect(styleText).not.toContain('content: "Signed in with Password";');
+  });
+
+  it("does not invent a provider label without a JWT provider claim", () => {
+    writeLocalAuthSession(
+      createJwt({
+        email: "nicu@samebase.com",
+        exp: 4100000000,
+      }),
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).not.toContain("[data-app-auth-prehydration-provider]::after");
+    expect(styleText).not.toContain('content: "Signed in with Password";');
   });
 
   it("escapes hostile JWT profile labels inside CSS content", () => {
@@ -205,12 +272,14 @@ describe("appAuthPresentationPrehydration", () => {
   it("visually replaces the checking login account label with signed-out presentation without local auth material", () => {
     runAppAuthPresentationPrehydrationScript();
 
-    expect(document.documentElement.hasAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      true,
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
     );
-    expect(
-      document.getElementById("samebase-app-auth-presentation-prehydration")?.textContent,
-    ).toContain('content: "not logged in";');
+    const styleText = document.getElementById(
+      "samebase-app-auth-presentation-prehydration",
+    )?.textContent;
+    expect(styleText).toContain('content: "not logged in";');
+    expect(styleText).not.toContain("[data-app-auth-prehydration-signed-out]");
   });
 
   it("does not prehydrate ignored paths", () => {

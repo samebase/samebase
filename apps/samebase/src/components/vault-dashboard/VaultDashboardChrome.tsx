@@ -51,6 +51,14 @@ export type VaultDashboardAccountSectionProps = {
   signOutDisabled?: boolean;
 };
 
+export type VaultDashboardStaticAccountSectionProps = {
+  dataTestId?: string;
+  email: string;
+  isSignOutPending: boolean;
+  onSignOut: () => void;
+  providerLabel: string | null;
+};
+
 export function VaultDashboardAccountSectionFrame({
   children,
   dataTestId = "dashboard-sidebar-account-section",
@@ -88,6 +96,68 @@ export function VaultDashboardAccountSectionFrame({
         </CollapsibleTrigger>
         <CollapsibleContent>{children}</CollapsibleContent>
       </Collapsible>
+    </div>
+  );
+}
+
+export function VaultDashboardStaticAccountLoadingSection({
+  dataTestId,
+  label,
+}: {
+  dataTestId?: string;
+  label: ReactNode;
+}) {
+  return (
+    <div
+      data-testid={dataTestId ?? "dashboard-sidebar-account-section"}
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
+      <div
+        data-vault-dashboard-account-section-label
+        className="min-w-0 line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]"
+      >
+        {label}
+      </div>
+      <div data-vault-dashboard-account-section-content className="hidden">
+        <VaultDashboardStaticAccountPrehydrationPlaceholders />
+      </div>
+    </div>
+  );
+}
+
+export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
+  return (
+    <div data-app-auth-prehydration-signed-in className="hidden">
+      <div className="flex flex-wrap items-start gap-3">
+        <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+          <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+            <PersonIcon className="h-4 w-4" />
+          </div>
+          <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+            <div
+              data-app-auth-prehydration-email
+              className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+            />
+            <div
+              data-app-auth-prehydration-provider
+              className={clsx(
+                SIDEBAR_METADATA_TEXT_CLASS,
+                "hidden text-xs leading-5 text-muted-foreground",
+              )}
+            />
+          </div>
+        </div>
+        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-auto max-w-full whitespace-normal py-2 text-left"
+          >
+            Sign out
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -160,6 +230,64 @@ export function VaultDashboardAccountSection({
   );
 }
 
+export function VaultDashboardStaticAccountSection({
+  dataTestId,
+  email,
+  isSignOutPending,
+  onSignOut,
+  providerLabel,
+}: VaultDashboardStaticAccountSectionProps) {
+  return (
+    <div
+      data-testid={dataTestId ?? "dashboard-sidebar-account-section"}
+      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
+    >
+      <div className="flex flex-wrap items-start gap-3">
+        <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
+          <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
+            <PersonIcon className="h-4 w-4" />
+          </div>
+          <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
+            <div className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")} title={email}>
+              {email}
+            </div>
+            {providerLabel ? (
+              <div
+                className={clsx(
+                  SIDEBAR_METADATA_TEXT_CLASS,
+                  "text-xs leading-5 text-muted-foreground",
+                )}
+                title={`Signed in with ${providerLabel}`}
+              >
+                Signed in with {providerLabel}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onSignOut}
+            className="h-auto max-w-full whitespace-normal py-2 text-left"
+            disabled={isSignOutPending}
+          >
+            {isSignOutPending ? (
+              <>
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                Signing out...
+              </>
+            ) : (
+              "Sign out"
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function VaultDashboardProviderRows({
   footer,
   providerRows,
@@ -218,41 +346,6 @@ export function VaultDashboardProviderRows({
         </div>
       ))}
       {footer}
-    </div>
-  );
-}
-
-export function VaultDashboardProvidersSection({
-  footer,
-  onOpenChange,
-  open,
-  providerRows,
-}: {
-  footer?: ReactNode;
-  onOpenChange: (isOpen: boolean) => void;
-  open: boolean;
-  providerRows: readonly VaultDashboardProviderRowViewModel[];
-}) {
-  return (
-    <div
-      data-testid="dashboard-sidebar-providers-section"
-      className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
-    >
-      <Collapsible className="space-y-3" open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger asChild nativeButton>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
-          >
-            <span>Providers</span>
-            <ChevronDownIcon className="h-4 w-4 transition-transform" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <VaultDashboardProviderRows footer={footer} providerRows={providerRows} />
-        </CollapsibleContent>
-      </Collapsible>
     </div>
   );
 }
