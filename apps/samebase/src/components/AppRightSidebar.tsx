@@ -4,7 +4,7 @@ import {
   PublicLandingAccountLoadingSection,
   PublicLandingAccountSection,
 } from "@/components/PublicLandingAccountSection";
-import { PublicLandingSidebarAuthControls } from "@/components/PublicLandingAuthControls";
+import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -37,7 +37,7 @@ function PublicAppRightSidebarContent() {
   return (
     <VaultDashboardSidebarContent>
       <PublicLandingAccountSection />
-      <PublicLandingSidebarAuthControls />
+      <PublicLandingPasswordAuthControls />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>

@@ -6,19 +6,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   PasswordAuthForm,
-  PublicLandingSidebarAuthControls,
+  PublicLandingPasswordAuthControls,
 } from "@/components/PublicLandingAuthControls";
-import {
-  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
-  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
-  PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
-} from "@/lib/publicLanding";
+import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { type PublicDeploymentAuthPolicy } from "../convex/deploymentProfile";
 
-const { navigateMock, signInWithGoogleMock, signInWithPasswordMock } = vi.hoisted(() => ({
+const { navigateMock, signInWithPasswordMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
-  signInWithGoogleMock: vi.fn(),
   signInWithPasswordMock: vi.fn(),
 }));
 const componentState = vi.hoisted<{
@@ -33,10 +28,7 @@ const componentState = vi.hoisted<{
   search: {},
 }));
 vi.mock("@/authClient", () => ({
-  isInIframe: () => false,
-  openAuthPopup: vi.fn(),
   useAppSignInActions: () => ({
-    signInWithGoogle: signInWithGoogleMock,
     signInWithPassword: signInWithPasswordMock,
   }),
 }));
@@ -53,9 +45,6 @@ vi.mock("@tanstack/react-router", () => ({
     select: (location: { pathname: string; searchStr: string }) => unknown;
   }) => select({ pathname: componentState.pathname, searchStr: "" }),
   useNavigate: () => navigateMock,
-  useRouter: () => ({
-    buildLocation: () => ({ href: "/" }),
-  }),
 }));
 
 vi.mock("convex/react", () => ({
@@ -67,7 +56,7 @@ vi.mock("convex/react", () => ({
 }));
 
 function renderPasswordAuthForm(surface: "local_worktree" | "preview"): string {
-  return renderToStaticMarkup(<PasswordAuthForm flow="signIn" surface={surface} />);
+  return renderToStaticMarkup(<PasswordAuthForm surface={surface} />);
 }
 
 async function settleHydrationUpdate() {
@@ -85,7 +74,6 @@ describe("PasswordAuthForm", () => {
     componentState.pathname = "/";
     componentState.search = {};
     navigateMock.mockReset();
-    signInWithGoogleMock.mockReset();
     signInWithPasswordMock.mockReset();
     const mountedRoot = root;
     if (mountedRoot !== null) {
@@ -120,58 +108,50 @@ describe("PasswordAuthForm", () => {
     expect(markup).toContain(">Sign in</button>");
   });
 
-  it("renders the sidebar auth placeholder from prerendered markup", () => {
+  it("omits the landing sidebar password auth from prerendered markup", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
     };
-    componentState.search = { "create-account": true };
 
-    const markup = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
+    const markup = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
 
-    expect(markup).toContain(PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID);
     expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(markup).not.toContain("Password auth (dev)");
   });
 
-  it("hydrates preview create-account auth without a recoverable error", async () => {
+  it("renders the landing sidebar password auth after hydration", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
     };
-    componentState.search = { "create-account": true };
     const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
     document.body.append(rootElement);
-    const recoverableErrors: Array<unknown> = [];
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
 
     await act(async () => {
-      root = hydrateRoot(rootElement, <PublicLandingSidebarAuthControls />, {
-        onRecoverableError(error: unknown) {
-          recoverableErrors.push(error);
-        },
-      });
+      localRoot.render(<PublicLandingPasswordAuthControls />);
       await settleHydrationUpdate();
     });
 
-    expect(recoverableErrors).toEqual([]);
     expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
     expect(rootElement.innerHTML).toContain("Password auth (dev)");
     expect(rootElement.innerHTML).toContain('placeholder="you@example.com"');
-    expect(rootElement.innerHTML).toContain('autocomplete="new-password"');
+    expect(rootElement.innerHTML).toContain('autocomplete="current-password"');
     expect(rootElement.innerHTML).not.toContain("Google");
-    expect(rootElement.textContent).toContain("Create account");
+    expect(rootElement.innerHTML).not.toContain("Need an account?");
   });
 
-  it("hydrates remembered password auth without changing the prerendered sidebar markup", async () => {
-    componentState.search = { "sign-in": true };
-    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
+  it("hydrates without inserting remembered password auth before hydration completes", async () => {
     const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
+    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
     document.body.append(rootElement);
+    window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
     const recoverableErrors: Array<unknown> = [];
 
     await act(async () => {
-      root = hydrateRoot(rootElement, <PublicLandingSidebarAuthControls />, {
+      root = hydrateRoot(rootElement, <PublicLandingPasswordAuthControls />, {
         onRecoverableError(error: unknown) {
           recoverableErrors.push(error);
         },
@@ -181,82 +161,20 @@ describe("PasswordAuthForm", () => {
 
     expect(recoverableErrors).toEqual([]);
     expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(rootElement.textContent).toContain("Google");
     expect(rootElement.innerHTML).toContain("Password auth (dev)");
   });
 
-  it("hydrates sidebar sign-in auth controls without a recoverable error", async () => {
+  it("hides the landing sidebar password auth in prod-ui mode", () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
     };
-    componentState.search = { "sign-in": true };
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
-    document.body.append(rootElement);
-    const recoverableErrors: Array<unknown> = [];
+    componentState.search = { "prod-ui": true };
 
-    await act(async () => {
-      root = hydrateRoot(rootElement, <PublicLandingSidebarAuthControls />, {
-        onRecoverableError(error: unknown) {
-          recoverableErrors.push(error);
-        },
-      });
-      await settleHydrationUpdate();
-    });
+    const markup = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
 
-    expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
-    expect(rootElement.textContent).toContain("Google");
-    expect(rootElement.textContent).toContain("Password auth (dev)");
-    expect(rootElement.textContent).toContain("Sign in");
-  });
-
-  it("hydrates sidebar create-account auth controls without a recoverable error", async () => {
-    componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "preview" },
-      passwordAuthMode: "preview_seed",
-    };
-    componentState.search = { "create-account": true };
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
-    document.body.append(rootElement);
-    const recoverableErrors: Array<unknown> = [];
-
-    await act(async () => {
-      root = hydrateRoot(rootElement, <PublicLandingSidebarAuthControls />, {
-        onRecoverableError(error: unknown) {
-          recoverableErrors.push(error);
-        },
-      });
-      await settleHydrationUpdate();
-    });
-
-    expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).not.toContain(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
-    expect(rootElement.textContent).toContain("Password auth (dev)");
-    expect(rootElement.textContent).toContain("Create account");
-  });
-
-  it("hides only the landing sidebar password auth in prod-ui mode", async () => {
-    componentState.deploymentAuthPolicy = {
-      deploymentProfile: { kind: "preview" },
-      passwordAuthMode: "preview_seed",
-    };
-    componentState.search = { "prod-ui": true, "sign-in": true };
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
-    document.body.append(rootElement);
-
-    await act(async () => {
-      root = hydrateRoot(rootElement, <PublicLandingSidebarAuthControls />);
-      await settleHydrationUpdate();
-    });
-
-    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID);
-    expect(rootElement.textContent).toContain("Google");
-    expect(rootElement.textContent).not.toContain("Password auth (dev)");
+    expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(markup).not.toContain("Password auth (dev)");
   });
 
   it("hides the landing sidebar password auth after sign-in", () => {
@@ -265,11 +183,11 @@ describe("PasswordAuthForm", () => {
       passwordAuthMode: "preview_seed",
     };
     componentState.isAuthenticated = true;
-    componentState.search = { "sign-in": true };
 
-    const markup = renderToStaticMarkup(<PublicLandingSidebarAuthControls />);
+    const markup = renderToStaticMarkup(<PublicLandingPasswordAuthControls />);
 
     expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(markup).not.toContain("Password auth (dev)");
   });
 
   it("shows actionable copy when local worktree autofill credentials are missing", async () => {
@@ -279,7 +197,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PasswordAuthForm flow="signIn" surface="local_worktree" />);
+      localRoot.render(<PasswordAuthForm surface="local_worktree" />);
     });
 
     const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
@@ -310,9 +228,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(
-        <PasswordAuthForm flow="signIn" surface="local_worktree" onSignIn={onSignIn} />,
-      );
+      localRoot.render(<PasswordAuthForm surface="local_worktree" onSignIn={onSignIn} />);
     });
 
     const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
@@ -339,7 +255,6 @@ describe("PasswordAuthForm", () => {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "local_worktree_seed",
     };
-    componentState.search = { "sign-in": true };
     signInWithPasswordMock.mockResolvedValue(undefined);
     vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@samebase.com");
     vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_VALUE", "pass1234");
@@ -349,7 +264,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingSidebarAuthControls />);
+      localRoot.render(<PublicLandingPasswordAuthControls />);
     });
 
     const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
@@ -372,7 +287,7 @@ describe("PasswordAuthForm", () => {
 
     componentState.isAuthenticated = true;
     await act(async () => {
-      localRoot.render(<PublicLandingSidebarAuthControls />);
+      localRoot.render(<PublicLandingPasswordAuthControls />);
     });
 
     expect(navigateMock).toHaveBeenCalledWith({

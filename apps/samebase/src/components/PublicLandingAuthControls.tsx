@@ -1,12 +1,8 @@
 import { useAppSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import {
-  PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID,
-  PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
-} from "@/lib/publicLanding";
-import { cn } from "@/lib/utils";
+import { PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID } from "@/lib/publicLanding";
 import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
@@ -23,26 +19,22 @@ import {
   isProdUiModeEnabled,
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
-import { readRootRouteSearch, type RootRouteSearch } from "@/routeSearch/root";
-import { readBrowserRouteEnvironment, type RouteEnvironment } from "@/routing/availability";
+import { readRootRouteSearch } from "@/routeSearch/root";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
-import { Chrome } from "lucide-react";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
-type PasswordAuthFlow = "signIn" | "signUp";
-type SidebarAuthPrehydrationSurfaceKind = Exclude<PasswordAuthSurface, "hidden"> | "google_only";
-
-const SIDEBAR_AUTH_PREHYDRATION_SURFACE_CLASS =
-  "vault-dashboard-sidebar-inset border-b border-border/50 py-3";
-
-function useHasHydratedLayout() {
+/**
+ * SSG cannot read per-browser auth preferences. Password auth controls that
+ * come from localStorage or cached deployment policy therefore wait until
+ * hydration has attached to the anonymous static shell.
+ */
+function useHasHydrated() {
   const [hasHydrated, setHasHydrated] = useState(false);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     setHasHydrated(true);
   }, []);
 
@@ -64,134 +56,13 @@ function readLocalWorktreePasswordCredentials(): {
   return { email, password };
 }
 
-function resolveRouteEnvironmentPasswordAuthMode(
-  routeEnvironment: RouteEnvironment,
-): PublicPasswordAuthMode | undefined {
-  switch (routeEnvironment) {
-    case "local":
-      return "local_worktree_seed";
-    case "preview":
-      return "preview_seed";
-    case "production":
-      return undefined;
-    default:
-      routeEnvironment satisfies never;
-      return undefined;
-  }
-}
-
-function readInitialPasswordAuthMode(): PublicPasswordAuthMode | undefined {
-  if (readLocalWorktreePasswordCredentials()) {
-    return "local_worktree_seed";
-  }
-
-  return resolveRouteEnvironmentPasswordAuthMode(readBrowserRouteEnvironment());
-}
-
-function resolvePasswordAuthFlow(routeSearch: RootRouteSearch): PasswordAuthFlow {
-  return routeSearch["create-account"] === true ? "signUp" : "signIn";
-}
-
-function SidebarAuthPrehydrationText({ label }: { label: string }) {
-  return <span>{label}</span>;
-}
-
-function SidebarAuthPrehydrationInput({ label }: { label: string }) {
-  return <Input aria-hidden="true" placeholder={label} readOnly tabIndex={-1} />;
-}
-
-function SidebarAuthPrehydrationPasswordCard({
-  flow,
-  surface,
-}: {
-  flow: PasswordAuthFlow;
-  surface: Exclude<SidebarAuthPrehydrationSurfaceKind, "google_only">;
-}) {
-  return (
-    <div className="flex flex-col gap-2 rounded-md border p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium">
-          <SidebarAuthPrehydrationText label="Password auth (dev)" />
-        </div>
-        {surface === "local_worktree" ? (
-          <div
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "h-auto px-2 py-1 text-xs",
-            )}
-          >
-            <SidebarAuthPrehydrationText
-              label={flow === "signIn" ? "Need an account?" : "Have an account?"}
-            />
-          </div>
-        ) : null}
-      </div>
-      <div className="flex flex-col gap-2">
-        <SidebarAuthPrehydrationInput label="you@example.com" />
-        <SidebarAuthPrehydrationInput label="Password" />
-        <div className="flex items-center gap-2">
-          {surface === "local_worktree" ? (
-            <div className={cn(buttonVariants({ variant: "outline" }), "shrink-0")}>
-              <SidebarAuthPrehydrationText label="Autofill & sign in" />
-            </div>
-          ) : null}
-          <div className={cn(buttonVariants(), "flex-1")}>
-            <SidebarAuthPrehydrationText label={flow === "signIn" ? "Sign in" : "Create account"} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SidebarAuthPrehydrationSurface({
-  flow,
-  surface,
-}: {
-  flow: PasswordAuthFlow;
-  surface: SidebarAuthPrehydrationSurfaceKind;
-}) {
-  return (
-    <div data-app-auth-prehydration-sidebar-auth={`${flow}-${surface}`} className="hidden">
-      <div className={SIDEBAR_AUTH_PREHYDRATION_SURFACE_CLASS}>
-        <div className="flex flex-col gap-2">
-          {flow === "signIn" ? (
-            <div className={cn(buttonVariants({ variant: "outline" }), "h-auto flex-1 py-2.5")}>
-              <Chrome className="mr-2 h-4 w-4" />
-              <SidebarAuthPrehydrationText label="Google" />
-            </div>
-          ) : null}
-          {surface === "google_only" ? null : (
-            <SidebarAuthPrehydrationPasswordCard flow={flow} surface={surface} />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SidebarAuthPrehydrationPlaceholders() {
-  return (
-    <div
-      aria-hidden="true"
-      data-testid={PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID}
-      className="hidden"
-    >
-      <SidebarAuthPrehydrationSurface flow="signIn" surface="preview" />
-      <SidebarAuthPrehydrationSurface flow="signIn" surface="local_worktree" />
-      <SidebarAuthPrehydrationSurface flow="signIn" surface="google_only" />
-      <SidebarAuthPrehydrationSurface flow="signUp" surface="preview" />
-      <SidebarAuthPrehydrationSurface flow="signUp" surface="local_worktree" />
-    </div>
-  );
-}
-
 function usePublicLandingPasswordAuthControls(): {
   onPasswordSignIn: () => Promise<unknown> | void;
   passwordAuthSurface: PasswordAuthSurface;
 } {
   const navigate = useNavigate();
   const { isAuthenticated } = useConvexAuth();
+  const hasHydrated = useHasHydrated();
   const [passwordSignInReadyForDashboard, setPasswordSignInReadyForDashboard] = useState(false);
   const searchStr = useLocation({
     select: (location) => location.searchStr,
@@ -207,12 +78,15 @@ function usePublicLandingPasswordAuthControls(): {
     search: rootRouteSearch,
   });
   const passwordAuthMode = resolvePublicLandingPasswordAuthMode(
-    deploymentAuthPolicy?.passwordAuthMode ?? readInitialPasswordAuthMode(),
+    deploymentAuthPolicy?.passwordAuthMode ??
+      (readLocalWorktreePasswordCredentials() ? "local_worktree_seed" : undefined),
   );
-  const passwordAuthSurface = getVisiblePasswordAuthSurface({
-    passwordAuthMode,
-    prodUiModeEnabled,
-  });
+  const passwordAuthSurface = hasHydrated
+    ? getVisiblePasswordAuthSurface({
+        passwordAuthMode,
+        prodUiModeEnabled,
+      })
+    : "hidden";
 
   useEffect(() => {
     const nextPasswordAuthMode = deploymentAuthPolicy?.passwordAuthMode;
@@ -305,92 +179,44 @@ export function PublicLandingAuthControls() {
         markPublicSignupReturn={markPublicSignupReturn}
       />
       {passwordAuthSurface !== "hidden" ? (
-        <PasswordAuthForm
-          flow={resolvePasswordAuthFlow(rootRouteSearch)}
-          onSignIn={onPasswordSignIn}
-          surface={passwordAuthSurface}
-        />
+        <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
       ) : null}
     </div>
   );
 }
 
-export function PublicLandingSidebarAuthControls() {
+export function PublicLandingPasswordAuthControls() {
   const { isAuthenticated } = useConvexAuth();
-  const hasHydrated = useHasHydratedLayout();
-  const location = useLocation({
-    select: (currentLocation) => ({
-      pathname: currentLocation.pathname,
-      searchStr: currentLocation.searchStr,
-    }),
-  });
-  const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const showAuthRoute =
-    location.pathname === "/" &&
-    (rootRouteSearch["sign-in"] === true || rootRouteSearch["create-account"] === true);
-  const showGoogleAuth =
-    showAuthRoute && shouldShowGoogleAuthForPathname(location.pathname, rootRouteSearch);
-  const markPublicSignupReturn = shouldRenderPublicLandingWithoutAuthGate(
-    location.pathname,
-    rootRouteSearch,
-  );
   const { onPasswordSignIn, passwordAuthSurface } = usePublicLandingPasswordAuthControls();
-  const showPasswordAuth = showAuthRoute && passwordAuthSurface !== "hidden";
 
-  if (!hasHydrated) {
-    return <SidebarAuthPrehydrationPlaceholders />;
+  if (isAuthenticated || passwordAuthSurface === "hidden") {
+    return null;
   }
-
-  if (isAuthenticated || (!showGoogleAuth && !showPasswordAuth)) {
-    return <SidebarAuthPrehydrationPlaceholders />;
-  }
-
-  const authReturn = location.pathname === "/" ? "dashboard" : undefined;
 
   return (
     <div
       data-testid={PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID}
       className="vault-dashboard-sidebar-inset border-b border-border/50 py-3"
     >
-      <div className="flex flex-col gap-2">
-        {showGoogleAuth ? (
-          <SignInWithGoogle
-            authReturn={authReturn}
-            markPublicSignupReturn={markPublicSignupReturn}
-          />
-        ) : null}
-        {showPasswordAuth ? (
-          <PasswordAuthForm
-            flow={resolvePasswordAuthFlow(rootRouteSearch)}
-            onSignIn={onPasswordSignIn}
-            surface={passwordAuthSurface}
-          />
-        ) : null}
-      </div>
+      <PasswordAuthForm onSignIn={onPasswordSignIn} surface={passwordAuthSurface} />
     </div>
   );
 }
 
 export function PasswordAuthForm({
-  flow,
   onSignIn,
   surface,
 }: {
-  flow: PasswordAuthFlow;
   onSignIn?: () => Promise<unknown> | void;
   surface: Exclude<PasswordAuthSurface, "hidden">;
 }) {
   const { signInWithPassword } = useAppSignInActions();
-  const [selectedFlow, setSelectedFlow] = useState<PasswordAuthFlow>(flow);
+  const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const effectiveFlow = selectedFlow;
-
-  useEffect(() => {
-    setSelectedFlow(flow);
-  }, [flow]);
+  const effectiveFlow = surface === "preview" ? "signIn" : flow;
 
   const submitLabel = pending
     ? effectiveFlow === "signIn"
@@ -437,11 +263,11 @@ export function PasswordAuthForm({
             className="h-auto px-2 py-1 text-xs"
             onClick={() => {
               setError(null);
-              setSelectedFlow((current) => (current === "signIn" ? "signUp" : "signIn"));
+              setFlow((current) => (current === "signIn" ? "signUp" : "signIn"));
             }}
             disabled={pending}
           >
-            {selectedFlow === "signIn" ? "Need an account?" : "Have an account?"}
+            {flow === "signIn" ? "Need an account?" : "Have an account?"}
           </Button>
         ) : null}
       </div>
@@ -488,7 +314,7 @@ export function PasswordAuthForm({
                 const nextFlow = "signIn";
                 const nextEmail = credentials.email;
                 const nextPassword = credentials.password;
-                setSelectedFlow(nextFlow);
+                setFlow(nextFlow);
                 setError(null);
                 setEmail(nextEmail);
                 setPassword(nextPassword);

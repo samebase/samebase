@@ -1,12 +1,7 @@
-import {
-  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
-} from "@/lib/publicLanding";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
-import { PRODUCTION_PUBLIC_HOSTNAME } from "@/lib/prodUiMode";
-import { type RouteEnvironment } from "@/routing/availability";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-auth-presentation-prehydration";
@@ -18,24 +13,9 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
-  productionPublicHostname: string;
   rootAttribute: string;
-  sidebarAuthPlaceholderTestId: string;
-  staticRouteEnvironment: RouteEnvironment | null;
   styleElementId: string;
 };
-
-function readStaticRouteEnvironment(): RouteEnvironment | null {
-  const routeEnvironment = import.meta.env.VITE_SAMEBASE_ROUTE_ENVIRONMENT;
-  switch (routeEnvironment) {
-    case "local":
-    case "preview":
-    case "production":
-      return routeEnvironment;
-    default:
-      return null;
-  }
-}
 
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
@@ -43,10 +23,7 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env.VITE_CONVEX_URL ?? null,
   ignoredPathnames: ["/visual-fixture"],
-  productionPublicHostname: PRODUCTION_PUBLIC_HOSTNAME,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
-  sidebarAuthPlaceholderTestId: PUBLIC_LANDING_SIDEBAR_AUTH_PLACEHOLDER_TEST_ID,
-  staticRouteEnvironment: readStaticRouteEnvironment(),
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
 } satisfies AppAuthPresentationPrehydrationArgs;
 
@@ -99,68 +76,6 @@ function InlineScript_prehydrateAppAuthPresentation(
     return formatAuthProviderLabel(provider);
   }
 
-  function normalizeHostname(hostname: string) {
-    const normalizedHostname = hostname.trim().toLowerCase();
-    if (normalizedHostname.startsWith("[") && normalizedHostname.endsWith("]")) {
-      return normalizedHostname.slice(1, -1);
-    }
-
-    return normalizedHostname;
-  }
-
-  function readRouteEnvironment() {
-    if (args.staticRouteEnvironment !== null) {
-      return args.staticRouteEnvironment;
-    }
-
-    const hostname = normalizeHostname(window.location.hostname);
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "0.0.0.0" ||
-      hostname === "::1"
-    ) {
-      return "local";
-    }
-
-    if (hostname === args.productionPublicHostname) {
-      return "production";
-    }
-
-    return "preview";
-  }
-
-  function readSidebarPasswordAuthSurface() {
-    const searchParams = new window.URLSearchParams(window.location.search);
-    if (searchParams.has("prod-ui")) {
-      return null;
-    }
-
-    const routeEnvironment = readRouteEnvironment();
-    if (routeEnvironment === "local") {
-      return "local_worktree";
-    }
-    if (routeEnvironment === "preview") {
-      return "preview";
-    }
-    return null;
-  }
-
-  function readSidebarAuthPrehydrationFlow() {
-    if (window.location.pathname !== "/") {
-      return null;
-    }
-
-    const searchParams = new window.URLSearchParams(window.location.search);
-    if (searchParams.has("sign-in")) {
-      return "signIn";
-    }
-    if (searchParams.has("create-account")) {
-      return "signUp";
-    }
-    return null;
-  }
-
   function installPrehydrationStyle(presentation: {
     kind: "signed-in" | "signed-out";
     label: string;
@@ -179,29 +94,6 @@ function InlineScript_prehydrateAppAuthPresentation(
     const signedInEmailSelector = accountSectionSelector + " [data-app-auth-prehydration-email]";
     const signedInProviderSelector =
       accountSectionSelector + " [data-app-auth-prehydration-provider]";
-    const sidebarAuthPlaceholderSelector =
-      "[data-testid=" + cssStringLiteral(args.sidebarAuthPlaceholderTestId) + "]";
-    const sidebarAuthPrehydrationFlow = readSidebarAuthPrehydrationFlow();
-    const sidebarPasswordAuthSurface = readSidebarPasswordAuthSurface();
-    const sidebarAuthSurface =
-      sidebarPasswordAuthSurface ??
-      (sidebarAuthPrehydrationFlow === "signIn" ? "google_only" : null);
-    const sidebarAuthPlaceholderStyle =
-      presentation.kind === "signed-out" &&
-      sidebarAuthPrehydrationFlow !== null &&
-      sidebarAuthSurface !== null
-        ? `
-html[${args.rootAttribute}="signed-out"] ${sidebarAuthPlaceholderSelector} {
-  display: block !important;
-  pointer-events: none !important;
-}
-
-html[${args.rootAttribute}="signed-out"] ${sidebarAuthPlaceholderSelector} [data-app-auth-prehydration-sidebar-auth=${cssStringLiteral(`${sidebarAuthPrehydrationFlow}-${sidebarAuthSurface}`)}] {
-  display: block !important;
-}
-
-`
-        : "";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
@@ -255,7 +147,6 @@ html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
 `
     : ""
 }
-${sidebarAuthPlaceholderStyle}
     `;
     document.head.append(styleElement);
     document.documentElement.setAttribute(args.rootAttribute, presentation.kind);
