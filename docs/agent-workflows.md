@@ -119,9 +119,10 @@ Rules:
 
 ## PR Timing
 
-- For implementation, docs, or research work on a meaningful non-`main` branch, do not send the
-  final response until reviewable changes are committed, pushed, and attached to a ready GitHub PR
-  unless the user explicitly says not to open one or asks for a draft.
+- For implementation, docs, or research on a meaningful non-`main` branch, commit and push
+  reviewable checkpoints as coherent slices land; do not save one large local diff for the end. Do
+  not send the final response until the branch has a ready GitHub PR unless the user opts out or
+  asks for a draft.
 - Default proactive PR state is ready/non-draft so the branch is preserved in GitHub. Use a draft PR
   only when the work is still in progress or the user explicitly asks to keep it draft.
 - If GitHub requires a diff before that first proactive PR, create a minimal checkpoint commit after

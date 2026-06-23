@@ -45,11 +45,12 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   the latest `origin/main`. When the user says `rebase`, treat it as `rebase` plus `push`.
 - Inspect the diff shape with `git diff --stat` (and `git diff --cached --stat` when relevant)
   before `commit` or `create pr`.
-- For implementation, docs, or research work on a meaningful non-`main` branch, do not send the
-  final response until reviewable changes are committed, pushed, and attached to a ready GitHub PR
-  unless the user explicitly says not to open one or asks for a draft. PR descriptions explain why
-  the change exists, not just what changed. When a PR originates from research or automation work,
-  include `First Message` and `Requested Codex Runtime`.
+- For implementation, docs, or research on a meaningful non-`main` branch, commit and push
+  reviewable checkpoints as coherent slices land; do not save one large local diff for the end. Do
+  not send the final response until the branch has a ready GitHub PR unless the user opts out or
+  asks for a draft. PR descriptions explain why the change exists, not just what changed. When a PR
+  originates from research or automation work, include `First Message` and
+  `Requested Codex Runtime`.
 - After a branch commit has been shown, pushed, reviewed, or attached to a PR, preserve follow-up
   work as new commits. Never amend, rebase, or squash branch history unless the user explicitly asks
   for that exact rewrite.
