@@ -194,7 +194,7 @@ export type BranchScopeRefreshDemand = Infer<typeof vBranchScopeRefreshDemand>;
  *
  * This is the persisted contract between refresh entry points and backend
  * scheduling. Exact work such as PR metadata, ahead/behind counts, branch tree
- * reads, and provider comment parsing is backend execution policy, not request
+ * reads, and provider check hydration is backend execution policy, not request
  * state.
  */
 export const vRepositoryRefreshDemand = union(

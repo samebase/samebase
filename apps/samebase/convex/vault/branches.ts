@@ -29,14 +29,7 @@ const cloudflarePreviewMetadataFields = {
 const cloudflarePreviewMetadataValidator = object(cloudflarePreviewMetadataFields);
 type CloudflarePreviewMetadata = Infer<typeof cloudflarePreviewMetadataValidator>;
 
-/**
- * Cloudflare can edit or partially reformat its PR comment without removing the
- * underlying branch alias. Preserve existing cached fields when the latest
- * comment only yields a partial parse, but still clear everything when GitHub
- * told us there is no relevant preview comment for the branch anymore.
- */
 export function resolveSyncedCloudflarePreviewMetadata(args: {
-  existing?: CloudflarePreviewMetadata;
   incoming: CloudflarePreviewMetadata & {
     previewState: "resolved" | "clear";
   };
@@ -54,34 +47,27 @@ export function resolveSyncedCloudflarePreviewMetadata(args: {
   }
 
   return {
-    cloudflareBranchPreviewUrl:
-      args.incoming.cloudflareBranchPreviewUrl ?? args.existing?.cloudflareBranchPreviewUrl,
-    cloudflarePreviewPullRequestNumber:
-      args.incoming.cloudflarePreviewPullRequestNumber ??
-      args.existing?.cloudflarePreviewPullRequestNumber,
-    cloudflarePreviewUrl: args.incoming.cloudflarePreviewUrl ?? args.existing?.cloudflarePreviewUrl,
-    cloudflarePreviewCommitSha:
-      args.incoming.cloudflarePreviewCommitSha ?? args.existing?.cloudflarePreviewCommitSha,
-    cloudflarePreviewStatus:
-      args.incoming.cloudflarePreviewStatus ?? args.existing?.cloudflarePreviewStatus,
-    cloudflarePreviewLogsUrl:
-      args.incoming.cloudflarePreviewLogsUrl ?? args.existing?.cloudflarePreviewLogsUrl,
-    cloudflarePreviewCommentCreatedAt:
-      args.incoming.cloudflarePreviewCommentCreatedAt ??
-      args.existing?.cloudflarePreviewCommentCreatedAt,
+    cloudflareBranchPreviewUrl: args.incoming.cloudflareBranchPreviewUrl,
+    cloudflarePreviewPullRequestNumber: args.incoming.cloudflarePreviewPullRequestNumber,
+    cloudflarePreviewUrl: args.incoming.cloudflarePreviewUrl,
+    cloudflarePreviewCommitSha: args.incoming.cloudflarePreviewCommitSha,
+    cloudflarePreviewStatus: args.incoming.cloudflarePreviewStatus,
+    cloudflarePreviewLogsUrl: args.incoming.cloudflarePreviewLogsUrl,
+    cloudflarePreviewCommentCreatedAt: args.incoming.cloudflarePreviewCommentCreatedAt,
   };
 }
 
 /**
- * Cloudflare preview links are cached per PR. Clear the saved preview when the
- * branch loses its current PR or when GitHub points the branch at a different
- * PR number so the next hydration can fetch fresh comment data exactly once for
- * that PR.
+ * Cloudflare preview links are cached per PR head. Clear the saved preview when
+ * the branch loses its current PR, moves to another PR, or points the current
+ * PR at a different head SHA so stale environment links do not survive pushes.
  */
 export function shouldClearCloudflarePreviewForPullRequestSync(args: {
   incomingPullRequestState: "resolved" | "preserve";
   incomingPullRequestNumber?: number;
+  incomingHeadCommitSha: string;
   existingPullRequestNumber?: number;
+  existingPreviewCommitSha?: string;
 }): boolean {
   if (args.incomingPullRequestState !== "resolved") {
     return false;
@@ -91,7 +77,14 @@ export function shouldClearCloudflarePreviewForPullRequestSync(args: {
     return true;
   }
 
-  return args.incomingPullRequestNumber !== args.existingPullRequestNumber;
+  if (args.incomingPullRequestNumber !== args.existingPullRequestNumber) {
+    return true;
+  }
+
+  return (
+    typeof args.existingPreviewCommitSha === "string" &&
+    args.existingPreviewCommitSha !== args.incomingHeadCommitSha
+  );
 }
 
 export function compareRemoteBranchSortOrder(
@@ -450,7 +443,9 @@ export const syncVaultRemoteBranches = internalMutation({
             shouldClearCloudflarePreviewForPullRequestSync({
               incomingPullRequestState: branch.pullRequestState,
               incomingPullRequestNumber: branch.pullRequestNumber,
+              incomingHeadCommitSha: branch.headCommitSha,
               existingPullRequestNumber: existingBranch.pullRequestNumber,
+              existingPreviewCommitSha: existingBranch.cloudflarePreviewCommitSha,
             })
           ) {
             patchData.cloudflareBranchPreviewUrl = undefined;
@@ -580,13 +575,11 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
       const resolvedMetadata =
         branch.previewState === "clear"
           ? resolveSyncedCloudflarePreviewMetadata({
-              existing: existingBranch,
               incoming: {
                 previewState: "clear",
               },
             })
           : resolveSyncedCloudflarePreviewMetadata({
-              existing: existingBranch,
               incoming: {
                 previewState: "resolved",
                 cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,

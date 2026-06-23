@@ -142,7 +142,6 @@ function getRepositoryRefreshWorkerIntent(
 function shouldHydrateCloudflarePreviewLinks(demand: RepositoryScopeRefreshDemand): boolean {
   switch (demand.source) {
     case "dashboard":
-      return false;
     case "manual":
     case "source_setup":
       return true;

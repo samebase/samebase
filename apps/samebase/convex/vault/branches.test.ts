@@ -263,18 +263,9 @@ describe("resolveSyncedBranchLastCommitAt", () => {
 });
 
 describe("resolveSyncedCloudflarePreviewMetadata", () => {
-  it("preserves cached preview fields when the latest parsed comment is partial", () => {
+  it("replaces cached preview fields with the latest check-run snapshot", () => {
     expect(
       resolveSyncedCloudflarePreviewMetadata({
-        existing: {
-          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
-          cloudflarePreviewPullRequestNumber: 77,
-          cloudflarePreviewUrl: "https://sha.pages.dev/",
-          cloudflarePreviewCommitSha: "sha-old",
-          cloudflarePreviewStatus: "✅ Deploy successful!",
-          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
-          cloudflarePreviewCommentCreatedAt: 123,
-        },
         incoming: {
           previewState: "resolved",
           cloudflarePreviewPullRequestNumber: 77,
@@ -283,28 +274,19 @@ describe("resolveSyncedCloudflarePreviewMetadata", () => {
         },
       }),
     ).toEqual({
-      cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+      cloudflareBranchPreviewUrl: undefined,
       cloudflarePreviewPullRequestNumber: 77,
-      cloudflarePreviewUrl: "https://sha.pages.dev/",
+      cloudflarePreviewUrl: undefined,
       cloudflarePreviewCommitSha: "sha-new",
       cloudflarePreviewStatus: "⏳ Building",
-      cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
-      cloudflarePreviewCommentCreatedAt: 123,
+      cloudflarePreviewLogsUrl: undefined,
+      cloudflarePreviewCommentCreatedAt: undefined,
     });
   });
 
-  it("clears cached preview fields when GitHub resolved to no preview comment", () => {
+  it("clears cached preview fields when GitHub resolved to no compatible check run", () => {
     expect(
       resolveSyncedCloudflarePreviewMetadata({
-        existing: {
-          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
-          cloudflarePreviewPullRequestNumber: 77,
-          cloudflarePreviewUrl: "https://sha.pages.dev/",
-          cloudflarePreviewCommitSha: "sha-old",
-          cloudflarePreviewStatus: "✅ Deploy successful!",
-          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
-          cloudflarePreviewCommentCreatedAt: 123,
-        },
         incoming: {
           previewState: "clear",
         },
@@ -327,7 +309,9 @@ describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
       shouldClearCloudflarePreviewForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: undefined,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
@@ -337,17 +321,33 @@ describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
       shouldClearCloudflarePreviewForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: 43,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
 
-  it("preserves the cached preview when the current PR number is unchanged", () => {
+  it("clears the cached preview when the current PR head SHA changed", () => {
     expect(
       shouldClearCloudflarePreviewForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: 42,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
+      }),
+    ).toBe(true);
+  });
+
+  it("preserves the cached preview when the current PR number and head SHA are unchanged", () => {
+    expect(
+      shouldClearCloudflarePreviewForPullRequestSync({
+        incomingPullRequestState: "resolved",
+        incomingPullRequestNumber: 42,
+        incomingHeadCommitSha: "sha-old",
+        existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(false);
   });
@@ -357,7 +357,9 @@ describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
       shouldClearCloudflarePreviewForPullRequestSync({
         incomingPullRequestState: "preserve",
         incomingPullRequestNumber: undefined,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(false);
   });

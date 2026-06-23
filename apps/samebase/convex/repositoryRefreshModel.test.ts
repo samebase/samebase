@@ -738,7 +738,7 @@ function _checkForbiddenDemandStates(
       scope: "repository",
       source: "dashboard",
     },
-    // @ts-expect-error callers cannot choose provider/comment parsing.
-    provider: "cloudflare_pages_comments",
+    // @ts-expect-error callers cannot choose provider check hydration.
+    provider: "cloudflare_preview_checks",
   });
 }

@@ -2,16 +2,16 @@
 
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { Infer, v } from "convex/values";
-import { guard } from "@samebase/dependent/main";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord, toErrorMessage } from "./jsonUtils";
 import {
-  parseCloudflarePreviewComment,
-  type CloudflarePreviewCommentMetadata,
-} from "./cloudflarePreviewComment";
+  selectCloudflarePreviewCheckRunMetadata,
+  type CloudflarePreviewCheckRunInput,
+  type CloudflarePreviewCheckRunMetadata,
+} from "./cloudflarePreviewCheckRun";
 import {
   getRepositoryMediaKind,
   type RepositoryMediaKind,
@@ -152,7 +152,7 @@ const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
 const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
 /**
  * Passive refreshes above this cached branch count keep PR lookup and branch
- * commit timestamps, but skip ahead/behind and preview-comment backfills.
+ * commit timestamps, but skip ahead/behind and broad preview-check hydration.
  * Source setup is a one-time connect/create finish path, so it can hydrate
  * provider links without teaching React about branch batches.
  */
@@ -836,8 +836,7 @@ type StagedRepositoryMediaAssetCandidate = {
   size?: number;
   content: string;
 };
-const CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY = 5;
-const CLOUDFLARE_PREVIEW_COMMENT_AUTHORS = new Set(["cloudflare-workers-and-pages[bot]"]);
+const CLOUDFLARE_PREVIEW_CHECK_CONCURRENCY = 5;
 
 /**
  * Mirror GitHub's preview size ceiling for cached blobs so storage-backed media
@@ -990,97 +989,33 @@ export function readPullRequestLabels(labels: unknown): PullRequestLabelSummary[
   return labelNames;
 }
 
-const isAllowedCloudflarePreviewCommentAuthor = guard<unknown, string>((login) =>
-  typeof login === "string" && CLOUDFLARE_PREVIEW_COMMENT_AUTHORS.has(login.toLowerCase())
-    ? login
-    : null,
-);
-
-async function getLatestPullRequestCloudflarePreviewComment(args: {
+async function getPullRequestCloudflarePreviewCheck(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
-  pullRequestNumber: number;
-}): Promise<
-  | {
-      state: "resolved";
-      preview?:
-        | (CloudflarePreviewCommentMetadata & {
-            cloudflarePreviewCommentCreatedAt?: number;
-          })
-        | undefined;
-    }
-  | {
-      state: "preserve";
-    }
-> {
-  const perPage = 100;
-  const maxPages = 20;
-  let hitPageLimit = false;
-
-  for (let page = 1; page <= maxPages; page += 1) {
-    const pageResponse = await args.octokit.rest.issues.listComments({
-      owner: args.owner,
-      repo: args.repo,
-      issue_number: args.pullRequestNumber,
-      per_page: perPage,
-      page,
-      sort: "updated",
-      direction: "desc",
-    });
-
-    if (pageResponse.data.length === 0) {
-      break;
-    }
-
-    for (const comment of pageResponse.data) {
-      if (typeof comment.body !== "string") {
-        continue;
-      }
-      if (!isAllowedCloudflarePreviewCommentAuthor(comment.user?.login)) {
-        continue;
-      }
-
-      const parsed = parseCloudflarePreviewComment(comment.body);
-      if (!parsed) {
-        continue;
-      }
-
-      return {
-        state: "resolved",
-        preview: {
-          ...parsed,
-          cloudflarePreviewCommentCreatedAt: parseGitTimestamp(comment.created_at),
-        },
-      };
-    }
-
-    if (pageResponse.data.length < perPage) {
-      break;
-    }
-    if (page === maxPages) {
-      hitPageLimit = true;
-    }
-  }
-
-  if (hitPageLimit) {
-    console.warn(
-      "listPullRequestCloudflarePreviewComment reached page limit",
-      JSON.stringify({
-        owner: args.owner,
-        repo: args.repo,
-        pullRequestNumber: args.pullRequestNumber,
-        maxPages,
-        perPage,
-      }),
-    );
-    return {
-      state: "preserve",
-    };
-  }
-  return {
-    state: "resolved",
-  };
+  ref: string;
+}): Promise<CloudflarePreviewCheckRunMetadata | undefined> {
+  const checksResponse = await args.octokit.checks.listForRef({
+    owner: args.owner,
+    repo: args.repo,
+    ref: args.ref,
+    per_page: 100,
+  });
+  const checkRuns: CloudflarePreviewCheckRunInput[] = checksResponse.data.check_runs.map((run) => ({
+    id: run.id,
+    name: run.name,
+    status: run.status,
+    conclusion: run.conclusion,
+    detailsUrl: run.details_url ?? undefined,
+    htmlUrl: run.html_url ?? undefined,
+    appName: run.app?.name,
+    appSlug: run.app?.slug,
+    outputSummary: run.output.summary ?? undefined,
+    startedAt: run.started_at ?? undefined,
+    completedAt: run.completed_at ?? undefined,
+  }));
+  const preview = selectCloudflarePreviewCheckRunMetadata(checkRuns);
+  return preview ?? undefined;
 }
 
 async function getCloudflarePreviewLinksByBranch(args: {
@@ -1091,12 +1026,8 @@ async function getCloudflarePreviewLinksByBranch(args: {
 }): Promise<RemoteBranchCloudflarePreviewSync[]> {
   const updates: RemoteBranchCloudflarePreviewSync[] = [];
 
-  for (
-    let index = 0;
-    index < args.branches.length;
-    index += CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY
-  ) {
-    const batch = args.branches.slice(index, index + CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY);
+  for (let index = 0; index < args.branches.length; index += CLOUDFLARE_PREVIEW_CHECK_CONCURRENCY) {
+    const batch = args.branches.slice(index, index + CLOUDFLARE_PREVIEW_CHECK_CONCURRENCY);
     const batchUpdates = await Promise.all(
       batch.map(async (branch): Promise<RemoteBranchCloudflarePreviewSync> => {
         if (branch.pullRequestState !== "resolved") {
@@ -1114,20 +1045,12 @@ async function getCloudflarePreviewLinksByBranch(args: {
         }
 
         try {
-          const previewResult = await getLatestPullRequestCloudflarePreviewComment({
+          const preview = await getPullRequestCloudflarePreviewCheck({
             octokit: args.octokit,
             owner: args.owner,
             repo: args.repo,
-            pullRequestNumber: branch.pullRequestNumber,
+            ref: branch.headCommitSha,
           });
-          if (previewResult.state === "preserve") {
-            return {
-              name: branch.name,
-              previewState: "preserve",
-            };
-          }
-
-          const preview = previewResult.preview;
           if (!preview) {
             return {
               name: branch.name,
@@ -1141,19 +1064,20 @@ async function getCloudflarePreviewLinksByBranch(args: {
             cloudflareBranchPreviewUrl: preview.branchPreviewUrl,
             cloudflarePreviewPullRequestNumber: branch.pullRequestNumber,
             cloudflarePreviewUrl: preview.previewUrl,
-            cloudflarePreviewCommitSha: preview.previewCommitSha,
+            cloudflarePreviewCommitSha: branch.headCommitSha,
             cloudflarePreviewStatus: preview.previewStatus,
             cloudflarePreviewLogsUrl: preview.previewLogsUrl,
-            cloudflarePreviewCommentCreatedAt: preview.cloudflarePreviewCommentCreatedAt,
+            cloudflarePreviewCommentCreatedAt: preview.previewUpdatedAt,
           };
         } catch (error: unknown) {
           console.warn(
-            "listPullRequestCloudflarePreviewComment failed",
+            "listPullRequestCloudflarePreviewChecks failed",
             JSON.stringify({
               owner: args.owner,
               repo: args.repo,
               branchName: branch.name,
               pullRequestNumber: branch.pullRequestNumber,
+              headCommitSha: branch.headCommitSha,
               error: error instanceof Error ? error.message : toErrorMessage(error, "unknown"),
             }),
           );

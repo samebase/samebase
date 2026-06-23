@@ -664,7 +664,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
     });
   });
 
-  it("skips preview-comment backfills during automatic large-repo refreshes while preserving commit timestamps", () => {
+  it("skips broad preview-check hydration during automatic large-repo refreshes while preserving commit timestamps", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
@@ -682,7 +682,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
     });
   });
 
-  it("keeps targeted preview-comment backfills during automatic large-repo refreshes", () => {
+  it("keeps targeted preview-check hydration during automatic large-repo refreshes", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
