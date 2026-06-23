@@ -119,6 +119,17 @@ const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
+type VaultDashboardStagedBranchSummary = NonNullable<
+  (typeof api.fileStaging.listStagedFilesBranchSummaries)["_returnType"]
+>[number];
+type VaultDashboardStagedBranchSummariesByVaultId = Map<
+  string,
+  readonly VaultDashboardStagedBranchSummary[]
+>;
+export type VaultDashboardViewModel = {
+  vaults: VaultDashboardVault[];
+  stagedBranchSummariesByVaultId: VaultDashboardStagedBranchSummariesByVaultId;
+};
 
 type VaultDashboardLogoComponent = () => ReactNode;
 
@@ -1936,6 +1947,7 @@ interface VaultBranchListProps {
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
   productionApps?: readonly VaultBranchProductionApp[];
+  stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   expansion?: VaultBranchListExpansionProps;
 }
 
@@ -1978,12 +1990,9 @@ function VaultBranchList({
   repositoryFullName,
   remoteBranches,
   productionApps,
+  stagedSummaries,
   expansion,
 }: VaultBranchListProps) {
-  const stagedSummaries =
-    useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
-      vaultId,
-    }) ?? [];
   const summaryByBranch = new Map(
     stagedSummaries.map((summary) => [summary.branch, summary.counts]),
   );
@@ -2047,12 +2056,14 @@ function VaultBranchSection({
   filteredBranchCount,
   productionApps,
   repositoryFullName,
+  stagedSummaries,
   vaultId,
   visibleRemoteBranches,
 }: {
   filteredBranchCount: number;
   productionApps?: readonly VaultBranchProductionApp[];
   repositoryFullName: string;
+  stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   vaultId: Id<"vaults">;
   visibleRemoteBranches: VaultRemoteBranchListItem[];
 }) {
@@ -2064,6 +2075,7 @@ function VaultBranchSection({
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
           productionApps={productionApps}
+          stagedSummaries={stagedSummaries}
         />
       ) : null}
     </>
@@ -2342,12 +2354,13 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
   return <div className="text-xs text-muted-foreground">{reason}</div>;
 }
 
-type VaultDashboardBodyProps = {
+type VaultDashboardViewProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   retryingInfrastructureVaultId: Id<"vaults"> | null;
   now: number;
+  viewModel: VaultDashboardViewModel;
   logoRouteSearch: LogoRouteSearch;
   replaceLogoRouteSearch: (nextSearch: LogoRouteSearch) => void;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
@@ -2358,7 +2371,6 @@ type VaultDashboardBodyProps = {
   addCloudflareWorkerRepositoryFullName?: string;
   locationHash: string;
   rootRouteSearch: RootRouteSearch;
-  vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
@@ -2626,12 +2638,13 @@ function resolveActiveVaultDashboardCardHashId({
   return closestVisibleHeader?.hashId ?? null;
 }
 
-export function VaultDashboardBody({
+export function VaultDashboardView({
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
   retryingInfrastructureVaultId,
   now,
+  viewModel,
   logoRouteSearch,
   replaceLogoRouteSearch,
   openDeveloperToolsByVaultId,
@@ -2642,15 +2655,15 @@ export function VaultDashboardBody({
   addCloudflareWorkerRepositoryFullName,
   locationHash,
   rootRouteSearch,
-  vaults,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
   onResourceLinksOpenChange,
-}: VaultDashboardBodyProps) {
+}: VaultDashboardViewProps) {
   const navigate = useNavigate();
+  const { stagedBranchSummariesByVaultId, vaults } = viewModel;
   const [repositoryLocationHash, setRepositoryLocationHash] = useState(() => locationHash);
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
@@ -2980,6 +2993,7 @@ export function VaultDashboardBody({
           filters: vaultBranchFilters,
           remoteBranches,
         });
+        const stagedBranchSummaries = stagedBranchSummariesByVaultId.get(vault._id) ?? [];
         const activeSourceSetup =
           vault.sourceSetup.status === "failed" || vault.sourceSetup.status === "running"
             ? vault.sourceSetup
@@ -3132,6 +3146,7 @@ export function VaultDashboardBody({
                     repositoryFullName={vault.repositoryFullName}
                     visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
                     productionApps={productionApps}
+                    stagedSummaries={stagedBranchSummaries}
                   />
                 ) : undefined
               }
@@ -3201,6 +3216,31 @@ export function VaultDashboard() {
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const vaultIds = useMemo(() => vaults?.map((vault) => vault._id) ?? null, [vaults]);
+  const stagedBranchSummariesByVault = useQuery(
+    api.fileStaging.listStagedFilesBranchSummariesByVault,
+    vaultIds ? { vaultIds } : "skip",
+  );
+  const stagedBranchSummariesByVaultId = useMemo(
+    () =>
+      new Map<string, readonly VaultDashboardStagedBranchSummary[]>(
+        (stagedBranchSummariesByVault ?? []).map((summary) => [
+          summary.vaultId,
+          summary.branchSummaries,
+        ]),
+      ),
+    [stagedBranchSummariesByVault],
+  );
+  const dashboardViewModel = useMemo(
+    () =>
+      vaults
+        ? {
+            vaults,
+            stagedBranchSummariesByVaultId,
+          }
+        : null,
+    [stagedBranchSummariesByVaultId, vaults],
+  );
   const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
@@ -4139,7 +4179,7 @@ export function VaultDashboard() {
     });
   };
 
-  if (!vaults) {
+  if (!dashboardViewModel) {
     return null;
   }
 
@@ -4215,12 +4255,13 @@ export function VaultDashboard() {
   };
 
   const dashboardBody = (
-    <VaultDashboardBody
+    <VaultDashboardView
       developerToolsVisible={developerToolsVisible}
       isRemovingVault={isDeleting || isCommitting}
       retryingDeletionRunId={retryingDeletionRunId}
       retryingInfrastructureVaultId={retryingInfrastructureVaultId}
       now={now}
+      viewModel={dashboardViewModel}
       logoRouteSearch={rootRouteSearch}
       replaceLogoRouteSearch={(nextSearch) => {
         void navigate({
@@ -4239,7 +4280,6 @@ export function VaultDashboard() {
       addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}
       locationHash={location.hash}
       rootRouteSearch={rootRouteSearch}
-      vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
       onRetryInfrastructureProvisioning={(vaultId) => {

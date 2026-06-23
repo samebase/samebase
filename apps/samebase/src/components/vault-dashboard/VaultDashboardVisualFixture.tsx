@@ -15,7 +15,7 @@ import { buildVaultBranchSectionState } from "@/components/vault-dashboard/Vault
 import {
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
-  VaultDashboardBody,
+  VaultDashboardView,
   VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
@@ -455,12 +455,16 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
       className="w-full bg-background text-foreground"
     >
       <TestRouterProvider>
-        <VaultDashboardBody
+        <VaultDashboardView
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
+          viewModel={{
+            vaults: [LIST_SPACING_VAULT],
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
@@ -468,7 +472,6 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           locationHash=""
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          vaults={[LIST_SPACING_VAULT]}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
