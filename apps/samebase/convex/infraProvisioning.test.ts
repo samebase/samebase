@@ -958,7 +958,7 @@ describe("infrastructure provisioning ownership", () => {
     });
   });
 
-  it("records Cloudflare GitHub App authorization errors in the visible provisioning log", async () => {
+  it("records raw Cloudflare GitHub App authorization errors in the visible provisioning log", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -1011,7 +1011,7 @@ describe("infrastructure provisioning ownership", () => {
       runId: ids.runId,
       workflowId: "workflow-cloudflare-github-app",
       message:
-        "Error: Uncaught Error: Cloudflare Workers and Pages GitHub App is not authorized for ada/cloudflare-github-app. In GitHub, install or configure Cloudflare Workers and Pages for ada/cloudflare-github-app, then retry.\n    at ensureRepositoryConnection",
+        "Cloudflare MCP tool call failed: Error: Cloudflare API error: 8000008: This project is disconnected from your Git account, this may cause deployments to fail. Refer to https://developers.cloudflare.com/pages/platform/git-integration/#this-project-is-disconnected-from-your-git-account-this-may-cause-deployments-to-fail",
     });
 
     const result = await t.run(async (ctx) => {

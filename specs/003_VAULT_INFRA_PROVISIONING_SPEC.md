@@ -225,8 +225,9 @@ Dashboard external links:
   vault before Cloudflare receives the connection request.
 - If Workers Builds repository connection returns Cloudflare error code `8000008`, surface this as:
   `Cloudflare Workers and Pages GitHub App is not authorized for <owner>/<repo>. In GitHub, install or configure Cloudflare Workers and Pages for <owner>/<repo>, then retry.`
-  The dashboard may summarize that stored provider failure into shorter recovery copy, but it must
-  link to the Cloudflare Workers and Pages GitHub App and the repository GitHub Apps settings.
+  Provisioning failure recording stores this normalized message on the run `lastError`. The
+  dashboard may summarize that stored provider failure into shorter recovery copy, but it must link
+  to the Cloudflare Workers and Pages GitHub App and the repository GitHub Apps settings.
 - Provisioning is idempotent/resumable and does not auto-teardown resources on vault deletion unless
   explicitly requested.
 

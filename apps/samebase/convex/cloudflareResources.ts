@@ -111,6 +111,12 @@ export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown
   );
 }
 
+export function formatCloudflareGitHubAppRepositoryAuthorizationMessage(
+  repositoryFullName: string,
+): string {
+  return `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. In GitHub, install or configure Cloudflare Workers and Pages for ${repositoryFullName}, then retry.`;
+}
+
 function requireCloudflareResult<T>(value: T | undefined, message: string): T {
   if (value !== undefined) {
     return value;
@@ -471,9 +477,7 @@ async function ensureRepositoryConnection(
     );
   } catch (error) {
     if (isCloudflareGitHubAppRepositoryAuthorizationError(error)) {
-      throw new Error(
-        `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. In GitHub, install or configure Cloudflare Workers and Pages for ${repositoryFullName}, then retry.`,
-      );
+      throw new Error(formatCloudflareGitHubAppRepositoryAuthorizationMessage(repositoryFullName));
     }
     throw error;
   }

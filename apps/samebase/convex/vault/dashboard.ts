@@ -238,10 +238,7 @@ async function readProviderRunSummary(
     };
   }
 
-  const message =
-    (await readLatestRunErrorMessage(ctx, args.runId)) ??
-    run.lastError ??
-    `Provisioning failed during ${run.currentStep}.`;
+  const message = run.lastError ?? `Provisioning failed during ${run.currentStep}.`;
   return {
     status: "failed",
     provider: args.provider,

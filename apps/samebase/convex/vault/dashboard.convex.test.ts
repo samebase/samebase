@@ -1020,6 +1020,131 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("uses the failed provider run lastError instead of reconstructing from events", async () => {
+    const t = makeConvexTest();
+    const expectedMessage =
+      "Cloudflare Workers and Pages GitHub App is not authorized for ada/cloudflare-retry. In GitHub, install or configure Cloudflare Workers and Pages for ada/cloudflare-retry, then retry.";
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const createRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/cloudflare-retry",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 10,
+        updatedAt: 30,
+        completedAt: 30,
+      });
+      const retryRunId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/cloudflare-retry",
+        trigger: "retry",
+        state: "failed",
+        currentStep: "ensure_cloudflare",
+        lastError: expectedMessage,
+        createdAt: 40,
+        updatedAt: 45,
+        completedAt: 45,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId: createRunId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "cloudflare-retry",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId,
+        userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "cloudflare-retry-team",
+        projectSlug: "cloudflare-retry-project",
+        deploymentName: "cloudflare-retry-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://cloudflare-retry.convex.cloud",
+        siteUrl: "https://cloudflare-retry.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+        origin: "provisioned",
+        connectedAt: 24,
+        lastObservedAt: 24,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "commit",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 29,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId,
+        runId: retryRunId,
+        provisioningVersion: 2,
+        state: "failed",
+        updatedAt: 44,
+      });
+      await ctx.db.insert("appProvisioningEvents", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/cloudflare-retry",
+        runId: retryRunId,
+        step: "ensure_cloudflare",
+        level: "error",
+        message: "Provisioning failed during ensure_cloudflare.",
+        createdAt: 45,
+      });
+
+      return { retryRunId, userId, vaultId };
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      providerSetup: {
+        status: "failed",
+        provider: "cloudflare",
+        source: "managed",
+        runId: ids.retryRunId,
+        step: "ensure_cloudflare",
+        message: expectedMessage,
+        updatedAt: 45,
+      },
+    });
+  });
+
   it("shows an active manual Cloudflare Worker connection on existing-repository vaults", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
