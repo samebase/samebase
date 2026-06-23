@@ -24,6 +24,22 @@ export interface VaultRemoteBranchListItem {
   cloudflarePreviewPullRequestNumber?: number;
   cloudflarePreviewLogsUrl?: string;
   cloudflarePreviewStatus?: string;
+  pullRequestStatusSummary?: {
+    pullRequestNumber: number;
+    headCommitSha: string;
+    state: "success" | "failure" | "running" | "neutral" | "unknown";
+    totalCount: number;
+    checkRunCount: number;
+    statusContextCount: number;
+    successCount: number;
+    failureCount: number;
+    runningCount: number;
+    neutralCount: number;
+    unknownCount: number;
+    primaryTargetUrl?: string;
+    primaryLogUrl?: string;
+    syncedAt: number;
+  };
   convexPreviewDeploymentDashboardUrl?: string;
 }
 

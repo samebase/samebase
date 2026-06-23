@@ -18,14 +18,14 @@ import {
   shouldBypassRecentSuccessDebounceForBranchRefresh,
   shouldRefreshBranchTree,
   shouldRefreshRepositoryMetadata,
-  shouldSyncCloudflarePreviewLinks,
+  shouldSyncPullRequestCheckSnapshots,
 } from "./github";
 
 const repositoryMetadataSyncRequest = {
   includeAheadBehind: false,
   includePullRequestLinks: false,
-  includeCloudflarePreviewLinks: false,
-  cloudflarePreviewBranchNames: [],
+  includePullRequestCheckSnapshots: false,
+  pullRequestCheckBranchNames: [],
   intent: "manual",
 } satisfies Parameters<typeof computeRepositoryTreeMetadataSyncPlan>[0];
 
@@ -126,31 +126,31 @@ describe("isRepositoryMediaPreviewTooLarge", () => {
   });
 });
 
-describe("shouldSyncCloudflarePreviewLinks", () => {
-  it("requires both preview-link enrichment flags and resolved PR metadata", () => {
+describe("shouldSyncPullRequestCheckSnapshots", () => {
+  it("requires both check-snapshot enrichment flags and resolved PR metadata", () => {
     expect(
-      shouldSyncCloudflarePreviewLinks({
-        includeCloudflarePreviewLinks: true,
+      shouldSyncPullRequestCheckSnapshots({
+        includePullRequestCheckSnapshots: true,
         includePullRequestLinks: true,
         branches: [{ pullRequestState: "resolved" }, { pullRequestState: "resolved" }],
       }),
     ).toBe(true);
   });
 
-  it("skips preview sync when PR discovery falls back to preserve", () => {
+  it("skips check snapshots when PR discovery falls back to preserve", () => {
     expect(
-      shouldSyncCloudflarePreviewLinks({
-        includeCloudflarePreviewLinks: true,
+      shouldSyncPullRequestCheckSnapshots({
+        includePullRequestCheckSnapshots: true,
         includePullRequestLinks: true,
         branches: [{ pullRequestState: "resolved" }, { pullRequestState: "preserve" }],
       }),
     ).toBe(false);
   });
 
-  it("skips preview sync when no branches were targeted for hydration", () => {
+  it("skips check snapshots when no branches were targeted for hydration", () => {
     expect(
-      shouldSyncCloudflarePreviewLinks({
-        includeCloudflarePreviewLinks: true,
+      shouldSyncPullRequestCheckSnapshots({
+        includePullRequestCheckSnapshots: true,
         includePullRequestLinks: true,
         branches: [],
       }),
@@ -424,7 +424,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "manual",
         branchNotFound: false,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         now,
       }),
     ).toBe(true);
@@ -436,7 +436,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -448,7 +448,19 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "passive",
         branchNotFound: false,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
+        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps passive check snapshots on the repository metadata stale gate", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        intent: "passive",
+        branchNotFound: false,
+        includePullRequestCheckSnapshots: true,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -460,7 +472,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "source_setup",
         branchNotFound: false,
-        includeCloudflarePreviewLinks: true,
+        includePullRequestCheckSnapshots: true,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -473,7 +485,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
@@ -485,7 +497,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "passive",
         branchNotFound: false,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
@@ -498,7 +510,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 31_000,
         now,
       }),
@@ -508,7 +520,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 5_000,
         now,
       }),
@@ -525,7 +537,7 @@ describe("computeRepositoryRefreshPlan", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
@@ -539,7 +551,7 @@ describe("computeRepositoryRefreshPlan", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
-        includeCloudflarePreviewLinks: false,
+        includePullRequestCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now,
         now,
       }),
@@ -561,7 +573,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: false,
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includeCloudflarePreviewLinks: false,
+      includePullRequestCheckSnapshots: false,
       includeLastCommitTimestamps: false,
     });
   });
@@ -571,7 +583,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includeCloudflarePreviewLinks: false,
+      includePullRequestCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
@@ -581,13 +593,13 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
-        includeCloudflarePreviewLinks: true,
+        includePullRequestCheckSnapshots: true,
       }),
     ).toEqual({
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -603,7 +615,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includeCloudflarePreviewLinks: false,
+      includePullRequestCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
@@ -614,7 +626,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         ...repositoryMetadataSyncRequest,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: true,
+        includePullRequestCheckSnapshots: true,
         intent: "passive",
         remoteBranchCount: 40,
       }),
@@ -622,7 +634,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -640,18 +652,18 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: false,
+      includePullRequestCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
 
-  it("keeps source-setup preview hydration for large repos", () => {
+  it("keeps source-setup check snapshots for large repos", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: true,
+        includePullRequestCheckSnapshots: true,
         intent: "source_setup",
         remoteBranchCount: 75,
       }),
@@ -659,17 +671,17 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
 
-  it("skips preview-comment backfills during automatic large-repo refreshes while preserving commit timestamps", () => {
+  it("skips broad check snapshots during automatic large-repo refreshes while preserving commit timestamps", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
-        includeCloudflarePreviewLinks: true,
+        includePullRequestCheckSnapshots: true,
         intent: "passive",
         remoteBranchCount: 75,
       }),
@@ -677,18 +689,18 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: false,
+      includePullRequestCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
 
-  it("keeps targeted preview-comment backfills during automatic large-repo refreshes", () => {
+  it("keeps targeted check snapshots during automatic large-repo refreshes", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
-        includeCloudflarePreviewLinks: true,
-        cloudflarePreviewBranchNames: ["feature/login"],
+        includePullRequestCheckSnapshots: true,
+        pullRequestCheckBranchNames: ["feature/login"],
         intent: "passive",
         remoteBranchCount: 75,
       }),
@@ -696,7 +708,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -709,8 +721,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: true,
-        cloudflarePreviewBranchNames: [],
+        includePullRequestCheckSnapshots: true,
+        pullRequestCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "passive",
         remoteBranchCount: 75,
@@ -719,7 +731,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: false,
+      includePullRequestCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
@@ -730,8 +742,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: true,
-        cloudflarePreviewBranchNames: [],
+        includePullRequestCheckSnapshots: true,
+        pullRequestCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "passive",
         remoteBranchCount: 40,
@@ -740,7 +752,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -751,8 +763,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: true,
-        cloudflarePreviewBranchNames: [],
+        includePullRequestCheckSnapshots: true,
+        pullRequestCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "manual",
         remoteBranchCount: 75,
@@ -761,7 +773,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -772,8 +784,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: true,
-        cloudflarePreviewBranchNames: [],
+        includePullRequestCheckSnapshots: true,
+        pullRequestCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "source_setup",
         remoteBranchCount: 75,
@@ -782,19 +794,19 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
 
-  it("keeps targeted preview hydration enabled during automatic large-repo refreshes", () => {
+  it("keeps targeted check snapshots enabled during automatic large-repo refreshes", () => {
     expect(
       applyRepositoryTreeMetadataSyncBudget({
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includeCloudflarePreviewLinks: true,
-        cloudflarePreviewBranchNames: ["feature/login"],
+        includePullRequestCheckSnapshots: true,
+        pullRequestCheckBranchNames: ["feature/login"],
         includeLastCommitTimestamps: true,
         intent: "passive",
         remoteBranchCount: 75,
@@ -803,7 +815,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: true,
-      includeCloudflarePreviewLinks: true,
+      includePullRequestCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });

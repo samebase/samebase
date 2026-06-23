@@ -10,10 +10,9 @@ import {
   countActiveRemoteBranches,
   hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
-  resolveSyncedCloudflarePreviewMetadata,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
-  shouldClearCloudflarePreviewForPullRequestSync,
+  shouldClearPullRequestStatusSnapshotForPullRequestSync,
 } from "./branches";
 
 describe("buildConvexDeploymentDashboardUrl", () => {
@@ -262,102 +261,63 @@ describe("resolveSyncedBranchLastCommitAt", () => {
   });
 });
 
-describe("resolveSyncedCloudflarePreviewMetadata", () => {
-  it("preserves cached preview fields when the latest parsed comment is partial", () => {
+describe("shouldClearPullRequestStatusSnapshotForPullRequestSync", () => {
+  it("clears the cached status snapshot when the branch no longer has a current PR", () => {
     expect(
-      resolveSyncedCloudflarePreviewMetadata({
-        existing: {
-          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
-          cloudflarePreviewPullRequestNumber: 77,
-          cloudflarePreviewUrl: "https://sha.pages.dev/",
-          cloudflarePreviewCommitSha: "sha-old",
-          cloudflarePreviewStatus: "✅ Deploy successful!",
-          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
-          cloudflarePreviewCommentCreatedAt: 123,
-        },
-        incoming: {
-          previewState: "resolved",
-          cloudflarePreviewPullRequestNumber: 77,
-          cloudflarePreviewCommitSha: "sha-new",
-          cloudflarePreviewStatus: "⏳ Building",
-        },
-      }),
-    ).toEqual({
-      cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
-      cloudflarePreviewPullRequestNumber: 77,
-      cloudflarePreviewUrl: "https://sha.pages.dev/",
-      cloudflarePreviewCommitSha: "sha-new",
-      cloudflarePreviewStatus: "⏳ Building",
-      cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
-      cloudflarePreviewCommentCreatedAt: 123,
-    });
-  });
-
-  it("clears cached preview fields when GitHub resolved to no preview comment", () => {
-    expect(
-      resolveSyncedCloudflarePreviewMetadata({
-        existing: {
-          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
-          cloudflarePreviewPullRequestNumber: 77,
-          cloudflarePreviewUrl: "https://sha.pages.dev/",
-          cloudflarePreviewCommitSha: "sha-old",
-          cloudflarePreviewStatus: "✅ Deploy successful!",
-          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
-          cloudflarePreviewCommentCreatedAt: 123,
-        },
-        incoming: {
-          previewState: "clear",
-        },
-      }),
-    ).toEqual({
-      cloudflareBranchPreviewUrl: undefined,
-      cloudflarePreviewPullRequestNumber: undefined,
-      cloudflarePreviewUrl: undefined,
-      cloudflarePreviewCommitSha: undefined,
-      cloudflarePreviewStatus: undefined,
-      cloudflarePreviewLogsUrl: undefined,
-      cloudflarePreviewCommentCreatedAt: undefined,
-    });
-  });
-});
-
-describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
-  it("clears the cached preview when the branch no longer has a current PR", () => {
-    expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: undefined,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
 
-  it("clears the cached preview when the branch points to a different PR", () => {
+  it("clears the cached status snapshot when the branch points to a different PR", () => {
     expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: 43,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
 
-  it("preserves the cached preview when the current PR number is unchanged", () => {
+  it("clears the cached status snapshot when the current PR head SHA changed", () => {
     expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: 42,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingStatusSummaryHeadCommitSha: "sha-old",
+      }),
+    ).toBe(true);
+  });
+
+  it("preserves the cached status snapshot when the current PR number and head SHA are unchanged", () => {
+    expect(
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
+        incomingPullRequestState: "resolved",
+        incomingPullRequestNumber: 42,
+        incomingHeadCommitSha: "sha-old",
+        existingPullRequestNumber: 42,
+        existingStatusSummaryHeadCommitSha: "sha-old",
       }),
     ).toBe(false);
   });
 
   it("preserves the cache when GitHub PR metadata could not be resolved", () => {
     expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "preserve",
         incomingPullRequestNumber: undefined,
+        incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
+        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(false);
   });

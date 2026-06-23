@@ -128,6 +128,33 @@ export const vVaultDomainSource = union(
 );
 
 export const vVaultRemoteBranchState = union(literal("active"), literal("deleted_upstream"));
+export const vPullRequestCheckSource = union(literal("check_run"), literal("commit_status"));
+export type PullRequestCheckSource = Infer<typeof vPullRequestCheckSource>;
+export const vPullRequestCheckState = union(
+  literal("success"),
+  literal("failure"),
+  literal("running"),
+  literal("neutral"),
+  literal("unknown"),
+);
+export type PullRequestCheckState = Infer<typeof vPullRequestCheckState>;
+export const vPullRequestStatusSummary = object({
+  pullRequestNumber: number(),
+  headCommitSha: string(),
+  state: vPullRequestCheckState,
+  totalCount: number(),
+  checkRunCount: number(),
+  statusContextCount: number(),
+  successCount: number(),
+  failureCount: number(),
+  runningCount: number(),
+  neutralCount: number(),
+  unknownCount: number(),
+  primaryTargetUrl: optional(string()),
+  primaryLogUrl: optional(string()),
+  syncedAt: number(),
+});
+export type PullRequestStatusSummary = Infer<typeof vPullRequestStatusSummary>;
 
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 export type VaultDeletionStep = Infer<typeof vVaultDeletionStep>;
@@ -428,6 +455,7 @@ export default defineSchema({
     cloudflarePreviewStatus: optional(string()),
     cloudflarePreviewLogsUrl: optional(string()),
     cloudflarePreviewCommentCreatedAt: optional(number()),
+    pullRequestStatusSummary: optional(vPullRequestStatusSummary),
     isDefault: boolean(),
     isProtected: boolean(),
     remoteState: vVaultRemoteBranchState,
@@ -437,6 +465,37 @@ export default defineSchema({
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_name", ["vaultId", "name"])
     .index("by_vault_and_remote_state", ["vaultId", "remoteState"]),
+
+  /**
+   * Current GitHub check/status snapshot for one vault PR head.
+   *
+   * Branch rows carry only the compact rollup. The per-check rows stay here so
+   * PRs with many providers do not rewrite large arrays on every refresh.
+   */
+  vaultPullRequestCheckItems: defineTable({
+    vaultId: id("vaults"),
+    branchName: string(),
+    pullRequestNumber: number(),
+    headCommitSha: string(),
+    source: vPullRequestCheckSource,
+    sourceKey: string(),
+    name: string(),
+    providerName: optional(string()),
+    state: vPullRequestCheckState,
+    status: string(),
+    conclusion: optional(string()),
+    targetUrl: optional(string()),
+    detailsUrl: optional(string()),
+    githubUrl: optional(string()),
+    previewUrl: optional(string()),
+    previewAliasUrl: optional(string()),
+    previewStatus: optional(string()),
+    logUrl: optional(string()),
+    startedAt: optional(number()),
+    completedAt: optional(number()),
+    updatedAt: optional(number()),
+    syncedAt: number(),
+  }).index("by_vault_and_branch_and_pr", ["vaultId", "branchName", "pullRequestNumber"]),
 
   /**
    * Branch-scoped Git trees for each vault.

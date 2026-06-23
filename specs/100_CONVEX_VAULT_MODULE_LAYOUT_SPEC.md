@@ -148,7 +148,6 @@ The accepted public and internal Convex references are named by responsibility:
 - `internal.vault.branches.getVaultBranchTree`
 - `internal.vault.branches.upsertVaultBranchTree`
 - `internal.vault.branches.syncVaultRemoteBranches`
-- `internal.vault.branches.syncVaultRemoteBranchCloudflarePreviews`
 - `internal.vault.branches.claimTreeRefresh`
 - `internal.vault.branches.releaseTreeRefresh`
 - `internal.vault.branches.recordTreeRefreshFailure`

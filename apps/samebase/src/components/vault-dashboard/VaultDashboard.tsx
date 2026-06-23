@@ -16,7 +16,16 @@ import {
   normalizeVaultDashboardRepositoryHash,
 } from "@/components/vault-dashboard/vaultDashboardRepositoryHash";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
-import { GitBranch, GitCommitHorizontal, Loader2 } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
+  CircleX,
+  GitBranch,
+  GitCommitHorizontal,
+  Loader2,
+} from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { linkStyle } from "../styles";
@@ -618,6 +627,101 @@ const DashboardLinkIconSlot = ({
     {children}
   </span>
 );
+
+type VaultPullRequestStatusSummary = NonNullable<
+  VaultRemoteBranchListItem["pullRequestStatusSummary"]
+>;
+
+function formatChecksCount(count: number): string {
+  return `${count} ${count === 1 ? "check" : "checks"}`;
+}
+
+function formatPullRequestChecksLabel(summary: VaultPullRequestStatusSummary): string {
+  if (summary.totalCount === 0) {
+    return "No checks";
+  }
+
+  switch (summary.state) {
+    case "running":
+      return `${formatChecksCount(summary.runningCount)} pending`;
+    case "failure":
+      return `${formatChecksCount(summary.failureCount)} failed`;
+    case "success":
+      return summary.totalCount === summary.successCount
+        ? "All checks passed"
+        : `${formatChecksCount(summary.successCount + summary.neutralCount)} passed`;
+    case "neutral":
+      return `${formatChecksCount(summary.neutralCount)} neutral`;
+    case "unknown":
+      return `${formatChecksCount(summary.totalCount)} unknown`;
+    default: {
+      summary.state satisfies never;
+      return "Checks";
+    }
+  }
+}
+
+function formatPullRequestChecksTitle(summary: VaultPullRequestStatusSummary): string {
+  const parts = [
+    `${formatChecksCount(summary.totalCount)} total`,
+    `${summary.successCount} passed`,
+    `${summary.failureCount} failed`,
+    `${summary.runningCount} pending`,
+    `${summary.neutralCount} neutral`,
+  ];
+  if (summary.unknownCount > 0) {
+    parts.push(`${summary.unknownCount} unknown`);
+  }
+  return parts.join(" • ");
+}
+
+function getPullRequestChecksStateClassName(summary: VaultPullRequestStatusSummary): string {
+  switch (summary.state) {
+    case "success":
+      return "text-emerald-600 hover:text-emerald-700";
+    case "failure":
+      return "text-destructive hover:text-destructive";
+    case "running":
+      return "text-amber-600 hover:text-amber-700";
+    case "neutral":
+    case "unknown":
+      return "text-muted-foreground hover:text-foreground";
+    default: {
+      summary.state satisfies never;
+      return "text-muted-foreground hover:text-foreground";
+    }
+  }
+}
+
+function PullRequestChecksIcon({ summary }: { summary: VaultPullRequestStatusSummary }) {
+  switch (summary.state) {
+    case "success":
+      return <CircleCheck className="h-5 w-5" strokeWidth={2} />;
+    case "failure":
+      return <CircleX className="h-5 w-5" strokeWidth={2} />;
+    case "running":
+      return <CircleDot className="h-5 w-5" strokeWidth={2} />;
+    case "neutral":
+      return <CircleDashed className="h-5 w-5" strokeWidth={2} />;
+    case "unknown":
+      return <CircleAlert className="h-5 w-5" strokeWidth={2} />;
+    default: {
+      summary.state satisfies never;
+      return <CircleAlert className="h-5 w-5" strokeWidth={2} />;
+    }
+  }
+}
+
+function isCurrentPullRequestStatusSummary(args: {
+  branch: VaultRemoteBranchListItem;
+  summary: VaultPullRequestStatusSummary | undefined;
+}): boolean {
+  return (
+    args.summary !== undefined &&
+    args.summary.pullRequestNumber === args.branch.pullRequestNumber &&
+    args.summary.headCommitSha === args.branch.headCommitSha
+  );
+}
 
 export function VaultDashboardDeleteControl({
   deleteAction,
@@ -1632,6 +1736,13 @@ export function VaultBranchLinkContent({
     !branch.isDefault &&
     hasCurrentPreviewLink &&
     typeof branch.convexPreviewDeploymentDashboardUrl === "string";
+  const pullRequestStatusSummary = isCurrentPullRequestStatusSummary({
+    branch,
+    summary: branch.pullRequestStatusSummary,
+  })
+    ? branch.pullRequestStatusSummary
+    : undefined;
+  const pullRequestChecksHref = pullRequestStatusSummary?.primaryTargetUrl ?? `${commitUrl}/checks`;
 
   return (
     <>
@@ -1756,6 +1867,26 @@ export function VaultBranchLinkContent({
                       </Badge>
                     ))
                   : null}
+              </div>
+            ) : null}
+            {pullRequestStatusSummary ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <a
+                  href={pullRequestChecksHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx(
+                    metadataLinkClassName,
+                    "gap-1.5",
+                    getPullRequestChecksStateClassName(pullRequestStatusSummary),
+                  )}
+                  title={formatPullRequestChecksTitle(pullRequestStatusSummary)}
+                >
+                  <DashboardLinkIconSlot>
+                    <PullRequestChecksIcon summary={pullRequestStatusSummary} />
+                  </DashboardLinkIconSlot>
+                  <span>{formatPullRequestChecksLabel(pullRequestStatusSummary)}</span>
+                </a>
               </div>
             ) : null}
             {hasBuildFailureLogsLink ? (

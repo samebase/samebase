@@ -1,55 +1,38 @@
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultBranchLinkRow } from "@/components/vault-dashboard/VaultDashboard";
-import { parseCloudflarePreviewComment } from "../../../convex/cloudflarePreviewComment";
-
-const CLOUDFLARE_COMMENT_BODY = `## Deploying samebase with &nbsp;<a href="https://pages.dev"><img alt="Cloudflare Pages" src="https://user-images.githubusercontent.com/23264/106598434-9e719e00-654f-11eb-9e59-6167043cfa01.png" width="16"></a> &nbsp;Cloudflare Pages
-
-<table><tr><td><strong>Latest commit:</strong> </td><td>
-<code>aa16371</code>
-</td></tr>
-<tr><td><strong>Status:</strong></td><td>&nbsp;✅&nbsp; Deploy successful!</td></tr>
-<tr><td><strong>Preview URL:</strong></td><td>
-<a href='https://a3070b07.samebase-ax1.pages.dev'>https://a3070b07.samebase-ax1.pages.dev</a>
-</td></tr>
-<tr><td><strong>Branch Preview URL:</strong></td><td>
-<a href='https://codex-preserve-logo-transfor.samebase-ax1.pages.dev'>https://codex-preserve-logo-transfor.samebase-ax1.pages.dev</a>
-</td></tr>
-</table>
-
-[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/samebase/a3070b07-c653-4083-8493-0b0a540f8b34)`;
-
-const NON_CLOUDFLARE_COMMENT_BODY =
-  "CI passed and the PR is ready for review, but there is no Cloudflare Pages comment yet.";
-
-const FAILED_CLOUDFLARE_COMMENT_BODY = `## Deploying samebase with &nbsp;<a href="https://pages.dev"><img alt="Cloudflare Pages" src="https://user-images.githubusercontent.com/23264/106598434-9e719e00-654f-11eb-9e59-6167043cfa01.png" width="16"></a> &nbsp;Cloudflare Pages
-
-<table><tr><td><strong>Latest commit:</strong> </td><td>
-<code>aa16371</code>
-</td></tr>
-<tr><td><strong>Status:</strong></td><td>&nbsp;🚫&nbsp; Build failed.</td></tr>
-</table>
-
-[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/samebase/failed-build-id)`;
 
 export type VaultBranchPreviewVisualMode =
   | "vault-branch-preview-link"
   | "vault-branch-preview-failed"
   | "vault-branch-preview-missing";
 
-function resolveCommentBody(mode: VaultBranchPreviewVisualMode): string {
+function resolvePreviewMetadata(mode: VaultBranchPreviewVisualMode): {
+  branchPreviewUrl?: string;
+  previewLogsUrl?: string;
+  previewStatus?: string;
+} {
   if (mode === "vault-branch-preview-link") {
-    return CLOUDFLARE_COMMENT_BODY;
+    return {
+      branchPreviewUrl: "https://codex-preserve-logo-transfor.samebase-ax1.pages.dev/",
+      previewLogsUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/builds/success",
+      previewStatus: "Build successful",
+    };
   }
 
   if (mode === "vault-branch-preview-failed") {
-    return FAILED_CLOUDFLARE_COMMENT_BODY;
+    return {
+      previewLogsUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/builds/failed-build-id",
+      previewStatus: "Build failed",
+    };
   }
 
-  return NON_CLOUDFLARE_COMMENT_BODY;
+  return {};
 }
 
 export function VaultBranchPreviewVisualFixture({ mode }: { mode: VaultBranchPreviewVisualMode }) {
-  const preview = parseCloudflarePreviewComment(resolveCommentBody(mode));
+  const preview = resolvePreviewMetadata(mode);
 
   return (
     <div
@@ -77,10 +60,10 @@ export function VaultBranchPreviewVisualFixture({ mode }: { mode: VaultBranchPre
                 { name: "needs review", color: "fbca04" },
                 { name: "dashboard", color: "0e8a16" },
               ],
-              cloudflareBranchPreviewUrl: preview?.branchPreviewUrl,
+              cloudflareBranchPreviewUrl: preview.branchPreviewUrl,
               cloudflarePreviewPullRequestNumber: 290,
-              cloudflarePreviewLogsUrl: preview?.previewLogsUrl,
-              cloudflarePreviewStatus: preview?.previewStatus,
+              cloudflarePreviewLogsUrl: preview.previewLogsUrl,
+              cloudflarePreviewStatus: preview.previewStatus,
             }}
           />
         </div>
