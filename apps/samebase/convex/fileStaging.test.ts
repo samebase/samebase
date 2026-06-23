@@ -389,8 +389,8 @@ describe("buildClearAllStagingPlan", () => {
         target: { scope: "branch", branch: "feature/login" },
         includeAheadBehind: false,
         includePullRequestLinks: false,
-        includeCloudflarePreviewLinks: false,
-        cloudflarePreviewBranchNames: [],
+        includePullRequestCheckSnapshots: false,
+        pullRequestCheckBranchNames: [],
       },
     });
   });
@@ -423,8 +423,8 @@ describe("buildClearAllStagingPlan", () => {
         target: { scope: "repository" },
         includeAheadBehind: false,
         includePullRequestLinks: false,
-        includeCloudflarePreviewLinks: false,
-        cloudflarePreviewBranchNames: [],
+        includePullRequestCheckSnapshots: false,
+        pullRequestCheckBranchNames: [],
       },
     });
   });
@@ -509,8 +509,8 @@ describe("buildClearAllStagingPlan", () => {
           target: { scope: "branch", branch: targetBranch },
           includeAheadBehind: false,
           includePullRequestLinks: false,
-          includeCloudflarePreviewLinks: false,
-          cloudflarePreviewBranchNames: [],
+          includePullRequestCheckSnapshots: false,
+          pullRequestCheckBranchNames: [],
         },
       },
     ]);

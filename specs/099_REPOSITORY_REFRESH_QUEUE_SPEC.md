@@ -443,12 +443,13 @@ Behavior:
 - refresh the lease after worker start
 - choose internal repository steps from demand source
 - call the internal GitHub refresh action with `scope: "repository"` and backend-selected args
-- `dashboard` demand requests branch/PR metadata without Cloudflare preview hydration
-- `manual` and `source_setup` demand request Cloudflare preview hydration from backend policy, not
-  from caller-provided provider/depth fields
-- current preview hydration target policy is broad: `cloudflarePreviewBranchNames: []` means all
-  remote branches; branches without PRs are cleared locally, branches with PRs may read PR comments
-  for Cloudflare Pages links
+- `dashboard` demand requests branch/PR metadata and may request PR check snapshots subject to the
+  backend large-repo budget
+- `manual` and `source_setup` demand request PR check snapshots from backend policy, not from
+  caller-provided provider/depth fields
+- current snapshot target policy is broad: `pullRequestCheckBranchNames: []` means all remote
+  branches; branches without PRs clear cached snapshots locally, branches with PRs read GitHub check
+  runs and commit statuses for their PR head SHA
 - passive `dashboard` demand uses one backend passive refresh policy; demand does not preserve
   route-load, Page Visibility, or window-focus distinctions
 - `source_setup` uses distinct backend execution policy so the one-time create/connect finish path
@@ -550,7 +551,7 @@ Manual repository refresh is queued demand with `manual` priority.
 
 Current policy:
 
-- repository manual refresh requests Cloudflare preview hydration
+- repository manual refresh requests PR check snapshots
 - provider choice stays backend-owned
 
 Still later:

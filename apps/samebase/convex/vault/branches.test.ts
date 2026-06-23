@@ -10,10 +10,9 @@ import {
   countActiveRemoteBranches,
   hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
-  resolveSyncedCloudflarePreviewMetadata,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
-  shouldClearCloudflarePreviewForPullRequestSync,
+  shouldClearPullRequestStatusSnapshotForPullRequestSync,
 } from "./branches";
 
 describe("buildConvexDeploymentDashboardUrl", () => {
@@ -262,51 +261,10 @@ describe("resolveSyncedBranchLastCommitAt", () => {
   });
 });
 
-describe("resolveSyncedCloudflarePreviewMetadata", () => {
-  it("replaces cached preview fields with the latest check-run snapshot", () => {
+describe("shouldClearPullRequestStatusSnapshotForPullRequestSync", () => {
+  it("clears the cached status snapshot when the branch no longer has a current PR", () => {
     expect(
-      resolveSyncedCloudflarePreviewMetadata({
-        incoming: {
-          previewState: "resolved",
-          cloudflarePreviewPullRequestNumber: 77,
-          cloudflarePreviewCommitSha: "sha-new",
-          cloudflarePreviewStatus: "⏳ Building",
-        },
-      }),
-    ).toEqual({
-      cloudflareBranchPreviewUrl: undefined,
-      cloudflarePreviewPullRequestNumber: 77,
-      cloudflarePreviewUrl: undefined,
-      cloudflarePreviewCommitSha: "sha-new",
-      cloudflarePreviewStatus: "⏳ Building",
-      cloudflarePreviewLogsUrl: undefined,
-      cloudflarePreviewCommentCreatedAt: undefined,
-    });
-  });
-
-  it("clears cached preview fields when GitHub resolved to no compatible check run", () => {
-    expect(
-      resolveSyncedCloudflarePreviewMetadata({
-        incoming: {
-          previewState: "clear",
-        },
-      }),
-    ).toEqual({
-      cloudflareBranchPreviewUrl: undefined,
-      cloudflarePreviewPullRequestNumber: undefined,
-      cloudflarePreviewUrl: undefined,
-      cloudflarePreviewCommitSha: undefined,
-      cloudflarePreviewStatus: undefined,
-      cloudflarePreviewLogsUrl: undefined,
-      cloudflarePreviewCommentCreatedAt: undefined,
-    });
-  });
-});
-
-describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
-  it("clears the cached preview when the branch no longer has a current PR", () => {
-    expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: undefined,
         incomingHeadCommitSha: "sha-new",
@@ -316,9 +274,9 @@ describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
     ).toBe(true);
   });
 
-  it("clears the cached preview when the branch points to a different PR", () => {
+  it("clears the cached status snapshot when the branch points to a different PR", () => {
     expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: 43,
         incomingHeadCommitSha: "sha-new",
@@ -328,33 +286,33 @@ describe("shouldClearCloudflarePreviewForPullRequestSync", () => {
     ).toBe(true);
   });
 
-  it("clears the cached preview when the current PR head SHA changed", () => {
+  it("clears the cached status snapshot when the current PR head SHA changed", () => {
     expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: 42,
         incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
-        existingPreviewCommitSha: "sha-old",
+        existingStatusSummaryHeadCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
 
-  it("preserves the cached preview when the current PR number and head SHA are unchanged", () => {
+  it("preserves the cached status snapshot when the current PR number and head SHA are unchanged", () => {
     expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "resolved",
         incomingPullRequestNumber: 42,
         incomingHeadCommitSha: "sha-old",
         existingPullRequestNumber: 42,
-        existingPreviewCommitSha: "sha-old",
+        existingStatusSummaryHeadCommitSha: "sha-old",
       }),
     ).toBe(false);
   });
 
   it("preserves the cache when GitHub PR metadata could not be resolved", () => {
     expect(
-      shouldClearCloudflarePreviewForPullRequestSync({
+      shouldClearPullRequestStatusSnapshotForPullRequestSync({
         incomingPullRequestState: "preserve",
         incomingPullRequestNumber: undefined,
         incomingHeadCommitSha: "sha-new",

@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 import { type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
-import { vAppProvisioningRunStep, vPullRequestLabel } from "../schema";
+import { vAppProvisioningRunStep, vPullRequestLabel, vPullRequestStatusSummary } from "../schema";
 import { vTreeRefreshFailureKind } from "./model";
 import {
   isConnectedVault,
@@ -865,6 +865,7 @@ const getUserVaultsResult = array(
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
         ...cloudflarePreviewMetadataFields,
+        pullRequestStatusSummary: optional(vPullRequestStatusSummary),
         convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
@@ -1086,6 +1087,7 @@ export const getUserVaults = query({
             cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
             cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
             cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
+            pullRequestStatusSummary: branch.pullRequestStatusSummary,
             convexPreviewDeploymentDashboardUrl:
               previewConvexDeployment &&
               !branch.isDefault &&

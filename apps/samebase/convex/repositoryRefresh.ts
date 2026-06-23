@@ -139,7 +139,7 @@ function getRepositoryRefreshWorkerIntent(
   }
 }
 
-function shouldHydrateCloudflarePreviewLinks(demand: RepositoryScopeRefreshDemand): boolean {
+function shouldHydratePullRequestCheckSnapshots(demand: RepositoryScopeRefreshDemand): boolean {
   switch (demand.source) {
     case "dashboard":
     case "manual":
@@ -913,8 +913,8 @@ export const runRepositoryRefreshRequest = internalAction({
           repo: input.repo,
           includeAheadBehind: true,
           includePullRequestLinks: true,
-          includeCloudflarePreviewLinks: shouldHydrateCloudflarePreviewLinks(input.demand),
-          cloudflarePreviewBranchNames: [],
+          includePullRequestCheckSnapshots: shouldHydratePullRequestCheckSnapshots(input.demand),
+          pullRequestCheckBranchNames: [],
           intent: getRepositoryRefreshWorkerIntent(input.demand),
         },
       });

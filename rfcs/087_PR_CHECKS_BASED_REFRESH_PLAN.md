@@ -61,24 +61,27 @@ provider sample proves they are needed.
 
 ## Implementation Landed In This PR
 
-This PR lands the urgent source-of-truth swap for dashboard preview hydration:
+This PR lands the snapshot-first replacement:
 
 1. The Cloudflare PR comment parser and refresh comment lookup are removed.
-2. Vault PR preview hydration now calls `checks.listForRef` for the branch head SHA.
-3. Cloudflare Workers preview metadata is parsed from the check run:
+2. `vaultPullRequestCheckItems` stores the current GitHub-native snapshot for each hydrated PR head:
+   - check runs from `checks.listForRef`
+   - legacy commit statuses from `repos.getCombinedStatusForRef`
+3. `vaultRemoteBranches.pullRequestStatusSummary` stores the compact branch-row rollup.
+4. Cloudflare Workers preview metadata is derived from normalized check items:
    - `Preview URL`
    - `Preview Alias URL`
-   - `details_url` for provider build/log details
-4. Dashboard-triggered repository refreshes can request this check-based hydration. Existing
-   large-repo budget logic still skips broad automatic hydration above the branch threshold.
-5. Cached preview fields are replaced by the latest check snapshot instead of preserving partial old
-   values.
-6. Cached preview fields are cleared when the branch loses its PR, changes PR number, or the current
-   PR head SHA changes.
+   - check `details_url` for provider build/log details
+5. Dashboard branch rows render a provider-neutral compact check summary such as pending, failed, or
+   all passed.
+6. Existing Cloudflare preview/log affordances are compatibility projections of the stored snapshot,
+   not a separate refresh system.
+7. Cached summaries, check rows, and derived preview fields are cleared when the branch loses its
+   PR, changes PR number, changes head SHA, or is marked deleted upstream.
+8. Dashboard/manual/source-setup repository refreshes can request check snapshots. Existing
+   large-repo budget logic still skips broad passive dashboard hydration above the branch threshold.
 
-The remaining work in this RFC is the provider-neutral check/status snapshot model: storing all
-current PR check runs/status contexts in a child table, exposing a compact branch summary, and
-rendering non-Cloudflare check state in the dashboard.
+There is intentionally no PR-comment fallback.
 
 ## Pre-Implementation Map
 
@@ -243,43 +246,68 @@ Do not add frontend-selected flags such as `includeChecks` to public mutations. 
 needs internal knobs, keep them inside `github.ts`/`repositoryRefresh.ts` the same way metadata
 depth is handled today.
 
+## Efficiency Contract
+
+The steady-state dashboard must read Convex snapshots, not GitHub.
+
+For a repo with 100 open PRs:
+
+1. A cold manual/source-setup refresh may perform two GitHub reads per current PR head: one
+   check-run read and one combined-status read. Run these in bounded backend batches.
+2. Passive dashboard refresh may skip broad check hydration when the repo exceeds the automatic
+   enrichment branch budget. The UI should continue showing the last stored snapshot until manual
+   refresh, targeted refresh, webhook invalidation, or a later scheduled reconciliation replaces it.
+3. Future webhook or polling work must enqueue the same snapshot writer. Webhooks, internal app
+   events, and polling are invalidation triggers only; they must not introduce separate provider
+   parsers or cache paths.
+4. Running-check polling should be branch/head scoped and stop when all items are terminal or after
+   a fixed TTL.
+
 ## Rollout Plan
 
 ### Phase 1: Shared GitHub Status Reader
 
-1. Extract the `checks.listForRef` and commit-status reads from `githubChecks.ts` into a shared
-   server helper.
-2. Include fields currently omitted by `githubChecks.ts`, especially check-run `details_url`, app
-   name/slug when available, and timestamps.
-3. Keep `githubChecks.getCommitStatus` working by returning its existing public shape.
-4. Add unit tests for check/status normalization and aggregate state.
+Status: implemented for repository refresh snapshot hydration.
+
+1. `github.ts` reads check runs and commit statuses for each hydrated current PR head.
+2. `pullRequestChecks.ts` normalizes check runs and commit statuses into a shared snapshot item
+   shape.
+3. `githubChecks.getCommitStatus` still serves FileView's existing live/polling UI.
+4. Unit tests cover check/status normalization and aggregate state.
 
 ### Phase 2: Persist Current PR Check Snapshots
 
-1. Add the child table and branch summary schema.
-2. Add internal mutations to replace current check items for one
-   `(vaultId, branchName, pullRequestNumber, headCommitSha)` tuple.
-3. Clear summaries and child rows when a branch loses its PR, changes PR number, changes head SHA,
-   or becomes deleted upstream.
-4. Update `syncRepositoryMetadata` to hydrate PR status snapshots after PR metadata is written.
+Status: implemented.
+
+1. `vaultPullRequestCheckItems` stores the child check/status rows.
+2. `vaultRemoteBranches.pullRequestStatusSummary` stores the compact rollup.
+3. `pullRequestChecks.replacePullRequestCheckSnapshot` replaces one
+   `(vaultId, branchName, pullRequestNumber, headCommitSha)` tuple and derives preview/log fields.
+4. Branch sync clears summaries and child rows when a branch loses its PR, changes PR number,
+   changes head SHA, or becomes deleted upstream.
+5. `syncRepositoryMetadata` hydrates PR status snapshots after PR metadata is written.
 
 ### Phase 3: Dashboard Read And Render
 
-1. Return `pullRequestStatusSummary` from `vault.dashboard.getUserVaults`.
-2. Add a dashboard branch-row checks summary using the existing compact `CommitStatus` visual
-   language.
-3. Render a provider/detail link when `primaryTargetUrl` exists.
-4. Keep the existing Cloudflare preview affordance only when the normalized check data proves a
-   current preview URL for the current PR/head SHA.
+Status: compact summary implemented; detailed popover still pending.
+
+1. `vault.dashboard.getUserVaults` returns `pullRequestStatusSummary`.
+2. Dashboard branch rows show a compact checks summary using the stored rollup.
+3. The summary links to `primaryTargetUrl` when available, otherwise the commit checks page.
+4. The existing Cloudflare preview/log affordance renders only when the snapshot-derived projection
+   proves a current preview/log URL for the current PR/head SHA.
+5. Pending follow-up: render the detailed item list/popover from `vaultPullRequestCheckItems`.
 
 ### Phase 4: Remove Comment-Based Preview Hydration
 
-1. Remove `getLatestPullRequestCloudflarePreviewComment` and `getCloudflarePreviewLinksByBranch`
-   from `github.ts`.
-2. Delete `cloudflarePreviewComment.ts` and `cloudflarePreviewComment.test.ts`.
-3. Stop writing preview metadata from PR comments.
-4. Once normalized check data covers the real Cloudflare previews in production, archive or rewrite
-   `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`.
+Status: implemented for runtime code.
+
+1. Comment lookup and parser code are removed.
+2. Preview metadata is no longer written from PR comments.
+3. The direct Cloudflare-only check hydration path has been replaced by the generic snapshot writer.
+4. Pending follow-up: archive or rewrite
+   `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
+   verified in production.
 
 ## Validation
 
