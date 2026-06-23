@@ -15,3 +15,9 @@ export function buildGitHubBranchTreeUrl(args: {
 }): string {
   return `https://github.com/${encodeGitHubPath(args.repositoryFullName)}/tree/${encodeGitHubPath(args.branchName)}`;
 }
+
+export function buildGitHubRepositoryAppInstallationsUrl(args: {
+  repositoryFullName: string;
+}): string {
+  return `https://github.com/${encodeGitHubPath(args.repositoryFullName)}/settings/installations`;
+}

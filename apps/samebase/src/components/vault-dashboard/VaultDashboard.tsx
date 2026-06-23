@@ -83,7 +83,10 @@ import {
   resolveVaultProviderSetupStatus,
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
-import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
+import {
+  buildGitHubBranchTreeUrl,
+  buildGitHubRepositoryAppInstallationsUrl,
+} from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
@@ -2259,6 +2262,55 @@ export function VaultSourceSetupSection({
 
 type VaultSetupProgressSectionStatus = "failed" | "running";
 
+const CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL =
+  "https://github.com/apps/cloudflare-workers-and-pages";
+const CLOUDFLARE_GITHUB_APP_AUTHORIZATION_FAILURE_MESSAGE =
+  "Cloudflare Workers and Pages GitHub App is not authorized";
+
+function isCloudflareGitHubAppAuthorizationFailure(
+  providerSetup: Extract<VaultDashboardProviderSetup, { status: "failed" | "running" }>,
+): boolean {
+  return (
+    providerSetup.status === "failed" &&
+    providerSetup.provider === "cloudflare" &&
+    providerSetup.message.includes(CLOUDFLARE_GITHUB_APP_AUTHORIZATION_FAILURE_MESSAGE)
+  );
+}
+
+function VaultCloudflareGitHubAppAuthorizationFailure({
+  repositoryFullName,
+}: {
+  repositoryFullName: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-destructive">Cloudflare cannot access this GitHub repo.</div>
+      <div className="text-muted-foreground">
+        Install, configure, or unsuspend{" "}
+        <a
+          href={CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={linkStyle}
+        >
+          Cloudflare Workers and Pages
+        </a>
+        , then retry.
+      </div>
+      <div className="text-muted-foreground">
+        <a
+          href={buildGitHubRepositoryAppInstallationsUrl({ repositoryFullName })}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={linkStyle}
+        >
+          Open repository GitHub Apps
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export function VaultSetupProgressSection({
   children,
   label,
@@ -2267,7 +2319,7 @@ export function VaultSetupProgressSection({
 }: {
   children?: ReactNode;
   label: string;
-  message?: string;
+  message?: ReactNode;
   status: VaultSetupProgressSectionStatus;
 }) {
   return (
@@ -2287,8 +2339,10 @@ export function VaultSetupProgressSection({
 
 export function VaultProviderSetupSection({
   providerSetup,
+  repositoryFullName,
 }: {
   providerSetup: Extract<VaultDashboardProviderSetup, { status: "failed" | "running" }>;
+  repositoryFullName: string;
 }) {
   const setupStatus = resolveVaultProviderSetupStatus(providerSetup);
   if (!setupStatus) {
@@ -2296,9 +2350,13 @@ export function VaultProviderSetupSection({
   }
   const stepLabel = formatVaultSourceSetupStep(providerSetup.step);
   const failureMessage =
-    setupStatus.status === "failed" && providerSetup.status === "failed"
-      ? `${setupStatus.message} Last failure: ${stepLabel}: ${providerSetup.message}`
-      : undefined;
+    setupStatus.status === "failed" && providerSetup.status === "failed" ? (
+      isCloudflareGitHubAppAuthorizationFailure(providerSetup) ? (
+        <VaultCloudflareGitHubAppAuthorizationFailure repositoryFullName={repositoryFullName} />
+      ) : (
+        `${setupStatus.message} Last failure: ${stepLabel}: ${providerSetup.message}`
+      )
+    ) : undefined;
 
   return (
     <VaultSetupProgressSection
@@ -2370,6 +2428,7 @@ type VaultDashboardBodyProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
+  retryingInfrastructureVaultId: Id<"vaults"> | null;
   now: number;
   logoRouteSearch: LogoRouteSearch;
   replaceLogoRouteSearch: (nextSearch: LogoRouteSearch) => void;
@@ -2384,6 +2443,7 @@ type VaultDashboardBodyProps = {
   vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
+  onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
   onRetryVaultDeletion: (runId: Id<"vaultDeletionRuns">) => void;
   onSaveVaultBranchFilters: (
     vaultId: Id<"vaults">,
@@ -2652,6 +2712,7 @@ export function VaultDashboardBody({
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
+  retryingInfrastructureVaultId,
   now,
   logoRouteSearch,
   replaceLogoRouteSearch,
@@ -2666,6 +2727,7 @@ export function VaultDashboardBody({
   vaults,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
+  onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
   onResourceLinksOpenChange,
@@ -2916,6 +2978,7 @@ export function VaultDashboardBody({
   }
 
   const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
+  const isInfrastructureRetryInFlight = retryingInfrastructureVaultId !== null;
 
   return (
     <VaultDashboardRepositoryList>
@@ -2977,6 +3040,12 @@ export function VaultDashboardBody({
             openProviderAddDialog({ appRoot, provider: "convex", repositoryHashId });
           },
           githubRepositoryUrl,
+          isRetryingInfrastructure: retryingInfrastructureVaultId === vault._id,
+          retryInfrastructureOnClick: isInfrastructureRetryInFlight
+            ? undefined
+            : () => {
+                onRetryInfrastructureProvisioning(vault._id);
+              },
           vault,
         });
         const productionApps = buildVaultProductionApps(vault);
@@ -3012,7 +3081,10 @@ export function VaultDashboardBody({
           : null;
         const providerSetupSection =
           providerSetupStatus && activeProviderSetup ? (
-            <VaultProviderSetupSection providerSetup={activeProviderSetup} />
+            <VaultProviderSetupSection
+              providerSetup={activeProviderSetup}
+              repositoryFullName={vault.repositoryFullName}
+            />
           ) : undefined;
         const deleteBlockedSection =
           !isDeletingVault &&
@@ -3214,6 +3286,9 @@ export function VaultDashboard() {
   const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
+  const retryInfrastructureProvisioning = useAction(
+    api.vault.actions.retryInfrastructureProvisioning,
+  );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const listConvexProjects = useAction(api.vault.convex.listProjects);
   const connectExistingConvexProject = useAction(api.vault.convex.connectExistingProject);
@@ -3222,6 +3297,8 @@ export function VaultDashboard() {
   const listCloudflareWorkers = useAction(api.vault.cloudflare.listWorkers);
   const connectExistingCloudflareWorker = useAction(api.vault.cloudflare.connectExistingWorker);
   const createCloudflareWorker = useAction(api.vault.cloudflare.createWorker);
+  const [retryingInfrastructureVaultId, setRetryingInfrastructureVaultId] =
+    useState<Id<"vaults"> | null>(null);
   const createVaultAppRoot = useMutation(api.vault.dashboard.createVaultAppRoot);
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
@@ -4097,6 +4174,25 @@ export function VaultDashboard() {
     }
   };
 
+  const handleRetryInfrastructureProvisioning = async (vaultId: Id<"vaults">) => {
+    if (retryingInfrastructureVaultId) {
+      return;
+    }
+
+    setRetryingInfrastructureVaultId(vaultId);
+    try {
+      await retryInfrastructureProvisioning({ vaultId });
+    } catch (error) {
+      toast({
+        title: "Could not retry infrastructure setup",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRetryingInfrastructureVaultId(null);
+    }
+  };
+
   const handleCommitBeforeRemove = async () => {
     if (!vaultToDelete || isCommitting || isDeleting) return;
 
@@ -4205,6 +4301,7 @@ export function VaultDashboard() {
       developerToolsVisible={developerToolsVisible}
       isRemovingVault={isDeleting || isCommitting}
       retryingDeletionRunId={retryingDeletionRunId}
+      retryingInfrastructureVaultId={retryingInfrastructureVaultId}
       now={now}
       logoRouteSearch={rootRouteSearch}
       replaceLogoRouteSearch={(nextSearch) => {
@@ -4227,6 +4324,9 @@ export function VaultDashboard() {
       vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
+      onRetryInfrastructureProvisioning={(vaultId) => {
+        void handleRetryInfrastructureProvisioning(vaultId);
+      }}
       onRetryVaultDeletion={(runId) => {
         void handleRetryVaultDeletion(runId);
       }}

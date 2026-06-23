@@ -55,6 +55,7 @@ const sourceSetupSummary = union(
   }),
 );
 const providerSetupProvider = union(literal("convex"), literal("cloudflare"));
+const providerSetupSource = union(literal("managed"), literal("manual"));
 const providerSetupSummary = union(
   object({
     status: literal("not_applicable"),
@@ -65,6 +66,7 @@ const providerSetupSummary = union(
   object({
     status: literal("running"),
     provider: providerSetupProvider,
+    source: providerSetupSource,
     runId: id("appProvisioningRuns"),
     step: vAppProvisioningRunStep,
     updatedAt: number(),
@@ -72,6 +74,7 @@ const providerSetupSummary = union(
   object({
     status: literal("failed"),
     provider: providerSetupProvider,
+    source: providerSetupSource,
     runId: id("appProvisioningRuns"),
     step: vAppProvisioningRunStep,
     message: string(),
@@ -205,6 +208,7 @@ async function readProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
     provider: "convex" | "cloudflare";
+    source: "managed" | "manual";
     runId: Id<"appProvisioningRuns">;
     status: "running" | "failed";
     fallbackUpdatedAt: number;
@@ -215,6 +219,7 @@ async function readProviderRunSummary(
     return {
       status: "failed",
       provider: args.provider,
+      source: args.source,
       runId: args.runId,
       step: "run_created",
       message: "Provisioning run not found.",
@@ -226,19 +231,18 @@ async function readProviderRunSummary(
     return {
       status: "running",
       provider: args.provider,
+      source: args.source,
       runId: args.runId,
       step: run.currentStep,
       updatedAt: run.updatedAt,
     };
   }
 
-  const message =
-    (await readLatestRunErrorMessage(ctx, args.runId)) ??
-    run.lastError ??
-    `Provisioning failed during ${run.currentStep}.`;
+  const message = run.lastError ?? `Provisioning failed during ${run.currentStep}.`;
   return {
     status: "failed",
     provider: args.provider,
+    source: args.source,
     runId: args.runId,
     step: run.currentStep,
     message,
@@ -254,6 +258,7 @@ async function readRunningProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
     provider: "convex" | "cloudflare";
+    source: "managed" | "manual";
     runId: Id<"appProvisioningRuns">;
   },
 ): Promise<Extract<ProviderSetupSummary, { status: "running" }> | null> {
@@ -265,6 +270,7 @@ async function readRunningProviderRunSummary(
   return {
     status: "running",
     provider: args.provider,
+    source: args.source,
     runId: args.runId,
     step: run.currentStep,
     updatedAt: run.updatedAt,
@@ -390,6 +396,7 @@ async function resolveProviderSetupSummary(
   ) {
     return await readProviderRunSummary(ctx, {
       provider: manualOwnershipProvider,
+      source: "manual",
       runId: ownership.runId,
       status: ownership.state === "failed" ? "failed" : "running",
       fallbackUpdatedAt: ownership.updatedAt,
@@ -400,6 +407,7 @@ async function resolveProviderSetupSummary(
     if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "convex",
+        source: "managed",
         runId: ownership.runId,
         status: ownership.state === "failed" ? "failed" : "running",
         fallbackUpdatedAt: ownership.updatedAt,
@@ -407,6 +415,7 @@ async function resolveProviderSetupSummary(
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
       provider: "convex",
+      source: "managed",
       runId: vault.runId,
     });
     return runningCreateRun ?? { status: "not_applicable" };
@@ -415,6 +424,7 @@ async function resolveProviderSetupSummary(
     if (ownership?.state === "active" || ownership?.state === "failed") {
       return await readProviderRunSummary(ctx, {
         provider: "cloudflare",
+        source: "managed",
         runId: ownership.runId,
         status: ownership.state === "failed" ? "failed" : "running",
         fallbackUpdatedAt: ownership.updatedAt,
@@ -422,6 +432,7 @@ async function resolveProviderSetupSummary(
     }
     const runningCreateRun = await readRunningProviderRunSummary(ctx, {
       provider: "cloudflare",
+      source: "managed",
       runId: vault.runId,
     });
     return runningCreateRun ?? { status: "not_applicable" };
@@ -429,6 +440,7 @@ async function resolveProviderSetupSummary(
   if (ownership?.state === "active") {
     return await readProviderRunSummary(ctx, {
       provider: "cloudflare",
+      source: "managed",
       runId: ownership.runId,
       status: "running",
       fallbackUpdatedAt: ownership.updatedAt,

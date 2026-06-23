@@ -63,7 +63,7 @@ describe("build-cloudflare", () => {
         "exec",
         "convex",
         "deploy",
-        "--preview-create",
+        "--preview-name",
         "feature-branch",
         "--preview-run",
         "devAuth:seedPasswordAccount",

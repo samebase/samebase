@@ -17,8 +17,10 @@ import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
 import type { components, PlatformDeploymentResponse } from "./convexManagementApi/types.generated";
 import {
   ensureCloudflareResources,
+  formatCloudflareGitHubAppRepositoryAuthorizationMessage,
   type CloudflareBuildConfig,
   type ExistingCloudflareWorkerIdentity,
+  isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
 import { asRecord, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
@@ -583,8 +585,8 @@ async function createConvexPreviewDeployKey(args: {
   name: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexDeployKeyResult> {
-  // Cloudflare branch builds run `convex deploy --preview-create`, which
-  // requires a project-level preview deploy key instead of a dev deployment key.
+  // Cloudflare branch builds deploy Convex previews, which require a
+  // project-level preview deploy key instead of a dev deployment key.
   const { previewDeployKey } = await requestConvexManagementApi(
     args.convexToken,
     "POST",
@@ -1975,6 +1977,7 @@ async function recordWorkflowRunFailure(
 
 const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare connection is missing Workers Builds write access.",
+  "Cloudflare Workers and Pages GitHub App is not authorized",
   "Cloudflare Workers needs a configured workers.dev subdomain",
   "Cloudflare Workers Builds has no build API token",
   "Cloudflare has multiple Workers build tokens",
@@ -1984,8 +1987,11 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "GitHub repository response did not include owner id.",
 ];
 
-function extractUserFacingProvisioningError(message: string): string | null {
-  const firstLine = message.trim().split("\n")[0]?.trim();
+function extractUserFacingProvisioningError(args: {
+  message: string;
+  repositoryFullName: string;
+}): string | null {
+  const firstLine = args.message.trim().split("\n")[0]?.trim();
   if (!firstLine) {
     return null;
   }
@@ -2007,6 +2013,10 @@ function extractUserFacingProvisioningError(message: string): string | null {
     break;
   }
 
+  if (isCloudflareGitHubAppRepositoryAuthorizationError(new Error(cleaned))) {
+    return formatCloudflareGitHubAppRepositoryAuthorizationMessage(args.repositoryFullName);
+  }
+
   for (const marker of USER_FACING_PROVISIONING_ERROR_MARKERS) {
     if (cleaned.includes(marker)) {
       return cleaned;
@@ -2016,14 +2026,20 @@ function extractUserFacingProvisioningError(message: string): string | null {
   return null;
 }
 
-function resolveSafeWorkflowRunError(args: { currentStep: string; message: string }): string {
+function resolveSafeWorkflowRunError(args: {
+  currentStep: string;
+  message: string;
+  repositoryFullName: string;
+}): string {
   if (args.currentStep === "run_created") {
     return "Provisioning failed before the first step.";
   }
 
   return (
-    extractUserFacingProvisioningError(args.message) ??
-    `Provisioning failed during ${args.currentStep}.`
+    extractUserFacingProvisioningError({
+      message: args.message,
+      repositoryFullName: args.repositoryFullName,
+    }) ?? `Provisioning failed during ${args.currentStep}.`
   );
 }
 
@@ -2067,6 +2083,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
     const safeRunError = resolveSafeWorkflowRunError({
       currentStep: run.currentStep,
       message: args.message,
+      repositoryFullName: run.repositoryFullName,
     });
     if (vault?.state === "provisioning" && vault.runId === args.runId) {
       await ctx.runMutation(internal.vault.records.markGithubProvisioningFailed, {

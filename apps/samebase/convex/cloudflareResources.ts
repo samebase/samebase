@@ -60,6 +60,7 @@ export type CloudflareBuildToken = {
 
 const SAMEBASE_WORKERS_BUILD_TOKEN_NAME = "samebase build token";
 const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${SAMEBASE_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
+const CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE = "8000008";
 const BUILD_TOKEN_PAGE_SIZE = 100;
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
@@ -93,6 +94,27 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   }
 
   return false;
+}
+
+export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown): boolean {
+  if (
+    error instanceof CloudflareApiError &&
+    error.details.some((detail) => detail.code === CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE)
+  ) {
+    return true;
+  }
+
+  const message = toErrorMessage(error).toLowerCase();
+  return (
+    message.includes(`cloudflare api error: ${CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE}`) &&
+    message.includes("disconnected from your git account")
+  );
+}
+
+export function formatCloudflareGitHubAppRepositoryAuthorizationMessage(
+  repositoryFullName: string,
+): string {
+  return `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. In GitHub, install or configure Cloudflare Workers and Pages for ${repositoryFullName}, then retry.`;
 }
 
 function requireCloudflareResult<T>(value: T | undefined, message: string): T {
@@ -427,29 +449,38 @@ async function ensureRepositoryConnection(
     repo: string;
   } & CloudflareApiCallOptions,
 ): Promise<string> {
-  const raw = await requestCloudflareApi({
-    token: args.token,
-    method: "PUT",
-    path: "/accounts/{account_id}/builds/repos/connections",
-    transport: args.transport,
-    params: {
-      path: {
-        account_id: args.accountId,
+  const repositoryFullName = `${args.owner}/${args.repo}`;
+  try {
+    const raw = await requestCloudflareApi({
+      token: args.token,
+      method: "PUT",
+      path: "/accounts/{account_id}/builds/repos/connections",
+      transport: args.transport,
+      params: {
+        path: {
+          account_id: args.accountId,
+        },
       },
-    },
-    recordApiCall: args.recordApiCall,
-    body: {
-      provider_type: "github",
-      provider_account_id: args.ghRepoOwnerId,
-      provider_account_name: args.owner,
-      repo_id: args.ghRepoId,
-      repo_name: args.repo,
-    },
-  });
-  return requireCloudflareString(
-    raw?.repo_connection_uuid,
-    "Cloudflare Workers Builds repository connection did not return an id.",
-  );
+      recordApiCall: args.recordApiCall,
+      body: {
+        provider_type: "github",
+        provider_account_id: args.ghRepoOwnerId,
+        provider_account_name: args.owner,
+        repo_id: args.ghRepoId,
+        repo_name: args.repo,
+      },
+    });
+
+    return requireCloudflareString(
+      raw?.repo_connection_uuid,
+      "Cloudflare Workers Builds repository connection did not return an id.",
+    );
+  } catch (error) {
+    if (isCloudflareGitHubAppRepositoryAuthorizationError(error)) {
+      throw new Error(formatCloudflareGitHubAppRepositoryAuthorizationMessage(repositoryFullName));
+    }
+    throw error;
+  }
 }
 
 async function resolveBuildTokenUuid(

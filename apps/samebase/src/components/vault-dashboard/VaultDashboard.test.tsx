@@ -442,6 +442,7 @@ describe("resolveVaultProviderSetupStatus", () => {
       resolveVaultProviderSetupStatus({
         status: "running",
         provider: "convex",
+        source: "managed",
         runId: fakeRunId(),
         step: "ensure_convex",
         updatedAt: 0,
@@ -457,6 +458,7 @@ describe("resolveVaultProviderSetupStatus", () => {
     const providerSetup = {
       status: "running",
       provider: "cloudflare",
+      source: "managed",
       runId: fakeRunId(),
       step: "ensure_convex_preview",
       updatedAt: 0,
@@ -474,9 +476,11 @@ describe("VaultProviderSetupSection", () => {
   it("renders provider progress without the provisioning log", () => {
     const markup = renderToStaticMarkup(
       <VaultProviderSetupSection
+        repositoryFullName="ada/demo"
         providerSetup={{
           status: "running",
           provider: "convex",
+          source: "managed",
           runId: fakeRunId(),
           step: "ensure_convex",
           updatedAt: 0,
@@ -488,6 +492,32 @@ describe("VaultProviderSetupSection", () => {
     expect(markup).not.toContain("Provisioning log");
     expect(markup).not.toContain("Provision infra");
     expect(markup).not.toContain("Retry infra");
+  });
+
+  it("renders a short Cloudflare GitHub App authorization recovery message", () => {
+    const markup = renderToStaticMarkup(
+      <VaultProviderSetupSection
+        repositoryFullName="ada/tmp-myapp1234"
+        providerSetup={{
+          status: "failed",
+          provider: "cloudflare",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          message:
+            "Cloudflare Workers and Pages GitHub App is not authorized for ada/tmp-myapp1234. In GitHub, install or configure Cloudflare Workers and Pages for ada/tmp-myapp1234, then retry.",
+          updatedAt: 0,
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Cloudflare cannot access this GitHub repo.");
+    expect(markup).toContain("Install, configure, or unsuspend");
+    expect(markup).toContain("Cloudflare Workers and Pages");
+    expect(markup).toContain("Open repository GitHub Apps");
+    expect(markup).toContain("https://github.com/apps/cloudflare-workers-and-pages");
+    expect(markup).toContain("https://github.com/ada/tmp-myapp1234/settings/installations");
+    expect(markup).not.toContain("Last failure:");
   });
 });
 
@@ -883,6 +913,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "running",
           provider: "convex",
+          source: "managed",
           runId: fakeRunId(),
           step: "ensure_convex",
           updatedAt: 30,
@@ -916,6 +947,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "running",
           provider: "cloudflare",
+          source: "manual",
           runId: fakeRunId(),
           step: "ensure_cloudflare",
           updatedAt: 30,
@@ -948,6 +980,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "failed",
           provider: "cloudflare",
+          source: "manual",
           runId: fakeRunId(),
           step: "ensure_cloudflare",
           message: "Cloudflare Worker connection failed.",
@@ -978,6 +1011,129 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain('href="/home?add-cloudflare#demo"');
   });
 
+  it("lets failed managed Cloudflare setup retry infrastructure", () => {
+    const retryInfrastructure = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      buildAddCloudflareWorkerHref: () => "/home?add-cloudflare#demo",
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      retryInfrastructureOnClick: retryInfrastructure,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        providerSetup: {
+          status: "failed",
+          provider: "cloudflare",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          message: "Cloudflare Workers and Pages GitHub App is not authorized.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "failed",
+      value: "demo",
+    });
+    if (cloudflareRow.status !== "failed") {
+      throw new Error("Expected failed Cloudflare row.");
+    }
+    const [action] = cloudflareRow.actions;
+    expect(action).toMatchObject({
+      kind: "retry",
+      label: "Retry",
+      disabled: false,
+    });
+    expect(action.href).toBeUndefined();
+    action.onClick?.();
+    expect(retryInfrastructure).toHaveBeenCalledOnce();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Retry");
+    expect(markup).not.toContain("?add-cloudflare");
+  });
+
+  it("lets failed managed Convex setup retry infrastructure", () => {
+    const retryInfrastructure = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      buildAddConvexHref: () => "/home?add-convex#demo",
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      retryInfrastructureOnClick: retryInfrastructure,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        providerSetup: {
+          status: "failed",
+          provider: "convex",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_convex",
+          message: "Convex setup failed.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const convexRow = getResourceRailAppRow(state, ".", "convex");
+    expect(convexRow).toMatchObject({
+      provider: "convex",
+      status: "failed",
+      value: "demo",
+    });
+    if (convexRow.status !== "failed") {
+      throw new Error("Expected failed Convex row.");
+    }
+    const [action] = convexRow.actions;
+    expect(action).toMatchObject({
+      kind: "retry",
+      label: "Retry",
+      disabled: false,
+    });
+    expect(action.href).toBeUndefined();
+    action.onClick?.();
+    expect(retryInfrastructure).toHaveBeenCalledOnce();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Retry");
+    expect(markup).not.toContain("?add-convex");
+  });
+
+  it("shows failed managed provider setup retry pending state", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      isRetryingInfrastructure: true,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        providerSetup: {
+          status: "failed",
+          provider: "cloudflare",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          message: "Cloudflare setup failed.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    if (cloudflareRow.status !== "failed") {
+      throw new Error("Expected failed Cloudflare row.");
+    }
+    const [action] = cloudflareRow.actions;
+    expect(action).toMatchObject({
+      kind: "retry",
+      label: "Retrying...",
+      disabled: true,
+    });
+    expect(action.href).toBeUndefined();
+    expect(action.onClick).toBeUndefined();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Retrying...");
+  });
+
   it("lets failed manual Convex setup reopen the deployment dialog", () => {
     const state = buildVaultDashboardResourceRailState({
       buildAddConvexHref: () => "/home?add-convex#demo",
@@ -987,6 +1143,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "failed",
           provider: "convex",
+          source: "manual",
           runId: fakeRunId(),
           step: "ensure_convex",
           message: "Convex deployment connection failed.",
@@ -1085,6 +1242,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "running",
           provider: "cloudflare",
+          source: "managed",
           runId: fakeRunId(),
           step: "ensure_convex_preview",
           updatedAt: 30,

@@ -440,6 +440,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
@@ -451,6 +452,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           vaults={[LIST_SPACING_VAULT]}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={(vaultId, nextVaultBranchFilters) => {
             if (vaultId === LIST_SPACING_VAULT_ID) {

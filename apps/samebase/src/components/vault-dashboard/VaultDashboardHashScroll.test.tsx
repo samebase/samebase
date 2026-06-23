@@ -140,6 +140,7 @@ function VaultDashboardBodyHarness() {
       developerToolsVisible={false}
       isRemovingVault={false}
       retryingDeletionRunId={null}
+      retryingInfrastructureVaultId={null}
       now={0}
       logoRouteSearch={ROOT_ROUTE_SEARCH}
       replaceLogoRouteSearch={() => {}}
@@ -151,6 +152,7 @@ function VaultDashboardBodyHarness() {
       vaults={makeVaultDashboardVaults()}
       onOpenDeveloperToolsChange={() => {}}
       onManualRepositoryRefresh={() => {}}
+      onRetryInfrastructureProvisioning={() => {}}
       onRetryVaultDeletion={() => {}}
       onSaveVaultBranchFilters={() => {}}
       onResourceLinksOpenChange={() => {}}
@@ -208,6 +210,7 @@ describe("VaultDashboardBody", () => {
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
           now={0}
           logoRouteSearch={ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
@@ -219,6 +222,7 @@ describe("VaultDashboardBody", () => {
           vaults={makeVaultDashboardVaults()}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
           onRetryVaultDeletion={() => {}}
           onSaveVaultBranchFilters={() => {}}
           onResourceLinksOpenChange={() => {}}
