@@ -552,8 +552,6 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
@@ -572,6 +570,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
       name: "PR #321 Use the full dashboard main pane",
     }),
   ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "2 checks pending" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", {
@@ -640,8 +639,6 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
@@ -660,6 +657,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
       name: "PR #321 Use the full dashboard main pane",
     }),
   ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "2 checks pending" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", {

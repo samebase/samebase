@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildConvexDeploymentDashboardUrl,
-  buildConvexPreviewDeploymentDashboardUrl,
   buildConvexProjectSettingsDashboardUrl,
 } from "./dashboard";
 import {
@@ -54,40 +53,6 @@ describe("buildConvexProjectSettingsDashboardUrl", () => {
       buildConvexProjectSettingsDashboardUrl({
         teamSlug: "nicu",
         projectSlug: undefined,
-      }),
-    ).toBeUndefined();
-  });
-});
-
-describe("buildConvexPreviewDeploymentDashboardUrl", () => {
-  it("targets the branch-scoped preview deployment dashboard", () => {
-    expect(
-      buildConvexPreviewDeploymentDashboardUrl({
-        teamSlug: "nicu",
-        projectSlug: "nicu-chiciuc-tmp-96e7-dashboard-links-85",
-        branchName: "codex/dashboard-links",
-      }),
-    ).toBe(
-      "https://dashboard.convex.dev/t/nicu/nicu-chiciuc-tmp-96e7-dashboard-links-85/preview/codex/dashboard-links",
-    );
-  });
-
-  it("encodes branch path segments without collapsing branch slashes", () => {
-    expect(
-      buildConvexPreviewDeploymentDashboardUrl({
-        teamSlug: "nicu",
-        projectSlug: "noter",
-        branchName: "feature/mobile links",
-      }),
-    ).toBe("https://dashboard.convex.dev/t/nicu/noter/preview/feature/mobile%20links");
-  });
-
-  it("hides the link until the real project dashboard slugs are known", () => {
-    expect(
-      buildConvexPreviewDeploymentDashboardUrl({
-        teamSlug: "nicu",
-        projectSlug: undefined,
-        branchName: "codex/dashboard-links",
       }),
     ).toBeUndefined();
   });
@@ -269,7 +234,6 @@ describe("shouldClearPullRequestStatusSnapshotForPullRequestSync", () => {
         incomingPullRequestNumber: undefined,
         incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
-        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
@@ -281,7 +245,6 @@ describe("shouldClearPullRequestStatusSnapshotForPullRequestSync", () => {
         incomingPullRequestNumber: 43,
         incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
-        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
@@ -317,7 +280,6 @@ describe("shouldClearPullRequestStatusSnapshotForPullRequestSync", () => {
         incomingPullRequestNumber: undefined,
         incomingHeadCommitSha: "sha-new",
         existingPullRequestNumber: 42,
-        existingPreviewCommitSha: "sha-old",
       }),
     ).toBe(false);
   });

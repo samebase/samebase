@@ -80,6 +80,7 @@ import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerConnections from "../providerConnections.js";
 import type * as pullRequestChecks from "../pullRequestChecks.js";
+import type * as remoteBranchMigrations from "../remoteBranchMigrations.js";
 import type * as repositoryRefresh from "../repositoryRefresh.js";
 import type * as repositoryRefreshModel from "../repositoryRefreshModel.js";
 import type * as slugUtils from "../slugUtils.js";
@@ -196,6 +197,7 @@ declare const fullApi: ApiFromModules<{
   providerApiLog: typeof providerApiLog;
   providerConnections: typeof providerConnections;
   pullRequestChecks: typeof pullRequestChecks;
+  remoteBranchMigrations: typeof remoteBranchMigrations;
   repositoryRefresh: typeof repositoryRefresh;
   repositoryRefreshModel: typeof repositoryRefreshModel;
   slugUtils: typeof slugUtils;

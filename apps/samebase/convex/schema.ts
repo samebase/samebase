@@ -448,6 +448,8 @@ export default defineSchema({
     pullRequestLabels: optional(array(vPullRequestLabel)),
     pullRequestTitle: optional(string()),
     pullRequestIsDraft: optional(boolean()),
+    // Deprecated PR-preview compatibility fields. Runtime code no longer reads
+    // or writes them; remove after remoteBranchMigrations clears existing rows.
     cloudflareBranchPreviewUrl: optional(string()),
     cloudflarePreviewPullRequestNumber: optional(number()),
     cloudflarePreviewUrl: optional(string()),

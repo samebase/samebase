@@ -18,15 +18,6 @@ import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAp
 import { vVaultResourceLinksState } from "./resourceLinksStateModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-const cloudflarePreviewMetadataFields = {
-  cloudflareBranchPreviewUrl: optional(string()),
-  cloudflarePreviewPullRequestNumber: optional(number()),
-  cloudflarePreviewUrl: optional(string()),
-  cloudflarePreviewCommitSha: optional(string()),
-  cloudflarePreviewStatus: optional(string()),
-  cloudflarePreviewLogsUrl: optional(string()),
-  cloudflarePreviewCommentCreatedAt: optional(number()),
-} as const;
 const treeRefreshFailureFields = {
   lastTreeRefreshFailedAt: optional(number()),
   treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
@@ -596,29 +587,6 @@ export function buildConvexProjectSettingsDashboardUrl(args: {
   return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/settings`;
 }
 
-function encodeConvexDashboardPath(value: string): string {
-  return value.split("/").map(encodeURIComponent).join("/");
-}
-
-/**
- * Preview deployment dashboards are branch-scoped. Preserve branch slash
- * separators while still encoding each path segment.
- */
-export function buildConvexPreviewDeploymentDashboardUrl(args: {
-  branchName: string | undefined;
-  projectSlug: string | undefined;
-  teamSlug: string | undefined;
-}): string | undefined {
-  const normalizedTeamSlug = args.teamSlug?.trim();
-  const normalizedProjectSlug = args.projectSlug?.trim();
-  const normalizedBranchName = args.branchName?.trim();
-  if (!normalizedTeamSlug || !normalizedProjectSlug || !normalizedBranchName) {
-    return undefined;
-  }
-
-  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/${encodeURIComponent(normalizedProjectSlug)}/preview/${encodeConvexDashboardPath(normalizedBranchName)}`;
-}
-
 // MARK: Public
 
 export const getUserVaultBranchFilters = query({
@@ -876,9 +844,7 @@ const getUserVaultsResult = array(
         isProtected: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
-        ...cloudflarePreviewMetadataFields,
         pullRequestStatusSummary: optional(vPullRequestStatusSummary),
-        convexPreviewDeploymentDashboardUrl: optional(string()),
       }),
     ),
   }),
@@ -1046,9 +1012,6 @@ export const getUserVaults = query({
         const canRemoveConvexProvision =
           hasCreatedConvexProject ||
           convexDeployments.some((deployment) => canRemoveConvexProvisionForDeployment(deployment));
-        const previewConvexDeployment =
-          convexDeployments.length === 1 ? convexDeployments[0] : undefined;
-
         return {
           _id: vault._id,
           _creationTime: vault._creationTime,
@@ -1092,26 +1055,7 @@ export const getUserVaults = query({
             isProtected: branch.isProtected,
             remoteState: branch.remoteState,
             lastSyncedAt: branch.lastSyncedAt,
-            cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-            cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
-            cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
-            cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
-            cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
-            cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-            cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
             pullRequestStatusSummary: branch.pullRequestStatusSummary,
-            convexPreviewDeploymentDashboardUrl:
-              previewConvexDeployment &&
-              !branch.isDefault &&
-              branch.remoteState === "active" &&
-              typeof branch.cloudflareBranchPreviewUrl === "string" &&
-              branch.pullRequestNumber === branch.cloudflarePreviewPullRequestNumber
-                ? buildConvexPreviewDeploymentDashboardUrl({
-                    branchName: branch.name,
-                    projectSlug: previewConvexDeployment.projectSlug,
-                    teamSlug: previewConvexDeployment.teamSlug,
-                  })
-                : undefined,
           })),
         };
       }),

@@ -32,10 +32,6 @@ import { linkStyle } from "../styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
-import {
-  hasCurrentCloudflareBuildFailureLogs,
-  hasCurrentCloudflareBranchPreview,
-} from "@/lib/cloudflarePreviewLinks";
 import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import { useNow } from "@/hooks/useNow";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
@@ -1723,22 +1719,7 @@ export function VaultBranchLinkContent({
   const branchSamebaseLinkTitle = branch.isDefault
     ? "Open branch in Samebase"
     : "View changes in Samebase";
-  const hasCurrentPreviewLink = hasCurrentCloudflareBranchPreview({
-    pullRequestNumber: branch.pullRequestNumber,
-    cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-    cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
-  });
-  const hasBuildFailureLogsLink = hasCurrentCloudflareBuildFailureLogs({
-    pullRequestNumber: branch.pullRequestNumber,
-    cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-    cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
-    cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
-  });
   const activeProductionApps = branch.isDefault ? productionApps : [];
-  const hasPreviewDeploymentLink =
-    !branch.isDefault &&
-    hasCurrentPreviewLink &&
-    typeof branch.convexPreviewDeploymentDashboardUrl === "string";
   const pullRequestStatusSummary = isCurrentPullRequestStatusSummary({
     branch,
     summary: branch.pullRequestStatusSummary,
@@ -1892,40 +1873,6 @@ export function VaultBranchLinkContent({
                 </a>
               </div>
             ) : null}
-            {hasBuildFailureLogsLink ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                <a
-                  href={branch.cloudflarePreviewLogsUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx(
-                    metadataLinkClassName,
-                    "gap-1.5 text-destructive hover:text-destructive",
-                  )}
-                  title="Open Cloudflare build logs"
-                >
-                  <DashboardLinkIconSlot>
-                    <CloudflareProviderLogo />
-                  </DashboardLinkIconSlot>
-                  <span>Build failed logs</span>
-                </a>
-              </div>
-            ) : hasCurrentPreviewLink ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                <a
-                  href={branch.cloudflareBranchPreviewUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx(metadataLinkClassName, "gap-1.5")}
-                  title="Open Cloudflare branch preview"
-                >
-                  <DashboardLinkIconSlot>
-                    <CloudflareProviderLogo />
-                  </DashboardLinkIconSlot>
-                  <span>Cloudflare preview</span>
-                </a>
-              </div>
-            ) : null}
             {branchRoute ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <Link
@@ -1938,22 +1885,6 @@ export function VaultBranchLinkContent({
                   </DashboardLinkIconSlot>
                   <span>{branchSamebaseLinkLabel}</span>
                 </Link>
-              </div>
-            ) : null}
-            {hasPreviewDeploymentLink ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                <a
-                  href={branch.convexPreviewDeploymentDashboardUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx(metadataLinkClassName, "gap-1.5")}
-                  title="Open Convex preview deployment dashboard"
-                >
-                  <DashboardLinkIconSlot>
-                    <ConvexProviderLogo />
-                  </DashboardLinkIconSlot>
-                  <span>Preview deploy</span>
-                </a>
               </div>
             ) : null}
           </div>

@@ -74,10 +74,11 @@ This PR lands the snapshot-first replacement:
    - check `details_url` for provider build/log details
 5. Dashboard branch rows render a provider-neutral compact check summary such as pending, failed, or
    all passed.
-6. Existing Cloudflare preview/log affordances are compatibility projections of the stored snapshot,
-   not a separate refresh system.
-7. Cached summaries, check rows, and derived preview fields are cleared when the branch loses its
-   PR, changes PR number, changes head SHA, or is marked deleted upstream.
+6. The old branch-level Cloudflare preview/log projection is removed from runtime reads and writes.
+   Preview/log URLs remain on the normalized check item rows until the detailed checks UI renders
+   them directly.
+7. Cached summaries and check rows are cleared when the branch loses its PR, changes PR number,
+   changes head SHA, or is marked deleted upstream.
 8. Dashboard/manual/source-setup repository refreshes can request check snapshots. Existing
    large-repo budget logic still skips broad passive dashboard hydration above the branch threshold.
 
@@ -133,11 +134,9 @@ The product-facing behavior should be provider-neutral:
 
 1. A branch row with a current PR can show a checks/status summary independent of Cloudflare.
 2. Each check/status item can link to its provider detail URL.
-3. If a check run exposes a current preview URL in structured output, Samebase may render it as the
-   branch's preview link.
-4. If the provider is Cloudflare, Samebase may keep the existing `Cloudflare preview` label, but the
-   underlying source must be GitHub check data.
-5. If no preview environment URL exists, the row still shows the PR's check status and provider
+3. If a check run exposes a current preview URL in structured output, the detailed checks UI may
+   render that URL from the check item row.
+4. If no preview environment URL exists, the row still shows the PR's check status and provider
    detail/log links instead of scraping comments.
 
 ## Data Model
@@ -280,7 +279,8 @@ Status: implemented.
 1. `vaultPullRequestCheckItems` stores the child check/status rows.
 2. `vaultRemoteBranches.pullRequestStatusSummary` stores the compact rollup.
 3. `pullRequestChecks.replacePullRequestCheckSnapshot` replaces one
-   `(vaultId, branchName, pullRequestNumber, headCommitSha)` tuple and derives preview/log fields.
+   `(vaultId, branchName, pullRequestNumber, headCommitSha)` tuple and updates only the compact
+   branch summary.
 4. Branch sync clears summaries and child rows when a branch loses its PR, changes PR number,
    changes head SHA, or becomes deleted upstream.
 5. `syncRepositoryMetadata` hydrates PR status snapshots after PR metadata is written.
@@ -292,18 +292,24 @@ Status: compact summary implemented; detailed popover still pending.
 1. `vault.dashboard.getUserVaults` returns `pullRequestStatusSummary`.
 2. Dashboard branch rows show a compact checks summary using the stored rollup.
 3. The summary links to `primaryTargetUrl` when available, otherwise the commit checks page.
-4. The existing Cloudflare preview/log affordance renders only when the snapshot-derived projection
-   proves a current preview/log URL for the current PR/head SHA.
+4. The old Cloudflare preview/log branch-row affordance is removed; links should return through the
+   detailed item list/popover from `vaultPullRequestCheckItems`.
 5. Pending follow-up: render the detailed item list/popover from `vaultPullRequestCheckItems`.
 
 ### Phase 4: Remove Comment-Based Preview Hydration
 
-Status: implemented for runtime code.
+Status: implemented for runtime code; schema narrowing remains after data cleanup.
 
 1. Comment lookup and parser code are removed.
 2. Preview metadata is no longer written from PR comments.
 3. The direct Cloudflare-only check hydration path has been replaced by the generic snapshot writer.
-4. Pending follow-up: archive or rewrite
+4. The branch-level Cloudflare preview/log compatibility projection has been removed from runtime
+   reads and writes.
+5. `remoteBranchMigrations.clearCloudflarePreviewFieldsFromRemoteBranches` clears existing
+   `vaultRemoteBranches` field values in batches.
+6. Pending follow-up: after that migration has completed on production and preview deployments,
+   remove the deprecated schema fields from `vaultRemoteBranches`.
+7. Pending follow-up: archive or rewrite
    `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
    verified in production.
 
@@ -325,7 +331,7 @@ UI tests:
 1. Dashboard row shows a check summary when a branch has a current PR status snapshot.
 2. Dashboard row suppresses stale summaries whose PR number or head SHA does not match the branch.
 3. Dashboard row keeps existing PR title, labels, draft badge, commit link, and Samebase link.
-4. Cloudflare preview link renders only when normalized check data proves a current preview URL.
+4. Detailed check UI renders provider links from `vaultPullRequestCheckItems`.
 5. FileView `CommitStatus` still handles running, failed, successful, empty, cooldown, and
    rate-limited states.
 

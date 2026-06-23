@@ -75,10 +75,6 @@ import {
   type CodexThreadHistoryVisualMode,
 } from "@/components/codex/CodexThreadHistoryVisualFixture";
 import {
-  VaultBranchPreviewVisualFixture,
-  type VaultBranchPreviewVisualMode,
-} from "@/components/vault-dashboard/VaultBranchPreviewVisualFixture";
-import {
   VaultResourceRailVisualFixture,
   type VaultResourceRailVisualMode,
 } from "@/components/vault-dashboard/VaultResourceRailVisualFixture";
@@ -116,7 +112,6 @@ type VisualFixtureMode =
   | RepositoryMediaVisualMode
   | SidebarMediaUploadVisualMode
   | VaultDashboardVisualMode
-  | VaultBranchPreviewVisualMode
   | VaultResourceRailVisualMode
   | VaultSyncStatusVisualMode
   | WorkspaceLayoutV2VisualMode
@@ -197,12 +192,6 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-branch-pr-labels",
   "vault-branch-mobile-alignment",
 ] as const satisfies readonly VaultDashboardVisualMode[];
-
-const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
-  "vault-branch-preview-link",
-  "vault-branch-preview-failed",
-  "vault-branch-preview-missing",
-] as const satisfies readonly VaultBranchPreviewVisualMode[];
 
 const VAULT_RESOURCE_RAIL_VISUAL_MODES = [
   "vault-resource-rail",
@@ -298,10 +287,6 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: VAULT_DASHBOARD_VISUAL_MODES,
   },
   {
-    label: "Vault Branch Preview",
-    modes: VAULT_BRANCH_PREVIEW_VISUAL_MODES,
-  },
-  {
     label: "Vault Resource Rail",
     modes: VAULT_RESOURCE_RAIL_VISUAL_MODES,
   },
@@ -395,14 +380,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-branch-mobile-alignment"
   ) {
     return <VaultDashboardVisualFixture mode={mode} />;
-  }
-
-  if (
-    mode === "vault-branch-preview-link" ||
-    mode === "vault-branch-preview-failed" ||
-    mode === "vault-branch-preview-missing"
-  ) {
-    return <VaultBranchPreviewVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-resource-rail") {
