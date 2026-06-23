@@ -152,9 +152,25 @@
     cursor: pointer;
   }
 
+  input[type="checkbox"]:not(:disabled) + label,
+  [role="checkbox"]:not([aria-disabled="true"], [data-disabled]) + label,
+  label:has(input[type="checkbox"]:not(:disabled)),
+  label:has([role="checkbox"]:not([aria-disabled="true"], [data-disabled])) {
+    cursor: pointer;
+  }
+
   input[type="checkbox"]:disabled,
   [role="checkbox"][aria-disabled="true"],
   [role="checkbox"][data-disabled] {
+    cursor: not-allowed;
+  }
+
+  input[type="checkbox"]:disabled + label,
+  [role="checkbox"][aria-disabled="true"] + label,
+  [role="checkbox"][data-disabled] + label,
+  label:has(input[type="checkbox"]:disabled),
+  label:has([role="checkbox"][aria-disabled="true"]),
+  label:has([role="checkbox"][data-disabled]) {
     cursor: not-allowed;
   }
 }
