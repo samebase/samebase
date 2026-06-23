@@ -1,6 +1,7 @@
 # Migrations Component Reference
 
-Complete guide to the [`@convex-dev/migrations`](https://www.convex.dev/components/migrations)
+Complete guide to the
+[`@convex-dev/migrations`](https://www.convex.dev/components/migrations)
 component for batched, resumable Convex data migrations.
 
 ## Installation
@@ -30,12 +31,13 @@ import { DataModel } from "./_generated/dataModel.js";
 export const migrations = new Migrations<DataModel>(components.migrations);
 ```
 
-The `DataModel` type parameter is optional but provides type safety for migration definitions.
+The `DataModel` type parameter is optional but provides type safety for
+migration definitions.
 
 ## Define a Migration
 
-The `migrateOne` function processes a single document. The component handles batching and pagination
-automatically.
+The `migrateOne` function processes a single document. The component handles
+batching and pagination automatically.
 
 ```typescript
 // convex/migrations.ts
@@ -69,8 +71,9 @@ npx convex run migrations:addDefaultRole
 npx convex run migrations:addDefaultRole --prod
 ```
 
-The migration exported by `migrations.define` is directly callable from the CLI or dashboard. You do
-not need a separate one-off runner for normal single migrations.
+The migration exported by `migrations.define` is directly callable from the CLI
+or dashboard. You do not need a separate one-off runner for normal single
+migrations.
 
 If you want a general-purpose runner that accepts a migration name, define one:
 
@@ -112,8 +115,8 @@ export const runAll = migrations.runner([
 npx convex run migrations:runAll
 ```
 
-If one fails, it stops and will not continue to the next. Call it again to retry from where it left
-off. Completed migrations are skipped automatically.
+If one fails, it stops and will not continue to the next. Call it again to retry
+from where it left off. Completed migrations are skipped automatically.
 
 Programmatically from another Convex function:
 
@@ -133,7 +136,8 @@ Test a migration before committing changes:
 npx convex run migrations:addDefaultRole '{"dryRun": true}'
 ```
 
-This runs one batch and then rolls back, so you can see what it would do without changing any data.
+This runs one batch and then rolls back, so you can see what it would do without
+changing any data.
 
 ## Restart a Migration
 
@@ -143,8 +147,8 @@ Pass `reset: true` to restart a migration from the beginning:
 npx convex run migrations:addDefaultRole '{"reset": true}'
 ```
 
-If you specify `next` or run a defined series, `reset: true` resets the cursor for all migrations in
-the group.
+If you specify `next` or run a defined series, `reset: true` resets the cursor
+for all migrations in the group.
 
 ## Check Migration Status
 
@@ -176,8 +180,8 @@ npx convex deploy --cmd 'npm run build' && npx convex run migrations:runAll --pr
 
 ### Custom Batch Size
 
-If documents are large or the table has heavy write traffic, reduce the batch size to avoid
-transaction limits or OCC conflicts:
+If documents are large or the table has heavy write traffic, reduce the batch
+size to avoid transaction limits or OCC conflicts:
 
 ```typescript
 export const migrateHeavyTable = migrations.define({
@@ -203,8 +207,8 @@ export const fixEmptyNames = migrations.define({
 
 ### Parallelize Within a Batch
 
-By default each document in a batch is processed serially. Enable parallel processing if your
-migration logic does not depend on ordering:
+By default each document in a batch is processed serially. Enable parallel
+processing if your migration logic does not depend on ordering:
 
 ```typescript
 export const clearField = migrations.define({
