@@ -8,7 +8,7 @@ test("vault resource rail fixture", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("vault-resource-rail-visual-fixture");
-  await expect(fixture.getByText("nicu/tmp-my-new-app")).toHaveCount(3);
+  await expect(fixture.getByText("nicu/tmp-my-new-app")).toHaveCount(4);
   await expect(fixture.getByText("nicuchiciuc/tmp-my-new-app")).toHaveCount(1);
   await expect(fixture).toHaveScreenshot("vault-resource-rail.png", {
     animations: "disabled",

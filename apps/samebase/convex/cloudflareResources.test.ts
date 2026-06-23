@@ -291,6 +291,99 @@ describe("cloudflare resources", () => {
     ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
   });
 
+  it("preserves non-GitHub-App direct Cloudflare repository connection failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const endpoint = new URL(url).pathname;
+        switch (endpoint) {
+          case "/client/v4/accounts/account-id/workers/workers/samebase-app":
+            return new Response(cloudflareWorkerReadEnvelope, {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          case "/client/v4/accounts/account-id/workers/scripts/samebase-app/subdomain":
+            return new Response(cloudflareWorkerSubdomainDisabledEnvelope, {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          case "/client/v4/accounts/account-id/builds/repos/connections":
+            return new Response(
+              JSON.stringify({
+                success: false,
+                errors: [
+                  {
+                    code: 10000,
+                    message: "Authentication error",
+                  },
+                ],
+                messages: [],
+                result: null,
+              }),
+              {
+                status: 403,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+        }
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [{ code: 1000, message: `Unexpected endpoint ${endpoint}` }],
+          }),
+          { status: 404 },
+        );
+      }),
+    );
+
+    let caughtError: unknown;
+    try {
+      await ensureCloudflareResources({
+        owner: "ada",
+        repo: "samebase-app",
+        ghRepoId: "123",
+        ghRepoOwnerId: "456",
+        defaultBranch: "main",
+        vaultId: "vault-id",
+        workerName: "samebase-app",
+        cloudflareToken: "oauth-token",
+        cloudflareAuthMethod: "oauth",
+        accountId: "account-id",
+        buildConfig: {
+          rootDir: ".",
+          buildCommand: "pnpm build",
+          deployCommand: "pnpm deploy",
+          previewDeployCommand: "pnpm deploy:preview",
+          pathIncludes: ["**/*"],
+          pathExcludes: [],
+        },
+        existingWorker: { state: "created", workerTag: "worker-tag" },
+        convex: {
+          production: {
+            cloudUrl: "https://prod.convex.cloud",
+            deployKey: "prod-key",
+          },
+          preview: {
+            cloudUrl: "https://preview.convex.cloud",
+            deployKey: "preview-key",
+          },
+        },
+        onWorkerResolved: async () => {},
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    if (!(caughtError instanceof CloudflareApiError)) {
+      throw new Error("Expected unwrapped CloudflareApiError.");
+    }
+    expect(caughtError.details).toEqual([{ code: "10000", message: "Authentication error" }]);
+    expect(caughtError.message).toBe(
+      "Cloudflare API request failed for PUT /accounts/account-id/builds/repos/connections: code 10000: Authentication error",
+    );
+  });
+
   it("surfaces exact Cloudflare MCP GitHub App disconnected failures from repository connection", async () => {
     callCloudflareMcpToolMock
       .mockResolvedValueOnce(cloudflareWorkerReadEnvelope)

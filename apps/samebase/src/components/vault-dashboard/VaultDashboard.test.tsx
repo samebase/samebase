@@ -1055,6 +1055,85 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).not.toContain("?add-cloudflare");
   });
 
+  it("lets failed managed Convex setup retry infrastructure", () => {
+    const retryInfrastructure = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      buildAddConvexHref: () => "/home?add-convex#demo",
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      retryInfrastructureOnClick: retryInfrastructure,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        providerSetup: {
+          status: "failed",
+          provider: "convex",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_convex",
+          message: "Convex setup failed.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const convexRow = getResourceRailAppRow(state, ".", "convex");
+    expect(convexRow).toMatchObject({
+      provider: "convex",
+      status: "failed",
+      value: "demo",
+    });
+    if (convexRow.status !== "failed") {
+      throw new Error("Expected failed Convex row.");
+    }
+    const [action] = convexRow.actions;
+    expect(action).toMatchObject({
+      kind: "retry",
+      label: "Retry",
+      disabled: false,
+    });
+    expect(action.href).toBeUndefined();
+    action.onClick?.();
+    expect(retryInfrastructure).toHaveBeenCalledOnce();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Retry");
+    expect(markup).not.toContain("?add-convex");
+  });
+
+  it("shows failed managed provider setup retry pending state", () => {
+    const state = buildVaultDashboardResourceRailState({
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      isRetryingInfrastructure: true,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        providerSetup: {
+          status: "failed",
+          provider: "cloudflare",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          message: "Cloudflare setup failed.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    if (cloudflareRow.status !== "failed") {
+      throw new Error("Expected failed Cloudflare row.");
+    }
+    const [action] = cloudflareRow.actions;
+    expect(action).toMatchObject({
+      kind: "retry",
+      label: "Retrying...",
+      disabled: true,
+    });
+    expect(action.href).toBeUndefined();
+    expect(action.onClick).toBeUndefined();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Retrying...");
+  });
+
   it("lets failed manual Convex setup reopen the deployment dialog", () => {
     const state = buildVaultDashboardResourceRailState({
       buildAddConvexHref: () => "/home?add-convex#demo",

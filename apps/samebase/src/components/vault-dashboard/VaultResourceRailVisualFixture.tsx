@@ -164,6 +164,74 @@ const ADD_VAULT_FLOW_SCENARIOS = [
     }),
   },
   {
+    title: "Cloudflare failed",
+    repositoryOwner: "nicu-chiciuc",
+    repositoryName: "tmp-my-new-app",
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: ADD_VAULT_READY_VALUES.github,
+        href: ADD_VAULT_READY_URLS.github,
+      },
+      appRows: [
+        {
+          provider: "convex",
+          status: "ready",
+          scope: ADD_VAULT_READY_SCOPES.convex,
+          value: ADD_VAULT_READY_VALUES.convex,
+          href: ADD_VAULT_READY_URLS.convex,
+        },
+        {
+          provider: "cloudflare",
+          status: "failed",
+          value: ADD_VAULT_VALUES.cloudflare,
+          actions: [
+            {
+              kind: "retry",
+              label: "Retry",
+              onClick: noop,
+            },
+          ],
+        },
+      ],
+    }),
+  },
+  {
+    title: "Cloudflare retrying",
+    repositoryOwner: "nicu-chiciuc",
+    repositoryName: "tmp-my-new-app",
+    state: buildRootFixtureState({
+      githubRow: {
+        provider: "github",
+        status: "ready",
+        value: ADD_VAULT_READY_VALUES.github,
+        href: ADD_VAULT_READY_URLS.github,
+      },
+      appRows: [
+        {
+          provider: "convex",
+          status: "ready",
+          scope: ADD_VAULT_READY_SCOPES.convex,
+          value: ADD_VAULT_READY_VALUES.convex,
+          href: ADD_VAULT_READY_URLS.convex,
+        },
+        {
+          provider: "cloudflare",
+          status: "failed",
+          value: ADD_VAULT_VALUES.cloudflare,
+          actions: [
+            {
+              kind: "retry",
+              label: "Retrying...",
+              disabled: true,
+            },
+          ],
+        },
+      ],
+    }),
+  },
+  {
     title: "Monorepo apps",
     repositoryOwner: "samebase",
     repositoryName: "samebase",
@@ -263,40 +331,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
               kind: "add",
               label: "?add-cloudflare",
               href: "/home?add-cloudflare#weight_tsx",
-            },
-          ],
-        },
-      ],
-    }),
-  },
-  {
-    title: "Cloudflare failed",
-    repositoryOwner: "nicu-chiciuc",
-    repositoryName: "tmp-my-new-app",
-    state: buildRootFixtureState({
-      githubRow: {
-        provider: "github",
-        status: "ready",
-        value: ADD_VAULT_READY_VALUES.github,
-        href: ADD_VAULT_READY_URLS.github,
-      },
-      appRows: [
-        {
-          provider: "convex",
-          status: "ready",
-          scope: ADD_VAULT_READY_SCOPES.convex,
-          value: ADD_VAULT_READY_VALUES.convex,
-          href: ADD_VAULT_READY_URLS.convex,
-        },
-        {
-          provider: "cloudflare",
-          status: "failed",
-          value: ADD_VAULT_VALUES.cloudflare,
-          actions: [
-            {
-              kind: "retry",
-              label: "Retry",
-              onClick: noop,
             },
           ],
         },

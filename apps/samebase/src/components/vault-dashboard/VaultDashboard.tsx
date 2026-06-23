@@ -2978,6 +2978,7 @@ export function VaultDashboardBody({
   }
 
   const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
+  const isInfrastructureRetryInFlight = retryingInfrastructureVaultId !== null;
 
   return (
     <VaultDashboardRepositoryList>
@@ -3040,9 +3041,11 @@ export function VaultDashboardBody({
           },
           githubRepositoryUrl,
           isRetryingInfrastructure: retryingInfrastructureVaultId === vault._id,
-          retryInfrastructureOnClick: () => {
-            onRetryInfrastructureProvisioning(vault._id);
-          },
+          retryInfrastructureOnClick: isInfrastructureRetryInFlight
+            ? undefined
+            : () => {
+                onRetryInfrastructureProvisioning(vault._id);
+              },
           vault,
         });
         const productionApps = buildVaultProductionApps(vault);
