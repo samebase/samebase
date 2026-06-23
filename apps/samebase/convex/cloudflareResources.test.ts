@@ -155,6 +155,13 @@ describe("cloudflare resources", () => {
         }),
       ),
     ).toBe(false);
+    expect(
+      isCloudflareGitHubAppRepositoryAuthorizationError(
+        new Error(
+          "Cloudflare MCP tool call failed: Error: Cloudflare API error: 8000008: This project is disconnected from your Git account, this may cause deployments to fail.",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("surfaces Cloudflare GitHub App authorization failures from repository connection", async () => {

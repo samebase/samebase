@@ -97,9 +97,17 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
 }
 
 export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown): boolean {
-  return (
+  if (
     error instanceof CloudflareApiError &&
     error.details.some((detail) => detail.code === CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE)
+  ) {
+    return true;
+  }
+
+  const message = toErrorMessage(error).toLowerCase();
+  return (
+    message.includes(`cloudflare api error: ${CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE}`) &&
+    message.includes("disconnected from your git account")
   );
 }
 
