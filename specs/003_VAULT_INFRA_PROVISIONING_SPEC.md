@@ -209,7 +209,7 @@ Dashboard external links:
   project slug, and deployment name:
   `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
 - Service links are mobile-friendly text links with service icons. Labels should stay concise; the
-  default-branch Convex deployment link uses `Production deploy`.
+  default-branch Convex deployment link uses `Production: <deploymentName>`.
 
 ## MVP Notes
 
