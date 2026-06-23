@@ -146,6 +146,17 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+
+  input[type="checkbox"]:not(:disabled),
+  [role="checkbox"]:not([aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
+  input[type="checkbox"]:disabled,
+  [role="checkbox"][aria-disabled="true"],
+  [role="checkbox"][data-disabled] {
+    cursor: not-allowed;
+  }
 }
 
 @layer utilities {
