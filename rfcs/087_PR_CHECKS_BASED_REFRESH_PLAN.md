@@ -298,17 +298,15 @@ Status: compact summary implemented; detailed popover still pending.
 
 ### Phase 4: Remove Comment-Based Preview Hydration
 
-Status: implemented for runtime code; schema narrowing remains after data cleanup.
+Status: implemented.
 
 1. Comment lookup and parser code are removed.
 2. Preview metadata is no longer written from PR comments.
 3. The direct Cloudflare-only check hydration path has been replaced by the generic snapshot writer.
 4. The branch-level Cloudflare preview/log compatibility projection has been removed from runtime
    reads and writes.
-5. `remoteBranchMigrations.clearCloudflarePreviewFieldsFromRemoteBranches` clears existing
-   `vaultRemoteBranches` field values in batches.
-6. Pending follow-up: after that migration has completed on production and preview deployments,
-   remove the deprecated schema fields from `vaultRemoteBranches`.
+5. Production `vaultRemoteBranches` data has been cleared of the old Cloudflare preview fields.
+6. The deprecated schema fields have been removed from `vaultRemoteBranches`.
 7. Pending follow-up: archive or rewrite
    `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md` once the replacement has been
    verified in production.
