@@ -5,7 +5,7 @@ describe("starterSeedManifest", () => {
   it("contains a single template snapshot contract", () => {
     expect(starterTemplateManifest.version).toMatch(/^samebase-app-[0-9a-f]{12}$/);
     expect(starterTemplateManifest.sourceRepo).toBe("https://github.com/samebase/app.git");
-    expect(starterTemplateManifest.sourceBranch).toBe("codex/convex-deploy-key-permissions");
+    expect(starterTemplateManifest.sourceBranch).toBe("v5-tanstack-start-workers");
     expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(starterTemplateManifest.commitMessage).toBe("chore: seed starter template");
@@ -73,6 +73,12 @@ describe("starterSeedManifest", () => {
     );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
       "deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view",
+    );
+    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
+      '"--preview-name"',
+    );
+    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
+      '"--preview-create"',
     );
   });
 

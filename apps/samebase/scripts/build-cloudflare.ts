@@ -131,7 +131,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
         "exec",
         "convex",
         "deploy",
-        "--preview-create",
+        "--preview-name",
         branch,
         "--preview-run",
         "devAuth:seedPasswordAccount",

@@ -585,8 +585,8 @@ async function createConvexPreviewDeployKey(args: {
   name: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexDeployKeyResult> {
-  // Cloudflare branch builds run `convex deploy --preview-create`, which
-  // requires a project-level preview deploy key instead of a dev deployment key.
+  // Cloudflare branch builds deploy Convex previews, which require a
+  // project-level preview deploy key instead of a dev deployment key.
   const { previewDeployKey } = await requestConvexManagementApi(
     args.convexToken,
     "POST",
