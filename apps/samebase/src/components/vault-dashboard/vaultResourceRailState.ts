@@ -114,6 +114,8 @@ export function buildVaultDashboardResourceRailState({
   buildAddAppRootHref,
   addAppRootOnClick,
   githubRepositoryUrl,
+  isRetryingInfrastructure,
+  retryInfrastructureOnClick,
   vault,
 }: {
   buildAddCloudflareWorkerHref?: (appRoot: string) => string;
@@ -123,6 +125,8 @@ export function buildVaultDashboardResourceRailState({
   buildAddAppRootHref?: () => string;
   addAppRootOnClick?: () => void;
   githubRepositoryUrl: string;
+  isRetryingInfrastructure?: boolean;
+  retryInfrastructureOnClick?: () => void;
   vault: VaultDashboardVault;
 }): VaultResourceRailState {
   const canConfigureMissingResources =
@@ -193,13 +197,22 @@ export function buildVaultDashboardResourceRailState({
     };
   }
 
+  function buildRetryInfrastructureAction(): VaultResourceRailAction {
+    return {
+      kind: "retry",
+      label: isRetryingInfrastructure ? "Retrying..." : "Retry",
+      disabled: isRetryingInfrastructure || !retryInfrastructureOnClick,
+      onClick: retryInfrastructureOnClick,
+    };
+  }
+
   const convexRowsByAppRoot = new Map<string, VaultResourceRailRowState<"convex">>();
   if (vault.sourceSetup.status === "failed" && sourceSetupProvider === "convex") {
     convexRowsByAppRoot.set(".", {
       provider: "convex",
       status: "failed",
       value: vault.ghRepoName,
-      actions: [{ kind: "retry", label: "Retry" }],
+      actions: [buildRetryInfrastructureAction()],
     });
   } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "convex") {
     convexRowsByAppRoot.set(".", {
@@ -220,9 +233,10 @@ export function buildVaultDashboardResourceRailState({
       status: "failed",
       value: rootConvexDeployment?.projectSlug ?? vault.ghRepoName,
       scope: normalizeResourceScope(rootConvexDeployment?.teamSlug),
-      actions: canConfigureRootAppRoot
-        ? [buildAddConvexAction(".")]
-        : [{ kind: "retry", label: "Retry" }],
+      actions:
+        vault.providerSetup.source === "manual" && canConfigureRootAppRoot
+          ? [buildAddConvexAction(".")]
+          : [buildRetryInfrastructureAction()],
     });
   } else if (
     vault.providerSetup.status === "running" &&
@@ -262,7 +276,7 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "failed",
       value: vault.ghRepoName,
-      actions: [{ kind: "retry", label: "Retry" }],
+      actions: [buildRetryInfrastructureAction()],
     });
   } else if (vault.sourceSetup.status === "running" && sourceSetupProvider === "cloudflare") {
     cloudflareRowsByAppRoot.set(".", {
@@ -279,9 +293,10 @@ export function buildVaultDashboardResourceRailState({
       provider: "cloudflare",
       status: "failed",
       value: vault.ghRepoName,
-      actions: canConfigureRootAppRoot
-        ? [buildAddCloudflareWorkerAction(".")]
-        : [{ kind: "retry", label: "Retry" }],
+      actions:
+        vault.providerSetup.source === "manual" && canConfigureRootAppRoot
+          ? [buildAddCloudflareWorkerAction(".")]
+          : [buildRetryInfrastructureAction()],
     });
   } else if (
     vault.providerSetup.status === "running" &&

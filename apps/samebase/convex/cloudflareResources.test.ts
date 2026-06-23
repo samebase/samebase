@@ -5,6 +5,7 @@ import {
   buildCloudflareWorkersEnvVars,
   CloudflareApiError,
   ensureCloudflareResources,
+  isCloudflareGitHubAppRepositoryAuthorizationError,
   isCloudflareMcpInvalidAccessTokenError,
   isWorkersBuildsInvalidTokenMessage,
   readCloudflareWorkerTag,
@@ -128,6 +129,154 @@ describe("cloudflare resources", () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  it("recognizes Cloudflare GitHub App repository authorization failures", () => {
+    expect(
+      isCloudflareGitHubAppRepositoryAuthorizationError(
+        new CloudflareApiError({
+          method: "PUT",
+          path: "/accounts/account-id/builds/repos/connections",
+          details: [
+            {
+              code: "8000008",
+              message: "This project is disconnected from your Git account.",
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isCloudflareGitHubAppRepositoryAuthorizationError(
+        new CloudflareApiError({
+          method: "PUT",
+          path: "/accounts/account-id/builds/repos/connections",
+          details: [{ code: "10000", message: "Authentication error" }],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("surfaces Cloudflare GitHub App authorization failures from repository connection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const endpoint = new URL(url).pathname;
+        switch (endpoint) {
+          case "/client/v4/accounts/account-id/workers/workers/samebase-app":
+            return new Response(
+              JSON.stringify({
+                success: true,
+                errors: [],
+                messages: [],
+                result: {
+                  created_on: "2026-06-22T00:00:00Z",
+                  id: "worker-tag",
+                  logpush: false,
+                  name: "samebase-app",
+                  observability: {
+                    enabled: false,
+                    head_sampling_rate: 1,
+                  },
+                  references: {
+                    dispatch_namespace_outbounds: [],
+                    domains: [],
+                    durable_objects: [],
+                    queues: [],
+                    workers: [],
+                  },
+                  subdomain: {
+                    enabled: false,
+                  },
+                  tags: [],
+                  tail_consumers: [],
+                  updated_on: "2026-06-22T00:00:00Z",
+                },
+              }),
+              {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+          case "/client/v4/accounts/account-id/workers/scripts/samebase-app/subdomain":
+            return new Response(
+              JSON.stringify({
+                success: true,
+                errors: [],
+                messages: [],
+                result: { enabled: false },
+              }),
+              {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+          case "/client/v4/accounts/account-id/builds/repos/connections":
+            return new Response(
+              JSON.stringify({
+                success: false,
+                errors: [
+                  {
+                    code: 8000008,
+                    message: "This project is disconnected from your Git account.",
+                  },
+                ],
+                messages: [],
+                result: null,
+              }),
+              {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+        }
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [{ code: 1000, message: `Unexpected endpoint ${endpoint}` }],
+          }),
+          { status: 404 },
+        );
+      }),
+    );
+
+    await expect(
+      ensureCloudflareResources({
+        owner: "ada",
+        repo: "samebase-app",
+        ghRepoId: "123",
+        ghRepoOwnerId: "456",
+        defaultBranch: "main",
+        vaultId: "vault-id",
+        workerName: "samebase-app",
+        cloudflareToken: "oauth-token",
+        cloudflareAuthMethod: "oauth",
+        accountId: "account-id",
+        buildConfig: {
+          rootDir: ".",
+          buildCommand: "pnpm build",
+          deployCommand: "pnpm deploy",
+          previewDeployCommand: "pnpm deploy:preview",
+          pathIncludes: ["**/*"],
+          pathExcludes: [],
+        },
+        existingWorker: { state: "created", workerTag: "worker-tag" },
+        convex: {
+          production: {
+            cloudUrl: "https://prod.convex.cloud",
+            deployKey: "prod-key",
+          },
+          preview: {
+            cloudUrl: "https://preview.convex.cloud",
+            deployKey: "preview-key",
+          },
+        },
+        onWorkerResolved: async () => {},
+      }),
+    ).rejects.toThrow(
+      "Cloudflare Workers and Pages GitHub App is not authorized for ada/samebase-app. In GitHub, install or configure Cloudflare Workers and Pages for ada/samebase-app, then retry.",
+    );
   });
 
   it("selects the only Cloudflare account exposed to OAuth", () => {

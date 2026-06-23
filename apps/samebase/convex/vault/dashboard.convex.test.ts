@@ -900,6 +900,7 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "running",
         provider: "cloudflare",
+        source: "managed",
         runId: ids.runId,
         step: "ensure_cloudflare",
         updatedAt: 30,
@@ -1011,6 +1012,7 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "running",
         provider: "cloudflare",
+        source: "managed",
         runId: ids.retryRunId,
         step: "ensure_cloudflare",
         updatedAt: 45,
@@ -1102,6 +1104,7 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "running",
         provider: "cloudflare",
+        source: "manual",
         runId: ids.cloudflareRunId,
         step: "ensure_cloudflare",
         updatedAt: 40,
@@ -1194,6 +1197,7 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "failed",
         provider: "convex",
+        source: "manual",
         runId: ids.convexRunId,
         step: "finish",
         updatedAt: 40,
@@ -1210,6 +1214,7 @@ describe("vault dashboard Convex contract", () => {
         expectedSetup: {
           status: "running",
           provider: "cloudflare",
+          source: "managed",
         },
       },
       {
@@ -1415,6 +1420,7 @@ describe("vault dashboard Convex contract", () => {
       providerSetup: {
         status: "running",
         provider: "convex",
+        source: "managed",
         runId: ids.runId,
         step: "sync_tree",
         updatedAt: 30,

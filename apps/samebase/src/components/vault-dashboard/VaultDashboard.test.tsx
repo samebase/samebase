@@ -442,6 +442,7 @@ describe("resolveVaultProviderSetupStatus", () => {
       resolveVaultProviderSetupStatus({
         status: "running",
         provider: "convex",
+        source: "managed",
         runId: fakeRunId(),
         step: "ensure_convex",
         updatedAt: 0,
@@ -457,6 +458,7 @@ describe("resolveVaultProviderSetupStatus", () => {
     const providerSetup = {
       status: "running",
       provider: "cloudflare",
+      source: "managed",
       runId: fakeRunId(),
       step: "ensure_convex_preview",
       updatedAt: 0,
@@ -477,6 +479,7 @@ describe("VaultProviderSetupSection", () => {
         providerSetup={{
           status: "running",
           provider: "convex",
+          source: "managed",
           runId: fakeRunId(),
           step: "ensure_convex",
           updatedAt: 0,
@@ -883,6 +886,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "running",
           provider: "convex",
+          source: "managed",
           runId: fakeRunId(),
           step: "ensure_convex",
           updatedAt: 30,
@@ -916,6 +920,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "running",
           provider: "cloudflare",
+          source: "manual",
           runId: fakeRunId(),
           step: "ensure_cloudflare",
           updatedAt: 30,
@@ -948,6 +953,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "failed",
           provider: "cloudflare",
+          source: "manual",
           runId: fakeRunId(),
           step: "ensure_cloudflare",
           message: "Cloudflare Worker connection failed.",
@@ -978,6 +984,50 @@ describe("buildVaultDashboardResourceRailState", () => {
     expect(markup).toContain('href="/home?add-cloudflare#demo"');
   });
 
+  it("lets failed managed Cloudflare setup retry infrastructure", () => {
+    const retryInfrastructure = vi.fn();
+    const state = buildVaultDashboardResourceRailState({
+      buildAddCloudflareWorkerHref: () => "/home?add-cloudflare#demo",
+      githubRepositoryUrl: "https://github.com/ada/demo",
+      retryInfrastructureOnClick: retryInfrastructure,
+      vault: makeResourceRailBuilderVault({
+        appRoots: [{ appRoot: "." }],
+        providerSetup: {
+          status: "failed",
+          provider: "cloudflare",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          message: "Cloudflare Workers and Pages GitHub App is not authorized.",
+          updatedAt: 30,
+        },
+      }),
+    });
+
+    const cloudflareRow = getResourceRailAppRow(state, ".", "cloudflare");
+    expect(cloudflareRow).toMatchObject({
+      provider: "cloudflare",
+      status: "failed",
+      value: "demo",
+    });
+    if (cloudflareRow.status !== "failed") {
+      throw new Error("Expected failed Cloudflare row.");
+    }
+    const [action] = cloudflareRow.actions;
+    expect(action).toMatchObject({
+      kind: "retry",
+      label: "Retry",
+      disabled: false,
+    });
+    expect(action.href).toBeUndefined();
+    action.onClick?.();
+    expect(retryInfrastructure).toHaveBeenCalledOnce();
+
+    const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
+    expect(markup).toContain("Retry");
+    expect(markup).not.toContain("?add-cloudflare");
+  });
+
   it("lets failed manual Convex setup reopen the deployment dialog", () => {
     const state = buildVaultDashboardResourceRailState({
       buildAddConvexHref: () => "/home?add-convex#demo",
@@ -987,6 +1037,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "failed",
           provider: "convex",
+          source: "manual",
           runId: fakeRunId(),
           step: "ensure_convex",
           message: "Convex deployment connection failed.",
@@ -1085,6 +1136,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         providerSetup: {
           status: "running",
           provider: "cloudflare",
+          source: "managed",
           runId: fakeRunId(),
           step: "ensure_convex_preview",
           updatedAt: 30,

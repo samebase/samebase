@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-05-08
+- Last updated: 2026-06-23
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
@@ -35,9 +35,9 @@ partially fails.
   auto-provision infra.
 - Existing GitHub vaults can attach or create Convex resources later through the manual Convex
   deployment connection flow in `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`.
-- `api.vault.actions.retryInfrastructureProvisioning` still exists as a backend action, but the
-  dashboard no longer exposes `Provision infra` or `Retry infra` as the normal Samebase-managed
-  create-app path. Manual provider retry UI belongs to a later vault-first phase.
+- `api.vault.actions.retryInfrastructureProvisioning` backs retry for failed Samebase-managed
+  provider setup. Manual provider setup failures still reopen the matching provider connection
+  dialog instead of running the managed infrastructure retry.
 
 ## Source of Truth Files
 
@@ -188,6 +188,10 @@ In `VaultDashboard`:
 - Production URL when available
 - Infra setup progress/log surface while Samebase-managed infra is preparing, provisioning, failed,
   or partially complete
+- Failed Samebase-managed Convex or Cloudflare setup shows a `Retry` action that calls
+  `api.vault.actions.retryInfrastructureProvisioning`.
+- Failed manual Convex or Cloudflare setup reopens the matching `?add-convex` or `?add-cloudflare`
+  provider dialog for the app root.
 
 Dashboard external links:
 
@@ -219,6 +223,8 @@ Dashboard external links:
 - Workers Builds repository connection uses the connected vault's stored GitHub repo id and a
   required owner id read from the GitHub repository response. The response repo id must match the
   vault before Cloudflare receives the connection request.
+- If Workers Builds repository connection returns Cloudflare error code `8000008`, surface this as:
+  `Cloudflare Workers and Pages GitHub App is not authorized for <owner>/<repo>. In GitHub, install or configure Cloudflare Workers and Pages for <owner>/<repo>, then retry.`
 - Provisioning is idempotent/resumable and does not auto-teardown resources on vault deletion unless
   explicitly requested.
 
@@ -233,6 +239,8 @@ Dashboard external links:
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
 - [x] Existing-repo connect flow does not auto-provision infra.
 - [x] Retry path exists and is guarded to samebase-managed vaults.
+- [x] Failed Samebase-managed provider setup rows expose the guarded retry path, while failed manual
+      provider setup rows reopen the manual provider dialog.
 - [x] Infra status + URL are visible in dashboard query/UI surfaces.
 - [x] Managed vault dashboard cards expose direct Cloudflare project and Convex deployment links
       when the stored infrastructure metadata is available.
