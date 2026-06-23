@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+const callCloudflareMcpToolMock = vi.hoisted(() => vi.fn());
+
+vi.mock("./cloudflareMcp", () => ({
+  callCloudflareMcpTool: callCloudflareMcpToolMock,
+}));
+
 import {
   buildCloudflareWorkerCreateBody,
   buildCloudflareWorkersEnvVars,
@@ -17,7 +23,48 @@ import {
   selectSingleCloudflareDefaultAccount,
 } from "./cloudflareAccountDiscovery";
 
+const cloudflareGitHubAppDisconnectedApiMessage =
+  "This project is disconnected from your Git account, this may cause deployments to fail. Refer to https://developers.cloudflare.com/pages/platform/git-integration/#this-project-is-disconnected-from-your-git-account-this-may-cause-deployments-to-fail";
+const cloudflareMcpGitHubAppDisconnectedErrorMessage = `Cloudflare MCP tool call failed: Error: Cloudflare API error: 8000008: ${cloudflareGitHubAppDisconnectedApiMessage}`;
+const cloudflareGitHubAppDisconnectedUserMessage =
+  "Cloudflare Workers and Pages GitHub App is not authorized for ada/samebase-app. In GitHub, install or configure Cloudflare Workers and Pages for ada/samebase-app, then retry.";
+const cloudflareWorkerReadEnvelope = JSON.stringify({
+  success: true,
+  errors: [],
+  messages: [],
+  result: {
+    created_on: "2026-06-22T00:00:00Z",
+    id: "worker-tag",
+    logpush: false,
+    name: "samebase-app",
+    observability: {
+      enabled: false,
+      head_sampling_rate: 1,
+    },
+    references: {
+      dispatch_namespace_outbounds: [],
+      domains: [],
+      durable_objects: [],
+      queues: [],
+      workers: [],
+    },
+    subdomain: {
+      enabled: false,
+    },
+    tags: [],
+    tail_consumers: [],
+    updated_on: "2026-06-22T00:00:00Z",
+  },
+});
+const cloudflareWorkerSubdomainDisabledEnvelope = JSON.stringify({
+  success: true,
+  errors: [],
+  messages: [],
+  result: { enabled: false },
+});
+
 afterEach(() => {
+  callCloudflareMcpToolMock.mockReset();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -140,7 +187,7 @@ describe("cloudflare resources", () => {
           details: [
             {
               code: "8000008",
-              message: "This project is disconnected from your Git account.",
+              message: cloudflareGitHubAppDisconnectedApiMessage,
             },
           ],
         }),
@@ -157,9 +204,7 @@ describe("cloudflare resources", () => {
     ).toBe(false);
     expect(
       isCloudflareGitHubAppRepositoryAuthorizationError(
-        new Error(
-          "Cloudflare MCP tool call failed: Error: Cloudflare API error: 8000008: This project is disconnected from your Git account, this may cause deployments to fail.",
-        ),
+        new Error(cloudflareMcpGitHubAppDisconnectedErrorMessage),
       ),
     ).toBe(true);
   });
@@ -172,53 +217,15 @@ describe("cloudflare resources", () => {
         const endpoint = new URL(url).pathname;
         switch (endpoint) {
           case "/client/v4/accounts/account-id/workers/workers/samebase-app":
-            return new Response(
-              JSON.stringify({
-                success: true,
-                errors: [],
-                messages: [],
-                result: {
-                  created_on: "2026-06-22T00:00:00Z",
-                  id: "worker-tag",
-                  logpush: false,
-                  name: "samebase-app",
-                  observability: {
-                    enabled: false,
-                    head_sampling_rate: 1,
-                  },
-                  references: {
-                    dispatch_namespace_outbounds: [],
-                    domains: [],
-                    durable_objects: [],
-                    queues: [],
-                    workers: [],
-                  },
-                  subdomain: {
-                    enabled: false,
-                  },
-                  tags: [],
-                  tail_consumers: [],
-                  updated_on: "2026-06-22T00:00:00Z",
-                },
-              }),
-              {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-              },
-            );
+            return new Response(cloudflareWorkerReadEnvelope, {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
           case "/client/v4/accounts/account-id/workers/scripts/samebase-app/subdomain":
-            return new Response(
-              JSON.stringify({
-                success: true,
-                errors: [],
-                messages: [],
-                result: { enabled: false },
-              }),
-              {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-              },
-            );
+            return new Response(cloudflareWorkerSubdomainDisabledEnvelope, {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
           case "/client/v4/accounts/account-id/builds/repos/connections":
             return new Response(
               JSON.stringify({
@@ -226,7 +233,7 @@ describe("cloudflare resources", () => {
                 errors: [
                   {
                     code: 8000008,
-                    message: "This project is disconnected from your Git account.",
+                    message: cloudflareGitHubAppDisconnectedApiMessage,
                   },
                 ],
                 messages: [],
@@ -281,9 +288,50 @@ describe("cloudflare resources", () => {
         },
         onWorkerResolved: async () => {},
       }),
-    ).rejects.toThrow(
-      "Cloudflare Workers and Pages GitHub App is not authorized for ada/samebase-app. In GitHub, install or configure Cloudflare Workers and Pages for ada/samebase-app, then retry.",
-    );
+    ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
+  });
+
+  it("surfaces exact Cloudflare MCP GitHub App disconnected failures from repository connection", async () => {
+    callCloudflareMcpToolMock
+      .mockResolvedValueOnce(cloudflareWorkerReadEnvelope)
+      .mockResolvedValueOnce(cloudflareWorkerSubdomainDisabledEnvelope)
+      .mockRejectedValueOnce(new Error(cloudflareMcpGitHubAppDisconnectedErrorMessage));
+
+    await expect(
+      ensureCloudflareResources({
+        owner: "ada",
+        repo: "samebase-app",
+        ghRepoId: "123",
+        ghRepoOwnerId: "456",
+        defaultBranch: "main",
+        vaultId: "vault-id",
+        workerName: "samebase-app",
+        cloudflareToken: "api-key-token",
+        cloudflareAuthMethod: "api_key",
+        accountId: "account-id",
+        buildConfig: {
+          rootDir: ".",
+          buildCommand: "pnpm build",
+          deployCommand: "pnpm deploy",
+          previewDeployCommand: "pnpm deploy:preview",
+          pathIncludes: ["**/*"],
+          pathExcludes: [],
+        },
+        existingWorker: { state: "created", workerTag: "worker-tag" },
+        convex: {
+          production: {
+            cloudUrl: "https://prod.convex.cloud",
+            deployKey: "prod-key",
+          },
+          preview: {
+            cloudUrl: "https://preview.convex.cloud",
+            deployKey: "preview-key",
+          },
+        },
+        onWorkerResolved: async () => {},
+      }),
+    ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
+    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(3);
   });
 
   it("selects the only Cloudflare account exposed to OAuth", () => {
