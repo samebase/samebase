@@ -1447,6 +1447,7 @@ export const trackedFilePaths = [
   "rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md",
   "rfcs/086_ROUTE_SEARCH_SCHEMA_NAMING_AND_ACCEPTED_KEYS_PLAN.md",
   "rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md",
+  "rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md",
   "rfcs/README.md",
   "rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png",
   "rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png",
