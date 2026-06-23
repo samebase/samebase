@@ -119,9 +119,9 @@ Rules:
 
 ## PR Timing
 
-- Do not leave a meaningful non-`main` work branch with implementation, docs, or research work
-  without a GitHub PR. Before the agent concludes the task, create or update the branch PR unless
-  the user explicitly says not to open one.
+- For implementation, docs, or research work on a meaningful non-`main` branch, do not send the
+  final response until reviewable changes are committed, pushed, and attached to a ready GitHub PR
+  unless the user explicitly says not to open one or asks for a draft.
 - Default proactive PR state is ready/non-draft so the branch is preserved in GitHub. Use a draft PR
   only when the work is still in progress or the user explicitly asks to keep it draft.
 - If GitHub requires a diff before that first proactive PR, create a minimal checkpoint commit after
