@@ -56,11 +56,27 @@ function VisualFixtureRouteComponent() {
   return <VisualFixturePage mode={mode} />;
 }
 
+function VisualFixturePendingComponent() {
+  return (
+    <div
+      data-testid="visual-fixture-pending"
+      style={{
+        background: "#f5f5f4",
+        inset: 0,
+        minHeight: "100dvh",
+        position: "fixed",
+      }}
+    />
+  );
+}
+
 export const Route = createFileRoute("/visual-fixture")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     ...visualFixtureRouteSearchStaticData,
   },
   component: VisualFixtureRouteComponent,
+  pendingComponent: VisualFixturePendingComponent,
+  pendingMs: 0,
   validateSearch: validateVisualFixtureRouteSearch,
 });

@@ -36,6 +36,7 @@ type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
 type AppWorkspaceRouteChromeConfig = {
   dataTestId?: string;
   headerAccessory?: ReactNode;
+  headerVisible?: boolean;
   left?: AppWorkspaceRouteChromePane;
   leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
@@ -70,6 +71,14 @@ type AppWorkspaceRouteChromeContextValue = {
 const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
+const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
+const VISUAL_FIXTURE_ROUTE_CHROME = {
+  dataTestId: "visual-fixture-shell",
+  headerVisible: false,
+  left: null,
+  leftToggleVisibility: "hidden",
+  right: null,
+} satisfies AppWorkspaceRouteChromeConfig;
 
 const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: true,
@@ -164,6 +173,21 @@ function useAppWorkspaceRouteChrome(store: AppWorkspaceRouteChromeStore) {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }
 
+function useAppWorkspaceDefaultRouteChrome() {
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
+
+  if (pathname !== VISUAL_FIXTURE_PATHNAME) {
+    return null;
+  }
+
+  return {
+    ...VISUAL_FIXTURE_ROUTE_CHROME,
+    pathname,
+  } satisfies AppWorkspaceRouteChromeSnapshot;
+}
+
 const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
   children,
 }: {
@@ -230,7 +254,10 @@ function AppWorkspaceShellFrame({
   const sidebarState = useAppWorkspaceSidebarState();
   const appRightSidebarPane = useAppRightSidebarPane();
   const mainPane = {
-    header: <AppWorkspaceMainHeader accessory={chrome?.headerAccessory} />,
+    header:
+      chrome?.headerVisible === false ? undefined : (
+        <AppWorkspaceMainHeader accessory={chrome?.headerAccessory} />
+      ),
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies WorkspaceLayoutV2PaneFrameProps;
   const leftPane = chrome?.left === null ? undefined : (chrome?.left ?? {});
@@ -269,11 +296,16 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
     [chromeStore],
   );
   const chrome = useAppWorkspaceRouteChrome(chromeStore);
+  const defaultChrome = useAppWorkspaceDefaultRouteChrome();
+  const shellClassName =
+    defaultChrome?.pathname === VISUAL_FIXTURE_PATHNAME
+      ? "flex min-h-dvh flex-col bg-background text-foreground"
+      : "flex h-full min-h-0 flex-col bg-background text-foreground";
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
-      <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-        <AppWorkspaceShellFrame chrome={chrome}>{children}</AppWorkspaceShellFrame>
+      <div className={shellClassName}>
+        <AppWorkspaceShellFrame chrome={chrome ?? defaultChrome}>{children}</AppWorkspaceShellFrame>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
   );
@@ -283,6 +315,7 @@ export function AppWorkspaceRouteChrome({
   children,
   dataTestId,
   headerAccessory,
+  headerVisible,
   left,
   leftToggleVisibility,
   mobileMinResizeBehavior,
@@ -316,6 +349,7 @@ export function AppWorkspaceRouteChrome({
     () => ({
       dataTestId,
       headerAccessory,
+      headerVisible,
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,
@@ -327,6 +361,7 @@ export function AppWorkspaceRouteChrome({
     [
       dataTestId,
       headerAccessory,
+      headerVisible,
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,
