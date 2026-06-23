@@ -1,5 +1,5 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { useRouter } from "@tanstack/react-router";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect } from "react";
 import "@xyflow/react/dist/style.css";
 import { AppWorkspaceShell } from "@/components/AppWorkspaceShell";
@@ -54,6 +54,7 @@ function useDeferredPostHogInit() {
 
 function AppRouterRoot() {
   const { background, border, dark, light, primary, secondary } = useRootRouteSearch();
+  const pathname = useLocation({ select: (location) => location.pathname });
   const themeMode = readRootThemeMode({ dark, light });
   useDeferredPostHogInit();
 
@@ -67,13 +68,19 @@ function AppRouterRoot() {
     });
   }, [background, border, primary, secondary, themeMode]);
 
+  const routeContent = (
+    <RouteAvailabilityOutlet>
+      <RouteAccessOutlet />
+    </RouteAvailabilityOutlet>
+  );
+
+  if (pathname === "/visual-fixture") {
+    return <OptionalThemeProvider forcedTheme={themeMode}>{routeContent}</OptionalThemeProvider>;
+  }
+
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>
-      <AppWorkspaceShell>
-        <RouteAvailabilityOutlet>
-          <RouteAccessOutlet />
-        </RouteAvailabilityOutlet>
-      </AppWorkspaceShell>
+      <AppWorkspaceShell>{routeContent}</AppWorkspaceShell>
       <RouterGestureDebugOverlay />
     </OptionalThemeProvider>
   );
