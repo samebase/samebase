@@ -174,8 +174,6 @@ type VaultPullRequestCheckItem = {
 Indexes:
 
 1. `by_vault_and_branch_and_pr` on `["vaultId", "branchName", "pullRequestNumber"]`
-2. `by_vault_and_pr_and_head` on `["vaultId", "pullRequestNumber", "headCommitSha"]`
-3. `by_vault_and_syncedAt` on `["vaultId", "syncedAt"]` for pruning
 
 Add one compact optional summary to `vaultRemoteBranches`:
 

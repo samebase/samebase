@@ -495,10 +495,7 @@ export default defineSchema({
     completedAt: optional(number()),
     updatedAt: optional(number()),
     syncedAt: number(),
-  })
-    .index("by_vault_and_branch_and_pr", ["vaultId", "branchName", "pullRequestNumber"])
-    .index("by_vault_and_pr_and_head", ["vaultId", "pullRequestNumber", "headCommitSha"])
-    .index("by_vault_and_syncedAt", ["vaultId", "syncedAt"]),
+  }).index("by_vault_and_branch_and_pr", ["vaultId", "branchName", "pullRequestNumber"]),
 
   /**
    * Branch-scoped Git trees for each vault.

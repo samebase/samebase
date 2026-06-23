@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Accepted
+- Status: Superseded by `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
 - Owner: Vault dashboard + GitHub/Cloudflare integration
 - Last updated: 2026-04-30
 - Related specs:

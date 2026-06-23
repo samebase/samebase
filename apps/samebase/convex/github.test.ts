@@ -455,6 +455,18 @@ describe("shouldRefreshRepositoryMetadata", () => {
     ).toBe(false);
   });
 
+  it("keeps passive check snapshots on the repository metadata stale gate", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        intent: "passive",
+        branchNotFound: false,
+        includePullRequestCheckSnapshots: true,
+        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
+        now,
+      }),
+    ).toBe(false);
+  });
+
   it("refreshes repo-scoped source setup even when cached metadata is fresh", () => {
     expect(
       shouldRefreshRepositoryMetadata({

@@ -396,13 +396,10 @@ export function shouldRefreshRepositoryMetadata(args: {
     });
   }
 
-  return (
-    args.includePullRequestCheckSnapshots ||
-    isRepositoryMetadataStale({
-      lastRepositoryMetadataRefreshAt: args.lastRepositoryMetadataRefreshAt,
-      now: args.now,
-    })
-  );
+  return isRepositoryMetadataStale({
+    lastRepositoryMetadataRefreshAt: args.lastRepositoryMetadataRefreshAt,
+    now: args.now,
+  });
 }
 
 export function shouldRefreshBranchTree(args: {
@@ -1096,6 +1093,10 @@ async function syncPullRequestCheckSnapshotsByBranch(
             items: snapshot.items,
           });
         } catch (error: unknown) {
+          if (getErrorStatus(error) !== 404) {
+            throw error;
+          }
+
           console.warn(
             "syncPullRequestCheckSnapshot failed",
             JSON.stringify({

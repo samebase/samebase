@@ -201,7 +201,7 @@ describe("buildPullRequestStatusSummary", () => {
     ).toEqual({
       pullRequestNumber: 42,
       headCommitSha: "abc123",
-      state: "running",
+      state: "failure",
       totalCount: 3,
       checkRunCount: 2,
       statusContextCount: 1,

@@ -435,11 +435,11 @@ export function buildPullRequestStatusSummary(args: {
 
   const totalCount = args.items.length;
   const state = (() => {
-    if (runningCount > 0) {
-      return "running";
-    }
     if (failureCount > 0) {
       return "failure";
+    }
+    if (runningCount > 0) {
+      return "running";
     }
     if (unknownCount > 0) {
       return "unknown";
