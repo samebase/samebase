@@ -476,6 +476,7 @@ describe("VaultProviderSetupSection", () => {
   it("renders provider progress without the provisioning log", () => {
     const markup = renderToStaticMarkup(
       <VaultProviderSetupSection
+        repositoryFullName="ada/demo"
         providerSetup={{
           status: "running",
           provider: "convex",
@@ -491,6 +492,32 @@ describe("VaultProviderSetupSection", () => {
     expect(markup).not.toContain("Provisioning log");
     expect(markup).not.toContain("Provision infra");
     expect(markup).not.toContain("Retry infra");
+  });
+
+  it("renders a short Cloudflare GitHub App authorization recovery message", () => {
+    const markup = renderToStaticMarkup(
+      <VaultProviderSetupSection
+        repositoryFullName="ada/tmp-myapp1234"
+        providerSetup={{
+          status: "failed",
+          provider: "cloudflare",
+          source: "managed",
+          runId: fakeRunId(),
+          step: "ensure_cloudflare",
+          message:
+            "Cloudflare Workers and Pages GitHub App is not authorized for ada/tmp-myapp1234. In GitHub, install or configure Cloudflare Workers and Pages for ada/tmp-myapp1234, then retry.",
+          updatedAt: 0,
+        }}
+      />,
+    );
+
+    expect(markup).toContain("Cloudflare cannot access this GitHub repo.");
+    expect(markup).toContain("Install, configure, or unsuspend");
+    expect(markup).toContain("Cloudflare Workers and Pages");
+    expect(markup).toContain("Open repository GitHub Apps");
+    expect(markup).toContain("https://github.com/apps/cloudflare-workers-and-pages");
+    expect(markup).toContain("https://github.com/ada/tmp-myapp1234/settings/installations");
+    expect(markup).not.toContain("Last failure:");
   });
 });
 

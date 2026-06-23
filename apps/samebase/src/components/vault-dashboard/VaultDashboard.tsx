@@ -83,7 +83,10 @@ import {
   resolveVaultProviderSetupStatus,
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
-import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
+import {
+  buildGitHubBranchTreeUrl,
+  buildGitHubRepositoryAppInstallationsUrl,
+} from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
@@ -2259,6 +2262,55 @@ export function VaultSourceSetupSection({
 
 type VaultSetupProgressSectionStatus = "failed" | "running";
 
+const CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL =
+  "https://github.com/apps/cloudflare-workers-and-pages";
+const CLOUDFLARE_GITHUB_APP_AUTHORIZATION_FAILURE_MESSAGE =
+  "Cloudflare Workers and Pages GitHub App is not authorized";
+
+function isCloudflareGitHubAppAuthorizationFailure(
+  providerSetup: Extract<VaultDashboardProviderSetup, { status: "failed" | "running" }>,
+): boolean {
+  return (
+    providerSetup.status === "failed" &&
+    providerSetup.provider === "cloudflare" &&
+    providerSetup.message.includes(CLOUDFLARE_GITHUB_APP_AUTHORIZATION_FAILURE_MESSAGE)
+  );
+}
+
+function VaultCloudflareGitHubAppAuthorizationFailure({
+  repositoryFullName,
+}: {
+  repositoryFullName: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-destructive">Cloudflare cannot access this GitHub repo.</div>
+      <div className="text-muted-foreground">
+        Install, configure, or unsuspend{" "}
+        <a
+          href={CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={linkStyle}
+        >
+          Cloudflare Workers and Pages
+        </a>
+        , then retry.
+      </div>
+      <div className="text-muted-foreground">
+        <a
+          href={buildGitHubRepositoryAppInstallationsUrl({ repositoryFullName })}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={linkStyle}
+        >
+          Open repository GitHub Apps
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export function VaultSetupProgressSection({
   children,
   label,
@@ -2267,7 +2319,7 @@ export function VaultSetupProgressSection({
 }: {
   children?: ReactNode;
   label: string;
-  message?: string;
+  message?: ReactNode;
   status: VaultSetupProgressSectionStatus;
 }) {
   return (
@@ -2287,8 +2339,10 @@ export function VaultSetupProgressSection({
 
 export function VaultProviderSetupSection({
   providerSetup,
+  repositoryFullName,
 }: {
   providerSetup: Extract<VaultDashboardProviderSetup, { status: "failed" | "running" }>;
+  repositoryFullName: string;
 }) {
   const setupStatus = resolveVaultProviderSetupStatus(providerSetup);
   if (!setupStatus) {
@@ -2296,9 +2350,13 @@ export function VaultProviderSetupSection({
   }
   const stepLabel = formatVaultSourceSetupStep(providerSetup.step);
   const failureMessage =
-    setupStatus.status === "failed" && providerSetup.status === "failed"
-      ? `${setupStatus.message} Last failure: ${stepLabel}: ${providerSetup.message}`
-      : undefined;
+    setupStatus.status === "failed" && providerSetup.status === "failed" ? (
+      isCloudflareGitHubAppAuthorizationFailure(providerSetup) ? (
+        <VaultCloudflareGitHubAppAuthorizationFailure repositoryFullName={repositoryFullName} />
+      ) : (
+        `${setupStatus.message} Last failure: ${stepLabel}: ${providerSetup.message}`
+      )
+    ) : undefined;
 
   return (
     <VaultSetupProgressSection
@@ -3020,7 +3078,10 @@ export function VaultDashboardBody({
           : null;
         const providerSetupSection =
           providerSetupStatus && activeProviderSetup ? (
-            <VaultProviderSetupSection providerSetup={activeProviderSetup} />
+            <VaultProviderSetupSection
+              providerSetup={activeProviderSetup}
+              repositoryFullName={vault.repositoryFullName}
+            />
           ) : undefined;
         const deleteBlockedSection =
           !isDeletingVault &&
