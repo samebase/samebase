@@ -524,7 +524,7 @@ test("vault dashboard fixture (infra setup progress)", async ({ page }) => {
 });
 
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 520 });
+  await page.setViewportSize({ width: 390, height: 1100 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
@@ -533,12 +533,14 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
+  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
+  await expect(repositoryCard).toBeVisible();
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
-  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing.png", {
+  await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -552,8 +554,6 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
@@ -572,6 +572,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
       name: "PR #321 Use the full dashboard main pane",
     }),
   ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "2 checks pending" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", {
@@ -612,7 +613,7 @@ test("vault dashboard mobile right sidebar keeps pane separator above sticky hea
 });
 
 test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
-  await page.setViewportSize({ width: 1200, height: 360 });
+  await page.setViewportSize({ width: 1200, height: 1100 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
@@ -621,12 +622,14 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
+  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
+  await expect(repositoryCard).toBeVisible();
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
   });
   await expect(resourceLinksTrigger).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
-  await expect(fixture).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
+  await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -640,8 +643,6 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   await expect(
     fixture.getByRole("link", { name: "Open Cloudflare: nicu/samebase-worker" }),
   ).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Cloudflare preview" })).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Preview deploy" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Production: calm-swan-123" })).toBeVisible();
   await expect(fixture.getByText("apps/domain-router").first()).toBeVisible();
   await expect(fixture.getByText("apps/samebase").first()).toBeVisible();
@@ -660,6 +661,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
       name: "PR #321 Use the full dashboard main pane",
     }),
   ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "2 checks pending" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Edit" }).first()).toBeVisible();
   await expect(
     fixture.getByRole("link", {

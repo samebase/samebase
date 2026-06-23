@@ -20,10 +20,6 @@ export interface VaultRemoteBranchListItem {
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
   pullRequestIsDraft?: boolean;
-  cloudflareBranchPreviewUrl?: string;
-  cloudflarePreviewPullRequestNumber?: number;
-  cloudflarePreviewLogsUrl?: string;
-  cloudflarePreviewStatus?: string;
   pullRequestStatusSummary?: {
     pullRequestNumber: number;
     headCommitSha: string;
@@ -40,7 +36,6 @@ export interface VaultRemoteBranchListItem {
     primaryLogUrl?: string;
     syncedAt: number;
   };
-  convexPreviewDeploymentDashboardUrl?: string;
 }
 
 export function buildVaultBranchSectionState({

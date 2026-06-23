@@ -208,12 +208,8 @@ Dashboard external links:
 - The production Convex link targets the deployment dashboard from the connected team slug, managed
   project slug, and deployment name:
   `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
-- Non-default branch rows with a current Cloudflare branch preview render a `Preview deploy` Convex
-  link for the matching preview deployment reference:
-  `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/preview/<branchName>`.
 - Service links are mobile-friendly text links with service icons. Labels should stay concise; the
-  default-branch Convex deployment link uses `Production deploy`, and branch preview Convex
-  deployment links use `Preview deploy`.
+  default-branch Convex deployment link uses `Production: <deploymentName>`.
 
 ## MVP Notes
 

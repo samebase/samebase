@@ -491,7 +491,7 @@ This target fixes:
 
 - dashboard auto metadata freshness
 - existing-repository connect branch-list display after setup
-- existing-repository connect Cloudflare preview-link display after setup
+- existing-repository connect PR check snapshot display after setup
 
 Do not:
 
@@ -519,8 +519,8 @@ Rules:
 - React does not compute dashboard metadata staleness or missing preview-link policy before sending
   demand
 - React does not choose ahead/behind, PR metadata, provider links, or target branches
-- React keeps Cloudflare preview-link rendering helpers, but not frontend hydration-target selection
-  helpers
+- React renders PR check snapshot summaries from Convex query data; it does not keep Cloudflare
+  preview-link rendering helpers or frontend hydration-target selection helpers
 - dashboard naming should say "refresh demand", not "tree refresh", unless it calls direct tree
   refresh code
 - file-view direct refresh keeps a branch-scoped debounce key; no branchless refresh bucket remains

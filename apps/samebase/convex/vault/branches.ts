@@ -22,20 +22,11 @@ import {
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-const cloudflarePreviewMetadataFields = {
-  cloudflareBranchPreviewUrl: optional(string()),
-  cloudflarePreviewPullRequestNumber: optional(number()),
-  cloudflarePreviewUrl: optional(string()),
-  cloudflarePreviewCommitSha: optional(string()),
-  cloudflarePreviewStatus: optional(string()),
-  cloudflarePreviewLogsUrl: optional(string()),
-  cloudflarePreviewCommentCreatedAt: optional(number()),
-} as const;
 
 /**
- * PR check snapshots are cached per PR head. Clear derived status and provider
- * links when the branch loses its current PR, moves to another PR, or points the
- * current PR at a different head SHA so stale status does not survive pushes.
+ * PR check snapshots are cached per PR head. Clear derived status when the
+ * branch loses its current PR, moves to another PR, or points the current PR at
+ * a different head SHA so stale status does not survive pushes.
  */
 export function shouldClearPullRequestStatusSnapshotForPullRequestSync(args: {
   incomingPullRequestState: "resolved" | "preserve";
@@ -43,7 +34,6 @@ export function shouldClearPullRequestStatusSnapshotForPullRequestSync(args: {
   incomingHeadCommitSha: string;
   existingPullRequestNumber?: number;
   existingStatusSummaryHeadCommitSha?: string;
-  existingPreviewCommitSha?: string;
 }): boolean {
   if (args.incomingPullRequestState !== "resolved") {
     return false;
@@ -58,10 +48,8 @@ export function shouldClearPullRequestStatusSnapshotForPullRequestSync(args: {
   }
 
   return (
-    (typeof args.existingStatusSummaryHeadCommitSha === "string" &&
-      args.existingStatusSummaryHeadCommitSha !== args.incomingHeadCommitSha) ||
-    (typeof args.existingPreviewCommitSha === "string" &&
-      args.existingPreviewCommitSha !== args.incomingHeadCommitSha)
+    typeof args.existingStatusSummaryHeadCommitSha === "string" &&
+    args.existingStatusSummaryHeadCommitSha !== args.incomingHeadCommitSha
   );
 }
 
@@ -292,7 +280,6 @@ export const getVaultRemoteBranches = query({
       remoteState: union(literal("active"), literal("deleted_upstream")),
       deletedUpstreamAt: optional(number()),
       lastSyncedAt: number(),
-      ...cloudflarePreviewMetadataFields,
       pullRequestStatusSummary: optional(vPullRequestStatusSummary),
     }),
   ),
@@ -323,13 +310,6 @@ export const getVaultRemoteBranches = query({
       remoteState: branch.remoteState,
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
-      cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-      cloudflarePreviewPullRequestNumber: branch.cloudflarePreviewPullRequestNumber,
-      cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
-      cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
-      cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
-      cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-      cloudflarePreviewCommentCreatedAt: branch.cloudflarePreviewCommentCreatedAt,
       pullRequestStatusSummary: branch.pullRequestStatusSummary,
     }));
   },
@@ -407,13 +387,6 @@ export const syncVaultRemoteBranches = internalMutation({
           pullRequestLabels?: PullRequestLabel[];
           pullRequestTitle?: string;
           pullRequestIsDraft?: boolean;
-          cloudflareBranchPreviewUrl?: string;
-          cloudflarePreviewPullRequestNumber?: number;
-          cloudflarePreviewUrl?: string;
-          cloudflarePreviewCommitSha?: string;
-          cloudflarePreviewStatus?: string;
-          cloudflarePreviewLogsUrl?: string;
-          cloudflarePreviewCommentCreatedAt?: number;
           pullRequestStatusSummary?: PullRequestStatusSummary;
           isDefault: boolean;
           isProtected: boolean;
@@ -456,17 +429,9 @@ export const syncVaultRemoteBranches = internalMutation({
               existingPullRequestNumber: existingBranch.pullRequestNumber,
               existingStatusSummaryHeadCommitSha:
                 existingBranch.pullRequestStatusSummary?.headCommitSha,
-              existingPreviewCommitSha: existingBranch.cloudflarePreviewCommitSha,
             })
           ) {
             patchData.pullRequestStatusSummary = undefined;
-            patchData.cloudflareBranchPreviewUrl = undefined;
-            patchData.cloudflarePreviewPullRequestNumber = undefined;
-            patchData.cloudflarePreviewUrl = undefined;
-            patchData.cloudflarePreviewCommitSha = undefined;
-            patchData.cloudflarePreviewStatus = undefined;
-            patchData.cloudflarePreviewLogsUrl = undefined;
-            patchData.cloudflarePreviewCommentCreatedAt = undefined;
             await deletePullRequestCheckItemsForBranch(ctx, {
               vaultId: args.vaultId,
               branchName: branch.name,
@@ -539,13 +504,6 @@ export const syncVaultRemoteBranches = internalMutation({
         remoteState: "deleted_upstream",
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
-        cloudflareBranchPreviewUrl: undefined,
-        cloudflarePreviewPullRequestNumber: undefined,
-        cloudflarePreviewUrl: undefined,
-        cloudflarePreviewCommitSha: undefined,
-        cloudflarePreviewStatus: undefined,
-        cloudflarePreviewLogsUrl: undefined,
-        cloudflarePreviewCommentCreatedAt: undefined,
         pullRequestStatusSummary: undefined,
       });
       await deletePullRequestCheckItemsForBranch(ctx, {

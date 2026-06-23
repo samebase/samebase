@@ -58,18 +58,6 @@ export type GitHubCommitStatusSnapshotInput = {
   updatedAt?: string;
 };
 
-export type PullRequestCheckPreviewProjection = {
-  branchPreviewUrl?: string;
-  previewUrl?: string;
-  previewStatus?: string;
-  previewLogsUrl?: string;
-  previewUpdatedAt?: number;
-};
-
-type PullRequestCheckSnapshotCandidate = PullRequestCheckPreviewProjection & {
-  sourceKey: string;
-};
-
 function parseGitTimestamp(value: string | undefined): number | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -336,60 +324,6 @@ function selectPrimaryLogUrl(items: PullRequestCheckItemInput[]): string | undef
   return item?.logUrl ?? item?.detailsUrl ?? item?.targetUrl;
 }
 
-function readCheckPreviewCandidateTimestamp(candidate: PullRequestCheckSnapshotCandidate): number {
-  return candidate.previewUpdatedAt ?? 0;
-}
-
-function isPreferredPreviewCandidate(
-  candidate: PullRequestCheckSnapshotCandidate,
-  selected: PullRequestCheckSnapshotCandidate,
-): boolean {
-  const candidateTimestamp = readCheckPreviewCandidateTimestamp(candidate);
-  const selectedTimestamp = readCheckPreviewCandidateTimestamp(selected);
-  if (candidateTimestamp !== selectedTimestamp) {
-    return candidateTimestamp > selectedTimestamp;
-  }
-
-  return candidate.sourceKey.localeCompare(selected.sourceKey) > 0;
-}
-
-export function selectPullRequestCheckPreviewProjection(
-  items: PullRequestCheckItemInput[],
-): PullRequestCheckPreviewProjection | null {
-  let selected: PullRequestCheckSnapshotCandidate | null = null;
-
-  for (const item of items) {
-    if (!item.previewStatus && !item.previewUrl && !item.previewAliasUrl && !item.logUrl) {
-      continue;
-    }
-
-    const candidate: PullRequestCheckSnapshotCandidate = {
-      sourceKey: item.sourceKey,
-      branchPreviewUrl: item.previewAliasUrl,
-      previewUrl: item.previewUrl,
-      previewStatus: item.previewStatus,
-      previewLogsUrl: item.logUrl ?? item.detailsUrl ?? item.targetUrl,
-      previewUpdatedAt: item.completedAt ?? item.startedAt ?? item.updatedAt,
-    };
-
-    if (!selected || isPreferredPreviewCandidate(candidate, selected)) {
-      selected = candidate;
-    }
-  }
-
-  if (!selected) {
-    return null;
-  }
-
-  return {
-    branchPreviewUrl: selected.branchPreviewUrl,
-    previewUrl: selected.previewUrl,
-    previewStatus: selected.previewStatus,
-    previewLogsUrl: selected.previewLogsUrl,
-    previewUpdatedAt: selected.previewUpdatedAt,
-  };
-}
-
 export function buildPullRequestStatusSummary(args: {
   pullRequestNumber: number;
   headCommitSha: string;
@@ -544,23 +478,9 @@ export const replacePullRequestCheckSnapshot = internalMutation({
     }
 
     const summary = buildPullRequestStatusSummary(args);
-    const preview = selectPullRequestCheckPreviewProjection(args.items);
 
     await ctx.db.patch(branch._id, {
       pullRequestStatusSummary: summary,
-      cloudflareBranchPreviewUrl: preview?.branchPreviewUrl,
-      cloudflarePreviewPullRequestNumber:
-        preview && (preview.branchPreviewUrl || preview.previewUrl || preview.previewLogsUrl)
-          ? args.pullRequestNumber
-          : undefined,
-      cloudflarePreviewUrl: preview?.previewUrl,
-      cloudflarePreviewCommitSha:
-        preview && (preview.branchPreviewUrl || preview.previewUrl || preview.previewLogsUrl)
-          ? args.headCommitSha
-          : undefined,
-      cloudflarePreviewStatus: preview?.previewStatus,
-      cloudflarePreviewLogsUrl: preview?.previewLogsUrl,
-      cloudflarePreviewCommentCreatedAt: preview?.previewUpdatedAt,
     });
 
     return summary;

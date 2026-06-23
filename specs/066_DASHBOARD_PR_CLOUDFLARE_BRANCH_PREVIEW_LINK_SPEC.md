@@ -11,6 +11,13 @@
 - Related RFCs:
   - `rfcs/066_DASHBOARD_CLOUDFLARE_BRANCH_PREVIEW_LINKS_AND_THUMBNAILS.md`
 
+## Supersession Note
+
+This behavior is no longer current. The PR-comment parser and branch-level Cloudflare preview row
+were replaced by the GitHub check snapshot model in `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`.
+Runtime code no longer reads or writes the branch-level Cloudflare preview projection, and the old
+`vaultRemoteBranches` schema fields have been removed.
+
 ## Summary
 
 Show a Cloudflare branch preview link directly on each dashboard branch row when that branch has a

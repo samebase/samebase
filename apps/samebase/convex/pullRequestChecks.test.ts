@@ -5,7 +5,6 @@ import {
   normalizePullRequestCheckRun,
   normalizePullRequestCheckSnapshot,
   normalizePullRequestCommitStatus,
-  selectPullRequestCheckPreviewProjection,
 } from "./pullRequestChecks";
 
 const SUCCESSFUL_WORKERS_SUMMARY = `Preview URL: https://fc4977af-noter-worker.nicuchiciuc.workers.dev
@@ -120,44 +119,6 @@ describe("normalizePullRequestCommitStatus", () => {
       conclusion: "Deploy preview started",
       targetUrl: "https://app.netlify.com/sites/example/deploys/99",
       updatedAt: Date.parse("2026-06-23T10:03:00Z"),
-    });
-  });
-});
-
-describe("selectPullRequestCheckPreviewProjection", () => {
-  it("selects the newest preview-bearing check item from the snapshot", () => {
-    const items = normalizePullRequestCheckSnapshot({
-      checkRuns: [
-        {
-          id: 1,
-          name: "Workers Builds: samebase",
-          status: "completed",
-          conclusion: "success",
-          appSlug: "cloudflare-workers-and-pages",
-          detailsUrl: "https://dash.cloudflare.com/builds/success",
-          outputSummary: SUCCESSFUL_WORKERS_SUMMARY,
-          completedAt: "2026-06-23T10:00:00Z",
-        },
-        {
-          id: 2,
-          name: "Workers Builds: samebase",
-          status: "completed",
-          conclusion: "failure",
-          appSlug: "cloudflare-workers-and-pages",
-          detailsUrl: "https://dash.cloudflare.com/builds/failure",
-          outputSummary: "",
-          completedAt: "2026-06-23T11:00:00Z",
-        },
-      ],
-      statuses: [],
-    });
-
-    expect(selectPullRequestCheckPreviewProjection(items)).toEqual({
-      branchPreviewUrl: undefined,
-      previewUrl: undefined,
-      previewStatus: "Build failed",
-      previewLogsUrl: "https://dash.cloudflare.com/builds/failure",
-      previewUpdatedAt: Date.parse("2026-06-23T11:00:00Z"),
     });
   });
 });
