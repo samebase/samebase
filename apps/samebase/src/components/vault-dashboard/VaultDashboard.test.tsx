@@ -728,10 +728,15 @@ describe("VaultProviderSetupSection", () => {
     );
 
     expect(markup).toContain("Cloudflare cannot access this GitHub repo.");
+    expect(markup).toContain("Connect GitHub from Cloudflare first");
+    expect(markup).toContain("Workers &amp; Pages");
+    expect(markup).toContain("Create application");
+    expect(markup).toContain("Connect GitHub");
+    expect(markup).toContain("GitHub authorization");
     expect(markup).toContain("click Configure");
-    expect(markup).toContain("validate with GitHub if asked");
-    expect(markup).toContain("add ada/tmp-myapp1234");
-    expect(markup).toContain("Cloudflare Workers and Pages");
+    expect(markup).toContain("make sure ada/tmp-myapp1234 is selected");
+    expect(markup).toContain("Cloudflare Workers and Pages GitHub App");
+    expect(markup).toContain("https://dash.cloudflare.com/");
     expect(markup).toContain("https://github.com/apps/cloudflare-workers-and-pages");
     expect(markup).not.toContain("https://github.com/ada/tmp-myapp1234/settings/installations");
     expect(markup).not.toContain("Last failure:");
