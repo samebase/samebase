@@ -23,7 +23,6 @@ import {
   CircleDot,
   CircleX,
   GitBranch,
-  GitCommitHorizontal,
   Loader2,
 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
@@ -79,7 +78,6 @@ import {
   resolveVaultProviderSetupStatus,
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
-import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
@@ -88,7 +86,7 @@ import {
   type RootRouteSearch,
   useRootRouteSearch,
 } from "@/routeSearch/root";
-import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
+import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -99,8 +97,13 @@ import {
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 import {
   buildVaultBranchSectionState,
+  type VaultBranchCommitChecksSummary,
   type VaultRemoteBranchListItem,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
+import {
+  buildVaultBranchRowViewModel,
+  type VaultBranchCommitViewModel,
+} from "@/components/vault-dashboard/vaultDashboardBranchRowViewModel";
 import { toast } from "@/components/ui/use-toast";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
@@ -119,6 +122,17 @@ const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
 >[number];
+type VaultDashboardStagedBranchSummary = NonNullable<
+  (typeof api.fileStaging.listStagedFilesBranchSummaries)["_returnType"]
+>[number];
+type VaultDashboardStagedBranchSummariesByVaultId = Map<
+  string,
+  readonly VaultDashboardStagedBranchSummary[]
+>;
+export type VaultDashboardViewModel = {
+  vaults: VaultDashboardVault[];
+  stagedBranchSummariesByVaultId: VaultDashboardStagedBranchSummariesByVaultId;
+};
 
 type VaultDashboardLogoComponent = () => ReactNode;
 
@@ -624,15 +638,34 @@ const DashboardLinkIconSlot = ({
   </span>
 );
 
-type VaultPullRequestStatusSummary = NonNullable<
-  VaultRemoteBranchListItem["pullRequestStatusSummary"]
->;
-
 function formatChecksCount(count: number): string {
   return `${count} ${count === 1 ? "check" : "checks"}`;
 }
 
-function formatPullRequestChecksLabel(summary: VaultPullRequestStatusSummary): string {
+function formatCommitChecksCompactLabel(summary: VaultBranchCommitChecksSummary): string {
+  if (summary.totalCount === 0) {
+    return "No checks";
+  }
+
+  switch (summary.state) {
+    case "running":
+      return `${summary.runningCount} pending`;
+    case "failure":
+      return `${summary.failureCount} failed`;
+    case "success":
+      return `${summary.successCount + summary.neutralCount} passed`;
+    case "neutral":
+      return `${summary.neutralCount} neutral`;
+    case "unknown":
+      return `${summary.totalCount} unknown`;
+    default: {
+      summary.state satisfies never;
+      return `${summary.totalCount} unknown`;
+    }
+  }
+}
+
+function formatCommitChecksLabel(summary: VaultBranchCommitChecksSummary): string {
   if (summary.totalCount === 0) {
     return "No checks";
   }
@@ -643,9 +676,7 @@ function formatPullRequestChecksLabel(summary: VaultPullRequestStatusSummary): s
     case "failure":
       return `${formatChecksCount(summary.failureCount)} failed`;
     case "success":
-      return summary.totalCount === summary.successCount
-        ? "All checks passed"
-        : `${formatChecksCount(summary.successCount + summary.neutralCount)} passed`;
+      return `${formatChecksCount(summary.successCount + summary.neutralCount)} passed`;
     case "neutral":
       return `${formatChecksCount(summary.neutralCount)} neutral`;
     case "unknown":
@@ -657,7 +688,7 @@ function formatPullRequestChecksLabel(summary: VaultPullRequestStatusSummary): s
   }
 }
 
-function formatPullRequestChecksTitle(summary: VaultPullRequestStatusSummary): string {
+function formatCommitChecksTitle(summary: VaultBranchCommitChecksSummary): string {
   const parts = [
     `${formatChecksCount(summary.totalCount)} total`,
     `${summary.successCount} passed`,
@@ -671,7 +702,7 @@ function formatPullRequestChecksTitle(summary: VaultPullRequestStatusSummary): s
   return parts.join(" • ");
 }
 
-function getPullRequestChecksStateClassName(summary: VaultPullRequestStatusSummary): string {
+function getCommitChecksStateClassName(summary: VaultBranchCommitChecksSummary): string {
   switch (summary.state) {
     case "success":
       return "text-emerald-600 hover:text-emerald-700";
@@ -689,34 +720,27 @@ function getPullRequestChecksStateClassName(summary: VaultPullRequestStatusSumma
   }
 }
 
-function PullRequestChecksIcon({ summary }: { summary: VaultPullRequestStatusSummary }) {
+function CommitChecksIcon({ summary }: { summary: VaultBranchCommitChecksSummary }) {
+  if (summary.totalCount === 0) {
+    return <CircleDashed className="h-4 w-4" strokeWidth={2} />;
+  }
+
   switch (summary.state) {
     case "success":
-      return <CircleCheck className="h-5 w-5" strokeWidth={2} />;
+      return <CircleCheck className="h-4 w-4" strokeWidth={2} />;
     case "failure":
-      return <CircleX className="h-5 w-5" strokeWidth={2} />;
+      return <CircleX className="h-4 w-4" strokeWidth={2} />;
     case "running":
-      return <CircleDot className="h-5 w-5" strokeWidth={2} />;
+      return <CircleDot className="h-4 w-4" strokeWidth={2} />;
     case "neutral":
-      return <CircleDashed className="h-5 w-5" strokeWidth={2} />;
+      return <CircleDashed className="h-4 w-4" strokeWidth={2} />;
     case "unknown":
-      return <CircleAlert className="h-5 w-5" strokeWidth={2} />;
+      return <CircleAlert className="h-4 w-4" strokeWidth={2} />;
     default: {
       summary.state satisfies never;
-      return <CircleAlert className="h-5 w-5" strokeWidth={2} />;
+      return <CircleAlert className="h-4 w-4" strokeWidth={2} />;
     }
   }
-}
-
-function isCurrentPullRequestStatusSummary(args: {
-  branch: VaultRemoteBranchListItem;
-  summary: VaultPullRequestStatusSummary | undefined;
-}): boolean {
-  return (
-    args.summary !== undefined &&
-    args.summary.pullRequestNumber === args.branch.pullRequestNumber &&
-    args.summary.headCommitSha === args.branch.headCommitSha
-  );
 }
 
 export function VaultDashboardDeleteControl({
@@ -1572,6 +1596,9 @@ function formatAheadBehindCounts(
   if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
     return null;
   }
+  if (aheadBy === 0 && behindBy === 0) {
+    return null;
+  }
   return `↑${aheadBy} ↓${behindBy}`;
 }
 
@@ -1625,6 +1652,118 @@ function buildVaultDashboardBranchRoute(args: {
   });
 }
 
+function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewModel }) {
+  const checks = commit.checks;
+  if (!checks) {
+    return null;
+  }
+  const title = [commit.shortSha, commit.title, formatCommitChecksTitle(checks)]
+    .filter(Boolean)
+    .join(" • ");
+  return (
+    <a
+      href={checks.primaryTargetUrl ?? `${commit.url}/checks`}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-label={formatCommitChecksLabel(checks)}
+      className={clsx(
+        "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums transition-colors hover:underline",
+        getCommitChecksStateClassName(checks),
+      )}
+      title={title}
+    >
+      <CommitChecksIcon summary={checks} />
+      <span>{formatCommitChecksCompactLabel(checks)}</span>
+    </a>
+  );
+}
+
+function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel }) {
+  const label = commit.isHead ? `Head ${commit.shortSha}` : commit.shortSha;
+
+  return (
+    <a
+      href={commit.url}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={clsx(
+        "-mx-1 -my-0.5 inline-flex min-h-7 items-center rounded-sm px-1 py-0.5 font-mono text-sm tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+        linkStyle,
+      )}
+      title={commit.title ? `Open commit: ${commit.title}` : "Open commit"}
+    >
+      <span>{label}</span>
+    </a>
+  );
+}
+
+function VaultBranchCommitRow({
+  aheadBehindLabel,
+  commit,
+}: {
+  aheadBehindLabel: string | null;
+  commit: VaultBranchCommitViewModel;
+}) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <VaultBranchCommitLink commit={commit} />
+      {aheadBehindLabel ? (
+        <span className="font-mono text-sm tabular-nums" title="Ahead/behind versus default branch">
+          {aheadBehindLabel}
+        </span>
+      ) : null}
+      <CommitChecksSummaryLink commit={commit} />
+    </div>
+  );
+}
+
+function VaultBranchHiddenCommitCount({ count }: { count: number }) {
+  return (
+    <div
+      aria-label={`${count} more ahead commits not shown`}
+      className="font-mono text-sm tabular-nums text-muted-foreground"
+      title={`${count} more ahead commits not shown`}
+    >
+      +{count} more
+    </div>
+  );
+}
+
+function VaultBranchCommitStack({
+  aheadBehindLabel,
+  aheadBy,
+  commits,
+  isDefault,
+}: {
+  aheadBehindLabel: string | null;
+  aheadBy: number | undefined;
+  commits: readonly VaultBranchCommitViewModel[];
+  isDefault: boolean;
+}) {
+  const visibleCommits = commits.filter((commit) => commit.checks || commit.isHead);
+  if (visibleCommits.length === 0) {
+    return null;
+  }
+  const hiddenAheadCommitCount =
+    !isDefault && typeof aheadBy === "number" && aheadBy > visibleCommits.length
+      ? aheadBy - visibleCommits.length
+      : 0;
+
+  return (
+    <div className="space-y-1">
+      {visibleCommits.map((commit) => (
+        <VaultBranchCommitRow
+          key={commit.sha}
+          aheadBehindLabel={commit.isHead ? aheadBehindLabel : null}
+          commit={commit}
+        />
+      ))}
+      {hiddenAheadCommitCount > 0 ? (
+        <VaultBranchHiddenCommitCount count={hiddenAheadCommitCount} />
+      ) : null}
+    </div>
+  );
+}
 export function VaultDashboardRepositoryExternalLinks({
   links,
   repositoryFullName,
@@ -1676,27 +1815,16 @@ export function VaultBranchLinkContent({
   branch: VaultRemoteBranchListItem;
   productionApps?: readonly VaultBranchProductionApp[];
 }) {
-  const commitUrl = `https://github.com/${repositoryFullName}/commit/${branch.headCommitSha}`;
-  const branchGithubUrl = buildGitHubBranchTreeUrl({
+  const branchRow = buildVaultBranchRowViewModel({
+    branch,
     repositoryFullName,
-    branchName: branch.name,
   });
-  const aheadBehindLabel = formatAheadBehindCounts(branch.aheadBy, branch.behindBy);
-  const hasPullRequestTitle =
-    typeof branch.pullRequestTitle === "string" && branch.pullRequestTitle.length > 0;
-  const normalizedPullRequestLabels = normalizePullRequestLabels(branch.pullRequestLabels);
-  const hasPullRequestLink =
-    typeof branch.pullRequestUrl === "string" && branch.pullRequestUrl.length > 0;
-  const pullRequestLabel =
-    typeof branch.pullRequestNumber === "number"
-      ? `PR #${branch.pullRequestNumber}`
-      : "Pull request";
-  const hasConsolidatedPullRequestLink = hasPullRequestTitle && hasPullRequestLink;
-  const hasStandalonePullRequestLink = hasPullRequestLink && !hasConsolidatedPullRequestLink;
+  const pullRequest = branchRow.pullRequest;
+  const aheadBehindLabel = formatAheadBehindCounts(branchRow.aheadBy, branchRow.behindBy);
+  const normalizedPullRequestLabels = pullRequest?.labels ?? [];
+  const pullRequestLabel = pullRequest ? `PR #${pullRequest.number}` : "Pull request";
   const hasPullRequestMetadata =
-    hasStandalonePullRequestLink ||
-    branch.pullRequestIsDraft === true ||
-    normalizedPullRequestLabels.length > 0;
+    pullRequest?.isDraft === true || normalizedPullRequestLabels.length > 0;
   const metadataLinkClassName = clsx(
     "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
     "font-mono",
@@ -1704,33 +1832,26 @@ export function VaultBranchLinkContent({
   );
   const branchLabelClassName = clsx(
     "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base leading-6",
-    hasPullRequestTitle ? "font-mono text-muted-foreground" : "text-muted-foreground",
-    !hasPullRequestTitle && branch.isDefault && "font-medium text-foreground",
+    pullRequest ? "font-mono text-muted-foreground" : "text-muted-foreground",
+    !pullRequest && branchRow.isDefault && "font-medium text-foreground",
   );
   const branchRoute = buildVaultDashboardBranchRoute({
     repositoryFullName,
-    branchName: branch.name,
-    openChangedFiles: !branch.isDefault,
+    branchName: branchRow.name,
+    openChangedFiles: !branchRow.isDefault,
   });
-  const branchSamebaseLinkLabel = branch.isDefault ? "Edit" : "View changes";
-  const branchSamebaseLinkTitle = branch.isDefault
+  const branchSamebaseLinkLabel = branchRow.isDefault ? "Edit" : "View changes";
+  const branchSamebaseLinkTitle = branchRow.isDefault
     ? "Open branch in Samebase"
     : "View changes in Samebase";
-  const activeProductionApps = branch.isDefault ? productionApps : [];
-  const pullRequestStatusSummary = isCurrentPullRequestStatusSummary({
-    branch,
-    summary: branch.pullRequestStatusSummary,
-  })
-    ? branch.pullRequestStatusSummary
-    : undefined;
-  const pullRequestChecksHref = pullRequestStatusSummary?.primaryTargetUrl ?? `${commitUrl}/checks`;
+  const activeProductionApps = branchRow.isDefault ? productionApps : [];
 
   return (
     <>
-      {branch.remoteState === "deleted_upstream" ? (
+      {branchRow.remoteState === "deleted_upstream" ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="min-w-0 flex-1 break-words text-base leading-6 text-muted-foreground/70 line-through">
-            {branch.name}
+            {branchRow.name}
           </span>
           <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-xs uppercase tracking-wide text-muted-foreground/80">
             deleted upstream
@@ -1738,41 +1859,30 @@ export function VaultBranchLinkContent({
         </div>
       ) : (
         <div className="min-w-0 flex-1 space-y-1.5">
-          {hasPullRequestTitle ? (
-            hasPullRequestLink ? (
-              <a
-                href={branch.pullRequestUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className={clsx(
-                  "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-                  linkStyle,
-                )}
-                title="Open pull request"
-              >
-                <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={branch.pullRequestIsDraft === true} />
-                </DashboardLinkIconSlot>
-                <span className="min-w-0 break-words">
-                  {pullRequestLabel} {branch.pullRequestTitle}
-                </span>
-              </a>
-            ) : (
-              <div className="flex min-h-9 max-w-full items-start gap-1.5 text-base font-medium leading-6 text-foreground">
-                <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={branch.pullRequestIsDraft === true} />
-                </DashboardLinkIconSlot>
-                <span className="min-w-0 break-words">
-                  {pullRequestLabel} {branch.pullRequestTitle}
-                </span>
-              </div>
-            )
+          {pullRequest ? (
+            <a
+              href={pullRequest.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={clsx(
+                "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+                linkStyle,
+              )}
+              title="Open pull request"
+            >
+              <DashboardLinkIconSlot className="mt-1">
+                <PullRequestStateLogo isDraft={pullRequest.isDraft} />
+              </DashboardLinkIconSlot>
+              <span className="min-w-0 break-words">
+                {pullRequestLabel} {pullRequest.title}
+              </span>
+            </a>
           ) : null}
           {activeProductionApps.length > 0 ? (
             <VaultBranchProductionApps productionApps={activeProductionApps} />
           ) : null}
           <a
-            href={branchGithubUrl}
+            href={branchRow.githubUrl}
             target="_blank"
             rel="noreferrer noopener"
             className={clsx(
@@ -1781,53 +1891,23 @@ export function VaultBranchLinkContent({
               linkStyle,
             )}
             title="Open branch on GitHub"
-            aria-label={`Open ${branch.name} branch on GitHub`}
+            aria-label={`Open ${branchRow.name} branch on GitHub`}
           >
             <DashboardLinkIconSlot className="mt-1">
               <GitBranch aria-hidden="true" className="h-4 w-4" strokeWidth={1.75} />
             </DashboardLinkIconSlot>
-            <span className="min-w-0 break-words">{branch.name}</span>
+            <span className="min-w-0 break-words">{branchRow.name}</span>
           </a>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <a
-                href={commitUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className={clsx(metadataLinkClassName, "gap-1.5")}
-                title="View commit on GitHub"
-              >
-                <DashboardLinkIconSlot>
-                  <GitCommitHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
-                </DashboardLinkIconSlot>
-                <span>Last commit {branch.headCommitSha.slice(0, 7)}</span>
-              </a>
-              {aheadBehindLabel ? (
-                <span
-                  className="font-mono tabular-nums"
-                  title="Ahead/behind versus the default branch"
-                >
-                  {aheadBehindLabel}
-                </span>
-              ) : null}
-            </div>
+            <VaultBranchCommitStack
+              aheadBehindLabel={aheadBehindLabel}
+              aheadBy={branchRow.aheadBy}
+              commits={branchRow.commits}
+              isDefault={branchRow.isDefault}
+            />
             {hasPullRequestMetadata ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                {hasStandalonePullRequestLink ? (
-                  <a
-                    href={branch.pullRequestUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={clsx(metadataLinkClassName, "gap-1.5")}
-                    title="Open pull request"
-                  >
-                    <DashboardLinkIconSlot>
-                      <PullRequestStateLogo isDraft={branch.pullRequestIsDraft === true} />
-                    </DashboardLinkIconSlot>
-                    <span>{pullRequestLabel}</span>
-                  </a>
-                ) : null}
-                {branch.pullRequestIsDraft ? (
+                {pullRequest?.isDraft ? (
                   <Badge
                     variant="outline"
                     className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"
@@ -1848,26 +1928,6 @@ export function VaultBranchLinkContent({
                       </Badge>
                     ))
                   : null}
-              </div>
-            ) : null}
-            {pullRequestStatusSummary ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                <a
-                  href={pullRequestChecksHref}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx(
-                    metadataLinkClassName,
-                    "gap-1.5",
-                    getPullRequestChecksStateClassName(pullRequestStatusSummary),
-                  )}
-                  title={formatPullRequestChecksTitle(pullRequestStatusSummary)}
-                >
-                  <DashboardLinkIconSlot>
-                    <PullRequestChecksIcon summary={pullRequestStatusSummary} />
-                  </DashboardLinkIconSlot>
-                  <span>{formatPullRequestChecksLabel(pullRequestStatusSummary)}</span>
-                </a>
               </div>
             ) : null}
             {branchRoute ? (
@@ -1936,6 +1996,7 @@ interface VaultBranchListProps {
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
   productionApps?: readonly VaultBranchProductionApp[];
+  stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   expansion?: VaultBranchListExpansionProps;
 }
 
@@ -1978,12 +2039,9 @@ function VaultBranchList({
   repositoryFullName,
   remoteBranches,
   productionApps,
+  stagedSummaries,
   expansion,
 }: VaultBranchListProps) {
-  const stagedSummaries =
-    useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
-      vaultId,
-    }) ?? [];
   const summaryByBranch = new Map(
     stagedSummaries.map((summary) => [summary.branch, summary.counts]),
   );
@@ -2047,12 +2105,14 @@ function VaultBranchSection({
   filteredBranchCount,
   productionApps,
   repositoryFullName,
+  stagedSummaries,
   vaultId,
   visibleRemoteBranches,
 }: {
   filteredBranchCount: number;
   productionApps?: readonly VaultBranchProductionApp[];
   repositoryFullName: string;
+  stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   vaultId: Id<"vaults">;
   visibleRemoteBranches: VaultRemoteBranchListItem[];
 }) {
@@ -2064,6 +2124,7 @@ function VaultBranchSection({
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
           productionApps={productionApps}
+          stagedSummaries={stagedSummaries}
         />
       ) : null}
     </>
@@ -2342,12 +2403,13 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
   return <div className="text-xs text-muted-foreground">{reason}</div>;
 }
 
-type VaultDashboardBodyProps = {
+type VaultDashboardViewProps = {
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
   retryingInfrastructureVaultId: Id<"vaults"> | null;
   now: number;
+  viewModel: VaultDashboardViewModel;
   logoRouteSearch: LogoRouteSearch;
   replaceLogoRouteSearch: (nextSearch: LogoRouteSearch) => void;
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
@@ -2358,7 +2420,6 @@ type VaultDashboardBodyProps = {
   addCloudflareWorkerRepositoryFullName?: string;
   locationHash: string;
   rootRouteSearch: RootRouteSearch;
-  vaults: VaultDashboardVault[];
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
   onRetryInfrastructureProvisioning: (vaultId: Id<"vaults">) => void;
@@ -2626,12 +2687,13 @@ function resolveActiveVaultDashboardCardHashId({
   return closestVisibleHeader?.hashId ?? null;
 }
 
-export function VaultDashboardBody({
+export function VaultDashboardView({
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
   retryingInfrastructureVaultId,
   now,
+  viewModel,
   logoRouteSearch,
   replaceLogoRouteSearch,
   openDeveloperToolsByVaultId,
@@ -2642,15 +2704,15 @@ export function VaultDashboardBody({
   addCloudflareWorkerRepositoryFullName,
   locationHash,
   rootRouteSearch,
-  vaults,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   onSaveVaultBranchFilters,
   onResourceLinksOpenChange,
-}: VaultDashboardBodyProps) {
+}: VaultDashboardViewProps) {
   const navigate = useNavigate();
+  const { stagedBranchSummariesByVaultId, vaults } = viewModel;
   const [repositoryLocationHash, setRepositoryLocationHash] = useState(() => locationHash);
   const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
   const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
@@ -2980,6 +3042,7 @@ export function VaultDashboardBody({
           filters: vaultBranchFilters,
           remoteBranches,
         });
+        const stagedBranchSummaries = stagedBranchSummariesByVaultId.get(vault._id) ?? [];
         const activeSourceSetup =
           vault.sourceSetup.status === "failed" || vault.sourceSetup.status === "running"
             ? vault.sourceSetup
@@ -3132,6 +3195,7 @@ export function VaultDashboardBody({
                     repositoryFullName={vault.repositoryFullName}
                     visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
                     productionApps={productionApps}
+                    stagedSummaries={stagedBranchSummaries}
                   />
                 ) : undefined
               }
@@ -3201,6 +3265,31 @@ export function VaultDashboard() {
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
+  const vaultIds = useMemo(() => vaults?.map((vault) => vault._id) ?? null, [vaults]);
+  const stagedBranchSummariesByVault = useQuery(
+    api.fileStaging.listStagedFilesBranchSummariesByVault,
+    vaultIds ? { vaultIds } : "skip",
+  );
+  const stagedBranchSummariesByVaultId = useMemo(
+    () =>
+      new Map<string, readonly VaultDashboardStagedBranchSummary[]>(
+        (stagedBranchSummariesByVault ?? []).map((summary) => [
+          summary.vaultId,
+          summary.branchSummaries,
+        ]),
+      ),
+    [stagedBranchSummariesByVault],
+  );
+  const dashboardViewModel = useMemo(
+    () =>
+      vaults
+        ? {
+            vaults,
+            stagedBranchSummariesByVaultId,
+          }
+        : null,
+    [stagedBranchSummariesByVaultId, vaults],
+  );
   const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
   const retryDeleteVault = useAction(api.vault.actions.retryDeleteVault);
@@ -4139,7 +4228,7 @@ export function VaultDashboard() {
     });
   };
 
-  if (!vaults) {
+  if (!dashboardViewModel) {
     return null;
   }
 
@@ -4215,12 +4304,13 @@ export function VaultDashboard() {
   };
 
   const dashboardBody = (
-    <VaultDashboardBody
+    <VaultDashboardView
       developerToolsVisible={developerToolsVisible}
       isRemovingVault={isDeleting || isCommitting}
       retryingDeletionRunId={retryingDeletionRunId}
       retryingInfrastructureVaultId={retryingInfrastructureVaultId}
       now={now}
+      viewModel={dashboardViewModel}
       logoRouteSearch={rootRouteSearch}
       replaceLogoRouteSearch={(nextSearch) => {
         void navigate({
@@ -4239,7 +4329,6 @@ export function VaultDashboard() {
       addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}
       locationHash={location.hash}
       rootRouteSearch={rootRouteSearch}
-      vaults={vaults}
       onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
       onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
       onRetryInfrastructureProvisioning={(vaultId) => {

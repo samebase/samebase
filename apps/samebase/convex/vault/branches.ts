@@ -5,10 +5,11 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { mutation, query } from "../functions";
 import {
   vPullRequestLabel,
-  vPullRequestStatusSummary,
+  vVaultBranchCommitSummary,
   type PullRequestLabel,
   type PullRequestStatusSummary,
 } from "../schema";
+import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
@@ -280,7 +281,7 @@ export const getVaultRemoteBranches = query({
       remoteState: union(literal("active"), literal("deleted_upstream")),
       deletedUpstreamAt: optional(number()),
       lastSyncedAt: number(),
-      pullRequestStatusSummary: optional(vPullRequestStatusSummary),
+      commits: array(vVaultBranchCommitSummary),
     }),
   ),
   handler: async (ctx, args) => {
@@ -310,7 +311,7 @@ export const getVaultRemoteBranches = query({
       remoteState: branch.remoteState,
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
-      pullRequestStatusSummary: branch.pullRequestStatusSummary,
+      commits: buildVaultBranchCommitSummaries(branch),
     }));
   },
 });

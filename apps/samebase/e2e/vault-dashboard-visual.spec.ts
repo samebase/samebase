@@ -62,13 +62,16 @@ function readPngPixel(png: PNG, x: number, y: number): RgbaPixel {
   };
 }
 
-async function readVaultDashboardRightSidebarSeparatorPaint(page: Page): Promise<{
+async function readVaultDashboardRightSidebarSeparatorPaint(
+  page: Page,
+  layout: Locator,
+): Promise<{
   referencePixel: RgbaPixel;
   samplePixels: RgbaPixel[];
 }> {
-  const geometry = await page.evaluate(() => {
-    const mainPane = document.querySelector("[data-workspace-layout-v2-mobile-main-pane] > div");
-    const stickyHeader = document.querySelector(
+  const geometry = await layout.evaluate((layoutRoot) => {
+    const mainPane = layoutRoot.querySelector("[data-workspace-layout-v2-mobile-main-pane] > div");
+    const stickyHeader = layoutRoot.querySelector(
       '[data-testid="vault-dashboard-repository-header"]',
     );
 
@@ -603,24 +606,24 @@ test("vault dashboard mobile right sidebar keeps pane separator above sticky hea
     ...VAULT_DASHBOARD_VISUAL_SIDEBAR_STATE,
     mobilePane: "right",
   });
-  await page.goto("/visual-fixture?mode=vault-dashboard-list-spacing", {
+  await page.goto("/visual-fixture?mode=vault-dashboard-sticky-header", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
 
-  await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
-    "data-mobile-pane",
-    "right",
-  );
+  const fixtureLayout = page
+    .getByTestId("vault-dashboard-visual-fixture-shell")
+    .locator("[data-workspace-layout-v2]");
+  await expect(fixtureLayout).toHaveAttribute("data-mobile-pane", "right");
   await expect
     .poll(() =>
-      page
+      fixtureLayout
         .locator("[data-workspace-layout-v2-mobile-main-pane] > div")
         .evaluate((mainPane) => getComputedStyle(mainPane, "::after").width),
     )
     .toBe("1px");
 
-  const separatorPaint = await readVaultDashboardRightSidebarSeparatorPaint(page);
+  const separatorPaint = await readVaultDashboardRightSidebarSeparatorPaint(page, fixtureLayout);
   for (const samplePixel of separatorPaint.samplePixels) {
     expect(samplePixel).toEqual(separatorPaint.referencePixel);
   }
@@ -842,14 +845,14 @@ test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await page.getByRole("button", { name: "Show 5 more branches" }).click();
+  await page.getByRole("button", { name: "Show 6 more branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
   await expect(page.getByRole("button", { name: "Show less branches" })).toBeVisible();
   await page.getByRole("button", { name: "Show less branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Show 5 more branches" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show 6 more branches" })).toBeVisible();
 });
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {

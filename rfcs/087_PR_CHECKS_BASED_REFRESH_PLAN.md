@@ -9,6 +9,8 @@
 - Related specs:
   - `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
   - `specs/099_REPOSITORY_REFRESH_QUEUE_SPEC.md`
+- Follow-up RFC:
+  - `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`
 - Related research:
   - `research/2026-04-08-dashboard-vault-pr-refresh.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
@@ -34,6 +36,13 @@ preview feature, but it has become the wrong source of truth:
 The replacement should refresh a vault's PR state from GitHub check runs and commit statuses for
 each current PR head commit. Cloudflare links should be discovered from those GitHub records, not
 from PR comments.
+
+## Follow-Up Direction
+
+This RFC documents the PR-check replacement that removed comment scraping. It is not the final
+dashboard model. Future dashboard work should use `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`:
+checks belong to commit SHAs, and PRs/default branches/active branches are views over those commit
+snapshots.
 
 ## Live Probe Result
 

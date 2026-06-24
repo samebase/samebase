@@ -91,6 +91,13 @@ const stagedFilesBranchSummaryValidator = object({
   counts: stagedFilesCategoryCountsValidator,
 });
 const stagedFilesBranchSummaryListValidator = array(stagedFilesBranchSummaryValidator);
+const stagedFilesBranchSummariesByVaultValidator = object({
+  vaultId: vaultIdValidator,
+  branchSummaries: stagedFilesBranchSummaryListValidator,
+});
+const stagedFilesBranchSummariesByVaultListValidator = array(
+  stagedFilesBranchSummariesByVaultValidator,
+);
 const uploadUrlResultValidator = string();
 
 const getByNewPathArgsValidator = {
@@ -550,6 +557,39 @@ export const listStagedFilesBranchSummaries = query({
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
     return summarizeStagedFilesByBranch(files);
+  },
+});
+
+export const listStagedFilesBranchSummariesByVault = query({
+  access: "access_files_read",
+  args: {
+    vaultIds: array(vaultIdValidator),
+  },
+  returns: stagedFilesBranchSummariesByVaultListValidator,
+  handler: async (ctx, args) => {
+    const summariesByVault: Infer<typeof stagedFilesBranchSummariesByVaultListValidator> = [];
+    const uniqueVaultIds = new Set(args.vaultIds);
+
+    for (const vaultId of uniqueVaultIds) {
+      const vault = await getVaultForStagingAccess(ctx, {
+        vaultId,
+        userId: ctx.viewer.userId,
+      });
+      if (!vault) {
+        continue;
+      }
+
+      const files = await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+        .collect();
+      summariesByVault.push({
+        vaultId,
+        branchSummaries: summarizeStagedFilesByBranch(files),
+      });
+    }
+
+    return summariesByVault;
   },
 });
 

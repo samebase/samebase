@@ -379,6 +379,22 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain("workspace route content");
   });
 
+  it("server-renders visual fixtures without app workspace chrome", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/visual-fixture"]}>
+        <AppWorkspaceShell>
+          <div data-testid="workspace-route-content">visual fixture content</div>
+        </AppWorkspaceShell>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-testid="visual-fixture-shell"');
+    expect(markup).toContain("visual fixture content");
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-main-pane-header"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
+  });
+
   it("bounds the workspace shell to the root height instead of a viewport-unit height", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>

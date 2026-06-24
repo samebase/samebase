@@ -15,7 +15,7 @@ import { buildVaultBranchSectionState } from "@/components/vault-dashboard/Vault
 import {
   VaultBranchHeaderControls,
   VaultBranchLinkRow,
-  VaultDashboardBody,
+  VaultDashboardView,
   VaultDashboardAppRootDialog,
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
@@ -156,11 +156,13 @@ interface FixtureVaultBranchRow {
 }
 
 function fixtureVaultBranch(
-  branch: Omit<FixtureVaultBranch, "isProtected" | "lastSyncedAt" | "remoteState"> & {
+  branch: Omit<FixtureVaultBranch, "commits" | "isProtected" | "lastSyncedAt" | "remoteState"> & {
+    commits?: FixtureVaultBranch["commits"];
     remoteState?: FixtureVaultBranch["remoteState"];
   },
 ): FixtureVaultBranch {
   return {
+    commits: branch.commits ?? [{ sha: branch.headCommitSha }],
     isProtected: false,
     lastSyncedAt: FIXTURE_NOW,
     remoteState: "active",
@@ -262,6 +264,42 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       isDefault: true,
       aheadBy: 0,
       behindBy: 0,
+      commits: [
+        {
+          sha: "1234567890abcdef1234567890abcdef12345678",
+          title: "Track branch checks in the dashboard model",
+          checks: {
+            state: "success",
+            totalCount: 4,
+            checkRunCount: 4,
+            statusContextCount: 0,
+            successCount: 4,
+            failureCount: 0,
+            runningCount: 0,
+            neutralCount: 0,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
+            syncedAt: FIXTURE_NOW - 12_000,
+          },
+        },
+        {
+          sha: "0fedcba9876543210fedcba9876543210fedcba9",
+          title: "Extract the vault dashboard view model",
+          checks: {
+            state: "neutral",
+            totalCount: 3,
+            checkRunCount: 3,
+            statusContextCount: 0,
+            successCount: 2,
+            failureCount: 0,
+            runningCount: 0,
+            neutralCount: 1,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/122",
+            syncedAt: FIXTURE_NOW - 180_000,
+          },
+        },
+      ],
     }),
   },
   {
@@ -269,26 +307,47 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/dashboard-main-pane-spacing",
       headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
       isDefault: false,
-      aheadBy: 1,
+      aheadBy: 2,
       behindBy: 0,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/321",
       pullRequestNumber: 321,
       pullRequestTitle: "Use the full dashboard main pane",
-      pullRequestStatusSummary: {
-        pullRequestNumber: 321,
-        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-        state: "running",
-        totalCount: 3,
-        checkRunCount: 3,
-        statusContextCount: 0,
-        successCount: 1,
-        failureCount: 0,
-        runningCount: 2,
-        neutralCount: 0,
-        unknownCount: 0,
-        primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/321",
-        syncedAt: FIXTURE_NOW - 2_000,
-      },
+      commits: [
+        {
+          sha: "abcdef1234567890abcdef1234567890abcdef12",
+          title: "Use the full dashboard main pane",
+          checks: {
+            state: "running",
+            totalCount: 3,
+            checkRunCount: 3,
+            statusContextCount: 0,
+            successCount: 1,
+            failureCount: 0,
+            runningCount: 2,
+            neutralCount: 0,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/321",
+            syncedAt: FIXTURE_NOW - 2_000,
+          },
+        },
+        {
+          sha: "654321abcdef1234567890abcdef1234567890ab",
+          title: "Remove the card shell around branch rows",
+          checks: {
+            state: "success",
+            totalCount: 3,
+            checkRunCount: 3,
+            statusContextCount: 0,
+            successCount: 3,
+            failureCount: 0,
+            runningCount: 0,
+            neutralCount: 0,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/320",
+            syncedAt: FIXTURE_NOW - 420_000,
+          },
+        },
+      ],
     }),
   },
   {
@@ -296,11 +355,78 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
       name: "codex/branch-expansion-state",
       headCommitSha: "456789abcdef1234567890abcdef1234567890ab",
       isDefault: false,
-      aheadBy: 2,
+      aheadBy: 1,
       behindBy: 0,
       pullRequestUrl: "https://github.com/samebase/samebase/pull/322",
       pullRequestNumber: 322,
       pullRequestTitle: "Persist branch list expansion",
+      commits: [
+        {
+          sha: "456789abcdef1234567890abcdef1234567890ab",
+          title: "Persist branch list expansion",
+          checks: {
+            state: "failure",
+            totalCount: 5,
+            checkRunCount: 5,
+            statusContextCount: 0,
+            successCount: 3,
+            failureCount: 1,
+            runningCount: 0,
+            neutralCount: 1,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/322",
+            syncedAt: FIXTURE_NOW - 64_000,
+          },
+        },
+      ],
+    }),
+  },
+  {
+    branch: fixtureVaultBranch({
+      name: "codex/checks-history-window",
+      headCommitSha: "e1234567890abcdef1234567890abcdef12345678",
+      isDefault: false,
+      aheadBy: 5,
+      behindBy: 2,
+      pullRequestUrl: "https://github.com/samebase/samebase/pull/323",
+      pullRequestNumber: 323,
+      pullRequestTitle: "Show a bounded checks history",
+      commits: [
+        {
+          sha: "e1234567890abcdef1234567890abcdef12345678",
+          title: "Show a bounded checks history",
+          checks: {
+            state: "running",
+            totalCount: 4,
+            checkRunCount: 4,
+            statusContextCount: 0,
+            successCount: 2,
+            failureCount: 0,
+            runningCount: 1,
+            neutralCount: 1,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/323",
+            syncedAt: FIXTURE_NOW - 16_000,
+          },
+        },
+        {
+          sha: "d234567890abcdef1234567890abcdef12345678",
+          title: "Add branch row commit stack",
+          checks: {
+            state: "success",
+            totalCount: 3,
+            checkRunCount: 3,
+            statusContextCount: 0,
+            successCount: 3,
+            failureCount: 0,
+            runningCount: 0,
+            neutralCount: 0,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/3221",
+            syncedAt: FIXTURE_NOW - 240_000,
+          },
+        },
+      ],
     }),
   },
   {
@@ -455,12 +581,16 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
       className="w-full bg-background text-foreground"
     >
       <TestRouterProvider>
-        <VaultDashboardBody
+        <VaultDashboardView
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
+          viewModel={{
+            vaults: [LIST_SPACING_VAULT],
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
@@ -468,7 +598,6 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           locationHash=""
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
-          vaults={[LIST_SPACING_VAULT]}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
@@ -1138,7 +1267,7 @@ function FixtureDashboardShell({
   return (
     <TestRouterProvider>
       <WorkspaceLayoutV2FixtureFrame
-        dataTestId="vault-dashboard-visual-fixture"
+        dataTestId="vault-dashboard-visual-fixture-shell"
         shortcutPaneSide="right"
         right={{
           content: rightContent,

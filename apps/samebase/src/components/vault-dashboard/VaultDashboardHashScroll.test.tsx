@@ -10,7 +10,7 @@ import { validateRootRouteSearch } from "@/routeSearch/root";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { useLocation } from "@tanstack/react-router";
-import { VaultDashboardBody, type VaultDashboardVault } from "./VaultDashboard";
+import { VaultDashboardView, type VaultDashboardVault } from "./VaultDashboard";
 import type { VaultBranchFilters } from "./vaultDashboardBranchFilters";
 
 const { act } = React;
@@ -128,7 +128,7 @@ function LocationHashProbe() {
   return <output data-testid="route-location-hash">{hash}</output>;
 }
 
-function VaultDashboardBodyHarness() {
+function VaultDashboardViewHarness() {
   const locationHash = useLocation({
     select: (location) => location.hash,
   });
@@ -136,12 +136,16 @@ function VaultDashboardBodyHarness() {
   const persistedVaultResourceLinksOpenByVaultId = new Map<string, boolean>();
 
   return (
-    <VaultDashboardBody
+    <VaultDashboardView
       developerToolsVisible={false}
       isRemovingVault={false}
       retryingDeletionRunId={null}
       retryingInfrastructureVaultId={null}
       now={0}
+      viewModel={{
+        vaults: makeVaultDashboardVaults(),
+        stagedBranchSummariesByVaultId: new Map(),
+      }}
       logoRouteSearch={ROOT_ROUTE_SEARCH}
       replaceLogoRouteSearch={() => {}}
       openDeveloperToolsByVaultId={{}}
@@ -149,7 +153,6 @@ function VaultDashboardBodyHarness() {
       persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
       locationHash={locationHash}
       rootRouteSearch={ROOT_ROUTE_SEARCH}
-      vaults={makeVaultDashboardVaults()}
       onOpenDeveloperToolsChange={() => {}}
       onManualRepositoryRefresh={() => {}}
       onRetryInfrastructureProvisioning={() => {}}
@@ -160,7 +163,7 @@ function VaultDashboardBodyHarness() {
   );
 }
 
-describe("VaultDashboardBody", () => {
+describe("VaultDashboardView", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
   let scrolledElements: Element[] = [];
@@ -206,12 +209,16 @@ describe("VaultDashboardBody", () => {
 
     root.render(
       <TestRouterProvider initialEntries={["/home"]}>
-        <VaultDashboardBody
+        <VaultDashboardView
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}
           retryingInfrastructureVaultId={null}
           now={0}
+          viewModel={{
+            vaults: makeVaultDashboardVaults(),
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
           logoRouteSearch={ROOT_ROUTE_SEARCH}
           replaceLogoRouteSearch={() => {}}
           openDeveloperToolsByVaultId={{}}
@@ -219,7 +226,6 @@ describe("VaultDashboardBody", () => {
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
           locationHash={locationHash}
           rootRouteSearch={ROOT_ROUTE_SEARCH}
-          vaults={makeVaultDashboardVaults()}
           onOpenDeveloperToolsChange={() => {}}
           onManualRepositoryRefresh={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
@@ -264,7 +270,7 @@ describe("VaultDashboardBody", () => {
         <TestRouterProvider initialEntries={["/home"]}>
           <RouteUrlEditorNext />
           <LocationHashProbe />
-          <VaultDashboardBodyHarness />
+          <VaultDashboardViewHarness />
         </TestRouterProvider>,
       );
       await Promise.resolve();

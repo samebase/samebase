@@ -138,9 +138,7 @@ export const vPullRequestCheckState = union(
   literal("unknown"),
 );
 export type PullRequestCheckState = Infer<typeof vPullRequestCheckState>;
-export const vPullRequestStatusSummary = object({
-  pullRequestNumber: number(),
-  headCommitSha: string(),
+const vCommitChecksSummaryFields = {
   state: vPullRequestCheckState,
   totalCount: number(),
   checkRunCount: number(),
@@ -153,6 +151,20 @@ export const vPullRequestStatusSummary = object({
   primaryTargetUrl: optional(string()),
   primaryLogUrl: optional(string()),
   syncedAt: number(),
+};
+export const vVaultBranchCommitChecksSummary = object(vCommitChecksSummaryFields);
+export type VaultBranchCommitChecksSummary = Infer<typeof vVaultBranchCommitChecksSummary>;
+export const vVaultBranchCommitSummary = object({
+  sha: string(),
+  title: optional(string()),
+  authoredAt: optional(number()),
+  checks: optional(vVaultBranchCommitChecksSummary),
+});
+export type VaultBranchCommitSummary = Infer<typeof vVaultBranchCommitSummary>;
+export const vPullRequestStatusSummary = object({
+  pullRequestNumber: number(),
+  headCommitSha: string(),
+  ...vCommitChecksSummaryFields,
 });
 export type PullRequestStatusSummary = Infer<typeof vPullRequestStatusSummary>;
 
