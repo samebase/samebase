@@ -78,7 +78,10 @@ import {
   resolveVaultProviderSetupStatus,
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
-import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
+import {
+  buildGitHubBranchTreeUrl,
+  buildGitHubRepositoryAppInstallationsUrl,
+} from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
@@ -87,7 +90,7 @@ import {
   type RootRouteSearch,
   useRootRouteSearch,
 } from "@/routeSearch/root";
-import { buildPullRequestLabelStyle, normalizePullRequestLabels } from "@/lib/pullRequestLabels";
+import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import {
@@ -99,9 +102,12 @@ import {
 import {
   buildVaultBranchSectionState,
   type VaultBranchCommitChecksSummary,
-  type VaultBranchCommitListItem,
   type VaultRemoteBranchListItem,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
+import {
+  buildVaultBranchRowViewModel,
+  type VaultBranchCommitViewModel,
+} from "@/components/vault-dashboard/vaultDashboardBranchRowViewModel";
 import { toast } from "@/components/ui/use-toast";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
@@ -636,14 +642,6 @@ const DashboardLinkIconSlot = ({
   </span>
 );
 
-type VaultBranchCommitRowViewModel = {
-  sha: string;
-  title?: string;
-  checks?: VaultBranchCommitChecksSummary;
-  isHead: boolean;
-  url: string;
-};
-
 function formatChecksCount(count: number): string {
   return `${count} ${count === 1 ? "check" : "checks"}`;
 }
@@ -739,57 +737,6 @@ function CommitChecksIcon({ summary }: { summary: VaultBranchCommitChecksSummary
       return <CircleAlert className="h-4 w-4" strokeWidth={2} />;
     }
   }
-}
-
-function isCurrentPullRequestStatusSummary(args: {
-  branch: VaultRemoteBranchListItem;
-  summary: VaultRemoteBranchListItem["pullRequestStatusSummary"] | undefined;
-}): boolean {
-  return (
-    args.summary !== undefined &&
-    args.summary.pullRequestNumber === args.branch.pullRequestNumber &&
-    args.summary.headCommitSha === args.branch.headCommitSha
-  );
-}
-
-function buildCommitUrl(repositoryFullName: string, sha: string): string {
-  return `https://github.com/${repositoryFullName}/commit/${sha}`;
-}
-
-function buildVaultBranchCommitRows({
-  branch,
-  repositoryFullName,
-}: {
-  branch: VaultRemoteBranchListItem;
-  repositoryFullName: string;
-}): VaultBranchCommitRowViewModel[] {
-  const pullRequestStatusSummary = isCurrentPullRequestStatusSummary({
-    branch,
-    summary: branch.pullRequestStatusSummary,
-  })
-    ? branch.pullRequestStatusSummary
-    : undefined;
-
-  if (branch.commits && branch.commits.length > 0) {
-    return branch.commits.map((commit: VaultBranchCommitListItem, index) => ({
-      checks:
-        commit.checks ??
-        (commit.sha === branch.headCommitSha ? pullRequestStatusSummary : undefined),
-      isHead: commit.sha === branch.headCommitSha || index === 0,
-      sha: commit.sha,
-      title: commit.title,
-      url: buildCommitUrl(repositoryFullName, commit.sha),
-    }));
-  }
-
-  return [
-    {
-      checks: pullRequestStatusSummary,
-      isHead: true,
-      sha: branch.headCommitSha,
-      url: buildCommitUrl(repositoryFullName, branch.headCommitSha),
-    },
-  ];
 }
 
 export function VaultDashboardDeleteControl({
@@ -1701,21 +1648,40 @@ function buildVaultDashboardBranchRoute(args: {
   });
 }
 
-function VaultBranchCommitStack({
+function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewModel }) {
+  const checks = commit.checks;
+  if (!checks) {
+    return null;
+  }
+  const title = [commit.shortSha, commit.title, formatCommitChecksTitle(checks)]
+    .filter(Boolean)
+    .join(" • ");
+  return (
+    <a
+      href={checks.primaryTargetUrl ?? `${commit.url}/checks`}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-label={formatCommitChecksLabel(checks)}
+      className={clsx(
+        "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums transition-colors hover:underline",
+        getCommitChecksStateClassName(checks),
+      )}
+      title={title}
+    >
+      <CommitChecksIcon summary={checks} />
+      <span>{formatCommitChecksCompactLabel(checks)}</span>
+    </a>
+  );
+}
+
+function VaultBranchCommitRow({
   aheadBehindLabel,
-  commits,
+  commit,
 }: {
   aheadBehindLabel: string | null;
-  commits: readonly VaultBranchCommitRowViewModel[];
+  commit: VaultBranchCommitViewModel;
 }) {
-  const headCommit = commits.find((commit) => commit.isHead) ?? commits[0];
-  const headCommitChecks = headCommit.checks;
-  const headCommitChecksTitle = headCommitChecks
-    ? [headCommit.sha.slice(0, 7), headCommit.title, formatCommitChecksTitle(headCommitChecks)]
-        .filter(Boolean)
-        .join(" • ")
-    : undefined;
-  if (!headCommitChecks && !aheadBehindLabel) {
+  if (!commit.checks && !aheadBehindLabel) {
     return null;
   }
 
@@ -1726,23 +1692,34 @@ function VaultBranchCommitStack({
           {aheadBehindLabel}
         </span>
       ) : null}
+      <CommitChecksSummaryLink commit={commit} />
+    </div>
+  );
+}
 
-      {headCommitChecks ? (
-        <a
-          href={headCommitChecks.primaryTargetUrl ?? `${headCommit.url}/checks`}
-          target="_blank"
-          rel="noreferrer noopener"
-          aria-label={formatCommitChecksLabel(headCommitChecks)}
-          className={clsx(
-            "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums transition-colors hover:underline",
-            getCommitChecksStateClassName(headCommitChecks),
-          )}
-          title={headCommitChecksTitle}
-        >
-          <CommitChecksIcon summary={headCommitChecks} />
-          <span>{formatCommitChecksCompactLabel(headCommitChecks)}</span>
-        </a>
-      ) : null}
+function VaultBranchCommitStack({
+  aheadBehindLabel,
+  commits,
+}: {
+  aheadBehindLabel: string | null;
+  commits: readonly VaultBranchCommitViewModel[];
+}) {
+  const visibleCommits = commits.filter(
+    (commit) => commit.checks || (commit.isHead && aheadBehindLabel),
+  );
+  if (visibleCommits.length === 0 && !aheadBehindLabel) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-1">
+      {visibleCommits.map((commit) => (
+        <VaultBranchCommitRow
+          key={commit.sha}
+          aheadBehindLabel={commit.isHead ? aheadBehindLabel : null}
+          commit={commit}
+        />
+      ))}
     </div>
   );
 }
@@ -1797,26 +1774,16 @@ export function VaultBranchLinkContent({
   branch: VaultRemoteBranchListItem;
   productionApps?: readonly VaultBranchProductionApp[];
 }) {
-  const branchGithubUrl = buildGitHubBranchTreeUrl({
+  const branchRow = buildVaultBranchRowViewModel({
+    branch,
     repositoryFullName,
-    branchName: branch.name,
   });
-  const aheadBehindLabel = formatAheadBehindCounts(branch.aheadBy, branch.behindBy);
-  const hasPullRequestTitle =
-    typeof branch.pullRequestTitle === "string" && branch.pullRequestTitle.length > 0;
-  const normalizedPullRequestLabels = normalizePullRequestLabels(branch.pullRequestLabels);
-  const hasPullRequestLink =
-    typeof branch.pullRequestUrl === "string" && branch.pullRequestUrl.length > 0;
-  const pullRequestLabel =
-    typeof branch.pullRequestNumber === "number"
-      ? `PR #${branch.pullRequestNumber}`
-      : "Pull request";
-  const hasConsolidatedPullRequestLink = hasPullRequestTitle && hasPullRequestLink;
-  const hasStandalonePullRequestLink = hasPullRequestLink && !hasConsolidatedPullRequestLink;
+  const pullRequest = branchRow.pullRequest;
+  const aheadBehindLabel = formatAheadBehindCounts(branchRow.aheadBy, branchRow.behindBy);
+  const normalizedPullRequestLabels = pullRequest?.labels ?? [];
+  const pullRequestLabel = pullRequest ? `PR #${pullRequest.number}` : "Pull request";
   const hasPullRequestMetadata =
-    hasStandalonePullRequestLink ||
-    branch.pullRequestIsDraft === true ||
-    normalizedPullRequestLabels.length > 0;
+    pullRequest?.isDraft === true || normalizedPullRequestLabels.length > 0;
   const metadataLinkClassName = clsx(
     "-mx-2 -my-1 inline-flex min-h-9 items-center rounded-sm px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
     "font-mono",
@@ -1824,30 +1791,26 @@ export function VaultBranchLinkContent({
   );
   const branchLabelClassName = clsx(
     "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base leading-6",
-    hasPullRequestTitle ? "font-mono text-muted-foreground" : "text-muted-foreground",
-    !hasPullRequestTitle && branch.isDefault && "font-medium text-foreground",
+    pullRequest ? "font-mono text-muted-foreground" : "text-muted-foreground",
+    !pullRequest && branchRow.isDefault && "font-medium text-foreground",
   );
   const branchRoute = buildVaultDashboardBranchRoute({
     repositoryFullName,
-    branchName: branch.name,
-    openChangedFiles: !branch.isDefault,
+    branchName: branchRow.name,
+    openChangedFiles: !branchRow.isDefault,
   });
-  const branchSamebaseLinkLabel = branch.isDefault ? "Edit" : "View changes";
-  const branchSamebaseLinkTitle = branch.isDefault
+  const branchSamebaseLinkLabel = branchRow.isDefault ? "Edit" : "View changes";
+  const branchSamebaseLinkTitle = branchRow.isDefault
     ? "Open branch in Samebase"
     : "View changes in Samebase";
-  const activeProductionApps = branch.isDefault ? productionApps : [];
-  const commitRows = buildVaultBranchCommitRows({
-    branch,
-    repositoryFullName,
-  });
+  const activeProductionApps = branchRow.isDefault ? productionApps : [];
 
   return (
     <>
-      {branch.remoteState === "deleted_upstream" ? (
+      {branchRow.remoteState === "deleted_upstream" ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="min-w-0 flex-1 break-words text-base leading-6 text-muted-foreground/70 line-through">
-            {branch.name}
+            {branchRow.name}
           </span>
           <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-xs uppercase tracking-wide text-muted-foreground/80">
             deleted upstream
@@ -1855,41 +1818,30 @@ export function VaultBranchLinkContent({
         </div>
       ) : (
         <div className="min-w-0 flex-1 space-y-1.5">
-          {hasPullRequestTitle ? (
-            hasPullRequestLink ? (
-              <a
-                href={branch.pullRequestUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className={clsx(
-                  "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-                  linkStyle,
-                )}
-                title="Open pull request"
-              >
-                <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={branch.pullRequestIsDraft === true} />
-                </DashboardLinkIconSlot>
-                <span className="min-w-0 break-words">
-                  {pullRequestLabel} {branch.pullRequestTitle}
-                </span>
-              </a>
-            ) : (
-              <div className="flex min-h-9 max-w-full items-start gap-1.5 text-base font-medium leading-6 text-foreground">
-                <DashboardLinkIconSlot className="mt-1">
-                  <PullRequestStateLogo isDraft={branch.pullRequestIsDraft === true} />
-                </DashboardLinkIconSlot>
-                <span className="min-w-0 break-words">
-                  {pullRequestLabel} {branch.pullRequestTitle}
-                </span>
-              </div>
-            )
+          {pullRequest ? (
+            <a
+              href={pullRequest.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={clsx(
+                "-mx-1.5 -my-1 flex min-h-9 max-w-full items-start gap-1.5 rounded-sm px-1.5 py-1 text-base font-medium leading-6 text-foreground touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+                linkStyle,
+              )}
+              title="Open pull request"
+            >
+              <DashboardLinkIconSlot className="mt-1">
+                <PullRequestStateLogo isDraft={pullRequest.isDraft} />
+              </DashboardLinkIconSlot>
+              <span className="min-w-0 break-words">
+                {pullRequestLabel} {pullRequest.title}
+              </span>
+            </a>
           ) : null}
           {activeProductionApps.length > 0 ? (
             <VaultBranchProductionApps productionApps={activeProductionApps} />
           ) : null}
           <a
-            href={branchGithubUrl}
+            href={branchRow.githubUrl}
             target="_blank"
             rel="noreferrer noopener"
             className={clsx(
@@ -1898,32 +1850,21 @@ export function VaultBranchLinkContent({
               linkStyle,
             )}
             title="Open branch on GitHub"
-            aria-label={`Open ${branch.name} branch on GitHub`}
+            aria-label={`Open ${branchRow.name} branch on GitHub`}
           >
             <DashboardLinkIconSlot className="mt-1">
               <GitBranch aria-hidden="true" className="h-4 w-4" strokeWidth={1.75} />
             </DashboardLinkIconSlot>
-            <span className="min-w-0 break-words">{branch.name}</span>
+            <span className="min-w-0 break-words">{branchRow.name}</span>
           </a>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
-            <VaultBranchCommitStack aheadBehindLabel={aheadBehindLabel} commits={commitRows} />
+            <VaultBranchCommitStack
+              aheadBehindLabel={aheadBehindLabel}
+              commits={branchRow.commits}
+            />
             {hasPullRequestMetadata ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                {hasStandalonePullRequestLink ? (
-                  <a
-                    href={branch.pullRequestUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={clsx(metadataLinkClassName, "gap-1.5")}
-                    title="Open pull request"
-                  >
-                    <DashboardLinkIconSlot>
-                      <PullRequestStateLogo isDraft={branch.pullRequestIsDraft === true} />
-                    </DashboardLinkIconSlot>
-                    <span>{pullRequestLabel}</span>
-                  </a>
-                ) : null}
-                {branch.pullRequestIsDraft ? (
+                {pullRequest?.isDraft ? (
                   <Badge
                     variant="outline"
                     className="h-6 px-1.5 py-0 text-xs font-medium uppercase tracking-wide"

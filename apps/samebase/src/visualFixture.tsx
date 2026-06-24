@@ -188,7 +188,6 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-bottom-target-scroll",
   "vault-dashboard-sticky-header",
   "vault-dashboard-list-spacing",
-  "vault-dashboard-branch-row-variants",
   "vault-last-updated-status",
   "vault-branch-filters",
   "vault-branch-pr-labels",
@@ -377,7 +376,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-bottom-target-scroll" ||
     mode === "vault-dashboard-sticky-header" ||
     mode === "vault-dashboard-list-spacing" ||
-    mode === "vault-dashboard-branch-row-variants" ||
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||

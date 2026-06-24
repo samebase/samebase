@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 import { type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
-import { vAppProvisioningRunStep, vPullRequestLabel, vPullRequestStatusSummary } from "../schema";
+import { vAppProvisioningRunStep, vPullRequestLabel, vVaultBranchCommitSummary } from "../schema";
 import { vTreeRefreshFailureKind } from "./model";
 import {
   isConnectedVault,
@@ -14,6 +14,7 @@ import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
+import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import { vVaultResourceLinksState } from "./resourceLinksStateModel";
 
@@ -844,7 +845,7 @@ const getUserVaultsResult = array(
         isProtected: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
-        pullRequestStatusSummary: optional(vPullRequestStatusSummary),
+        commits: array(vVaultBranchCommitSummary),
       }),
     ),
   }),
@@ -1055,7 +1056,7 @@ export const getUserVaults = query({
             isProtected: branch.isProtected,
             remoteState: branch.remoteState,
             lastSyncedAt: branch.lastSyncedAt,
-            pullRequestStatusSummary: branch.pullRequestStatusSummary,
+            commits: buildVaultBranchCommitSummaries(branch),
           })),
         };
       }),

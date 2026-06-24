@@ -21,6 +21,7 @@ import {
   buildVaultDashboardRepositoryHashId,
   normalizeVaultDashboardRepositoryHash,
 } from "./vaultDashboardRepositoryHash";
+import { buildVaultBranchRowViewModel } from "./vaultDashboardBranchRowViewModel";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
 import {
   resolveVaultProviderSetupStatus,
@@ -110,6 +111,93 @@ function makeResourceRailBuilderVault(
 }
 
 describe("VaultBranchLinkContent", () => {
+  it("models checks as commit data without requiring a pull request", () => {
+    const viewModel = buildVaultBranchRowViewModel({
+      repositoryFullName: "samebase/samebase",
+      branch: {
+        name: "main",
+        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+        commits: [
+          {
+            sha: "abcdef1234567890abcdef1234567890abcdef12",
+            title: "Build dashboard branch rows from commits",
+            checks: {
+              state: "success",
+              totalCount: 4,
+              checkRunCount: 4,
+              statusContextCount: 0,
+              successCount: 4,
+              failureCount: 0,
+              runningCount: 0,
+              neutralCount: 0,
+              unknownCount: 0,
+              primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
+              syncedAt: 1,
+            },
+          },
+        ],
+        isDefault: true,
+        isProtected: false,
+        lastSyncedAt: 0,
+        remoteState: "active",
+      },
+    });
+
+    expect(viewModel.pullRequest).toBeUndefined();
+    expect(viewModel.commits).toMatchObject([
+      {
+        shortSha: "abcdef1",
+        title: "Build dashboard branch rows from commits",
+        checks: {
+          state: "success",
+          primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/123",
+        },
+        isHead: true,
+      },
+    ]);
+  });
+
+  it("renders commit checks for default branches without pull request metadata", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          branch={{
+            name: "main",
+            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+            commits: [
+              {
+                sha: "abcdef1234567890abcdef1234567890abcdef12",
+                title: "Run checks on main",
+                checks: {
+                  state: "failure",
+                  totalCount: 4,
+                  checkRunCount: 4,
+                  statusContextCount: 0,
+                  successCount: 2,
+                  failureCount: 2,
+                  runningCount: 0,
+                  neutralCount: 0,
+                  unknownCount: 0,
+                  primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/456",
+                  syncedAt: 1,
+                },
+              },
+            ],
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="https://github.com/samebase/samebase/actions/runs/456"');
+    expect(markup).toContain(">2 failed<");
+    expect(markup).not.toContain("Pull request");
+  });
+
   it("links the visible branch label to the GitHub branch tree", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
@@ -118,6 +206,7 @@ describe("VaultBranchLinkContent", () => {
           branch={{
             name: "codex/dashboard branch-link",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: false,
             isProtected: false,
             lastSyncedAt: 0,
@@ -141,6 +230,7 @@ describe("VaultBranchLinkContent", () => {
           branch={{
             name: "main",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
             isProtected: false,
             lastSyncedAt: 0,
@@ -165,6 +255,7 @@ describe("VaultBranchLinkContent", () => {
           branch={{
             name: "codex/view changes",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: false,
             isProtected: false,
             lastSyncedAt: 0,
@@ -201,6 +292,7 @@ describe("VaultBranchLinkContent", () => {
           branch={{
             name: "main",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
             isProtected: false,
             lastSyncedAt: 0,
@@ -256,6 +348,7 @@ describe("VaultBranchLinkContent", () => {
           branch={{
             name: "main",
             headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
             isDefault: true,
             isProtected: false,
             lastSyncedAt: 0,

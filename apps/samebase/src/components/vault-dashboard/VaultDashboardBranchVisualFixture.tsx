@@ -23,6 +23,7 @@ export function VaultDashboardBranchVisualFixture() {
                 branch={{
                   name: "codex/draft-pr-button",
                   headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+                  commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
                   isDefault: false,
                   isProtected: false,
                   remoteState: "active",

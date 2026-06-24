@@ -96,6 +96,7 @@ import type * as toolRuntime_utils from "../toolRuntime/utils.js";
 import type * as userAccess from "../userAccess.js";
 import type * as users from "../users.js";
 import type * as vault_actions from "../vault/actions.js";
+import type * as vault_branchCommitSummary from "../vault/branchCommitSummary.js";
 import type * as vault_branches from "../vault/branches.js";
 import type * as vault_cloudflare from "../vault/cloudflare.js";
 import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js";
@@ -212,6 +213,7 @@ declare const fullApi: ApiFromModules<{
   userAccess: typeof userAccess;
   users: typeof users;
   "vault/actions": typeof vault_actions;
+  "vault/branchCommitSummary": typeof vault_branchCommitSummary;
   "vault/branches": typeof vault_branches;
   "vault/cloudflare": typeof vault_cloudflare;
   "vault/cloudflareMutations": typeof vault_cloudflareMutations;

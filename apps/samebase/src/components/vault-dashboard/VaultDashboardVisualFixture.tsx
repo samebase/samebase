@@ -1,14 +1,4 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import {
-  CircleCheck,
-  CircleDashed,
-  CircleDot,
-  CircleX,
-  Cloud,
-  GitBranch,
-  GitPullRequestArrow,
-  Server,
-} from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
@@ -60,7 +50,6 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
-  | "vault-dashboard-branch-row-variants"
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -167,11 +156,13 @@ interface FixtureVaultBranchRow {
 }
 
 function fixtureVaultBranch(
-  branch: Omit<FixtureVaultBranch, "isProtected" | "lastSyncedAt" | "remoteState"> & {
+  branch: Omit<FixtureVaultBranch, "commits" | "isProtected" | "lastSyncedAt" | "remoteState"> & {
+    commits?: FixtureVaultBranch["commits"];
     remoteState?: FixtureVaultBranch["remoteState"];
   },
 ): FixtureVaultBranch {
   return {
+    commits: branch.commits ?? [{ sha: branch.headCommitSha }],
     isProtected: false,
     lastSyncedAt: FIXTURE_NOW,
     remoteState: "active",
@@ -357,21 +348,6 @@ const LIST_SPACING_BRANCHES: FixtureVaultBranchRow[] = [
           },
         },
       ],
-      pullRequestStatusSummary: {
-        pullRequestNumber: 321,
-        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
-        state: "running",
-        totalCount: 3,
-        checkRunCount: 3,
-        statusContextCount: 0,
-        successCount: 1,
-        failureCount: 0,
-        runningCount: 2,
-        neutralCount: 0,
-        unknownCount: 0,
-        primaryTargetUrl: "https://github.com/samebase/samebase/actions/runs/321",
-        syncedAt: FIXTURE_NOW - 2_000,
-      },
     }),
   },
   {
@@ -1233,281 +1209,6 @@ function VaultDashboardStickyHeaderFixture() {
   );
 }
 
-type BranchRowVariantKind = "quiet" | "grouped" | "table";
-type BranchRowStatusState = "failure" | "neutral" | "running" | "success" | "unknown";
-
-const RAW_VARIANT_BRANCHES = LIST_SPACING_BRANCHES.slice(0, 5).map((branchRow) => branchRow.branch);
-
-function readRawBranchHeadChecks(branch: FixtureVaultBranch) {
-  return branch.commits?.find((commit) => commit.sha === branch.headCommitSha)?.checks;
-}
-
-function readRawBranchStatus(branch: FixtureVaultBranch) {
-  const checks = readRawBranchHeadChecks(branch);
-  if (!checks) {
-    return null;
-  }
-
-  switch (checks.state) {
-    case "failure":
-      return {
-        state: checks.state,
-        label: `${checks.failureCount} failed`,
-      };
-    case "running":
-      return {
-        state: checks.state,
-        label: `${checks.runningCount} pending`,
-      };
-    case "success":
-      return {
-        state: checks.state,
-        label: `${checks.successCount + checks.neutralCount} passed`,
-      };
-    case "neutral":
-      return {
-        state: checks.state,
-        label: `${checks.neutralCount} neutral`,
-      };
-    case "unknown":
-      return {
-        state: checks.state,
-        label: `${checks.totalCount} unknown`,
-      };
-    default: {
-      checks.state satisfies never;
-      return null;
-    }
-  }
-}
-
-function rawStatusPillClassName(state: BranchRowStatusState) {
-  switch (state) {
-    case "success":
-      return "inline-flex min-h-6 shrink-0 items-center gap-1 border border-emerald-200 bg-emerald-50 px-1.5 font-mono text-xs text-emerald-700";
-    case "failure":
-      return "inline-flex min-h-6 shrink-0 items-center gap-1 border border-red-200 bg-red-50 px-1.5 font-mono text-xs text-red-700";
-    case "running":
-      return "inline-flex min-h-6 shrink-0 items-center gap-1 border border-amber-200 bg-amber-50 px-1.5 font-mono text-xs text-amber-700";
-    case "neutral":
-      return "inline-flex min-h-6 shrink-0 items-center gap-1 border border-stone-300 bg-stone-100 px-1.5 font-mono text-xs text-stone-600";
-    case "unknown":
-      return "inline-flex min-h-6 shrink-0 items-center gap-1 border border-stone-300 bg-stone-100 px-1.5 font-mono text-xs text-stone-700";
-    default: {
-      state satisfies never;
-      return "inline-flex min-h-6 shrink-0 items-center gap-1 border border-stone-300 bg-stone-100 px-1.5 font-mono text-xs text-stone-700";
-    }
-  }
-}
-
-function RawStatusIcon({ state }: { state: BranchRowStatusState }) {
-  switch (state) {
-    case "success":
-      return <CircleCheck className="h-3.5 w-3.5" strokeWidth={2} />;
-    case "failure":
-      return <CircleX className="h-3.5 w-3.5" strokeWidth={2} />;
-    case "running":
-      return <CircleDot className="h-3.5 w-3.5" strokeWidth={2} />;
-    case "neutral":
-      return <CircleDashed className="h-3.5 w-3.5" strokeWidth={2} />;
-    case "unknown":
-      return <CircleDashed className="h-3.5 w-3.5" strokeWidth={2} />;
-    default: {
-      state satisfies never;
-      return <CircleDashed className="h-3.5 w-3.5" strokeWidth={2} />;
-    }
-  }
-}
-
-function RawStatusPill({ branch }: { branch: FixtureVaultBranch }) {
-  const status = readRawBranchStatus(branch);
-  if (!status) {
-    return null;
-  }
-
-  return (
-    <span className={rawStatusPillClassName(status.state)}>
-      <RawStatusIcon state={status.state} />
-      <span>{status.label}</span>
-    </span>
-  );
-}
-
-function RawBranchIdentity({ branch }: { branch: FixtureVaultBranch }) {
-  const isPullRequest = typeof branch.pullRequestNumber === "number";
-  const title =
-    isPullRequest &&
-    typeof branch.pullRequestTitle === "string" &&
-    branch.pullRequestTitle.length > 0
-      ? `#${branch.pullRequestNumber} ${branch.pullRequestTitle}`
-      : branch.name;
-
-  return (
-    <div className="min-w-0">
-      <div className="flex min-w-0 items-start gap-2">
-        <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center text-stone-500">
-          {isPullRequest ? (
-            <GitPullRequestArrow className="h-4 w-4" strokeWidth={1.75} />
-          ) : (
-            <GitBranch className="h-4 w-4" strokeWidth={1.75} />
-          )}
-        </span>
-        <div className="min-w-0">
-          <div className="truncate text-[15px] font-medium leading-5 text-stone-950">{title}</div>
-          {isPullRequest ? (
-            <div className="truncate font-mono text-[13px] leading-5 text-stone-500">
-              {branch.name}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RawAheadBehind({ branch }: { branch: FixtureVaultBranch }) {
-  if (branch.aheadBy === 0 && branch.behindBy === 0) {
-    return null;
-  }
-
-  return (
-    <span className="font-mono text-xs leading-5 text-stone-500">
-      ↑{branch.aheadBy ?? 0} ↓{branch.behindBy ?? 0}
-    </span>
-  );
-}
-
-function RawBranchRow({
-  branch,
-  variant,
-}: {
-  branch: FixtureVaultBranch;
-  variant: BranchRowVariantKind;
-}) {
-  switch (variant) {
-    case "quiet":
-      return (
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 border-t border-stone-200 px-3 py-2.5 first:border-t-0">
-          <RawBranchIdentity branch={branch} />
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <RawStatusPill branch={branch} />
-            <RawAheadBehind branch={branch} />
-          </div>
-        </div>
-      );
-    case "grouped":
-      return (
-        <div className="border-t border-stone-200 px-3 py-2.5 first:border-t-0">
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <RawBranchIdentity branch={branch} />
-            <RawStatusPill branch={branch} />
-          </div>
-          <div className="ml-6 mt-1 flex min-h-5 items-center gap-3">
-            <RawAheadBehind branch={branch} />
-            <span className="text-xs text-stone-500">
-              {branch.isDefault ? "Edit" : "View changes"}
-            </span>
-          </div>
-        </div>
-      );
-    case "table":
-      return (
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-stone-200 px-3 py-2 first:border-t-0">
-          <RawBranchIdentity branch={branch} />
-          <RawStatusPill branch={branch} />
-          <RawAheadBehind branch={branch} />
-        </div>
-      );
-    default:
-      variant satisfies never;
-      return null;
-  }
-}
-
-function RawResourceRows({ variant }: { variant: BranchRowVariantKind }) {
-  const resourceRows = [
-    {
-      icon: <Cloud className="h-3.5 w-3.5" strokeWidth={1.75} />,
-      label: "domain-router.nicu.workers.dev",
-      meta: "apps/domain-router",
-    },
-    {
-      icon: <Cloud className="h-3.5 w-3.5" strokeWidth={1.75} />,
-      label: "samebase-worker.nicu.workers.dev",
-      meta: "apps/samebase",
-    },
-    {
-      icon: <Server className="h-3.5 w-3.5" strokeWidth={1.75} />,
-      label: "calm-swan-123",
-      meta: "production",
-    },
-  ];
-  const rowClassName =
-    variant === "grouped"
-      ? "flex min-w-0 items-center gap-2 px-3 py-1.5"
-      : "flex min-w-0 items-center gap-2 px-3 py-1";
-
-  return (
-    <div
-      className={
-        variant === "quiet" ? "border-b border-stone-200 py-1.5" : "border-b border-stone-200 py-2"
-      }
-    >
-      {resourceRows.map((row) => (
-        <div key={`${row.meta}:${row.label}`} className={rowClassName}>
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-orange-500">
-            {row.icon}
-          </span>
-          <span className="truncate font-mono text-[13px] leading-5 text-stone-950">
-            {row.label}
-          </span>
-          {variant !== "quiet" ? (
-            <span className="hidden shrink-0 text-xs text-stone-500 sm:inline">{row.meta}</span>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RawBranchVariantPanel({
-  label,
-  variant,
-}: {
-  label: string;
-  variant: BranchRowVariantKind;
-}) {
-  return (
-    <section className="min-w-0 border border-stone-200 bg-white">
-      <div className="border-b border-stone-200 px-3 py-2">
-        <div className="text-sm font-medium text-stone-950">{label}</div>
-      </div>
-      <RawResourceRows variant={variant} />
-      <div className="pb-2 sm:pb-0">
-        {RAW_VARIANT_BRANCHES.map((branch) => (
-          <RawBranchRow key={branch.name} branch={branch} variant={variant} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function VaultDashboardBranchRowVariantsFixture() {
-  return (
-    <div
-      data-testid="vault-dashboard-visual-fixture"
-      data-mode="vault-dashboard-branch-row-variants"
-      className="min-h-screen bg-white p-3 text-stone-950 sm:p-4"
-    >
-      <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-3 xl:gap-4">
-        <RawBranchVariantPanel label="Quiet" variant="quiet" />
-        <RawBranchVariantPanel label="Grouped" variant="grouped" />
-        <RawBranchVariantPanel label="Table" variant="table" />
-      </div>
-    </div>
-  );
-}
-
 function FixtureDashboardShell({
   mainContent,
   rightContent,
@@ -1590,10 +1291,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
-  }
-
-  if (mode === "vault-dashboard-branch-row-variants") {
-    return <VaultDashboardBranchRowVariantsFixture />;
   }
 
   if (mode === "vault-dashboard-sticky-header") {

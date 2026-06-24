@@ -13,7 +13,7 @@ export interface VaultRemoteBranchListItem {
   isProtected: boolean;
   remoteState: "active" | "deleted_upstream";
   lastSyncedAt: number;
-  commits?: readonly VaultBranchCommitListItem[];
+  commits: VaultBranchCommitListItem[];
   aheadBy?: number;
   behindBy?: number;
   pullRequestUrl?: string;
@@ -21,10 +21,6 @@ export interface VaultRemoteBranchListItem {
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
   pullRequestIsDraft?: boolean;
-  pullRequestStatusSummary?: VaultBranchCommitChecksSummary & {
-    pullRequestNumber: number;
-    headCommitSha: string;
-  };
 }
 
 export interface VaultBranchCommitListItem {
