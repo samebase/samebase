@@ -1,6 +1,6 @@
 import { Infer, v } from "convex/values";
 
-import { internalMutation, type MutationCtx } from "./_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import {
   vCommitCheckSource,
   vCommitCheckState,
@@ -55,6 +55,34 @@ export type GitHubCommitStatusSnapshotInput = {
   targetUrl?: string | null;
   updatedAt?: string;
 };
+
+export async function getGitHubCommitCheckSnapshotsByCommitSha(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    githubRepositoryId: string;
+    commitShas: Iterable<string>;
+  },
+): Promise<Map<string, GitHubCommitCheckSnapshot>> {
+  const snapshotsByCommitSha = new Map<string, GitHubCommitCheckSnapshot>();
+  const snapshots = await Promise.all(
+    Array.from(new Set(args.commitShas)).map(async (commitSha) => {
+      return await ctx.db
+        .query("githubCommitCheckSnapshots")
+        .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+          q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
+        )
+        .first();
+    }),
+  );
+
+  for (const snapshot of snapshots) {
+    if (snapshot) {
+      snapshotsByCommitSha.set(snapshot.commitSha, snapshot);
+    }
+  }
+
+  return snapshotsByCommitSha;
+}
 
 function parseGitTimestamp(value: string | undefined): number | undefined {
   if (typeof value !== "string") {

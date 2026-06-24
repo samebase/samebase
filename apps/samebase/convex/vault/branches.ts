@@ -1,21 +1,14 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-  type QueryCtx,
-} from "../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
-import {
-  vPullRequestLabel,
-  vVaultBranchCommitSummary,
-  type PullRequestLabel,
-  type GitHubCommitCheckSnapshot,
-} from "../schema";
+import { vPullRequestLabel, vVaultBranchCommitSummary, type PullRequestLabel } from "../schema";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
-import { deleteGitHubCommitChecksUnreferencedByBranches } from "../commitChecks";
+import {
+  deleteGitHubCommitChecksUnreferencedByBranches,
+  getGitHubCommitCheckSnapshotsByCommitSha,
+} from "../commitChecks";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
@@ -205,34 +198,6 @@ async function pruneDeletedUpstreamBranchesForVault(
     });
     await ctx.db.delete(branch._id);
   }
-}
-
-async function getGitHubCommitCheckSnapshotsByCommitSha(
-  ctx: Pick<QueryCtx, "db">,
-  args: {
-    githubRepositoryId: string;
-    commitShas: Iterable<string>;
-  },
-): Promise<Map<string, GitHubCommitCheckSnapshot>> {
-  const snapshotsByCommitSha = new Map<string, GitHubCommitCheckSnapshot>();
-  const snapshots = await Promise.all(
-    Array.from(new Set(args.commitShas)).map(async (commitSha) => {
-      return await ctx.db
-        .query("githubCommitCheckSnapshots")
-        .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
-          q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
-        )
-        .first();
-    }),
-  );
-
-  for (const snapshot of snapshots) {
-    if (snapshot) {
-      snapshotsByCommitSha.set(snapshot.commitSha, snapshot);
-    }
-  }
-
-  return snapshotsByCommitSha;
 }
 
 export const getVaultRemoteBranches = query({
