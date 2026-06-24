@@ -299,7 +299,22 @@ describe("page metadata", () => {
       rel: "manifest",
       href: "/manifest.webmanifest",
     });
-    expect(rootHead.links.some((link) => link.rel === "stylesheet")).toBe(false);
+    const stylesheetLinks = rootHead.links.filter((link) => link.rel === "stylesheet");
+    expect(stylesheetLinks).toEqual(
+      import.meta.env.DEV
+        ? [
+            {
+              rel: "stylesheet",
+              href: "/src/index.css",
+            },
+          ]
+        : [],
+    );
+    expect(
+      stylesheetLinks.some(
+        (link) => link.href.includes("/assets/") || link.href.includes("index.css?url"),
+      ),
+    ).toBe(false);
     expect(rootHead.meta).toContainEqual({
       name: "theme-color",
       content: "#ffffff",
