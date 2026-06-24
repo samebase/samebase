@@ -30,8 +30,8 @@ import {
 import {
   createRepositoryArgs,
   createRepositoryContract,
-  createRepositoryReturns,
   type CreateRepositoryArgs,
+  vCreateRepositoryReturns,
 } from "./createRepositoryContract";
 
 const { array, boolean, literal, null: nullValue, object, string, union } = v;
@@ -832,7 +832,7 @@ export const createAppForUserInternal = internalAction({
     userId: v.id("users"),
     ...createRepositoryArgs,
   },
-  returns: createRepositoryReturns,
+  returns: vCreateRepositoryReturns,
   handler: async (ctx, args): Promise<CreateRepositoryResult> => {
     await assertUserCanCreateRepository(ctx, args.userId);
     return await createAppForUser(ctx, args);

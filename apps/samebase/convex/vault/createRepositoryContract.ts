@@ -17,7 +17,7 @@ export const createRepositoryArgs = {
 
 const createRepositoryArgsValidator = object(createRepositoryArgs);
 
-export const createRepositoryReturns = object({
+export const vCreateRepositoryReturns = object({
   vaultId: id("vaults"),
   runId: id("appProvisioningRuns"),
 });
@@ -40,14 +40,14 @@ export const createRepositoryMcp = {
 type CreateRepositoryContract = {
   access: typeof createRepositoryAccess;
   args: typeof createRepositoryArgs;
-  returns: typeof createRepositoryReturns;
+  returns: typeof vCreateRepositoryReturns;
   mcp: typeof createRepositoryMcp;
 };
 
 export const createRepositoryContract: CreateRepositoryContract = {
   access: createRepositoryAccess,
   args: createRepositoryArgs,
-  returns: createRepositoryReturns,
+  returns: vCreateRepositoryReturns,
   mcp: createRepositoryMcp,
 };
 
