@@ -1024,7 +1024,7 @@ describe("infrastructure provisioning ownership", () => {
     });
 
     const expectedMessage =
-      "Cloudflare Workers and Pages GitHub App is not authorized for ada/cloudflare-github-app. In GitHub, install or configure Cloudflare Workers and Pages for ada/cloudflare-github-app, then retry.";
+      "Cloudflare Workers and Pages GitHub App is not authorized for ada/cloudflare-github-app. Open https://github.com/apps/cloudflare-workers-and-pages, click Configure, complete GitHub verification if prompted, add ada/cloudflare-github-app, then retry.";
     expect(result.run).toMatchObject({
       state: "failed",
       lastError: expectedMessage,

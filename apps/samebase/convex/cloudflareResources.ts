@@ -61,6 +61,8 @@ export type CloudflareBuildToken = {
 const SAMEBASE_WORKERS_BUILD_TOKEN_NAME = "samebase build token";
 const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${SAMEBASE_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
 const CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE = "8000008";
+const CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL =
+  "https://github.com/apps/cloudflare-workers-and-pages";
 const BUILD_TOKEN_PAGE_SIZE = 100;
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
@@ -114,7 +116,7 @@ export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown
 export function formatCloudflareGitHubAppRepositoryAuthorizationMessage(
   repositoryFullName: string,
 ): string {
-  return `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. In GitHub, install or configure Cloudflare Workers and Pages for ${repositoryFullName}, then retry.`;
+  return `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. Open ${CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL}, click Configure, complete GitHub verification if prompted, add ${repositoryFullName}, then retry.`;
 }
 
 function requireCloudflareResult<T>(value: T | undefined, message: string): T {

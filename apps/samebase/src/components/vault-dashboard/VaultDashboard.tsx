@@ -79,10 +79,7 @@ import {
   resolveVaultProviderSetupStatus,
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
-import {
-  buildGitHubBranchTreeUrl,
-  buildGitHubRepositoryAppInstallationsUrl,
-} from "@/lib/githubUrls";
+import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
@@ -2217,7 +2214,7 @@ function VaultCloudflareGitHubAppAuthorizationFailure({
     <div className="space-y-1">
       <div className="text-destructive">Cloudflare cannot access this GitHub repo.</div>
       <div className="text-muted-foreground">
-        Install, configure, or unsuspend{" "}
+        Open{" "}
         <a
           href={CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL}
           target="_blank"
@@ -2226,17 +2223,7 @@ function VaultCloudflareGitHubAppAuthorizationFailure({
         >
           Cloudflare Workers and Pages
         </a>
-        , then retry.
-      </div>
-      <div className="text-muted-foreground">
-        <a
-          href={buildGitHubRepositoryAppInstallationsUrl({ repositoryFullName })}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={linkStyle}
-        >
-          Open repository GitHub Apps
-        </a>
+        , click Configure, validate with GitHub if asked, add {repositoryFullName}, then retry.
       </div>
     </div>
   );
