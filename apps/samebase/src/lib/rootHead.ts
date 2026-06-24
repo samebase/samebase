@@ -77,6 +77,8 @@ const initialThemeScript = `
   document.documentElement.classList.toggle("dark", useDarkTheme);
 })();
 `;
+// Production CSS stays owned by the client entry. This raw source URL is only
+// for Vite dev SSR first paint before the client imports `index.css`.
 const DEV_ROOT_STYLESHEET_HREF = "/src/index.css";
 
 function buildDevRootStylesheetLinks() {
