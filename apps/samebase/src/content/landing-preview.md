@@ -52,7 +52,7 @@ Start with **a Google or an Apple** account on a **phone or desktop**
 
 It's fine if you signed up differently, as long as you have these 4 accounts you can deploy an app.
 
-<video controls preload="metadata" src="/landing-preview/step-1-create-accounts.mp4"></video>
+<video controls preload="metadata" width="540" height="1194" src="/landing-preview/step-1-create-accounts.mp4"></video>
 
 ## 2: Copy the app code to your GitHub account
 
@@ -61,7 +61,7 @@ Visit https://github.com/samebase/app
 - [ ] click big green "Use this template"
 - [ ] make it private or leave it public
 
-<video controls preload="metadata" src="/landing-preview/step-2-use-template.mp4"></video>
+<video controls preload="metadata" width="540" height="1194" src="/landing-preview/step-2-use-template.mp4"></video>
 
 <details>
 <summary>"Fork" if you want to preserver the git history</summary>
@@ -92,7 +92,7 @@ already exists.
 
 Try opening Cloudflare Pages from a Desktop instead of Mobile, this usually helps.
 
-<video controls preload="metadata" src="/landing-preview/step-3-connect-cloudflare-pages.mp4"></video>
+<video controls preload="metadata" width="940" height="662" src="/landing-preview/step-3-connect-cloudflare-pages.mp4"></video>
 
 <details>
 <summary>Connecting CloudFlare Pages to Github issues</summary>
@@ -116,7 +116,7 @@ You can check all your installed GitHub apps here: https://github.com/settings/i
 If you press "Done" you won't be able to see the deploy key again, but it's fine, you can delete it
 and create a new deploy key.
 
-<video controls preload="metadata" src="/landing-preview/step-4-create-convex-project.mp4"></video>
+<video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-4-create-convex-project.mp4"></video>
 
 <details>
 <summary>### What are CONVEX_DEPLOY_KEY?</summary>
@@ -136,7 +136,7 @@ database on each change.
 - [ ] Add Environment Variable `CONVEX_DEPLOY_KEY` and use the Production deploy key from the
       previous step
 
-<video controls preload="metadata" src="/landing-preview/step-5-create-cloudflare-pages-deploy.mp4"></video>
+<video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-5-create-cloudflare-pages-deploy.mp4"></video>
 
 ---
 

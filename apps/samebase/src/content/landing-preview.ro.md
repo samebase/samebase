@@ -55,7 +55,7 @@ Vite, deci nu avem nevoie de 2 porturi).
 Este în regulă dacă te-ai înregistrat altfel, atâta timp cât ai aceste 4 conturi poți publica o
 aplicație.
 
-<video controls preload="metadata" src="/landing-preview/step-1-create-accounts.mp4"></video>
+<video controls preload="metadata" width="540" height="1194" src="/landing-preview/step-1-create-accounts.mp4"></video>
 
 ## 2: Copiază codul aplicației în contul tău GitHub
 
@@ -64,7 +64,7 @@ Vizitează https://github.com/samebase/app
 - [ ] apasă butonul verde mare "Use this template"
 - [ ] fă-l privat sau lasă-l public
 
-<video controls preload="metadata" src="/landing-preview/step-2-use-template.mp4"></video>
+<video controls preload="metadata" width="540" height="1194" src="/landing-preview/step-2-use-template.mp4"></video>
 
 <details>
 <summary>"Fork" dacă vrei să păstrezi istoricul git</summary>
@@ -95,7 +95,7 @@ deja.
 
 Încearcă să deschizi Cloudflare Pages de pe desktop în loc de mobil, de obicei ajută.
 
-<video controls preload="metadata" src="/landing-preview/step-3-connect-cloudflare-pages.mp4"></video>
+<video controls preload="metadata" width="940" height="662" src="/landing-preview/step-3-connect-cloudflare-pages.mp4"></video>
 
 <details>
 <summary>Probleme la conectarea Cloudflare Pages la GitHub</summary>
@@ -119,7 +119,7 @@ Poți verifica toate aplicațiile GitHub instalate aici: https://github.com/sett
 Dacă apeși "Done", nu vei mai putea vedea deploy key-ul din nou, dar este în regulă, îl poți șterge
 și poți crea un deploy key nou.
 
-<video controls preload="metadata" src="/landing-preview/step-4-create-convex-project.mp4"></video>
+<video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-4-create-convex-project.mp4"></video>
 
 <details>
 <summary>### Ce sunt CONVEX_DEPLOY_KEY?</summary>
@@ -139,7 +139,7 @@ actualizeze baza de date la fiecare modificare.
 - [ ] Adaugă variabila de mediu `CONVEX_DEPLOY_KEY` și folosește deploy key-ul Production de la
       pasul anterior
 
-<video controls preload="metadata" src="/landing-preview/step-5-create-cloudflare-pages-deploy.mp4"></video>
+<video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-5-create-cloudflare-pages-deploy.mp4"></video>
 
 ---
 
