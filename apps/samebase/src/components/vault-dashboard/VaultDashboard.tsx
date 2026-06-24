@@ -23,7 +23,6 @@ import {
   CircleDot,
   CircleX,
   GitBranch,
-  GitCommitHorizontal,
   Loader2,
 } from "lucide-react";
 import { useCreateStore, useSelector } from "@tanstack/react-store";
@@ -649,6 +648,25 @@ function formatChecksCount(count: number): string {
   return `${count} ${count === 1 ? "check" : "checks"}`;
 }
 
+function formatCommitChecksChipCount(summary: VaultBranchCommitChecksSummary): string {
+  switch (summary.state) {
+    case "running":
+      return String(summary.runningCount);
+    case "failure":
+      return String(summary.failureCount);
+    case "success":
+      return String(summary.successCount + summary.neutralCount);
+    case "neutral":
+      return String(summary.neutralCount);
+    case "unknown":
+      return String(summary.totalCount);
+    default: {
+      summary.state satisfies never;
+      return String(summary.totalCount);
+    }
+  }
+}
+
 function formatCommitChecksLabel(summary: VaultBranchCommitChecksSummary): string {
   if (summary.totalCount === 0) {
     return "No checks";
@@ -707,18 +725,18 @@ function getCommitChecksStateClassName(summary: VaultBranchCommitChecksSummary):
 function CommitChecksIcon({ summary }: { summary: VaultBranchCommitChecksSummary }) {
   switch (summary.state) {
     case "success":
-      return <CircleCheck className="h-5 w-5" strokeWidth={2} />;
+      return <CircleCheck className="h-4 w-4" strokeWidth={2} />;
     case "failure":
-      return <CircleX className="h-5 w-5" strokeWidth={2} />;
+      return <CircleX className="h-4 w-4" strokeWidth={2} />;
     case "running":
-      return <CircleDot className="h-5 w-5" strokeWidth={2} />;
+      return <CircleDot className="h-4 w-4" strokeWidth={2} />;
     case "neutral":
-      return <CircleDashed className="h-5 w-5" strokeWidth={2} />;
+      return <CircleDashed className="h-4 w-4" strokeWidth={2} />;
     case "unknown":
-      return <CircleAlert className="h-5 w-5" strokeWidth={2} />;
+      return <CircleAlert className="h-4 w-4" strokeWidth={2} />;
     default: {
       summary.state satisfies never;
-      return <CircleAlert className="h-5 w-5" strokeWidth={2} />;
+      return <CircleAlert className="h-4 w-4" strokeWidth={2} />;
     }
   }
 }
@@ -1627,6 +1645,9 @@ function formatAheadBehindCounts(
   if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
     return null;
   }
+  if (aheadBy === 0 && behindBy === 0) {
+    return null;
+  }
   return `↑${aheadBy} ↓${behindBy}`;
 }
 
@@ -1683,62 +1704,53 @@ function buildVaultDashboardBranchRoute(args: {
 function VaultBranchCommitStack({
   aheadBehindLabel,
   commits,
-  metadataLinkClassName,
 }: {
   aheadBehindLabel: string | null;
   commits: readonly VaultBranchCommitRowViewModel[];
-  metadataLinkClassName: string;
 }) {
+  const commitsWithChecks = commits.filter((commit) => commit.checks);
+  if (commitsWithChecks.length === 0 && !aheadBehindLabel) {
+    return null;
+  }
+
   return (
-    <div className="space-y-1.5">
-      {commits.map((commit) => (
-        <div key={commit.sha} className="min-w-0 space-y-0.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            <a
-              href={commit.url}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={clsx(metadataLinkClassName, "max-w-full gap-1.5")}
-              title={commit.title ? `View ${commit.title} on GitHub` : "View commit on GitHub"}
-            >
-              <DashboardLinkIconSlot>
-                <GitCommitHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
-              </DashboardLinkIconSlot>
-              <span className="shrink-0">{commit.sha.slice(0, 7)}</span>
-            </a>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      {aheadBehindLabel ? (
+        <span className="font-mono text-sm tabular-nums" title="Ahead/behind versus default branch">
+          {aheadBehindLabel}
+        </span>
+      ) : null}
 
-            {commit.isHead && aheadBehindLabel ? (
-              <span
-                className="font-mono tabular-nums"
-                title="Ahead/behind versus the default branch"
-              >
-                {aheadBehindLabel}
-              </span>
-            ) : null}
-          </div>
+      {commitsWithChecks.map((commit) => {
+        const checks = commit.checks;
+        if (!checks) {
+          return null;
+        }
 
-          {commit.checks ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 pl-7">
-              <a
-                href={commit.checks.primaryTargetUrl ?? `${commit.url}/checks`}
-                target="_blank"
-                rel="noreferrer noopener"
-                className={clsx(
-                  metadataLinkClassName,
-                  "gap-1.5",
-                  getCommitChecksStateClassName(commit.checks),
-                )}
-                title={formatCommitChecksTitle(commit.checks)}
-              >
-                <DashboardLinkIconSlot>
-                  <CommitChecksIcon summary={commit.checks} />
-                </DashboardLinkIconSlot>
-                <span>{formatCommitChecksLabel(commit.checks)}</span>
-              </a>
-            </div>
-          ) : null}
-        </div>
-      ))}
+        const titleParts = [
+          commit.sha.slice(0, 7),
+          commit.title,
+          formatCommitChecksTitle(checks),
+        ].filter(Boolean);
+
+        return (
+          <a
+            key={commit.sha}
+            href={checks.primaryTargetUrl ?? `${commit.url}/checks`}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label={formatCommitChecksLabel(checks)}
+            className={clsx(
+              "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums transition-colors hover:underline",
+              getCommitChecksStateClassName(checks),
+            )}
+            title={titleParts.join(" • ")}
+          >
+            <CommitChecksIcon summary={checks} />
+            <span>{formatCommitChecksChipCount(checks)}</span>
+          </a>
+        );
+      })}
     </div>
   );
 }
@@ -1902,11 +1914,7 @@ export function VaultBranchLinkContent({
             <span className="min-w-0 break-words">{branch.name}</span>
           </a>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
-            <VaultBranchCommitStack
-              aheadBehindLabel={aheadBehindLabel}
-              commits={commitRows}
-              metadataLinkClassName={metadataLinkClassName}
-            />
+            <VaultBranchCommitStack aheadBehindLabel={aheadBehindLabel} commits={commitRows} />
             {hasPullRequestMetadata ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 {hasStandalonePullRequestLink ? (
