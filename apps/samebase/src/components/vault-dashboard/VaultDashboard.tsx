@@ -660,9 +660,7 @@ function formatCommitChecksLabel(summary: VaultBranchCommitChecksSummary): strin
     case "failure":
       return `${formatChecksCount(summary.failureCount)} failed`;
     case "success":
-      return summary.totalCount === summary.successCount
-        ? "All checks passed"
-        : `${formatChecksCount(summary.successCount + summary.neutralCount)} passed`;
+      return `${formatChecksCount(summary.successCount + summary.neutralCount)} passed`;
     case "neutral":
       return `${formatChecksCount(summary.neutralCount)} neutral`;
     case "unknown":
@@ -1701,17 +1699,12 @@ function VaultBranchCommitStack({
               target="_blank"
               rel="noreferrer noopener"
               className={clsx(metadataLinkClassName, "max-w-full gap-1.5")}
-              title="View commit on GitHub"
+              title={commit.title ? `View ${commit.title} on GitHub` : "View commit on GitHub"}
             >
               <DashboardLinkIconSlot>
                 <GitCommitHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
               </DashboardLinkIconSlot>
-              <span className="shrink-0">
-                {commit.isHead ? "Head" : "Commit"} {commit.sha.slice(0, 7)}
-              </span>
-              {commit.title ? (
-                <span className="min-w-0 truncate text-muted-foreground">{commit.title}</span>
-              ) : null}
+              <span className="shrink-0">{commit.sha.slice(0, 7)}</span>
             </a>
 
             {commit.isHead && aheadBehindLabel ? (
