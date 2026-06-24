@@ -13,6 +13,7 @@ export interface VaultRemoteBranchListItem {
   isProtected: boolean;
   remoteState: "active" | "deleted_upstream";
   lastSyncedAt: number;
+  commits?: readonly VaultBranchCommitListItem[];
   aheadBy?: number;
   behindBy?: number;
   pullRequestUrl?: string;
@@ -20,22 +21,32 @@ export interface VaultRemoteBranchListItem {
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
   pullRequestIsDraft?: boolean;
-  pullRequestStatusSummary?: {
+  pullRequestStatusSummary?: VaultBranchCommitChecksSummary & {
     pullRequestNumber: number;
     headCommitSha: string;
-    state: "success" | "failure" | "running" | "neutral" | "unknown";
-    totalCount: number;
-    checkRunCount: number;
-    statusContextCount: number;
-    successCount: number;
-    failureCount: number;
-    runningCount: number;
-    neutralCount: number;
-    unknownCount: number;
-    primaryTargetUrl?: string;
-    primaryLogUrl?: string;
-    syncedAt: number;
   };
+}
+
+export interface VaultBranchCommitListItem {
+  sha: string;
+  title?: string;
+  authoredAt?: number;
+  checks?: VaultBranchCommitChecksSummary;
+}
+
+export interface VaultBranchCommitChecksSummary {
+  state: "success" | "failure" | "running" | "neutral" | "unknown";
+  totalCount: number;
+  checkRunCount: number;
+  statusContextCount: number;
+  successCount: number;
+  failureCount: number;
+  runningCount: number;
+  neutralCount: number;
+  unknownCount: number;
+  primaryTargetUrl?: string;
+  primaryLogUrl?: string;
+  syncedAt: number;
 }
 
 export function buildVaultBranchSectionState({

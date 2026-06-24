@@ -99,6 +99,8 @@ import {
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 import {
   buildVaultBranchSectionState,
+  type VaultBranchCommitChecksSummary,
+  type VaultBranchCommitListItem,
   type VaultRemoteBranchListItem,
 } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import { toast } from "@/components/ui/use-toast";
@@ -635,15 +637,19 @@ const DashboardLinkIconSlot = ({
   </span>
 );
 
-type VaultPullRequestStatusSummary = NonNullable<
-  VaultRemoteBranchListItem["pullRequestStatusSummary"]
->;
+type VaultBranchCommitRowViewModel = {
+  sha: string;
+  title?: string;
+  checks?: VaultBranchCommitChecksSummary;
+  isHead: boolean;
+  url: string;
+};
 
 function formatChecksCount(count: number): string {
   return `${count} ${count === 1 ? "check" : "checks"}`;
 }
 
-function formatPullRequestChecksLabel(summary: VaultPullRequestStatusSummary): string {
+function formatCommitChecksLabel(summary: VaultBranchCommitChecksSummary): string {
   if (summary.totalCount === 0) {
     return "No checks";
   }
@@ -668,7 +674,7 @@ function formatPullRequestChecksLabel(summary: VaultPullRequestStatusSummary): s
   }
 }
 
-function formatPullRequestChecksTitle(summary: VaultPullRequestStatusSummary): string {
+function formatCommitChecksTitle(summary: VaultBranchCommitChecksSummary): string {
   const parts = [
     `${formatChecksCount(summary.totalCount)} total`,
     `${summary.successCount} passed`,
@@ -682,7 +688,7 @@ function formatPullRequestChecksTitle(summary: VaultPullRequestStatusSummary): s
   return parts.join(" • ");
 }
 
-function getPullRequestChecksStateClassName(summary: VaultPullRequestStatusSummary): string {
+function getCommitChecksStateClassName(summary: VaultBranchCommitChecksSummary): string {
   switch (summary.state) {
     case "success":
       return "text-emerald-600 hover:text-emerald-700";
@@ -700,7 +706,7 @@ function getPullRequestChecksStateClassName(summary: VaultPullRequestStatusSumma
   }
 }
 
-function PullRequestChecksIcon({ summary }: { summary: VaultPullRequestStatusSummary }) {
+function CommitChecksIcon({ summary }: { summary: VaultBranchCommitChecksSummary }) {
   switch (summary.state) {
     case "success":
       return <CircleCheck className="h-5 w-5" strokeWidth={2} />;
@@ -721,13 +727,53 @@ function PullRequestChecksIcon({ summary }: { summary: VaultPullRequestStatusSum
 
 function isCurrentPullRequestStatusSummary(args: {
   branch: VaultRemoteBranchListItem;
-  summary: VaultPullRequestStatusSummary | undefined;
+  summary: VaultRemoteBranchListItem["pullRequestStatusSummary"] | undefined;
 }): boolean {
   return (
     args.summary !== undefined &&
     args.summary.pullRequestNumber === args.branch.pullRequestNumber &&
     args.summary.headCommitSha === args.branch.headCommitSha
   );
+}
+
+function buildCommitUrl(repositoryFullName: string, sha: string): string {
+  return `https://github.com/${repositoryFullName}/commit/${sha}`;
+}
+
+function buildVaultBranchCommitRows({
+  branch,
+  repositoryFullName,
+}: {
+  branch: VaultRemoteBranchListItem;
+  repositoryFullName: string;
+}): VaultBranchCommitRowViewModel[] {
+  const pullRequestStatusSummary = isCurrentPullRequestStatusSummary({
+    branch,
+    summary: branch.pullRequestStatusSummary,
+  })
+    ? branch.pullRequestStatusSummary
+    : undefined;
+
+  if (branch.commits && branch.commits.length > 0) {
+    return branch.commits.map((commit: VaultBranchCommitListItem, index) => ({
+      checks:
+        commit.checks ??
+        (commit.sha === branch.headCommitSha ? pullRequestStatusSummary : undefined),
+      isHead: commit.sha === branch.headCommitSha || index === 0,
+      sha: commit.sha,
+      title: commit.title,
+      url: buildCommitUrl(repositoryFullName, commit.sha),
+    }));
+  }
+
+  return [
+    {
+      checks: pullRequestStatusSummary,
+      isHead: true,
+      sha: branch.headCommitSha,
+      url: buildCommitUrl(repositoryFullName, branch.headCommitSha),
+    },
+  ];
 }
 
 export function VaultDashboardDeleteControl({
@@ -1636,6 +1682,73 @@ function buildVaultDashboardBranchRoute(args: {
   });
 }
 
+function VaultBranchCommitStack({
+  aheadBehindLabel,
+  commits,
+  metadataLinkClassName,
+}: {
+  aheadBehindLabel: string | null;
+  commits: readonly VaultBranchCommitRowViewModel[];
+  metadataLinkClassName: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      {commits.map((commit) => (
+        <div key={commit.sha} className="min-w-0 space-y-0.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <a
+              href={commit.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={clsx(metadataLinkClassName, "max-w-full gap-1.5")}
+              title="View commit on GitHub"
+            >
+              <DashboardLinkIconSlot>
+                <GitCommitHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
+              </DashboardLinkIconSlot>
+              <span className="shrink-0">
+                {commit.isHead ? "Head" : "Commit"} {commit.sha.slice(0, 7)}
+              </span>
+              {commit.title ? (
+                <span className="min-w-0 truncate text-muted-foreground">{commit.title}</span>
+              ) : null}
+            </a>
+
+            {commit.isHead && aheadBehindLabel ? (
+              <span
+                className="font-mono tabular-nums"
+                title="Ahead/behind versus the default branch"
+              >
+                {aheadBehindLabel}
+              </span>
+            ) : null}
+          </div>
+
+          {commit.checks ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 pl-7">
+              <a
+                href={commit.checks.primaryTargetUrl ?? `${commit.url}/checks`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={clsx(
+                  metadataLinkClassName,
+                  "gap-1.5",
+                  getCommitChecksStateClassName(commit.checks),
+                )}
+                title={formatCommitChecksTitle(commit.checks)}
+              >
+                <DashboardLinkIconSlot>
+                  <CommitChecksIcon summary={commit.checks} />
+                </DashboardLinkIconSlot>
+                <span>{formatCommitChecksLabel(commit.checks)}</span>
+              </a>
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
 export function VaultDashboardRepositoryExternalLinks({
   links,
   repositoryFullName,
@@ -1687,7 +1800,6 @@ export function VaultBranchLinkContent({
   branch: VaultRemoteBranchListItem;
   productionApps?: readonly VaultBranchProductionApp[];
 }) {
-  const commitUrl = `https://github.com/${repositoryFullName}/commit/${branch.headCommitSha}`;
   const branchGithubUrl = buildGitHubBranchTreeUrl({
     repositoryFullName,
     branchName: branch.name,
@@ -1728,13 +1840,10 @@ export function VaultBranchLinkContent({
     ? "Open branch in Samebase"
     : "View changes in Samebase";
   const activeProductionApps = branch.isDefault ? productionApps : [];
-  const pullRequestStatusSummary = isCurrentPullRequestStatusSummary({
+  const commitRows = buildVaultBranchCommitRows({
     branch,
-    summary: branch.pullRequestStatusSummary,
-  })
-    ? branch.pullRequestStatusSummary
-    : undefined;
-  const pullRequestChecksHref = pullRequestStatusSummary?.primaryTargetUrl ?? `${commitUrl}/checks`;
+    repositoryFullName,
+  });
 
   return (
     <>
@@ -1800,28 +1909,11 @@ export function VaultBranchLinkContent({
             <span className="min-w-0 break-words">{branch.name}</span>
           </a>
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <a
-                href={commitUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className={clsx(metadataLinkClassName, "gap-1.5")}
-                title="View commit on GitHub"
-              >
-                <DashboardLinkIconSlot>
-                  <GitCommitHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
-                </DashboardLinkIconSlot>
-                <span>Last commit {branch.headCommitSha.slice(0, 7)}</span>
-              </a>
-              {aheadBehindLabel ? (
-                <span
-                  className="font-mono tabular-nums"
-                  title="Ahead/behind versus the default branch"
-                >
-                  {aheadBehindLabel}
-                </span>
-              ) : null}
-            </div>
+            <VaultBranchCommitStack
+              aheadBehindLabel={aheadBehindLabel}
+              commits={commitRows}
+              metadataLinkClassName={metadataLinkClassName}
+            />
             {hasPullRequestMetadata ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 {hasStandalonePullRequestLink ? (
@@ -1859,26 +1951,6 @@ export function VaultBranchLinkContent({
                       </Badge>
                     ))
                   : null}
-              </div>
-            ) : null}
-            {pullRequestStatusSummary ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                <a
-                  href={pullRequestChecksHref}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx(
-                    metadataLinkClassName,
-                    "gap-1.5",
-                    getPullRequestChecksStateClassName(pullRequestStatusSummary),
-                  )}
-                  title={formatPullRequestChecksTitle(pullRequestStatusSummary)}
-                >
-                  <DashboardLinkIconSlot>
-                    <PullRequestChecksIcon summary={pullRequestStatusSummary} />
-                  </DashboardLinkIconSlot>
-                  <span>{formatPullRequestChecksLabel(pullRequestStatusSummary)}</span>
-                </a>
               </div>
             ) : null}
             {branchRoute ? (
