@@ -5033,6 +5033,7 @@ export interface components {
           | "wrangler"
           | "terraform"
           | "dash"
+          | "cf_cli"
           | "dash_template"
           | "integration"
           | "quick_editor"

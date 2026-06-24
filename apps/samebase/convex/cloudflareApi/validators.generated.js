@@ -61377,6 +61377,7 @@ const schema543 = {
             "wrangler",
             "terraform",
             "dash",
+            "cf_cli",
             "dash_template",
             "integration",
             "quick_editor",
@@ -61588,6 +61589,7 @@ function validate624(
                           data10 === "wrangler" ||
                           data10 === "terraform" ||
                           data10 === "dash" ||
+                          data10 === "cf_cli" ||
                           data10 === "dash_template" ||
                           data10 === "integration" ||
                           data10 === "quick_editor" ||
@@ -62071,6 +62073,7 @@ function validate631(
               data7 === "wrangler" ||
               data7 === "terraform" ||
               data7 === "dash" ||
+              data7 === "cf_cli" ||
               data7 === "dash_template" ||
               data7 === "integration" ||
               data7 === "quick_editor" ||

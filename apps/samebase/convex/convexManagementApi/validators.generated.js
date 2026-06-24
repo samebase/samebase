@@ -13366,6 +13366,11 @@ const schema180 = {
       description: "A token.",
       required: ["token_id", "kind"],
       properties: {
+        client_id: {
+          type: ["string", "null"],
+          description:
+            "Client ID of the OAuth application the token was issued to or is\nmanaged by, if any.",
+        },
         kind: { type: "string", enum: ["token"] },
         member_id: {
           oneOf: [
@@ -13641,15 +13646,15 @@ function validate98(
         }
         errors++;
       }
-      if (data.kind !== undefined) {
-        let data3 = data.kind;
-        if (typeof data3 !== "string") {
+      if (data.client_id !== undefined) {
+        let data3 = data.client_id;
+        if (typeof data3 !== "string" && data3 !== null) {
           const err13 = {
-            instancePath: instancePath + "/kind",
-            schemaPath: "#/oneOf/2/properties/kind/type",
+            instancePath: instancePath + "/client_id",
+            schemaPath: "#/oneOf/2/properties/client_id/type",
             keyword: "type",
-            params: { type: "string" },
-            message: "must be string",
+            params: { type: schema180.oneOf[2].properties.client_id.type },
+            message: "must be string,null",
           };
           if (vErrors === null) {
             vErrors = [err13];
@@ -13658,13 +13663,16 @@ function validate98(
           }
           errors++;
         }
-        if (!(data3 === "token")) {
+      }
+      if (data.kind !== undefined) {
+        let data4 = data.kind;
+        if (typeof data4 !== "string") {
           const err14 = {
             instancePath: instancePath + "/kind",
-            schemaPath: "#/oneOf/2/properties/kind/enum",
-            keyword: "enum",
-            params: { allowedValues: schema180.oneOf[2].properties.kind.enum },
-            message: "must be equal to one of the allowed values",
+            schemaPath: "#/oneOf/2/properties/kind/type",
+            keyword: "type",
+            params: { type: "string" },
+            message: "must be string",
           };
           if (vErrors === null) {
             vErrors = [err14];
@@ -13673,20 +13681,13 @@ function validate98(
           }
           errors++;
         }
-      }
-      if (data.member_id !== undefined) {
-        let data4 = data.member_id;
-        const _errs17 = errors;
-        let valid5 = false;
-        let passing1 = null;
-        const _errs18 = errors;
-        if (data4 !== null) {
+        if (!(data4 === "token")) {
           const err15 = {
-            instancePath: instancePath + "/member_id",
-            schemaPath: "#/oneOf/2/properties/member_id/oneOf/0/type",
-            keyword: "type",
-            params: { type: "null" },
-            message: "must be null",
+            instancePath: instancePath + "/kind",
+            schemaPath: "#/oneOf/2/properties/kind/enum",
+            keyword: "enum",
+            params: { allowedValues: schema180.oneOf[2].properties.kind.enum },
+            message: "must be equal to one of the allowed values",
           };
           if (vErrors === null) {
             vErrors = [err15];
@@ -13695,15 +13696,37 @@ function validate98(
           }
           errors++;
         }
-        var _valid1 = _errs18 === errors;
+      }
+      if (data.member_id !== undefined) {
+        let data5 = data.member_id;
+        const _errs19 = errors;
+        let valid5 = false;
+        let passing1 = null;
+        const _errs20 = errors;
+        if (data5 !== null) {
+          const err16 = {
+            instancePath: instancePath + "/member_id",
+            schemaPath: "#/oneOf/2/properties/member_id/oneOf/0/type",
+            keyword: "type",
+            params: { type: "null" },
+            message: "must be null",
+          };
+          if (vErrors === null) {
+            vErrors = [err16];
+          } else {
+            vErrors.push(err16);
+          }
+          errors++;
+        }
+        var _valid1 = _errs20 === errors;
         if (_valid1) {
           valid5 = true;
           passing1 = 0;
         }
-        const _errs20 = errors;
-        if (typeof data4 === "string") {
-          if (!pattern0.test(data4)) {
-            const err16 = {
+        const _errs22 = errors;
+        if (typeof data5 === "string") {
+          if (!pattern0.test(data5)) {
+            const err17 = {
               instancePath: instancePath + "/member_id",
               schemaPath: "#/components/schemas/MemberId/pattern",
               keyword: "pattern",
@@ -13711,14 +13734,14 @@ function validate98(
               message: 'must match pattern "' + "^[0-9]+$" + '"',
             };
             if (vErrors === null) {
-              vErrors = [err16];
+              vErrors = [err17];
             } else {
-              vErrors.push(err16);
+              vErrors.push(err17);
             }
             errors++;
           }
         } else {
-          const err17 = {
+          const err18 = {
             instancePath: instancePath + "/member_id",
             schemaPath: "#/components/schemas/MemberId/type",
             keyword: "type",
@@ -13726,13 +13749,13 @@ function validate98(
             message: "must be string",
           };
           if (vErrors === null) {
-            vErrors = [err17];
+            vErrors = [err18];
           } else {
-            vErrors.push(err17);
+            vErrors.push(err18);
           }
           errors++;
         }
-        var _valid1 = _errs20 === errors;
+        var _valid1 = _errs22 === errors;
         if (_valid1 && valid5) {
           valid5 = false;
           passing1 = [passing1, 1];
@@ -13743,7 +13766,7 @@ function validate98(
           }
         }
         if (!valid5) {
-          const err18 = {
+          const err19 = {
             instancePath: instancePath + "/member_id",
             schemaPath: "#/oneOf/2/properties/member_id/oneOf",
             keyword: "oneOf",
@@ -13751,16 +13774,16 @@ function validate98(
             message: "must match exactly one schema in oneOf",
           };
           if (vErrors === null) {
-            vErrors = [err18];
+            vErrors = [err19];
           } else {
-            vErrors.push(err18);
+            vErrors.push(err19);
           }
           errors++;
         } else {
-          errors = _errs17;
+          errors = _errs19;
           if (vErrors !== null) {
-            if (_errs17) {
-              vErrors.length = _errs17;
+            if (_errs19) {
+              vErrors.length = _errs19;
             } else {
               vErrors = null;
             }
@@ -13768,10 +13791,10 @@ function validate98(
         }
       }
       if (data.token_id !== undefined) {
-        let data5 = data.token_id;
-        if (typeof data5 === "string") {
-          if (!pattern0.test(data5)) {
-            const err19 = {
+        let data6 = data.token_id;
+        if (typeof data6 === "string") {
+          if (!pattern0.test(data6)) {
+            const err20 = {
               instancePath: instancePath + "/token_id",
               schemaPath: "#/components/schemas/AccessTokenId/pattern",
               keyword: "pattern",
@@ -13779,14 +13802,14 @@ function validate98(
               message: 'must match pattern "' + "^[0-9]+$" + '"',
             };
             if (vErrors === null) {
-              vErrors = [err19];
+              vErrors = [err20];
             } else {
-              vErrors.push(err19);
+              vErrors.push(err20);
             }
             errors++;
           }
         } else {
-          const err20 = {
+          const err21 = {
             instancePath: instancePath + "/token_id",
             schemaPath: "#/components/schemas/AccessTokenId/type",
             keyword: "type",
@@ -13794,15 +13817,15 @@ function validate98(
             message: "must be string",
           };
           if (vErrors === null) {
-            vErrors = [err20];
+            vErrors = [err21];
           } else {
-            vErrors.push(err20);
+            vErrors.push(err21);
           }
           errors++;
         }
       }
     } else {
-      const err21 = {
+      const err22 = {
         instancePath,
         schemaPath: "#/oneOf/2/type",
         keyword: "type",
@@ -13810,9 +13833,9 @@ function validate98(
         message: "must be object",
       };
       if (vErrors === null) {
-        vErrors = [err21];
+        vErrors = [err22];
       } else {
-        vErrors.push(err21);
+        vErrors.push(err22);
       }
       errors++;
     }
@@ -13826,35 +13849,21 @@ function validate98(
         passing0 = 2;
         if (props0 !== true) {
           props0 = props0 || {};
+          props0.client_id = true;
           props0.kind = true;
           props0.member_id = true;
           props0.token_id = true;
         }
       }
-      const _errs26 = errors;
+      const _errs28 = errors;
       if (data && typeof data == "object" && !Array.isArray(data)) {
         if (data.client_id === undefined) {
-          const err22 = {
+          const err23 = {
             instancePath,
             schemaPath: "#/oneOf/3/required",
             keyword: "required",
             params: { missingProperty: "client_id" },
             message: "must have required property '" + "client_id" + "'",
-          };
-          if (vErrors === null) {
-            vErrors = [err22];
-          } else {
-            vErrors.push(err22);
-          }
-          errors++;
-        }
-        if (data.kind === undefined) {
-          const err23 = {
-            instancePath,
-            schemaPath: "#/oneOf/3/required",
-            keyword: "required",
-            params: { missingProperty: "kind" },
-            message: "must have required property '" + "kind" + "'",
           };
           if (vErrors === null) {
             vErrors = [err23];
@@ -13863,29 +13872,26 @@ function validate98(
           }
           errors++;
         }
+        if (data.kind === undefined) {
+          const err24 = {
+            instancePath,
+            schemaPath: "#/oneOf/3/required",
+            keyword: "required",
+            params: { missingProperty: "kind" },
+            message: "must have required property '" + "kind" + "'",
+          };
+          if (vErrors === null) {
+            vErrors = [err24];
+          } else {
+            vErrors.push(err24);
+          }
+          errors++;
+        }
         if (data.client_id !== undefined) {
           if (typeof data.client_id !== "string") {
-            const err24 = {
+            const err25 = {
               instancePath: instancePath + "/client_id",
               schemaPath: "#/oneOf/3/properties/client_id/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
-            };
-            if (vErrors === null) {
-              vErrors = [err24];
-            } else {
-              vErrors.push(err24);
-            }
-            errors++;
-          }
-        }
-        if (data.kind !== undefined) {
-          let data7 = data.kind;
-          if (typeof data7 !== "string") {
-            const err25 = {
-              instancePath: instancePath + "/kind",
-              schemaPath: "#/oneOf/3/properties/kind/type",
               keyword: "type",
               params: { type: "string" },
               message: "must be string",
@@ -13897,13 +13903,16 @@ function validate98(
             }
             errors++;
           }
-          if (!(data7 === "integration")) {
+        }
+        if (data.kind !== undefined) {
+          let data8 = data.kind;
+          if (typeof data8 !== "string") {
             const err26 = {
               instancePath: instancePath + "/kind",
-              schemaPath: "#/oneOf/3/properties/kind/enum",
-              keyword: "enum",
-              params: { allowedValues: schema180.oneOf[3].properties.kind.enum },
-              message: "must be equal to one of the allowed values",
+              schemaPath: "#/oneOf/3/properties/kind/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
             };
             if (vErrors === null) {
               vErrors = [err26];
@@ -13912,9 +13921,24 @@ function validate98(
             }
             errors++;
           }
+          if (!(data8 === "integration")) {
+            const err27 = {
+              instancePath: instancePath + "/kind",
+              schemaPath: "#/oneOf/3/properties/kind/enum",
+              keyword: "enum",
+              params: { allowedValues: schema180.oneOf[3].properties.kind.enum },
+              message: "must be equal to one of the allowed values",
+            };
+            if (vErrors === null) {
+              vErrors = [err27];
+            } else {
+              vErrors.push(err27);
+            }
+            errors++;
+          }
         }
       } else {
-        const err27 = {
+        const err28 = {
           instancePath,
           schemaPath: "#/oneOf/3/type",
           keyword: "type",
@@ -13922,13 +13946,13 @@ function validate98(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err27];
+          vErrors = [err28];
         } else {
-          vErrors.push(err27);
+          vErrors.push(err28);
         }
         errors++;
       }
-      var _valid0 = _errs26 === errors;
+      var _valid0 = _errs28 === errors;
       if (_valid0 && valid0) {
         valid0 = false;
         passing0 = [passing0, 3];
@@ -13946,7 +13970,7 @@ function validate98(
     }
   }
   if (!valid0) {
-    const err28 = {
+    const err29 = {
       instancePath,
       schemaPath: "#/oneOf",
       keyword: "oneOf",
@@ -13954,9 +13978,9 @@ function validate98(
       message: "must match exactly one schema in oneOf",
     };
     if (vErrors === null) {
-      vErrors = [err28];
+      vErrors = [err29];
     } else {
-      vErrors.push(err28);
+      vErrors.push(err29);
     }
     errors++;
   } else {
