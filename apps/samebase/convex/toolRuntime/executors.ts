@@ -42,6 +42,15 @@ type DeleteFileInput = {
   path: string;
 };
 
+type CreateAppInput = {
+  name: string;
+  owner: string;
+  convexProjectName: string;
+  cloudflareWorkerName: string;
+  description?: string;
+  private?: boolean;
+};
+
 type ProdReadScope = "vault" | "global";
 type ProdReadProvider = "convex" | "cloudflare";
 type ProdReadResourceKind =
@@ -448,20 +457,22 @@ function formatReplaceInFileResult(args: {
   );
 }
 
-export async function executeVaultsList(
+export async function executeCreateApp(
   context: ResolvedToolContext,
+  input: CreateAppInput,
 ): Promise<ToolExecutionOutput> {
-  const vaults = await context.ctx.runQuery(internal.toolRuntime.queries.listVaultsForUser, {
+  const result = await context.ctx.runAction(internal.vault.actions.createAppForUserInternal, {
     userId: context.userId,
+    name: input.name,
+    owner: input.owner,
+    convexProjectName: input.convexProjectName,
+    cloudflareWorkerName: input.cloudflareWorkerName,
+    ...(input.description !== undefined ? { description: input.description } : {}),
+    ...(input.private !== undefined ? { private: input.private } : {}),
   });
   const structuredContent = {
-    vaults: vaults.map((vault) => ({
-      id: vault.vaultId,
-      repositoryFullName: vault.repositoryFullName,
-      state: vault.state,
-      isSamebaseManaged: vault.isSamebaseManaged,
-      commitSha: vault.commitSha,
-    })),
+    vaultId: result.vaultId,
+    runId: result.runId,
   };
   return {
     text: JSON.stringify(structuredContent, null, 2),
@@ -1106,6 +1117,42 @@ function parseDeleteFileInput(value: unknown): DeleteFileInput | null {
   };
 }
 
+function parseCreateAppInput(value: unknown): CreateAppInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+  const name = record.name;
+  const owner = record.owner;
+  const convexProjectName = record.convexProjectName;
+  const cloudflareWorkerName = record.cloudflareWorkerName;
+  if (
+    typeof name !== "string" ||
+    typeof owner !== "string" ||
+    typeof convexProjectName !== "string" ||
+    typeof cloudflareWorkerName !== "string"
+  ) {
+    return null;
+  }
+  const description = parseOptionalString(record.description);
+  if (record.description !== undefined && description === undefined) {
+    return null;
+  }
+  const privateRepository = parseOptionalBoolean(record.private);
+  if (record.private !== undefined && privateRepository === undefined) {
+    return null;
+  }
+
+  return {
+    name,
+    owner,
+    convexProjectName,
+    cloudflareWorkerName,
+    ...(description !== undefined ? { description } : {}),
+    ...(privateRepository !== undefined ? { private: privateRepository } : {}),
+  };
+}
+
 function parseOptionalBoolean(value: unknown): boolean | undefined {
   if (value === undefined) {
     return undefined;
@@ -1307,8 +1354,13 @@ export async function executeRuntimeTool(args: {
   input: unknown;
 }): Promise<ToolExecutionOutput> {
   switch (args.toolName) {
-    case "vaults.list":
-      return executeVaultsList(args.context);
+    case "create_app": {
+      const input = parseCreateAppInput(args.input);
+      if (!input) {
+        throw new Error("Invalid create_app input.");
+      }
+      return executeCreateApp(args.context, input);
+    }
     case "get_vault_remote_branches":
       return executeGetVaultRemoteBranches(args.context);
     case "read_file": {

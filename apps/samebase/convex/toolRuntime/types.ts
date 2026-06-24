@@ -6,12 +6,7 @@ export type ToolSurface = "agent" | "mcp" | "ui";
 export type ToolSafety = "read_only" | "write" | "destructive" | "proposal_only";
 export type ToolStatus = "ok" | "error" | "blocked";
 
-export type McpScope =
-  | "vaults.read"
-  | "files.read"
-  | "files.write"
-  | "prod.read.propose"
-  | "commits.propose";
+export type McpScope = "apps.create";
 
 export interface ToolJsonSchema {
   type: "object";

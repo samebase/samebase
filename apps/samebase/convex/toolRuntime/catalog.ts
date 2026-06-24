@@ -4,6 +4,19 @@ import { hasAllScopes } from "./utils";
 import { isRecord } from "../jsonUtils";
 
 const emptyInputSchema = z.object({});
+const createAppInputSchema = z.object({
+  name: z.string().describe("Name for the new app and GitHub repository."),
+  owner: z
+    .string()
+    .describe("GitHub user or organization where Samebase should create the app repository."),
+  convexProjectName: z.string().describe("Convex project name to provision for the app."),
+  cloudflareWorkerName: z.string().describe("Cloudflare Worker name to provision for the app."),
+  description: z.string().optional().describe("Optional GitHub repository description."),
+  private: z
+    .boolean()
+    .optional()
+    .describe("Whether to create a private GitHub repository. Defaults to true."),
+});
 const readFileInputSchema = z.object({
   path: z.string().describe("File path relative to repository root"),
 });
@@ -172,7 +185,7 @@ export function buildMcpToolInputSchema(
   if (tool.requiresVaultContext) {
     properties.vaultId = {
       type: "string",
-      description: "Vault ID from vaults.list.",
+      description: "Samebase vault ID.",
     };
   }
   if (tool.requiresBranchContext) {
@@ -197,6 +210,8 @@ export function buildMcpToolInputSchema(
 }
 
 export const emptyToolInputSchema = zodToToolInputSchema(emptyInputSchema);
+
+export const createAppToolInputSchema = zodToToolInputSchema(createAppInputSchema);
 
 export const readFileToolInputSchema = zodToToolInputSchema(readFileInputSchema);
 
@@ -236,24 +251,25 @@ export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
 
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
-    name: "vaults.list",
-    description: "List vault repositories available to the authenticated Samebase user.",
+    name: "create_app",
+    description:
+      "Create a new Samebase app. This starts the same workflow as the New App page: create a GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.",
     surfaces: ["mcp"],
-    requiredScopes: ["vaults.read"],
+    requiredScopes: ["apps.create"],
     requiresVaultContext: false,
     requiresBranchContext: false,
     requiresThreadContext: false,
-    requiresGithubConnection: false,
-    safety: "read_only",
-    inputSchema: emptyToolInputSchema,
-    agentArgs: emptyInputSchema,
+    requiresGithubConnection: true,
+    safety: "write",
+    inputSchema: createAppToolInputSchema,
+    agentArgs: createAppInputSchema,
   },
   {
     name: "read_file",
     description:
       "Read the contents of a file in the repository. Required input: path relative to the repository root. Returns the file content as text.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["files.read"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: true,
     requiresThreadContext: false,
@@ -265,8 +281,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "list_files",
     description: "List files in the repository, optionally filtered to a directory.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["files.read"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: true,
     requiresThreadContext: false,
@@ -279,8 +295,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "edit_file",
     description:
       "Edit an existing file by replacing its entire content. Required inputs: path relative to the repository root and content containing the full new file text. The file must already exist.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["files.write"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: true,
     requiresThreadContext: false,
@@ -293,8 +309,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "replace_in_file",
     description:
       "Edit an existing file by replacing exact text snippets without rewriting the whole file. Required inputs: path and a non-empty replacements array of { oldText, newText }.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["files.write"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: true,
     requiresThreadContext: false,
@@ -306,8 +322,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "create_file",
     description: "Create a new file in the repository. Required inputs: path and content.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["files.write"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: true,
     requiresThreadContext: false,
@@ -319,8 +335,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "delete_file",
     description: "Mark a file for deletion in the repository. Required input: path.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["files.write"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: true,
     requiresThreadContext: false,
@@ -333,8 +349,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "get_vault_remote_branches",
     description:
       "List remote branches for the current vault with ahead/behind and pull request metadata.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["vaults.read"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: false,
     requiresThreadContext: false,
@@ -347,8 +363,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_convex_status_read",
     description:
       "Request approval to read Convex deployment status for the current vault. This tool only creates an approval proposal and does not perform direct production reads.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: false,
     requiresThreadContext: true,
@@ -361,8 +377,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_convex_logs_read",
     description:
       "Request approval to read Convex deployment activity/log snapshot for the current vault. This tool only proposes access.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: false,
     requiresThreadContext: true,
@@ -375,8 +391,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_convex_projects_read",
     description:
       "Request approval to list Convex projects for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: false,
     requiresBranchContext: false,
     requiresThreadContext: true,
@@ -389,8 +405,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_cloudflare_status_read",
     description:
       "Request approval to read Cloudflare Worker status for the current vault. This tool only creates an approval proposal.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: false,
     requiresThreadContext: true,
@@ -403,8 +419,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_cloudflare_logs_read",
     description:
       "Request approval to read Cloudflare Workers build logs for the current vault. This tool only proposes access.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: false,
     requiresThreadContext: true,
@@ -417,8 +433,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_cloudflare_accounts_read",
     description:
       "Request approval to list Cloudflare accounts available to the connected token. This tool only creates an approval proposal and does not execute direct reads.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: false,
     requiresBranchContext: false,
     requiresThreadContext: true,
@@ -431,8 +447,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_cloudflare_workers_inventory_read",
     description:
       "Request approval to list Cloudflare Workers for an account. This tool only creates an approval proposal and does not execute direct reads.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: false,
     requiresBranchContext: false,
     requiresThreadContext: true,
@@ -445,8 +461,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     name: "request_convex_data_read",
     description:
       "Request approval to read a limited sample from allowed Convex tables. This tool never performs direct production data reads by itself.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
+    surfaces: ["agent"],
+    requiredScopes: [],
     requiresVaultContext: true,
     requiresBranchContext: false,
     requiresThreadContext: true,

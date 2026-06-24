@@ -73,7 +73,6 @@ import type * as mcp_http from "../mcp/http.js";
 import type * as mcp_oauth from "../mcp/oauth.js";
 import type * as mcp_protocol from "../mcp/protocol.js";
 import type * as mcp_tokens from "../mcp/tokens.js";
-import type * as mcp_tools from "../mcp/tools.js";
 import type * as mcpTokenHealth from "../mcpTokenHealth.js";
 import type * as oauthState from "../oauthState.js";
 import type * as oauthUtils from "../oauthUtils.js";
@@ -190,7 +189,6 @@ declare const fullApi: ApiFromModules<{
   "mcp/oauth": typeof mcp_oauth;
   "mcp/protocol": typeof mcp_protocol;
   "mcp/tokens": typeof mcp_tokens;
-  "mcp/tools": typeof mcp_tools;
   mcpTokenHealth: typeof mcpTokenHealth;
   oauthState: typeof oauthState;
   oauthUtils: typeof oauthUtils;

@@ -16,7 +16,7 @@ describe("buildMcpProtectedResourceMetadata", () => {
     expect(metadata.resource).toBe("https://samebase.com/mcp");
     expect(metadata.authorization_servers).toEqual(["https://samebase.com"]);
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
-    expect(metadata.scopes_supported).toContain("vaults.read");
+    expect(metadata.scopes_supported).toEqual(["apps.create"]);
   });
 });
 
@@ -116,7 +116,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
     url.searchParams.set("resource", "https://samebase.com/mcp");
-    url.searchParams.set("scope", "vaults.read files.read");
+    url.searchParams.set("scope", "apps.create");
     url.searchParams.set("state", "state_abc");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
@@ -125,7 +125,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.clientId).toBe("client_123");
-      expect(result.value.scopes).toEqual(["vaults.read", "files.read"]);
+      expect(result.value.scopes).toEqual(["apps.create"]);
       expect(result.value.codeChallengeMethod).toBe("S256");
     }
   });
@@ -135,7 +135,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
-    url.searchParams.set("scope", "vaults.read");
+    url.searchParams.set("scope", "apps.create");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
@@ -152,7 +152,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "https://example.com/callback");
     url.searchParams.set("resource", "   ");
-    url.searchParams.set("scope", "vaults.read");
+    url.searchParams.set("scope", "apps.create");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
@@ -162,7 +162,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
       expect(result.value.resource).toBe("https://samebase.com/mcp");
     }
   });
-  it("defaults missing scope to vaults.read", () => {
+  it("defaults missing scope to apps.create", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -174,11 +174,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["vaults.read"]);
+      expect(result.value.scopes).toEqual(["apps.create"]);
     }
   });
 
-  it("defaults blank scope to vaults.read", () => {
+  it("defaults blank scope to apps.create", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -191,7 +191,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["vaults.read"]);
+      expect(result.value.scopes).toEqual(["apps.create"]);
     }
   });
   it("rejects unsupported scopes", () => {
@@ -217,7 +217,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
     url.searchParams.set("resource", "https://samebase.com/mcp");
-    url.searchParams.set("scope", "vaults.read");
+    url.searchParams.set("scope", "apps.create");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 
@@ -234,7 +234,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("client_id", "client_123");
     url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
     url.searchParams.set("resource", "https://samebase.com/mcp");
-    url.searchParams.set("scope", "vaults.read");
+    url.searchParams.set("scope", "apps.create");
     url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
     url.searchParams.set("code_challenge_method", "S256");
 

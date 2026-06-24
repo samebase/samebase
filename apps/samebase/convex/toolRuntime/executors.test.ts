@@ -89,6 +89,56 @@ function makeResolvedContext(args?: {
 }
 
 describe("executeRuntimeTool write dispatch", () => {
+  it("dispatches create_app through the app provisioning action", async () => {
+    const actionCalls: ActionCall[] = [];
+    const context = makeResolvedContext({
+      actionCalls,
+      actionHandler: () => ({
+        vaultId: "vault_created",
+        runId: "run_created",
+      }),
+    });
+
+    const output = await executeRuntimeTool({
+      toolName: "create_app",
+      context,
+      input: {
+        name: "todo-app",
+        owner: "samebase",
+        convexProjectName: "todo-app",
+        cloudflareWorkerName: "todo-app",
+        description: "A focused todo app",
+        private: false,
+      },
+    });
+
+    expect(actionCalls).toHaveLength(1);
+    expect(typeof actionCalls[0]?.ref).toBe("object");
+    expect(actionCalls[0].args).toEqual({
+      userId: "users_test",
+      name: "todo-app",
+      owner: "samebase",
+      convexProjectName: "todo-app",
+      cloudflareWorkerName: "todo-app",
+      description: "A focused todo app",
+      private: false,
+    });
+    expect(output.structuredContent).toEqual({
+      vaultId: "vault_created",
+      runId: "run_created",
+    });
+    expect(output.text).toBe(
+      JSON.stringify(
+        {
+          vaultId: "vault_created",
+          runId: "run_created",
+        },
+        null,
+        2,
+      ),
+    );
+  });
+
   it("dispatches edit_file through collaborative mutation when file is staged", async () => {
     const queryCalls: QueryCall[] = [];
     const mutationCalls: MutationCall[] = [];

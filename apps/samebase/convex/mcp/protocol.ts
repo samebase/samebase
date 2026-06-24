@@ -16,13 +16,7 @@ const MAX_STATE_LENGTH = 500;
 const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
-export const MCP_V1_SUPPORTED_SCOPES = [
-  "vaults.read",
-  "files.read",
-  "files.write",
-  "commits.propose",
-  "prod.read.propose",
-] as const;
+export const MCP_V1_SUPPORTED_SCOPES = ["apps.create"] as const;
 
 type McpSupportedScope = (typeof MCP_V1_SUPPORTED_SCOPES)[number];
 
@@ -459,9 +453,9 @@ export function validateAuthorizeRequestFromUrl(
   }
 
   // Codex/native MCP OAuth clients may omit `scope` on authorize requests.
-  // OAuth allows server-defined defaults, so use the minimum read scope that
-  // keeps discovery/tool listing functional instead of failing early.
-  const scopeRaw = url.searchParams.get("scope")?.trim() || "vaults.read";
+  // OAuth allows server-defined defaults, so use the single Samebase app
+  // creation scope that backs this MCP server's public tool surface.
+  const scopeRaw = url.searchParams.get("scope")?.trim() || "apps.create";
   const scopes = scopeRaw
     .split(" ")
     .map(normalizeScopeToken)

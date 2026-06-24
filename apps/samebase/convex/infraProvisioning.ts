@@ -850,7 +850,7 @@ async function resolveGitHubProvisioningConnection(
 }
 
 export async function resolveCloudflareProvisioningConnection(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runAction">,
   userId: Id<"users">,
   options?: { forceRefresh: true },
 ): Promise<{

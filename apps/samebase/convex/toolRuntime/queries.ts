@@ -7,22 +7,6 @@ import { isLiveConnectedVault } from "../vault/state";
 
 const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
-const listVaultsForUserArgsValidator = object({
-  userId: id("users"),
-});
-type ListVaultsForUserArgs = Infer<typeof listVaultsForUserArgsValidator>;
-
-const listVaultsForUserResultValidator = array(
-  object({
-    vaultId: id("vaults"),
-    repositoryFullName: string(),
-    state: union(literal("copying_files"), literal("ready")),
-    isSamebaseManaged: boolean(),
-    commitSha: optional(string()),
-  }),
-);
-type ListVaultsForUserResult = Infer<typeof listVaultsForUserResultValidator>;
-
 const listVaultRemoteBranchesForUserArgsValidator = object({
   userId: id("users"),
   vaultId: id("vaults"),
@@ -105,32 +89,6 @@ function getDefaultBranchTree(
     )
     .first();
 }
-
-export const listVaultsForUser = internalQuery({
-  args: listVaultsForUserArgsValidator,
-  returns: listVaultsForUserResultValidator,
-  handler: async (ctx, args: ListVaultsForUserArgs): Promise<ListVaultsForUserResult> => {
-    const vaults = await ctx.db
-      .query("vaults")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-    return await Promise.all(
-      vaults.filter(isLiveConnectedVault).map(async (vault) => {
-        const defaultBranchTree = await getDefaultBranchTree(ctx, {
-          vaultId: vault._id,
-          defaultBranch: vault.defaultBranch,
-        });
-        return {
-          vaultId: vault._id,
-          repositoryFullName: `${vault.owner}/${vault.name}`,
-          state: defaultBranchTree ? "ready" : "copying_files",
-          isSamebaseManaged: vault.githubMode === "create_repository",
-          commitSha: defaultBranchTree?.commitSHA,
-        };
-      }),
-    );
-  },
-});
 
 export const listVaultRemoteBranchesForUser = internalQuery({
   args: listVaultRemoteBranchesForUserArgsValidator,

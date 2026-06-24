@@ -14,6 +14,13 @@ function makeRequest(request: Omit<ToolRunRequest, "userId">): ToolRunRequest {
 
 function inputForTool(toolName: string): unknown {
   switch (toolName) {
+    case "create_app":
+      return {
+        name: "todo-app",
+        owner: "samebase",
+        convexProjectName: "todo-app",
+        cloudflareWorkerName: "todo-app",
+      };
     case "edit_file":
       return { path: "README.md", content: "updated" };
     case "create_file":
@@ -36,27 +43,6 @@ function inputForTool(toolName: string): unknown {
 
 describe("validateToolPolicy", () => {
   it("rejects calls on unsupported surfaces", () => {
-    const tool = findToolInCatalog({ name: "vaults.list" });
-    expect(tool).not.toBeNull();
-    if (!tool) {
-      return;
-    }
-
-    const result = validateToolPolicy({
-      tool,
-      request: makeRequest({
-        toolName: tool.name,
-        input: {},
-        surface: "agent",
-        grantedScopes: [],
-      }),
-    });
-
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("not available");
-  });
-
-  it("rejects MCP calls without required scope", () => {
     const tool = findToolInCatalog({ name: "read_file" });
     expect(tool).not.toBeNull();
     if (!tool) {
@@ -69,14 +55,55 @@ describe("validateToolPolicy", () => {
         toolName: tool.name,
         input: { path: "README.md" },
         surface: "mcp",
-        grantedScopes: ["vaults.read"],
+        grantedScopes: ["files.read"],
         vaultId: "vault_123",
         branch: "main",
       }),
     });
 
     expect(result.ok).toBe(false);
-    expect(result.message).toBe("Insufficient scope for read_file.");
+    expect(result.message).toContain("not available");
+  });
+
+  it("rejects MCP calls without required scope", () => {
+    const tool = findToolInCatalog({ name: "create_app" });
+    expect(tool).not.toBeNull();
+    if (!tool) {
+      return;
+    }
+
+    const result = validateToolPolicy({
+      tool,
+      request: makeRequest({
+        toolName: tool.name,
+        input: inputForTool(tool.name),
+        surface: "mcp",
+        grantedScopes: [],
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("Insufficient scope for create_app.");
+  });
+
+  it("allows MCP create_app when apps.create scope is granted", () => {
+    const tool = findToolInCatalog({ name: "create_app" });
+    expect(tool).not.toBeNull();
+    if (!tool) {
+      return;
+    }
+
+    const result = validateToolPolicy({
+      tool,
+      request: makeRequest({
+        toolName: tool.name,
+        input: inputForTool(tool.name),
+        surface: "mcp",
+        grantedScopes: ["apps.create"],
+      }),
+    });
+
+    expect(result).toEqual({ ok: true });
   });
 
   it("does not require MCP scopes on agent surface", () => {
@@ -113,8 +140,8 @@ describe("validateToolPolicy", () => {
       request: makeRequest({
         toolName: tool.name,
         input: { path: "README.md" },
-        surface: "mcp",
-        grantedScopes: ["files.read"],
+        surface: "agent",
+        grantedScopes: [],
         branch: "main",
       }),
     });
@@ -135,8 +162,8 @@ describe("validateToolPolicy", () => {
       request: makeRequest({
         toolName: tool.name,
         input: { path: "README.md" },
-        surface: "mcp",
-        grantedScopes: ["files.read"],
+        surface: "agent",
+        grantedScopes: [],
         vaultId: "   ",
         branch: "main",
       }),
@@ -158,8 +185,8 @@ describe("validateToolPolicy", () => {
       request: makeRequest({
         toolName: tool.name,
         input: { path: "README.md" },
-        surface: "mcp",
-        grantedScopes: ["files.read"],
+        surface: "agent",
+        grantedScopes: [],
         vaultId: "vault_123",
         branch: "   ",
       }),
@@ -169,7 +196,7 @@ describe("validateToolPolicy", () => {
     expect(result.message).toBe("read_file requires branch context.");
   });
 
-  it("allows valid branch-aware MCP requests", () => {
+  it("allows valid branch-aware agent requests", () => {
     const tool = findToolInCatalog({ name: "list_files" });
     expect(tool).not.toBeNull();
     if (!tool) {
@@ -181,8 +208,8 @@ describe("validateToolPolicy", () => {
       request: makeRequest({
         toolName: tool.name,
         input: {},
-        surface: "mcp",
-        grantedScopes: ["files.read"],
+        surface: "agent",
+        grantedScopes: [],
         vaultId: "vault_123",
         branch: "feature/runtime",
       }),
@@ -191,7 +218,7 @@ describe("validateToolPolicy", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it("allows MCP write requests when files.write scope is granted", () => {
+  it("keeps write tools unavailable on MCP even with old write scopes", () => {
     const tool = findToolInCatalog({ name: "edit_file" });
     expect(tool).not.toBeNull();
     if (!tool) {
@@ -213,10 +240,11 @@ describe("validateToolPolicy", () => {
       }),
     });
 
-    expect(result).toEqual({ ok: true });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("not available");
   });
 
-  it("requires files.write scope for every write tool", () => {
+  it("allows write tools on the agent surface without MCP scopes", () => {
     const writeToolNames = ["edit_file", "replace_in_file", "create_file", "delete_file"];
 
     for (const toolName of writeToolNames) {
@@ -231,15 +259,14 @@ describe("validateToolPolicy", () => {
         request: makeRequest({
           toolName: tool.name,
           input: inputForTool(tool.name),
-          surface: "mcp",
-          grantedScopes: ["files.read"],
+          surface: "agent",
+          grantedScopes: [],
           vaultId: "vault_123",
           branch: "main",
         }),
       });
 
-      expect(result.ok).toBe(false);
-      expect(result.message).toBe(`Insufficient scope for ${tool.name}.`);
+      expect(result).toEqual({ ok: true });
     }
   });
 
@@ -255,8 +282,8 @@ describe("validateToolPolicy", () => {
       request: makeRequest({
         toolName: tool.name,
         input: inputForTool(tool.name),
-        surface: "mcp",
-        grantedScopes: ["prod.read.propose"],
+        surface: "agent",
+        grantedScopes: [],
       }),
     });
 
@@ -264,7 +291,7 @@ describe("validateToolPolicy", () => {
     expect(result.message).toBe("request_convex_projects_read requires threadId context.");
   });
 
-  it("allows proposal tools with prod.read.propose scope and threadId", () => {
+  it("allows proposal tools on the agent surface with threadId", () => {
     const tool = findToolInCatalog({ name: "request_convex_projects_read" });
     expect(tool).not.toBeNull();
     if (!tool) {
@@ -276,8 +303,8 @@ describe("validateToolPolicy", () => {
       request: makeRequest({
         toolName: tool.name,
         input: inputForTool(tool.name),
-        surface: "mcp",
-        grantedScopes: ["prod.read.propose"],
+        surface: "agent",
+        grantedScopes: [],
         threadId: "thread_123",
       }),
     });

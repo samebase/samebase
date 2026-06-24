@@ -4,61 +4,23 @@ import { buildMcpToolInputSchema, findToolInCatalog, listCatalogToolsForSurface 
 
 describe("listCatalogToolsForSurface", () => {
   it("filters MCP tools by granted scopes", () => {
-    const vaultTools = listCatalogToolsForSurface({
+    const noScopeTools = listCatalogToolsForSurface({
       surface: "mcp",
-      grantedScopes: ["vaults.read"],
+      grantedScopes: [],
     }).map((tool) => tool.name);
-    expect(vaultTools).toEqual(["vaults.list", "get_vault_remote_branches"]);
+    expect(noScopeTools).toEqual([]);
 
-    const fileTools = listCatalogToolsForSurface({
+    const createTools = listCatalogToolsForSurface({
       surface: "mcp",
-      grantedScopes: ["files.read"],
+      grantedScopes: ["apps.create"],
     }).map((tool) => tool.name);
-    expect(fileTools).toEqual(["read_file", "list_files"]);
+    expect(createTools).toEqual(["create_app"]);
 
-    const writeTools = listCatalogToolsForSurface({
-      surface: "mcp",
-      grantedScopes: ["files.write"],
-    }).map((tool) => tool.name);
-    expect(writeTools).toEqual(["edit_file", "replace_in_file", "create_file", "delete_file"]);
-
-    const prodProposalTools = listCatalogToolsForSurface({
-      surface: "mcp",
-      grantedScopes: ["prod.read.propose"],
-    }).map((tool) => tool.name);
-    expect(prodProposalTools).toEqual([
-      "request_convex_status_read",
-      "request_convex_logs_read",
-      "request_convex_projects_read",
-      "request_cloudflare_status_read",
-      "request_cloudflare_logs_read",
-      "request_cloudflare_accounts_read",
-      "request_cloudflare_workers_inventory_read",
-      "request_convex_data_read",
-    ]);
-
-    const allTools = listCatalogToolsForSurface({
+    const oldScopeTools = listCatalogToolsForSurface({
       surface: "mcp",
       grantedScopes: ["vaults.read", "files.read", "files.write", "prod.read.propose"],
     }).map((tool) => tool.name);
-    expect(allTools).toEqual([
-      "vaults.list",
-      "read_file",
-      "list_files",
-      "edit_file",
-      "replace_in_file",
-      "create_file",
-      "delete_file",
-      "get_vault_remote_branches",
-      "request_convex_status_read",
-      "request_convex_logs_read",
-      "request_convex_projects_read",
-      "request_cloudflare_status_read",
-      "request_cloudflare_logs_read",
-      "request_cloudflare_accounts_read",
-      "request_cloudflare_workers_inventory_read",
-      "request_convex_data_read",
-    ]);
+    expect(oldScopeTools).toEqual([]);
   });
 
   it("does not scope-filter non-MCP surfaces", () => {
@@ -84,78 +46,27 @@ describe("listCatalogToolsForSurface", () => {
 });
 
 describe("buildMcpToolInputSchema", () => {
-  it("adds branch and vault context to branch-aware tools", () => {
-    const readFile = findToolInCatalog({ name: "read_file" });
-    expect(readFile).not.toBeNull();
-    if (!readFile) {
+  it("publishes create_app fields without vault, branch, or thread context", () => {
+    const createApp = findToolInCatalog({ name: "create_app" });
+    expect(createApp).not.toBeNull();
+    if (!createApp) {
       return;
     }
 
-    const schema = buildMcpToolInputSchema(readFile);
-    expect(schema.properties).toHaveProperty("path");
-    expect(schema.properties).toHaveProperty("vaultId");
-    expect(schema.properties).toHaveProperty("branch");
-    expect(schema.required).toEqual(["path", "vaultId", "branch"]);
-  });
-
-  it("preserves write tool fields and adds context requirements", () => {
-    const replaceInFile = findToolInCatalog({ name: "replace_in_file" });
-    expect(replaceInFile).not.toBeNull();
-    if (!replaceInFile) {
-      return;
-    }
-
-    const schema = buildMcpToolInputSchema(replaceInFile);
-    expect(schema.properties).toHaveProperty("path");
-    expect(schema.properties).toHaveProperty("replacements");
-    expect(schema.properties).toHaveProperty("vaultId");
-    expect(schema.properties).toHaveProperty("branch");
-    expect(schema.required).toEqual(["path", "replacements", "vaultId", "branch"]);
-  });
-
-  it("adds only vault context to vault-scoped tools", () => {
-    const remoteBranches = findToolInCatalog({
-      name: "get_vault_remote_branches",
-    });
-    expect(remoteBranches).not.toBeNull();
-    if (!remoteBranches) {
-      return;
-    }
-
-    const schema = buildMcpToolInputSchema(remoteBranches);
-    expect(schema.properties).toHaveProperty("vaultId");
+    const schema = buildMcpToolInputSchema(createApp);
+    expect(schema.properties).toHaveProperty("name");
+    expect(schema.properties).toHaveProperty("owner");
+    expect(schema.properties).toHaveProperty("convexProjectName");
+    expect(schema.properties).toHaveProperty("cloudflareWorkerName");
+    expect(schema.properties).toHaveProperty("description");
+    expect(schema.properties).toHaveProperty("private");
+    expect(schema.properties).not.toHaveProperty("vaultId");
     expect(schema.properties).not.toHaveProperty("branch");
-    expect(schema.required).toEqual(["vaultId"]);
+    expect(schema.properties).not.toHaveProperty("threadId");
+    expect(schema.required).toEqual(["name", "owner", "convexProjectName", "cloudflareWorkerName"]);
   });
 
-  it("adds threadId context for prod-read proposal tools", () => {
-    const proposalTool = findToolInCatalog({
-      name: "request_convex_data_read",
-    });
-    expect(proposalTool).not.toBeNull();
-    if (!proposalTool) {
-      return;
-    }
-
-    const schema = buildMcpToolInputSchema(proposalTool);
-    expect(schema.properties).toHaveProperty("table");
-    expect(schema.properties.table).toMatchObject({
-      enum: expect.arrayContaining(["vaultCloudflareWorkers"]),
-    });
-    expect(schema.properties).toHaveProperty("vaultId");
-    expect(schema.properties).toHaveProperty("threadId");
-    expect(schema.required).toEqual(["table", "vaultId", "threadId"]);
-  });
-
-  it("keeps vaults.list as empty object input", () => {
-    const vaultList = findToolInCatalog({ name: "vaults.list" });
-    expect(vaultList).not.toBeNull();
-    if (!vaultList) {
-      return;
-    }
-
-    const schema = buildMcpToolInputSchema(vaultList);
-    expect(schema.properties).toEqual({});
-    expect(schema.required).toBeUndefined();
+  it("does not keep vault discovery as a public runtime tool", () => {
+    expect(findToolInCatalog({ name: "vaults.list" })).toBeNull();
   });
 });
