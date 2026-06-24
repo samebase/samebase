@@ -648,21 +648,21 @@ function formatChecksCount(count: number): string {
   return `${count} ${count === 1 ? "check" : "checks"}`;
 }
 
-function formatCommitChecksChipCount(summary: VaultBranchCommitChecksSummary): string {
+function formatCommitChecksCompactLabel(summary: VaultBranchCommitChecksSummary): string {
   switch (summary.state) {
     case "running":
-      return String(summary.runningCount);
+      return `${summary.runningCount} pending`;
     case "failure":
-      return String(summary.failureCount);
+      return `${summary.failureCount} failed`;
     case "success":
-      return String(summary.successCount + summary.neutralCount);
+      return `${summary.successCount + summary.neutralCount} passed`;
     case "neutral":
-      return String(summary.neutralCount);
+      return `${summary.neutralCount} neutral`;
     case "unknown":
-      return String(summary.totalCount);
+      return `${summary.totalCount} unknown`;
     default: {
       summary.state satisfies never;
-      return String(summary.totalCount);
+      return `${summary.totalCount} unknown`;
     }
   }
 }
@@ -1708,8 +1708,14 @@ function VaultBranchCommitStack({
   aheadBehindLabel: string | null;
   commits: readonly VaultBranchCommitRowViewModel[];
 }) {
-  const commitsWithChecks = commits.filter((commit) => commit.checks);
-  if (commitsWithChecks.length === 0 && !aheadBehindLabel) {
+  const headCommit = commits.find((commit) => commit.isHead) ?? commits[0];
+  const headCommitChecks = headCommit.checks;
+  const headCommitChecksTitle = headCommitChecks
+    ? [headCommit.sha.slice(0, 7), headCommit.title, formatCommitChecksTitle(headCommitChecks)]
+        .filter(Boolean)
+        .join(" • ")
+    : undefined;
+  if (!headCommitChecks && !aheadBehindLabel) {
     return null;
   }
 
@@ -1721,36 +1727,22 @@ function VaultBranchCommitStack({
         </span>
       ) : null}
 
-      {commitsWithChecks.map((commit) => {
-        const checks = commit.checks;
-        if (!checks) {
-          return null;
-        }
-
-        const titleParts = [
-          commit.sha.slice(0, 7),
-          commit.title,
-          formatCommitChecksTitle(checks),
-        ].filter(Boolean);
-
-        return (
-          <a
-            key={commit.sha}
-            href={checks.primaryTargetUrl ?? `${commit.url}/checks`}
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label={formatCommitChecksLabel(checks)}
-            className={clsx(
-              "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums transition-colors hover:underline",
-              getCommitChecksStateClassName(checks),
-            )}
-            title={titleParts.join(" • ")}
-          >
-            <CommitChecksIcon summary={checks} />
-            <span>{formatCommitChecksChipCount(checks)}</span>
-          </a>
-        );
-      })}
+      {headCommitChecks ? (
+        <a
+          href={headCommitChecks.primaryTargetUrl ?? `${headCommit.url}/checks`}
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label={formatCommitChecksLabel(headCommitChecks)}
+          className={clsx(
+            "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm tabular-nums transition-colors hover:underline",
+            getCommitChecksStateClassName(headCommitChecks),
+          )}
+          title={headCommitChecksTitle}
+        >
+          <CommitChecksIcon summary={headCommitChecks} />
+          <span>{formatCommitChecksCompactLabel(headCommitChecks)}</span>
+        </a>
+      ) : null}
     </div>
   );
 }
