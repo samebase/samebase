@@ -24,7 +24,6 @@ import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw"
 import { useLocation } from "@tanstack/react-router";
 import {
   useEffect,
-  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useState,
@@ -264,50 +263,6 @@ function scrollHeadingWithinCurrentPane(target: HTMLElement) {
   scrollContainer.scrollTop += targetBounds.top - containerBounds.top - scrollMarginTop;
 }
 
-function LandingMarkdownPreviewHashScroll({
-  language,
-}: {
-  language: LandingMarkdownPreviewLanguage;
-}) {
-  const locationHash = useLocation({
-    select: (location) => location.hash,
-  });
-  const { isMobile, mobilePane } = useWorkspacePaneState();
-  const scrollCurrentHashHeading = useEffectEvent(() => {
-    const headingId = window.location.hash.replace(/^#/, "");
-    if (headingId.length === 0) {
-      return;
-    }
-
-    const target = getLandingPreviewArticleHeading(headingId);
-    if (target === null) {
-      return;
-    }
-
-    scrollHeadingWithinCurrentPane(target);
-  });
-
-  useLayoutEffect(() => {
-    let isActive = true;
-    const scrollIfActive = () => {
-      if (isActive) {
-        scrollCurrentHashHeading();
-      }
-    };
-    const animationFrameId = window.requestAnimationFrame(scrollIfActive);
-
-    scrollCurrentHashHeading();
-    void document.fonts.ready.then(scrollIfActive);
-
-    return () => {
-      isActive = false;
-      window.cancelAnimationFrame(animationFrameId);
-    };
-  }, [isMobile, language, locationHash, mobilePane]);
-
-  return null;
-}
-
 /**
  * Landing hash links preserve the open mobile pane in the URL, so direct loads
  * and URL editor edits need to feed that marker back into the shared shell.
@@ -459,7 +414,6 @@ export function LandingMarkdownPreviewPage({
       left={{ content: <LandingMarkdownPreviewSidebar language={language} /> }}
     >
       <LandingMarkdownPreviewPaneUrlSync />
-      <LandingMarkdownPreviewHashScroll language={language} />
       <div data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingMarkdownPreviewDocument language={language} />
       </div>
