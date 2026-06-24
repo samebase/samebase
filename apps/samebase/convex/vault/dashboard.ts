@@ -15,6 +15,7 @@ import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
+import { getGitHubCommitCheckSnapshotsByCommitSha } from "../commitChecks";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import { vVaultResourceLinksState } from "./resourceLinksStateModel";
 
@@ -995,6 +996,10 @@ export const getUserVaults = query({
               .first(),
             hasCreatedConvexProjectForVault(ctx, vault._id),
           ]);
+        const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
+          githubRepositoryId: vault.ghRepoId,
+          commitShas: remoteBranches.map((branch) => branch.headCommitSha),
+        });
 
         const fileCount = stagingData.filter(hasBranchStagingChanges).length;
 
@@ -1056,7 +1061,10 @@ export const getUserVaults = query({
             isProtected: branch.isProtected,
             remoteState: branch.remoteState,
             lastSyncedAt: branch.lastSyncedAt,
-            commits: buildVaultBranchCommitSummaries(branch),
+            commits: buildVaultBranchCommitSummaries(
+              branch,
+              checkSnapshotsByCommitSha.get(branch.headCommitSha),
+            ),
           })),
         };
       }),

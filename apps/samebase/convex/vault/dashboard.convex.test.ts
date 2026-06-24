@@ -98,6 +98,140 @@ describe("vault dashboard Convex contract", () => {
     });
   });
 
+  it("exposes commit checks on dashboard branch rows", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/dashboard-checks",
+        trigger: "connect_existing_repository",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "dashboard-checks",
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 4,
+      });
+      await ctx.db.insert("vaultBranchTrees", {
+        vaultId,
+        branch: "main",
+        treeSHA: "tree",
+        commitSHA: "abcdef1234567890abcdef1234567890abcdef12",
+        treeData: {
+          sha: "tree",
+          truncated: false,
+          tree: [],
+        },
+        lastTreeRefreshAt: 5,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "main",
+        headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+        lastCommitAt: 6,
+        isDefault: true,
+        isProtected: true,
+        remoteState: "active",
+        lastSyncedAt: 7,
+      });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "feature/no-checks",
+        headCommitSha: "fedcba1234567890abcdef1234567890abcdef12",
+        lastCommitAt: 4,
+        isDefault: false,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 7,
+      });
+      return { userId };
+    });
+    await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
+      githubRepositoryId: "123",
+      commitSha: "abcdef1234567890abcdef1234567890abcdef12",
+      syncedAt: 8,
+      items: [
+        {
+          source: "check_run",
+          sourceKey: "101",
+          name: "checks",
+          providerName: "GitHub Actions",
+          state: "success",
+          status: "completed",
+          conclusion: "success",
+          targetUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+          detailsUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+          githubUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+          logUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+          completedAt: 8,
+          updatedAt: 8,
+        },
+      ],
+    });
+
+    const asUser = t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const mainBranch = vaults[0]?.remoteBranches.find((branch) => branch.name === "main");
+    const noChecksBranch = vaults[0]?.remoteBranches.find(
+      (branch) => branch.name === "feature/no-checks",
+    );
+
+    expect(mainBranch).toMatchObject({
+      name: "main",
+      commits: [
+        {
+          sha: "abcdef1234567890abcdef1234567890abcdef12",
+          authoredAt: 6,
+          checks: {
+            state: "success",
+            totalCount: 1,
+            checkRunCount: 1,
+            statusContextCount: 0,
+            successCount: 1,
+            failureCount: 0,
+            runningCount: 0,
+            neutralCount: 0,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+            primaryLogUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+            syncedAt: 8,
+          },
+        },
+      ],
+    });
+    expect(noChecksBranch?.commits[0]).toMatchObject({
+      sha: "fedcba1234567890abcdef1234567890abcdef12",
+      authoredAt: 4,
+    });
+    expect(noChecksBranch?.commits[0]?.checks).toBeUndefined();
+  });
+
   it("persists vault resource link expansion per user vault", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
