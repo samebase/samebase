@@ -1683,6 +1683,8 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewMode
 }
 
 function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel }) {
+  const label = commit.isHead ? `Head ${commit.shortSha}` : commit.shortSha;
+
   return (
     <a
       href={commit.url}
@@ -1694,7 +1696,7 @@ function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel 
       )}
       title={commit.title ? `Open commit: ${commit.title}` : "Open commit"}
     >
-      <span>Last commit {commit.shortSha}</span>
+      <span>{label}</span>
     </a>
   );
 }

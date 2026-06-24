@@ -221,7 +221,7 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain(
       'href="https://github.com/samebase/samebase/commit/abcdef1234567890abcdef1234567890abcdef12"',
     );
-    expect(markup).toContain(">Last commit abcdef1<");
+    expect(markup).toContain(">Head abcdef1<");
   });
 
   it("labels zero-check summaries as no checks", () => {
