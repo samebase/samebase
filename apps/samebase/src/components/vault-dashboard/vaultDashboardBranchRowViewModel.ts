@@ -31,6 +31,7 @@ export type VaultBranchRowViewModel = {
   remoteState: VaultRemoteBranchListItem["remoteState"];
   aheadBy?: number;
   behindBy?: number;
+  previewUrl?: string;
   pullRequest?: VaultBranchPullRequestViewModel;
   commits: readonly VaultBranchCommitViewModel[];
 };
@@ -79,6 +80,7 @@ export function buildVaultBranchRowViewModel({
     remoteState: branch.remoteState,
     aheadBy: branch.aheadBy,
     behindBy: branch.behindBy,
+    previewUrl: branch.previewUrl,
     pullRequest: buildVaultBranchPullRequestViewModel(branch),
     commits: branch.commits.map((commit, index) => ({
       sha: commit.sha,

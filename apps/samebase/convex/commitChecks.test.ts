@@ -5,6 +5,7 @@ import {
   normalizeCommitCheckRun,
   normalizeCommitCheckSnapshot,
   normalizeCommitStatus,
+  selectPrimaryPreviewUrlFromCommitCheckItems,
 } from "./commitChecks";
 
 const SUCCESSFUL_WORKERS_SUMMARY = `Preview URL: https://fc4977af-noter-worker.nicuchiciuc.workers.dev
@@ -133,6 +134,7 @@ describe("buildGitHubCommitCheckSnapshot", () => {
           status: "in_progress",
           appSlug: "cloudflare-workers-and-pages",
           detailsUrl: "https://dash.cloudflare.com/builds/running",
+          outputSummary: SUCCESSFUL_WORKERS_SUMMARY,
         },
         {
           id: 2,
@@ -175,5 +177,25 @@ describe("buildGitHubCommitCheckSnapshot", () => {
       primaryLogUrl: "https://app.netlify.com/sites/example/deploys/3",
       syncedAt: 1000,
     });
+  });
+
+  it("selects preview aliases from normalized check items without adding them to summaries", () => {
+    const items = normalizeCommitCheckSnapshot({
+      checkRuns: [
+        {
+          id: 1,
+          name: "Workers Builds: samebase",
+          status: "completed",
+          conclusion: "success",
+          appSlug: "cloudflare-workers-and-pages",
+          outputSummary: SUCCESSFUL_WORKERS_SUMMARY,
+        },
+      ],
+      statuses: [],
+    });
+
+    expect(selectPrimaryPreviewUrlFromCommitCheckItems(items)).toBe(
+      "https://codex-samebase-rebrand-rollout-plan-noter-worker.nicuchiciuc.workers.dev/",
+    );
   });
 });

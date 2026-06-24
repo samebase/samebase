@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
 import { vPullRequestLabel, vVaultBranchCommitSummary, type PullRequestLabel } from "../schema";
@@ -95,6 +95,29 @@ export function selectDeletedUpstreamBranchesToAutoPrune(args: {
         args.branchHasStagedChanges.get(branch.name) !== true,
     )
     .map((branch) => branch.name);
+}
+
+export function buildActiveBranchPreviewUrlsByBranch(
+  domains: readonly Doc<"vaultDomains">[],
+): Map<string, string> {
+  const urlsByBranch = new Map<string, string>();
+  const previewDomains = domains
+    .filter((domain) => domain.kind === "branch_preview" && domain.active)
+    .sort(
+      (left, right) =>
+        right.lastSyncedAt - left.lastSyncedAt ||
+        left.branch.localeCompare(right.branch) ||
+        left.url.localeCompare(right.url) ||
+        left._id.localeCompare(right._id),
+    );
+
+  for (const domain of previewDomains) {
+    if (!urlsByBranch.has(domain.branch)) {
+      urlsByBranch.set(domain.branch, domain.url);
+    }
+  }
+
+  return urlsByBranch;
 }
 
 function groupStagingFilesByBranch(
@@ -200,6 +223,85 @@ async function pruneDeletedUpstreamBranchesForVault(
   }
 }
 
+export const syncVaultBranchPreviewDomainFromCheckSnapshot = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    branchName: string(),
+    previewUrl: optional(string()),
+    syncedAt: number(),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
+      return null;
+    }
+
+    const branch = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault_and_name", (q) =>
+        q.eq("vaultId", args.vaultId).eq("name", args.branchName),
+      )
+      .first();
+    if (!branch || branch.remoteState !== "active" || branch.isDefault) {
+      return null;
+    }
+
+    const existingDomains = await ctx.db
+      .query("vaultDomains")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.branchName),
+      )
+      .collect();
+    const existingPreviewDomains = existingDomains
+      .filter((domain) => domain.kind === "branch_preview")
+      .sort(
+        (left, right) =>
+          right.lastSyncedAt - left.lastSyncedAt ||
+          left.url.localeCompare(right.url) ||
+          left._id.localeCompare(right._id),
+      );
+    if (!args.previewUrl) {
+      for (const previewDomain of existingPreviewDomains) {
+        await ctx.db.patch(previewDomain._id, {
+          active: false,
+          lastSyncedAt: args.syncedAt,
+        });
+      }
+      return null;
+    }
+
+    if (existingPreviewDomains.length > 0) {
+      const existingPreviewDomain = existingPreviewDomains[0];
+      await ctx.db.patch(existingPreviewDomain._id, {
+        url: args.previewUrl,
+        source: "cloudflare_workers_preview",
+        active: true,
+        lastSyncedAt: args.syncedAt,
+      });
+      for (const duplicatePreviewDomain of existingPreviewDomains.slice(1)) {
+        await ctx.db.patch(duplicatePreviewDomain._id, {
+          active: false,
+          lastSyncedAt: args.syncedAt,
+        });
+      }
+      return null;
+    }
+
+    await ctx.db.insert("vaultDomains", {
+      vaultId: args.vaultId,
+      branch: args.branchName,
+      kind: "branch_preview",
+      url: args.previewUrl,
+      source: "cloudflare_workers_preview",
+      active: true,
+      lastSyncedAt: args.syncedAt,
+    });
+
+    return null;
+  },
+});
+
 export const getVaultRemoteBranches = query({
   access: "access_files_read",
   args: {
@@ -217,6 +319,7 @@ export const getVaultRemoteBranches = query({
       pullRequestLabels: optional(array(vPullRequestLabel)),
       pullRequestTitle: optional(string()),
       pullRequestIsDraft: optional(boolean()),
+      previewUrl: optional(string()),
       isDefault: boolean(),
       isProtected: boolean(),
       remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -231,14 +334,21 @@ export const getVaultRemoteBranches = query({
       return [];
     }
 
-    const branches = await ctx.db
-      .query("vaultRemoteBranches")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
+    const [branches, domains] = await Promise.all([
+      ctx.db
+        .query("vaultRemoteBranches")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .collect(),
+      ctx.db
+        .query("vaultDomains")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .collect(),
+    ]);
     const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
       githubRepositoryId: vault.ghRepoId,
       commitShas: branches.map((branch) => branch.headCommitSha),
     });
+    const previewUrlsByBranch = buildActiveBranchPreviewUrlsByBranch(domains);
 
     return branches.sort(compareRemoteBranchSortOrder).map((branch) => ({
       name: branch.name,
@@ -251,6 +361,7 @@ export const getVaultRemoteBranches = query({
       pullRequestLabels: branch.pullRequestLabels,
       pullRequestTitle: branch.pullRequestTitle,
       pullRequestIsDraft: branch.pullRequestIsDraft,
+      previewUrl: previewUrlsByBranch.get(branch.name),
       isDefault: branch.isDefault,
       isProtected: branch.isProtected,
       remoteState: branch.remoteState,

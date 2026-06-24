@@ -161,6 +161,7 @@ export const getUserVaultsContract = {
           pullRequestLabels: optional(array(vPullRequestLabel)),
           pullRequestTitle: optional(string()),
           pullRequestIsDraft: optional(boolean()),
+          previewUrl: optional(string()),
           isDefault: boolean(),
           isProtected: boolean(),
           remoteState: union(literal("active"), literal("deleted_upstream")),

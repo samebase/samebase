@@ -167,6 +167,15 @@ describe("vault dashboard Convex contract", () => {
         remoteState: "active",
         lastSyncedAt: 7,
       });
+      await ctx.db.insert("vaultDomains", {
+        vaultId,
+        branch: "feature/no-checks",
+        kind: "branch_preview",
+        url: "https://preview-branch.example.workers.dev",
+        source: "cloudflare_workers_preview",
+        active: true,
+        lastSyncedAt: 8,
+      });
       return { userId };
     });
     await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
@@ -229,6 +238,7 @@ describe("vault dashboard Convex contract", () => {
       sha: "fedcba1234567890abcdef1234567890abcdef12",
       authoredAt: 4,
     });
+    expect(noChecksBranch?.previewUrl).toBe("https://preview-branch.example.workers.dev");
     expect(noChecksBranch?.commits[0]?.checks).toBeUndefined();
   });
 

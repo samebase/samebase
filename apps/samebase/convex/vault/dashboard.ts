@@ -11,7 +11,11 @@ import {
 } from "./state";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
-import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
+import {
+  buildActiveBranchPreviewUrlsByBranch,
+  compareRemoteBranchSortOrder,
+  hasBranchStagingChanges,
+} from "./branches";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
 import { getGitHubCommitCheckSnapshotsByCommitSha } from "../commitChecks";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
@@ -823,7 +827,7 @@ async function readUserVaults(
         };
       }
 
-      const [stagingData, remoteBranches, defaultBranchTree, hasCreatedConvexProject] =
+      const [stagingData, remoteBranches, domains, defaultBranchTree, hasCreatedConvexProject] =
         await Promise.all([
           ctx.db
             .query("fileStaging")
@@ -831,6 +835,10 @@ async function readUserVaults(
             .collect(),
           ctx.db
             .query("vaultRemoteBranches")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+            .collect(),
+          ctx.db
+            .query("vaultDomains")
             .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
             .collect(),
           ctx.db
@@ -845,6 +853,7 @@ async function readUserVaults(
         githubRepositoryId: vault.ghRepoId,
         commitShas: remoteBranches.map((branch) => branch.headCommitSha),
       });
+      const previewUrlsByBranch = buildActiveBranchPreviewUrlsByBranch(domains);
 
       const fileCount = stagingData.filter(hasBranchStagingChanges).length;
 
@@ -902,6 +911,7 @@ async function readUserVaults(
           pullRequestLabels: branch.pullRequestLabels,
           pullRequestTitle: branch.pullRequestTitle,
           pullRequestIsDraft: branch.pullRequestIsDraft,
+          previewUrl: previewUrlsByBranch.get(branch.name),
           isDefault: branch.isDefault,
           isProtected: branch.isProtected,
           remoteState: branch.remoteState,
@@ -981,6 +991,7 @@ export const getVaultInfrastructure = query({
           source: v.union(
             v.literal("cloudflare_workers_default"),
             v.literal("cloudflare_workers_custom"),
+            v.literal("cloudflare_workers_preview"),
           ),
           active: v.boolean(),
         }),
