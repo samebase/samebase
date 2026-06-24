@@ -77,10 +77,25 @@ const initialThemeScript = `
   document.documentElement.classList.toggle("dark", useDarkTheme);
 })();
 `;
+const DEV_ROOT_STYLESHEET_HREF = "/src/index.css";
+
+function buildDevRootStylesheetLinks() {
+  if (!import.meta.env.DEV) {
+    return [];
+  }
+
+  return [
+    {
+      rel: "stylesheet",
+      href: DEV_ROOT_STYLESHEET_HREF,
+    },
+  ];
+}
 
 export function buildRootHead() {
   return {
     links: [
+      ...buildDevRootStylesheetLinks(),
       {
         rel: "icon",
         type: "image/png",
