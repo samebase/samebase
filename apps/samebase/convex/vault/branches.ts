@@ -15,6 +15,7 @@ import {
   type GitHubCommitCheckSnapshot,
 } from "../schema";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
+import { deleteGitHubCommitChecksUnreferencedByBranches } from "../commitChecks";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
@@ -214,17 +215,20 @@ async function getGitHubCommitCheckSnapshotsByCommitSha(
   },
 ): Promise<Map<string, GitHubCommitCheckSnapshot>> {
   const snapshotsByCommitSha = new Map<string, GitHubCommitCheckSnapshot>();
-  const uniqueCommitShas = new Set(args.commitShas);
+  const snapshots = await Promise.all(
+    Array.from(new Set(args.commitShas)).map(async (commitSha) => {
+      return await ctx.db
+        .query("githubCommitCheckSnapshots")
+        .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+          q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
+        )
+        .first();
+    }),
+  );
 
-  for (const commitSha of uniqueCommitShas) {
-    const snapshot = await ctx.db
-      .query("githubCommitCheckSnapshots")
-      .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
-        q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
-      )
-      .first();
+  for (const snapshot of snapshots) {
     if (snapshot) {
-      snapshotsByCommitSha.set(commitSha, snapshot);
+      snapshotsByCommitSha.set(snapshot.commitSha, snapshot);
     }
   }
 
@@ -470,6 +474,12 @@ export const syncVaultRemoteBranches = internalMutation({
     }
 
     await pruneDeletedUpstreamBranchesForVault(ctx, args.vaultId);
+    if (vault.state === "connected") {
+      await deleteGitHubCommitChecksUnreferencedByBranches(ctx, {
+        githubRepositoryId: vault.ghRepoId,
+        activeCommitShas: new Set(args.branches.map((branch) => branch.headCommitSha)),
+      });
+    }
 
     return null;
   },

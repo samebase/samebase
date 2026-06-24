@@ -436,6 +436,32 @@ async function deleteGitHubCommitCheckSnapshots(
   }
 }
 
+export async function deleteGitHubCommitChecksUnreferencedByBranches(
+  ctx: MutationCtx,
+  args: {
+    githubRepositoryId: string;
+    activeCommitShas: ReadonlySet<string>;
+  },
+): Promise<void> {
+  const existingSnapshots = await ctx.db
+    .query("githubCommitCheckSnapshots")
+    .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+      q.eq("githubRepositoryId", args.githubRepositoryId),
+    )
+    .collect();
+
+  for (const snapshot of existingSnapshots) {
+    if (args.activeCommitShas.has(snapshot.commitSha)) {
+      continue;
+    }
+    await deleteGitHubCommitCheckItems(ctx, {
+      githubRepositoryId: args.githubRepositoryId,
+      commitSha: snapshot.commitSha,
+    });
+    await ctx.db.delete(snapshot._id);
+  }
+}
+
 export const replaceGitHubCommitCheckSnapshot = internalMutation({
   args: {
     githubRepositoryId: string(),

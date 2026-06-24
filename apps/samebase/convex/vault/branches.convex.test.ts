@@ -92,6 +92,48 @@ describe("vault branch mutations", () => {
         },
       ],
     });
+    await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
+      githubRepositoryId: "123",
+      commitSha: "stale456",
+      syncedAt: 20,
+      items: [
+        {
+          source: "check_run",
+          sourceKey: "102",
+          name: "old-tip",
+          state: "success",
+          status: "completed",
+        },
+      ],
+    });
+    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
+      vaultId: ids.vaultId,
+      syncedAt: 30,
+      branches: [
+        {
+          name: "main",
+          headCommitSha: "abc123",
+          lastCommitAt: 8,
+          aheadBy: 0,
+          behindBy: 0,
+          aheadBehindState: "resolved",
+          pullRequestState: "resolved",
+          isDefault: true,
+          isProtected: true,
+        },
+        {
+          name: "feature/no-pr",
+          headCommitSha: "abc123",
+          lastCommitAt: 8,
+          aheadBy: 0,
+          behindBy: 0,
+          aheadBehindState: "resolved",
+          pullRequestState: "resolved",
+          isDefault: false,
+          isProtected: false,
+        },
+      ],
+    });
 
     const asOwner = t.withIdentity({
       subject: `${ids.userId}|owner-session`,
@@ -137,6 +179,29 @@ describe("vault branch mutations", () => {
     ]);
     expect(branches[0]?.pullRequestNumber).toBeUndefined();
     expect(branches[1]?.pullRequestNumber).toBeUndefined();
+    await expect(
+      t.run(async (ctx) => {
+        const staleSnapshot = await ctx.db
+          .query("githubCommitCheckSnapshots")
+          .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+            q.eq("githubRepositoryId", "123").eq("commitSha", "stale456"),
+          )
+          .first();
+        const staleItems = await ctx.db
+          .query("githubCommitCheckItems")
+          .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+            q.eq("githubRepositoryId", "123").eq("commitSha", "stale456"),
+          )
+          .collect();
+        return {
+          staleSnapshot,
+          staleItemCount: staleItems.length,
+        };
+      }),
+    ).resolves.toEqual({
+      staleSnapshot: null,
+      staleItemCount: 0,
+    });
   });
 
   it("requires vault ownership before optimistic tree refresh writes", async () => {

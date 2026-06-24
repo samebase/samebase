@@ -2372,13 +2372,6 @@ export const syncRepositoryMetadata = internalAction({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const connectedVault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      userId: args.userId,
-      vaultId: vault._id,
-    });
-    if (!connectedVault || connectedVault.state !== "connected") {
-      throw new Error("Vault not found");
-    }
 
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
@@ -2426,7 +2419,7 @@ export const syncRepositoryMetadata = internalAction({
       })
     ) {
       await syncBranchHeadCommitCheckSnapshotsByBranch(ctx, {
-        githubRepositoryId: connectedVault.ghRepoId,
+        githubRepositoryId: vault.ghRepoId,
         octokit,
         owner: args.owner,
         repo: args.repo,
