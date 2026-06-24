@@ -9,6 +9,10 @@ import {
   type ReplaceInFileResolvedEdit,
 } from "../agent/replaceInFile";
 import { isRecord } from "../jsonUtils";
+import {
+  createRepositoryContract,
+  type CreateRepositoryArgs,
+} from "../vault/createRepositoryContract";
 
 type ReadFileInput = {
   path: string;
@@ -42,14 +46,7 @@ type DeleteFileInput = {
   path: string;
 };
 
-type CreateAppInput = {
-  name: string;
-  owner: string;
-  convexProjectName: string;
-  cloudflareWorkerName: string;
-  description?: string;
-  private?: boolean;
-};
+type CreateRepositoryInput = CreateRepositoryArgs;
 
 type ProdReadScope = "vault" | "global";
 type ProdReadProvider = "convex" | "cloudflare";
@@ -457,9 +454,9 @@ function formatReplaceInFileResult(args: {
   );
 }
 
-export async function executeCreateApp(
+export async function executeCreateRepository(
   context: ResolvedToolContext,
-  input: CreateAppInput,
+  input: CreateRepositoryInput,
 ): Promise<ToolExecutionOutput> {
   const result = await context.ctx.runAction(internal.vault.actions.createAppForUserInternal, {
     userId: context.userId,
@@ -1117,7 +1114,7 @@ function parseDeleteFileInput(value: unknown): DeleteFileInput | null {
   };
 }
 
-function parseCreateAppInput(value: unknown): CreateAppInput | null {
+function parseCreateRepositoryInput(value: unknown): CreateRepositoryInput | null {
   const record = toRecord(value);
   if (!record) {
     return null;
@@ -1354,12 +1351,12 @@ export async function executeRuntimeTool(args: {
   input: unknown;
 }): Promise<ToolExecutionOutput> {
   switch (args.toolName) {
-    case "create_app": {
-      const input = parseCreateAppInput(args.input);
+    case createRepositoryContract.mcp.name: {
+      const input = parseCreateRepositoryInput(args.input);
       if (!input) {
-        throw new Error("Invalid create_app input.");
+        throw new Error(`Invalid ${createRepositoryContract.mcp.name} input.`);
       }
-      return executeCreateApp(args.context, input);
+      return executeCreateRepository(args.context, input);
     }
     case "get_vault_remote_branches":
       return executeGetVaultRemoteBranches(args.context);

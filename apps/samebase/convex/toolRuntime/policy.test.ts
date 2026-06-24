@@ -14,7 +14,7 @@ function makeRequest(request: Omit<ToolRunRequest, "userId">): ToolRunRequest {
 
 function inputForTool(toolName: string): unknown {
   switch (toolName) {
-    case "create_app":
+    case "vault.actions.createRepository":
       return {
         name: "todo-app",
         owner: "samebase",
@@ -66,7 +66,7 @@ describe("validateToolPolicy", () => {
   });
 
   it("rejects MCP calls without required scope", () => {
-    const tool = findToolInCatalog({ name: "create_app" });
+    const tool = findToolInCatalog({ name: "vault.actions.createRepository" });
     expect(tool).not.toBeNull();
     if (!tool) {
       return;
@@ -83,11 +83,11 @@ describe("validateToolPolicy", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.message).toBe("Insufficient scope for create_app.");
+    expect(result.message).toBe("Insufficient scope for vault.actions.createRepository.");
   });
 
-  it("allows MCP create_app when apps.create scope is granted", () => {
-    const tool = findToolInCatalog({ name: "create_app" });
+  it("allows MCP createRepository when access_app_create scope is granted", () => {
+    const tool = findToolInCatalog({ name: "vault.actions.createRepository" });
     expect(tool).not.toBeNull();
     if (!tool) {
       return;
@@ -99,7 +99,7 @@ describe("validateToolPolicy", () => {
         toolName: tool.name,
         input: inputForTool(tool.name),
         surface: "mcp",
-        grantedScopes: ["apps.create"],
+        grantedScopes: ["access_app_create"],
       }),
     });
 

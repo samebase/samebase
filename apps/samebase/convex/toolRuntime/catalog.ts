@@ -2,21 +2,11 @@ import { z } from "zod";
 import type { ToolDefinition, ToolJsonSchema, ToolSurface } from "./types";
 import { hasAllScopes } from "./utils";
 import { isRecord } from "../jsonUtils";
+import { createRepositoryContract } from "../vault/createRepositoryContract";
+import { convexArgsToToolInputSchema, convexArgsToZodSchema } from "./convexSchemas";
 
 const emptyInputSchema = z.object({});
-const createAppInputSchema = z.object({
-  name: z.string().describe("Name for the new app and GitHub repository."),
-  owner: z
-    .string()
-    .describe("GitHub user or organization where Samebase should create the app repository."),
-  convexProjectName: z.string().describe("Convex project name to provision for the app."),
-  cloudflareWorkerName: z.string().describe("Cloudflare Worker name to provision for the app."),
-  description: z.string().optional().describe("Optional GitHub repository description."),
-  private: z
-    .boolean()
-    .optional()
-    .describe("Whether to create a private GitHub repository. Defaults to true."),
-});
+const createRepositoryInputSchema = convexArgsToZodSchema(createRepositoryContract.args);
 const readFileInputSchema = z.object({
   path: z.string().describe("File path relative to repository root"),
 });
@@ -211,7 +201,10 @@ export function buildMcpToolInputSchema(
 
 export const emptyToolInputSchema = zodToToolInputSchema(emptyInputSchema);
 
-export const createAppToolInputSchema = zodToToolInputSchema(createAppInputSchema);
+export const createRepositoryToolInputSchema = convexArgsToToolInputSchema(
+  createRepositoryContract.args,
+  createRepositoryContract.mcp.inputDescriptions,
+);
 
 export const readFileToolInputSchema = zodToToolInputSchema(readFileInputSchema);
 
@@ -251,18 +244,17 @@ export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
 
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
-    name: "create_app",
-    description:
-      "Create a new Samebase app. This starts the same workflow as the New App page: create a GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.",
+    name: createRepositoryContract.mcp.name,
+    description: createRepositoryContract.mcp.description,
     surfaces: ["mcp"],
-    requiredScopes: ["apps.create"],
+    requiredScopes: [createRepositoryContract.access],
     requiresVaultContext: false,
     requiresBranchContext: false,
     requiresThreadContext: false,
     requiresGithubConnection: true,
-    safety: "write",
-    inputSchema: createAppToolInputSchema,
-    agentArgs: createAppInputSchema,
+    safety: createRepositoryContract.mcp.safety,
+    inputSchema: createRepositoryToolInputSchema,
+    agentArgs: createRepositoryInputSchema,
   },
   {
     name: "read_file",

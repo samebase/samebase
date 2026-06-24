@@ -12,9 +12,9 @@ describe("listCatalogToolsForSurface", () => {
 
     const createTools = listCatalogToolsForSurface({
       surface: "mcp",
-      grantedScopes: ["apps.create"],
+      grantedScopes: ["access_app_create"],
     }).map((tool) => tool.name);
-    expect(createTools).toEqual(["create_app"]);
+    expect(createTools).toEqual(["vault.actions.createRepository"]);
 
     const oldScopeTools = listCatalogToolsForSurface({
       surface: "mcp",
@@ -46,14 +46,14 @@ describe("listCatalogToolsForSurface", () => {
 });
 
 describe("buildMcpToolInputSchema", () => {
-  it("publishes create_app fields without vault, branch, or thread context", () => {
-    const createApp = findToolInCatalog({ name: "create_app" });
-    expect(createApp).not.toBeNull();
-    if (!createApp) {
+  it("publishes createRepository fields without vault, branch, or thread context", () => {
+    const createRepository = findToolInCatalog({ name: "vault.actions.createRepository" });
+    expect(createRepository).not.toBeNull();
+    if (!createRepository) {
       return;
     }
 
-    const schema = buildMcpToolInputSchema(createApp);
+    const schema = buildMcpToolInputSchema(createRepository);
     expect(schema.properties).toHaveProperty("name");
     expect(schema.properties).toHaveProperty("owner");
     expect(schema.properties).toHaveProperty("convexProjectName");

@@ -38,6 +38,13 @@ type AppViewerForAccess<
   AuthenticatedViewer,
 > = Access extends PublicAccessKey ? PublicViewer : AuthenticatedViewer;
 
+export type AppFunctionMcpMetadata = {
+  name: string;
+  description: string;
+  safety: "read_only" | "write" | "destructive" | "proposal_only";
+  inputDescriptions?: Record<string, string>;
+};
+
 type AppFunctionCtx<
   InputCtx,
   Access extends AppFunctionAccess,
@@ -60,6 +67,7 @@ type AppFunctionDefinition<
   access: Access;
   args?: ArgsValidator;
   returns?: ReturnsValidator;
+  mcp?: AppFunctionMcpMetadata;
   handler: (
     ctx: AppFunctionCtx<InputCtx, Access, PublicViewer, AuthenticatedViewer>,
     ...args: OneOrZeroArgs

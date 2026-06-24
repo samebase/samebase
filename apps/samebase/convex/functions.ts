@@ -115,32 +115,51 @@ function resolveUserViewer(args: {
   };
 }
 
-// Runtime policy: resolve the current viewer and enforce access keys.
-async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<ResolvedViewer> {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) {
-    return resolveSignedOutViewer(userId);
+function resolveViewerForUserRecord(args: {
+  userId: Id<"users"> | null;
+  user: Doc<"users"> | null;
+}): ResolvedViewer {
+  if (args.userId === null || args.user === null) {
+    return resolveSignedOutViewer(args.userId);
   }
 
-  const user = await ctx.db.get(userId);
-  if (!user) {
-    return resolveSignedOutViewer(userId);
-  }
-
-  if (isAdminUser(user.email)) {
-    return resolveUserViewer({ role: "role_staff", userId, user });
+  if (isAdminUser(args.user.email)) {
+    return resolveUserViewer({
+      role: "role_staff",
+      userId: args.userId,
+      user: args.user,
+    });
   }
 
   if (
     hasAppAccess({
-      email: user.email,
-      isApproved: user.isApproved,
+      email: args.user.email,
+      isApproved: args.user.isApproved,
     })
   ) {
-    return resolveUserViewer({ role: "role_member", userId, user });
+    return resolveUserViewer({
+      role: "role_member",
+      userId: args.userId,
+      user: args.user,
+    });
   }
 
-  return resolveUserViewer({ role: "role_pending_access", userId, user });
+  return resolveUserViewer({
+    role: "role_pending_access",
+    userId: args.userId,
+    user: args.user,
+  });
+}
+
+// Runtime policy: resolve the current viewer and enforce access keys.
+async function resolveViewerFromDb(ctx: QueryCtx | MutationCtx): Promise<ResolvedViewer> {
+  const userId = await getAuthUserId(ctx);
+  if (userId === null) {
+    return resolveViewerForUserRecord({ userId, user: null });
+  }
+
+  const user = await ctx.db.get(userId);
+  return resolveViewerForUserRecord({ userId, user });
 }
 
 function assertPublicViewerAccess(viewer: ResolvedViewer): PublicAppViewer {
@@ -207,6 +226,20 @@ export const resolveViewerForAction = internalQuery({
   returns: vResolvedViewer,
   handler: async (ctx): Promise<ResolvedViewer> => {
     return await resolveViewerFromDb(ctx);
+  },
+});
+
+export const resolveViewerForUserId = internalQuery({
+  args: {
+    userId: id("users"),
+  },
+  returns: vResolvedViewer,
+  handler: async (ctx, args): Promise<ResolvedViewer> => {
+    const user = await ctx.db.get(args.userId);
+    return resolveViewerForUserRecord({
+      userId: args.userId,
+      user,
+    });
   },
 });
 

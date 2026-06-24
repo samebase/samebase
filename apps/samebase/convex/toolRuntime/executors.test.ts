@@ -89,7 +89,7 @@ function makeResolvedContext(args?: {
 }
 
 describe("executeRuntimeTool write dispatch", () => {
-  it("dispatches create_app through the app provisioning action", async () => {
+  it("dispatches createRepository through the app provisioning action", async () => {
     const actionCalls: ActionCall[] = [];
     const context = makeResolvedContext({
       actionCalls,
@@ -100,7 +100,7 @@ describe("executeRuntimeTool write dispatch", () => {
     });
 
     const output = await executeRuntimeTool({
-      toolName: "create_app",
+      toolName: "vault.actions.createRepository",
       context,
       input: {
         name: "todo-app",

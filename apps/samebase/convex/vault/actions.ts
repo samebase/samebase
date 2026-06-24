@@ -11,6 +11,7 @@ import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
+import { canAccess } from "../../shared/accessModel";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
@@ -26,8 +27,14 @@ import {
   validateAppResourceName,
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
+import {
+  createRepositoryArgs,
+  createRepositoryContract,
+  createRepositoryReturns,
+  type CreateRepositoryArgs,
+} from "./createRepositoryContract";
 
-const { array, boolean, literal, null: nullValue, object, optional, string, union } = v;
+const { array, boolean, literal, null: nullValue, object, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
 const githubRepositoryOwnerOption = object({
   login: string(),
@@ -42,15 +49,7 @@ const appResourceNameAvailability = object({
 
 type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
 type GitHubRepositoryOwnerOption = Infer<typeof githubRepositoryOwnerOption>;
-type CreateAppArgs = {
-  name: string;
-  owner: string;
-  convexProjectName: string;
-  cloudflareWorkerName: string;
-  description?: string;
-  private?: boolean;
-};
-type CreateAppResult = { vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> };
+type CreateRepositoryResult = { vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> };
 
 function buildAvailableResult(): AppResourceNameAvailability {
   return {
@@ -717,8 +716,8 @@ export const connectRepository = action({
 
 async function createAppForUser(
   ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
-  args: CreateAppArgs & { userId: Id<"users"> },
-): Promise<CreateAppResult> {
+  args: CreateRepositoryArgs & { userId: Id<"users"> },
+): Promise<CreateRepositoryResult> {
   const repoName = toSafeRepoName(args.name);
   if (!repoName) {
     throw new Error("Repository name is required.");
@@ -803,19 +802,10 @@ async function createAppForUser(
 }
 
 export const createRepository = action({
-  access: "access_app_create",
-  args: {
-    name: v.string(),
-    owner: string(),
-    convexProjectName: string(),
-    cloudflareWorkerName: string(),
-    description: optional(v.string()),
-    private: optional(v.boolean()),
-  },
-  returns: v.object({
-    vaultId: v.id("vaults"),
-    runId: v.id("appProvisioningRuns"),
-  }),
+  access: createRepositoryContract.access,
+  args: createRepositoryContract.args,
+  returns: createRepositoryContract.returns,
+  mcp: createRepositoryContract.mcp,
   handler: async (
     ctx,
     args,
@@ -827,21 +817,24 @@ export const createRepository = action({
   },
 });
 
+async function assertUserCanCreateRepository(
+  ctx: Pick<ActionCtx, "runQuery">,
+  userId: Id<"users">,
+) {
+  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
+  if (viewer.user === null || !canAccess(createRepositoryContract.access, viewer.accessKeys)) {
+    throw new Error("Access denied");
+  }
+}
+
 export const createAppForUserInternal = internalAction({
   args: {
     userId: v.id("users"),
-    name: v.string(),
-    owner: string(),
-    convexProjectName: string(),
-    cloudflareWorkerName: string(),
-    description: optional(v.string()),
-    private: optional(v.boolean()),
+    ...createRepositoryArgs,
   },
-  returns: v.object({
-    vaultId: v.id("vaults"),
-    runId: v.id("appProvisioningRuns"),
-  }),
-  handler: async (ctx, args): Promise<CreateAppResult> => {
+  returns: createRepositoryReturns,
+  handler: async (ctx, args): Promise<CreateRepositoryResult> => {
+    await assertUserCanCreateRepository(ctx, args.userId);
     return await createAppForUser(ctx, args);
   },
 });

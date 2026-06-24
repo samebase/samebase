@@ -1,5 +1,6 @@
 import { includes } from "@samebase/dependent/main";
 import { asRecord } from "../jsonUtils";
+import { createRepositoryContract } from "../vault/createRepositoryContract";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DEFAULT_RESPONSE_TYPES = ["code"] as const;
@@ -16,7 +17,7 @@ const MAX_STATE_LENGTH = 500;
 const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
-export const MCP_V1_SUPPORTED_SCOPES = ["apps.create"] as const;
+export const MCP_V1_SUPPORTED_SCOPES = [createRepositoryContract.access] as const;
 
 type McpSupportedScope = (typeof MCP_V1_SUPPORTED_SCOPES)[number];
 
@@ -455,7 +456,7 @@ export function validateAuthorizeRequestFromUrl(
   // Codex/native MCP OAuth clients may omit `scope` on authorize requests.
   // OAuth allows server-defined defaults, so use the single Samebase app
   // creation scope that backs this MCP server's public tool surface.
-  const scopeRaw = url.searchParams.get("scope")?.trim() || "apps.create";
+  const scopeRaw = url.searchParams.get("scope")?.trim() || createRepositoryContract.access;
   const scopes = scopeRaw
     .split(" ")
     .map(normalizeScopeToken)
