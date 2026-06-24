@@ -61,8 +61,8 @@ export type CloudflareBuildToken = {
 const SAMEBASE_WORKERS_BUILD_TOKEN_NAME = "samebase build token";
 const WORKERS_BUILDS_TOKEN_REQUIRED_MESSAGE = `Cloudflare Workers Builds has no build API token. In Cloudflare, create a Workers Builds API token named "${SAMEBASE_WORKERS_BUILD_TOKEN_NAME}", then retry.`;
 const CLOUDFLARE_GITHUB_APP_NOT_AUTHORIZED_CODE = "8000008";
-const CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL =
-  "https://github.com/apps/cloudflare-workers-and-pages";
+const CLOUDFLARE_GITHUB_APP_RECOVERY_URL =
+  "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
 const BUILD_TOKEN_PAGE_SIZE = 100;
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
@@ -116,7 +116,7 @@ export function isCloudflareGitHubAppRepositoryAuthorizationError(error: unknown
 export function formatCloudflareGitHubAppRepositoryAuthorizationMessage(
   repositoryFullName: string,
 ): string {
-  return `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. Open ${CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL}, click Configure, complete GitHub verification if prompted, add ${repositoryFullName}, then retry.`;
+  return `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. Follow Cloudflare's recovery steps at ${CLOUDFLARE_GITHUB_APP_RECOVERY_URL}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ${repositoryFullName}, then retry.`;
 }
 
 function requireCloudflareResult<T>(value: T | undefined, message: string): T {

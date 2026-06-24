@@ -925,7 +925,7 @@ describe("vault dashboard Convex contract", () => {
   it("uses the failed provider run lastError instead of reconstructing from events", async () => {
     const t = makeConvexTest();
     const expectedMessage =
-      "Cloudflare Workers and Pages GitHub App is not authorized for ada/cloudflare-retry. Open https://github.com/apps/cloudflare-workers-and-pages, click Configure, complete GitHub verification if prompted, add ada/cloudflare-retry, then retry.";
+      "Cloudflare Workers and Pages GitHub App is not authorized for ada/cloudflare-retry. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ada/cloudflare-retry, then retry.";
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         name: "Ada",
