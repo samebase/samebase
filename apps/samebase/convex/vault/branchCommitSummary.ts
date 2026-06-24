@@ -1,5 +1,5 @@
 import type {
-  PullRequestStatusSummary,
+  BranchHeadCommitChecksSummary,
   VaultBranchCommitChecksSummary,
   VaultBranchCommitSummary,
 } from "../schema";
@@ -7,14 +7,14 @@ import type {
 type BranchCommitSummarySource = {
   headCommitSha: string;
   lastCommitAt?: number;
-  pullRequestStatusSummary?: PullRequestStatusSummary;
+  headCommitChecksSummary?: BranchHeadCommitChecksSummary;
 };
 
 function readBranchHeadCommitChecks(
   branch: BranchCommitSummarySource,
 ): VaultBranchCommitChecksSummary | undefined {
-  const summary = branch.pullRequestStatusSummary;
-  if (!summary || summary.headCommitSha !== branch.headCommitSha) {
+  const summary = branch.headCommitChecksSummary;
+  if (!summary || summary.commitSha !== branch.headCommitSha) {
     return undefined;
   }
 

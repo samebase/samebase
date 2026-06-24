@@ -7,9 +7,10 @@ import {
   vPullRequestLabel,
   vVaultBranchCommitSummary,
   type PullRequestLabel,
-  type PullRequestStatusSummary,
+  type BranchHeadCommitChecksSummary,
 } from "../schema";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
+import { deleteBranchCommitCheckItemsForBranch } from "../commitChecks";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
@@ -23,36 +24,6 @@ import {
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-
-/**
- * PR check snapshots are cached per PR head. Clear derived status when the
- * branch loses its current PR, moves to another PR, or points the current PR at
- * a different head SHA so stale status does not survive pushes.
- */
-export function shouldClearPullRequestStatusSnapshotForPullRequestSync(args: {
-  incomingPullRequestState: "resolved" | "preserve";
-  incomingPullRequestNumber?: number;
-  incomingHeadCommitSha: string;
-  existingPullRequestNumber?: number;
-  existingStatusSummaryHeadCommitSha?: string;
-}): boolean {
-  if (args.incomingPullRequestState !== "resolved") {
-    return false;
-  }
-
-  if (typeof args.incomingPullRequestNumber !== "number") {
-    return true;
-  }
-
-  if (args.incomingPullRequestNumber !== args.existingPullRequestNumber) {
-    return true;
-  }
-
-  return (
-    typeof args.existingStatusSummaryHeadCommitSha === "string" &&
-    args.existingStatusSummaryHeadCommitSha !== args.incomingHeadCommitSha
-  );
-}
 
 export function compareRemoteBranchSortOrder(
   left: {
@@ -110,6 +81,21 @@ export function resolveSyncedBranchLastCommitAt(args: {
     return args.existingBranch.lastCommitAt;
   }
   return undefined;
+}
+
+export function shouldClearBranchHeadCommitChecksForBranchSync(args: {
+  incomingHeadCommitSha: string;
+  existingHeadCommitSha: string;
+  existingHeadCommitChecksSummaryCommitSha?: string;
+}): boolean {
+  if (args.existingHeadCommitSha !== args.incomingHeadCommitSha) {
+    return true;
+  }
+
+  return (
+    typeof args.existingHeadCommitChecksSummaryCommitSha === "string" &&
+    args.existingHeadCommitChecksSummaryCommitSha !== args.incomingHeadCommitSha
+  );
 }
 
 export function selectDeletedUpstreamBranchesToAutoPrune(args: {
@@ -181,34 +167,6 @@ async function deleteVaultBranchArtifacts(
     branch: args.branch,
     cutoffTimestamp: args.collaborativeUpdatesCutoffTimestamp,
   });
-}
-
-async function deletePullRequestCheckItemsForBranch(
-  ctx: MutationCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    branchName: string;
-    pullRequestNumber?: number;
-  },
-): Promise<void> {
-  if (typeof args.pullRequestNumber !== "number") {
-    return;
-  }
-  const pullRequestNumber = args.pullRequestNumber;
-
-  const checkItems = await ctx.db
-    .query("vaultPullRequestCheckItems")
-    .withIndex("by_vault_and_branch_and_pr", (q) =>
-      q
-        .eq("vaultId", args.vaultId)
-        .eq("branchName", args.branchName)
-        .eq("pullRequestNumber", pullRequestNumber),
-    )
-    .collect();
-
-  for (const item of checkItems) {
-    await ctx.db.delete(item._id);
-  }
 }
 
 async function pruneDeletedUpstreamBranchesForVault(
@@ -388,7 +346,7 @@ export const syncVaultRemoteBranches = internalMutation({
           pullRequestLabels?: PullRequestLabel[];
           pullRequestTitle?: string;
           pullRequestIsDraft?: boolean;
-          pullRequestStatusSummary?: PullRequestStatusSummary;
+          headCommitChecksSummary?: BranchHeadCommitChecksSummary;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -413,6 +371,20 @@ export const syncVaultRemoteBranches = internalMutation({
           patchData.aheadBy = undefined;
           patchData.behindBy = undefined;
         }
+        if (
+          shouldClearBranchHeadCommitChecksForBranchSync({
+            incomingHeadCommitSha: branch.headCommitSha,
+            existingHeadCommitSha: existingBranch.headCommitSha,
+            existingHeadCommitChecksSummaryCommitSha:
+              existingBranch.headCommitChecksSummary?.commitSha,
+          })
+        ) {
+          patchData.headCommitChecksSummary = undefined;
+          await deleteBranchCommitCheckItemsForBranch(ctx, {
+            vaultId: args.vaultId,
+            branchName: branch.name,
+          });
+        }
         if (branch.pullRequestState === "resolved") {
           patchData.pullRequestUrl = branch.pullRequestUrl;
           patchData.pullRequestNumber = branch.pullRequestNumber;
@@ -422,23 +394,6 @@ export const syncVaultRemoteBranches = internalMutation({
             typeof branch.pullRequestUrl === "string"
               ? branch.pullRequestIsDraft === true
               : undefined;
-          if (
-            shouldClearPullRequestStatusSnapshotForPullRequestSync({
-              incomingPullRequestState: branch.pullRequestState,
-              incomingPullRequestNumber: branch.pullRequestNumber,
-              incomingHeadCommitSha: branch.headCommitSha,
-              existingPullRequestNumber: existingBranch.pullRequestNumber,
-              existingStatusSummaryHeadCommitSha:
-                existingBranch.pullRequestStatusSummary?.headCommitSha,
-            })
-          ) {
-            patchData.pullRequestStatusSummary = undefined;
-            await deletePullRequestCheckItemsForBranch(ctx, {
-              vaultId: args.vaultId,
-              branchName: branch.name,
-              pullRequestNumber: existingBranch.pullRequestNumber,
-            });
-          }
         }
         await ctx.db.patch(existingBranch._id, patchData);
         continue;
@@ -505,12 +460,11 @@ export const syncVaultRemoteBranches = internalMutation({
         remoteState: "deleted_upstream",
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
-        pullRequestStatusSummary: undefined,
+        headCommitChecksSummary: undefined,
       });
-      await deletePullRequestCheckItemsForBranch(ctx, {
+      await deleteBranchCommitCheckItemsForBranch(ctx, {
         vaultId: args.vaultId,
         branchName: branch.name,
-        pullRequestNumber: branch.pullRequestNumber,
       });
     }
 

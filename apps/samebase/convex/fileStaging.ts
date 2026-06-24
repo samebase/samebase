@@ -790,8 +790,8 @@ type ClearAllStagingPlan<VaultId extends string = string, UserId extends string 
     target: { scope: "repository" } | { scope: "branch"; branch: string };
     includeAheadBehind: boolean;
     includePullRequestLinks: boolean;
-    includePullRequestCheckSnapshots: boolean;
-    pullRequestCheckBranchNames: string[];
+    includeBranchHeadCommitCheckSnapshots: boolean;
+    branchHeadCommitCheckBranchNames: string[];
   } | null;
 };
 
@@ -833,8 +833,8 @@ export function buildClearAllStagingPlan<VaultId extends string, UserId extends 
               : { scope: "branch", branch: args.branch },
           includeAheadBehind: false,
           includePullRequestLinks: false,
-          includePullRequestCheckSnapshots: false,
-          pullRequestCheckBranchNames: [],
+          includeBranchHeadCommitCheckSnapshots: false,
+          branchHeadCommitCheckBranchNames: [],
         }
       : null,
   };

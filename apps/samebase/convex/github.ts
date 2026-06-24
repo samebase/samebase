@@ -9,10 +9,10 @@ import { action } from "./functions";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord, toErrorMessage } from "./jsonUtils";
 import {
-  normalizePullRequestCheckSnapshot,
+  normalizeCommitCheckSnapshot,
   type GitHubCheckRunSnapshotInput,
   type GitHubCommitStatusSnapshotInput,
-} from "./pullRequestChecks";
+} from "./commitChecks";
 import {
   getRepositoryMediaKind,
   type RepositoryMediaKind,
@@ -126,8 +126,8 @@ const refreshRepositoryTreeForUserInput = union(
     repo: string(),
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
-    includePullRequestCheckSnapshots: boolean(),
-    pullRequestCheckBranchNames: array(string()),
+    includeBranchHeadCommitCheckSnapshots: boolean(),
+    branchHeadCommitCheckBranchNames: array(string()),
     intent: refreshRepositoryIntent,
   }),
   object({
@@ -138,8 +138,8 @@ const refreshRepositoryTreeForUserInput = union(
     branch: string(),
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
-    includePullRequestCheckSnapshots: boolean(),
-    pullRequestCheckBranchNames: array(string()),
+    includeBranchHeadCommitCheckSnapshots: boolean(),
+    branchHeadCommitCheckBranchNames: array(string()),
     intent: refreshRepositoryIntent,
   }),
 );
@@ -372,7 +372,7 @@ export function shouldRefreshRepositoryMetadata(args: {
   requestedBranch?: string;
   branchNotFound: boolean;
   lastRepositoryMetadataRefreshAt?: number;
-  includePullRequestCheckSnapshots: boolean;
+  includeBranchHeadCommitCheckSnapshots: boolean;
   now?: number;
 }): boolean {
   if (args.intent === "manual") {
@@ -431,7 +431,7 @@ interface RepositoryTreeMetadataSyncPlan {
   shouldSyncMetadata: boolean;
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
-  includePullRequestCheckSnapshots: boolean;
+  includeBranchHeadCommitCheckSnapshots: boolean;
   includeLastCommitTimestamps: boolean;
 }
 
@@ -447,17 +447,17 @@ function shouldLimitAutomaticRepositoryMetadataEnrichment(args: {
   );
 }
 
-function shouldPreserveTargetedPullRequestCheckSnapshotHydration(args: {
-  includePullRequestCheckSnapshots: boolean;
-  pullRequestCheckBranchNames: string[];
+function shouldPreserveTargetedBranchHeadCommitCheckSnapshotHydration(args: {
+  includeBranchHeadCommitCheckSnapshots: boolean;
+  branchHeadCommitCheckBranchNames: string[];
 }): boolean {
   return (
-    args.includePullRequestCheckSnapshots &&
-    args.pullRequestCheckBranchNames.some((branchName) => branchName.trim().length > 0)
+    args.includeBranchHeadCommitCheckSnapshots &&
+    args.branchHeadCommitCheckBranchNames.some((branchName) => branchName.trim().length > 0)
   );
 }
 
-function normalizePullRequestCheckBranchNames(branchNames: string[]): string[] {
+function normalizeBranchHeadCommitCheckBranchNames(branchNames: string[]): string[] {
   const normalizedBranchNames: string[] = [];
   const seenBranchNames = new Set<string>();
 
@@ -477,8 +477,8 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
   shouldSyncMetadata: boolean;
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
-  includePullRequestCheckSnapshots: boolean;
-  pullRequestCheckBranchNames: string[];
+  includeBranchHeadCommitCheckSnapshots: boolean;
+  branchHeadCommitCheckBranchNames: string[];
   includeLastCommitTimestamps: boolean;
   intent: RefreshRepositoryIntent;
   remoteBranchCount?: number;
@@ -488,7 +488,7 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
       shouldSyncMetadata: false,
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includePullRequestCheckSnapshots: false,
+      includeBranchHeadCommitCheckSnapshots: false,
       includeLastCommitTimestamps: false,
     };
   }
@@ -503,20 +503,21 @@ export function applyRepositoryTreeMetadataSyncBudget(args: {
       shouldSyncMetadata: true,
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
-      includePullRequestCheckSnapshots: args.includePullRequestCheckSnapshots,
+      includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
       includeLastCommitTimestamps: args.includeLastCommitTimestamps,
     };
   }
 
   // Preserve the metadata the dashboard depends on for branch ordering and PR
   // visibility, while still dropping the noisiest repo-wide backfills that are
-  // not needed for the main branch list. Targeted PR check hydration stays on
-  // because the caller already narrowed it to concrete branches.
+  // not needed for the main branch list. Targeted branch-head check hydration
+  // stays on because the caller already narrowed it to concrete branches.
   return {
     shouldSyncMetadata: true,
     includeAheadBehind: false,
     includePullRequestLinks: args.includePullRequestLinks,
-    includePullRequestCheckSnapshots: shouldPreserveTargetedPullRequestCheckSnapshotHydration(args),
+    includeBranchHeadCommitCheckSnapshots:
+      shouldPreserveTargetedBranchHeadCommitCheckSnapshotHydration(args),
     includeLastCommitTimestamps: args.includeLastCommitTimestamps,
   };
 }
@@ -530,7 +531,7 @@ export function computeRepositoryRefreshPlan(args: {
   requestedBranch?: string;
   branchNotFound: boolean;
   lastRepositoryMetadataRefreshAt?: number;
-  includePullRequestCheckSnapshots: boolean;
+  includeBranchHeadCommitCheckSnapshots: boolean;
   now?: number;
 }): RepositoryRefreshPlan {
   return {
@@ -551,23 +552,25 @@ export function computeRepositoryTreeMetadataSyncPlan(args: {
   targetBranch?: string;
   includeAheadBehind: boolean;
   includePullRequestLinks: boolean;
-  includePullRequestCheckSnapshots: boolean;
-  pullRequestCheckBranchNames: string[];
+  includeBranchHeadCommitCheckSnapshots: boolean;
+  branchHeadCommitCheckBranchNames: string[];
   intent: RefreshRepositoryIntent;
   remoteBranchCount?: number;
 }): RepositoryTreeMetadataSyncPlan {
   const isRepoScoped = args.targetBranch === undefined;
   const includeAheadBehind = args.includeAheadBehind;
-  const includePullRequestLinks =
-    args.includePullRequestLinks || args.includePullRequestCheckSnapshots;
-  const shouldSyncMetadata = isRepoScoped || includeAheadBehind || includePullRequestLinks;
+  const shouldSyncMetadata =
+    isRepoScoped ||
+    includeAheadBehind ||
+    args.includePullRequestLinks ||
+    args.includeBranchHeadCommitCheckSnapshots;
 
   return applyRepositoryTreeMetadataSyncBudget({
     shouldSyncMetadata,
     includeAheadBehind,
-    includePullRequestLinks,
-    includePullRequestCheckSnapshots: args.includePullRequestCheckSnapshots,
-    pullRequestCheckBranchNames: args.pullRequestCheckBranchNames,
+    includePullRequestLinks: args.includePullRequestLinks,
+    includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
+    branchHeadCommitCheckBranchNames: args.branchHeadCommitCheckBranchNames,
     includeLastCommitTimestamps: shouldSyncMetadata,
     intent: args.intent,
     remoteBranchCount: args.remoteBranchCount,
@@ -833,7 +836,7 @@ type StagedRepositoryMediaAssetCandidate = {
   size?: number;
   content: string;
 };
-const PULL_REQUEST_CHECK_SNAPSHOT_CONCURRENCY = 5;
+const BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY = 5;
 
 /**
  * Mirror GitHub's preview size ceiling for cached blobs so storage-backed media
@@ -974,37 +977,23 @@ export function readPullRequestLabels(labels: unknown): PullRequestLabelSummary[
   return labelNames;
 }
 
-export function shouldSyncPullRequestCheckSnapshots(args: {
-  includePullRequestCheckSnapshots: boolean;
-  includePullRequestLinks: boolean;
-  branches: Array<{ pullRequestState: "resolved" | "preserve" }>;
+export function shouldSyncBranchHeadCommitCheckSnapshots(args: {
+  includeBranchHeadCommitCheckSnapshots: boolean;
+  branches: Array<{ name: string; headCommitSha: string }>;
 }): boolean {
-  return (
-    args.branches.length > 0 &&
-    args.includePullRequestCheckSnapshots &&
-    args.includePullRequestLinks &&
-    args.branches.every((branch) => branch.pullRequestState === "resolved")
-  );
+  return args.branches.length > 0 && args.includeBranchHeadCommitCheckSnapshots;
 }
 
-async function readPullRequestCheckSnapshot(args: {
+async function readBranchHeadCommitCheckSnapshot(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branch: RemoteBranchSummary;
 }): Promise<{
   branchName: string;
-  pullRequestNumber: number;
   headCommitSha: string;
-  items: ReturnType<typeof normalizePullRequestCheckSnapshot>;
-} | null> {
-  if (args.branch.pullRequestState !== "resolved") {
-    return null;
-  }
-  if (typeof args.branch.pullRequestNumber !== "number") {
-    return null;
-  }
-
+  items: ReturnType<typeof normalizeCommitCheckSnapshot>;
+}> {
   const [checksResponse, combinedStatusResponse] = await Promise.all([
     args.octokit.checks.listForRef({
       owner: args.owner,
@@ -1045,16 +1034,15 @@ async function readPullRequestCheckSnapshot(args: {
 
   return {
     branchName: args.branch.name,
-    pullRequestNumber: args.branch.pullRequestNumber,
     headCommitSha: args.branch.headCommitSha,
-    items: normalizePullRequestCheckSnapshot({
+    items: normalizeCommitCheckSnapshot({
       checkRuns,
       statuses,
     }),
   };
 }
 
-async function syncPullRequestCheckSnapshotsByBranch(
+async function syncBranchHeadCommitCheckSnapshotsByBranch(
   ctx: ActionCtx,
   args: {
     vaultId: Id<"vaults">;
@@ -1068,26 +1056,21 @@ async function syncPullRequestCheckSnapshotsByBranch(
   for (
     let index = 0;
     index < args.branches.length;
-    index += PULL_REQUEST_CHECK_SNAPSHOT_CONCURRENCY
+    index += BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY
   ) {
-    const batch = args.branches.slice(index, index + PULL_REQUEST_CHECK_SNAPSHOT_CONCURRENCY);
+    const batch = args.branches.slice(index, index + BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY);
     await Promise.all(
       batch.map(async (branch) => {
         try {
-          const snapshot = await readPullRequestCheckSnapshot({
+          const snapshot = await readBranchHeadCommitCheckSnapshot({
             octokit: args.octokit,
             owner: args.owner,
             repo: args.repo,
             branch,
           });
-          if (!snapshot) {
-            return;
-          }
-
-          await ctx.runMutation(internal.pullRequestChecks.replacePullRequestCheckSnapshot, {
+          await ctx.runMutation(internal.commitChecks.replaceBranchHeadCommitCheckSnapshot, {
             vaultId: args.vaultId,
             branchName: snapshot.branchName,
-            pullRequestNumber: snapshot.pullRequestNumber,
             headCommitSha: snapshot.headCommitSha,
             syncedAt: args.syncedAt,
             items: snapshot.items,
@@ -1098,12 +1081,11 @@ async function syncPullRequestCheckSnapshotsByBranch(
           }
 
           console.warn(
-            "syncPullRequestCheckSnapshot failed",
+            "syncBranchHeadCommitCheckSnapshot failed",
             JSON.stringify({
               owner: args.owner,
               repo: args.repo,
               branchName: branch.name,
-              pullRequestNumber: branch.pullRequestNumber,
               headCommitSha: branch.headCommitSha,
               error: toErrorMessage(error, "unknown"),
             }),
@@ -1556,8 +1538,8 @@ async function listRemoteBranches(args: {
     shouldSyncMetadata: true,
     includeAheadBehind: args.includeAheadBehind,
     includePullRequestLinks: args.includePullRequestLinks,
-    includePullRequestCheckSnapshots: false,
-    pullRequestCheckBranchNames: [],
+    includeBranchHeadCommitCheckSnapshots: false,
+    branchHeadCommitCheckBranchNames: [],
     includeLastCommitTimestamps: args.includeLastCommitTimestamps,
     intent: args.intent,
     remoteBranchCount: branches.length,
@@ -2100,10 +2082,10 @@ async function refreshRepositoryTreeForUserHelper(
   const intent = args.intent;
   const requestedBranch =
     args.scope === "branch" ? normalizeRequiredRepositoryBranch(args.branch) : undefined;
-  const requestedPullRequestCheckBranchNames = normalizePullRequestCheckBranchNames(
-    args.pullRequestCheckBranchNames,
+  const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
+    args.branchHeadCommitCheckBranchNames,
   );
-  const includePullRequestCheckSnapshots = args.includePullRequestCheckSnapshots;
+  const includeBranchHeadCommitCheckSnapshots = args.includeBranchHeadCommitCheckSnapshots;
 
   const repositoryFullName = `${args.owner}/${args.repo}`;
   const readVault = async (branch: string | undefined) =>
@@ -2123,7 +2105,7 @@ async function refreshRepositoryTreeForUserHelper(
     requestedBranch,
     branchNotFound: vault.branchNotFound,
     lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-    includePullRequestCheckSnapshots,
+    includeBranchHeadCommitCheckSnapshots,
   });
 
   if (!refreshPlan.shouldSyncMetadata && !refreshPlan.shouldRefreshTreeData) {
@@ -2172,8 +2154,8 @@ async function refreshRepositoryTreeForUserHelper(
     targetBranch: requestedBranch,
     includeAheadBehind: args.includeAheadBehind,
     includePullRequestLinks: args.includePullRequestLinks,
-    includePullRequestCheckSnapshots,
-    pullRequestCheckBranchNames: requestedPullRequestCheckBranchNames,
+    includeBranchHeadCommitCheckSnapshots,
+    branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
     intent,
     remoteBranchCount: vault.remoteBranchCount,
   });
@@ -2186,8 +2168,9 @@ async function refreshRepositoryTreeForUserHelper(
         repo: args.repo,
         includeAheadBehind: metadataSyncPlan.includeAheadBehind,
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
-        includePullRequestCheckSnapshots: metadataSyncPlan.includePullRequestCheckSnapshots,
-        pullRequestCheckBranchNames: requestedPullRequestCheckBranchNames,
+        includeBranchHeadCommitCheckSnapshots:
+          metadataSyncPlan.includeBranchHeadCommitCheckSnapshots,
+        branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
         includeLastCommitTimestamps: metadataSyncPlan.includeLastCommitTimestamps,
         intent,
       });
@@ -2202,7 +2185,7 @@ async function refreshRepositoryTreeForUserHelper(
         requestedBranch,
         branchNotFound: vault.branchNotFound,
         lastRepositoryMetadataRefreshAt: vault.lastRepositoryMetadataRefreshAt,
-        includePullRequestCheckSnapshots,
+        includeBranchHeadCommitCheckSnapshots,
       });
     }
 
@@ -2318,8 +2301,8 @@ export const refreshRepositoryTree = action({
       branch: args.branch,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: false,
-      pullRequestCheckBranchNames: [],
+      includeBranchHeadCommitCheckSnapshots: false,
+      branchHeadCommitCheckBranchNames: [],
       intent: args.intent,
     });
   },
@@ -2355,8 +2338,8 @@ export const syncRepositoryMetadata = internalAction({
     repo: string(),
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
-    includePullRequestCheckSnapshots: boolean(),
-    pullRequestCheckBranchNames: array(string()),
+    includeBranchHeadCommitCheckSnapshots: boolean(),
+    branchHeadCommitCheckBranchNames: array(string()),
     includeLastCommitTimestamps: boolean(),
     intent: refreshRepositoryIntent,
   },
@@ -2389,8 +2372,8 @@ export const syncRepositoryMetadata = internalAction({
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
     });
-    const requestedPullRequestCheckBranchNames = normalizePullRequestCheckBranchNames(
-      args.pullRequestCheckBranchNames,
+    const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
+      args.branchHeadCommitCheckBranchNames,
     );
 
     const remoteBranches = await listRemoteBranches({
@@ -2406,8 +2389,8 @@ export const syncRepositoryMetadata = internalAction({
       shouldSyncMetadata: true,
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
-      includePullRequestCheckSnapshots: args.includePullRequestCheckSnapshots,
-      pullRequestCheckBranchNames: requestedPullRequestCheckBranchNames,
+      includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
+      branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
       includeLastCommitTimestamps: args.includeLastCommitTimestamps,
       intent: args.intent,
       remoteBranchCount: remoteBranches.length,
@@ -2418,25 +2401,25 @@ export const syncRepositoryMetadata = internalAction({
       syncedAt,
       branches: remoteBranches,
     });
-    const pullRequestCheckTargetBranches =
-      requestedPullRequestCheckBranchNames.length === 0
+    const branchHeadCommitCheckTargetBranches =
+      requestedBranchHeadCommitCheckBranchNames.length === 0
         ? remoteBranches
         : remoteBranches.filter((branch) =>
-            requestedPullRequestCheckBranchNames.includes(branch.name),
+            requestedBranchHeadCommitCheckBranchNames.includes(branch.name),
           );
     if (
-      shouldSyncPullRequestCheckSnapshots({
-        includePullRequestCheckSnapshots: effectiveSyncPlan.includePullRequestCheckSnapshots,
-        includePullRequestLinks: effectiveSyncPlan.includePullRequestLinks,
-        branches: pullRequestCheckTargetBranches,
+      shouldSyncBranchHeadCommitCheckSnapshots({
+        includeBranchHeadCommitCheckSnapshots:
+          effectiveSyncPlan.includeBranchHeadCommitCheckSnapshots,
+        branches: branchHeadCommitCheckTargetBranches,
       })
     ) {
-      await syncPullRequestCheckSnapshotsByBranch(ctx, {
+      await syncBranchHeadCommitCheckSnapshotsByBranch(ctx, {
         vaultId: vault._id,
         octokit,
         owner: args.owner,
         repo: args.repo,
-        branches: pullRequestCheckTargetBranches,
+        branches: branchHeadCommitCheckTargetBranches,
         syncedAt,
       });
     }
@@ -2546,8 +2529,8 @@ export const updateRepositoryTree = internalAction({
     target: updateRepositoryTreeTarget,
     includeAheadBehind: boolean(),
     includePullRequestLinks: boolean(),
-    includePullRequestCheckSnapshots: boolean(),
-    pullRequestCheckBranchNames: array(string()),
+    includeBranchHeadCommitCheckSnapshots: boolean(),
+    branchHeadCommitCheckBranchNames: array(string()),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -2555,8 +2538,8 @@ export const updateRepositoryTree = internalAction({
       args.target.scope === "branch"
         ? normalizeRequiredRepositoryBranch(args.target.branch)
         : undefined;
-    const requestedPullRequestCheckBranchNames = normalizePullRequestCheckBranchNames(
-      args.pullRequestCheckBranchNames,
+    const requestedBranchHeadCommitCheckBranchNames = normalizeBranchHeadCommitCheckBranchNames(
+      args.branchHeadCommitCheckBranchNames,
     );
     // This path runs after app-owned repository writes. Use manual debounce
     // semantics while explicit caller flags choose metadata depth.
@@ -2564,8 +2547,8 @@ export const updateRepositoryTree = internalAction({
       targetBranch,
       includeAheadBehind: args.includeAheadBehind,
       includePullRequestLinks: args.includePullRequestLinks,
-      includePullRequestCheckSnapshots: args.includePullRequestCheckSnapshots,
-      pullRequestCheckBranchNames: requestedPullRequestCheckBranchNames,
+      includeBranchHeadCommitCheckSnapshots: args.includeBranchHeadCommitCheckSnapshots,
+      branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
       intent: "manual",
     });
 
@@ -2576,8 +2559,9 @@ export const updateRepositoryTree = internalAction({
         repo: args.repo,
         includeAheadBehind: metadataSyncPlan.includeAheadBehind,
         includePullRequestLinks: metadataSyncPlan.includePullRequestLinks,
-        includePullRequestCheckSnapshots: metadataSyncPlan.includePullRequestCheckSnapshots,
-        pullRequestCheckBranchNames: requestedPullRequestCheckBranchNames,
+        includeBranchHeadCommitCheckSnapshots:
+          metadataSyncPlan.includeBranchHeadCommitCheckSnapshots,
+        branchHeadCommitCheckBranchNames: requestedBranchHeadCommitCheckBranchNames,
         includeLastCommitTimestamps: metadataSyncPlan.includeLastCommitTimestamps,
         intent: "manual",
       });

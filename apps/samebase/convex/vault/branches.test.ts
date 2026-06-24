@@ -11,7 +11,7 @@ import {
   resolveSyncedBranchLastCommitAt,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
-  shouldClearPullRequestStatusSnapshotForPullRequestSync,
+  shouldClearBranchHeadCommitChecksForBranchSync,
 } from "./branches";
 
 describe("buildConvexDeploymentDashboardUrl", () => {
@@ -226,60 +226,42 @@ describe("resolveSyncedBranchLastCommitAt", () => {
   });
 });
 
-describe("shouldClearPullRequestStatusSnapshotForPullRequestSync", () => {
-  it("clears the cached status snapshot when the branch no longer has a current PR", () => {
+describe("shouldClearBranchHeadCommitChecksForBranchSync", () => {
+  it("clears cached checks when the branch head SHA changes", () => {
     expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: undefined,
+      shouldClearBranchHeadCommitChecksForBranchSync({
         incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
+        existingHeadCommitSha: "sha-old",
+        existingHeadCommitChecksSummaryCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
 
-  it("clears the cached status snapshot when the branch points to a different PR", () => {
+  it("clears cached checks when the summary points to another SHA", () => {
     expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: 43,
+      shouldClearBranchHeadCommitChecksForBranchSync({
         incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
+        existingHeadCommitSha: "sha-new",
+        existingHeadCommitChecksSummaryCommitSha: "sha-old",
       }),
     ).toBe(true);
   });
 
-  it("clears the cached status snapshot when the current PR head SHA changed", () => {
+  it("preserves cached checks when the branch head and summary SHA match", () => {
     expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: 42,
-        incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
-        existingStatusSummaryHeadCommitSha: "sha-old",
-      }),
-    ).toBe(true);
-  });
-
-  it("preserves the cached status snapshot when the current PR number and head SHA are unchanged", () => {
-    expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: 42,
+      shouldClearBranchHeadCommitChecksForBranchSync({
         incomingHeadCommitSha: "sha-old",
-        existingPullRequestNumber: 42,
-        existingStatusSummaryHeadCommitSha: "sha-old",
+        existingHeadCommitSha: "sha-old",
+        existingHeadCommitChecksSummaryCommitSha: "sha-old",
       }),
     ).toBe(false);
   });
 
-  it("preserves the cache when GitHub PR metadata could not be resolved", () => {
+  it("preserves empty cached checks when the branch head is unchanged", () => {
     expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "preserve",
-        incomingPullRequestNumber: undefined,
-        incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
+      shouldClearBranchHeadCommitChecksForBranchSync({
+        incomingHeadCommitSha: "sha-old",
+        existingHeadCommitSha: "sha-old",
       }),
     ).toBe(false);
   });

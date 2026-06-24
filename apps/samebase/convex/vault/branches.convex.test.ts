@@ -1,9 +1,120 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 describe("vault branch mutations", () => {
+  it("returns branch-head commit checks for branches without PRs", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/branch-checks",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "branch-checks",
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 4,
+      });
+      return { userId, vaultId };
+    });
+
+    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
+      vaultId: ids.vaultId,
+      syncedAt: 10,
+      branches: [
+        {
+          name: "main",
+          headCommitSha: "abc123",
+          lastCommitAt: 8,
+          aheadBy: 0,
+          behindBy: 0,
+          aheadBehindState: "resolved",
+          pullRequestState: "resolved",
+          isDefault: true,
+          isProtected: true,
+        },
+      ],
+    });
+    await t.mutation(internal.commitChecks.replaceBranchHeadCommitCheckSnapshot, {
+      vaultId: ids.vaultId,
+      branchName: "main",
+      headCommitSha: "abc123",
+      syncedAt: 20,
+      items: [
+        {
+          source: "check_run",
+          sourceKey: "101",
+          name: "supply-chain",
+          providerName: "GitHub Actions",
+          state: "success",
+          status: "completed",
+          conclusion: "success",
+          targetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
+          githubUrl: "https://github.com/ada/branch-checks/actions/runs/101",
+          completedAt: 19,
+          updatedAt: 19,
+        },
+      ],
+    });
+
+    const asOwner = t.withIdentity({
+      subject: `${ids.userId}|owner-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const branches = await asOwner.query(api.vault.branches.getVaultRemoteBranches, {
+      vaultId: ids.vaultId,
+    });
+
+    expect(branches).toMatchObject([
+      {
+        name: "main",
+        commits: [
+          {
+            sha: "abc123",
+            authoredAt: 8,
+            checks: {
+              state: "success",
+              totalCount: 1,
+              checkRunCount: 1,
+              statusContextCount: 0,
+              successCount: 1,
+              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
+              primaryLogUrl: "https://github.com/ada/branch-checks/actions/runs/101",
+              syncedAt: 20,
+            },
+          },
+        ],
+      },
+    ]);
+    expect(branches[0]?.pullRequestNumber).toBeUndefined();
+  });
+
   it("requires vault ownership before optimistic tree refresh writes", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
