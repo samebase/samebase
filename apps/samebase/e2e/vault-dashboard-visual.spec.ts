@@ -523,6 +523,20 @@ test("vault dashboard fixture (infra setup progress)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (Cloudflare GitHub App authorization failure)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 360 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-cloudflare-github-app-auth-failure");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByText("Cloudflare cannot access this GitHub repo.")).toBeVisible();
+  await expect(fixture.getByText("click Configure")).toBeVisible();
+  await expect(fixture.getByText("add noter-guest/tmp-manual-test")).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Cloudflare Workers and Pages" })).toHaveAttribute(
+    "href",
+    "https://github.com/apps/cloudflare-workers-and-pages",
+  );
+});
+
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1100 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");

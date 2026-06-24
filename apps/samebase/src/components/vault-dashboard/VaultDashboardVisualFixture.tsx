@@ -24,6 +24,7 @@ import {
   VaultDashboardRepositoryExternalLinks,
   type VaultDeleteDialogTarget,
   type VaultDashboardVault,
+  VaultProviderSetupSection,
   VaultSetupProgressSection,
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
@@ -44,6 +45,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-connect-convex-open"
   | "vault-dashboard-delete-open"
   | "vault-dashboard-infra-setup"
+  | "vault-dashboard-cloudflare-github-app-auth-failure"
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
@@ -96,6 +98,12 @@ function fakeVaultId(): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
 const FIXTURE_CLOUDFLARE_WORKERS = [
@@ -920,6 +928,45 @@ function VaultDashboardInfrastructureSetupFixture() {
   );
 }
 
+function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode="vault-dashboard-cloudflare-github-app-auth-failure"
+      className="w-full bg-background text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardRepositoryList>
+          <VaultDashboardRepositoryCard
+            isReady={true}
+            repositoryOwner="noter-guest"
+            repositoryName="tmp-manual-test"
+            titleHref="https://github.com/noter-guest/tmp-manual-test"
+            repositoryLinks={<FixtureRepositoryLinks />}
+            repositoryLinksOpen={true}
+            onRepositoryLinksOpenChange={() => {}}
+            setupSection={
+              <VaultProviderSetupSection
+                repositoryFullName="noter-guest/tmp-manual-test"
+                providerSetup={{
+                  status: "failed",
+                  provider: "cloudflare",
+                  source: "managed",
+                  runId: fakeProvisioningRunId(),
+                  step: "ensure_cloudflare",
+                  message:
+                    "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Open https://github.com/apps/cloudflare-workers-and-pages, click Configure, complete GitHub verification if prompted, add noter-guest/tmp-manual-test, then retry.",
+                  updatedAt: Date.parse("2026-06-24T12:00:00Z"),
+                }}
+              />
+            }
+          />
+        </VaultDashboardRepositoryList>
+      </TestRouterProvider>
+    </div>
+  );
+}
+
 function VaultDashboardBottomTargetScrollFixture() {
   const repositoryNames = [
     "samebase-alpha",
@@ -1139,6 +1186,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-infra-setup") {
     return <VaultDashboardInfrastructureSetupFixture />;
+  }
+
+  if (mode === "vault-dashboard-cloudflare-github-app-auth-failure") {
+    return <VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture />;
   }
 
   if (mode === "vault-dashboard-provisioning-log") {

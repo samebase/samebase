@@ -183,6 +183,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-connect-convex-open",
   "vault-dashboard-delete-open",
   "vault-dashboard-infra-setup",
+  "vault-dashboard-cloudflare-github-app-auth-failure",
   "vault-dashboard-provisioning-log",
   "vault-dashboard-bottom-target-scroll",
   "vault-dashboard-sticky-header",
@@ -370,6 +371,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-connect-convex-open" ||
     mode === "vault-dashboard-delete-open" ||
     mode === "vault-dashboard-infra-setup" ||
+    mode === "vault-dashboard-cloudflare-github-app-auth-failure" ||
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-bottom-target-scroll" ||
     mode === "vault-dashboard-sticky-header" ||
