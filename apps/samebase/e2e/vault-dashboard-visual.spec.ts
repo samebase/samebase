@@ -532,12 +532,18 @@ test("vault dashboard fixture (Cloudflare GitHub App authorization failure)", as
 
   const fixture = page.getByTestId("vault-dashboard-visual-fixture");
   await expect(fixture.getByText("Cloudflare cannot access this GitHub repo.")).toBeVisible();
+  await expect(fixture.getByText("Connect GitHub from Cloudflare first")).toBeVisible();
+  await expect(fixture.getByText("Create application")).toBeVisible();
+  await expect(fixture.getByText("Connect GitHub")).toBeVisible();
   await expect(fixture.getByText("click Configure")).toBeVisible();
-  await expect(fixture.getByText("add noter-guest/tmp-manual-test")).toBeVisible();
-  await expect(fixture.getByRole("link", { name: "Cloudflare Workers and Pages" })).toHaveAttribute(
+  await expect(fixture.getByText("noter-guest/tmp-manual-test is selected")).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Cloudflare dashboard" })).toHaveAttribute(
     "href",
-    "https://github.com/apps/cloudflare-workers-and-pages",
+    "https://dash.cloudflare.com/",
   );
+  await expect(
+    fixture.getByRole("link", { name: "Cloudflare Workers and Pages GitHub App" }),
+  ).toHaveAttribute("href", "https://github.com/apps/cloudflare-workers-and-pages");
 });
 
 test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
