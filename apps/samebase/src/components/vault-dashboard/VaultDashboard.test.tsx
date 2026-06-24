@@ -198,6 +198,71 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).not.toContain("Pull request");
   });
 
+  it("keeps a visible commit link when a branch has no checks and no ahead-behind delta", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          branch={{
+            name: "main",
+            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+            commits: [{ sha: "abcdef1234567890abcdef1234567890abcdef12" }],
+            aheadBy: 0,
+            behindBy: 0,
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(
+      'href="https://github.com/samebase/samebase/commit/abcdef1234567890abcdef1234567890abcdef12"',
+    );
+    expect(markup).toContain(">Last commit abcdef1<");
+  });
+
+  it("labels zero-check summaries as no checks", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          branch={{
+            name: "codex/no-checks",
+            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+            commits: [
+              {
+                sha: "abcdef1234567890abcdef1234567890abcdef12",
+                checks: {
+                  state: "unknown",
+                  totalCount: 0,
+                  checkRunCount: 0,
+                  statusContextCount: 0,
+                  successCount: 0,
+                  failureCount: 0,
+                  runningCount: 0,
+                  neutralCount: 0,
+                  unknownCount: 0,
+                  syncedAt: 1,
+                },
+              },
+            ],
+            isDefault: false,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(">No checks<");
+    expect(markup).not.toContain(">0 unknown<");
+    expect(markup).toContain('aria-label="No checks"');
+  });
+
   it("links the visible branch label to the GitHub branch tree", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>

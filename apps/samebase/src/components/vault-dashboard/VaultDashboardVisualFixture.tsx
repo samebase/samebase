@@ -1219,7 +1219,7 @@ function FixtureDashboardShell({
   return (
     <TestRouterProvider>
       <WorkspaceLayoutV2FixtureFrame
-        dataTestId="vault-dashboard-visual-fixture"
+        dataTestId="vault-dashboard-visual-fixture-shell"
         shortcutPaneSide="right"
         right={{
           content: rightContent,

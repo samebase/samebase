@@ -647,6 +647,10 @@ function formatChecksCount(count: number): string {
 }
 
 function formatCommitChecksCompactLabel(summary: VaultBranchCommitChecksSummary): string {
+  if (summary.totalCount === 0) {
+    return "No checks";
+  }
+
   switch (summary.state) {
     case "running":
       return `${summary.runningCount} pending`;
@@ -721,6 +725,10 @@ function getCommitChecksStateClassName(summary: VaultBranchCommitChecksSummary):
 }
 
 function CommitChecksIcon({ summary }: { summary: VaultBranchCommitChecksSummary }) {
+  if (summary.totalCount === 0) {
+    return <CircleDashed className="h-4 w-4" strokeWidth={2} />;
+  }
+
   switch (summary.state) {
     case "success":
       return <CircleCheck className="h-4 w-4" strokeWidth={2} />;
@@ -1674,6 +1682,23 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewMode
   );
 }
 
+function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel }) {
+  return (
+    <a
+      href={commit.url}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={clsx(
+        "-mx-1 -my-0.5 inline-flex min-h-7 items-center rounded-sm px-1 py-0.5 font-mono text-sm tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
+        linkStyle,
+      )}
+      title={commit.title ? `Open commit: ${commit.title}` : "Open commit"}
+    >
+      <span>Last commit {commit.shortSha}</span>
+    </a>
+  );
+}
+
 function VaultBranchCommitRow({
   aheadBehindLabel,
   commit,
@@ -1681,12 +1706,9 @@ function VaultBranchCommitRow({
   aheadBehindLabel: string | null;
   commit: VaultBranchCommitViewModel;
 }) {
-  if (!commit.checks && !aheadBehindLabel) {
-    return null;
-  }
-
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <VaultBranchCommitLink commit={commit} />
       {aheadBehindLabel ? (
         <span className="font-mono text-sm tabular-nums" title="Ahead/behind versus default branch">
           {aheadBehindLabel}
@@ -1704,10 +1726,8 @@ function VaultBranchCommitStack({
   aheadBehindLabel: string | null;
   commits: readonly VaultBranchCommitViewModel[];
 }) {
-  const visibleCommits = commits.filter(
-    (commit) => commit.checks || (commit.isHead && aheadBehindLabel),
-  );
-  if (visibleCommits.length === 0 && !aheadBehindLabel) {
+  const visibleCommits = commits.filter((commit) => commit.checks || commit.isHead);
+  if (visibleCommits.length === 0) {
     return null;
   }
 

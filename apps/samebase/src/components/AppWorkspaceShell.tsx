@@ -182,6 +182,8 @@ function useAppWorkspaceDefaultRouteChrome() {
     return null;
   }
 
+  // Visual fixtures need chromeless first paint before route chrome registration
+  // effects can run; keep the route-specific default here to avoid header flash.
   return {
     ...VISUAL_FIXTURE_ROUTE_CHROME,
     pathname,
@@ -211,12 +213,16 @@ function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
 }
 
 function useAppWorkspaceSidebarState() {
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const { isAuthenticated } = useConvexAuth();
   const localSidebarState = useLocalStorageWorkspaceSidebarState({
     defaults: APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
     reset: false,
     storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   });
+  const isVisualFixtureRoute = pathname === VISUAL_FIXTURE_PATHNAME;
   useLayoutEffect(() => {
     // The localStorage hook above installs the real React state before this
     // layout effect removes the temporary desktop prehydration stylesheet.
@@ -233,11 +239,12 @@ function useAppWorkspaceSidebarState() {
   );
   const persistedSidebarState = usePersistedWorkspaceSidebarState({
     defaults: localSidebarState.state,
-    onPersistedStateApplied: isAuthenticated ? mirrorPersistedSidebarState : null,
+    onPersistedStateApplied:
+      !isVisualFixtureRoute && isAuthenticated ? mirrorPersistedSidebarState : null,
     workspaceKey: "app",
   });
 
-  if (isAuthenticated && persistedSidebarState.isHydrated) {
+  if (!isVisualFixtureRoute && isAuthenticated && persistedSidebarState.isHydrated) {
     return persistedSidebarState;
   }
 
