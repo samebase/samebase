@@ -157,6 +157,16 @@ describe("vault dashboard Convex contract", () => {
         remoteState: "active",
         lastSyncedAt: 7,
       });
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId,
+        name: "feature/no-checks",
+        headCommitSha: "fedcba1234567890abcdef1234567890abcdef12",
+        lastCommitAt: 4,
+        isDefault: false,
+        isProtected: false,
+        remoteState: "active",
+        lastSyncedAt: 7,
+      });
       return { userId };
     });
     await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
@@ -187,32 +197,39 @@ describe("vault dashboard Convex contract", () => {
       tokenIdentifier: `test:${ids.userId}`,
     });
     const vaults = await asUser.query(api.vault.dashboard.getUserVaults);
+    const mainBranch = vaults[0]?.remoteBranches.find((branch) => branch.name === "main");
+    const noChecksBranch = vaults[0]?.remoteBranches.find(
+      (branch) => branch.name === "feature/no-checks",
+    );
 
-    expect(vaults[0]?.remoteBranches).toMatchObject([
-      {
-        name: "main",
-        commits: [
-          {
-            sha: "abcdef1234567890abcdef1234567890abcdef12",
-            authoredAt: 6,
-            checks: {
-              state: "success",
-              totalCount: 1,
-              checkRunCount: 1,
-              statusContextCount: 0,
-              successCount: 1,
-              failureCount: 0,
-              runningCount: 0,
-              neutralCount: 0,
-              unknownCount: 0,
-              primaryTargetUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
-              primaryLogUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
-              syncedAt: 8,
-            },
+    expect(mainBranch).toMatchObject({
+      name: "main",
+      commits: [
+        {
+          sha: "abcdef1234567890abcdef1234567890abcdef12",
+          authoredAt: 6,
+          checks: {
+            state: "success",
+            totalCount: 1,
+            checkRunCount: 1,
+            statusContextCount: 0,
+            successCount: 1,
+            failureCount: 0,
+            runningCount: 0,
+            neutralCount: 0,
+            unknownCount: 0,
+            primaryTargetUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+            primaryLogUrl: "https://github.com/ada/dashboard-checks/actions/runs/101",
+            syncedAt: 8,
           },
-        ],
-      },
-    ]);
+        },
+      ],
+    });
+    expect(noChecksBranch?.commits[0]).toMatchObject({
+      sha: "fedcba1234567890abcdef1234567890abcdef12",
+      authoredAt: 4,
+    });
+    expect(noChecksBranch?.commits[0]?.checks).toBeUndefined();
   });
 
   it("persists vault resource link expansion per user vault", async () => {
