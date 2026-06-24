@@ -1387,7 +1387,7 @@ function RawBranchRow({
   switch (variant) {
     case "quiet":
       return (
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 border-t border-stone-200 px-3 py-2.5 first:border-t-0">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5 sm:border-t sm:border-stone-200 sm:first:border-t-0">
           <RawBranchIdentity branch={branch} />
           <div className="flex shrink-0 flex-col items-end gap-1">
             <RawStatusPill branch={branch} />
@@ -1397,7 +1397,7 @@ function RawBranchRow({
       );
     case "grouped":
       return (
-        <div className="border-t border-stone-200 px-3 py-2.5 first:border-t-0">
+        <div className="px-3 py-2.5 sm:border-t sm:border-stone-200 sm:first:border-t-0">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <RawBranchIdentity branch={branch} />
             <RawStatusPill branch={branch} />
@@ -1412,7 +1412,7 @@ function RawBranchRow({
       );
     case "table":
       return (
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-stone-200 px-3 py-2 first:border-t-0">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2 sm:border-t sm:border-stone-200 sm:first:border-t-0">
           <RawBranchIdentity branch={branch} />
           <RawStatusPill branch={branch} />
           <RawAheadBehind branch={branch} />
@@ -1444,13 +1444,15 @@ function RawResourceRows({ variant }: { variant: BranchRowVariantKind }) {
   ];
   const rowClassName =
     variant === "grouped"
-      ? "flex min-w-0 items-center gap-2 px-3 py-1.5"
-      : "flex min-w-0 items-center gap-2 px-3 py-1";
+      ? "flex min-w-0 items-center gap-2 px-3 py-1"
+      : "flex min-w-0 items-center gap-2 px-3 py-0.5 sm:py-1";
 
   return (
     <div
       className={
-        variant === "quiet" ? "border-b border-stone-200 py-1.5" : "border-b border-stone-200 py-2"
+        variant === "quiet"
+          ? "py-2 sm:border-b sm:border-stone-200 sm:py-1.5"
+          : "py-2 sm:border-b sm:border-stone-200"
       }
     >
       {resourceRows.map((row) => (
@@ -1479,12 +1481,11 @@ function RawBranchVariantPanel({
 }) {
   return (
     <section className="min-w-0 border border-stone-200 bg-white">
-      <div className="flex items-center justify-between border-b border-stone-200 px-3 py-2">
+      <div className="px-3 pb-1.5 pt-3 sm:border-b sm:border-stone-200 sm:py-2">
         <div className="text-sm font-medium text-stone-950">{label}</div>
-        <div className="text-xs text-stone-500">samebase</div>
       </div>
       <RawResourceRows variant={variant} />
-      <div>
+      <div className="pb-2 sm:pb-0">
         {RAW_VARIANT_BRANCHES.map((branch) => (
           <RawBranchRow key={branch.name} branch={branch} variant={variant} />
         ))}
@@ -1498,9 +1499,9 @@ function VaultDashboardBranchRowVariantsFixture() {
     <div
       data-testid="vault-dashboard-visual-fixture"
       data-mode="vault-dashboard-branch-row-variants"
-      className="min-h-screen bg-white p-4 text-stone-950"
+      className="min-h-screen bg-white p-3 text-stone-950 sm:p-4"
     >
-      <div className="mx-auto grid max-w-7xl gap-4 xl:grid-cols-3">
+      <div className="mx-auto grid max-w-7xl gap-5 xl:grid-cols-3 xl:gap-4">
         <RawBranchVariantPanel label="Quiet" variant="quiet" />
         <RawBranchVariantPanel label="Grouped" variant="grouped" />
         <RawBranchVariantPanel label="Table" variant="table" />
