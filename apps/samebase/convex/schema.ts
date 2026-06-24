@@ -154,11 +154,12 @@ const vCommitChecksSummaryFields = {
 };
 export const vVaultBranchCommitChecksSummary = object(vCommitChecksSummaryFields);
 export type VaultBranchCommitChecksSummary = Infer<typeof vVaultBranchCommitChecksSummary>;
-export const vBranchHeadCommitChecksSummary = object({
+export const vGithubCommitCheckSnapshot = object({
+  githubRepositoryId: string(),
   commitSha: string(),
   ...vCommitChecksSummaryFields,
 });
-export type BranchHeadCommitChecksSummary = Infer<typeof vBranchHeadCommitChecksSummary>;
+export type GitHubCommitCheckSnapshot = Infer<typeof vGithubCommitCheckSnapshot>;
 export const vVaultBranchCommitSummary = object({
   sha: string(),
   title: optional(string()),
@@ -459,7 +460,6 @@ export default defineSchema({
     pullRequestLabels: optional(array(vPullRequestLabel)),
     pullRequestTitle: optional(string()),
     pullRequestIsDraft: optional(boolean()),
-    headCommitChecksSummary: optional(vBranchHeadCommitChecksSummary),
     isDefault: boolean(),
     isProtected: boolean(),
     remoteState: vVaultRemoteBranchState,
@@ -471,15 +471,22 @@ export default defineSchema({
     .index("by_vault_and_remote_state", ["vaultId", "remoteState"]),
 
   /**
-   * Current GitHub check/status snapshot for one vault branch head.
+   * Current GitHub check/status summary for one commit in one GitHub repo.
    *
-   * Branch rows carry only the compact rollup. The per-check rows stay here so
-   * branches with many providers do not rewrite large arrays on every refresh.
+   * GitHub attaches checks to commits inside repositories. Branch and PR rows
+   * point at commits; they do not own check state.
    */
-  vaultBranchCommitCheckItems: defineTable({
-    vaultId: id("vaults"),
-    branchName: string(),
-    headCommitSha: string(),
+  githubCommitCheckSnapshots: defineTable(vGithubCommitCheckSnapshot).index(
+    "by_githubRepositoryId_and_commitSha",
+    ["githubRepositoryId", "commitSha"],
+  ),
+
+  /**
+   * Current GitHub check/status items for one commit in one GitHub repo.
+   */
+  githubCommitCheckItems: defineTable({
+    githubRepositoryId: string(),
+    commitSha: string(),
     source: vCommitCheckSource,
     sourceKey: string(),
     name: string(),
@@ -498,9 +505,7 @@ export default defineSchema({
     completedAt: optional(number()),
     updatedAt: optional(number()),
     syncedAt: number(),
-  })
-    .index("by_vault_and_branch", ["vaultId", "branchName"])
-    .index("by_vault_and_branch_and_head", ["vaultId", "branchName", "headCommitSha"]),
+  }).index("by_githubRepositoryId_and_commitSha", ["githubRepositoryId", "commitSha"]),
 
   /**
    * Branch-scoped Git trees for each vault.

@@ -1,16 +1,20 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "../_generated/server";
 import { mutation, query } from "../functions";
 import {
   vPullRequestLabel,
   vVaultBranchCommitSummary,
   type PullRequestLabel,
-  type BranchHeadCommitChecksSummary,
+  type GitHubCommitCheckSnapshot,
 } from "../schema";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
-import { deleteBranchCommitCheckItemsForBranch } from "../commitChecks";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
@@ -81,21 +85,6 @@ export function resolveSyncedBranchLastCommitAt(args: {
     return args.existingBranch.lastCommitAt;
   }
   return undefined;
-}
-
-export function shouldClearBranchHeadCommitChecksForBranchSync(args: {
-  incomingHeadCommitSha: string;
-  existingHeadCommitSha: string;
-  existingHeadCommitChecksSummaryCommitSha?: string;
-}): boolean {
-  if (args.existingHeadCommitSha !== args.incomingHeadCommitSha) {
-    return true;
-  }
-
-  return (
-    typeof args.existingHeadCommitChecksSummaryCommitSha === "string" &&
-    args.existingHeadCommitChecksSummaryCommitSha !== args.incomingHeadCommitSha
-  );
 }
 
 export function selectDeletedUpstreamBranchesToAutoPrune(args: {
@@ -217,6 +206,31 @@ async function pruneDeletedUpstreamBranchesForVault(
   }
 }
 
+async function getGitHubCommitCheckSnapshotsByCommitSha(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    githubRepositoryId: string;
+    commitShas: Iterable<string>;
+  },
+): Promise<Map<string, GitHubCommitCheckSnapshot>> {
+  const snapshotsByCommitSha = new Map<string, GitHubCommitCheckSnapshot>();
+  const uniqueCommitShas = new Set(args.commitShas);
+
+  for (const commitSha of uniqueCommitShas) {
+    const snapshot = await ctx.db
+      .query("githubCommitCheckSnapshots")
+      .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+        q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
+      )
+      .first();
+    if (snapshot) {
+      snapshotsByCommitSha.set(commitSha, snapshot);
+    }
+  }
+
+  return snapshotsByCommitSha;
+}
+
 export const getVaultRemoteBranches = query({
   access: "access_files_read",
   args: {
@@ -252,6 +266,10 @@ export const getVaultRemoteBranches = query({
       .query("vaultRemoteBranches")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
+    const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
+      githubRepositoryId: vault.ghRepoId,
+      commitShas: branches.map((branch) => branch.headCommitSha),
+    });
 
     return branches.sort(compareRemoteBranchSortOrder).map((branch) => ({
       name: branch.name,
@@ -269,7 +287,10 @@ export const getVaultRemoteBranches = query({
       remoteState: branch.remoteState,
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
-      commits: buildVaultBranchCommitSummaries(branch),
+      commits: buildVaultBranchCommitSummaries(
+        branch,
+        checkSnapshotsByCommitSha.get(branch.headCommitSha),
+      ),
     }));
   },
 });
@@ -346,7 +367,6 @@ export const syncVaultRemoteBranches = internalMutation({
           pullRequestLabels?: PullRequestLabel[];
           pullRequestTitle?: string;
           pullRequestIsDraft?: boolean;
-          headCommitChecksSummary?: BranchHeadCommitChecksSummary;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -370,20 +390,6 @@ export const syncVaultRemoteBranches = internalMutation({
         ) {
           patchData.aheadBy = undefined;
           patchData.behindBy = undefined;
-        }
-        if (
-          shouldClearBranchHeadCommitChecksForBranchSync({
-            incomingHeadCommitSha: branch.headCommitSha,
-            existingHeadCommitSha: existingBranch.headCommitSha,
-            existingHeadCommitChecksSummaryCommitSha:
-              existingBranch.headCommitChecksSummary?.commitSha,
-          })
-        ) {
-          patchData.headCommitChecksSummary = undefined;
-          await deleteBranchCommitCheckItemsForBranch(ctx, {
-            vaultId: args.vaultId,
-            branchName: branch.name,
-          });
         }
         if (branch.pullRequestState === "resolved") {
           patchData.pullRequestUrl = branch.pullRequestUrl;
@@ -460,11 +466,6 @@ export const syncVaultRemoteBranches = internalMutation({
         remoteState: "deleted_upstream",
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
-        headCommitChecksSummary: undefined,
-      });
-      await deleteBranchCommitCheckItemsForBranch(ctx, {
-        vaultId: args.vaultId,
-        branchName: branch.name,
       });
     }
 

@@ -1,17 +1,15 @@
 import { Infer, v } from "convex/values";
 
 import { internalMutation, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 import {
-  vBranchHeadCommitChecksSummary,
   vCommitCheckSource,
   vCommitCheckState,
-  type BranchHeadCommitChecksSummary,
   type CommitCheckState,
+  type GitHubCommitCheckSnapshot,
+  vGithubCommitCheckSnapshot,
 } from "./schema";
-import { isVaultDeletingOrDeleteFailed } from "./vault/deletion/state";
 
-const { array, id, number, object, optional, string } = v;
+const { array, number, object, optional, string } = v;
 
 const commitCheckItemInputValidator = object({
   source: vCommitCheckSource,
@@ -319,11 +317,12 @@ function selectPrimaryLogUrl(items: CommitCheckItemInput[]): string | undefined 
   return item?.logUrl ?? item?.detailsUrl ?? item?.targetUrl;
 }
 
-export function buildBranchHeadCommitChecksSummary(args: {
-  headCommitSha: string;
+export function buildGitHubCommitCheckSnapshot(args: {
+  githubRepositoryId: string;
+  commitSha: string;
   items: CommitCheckItemInput[];
   syncedAt: number;
-}): BranchHeadCommitChecksSummary {
+}): GitHubCommitCheckSnapshot {
   let checkRunCount = 0;
   let statusContextCount = 0;
   let successCount = 0;
@@ -382,7 +381,8 @@ export function buildBranchHeadCommitChecksSummary(args: {
   })();
 
   return {
-    commitSha: args.headCommitSha,
+    githubRepositoryId: args.githubRepositoryId,
+    commitSha: args.commitSha,
     state,
     totalCount,
     checkRunCount,
@@ -398,17 +398,17 @@ export function buildBranchHeadCommitChecksSummary(args: {
   };
 }
 
-export async function deleteBranchCommitCheckItemsForBranch(
+async function deleteGitHubCommitCheckItems(
   ctx: MutationCtx,
   args: {
-    vaultId: Id<"vaults">;
-    branchName: string;
+    githubRepositoryId: string;
+    commitSha: string;
   },
 ): Promise<void> {
   const existingItems = await ctx.db
-    .query("vaultBranchCommitCheckItems")
-    .withIndex("by_vault_and_branch", (q) =>
-      q.eq("vaultId", args.vaultId).eq("branchName", args.branchName),
+    .query("githubCommitCheckItems")
+    .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+      q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
     .collect();
 
@@ -417,71 +417,48 @@ export async function deleteBranchCommitCheckItemsForBranch(
   }
 }
 
-async function deleteBranchCommitCheckItemsForHead(
+async function deleteGitHubCommitCheckSnapshots(
   ctx: MutationCtx,
   args: {
-    vaultId: Id<"vaults">;
-    branchName: string;
-    headCommitSha: string;
+    githubRepositoryId: string;
+    commitSha: string;
   },
 ): Promise<void> {
-  const existingItems = await ctx.db
-    .query("vaultBranchCommitCheckItems")
-    .withIndex("by_vault_and_branch_and_head", (q) =>
-      q
-        .eq("vaultId", args.vaultId)
-        .eq("branchName", args.branchName)
-        .eq("headCommitSha", args.headCommitSha),
+  const existingSnapshots = await ctx.db
+    .query("githubCommitCheckSnapshots")
+    .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+      q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
     .collect();
 
-  for (const item of existingItems) {
-    await ctx.db.delete(item._id);
+  for (const snapshot of existingSnapshots) {
+    await ctx.db.delete(snapshot._id);
   }
 }
 
-export const replaceBranchHeadCommitCheckSnapshot = internalMutation({
+export const replaceGitHubCommitCheckSnapshot = internalMutation({
   args: {
-    vaultId: id("vaults"),
-    branchName: string(),
-    headCommitSha: string(),
+    githubRepositoryId: string(),
+    commitSha: string(),
     syncedAt: number(),
     items: array(commitCheckItemInputValidator),
   },
-  returns: vBranchHeadCommitChecksSummary,
+  returns: vGithubCommitCheckSnapshot,
   handler: async (ctx, args) => {
-    const summary = buildBranchHeadCommitChecksSummary(args);
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
-      return summary;
-    }
+    const summary = buildGitHubCommitCheckSnapshot(args);
 
-    await deleteBranchCommitCheckItemsForHead(ctx, args);
-
-    const branch = await ctx.db
-      .query("vaultRemoteBranches")
-      .withIndex("by_vault_and_name", (q) =>
-        q.eq("vaultId", args.vaultId).eq("name", args.branchName),
-      )
-      .first();
-
-    if (!branch || branch.remoteState !== "active" || branch.headCommitSha !== args.headCommitSha) {
-      return summary;
-    }
-
+    await deleteGitHubCommitCheckItems(ctx, args);
+    await deleteGitHubCommitCheckSnapshots(ctx, args);
     for (const item of args.items) {
-      await ctx.db.insert("vaultBranchCommitCheckItems", {
-        vaultId: args.vaultId,
-        branchName: args.branchName,
-        headCommitSha: args.headCommitSha,
+      await ctx.db.insert("githubCommitCheckItems", {
+        githubRepositoryId: args.githubRepositoryId,
+        commitSha: args.commitSha,
         ...item,
         syncedAt: args.syncedAt,
       });
     }
 
-    await ctx.db.patch(branch._id, {
-      headCommitChecksSummary: summary,
-    });
+    await ctx.db.insert("githubCommitCheckSnapshots", summary);
 
     return summary;
   },

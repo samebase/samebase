@@ -59,12 +59,22 @@ describe("vault branch mutations", () => {
           isDefault: true,
           isProtected: true,
         },
+        {
+          name: "feature/no-pr",
+          headCommitSha: "abc123",
+          lastCommitAt: 8,
+          aheadBy: 0,
+          behindBy: 0,
+          aheadBehindState: "resolved",
+          pullRequestState: "resolved",
+          isDefault: false,
+          isProtected: false,
+        },
       ],
     });
-    await t.mutation(internal.commitChecks.replaceBranchHeadCommitCheckSnapshot, {
-      vaultId: ids.vaultId,
-      branchName: "main",
-      headCommitSha: "abc123",
+    await t.mutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
+      githubRepositoryId: "123",
+      commitSha: "abc123",
       syncedAt: 20,
       items: [
         {
@@ -111,8 +121,22 @@ describe("vault branch mutations", () => {
           },
         ],
       },
+      {
+        name: "feature/no-pr",
+        commits: [
+          {
+            sha: "abc123",
+            checks: {
+              state: "success",
+              totalCount: 1,
+              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
+            },
+          },
+        ],
+      },
     ]);
     expect(branches[0]?.pullRequestNumber).toBeUndefined();
+    expect(branches[1]?.pullRequestNumber).toBeUndefined();
   });
 
   it("requires vault ownership before optimistic tree refresh writes", async () => {

@@ -11,7 +11,6 @@ import {
   resolveSyncedBranchLastCommitAt,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
-  shouldClearBranchHeadCommitChecksForBranchSync,
 } from "./branches";
 
 describe("buildConvexDeploymentDashboardUrl", () => {
@@ -223,47 +222,6 @@ describe("resolveSyncedBranchLastCommitAt", () => {
         },
       }),
     ).toBeUndefined();
-  });
-});
-
-describe("shouldClearBranchHeadCommitChecksForBranchSync", () => {
-  it("clears cached checks when the branch head SHA changes", () => {
-    expect(
-      shouldClearBranchHeadCommitChecksForBranchSync({
-        incomingHeadCommitSha: "sha-new",
-        existingHeadCommitSha: "sha-old",
-        existingHeadCommitChecksSummaryCommitSha: "sha-old",
-      }),
-    ).toBe(true);
-  });
-
-  it("clears cached checks when the summary points to another SHA", () => {
-    expect(
-      shouldClearBranchHeadCommitChecksForBranchSync({
-        incomingHeadCommitSha: "sha-new",
-        existingHeadCommitSha: "sha-new",
-        existingHeadCommitChecksSummaryCommitSha: "sha-old",
-      }),
-    ).toBe(true);
-  });
-
-  it("preserves cached checks when the branch head and summary SHA match", () => {
-    expect(
-      shouldClearBranchHeadCommitChecksForBranchSync({
-        incomingHeadCommitSha: "sha-old",
-        existingHeadCommitSha: "sha-old",
-        existingHeadCommitChecksSummaryCommitSha: "sha-old",
-      }),
-    ).toBe(false);
-  });
-
-  it("preserves empty cached checks when the branch head is unchanged", () => {
-    expect(
-      shouldClearBranchHeadCommitChecksForBranchSync({
-        incomingHeadCommitSha: "sha-old",
-        existingHeadCommitSha: "sha-old",
-      }),
-    ).toBe(false);
   });
 });
 

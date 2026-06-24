@@ -3,7 +3,6 @@
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
 import { guessMime, withRetry } from "./gitOperationsActions";
@@ -990,8 +989,7 @@ async function readBranchHeadCommitCheckSnapshot(args: {
   repo: string;
   branch: RemoteBranchSummary;
 }): Promise<{
-  branchName: string;
-  headCommitSha: string;
+  commitSha: string;
   items: ReturnType<typeof normalizeCommitCheckSnapshot>;
 }> {
   const [checksResponse, combinedStatusResponse] = await Promise.all([
@@ -1033,8 +1031,7 @@ async function readBranchHeadCommitCheckSnapshot(args: {
   );
 
   return {
-    branchName: args.branch.name,
-    headCommitSha: args.branch.headCommitSha,
+    commitSha: args.branch.headCommitSha,
     items: normalizeCommitCheckSnapshot({
       checkRuns,
       statuses,
@@ -1045,7 +1042,7 @@ async function readBranchHeadCommitCheckSnapshot(args: {
 async function syncBranchHeadCommitCheckSnapshotsByBranch(
   ctx: ActionCtx,
   args: {
-    vaultId: Id<"vaults">;
+    githubRepositoryId: string;
     octokit: Octokit;
     owner: string;
     repo: string;
@@ -1053,12 +1050,20 @@ async function syncBranchHeadCommitCheckSnapshotsByBranch(
     syncedAt: number;
   },
 ): Promise<void> {
+  const branchesByHeadCommitSha = new Map<string, RemoteBranchSummary>();
+  for (const branch of args.branches) {
+    if (!branchesByHeadCommitSha.has(branch.headCommitSha)) {
+      branchesByHeadCommitSha.set(branch.headCommitSha, branch);
+    }
+  }
+  const branches = Array.from(branchesByHeadCommitSha.values());
+
   for (
     let index = 0;
-    index < args.branches.length;
+    index < branches.length;
     index += BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY
   ) {
-    const batch = args.branches.slice(index, index + BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY);
+    const batch = branches.slice(index, index + BRANCH_HEAD_COMMIT_CHECK_SNAPSHOT_CONCURRENCY);
     await Promise.all(
       batch.map(async (branch) => {
         try {
@@ -1068,10 +1073,9 @@ async function syncBranchHeadCommitCheckSnapshotsByBranch(
             repo: args.repo,
             branch,
           });
-          await ctx.runMutation(internal.commitChecks.replaceBranchHeadCommitCheckSnapshot, {
-            vaultId: args.vaultId,
-            branchName: snapshot.branchName,
-            headCommitSha: snapshot.headCommitSha,
+          await ctx.runMutation(internal.commitChecks.replaceGitHubCommitCheckSnapshot, {
+            githubRepositoryId: args.githubRepositoryId,
+            commitSha: snapshot.commitSha,
             syncedAt: args.syncedAt,
             items: snapshot.items,
           });
@@ -2368,6 +2372,13 @@ export const syncRepositoryMetadata = internalAction({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const connectedVault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+      userId: args.userId,
+      vaultId: vault._id,
+    });
+    if (!connectedVault || connectedVault.state !== "connected") {
+      throw new Error("Vault not found");
+    }
 
     const octokit: Octokit = new Octokit({
       auth: githubConnection.auth.credential,
@@ -2415,7 +2426,7 @@ export const syncRepositoryMetadata = internalAction({
       })
     ) {
       await syncBranchHeadCommitCheckSnapshotsByBranch(ctx, {
-        vaultId: vault._id,
+        githubRepositoryId: connectedVault.ghRepoId,
         octokit,
         owner: args.owner,
         repo: args.repo,
