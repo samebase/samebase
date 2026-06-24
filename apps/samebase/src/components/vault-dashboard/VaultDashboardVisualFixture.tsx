@@ -1084,7 +1084,7 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
                   runId: fakeProvisioningRunId(),
                   step: "ensure_cloudflare",
                   message:
-                    "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Open https://github.com/apps/cloudflare-workers-and-pages, click Configure, complete GitHub verification if prompted, add noter-guest/tmp-manual-test, then retry.",
+                    "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include noter-guest/tmp-manual-test, then retry.",
                   updatedAt: Date.parse("2026-06-24T12:00:00Z"),
                 }}
               />

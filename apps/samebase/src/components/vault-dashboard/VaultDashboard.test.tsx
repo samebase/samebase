@@ -721,22 +721,23 @@ describe("VaultProviderSetupSection", () => {
           runId: fakeRunId(),
           step: "ensure_cloudflare",
           message:
-            "Cloudflare Workers and Pages GitHub App is not authorized for ada/tmp-myapp1234. Open https://github.com/apps/cloudflare-workers-and-pages, click Configure, complete GitHub verification if prompted, add ada/tmp-myapp1234, then retry.",
+            "Cloudflare Workers and Pages GitHub App is not authorized for ada/tmp-myapp1234. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ada/tmp-myapp1234, then retry.",
           updatedAt: 0,
         }}
       />,
     );
 
     expect(markup).toContain("Cloudflare cannot access this GitHub repo.");
-    expect(markup).toContain("Connect GitHub from Cloudflare first");
+    expect(markup).toContain("Cloudflare&#x27;s recovery steps");
+    expect(markup).toContain("uninstall the");
+    expect(markup).toContain("first, then reconnect GitHub");
     expect(markup).toContain("Workers &amp; Pages");
     expect(markup).toContain("Create application");
-    expect(markup).toContain("Connect GitHub");
-    expect(markup).toContain("GitHub authorization");
-    expect(markup).toContain("click Configure");
-    expect(markup).toContain("make sure ada/tmp-myapp1234 is selected");
+    expect(markup).toContain("Include ada/tmp-myapp1234");
     expect(markup).toContain("Cloudflare Workers and Pages GitHub App");
-    expect(markup).toContain("https://dash.cloudflare.com/");
+    expect(markup).toContain(
+      "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app",
+    );
     expect(markup).toContain("https://github.com/apps/cloudflare-workers-and-pages");
     expect(markup).not.toContain("https://github.com/ada/tmp-myapp1234/settings/installations");
     expect(markup).not.toContain("Last failure:");

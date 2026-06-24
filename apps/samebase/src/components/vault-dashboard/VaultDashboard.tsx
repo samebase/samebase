@@ -2253,7 +2253,8 @@ type VaultSetupProgressSectionStatus = "failed" | "running";
 
 const CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL =
   "https://github.com/apps/cloudflare-workers-and-pages";
-const CLOUDFLARE_DASHBOARD_URL = "https://dash.cloudflare.com/";
+const CLOUDFLARE_GITHUB_APP_RECOVERY_URL =
+  "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
 const CLOUDFLARE_GITHUB_APP_AUTHORIZATION_FAILURE_MESSAGE =
   "Cloudflare Workers and Pages GitHub App is not authorized";
 
@@ -2276,17 +2277,16 @@ function VaultCloudflareGitHubAppAuthorizationFailure({
     <div className="space-y-1">
       <div className="text-destructive">Cloudflare cannot access this GitHub repo.</div>
       <div className="text-muted-foreground">
-        Connect GitHub from Cloudflare first: open the{" "}
+        Use{" "}
         <a
-          href={CLOUDFLARE_DASHBOARD_URL}
+          href={CLOUDFLARE_GITHUB_APP_RECOVERY_URL}
           target="_blank"
           rel="noreferrer noopener"
           className={linkStyle}
         >
-          Cloudflare dashboard
+          Cloudflare's recovery steps
         </a>
-        , go to Workers & Pages, click Create application, choose Connect GitHub, and finish the
-        GitHub authorization. If GitHub shows Cloudflare Workers and Pages already installed, open{" "}
+        : uninstall the{" "}
         <a
           href={CLOUDFLARE_WORKERS_AND_PAGES_GITHUB_APP_URL}
           target="_blank"
@@ -2294,8 +2294,9 @@ function VaultCloudflareGitHubAppAuthorizationFailure({
           className={linkStyle}
         >
           Cloudflare Workers and Pages GitHub App
-        </a>
-        , click Configure, make sure {repositoryFullName} is selected, then retry.
+        </a>{" "}
+        first, then reconnect GitHub from Workers & Pages → Create application. Include{" "}
+        {repositoryFullName}, then retry.
       </div>
     </div>
   );
