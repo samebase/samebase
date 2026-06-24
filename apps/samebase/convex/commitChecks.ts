@@ -1,24 +1,22 @@
 import { Infer, v } from "convex/values";
 
 import { internalMutation, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
 import {
-  vPullRequestCheckSource,
-  vPullRequestCheckState,
-  vPullRequestStatusSummary,
-  type PullRequestCheckState,
-  type PullRequestStatusSummary,
+  vCommitCheckSource,
+  vCommitCheckState,
+  type CommitCheckState,
+  type GitHubCommitCheckSnapshot,
+  vGithubCommitCheckSnapshot,
 } from "./schema";
-import { isVaultDeletingOrDeleteFailed } from "./vault/deletion/state";
 
-const { array, id, number, object, optional, string } = v;
+const { array, number, object, optional, string } = v;
 
-const pullRequestCheckItemInputValidator = object({
-  source: vPullRequestCheckSource,
+const commitCheckItemInputValidator = object({
+  source: vCommitCheckSource,
   sourceKey: string(),
   name: string(),
   providerName: optional(string()),
-  state: vPullRequestCheckState,
+  state: vCommitCheckState,
   status: string(),
   conclusion: optional(string()),
   targetUrl: optional(string()),
@@ -33,7 +31,7 @@ const pullRequestCheckItemInputValidator = object({
   updatedAt: optional(number()),
 });
 
-type PullRequestCheckItemInput = Infer<typeof pullRequestCheckItemInputValidator>;
+type CommitCheckItemInput = Infer<typeof commitCheckItemInputValidator>;
 
 export type GitHubCheckRunSnapshotInput = {
   id: number;
@@ -164,7 +162,7 @@ function readCloudflarePreviewStatus(input: GitHubCheckRunSnapshotInput): string
   }
 }
 
-function classifyCheckRun(input: GitHubCheckRunSnapshotInput): PullRequestCheckState {
+function classifyCheckRun(input: GitHubCheckRunSnapshotInput): CommitCheckState {
   if (input.status === "queued" || input.status === "in_progress") {
     return "running";
   }
@@ -194,7 +192,7 @@ function classifyCheckRun(input: GitHubCheckRunSnapshotInput): PullRequestCheckS
   return "unknown";
 }
 
-function classifyCommitStatus(input: GitHubCommitStatusSnapshotInput): PullRequestCheckState {
+function classifyCommitStatus(input: GitHubCommitStatusSnapshotInput): CommitCheckState {
   switch (input.state) {
     case "success":
       return "success";
@@ -214,7 +212,7 @@ function toOptionalString(value: string | null | undefined): string | undefined 
 
 function readCheckRunPreviewFields(
   input: GitHubCheckRunSnapshotInput,
-): Pick<PullRequestCheckItemInput, "previewUrl" | "previewAliasUrl" | "previewStatus" | "logUrl"> {
+): Pick<CommitCheckItemInput, "previewUrl" | "previewAliasUrl" | "previewStatus" | "logUrl"> {
   if (!isCloudflareWorkersAndPagesCheckRun(input)) {
     return {};
   }
@@ -227,9 +225,7 @@ function readCheckRunPreviewFields(
   };
 }
 
-export function normalizePullRequestCheckRun(
-  input: GitHubCheckRunSnapshotInput,
-): PullRequestCheckItemInput {
+export function normalizeCommitCheckRun(input: GitHubCheckRunSnapshotInput): CommitCheckItemInput {
   const startedAt = parseGitTimestamp(input.startedAt);
   const completedAt = parseGitTimestamp(input.completedAt);
   const detailsUrl = readHttpsUrl(input.detailsUrl);
@@ -253,9 +249,9 @@ export function normalizePullRequestCheckRun(
   };
 }
 
-export function normalizePullRequestCommitStatus(
+export function normalizeCommitStatus(
   input: GitHubCommitStatusSnapshotInput,
-): PullRequestCheckItemInput {
+): CommitCheckItemInput {
   const targetUrl = readHttpsUrl(input.targetUrl ?? undefined);
 
   return {
@@ -270,18 +266,18 @@ export function normalizePullRequestCommitStatus(
   };
 }
 
-export function normalizePullRequestCheckSnapshot(args: {
+export function normalizeCommitCheckSnapshot(args: {
   checkRuns: GitHubCheckRunSnapshotInput[];
   statuses: GitHubCommitStatusSnapshotInput[];
-}): PullRequestCheckItemInput[] {
+}): CommitCheckItemInput[] {
   return [
-    ...args.checkRuns.map(normalizePullRequestCheckRun),
-    ...args.statuses.map(normalizePullRequestCommitStatus),
-  ].sort(comparePullRequestCheckItems);
+    ...args.checkRuns.map(normalizeCommitCheckRun),
+    ...args.statuses.map(normalizeCommitStatus),
+  ].sort(compareCommitCheckItems);
 }
 
-function compareStatePriority(left: PullRequestCheckState, right: PullRequestCheckState): number {
-  const priorities: Record<PullRequestCheckState, number> = {
+function compareStatePriority(left: CommitCheckState, right: CommitCheckState): number {
+  const priorities: Record<CommitCheckState, number> = {
     failure: 0,
     running: 1,
     unknown: 2,
@@ -291,10 +287,7 @@ function compareStatePriority(left: PullRequestCheckState, right: PullRequestChe
   return priorities[left] - priorities[right];
 }
 
-function comparePullRequestCheckItems(
-  left: PullRequestCheckItemInput,
-  right: PullRequestCheckItemInput,
-): number {
+function compareCommitCheckItems(left: CommitCheckItemInput, right: CommitCheckItemInput): number {
   const statePriority = compareStatePriority(left.state, right.state);
   if (statePriority !== 0) {
     return statePriority;
@@ -313,23 +306,23 @@ function comparePullRequestCheckItems(
   return left.sourceKey.localeCompare(right.sourceKey);
 }
 
-function selectPrimaryTargetUrl(items: PullRequestCheckItemInput[]): string | undefined {
+function selectPrimaryTargetUrl(items: CommitCheckItemInput[]): string | undefined {
   return items.find((item) => item.targetUrl)?.targetUrl;
 }
 
-function selectPrimaryLogUrl(items: PullRequestCheckItemInput[]): string | undefined {
+function selectPrimaryLogUrl(items: CommitCheckItemInput[]): string | undefined {
   const item = items.find(
     (candidate) => candidate.logUrl ?? candidate.detailsUrl ?? candidate.targetUrl,
   );
   return item?.logUrl ?? item?.detailsUrl ?? item?.targetUrl;
 }
 
-export function buildPullRequestStatusSummary(args: {
-  pullRequestNumber: number;
-  headCommitSha: string;
-  items: PullRequestCheckItemInput[];
+export function buildGitHubCommitCheckSnapshot(args: {
+  githubRepositoryId: string;
+  commitSha: string;
+  items: CommitCheckItemInput[];
   syncedAt: number;
-}): PullRequestStatusSummary {
+}): GitHubCommitCheckSnapshot {
   let checkRunCount = 0;
   let statusContextCount = 0;
   let successCount = 0;
@@ -388,8 +381,8 @@ export function buildPullRequestStatusSummary(args: {
   })();
 
   return {
-    pullRequestNumber: args.pullRequestNumber,
-    headCommitSha: args.headCommitSha,
+    githubRepositoryId: args.githubRepositoryId,
+    commitSha: args.commitSha,
     state,
     totalCount,
     checkRunCount,
@@ -405,21 +398,17 @@ export function buildPullRequestStatusSummary(args: {
   };
 }
 
-async function deletePullRequestCheckItemsForBranch(
+async function deleteGitHubCommitCheckItems(
   ctx: MutationCtx,
   args: {
-    vaultId: Id<"vaults">;
-    branchName: string;
-    pullRequestNumber: number;
+    githubRepositoryId: string;
+    commitSha: string;
   },
 ): Promise<void> {
   const existingItems = await ctx.db
-    .query("vaultPullRequestCheckItems")
-    .withIndex("by_vault_and_branch_and_pr", (q) =>
-      q
-        .eq("vaultId", args.vaultId)
-        .eq("branchName", args.branchName)
-        .eq("pullRequestNumber", args.pullRequestNumber),
+    .query("githubCommitCheckItems")
+    .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+      q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
     )
     .collect();
 
@@ -428,60 +417,74 @@ async function deletePullRequestCheckItemsForBranch(
   }
 }
 
-export const replacePullRequestCheckSnapshot = internalMutation({
+async function deleteGitHubCommitCheckSnapshots(
+  ctx: MutationCtx,
   args: {
-    vaultId: id("vaults"),
-    branchName: string(),
-    pullRequestNumber: number(),
-    headCommitSha: string(),
-    syncedAt: number(),
-    items: array(pullRequestCheckItemInputValidator),
+    githubRepositoryId: string;
+    commitSha: string;
   },
-  returns: vPullRequestStatusSummary,
-  handler: async (ctx, args) => {
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault || isVaultDeletingOrDeleteFailed(vault)) {
-      return buildPullRequestStatusSummary(args);
-    }
+): Promise<void> {
+  const existingSnapshots = await ctx.db
+    .query("githubCommitCheckSnapshots")
+    .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+      q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", args.commitSha),
+    )
+    .collect();
 
-    await deletePullRequestCheckItemsForBranch(ctx, {
-      vaultId: args.vaultId,
-      branchName: args.branchName,
-      pullRequestNumber: args.pullRequestNumber,
+  for (const snapshot of existingSnapshots) {
+    await ctx.db.delete(snapshot._id);
+  }
+}
+
+export async function deleteGitHubCommitChecksUnreferencedByBranches(
+  ctx: MutationCtx,
+  args: {
+    githubRepositoryId: string;
+    activeCommitShas: ReadonlySet<string>;
+  },
+): Promise<void> {
+  const existingSnapshots = await ctx.db
+    .query("githubCommitCheckSnapshots")
+    .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+      q.eq("githubRepositoryId", args.githubRepositoryId),
+    )
+    .collect();
+
+  for (const snapshot of existingSnapshots) {
+    if (args.activeCommitShas.has(snapshot.commitSha)) {
+      continue;
+    }
+    await deleteGitHubCommitCheckItems(ctx, {
+      githubRepositoryId: args.githubRepositoryId,
+      commitSha: snapshot.commitSha,
     });
+    await ctx.db.delete(snapshot._id);
+  }
+}
 
-    const branch = await ctx.db
-      .query("vaultRemoteBranches")
-      .withIndex("by_vault_and_name", (q) =>
-        q.eq("vaultId", args.vaultId).eq("name", args.branchName),
-      )
-      .first();
+export const replaceGitHubCommitCheckSnapshot = internalMutation({
+  args: {
+    githubRepositoryId: string(),
+    commitSha: string(),
+    syncedAt: number(),
+    items: array(commitCheckItemInputValidator),
+  },
+  returns: vGithubCommitCheckSnapshot,
+  handler: async (ctx, args) => {
+    const summary = buildGitHubCommitCheckSnapshot(args);
 
-    if (
-      !branch ||
-      branch.remoteState !== "active" ||
-      branch.pullRequestNumber !== args.pullRequestNumber ||
-      branch.headCommitSha !== args.headCommitSha
-    ) {
-      return buildPullRequestStatusSummary(args);
-    }
-
+    await deleteGitHubCommitCheckItems(ctx, args);
+    await deleteGitHubCommitCheckSnapshots(ctx, args);
     for (const item of args.items) {
-      await ctx.db.insert("vaultPullRequestCheckItems", {
-        vaultId: args.vaultId,
-        branchName: args.branchName,
-        pullRequestNumber: args.pullRequestNumber,
-        headCommitSha: args.headCommitSha,
+      await ctx.db.insert("githubCommitCheckItems", {
+        githubRepositoryId: args.githubRepositoryId,
+        commitSha: args.commitSha,
         ...item,
         syncedAt: args.syncedAt,
       });
     }
 
-    const summary = buildPullRequestStatusSummary(args);
-
-    await ctx.db.patch(branch._id, {
-      pullRequestStatusSummary: summary,
-    });
+    await ctx.db.insert("githubCommitCheckSnapshots", summary);
 
     return summary;
   },

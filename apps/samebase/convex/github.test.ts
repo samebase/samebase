@@ -18,14 +18,14 @@ import {
   shouldBypassRecentSuccessDebounceForBranchRefresh,
   shouldRefreshBranchTree,
   shouldRefreshRepositoryMetadata,
-  shouldSyncPullRequestCheckSnapshots,
+  shouldSyncBranchHeadCommitCheckSnapshots,
 } from "./github";
 
 const repositoryMetadataSyncRequest = {
   includeAheadBehind: false,
   includePullRequestLinks: false,
-  includePullRequestCheckSnapshots: false,
-  pullRequestCheckBranchNames: [],
+  includeBranchHeadCommitCheckSnapshots: false,
+  branchHeadCommitCheckBranchNames: [],
   intent: "manual",
 } satisfies Parameters<typeof computeRepositoryTreeMetadataSyncPlan>[0];
 
@@ -126,32 +126,32 @@ describe("isRepositoryMediaPreviewTooLarge", () => {
   });
 });
 
-describe("shouldSyncPullRequestCheckSnapshots", () => {
-  it("requires both check-snapshot enrichment flags and resolved PR metadata", () => {
+describe("shouldSyncBranchHeadCommitCheckSnapshots", () => {
+  it("requires check-snapshot enrichment and selected branch heads", () => {
     expect(
-      shouldSyncPullRequestCheckSnapshots({
-        includePullRequestCheckSnapshots: true,
-        includePullRequestLinks: true,
-        branches: [{ pullRequestState: "resolved" }, { pullRequestState: "resolved" }],
+      shouldSyncBranchHeadCommitCheckSnapshots({
+        includeBranchHeadCommitCheckSnapshots: true,
+        branches: [
+          { name: "main", headCommitSha: "abc123" },
+          { name: "feature/login", headCommitSha: "def456" },
+        ],
       }),
     ).toBe(true);
   });
 
-  it("skips check snapshots when PR discovery falls back to preserve", () => {
+  it("skips check snapshots when enrichment is not requested", () => {
     expect(
-      shouldSyncPullRequestCheckSnapshots({
-        includePullRequestCheckSnapshots: true,
-        includePullRequestLinks: true,
-        branches: [{ pullRequestState: "resolved" }, { pullRequestState: "preserve" }],
+      shouldSyncBranchHeadCommitCheckSnapshots({
+        includeBranchHeadCommitCheckSnapshots: false,
+        branches: [{ name: "main", headCommitSha: "abc123" }],
       }),
     ).toBe(false);
   });
 
   it("skips check snapshots when no branches were targeted for hydration", () => {
     expect(
-      shouldSyncPullRequestCheckSnapshots({
-        includePullRequestCheckSnapshots: true,
-        includePullRequestLinks: true,
+      shouldSyncBranchHeadCommitCheckSnapshots({
+        includeBranchHeadCommitCheckSnapshots: true,
         branches: [],
       }),
     ).toBe(false);
@@ -424,7 +424,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "manual",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         now,
       }),
     ).toBe(true);
@@ -436,7 +436,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -448,7 +448,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "passive",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -460,7 +460,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "passive",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: true,
+        includeBranchHeadCommitCheckSnapshots: true,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -472,7 +472,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "source_setup",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: true,
+        includeBranchHeadCommitCheckSnapshots: true,
         lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
         now,
       }),
@@ -485,7 +485,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
@@ -497,7 +497,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
       shouldRefreshRepositoryMetadata({
         intent: "passive",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
@@ -510,7 +510,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 31_000,
         now,
       }),
@@ -520,7 +520,7 @@ describe("shouldRefreshRepositoryMetadata", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 5_000,
         now,
       }),
@@ -537,7 +537,7 @@ describe("computeRepositoryRefreshPlan", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: true,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
         now,
       }),
@@ -551,7 +551,7 @@ describe("computeRepositoryRefreshPlan", () => {
         intent: "passive",
         requestedBranch: "feature/login",
         branchNotFound: false,
-        includePullRequestCheckSnapshots: false,
+        includeBranchHeadCommitCheckSnapshots: false,
         lastRepositoryMetadataRefreshAt: now,
         now,
       }),
@@ -573,7 +573,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: false,
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includePullRequestCheckSnapshots: false,
+      includeBranchHeadCommitCheckSnapshots: false,
       includeLastCommitTimestamps: false,
     });
   });
@@ -583,23 +583,23 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includePullRequestCheckSnapshots: false,
+      includeBranchHeadCommitCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
 
-  it("treats preview enrichment as an explicit metadata sync request", () => {
+  it("treats branch-head check enrichment as an explicit metadata sync request", () => {
     expect(
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
-        includePullRequestCheckSnapshots: true,
+        includeBranchHeadCommitCheckSnapshots: true,
       }),
     ).toEqual({
       shouldSyncMetadata: true,
       includeAheadBehind: false,
-      includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includePullRequestLinks: false,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -615,7 +615,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includePullRequestCheckSnapshots: false,
+      includeBranchHeadCommitCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
@@ -626,7 +626,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         ...repositoryMetadataSyncRequest,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includePullRequestCheckSnapshots: true,
+        includeBranchHeadCommitCheckSnapshots: true,
         intent: "passive",
         remoteBranchCount: 40,
       }),
@@ -634,7 +634,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -652,7 +652,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: false,
+      includeBranchHeadCommitCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
@@ -663,7 +663,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
         ...repositoryMetadataSyncRequest,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includePullRequestCheckSnapshots: true,
+        includeBranchHeadCommitCheckSnapshots: true,
         intent: "source_setup",
         remoteBranchCount: 75,
       }),
@@ -671,7 +671,7 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -681,15 +681,15 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
-        includePullRequestCheckSnapshots: true,
+        includeBranchHeadCommitCheckSnapshots: true,
         intent: "passive",
         remoteBranchCount: 75,
       }),
     ).toEqual({
       shouldSyncMetadata: true,
       includeAheadBehind: false,
-      includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: false,
+      includePullRequestLinks: false,
+      includeBranchHeadCommitCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
@@ -699,16 +699,16 @@ describe("computeRepositoryTreeMetadataSyncPlan", () => {
       computeRepositoryTreeMetadataSyncPlan({
         ...repositoryMetadataSyncRequest,
         targetBranch: "feature/login",
-        includePullRequestCheckSnapshots: true,
-        pullRequestCheckBranchNames: ["feature/login"],
+        includeBranchHeadCommitCheckSnapshots: true,
+        branchHeadCommitCheckBranchNames: ["feature/login"],
         intent: "passive",
         remoteBranchCount: 75,
       }),
     ).toEqual({
       shouldSyncMetadata: true,
       includeAheadBehind: false,
-      includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includePullRequestLinks: false,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -721,8 +721,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includePullRequestCheckSnapshots: true,
-        pullRequestCheckBranchNames: [],
+        includeBranchHeadCommitCheckSnapshots: true,
+        branchHeadCommitCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "passive",
         remoteBranchCount: 75,
@@ -731,7 +731,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: false,
+      includeBranchHeadCommitCheckSnapshots: false,
       includeLastCommitTimestamps: true,
     });
   });
@@ -742,8 +742,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includePullRequestCheckSnapshots: true,
-        pullRequestCheckBranchNames: [],
+        includeBranchHeadCommitCheckSnapshots: true,
+        branchHeadCommitCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "passive",
         remoteBranchCount: 40,
@@ -752,7 +752,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -763,8 +763,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includePullRequestCheckSnapshots: true,
-        pullRequestCheckBranchNames: [],
+        includeBranchHeadCommitCheckSnapshots: true,
+        branchHeadCommitCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "manual",
         remoteBranchCount: 75,
@@ -773,7 +773,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -784,8 +784,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includePullRequestCheckSnapshots: true,
-        pullRequestCheckBranchNames: [],
+        includeBranchHeadCommitCheckSnapshots: true,
+        branchHeadCommitCheckBranchNames: [],
         includeLastCommitTimestamps: true,
         intent: "source_setup",
         remoteBranchCount: 75,
@@ -794,7 +794,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: true,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });
@@ -805,8 +805,8 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
         shouldSyncMetadata: true,
         includeAheadBehind: true,
         includePullRequestLinks: true,
-        includePullRequestCheckSnapshots: true,
-        pullRequestCheckBranchNames: ["feature/login"],
+        includeBranchHeadCommitCheckSnapshots: true,
+        branchHeadCommitCheckBranchNames: ["feature/login"],
         includeLastCommitTimestamps: true,
         intent: "passive",
         remoteBranchCount: 75,
@@ -815,7 +815,7 @@ describe("applyRepositoryTreeMetadataSyncBudget", () => {
       shouldSyncMetadata: true,
       includeAheadBehind: false,
       includePullRequestLinks: true,
-      includePullRequestCheckSnapshots: true,
+      includeBranchHeadCommitCheckSnapshots: true,
       includeLastCommitTimestamps: true,
     });
   });

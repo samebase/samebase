@@ -1,15 +1,21 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "../_generated/server";
 import { mutation, query } from "../functions";
 import {
   vPullRequestLabel,
   vVaultBranchCommitSummary,
   type PullRequestLabel,
-  type PullRequestStatusSummary,
+  type GitHubCommitCheckSnapshot,
 } from "../schema";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
+import { deleteGitHubCommitChecksUnreferencedByBranches } from "../commitChecks";
 import { vGithubTreeData, vTreeRefreshFailureKind } from "./model";
 import { hasStagedFileChanges, type StagedFileChangeCandidate } from "../stagingChanges";
 import { isLiveConnectedVault } from "./state";
@@ -23,36 +29,6 @@ import {
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
-
-/**
- * PR check snapshots are cached per PR head. Clear derived status when the
- * branch loses its current PR, moves to another PR, or points the current PR at
- * a different head SHA so stale status does not survive pushes.
- */
-export function shouldClearPullRequestStatusSnapshotForPullRequestSync(args: {
-  incomingPullRequestState: "resolved" | "preserve";
-  incomingPullRequestNumber?: number;
-  incomingHeadCommitSha: string;
-  existingPullRequestNumber?: number;
-  existingStatusSummaryHeadCommitSha?: string;
-}): boolean {
-  if (args.incomingPullRequestState !== "resolved") {
-    return false;
-  }
-
-  if (typeof args.incomingPullRequestNumber !== "number") {
-    return true;
-  }
-
-  if (args.incomingPullRequestNumber !== args.existingPullRequestNumber) {
-    return true;
-  }
-
-  return (
-    typeof args.existingStatusSummaryHeadCommitSha === "string" &&
-    args.existingStatusSummaryHeadCommitSha !== args.incomingHeadCommitSha
-  );
-}
 
 export function compareRemoteBranchSortOrder(
   left: {
@@ -183,34 +159,6 @@ async function deleteVaultBranchArtifacts(
   });
 }
 
-async function deletePullRequestCheckItemsForBranch(
-  ctx: MutationCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    branchName: string;
-    pullRequestNumber?: number;
-  },
-): Promise<void> {
-  if (typeof args.pullRequestNumber !== "number") {
-    return;
-  }
-  const pullRequestNumber = args.pullRequestNumber;
-
-  const checkItems = await ctx.db
-    .query("vaultPullRequestCheckItems")
-    .withIndex("by_vault_and_branch_and_pr", (q) =>
-      q
-        .eq("vaultId", args.vaultId)
-        .eq("branchName", args.branchName)
-        .eq("pullRequestNumber", pullRequestNumber),
-    )
-    .collect();
-
-  for (const item of checkItems) {
-    await ctx.db.delete(item._id);
-  }
-}
-
 async function pruneDeletedUpstreamBranchesForVault(
   ctx: MutationCtx,
   vaultId: Id<"vaults">,
@@ -259,6 +207,34 @@ async function pruneDeletedUpstreamBranchesForVault(
   }
 }
 
+async function getGitHubCommitCheckSnapshotsByCommitSha(
+  ctx: Pick<QueryCtx, "db">,
+  args: {
+    githubRepositoryId: string;
+    commitShas: Iterable<string>;
+  },
+): Promise<Map<string, GitHubCommitCheckSnapshot>> {
+  const snapshotsByCommitSha = new Map<string, GitHubCommitCheckSnapshot>();
+  const snapshots = await Promise.all(
+    Array.from(new Set(args.commitShas)).map(async (commitSha) => {
+      return await ctx.db
+        .query("githubCommitCheckSnapshots")
+        .withIndex("by_githubRepositoryId_and_commitSha", (q) =>
+          q.eq("githubRepositoryId", args.githubRepositoryId).eq("commitSha", commitSha),
+        )
+        .first();
+    }),
+  );
+
+  for (const snapshot of snapshots) {
+    if (snapshot) {
+      snapshotsByCommitSha.set(snapshot.commitSha, snapshot);
+    }
+  }
+
+  return snapshotsByCommitSha;
+}
+
 export const getVaultRemoteBranches = query({
   access: "access_files_read",
   args: {
@@ -294,6 +270,10 @@ export const getVaultRemoteBranches = query({
       .query("vaultRemoteBranches")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
+    const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
+      githubRepositoryId: vault.ghRepoId,
+      commitShas: branches.map((branch) => branch.headCommitSha),
+    });
 
     return branches.sort(compareRemoteBranchSortOrder).map((branch) => ({
       name: branch.name,
@@ -311,7 +291,10 @@ export const getVaultRemoteBranches = query({
       remoteState: branch.remoteState,
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
-      commits: buildVaultBranchCommitSummaries(branch),
+      commits: buildVaultBranchCommitSummaries(
+        branch,
+        checkSnapshotsByCommitSha.get(branch.headCommitSha),
+      ),
     }));
   },
 });
@@ -388,7 +371,6 @@ export const syncVaultRemoteBranches = internalMutation({
           pullRequestLabels?: PullRequestLabel[];
           pullRequestTitle?: string;
           pullRequestIsDraft?: boolean;
-          pullRequestStatusSummary?: PullRequestStatusSummary;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -422,23 +404,6 @@ export const syncVaultRemoteBranches = internalMutation({
             typeof branch.pullRequestUrl === "string"
               ? branch.pullRequestIsDraft === true
               : undefined;
-          if (
-            shouldClearPullRequestStatusSnapshotForPullRequestSync({
-              incomingPullRequestState: branch.pullRequestState,
-              incomingPullRequestNumber: branch.pullRequestNumber,
-              incomingHeadCommitSha: branch.headCommitSha,
-              existingPullRequestNumber: existingBranch.pullRequestNumber,
-              existingStatusSummaryHeadCommitSha:
-                existingBranch.pullRequestStatusSummary?.headCommitSha,
-            })
-          ) {
-            patchData.pullRequestStatusSummary = undefined;
-            await deletePullRequestCheckItemsForBranch(ctx, {
-              vaultId: args.vaultId,
-              branchName: branch.name,
-              pullRequestNumber: existingBranch.pullRequestNumber,
-            });
-          }
         }
         await ctx.db.patch(existingBranch._id, patchData);
         continue;
@@ -505,16 +470,16 @@ export const syncVaultRemoteBranches = internalMutation({
         remoteState: "deleted_upstream",
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
-        pullRequestStatusSummary: undefined,
-      });
-      await deletePullRequestCheckItemsForBranch(ctx, {
-        vaultId: args.vaultId,
-        branchName: branch.name,
-        pullRequestNumber: branch.pullRequestNumber,
       });
     }
 
     await pruneDeletedUpstreamBranchesForVault(ctx, args.vaultId);
+    if (vault.state === "connected") {
+      await deleteGitHubCommitChecksUnreferencedByBranches(ctx, {
+        githubRepositoryId: vault.ghRepoId,
+        activeCommitShas: new Set(args.branches.map((branch) => branch.headCommitSha)),
+      });
+    }
 
     return null;
   },

@@ -593,6 +593,7 @@ async function getVaultByRepositoryHelper(
   return {
     _id: vault._id,
     _creationTime: vault._creationTime,
+    ghRepoId: vault.ghRepoId,
     ghRepoOwner: vault.owner,
     ghRepoName: vault.name,
     owner: vault.owner,

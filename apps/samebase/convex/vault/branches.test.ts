@@ -11,7 +11,6 @@ import {
   resolveSyncedBranchLastCommitAt,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
-  shouldClearPullRequestStatusSnapshotForPullRequestSync,
 } from "./branches";
 
 describe("buildConvexDeploymentDashboardUrl", () => {
@@ -223,65 +222,6 @@ describe("resolveSyncedBranchLastCommitAt", () => {
         },
       }),
     ).toBeUndefined();
-  });
-});
-
-describe("shouldClearPullRequestStatusSnapshotForPullRequestSync", () => {
-  it("clears the cached status snapshot when the branch no longer has a current PR", () => {
-    expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: undefined,
-        incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
-      }),
-    ).toBe(true);
-  });
-
-  it("clears the cached status snapshot when the branch points to a different PR", () => {
-    expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: 43,
-        incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
-      }),
-    ).toBe(true);
-  });
-
-  it("clears the cached status snapshot when the current PR head SHA changed", () => {
-    expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: 42,
-        incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
-        existingStatusSummaryHeadCommitSha: "sha-old",
-      }),
-    ).toBe(true);
-  });
-
-  it("preserves the cached status snapshot when the current PR number and head SHA are unchanged", () => {
-    expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "resolved",
-        incomingPullRequestNumber: 42,
-        incomingHeadCommitSha: "sha-old",
-        existingPullRequestNumber: 42,
-        existingStatusSummaryHeadCommitSha: "sha-old",
-      }),
-    ).toBe(false);
-  });
-
-  it("preserves the cache when GitHub PR metadata could not be resolved", () => {
-    expect(
-      shouldClearPullRequestStatusSnapshotForPullRequestSync({
-        incomingPullRequestState: "preserve",
-        incomingPullRequestNumber: undefined,
-        incomingHeadCommitSha: "sha-new",
-        existingPullRequestNumber: 42,
-      }),
-    ).toBe(false);
   });
 });
 

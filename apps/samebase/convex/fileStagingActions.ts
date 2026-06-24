@@ -2246,8 +2246,8 @@ export const createDraftPullRequest = action({
           target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
-          includePullRequestCheckSnapshots: false,
-          pullRequestCheckBranchNames: [],
+          includeBranchHeadCommitCheckSnapshots: false,
+          branchHeadCommitCheckBranchNames: [],
         });
       } catch (error) {
         console.warn("Failed to refresh remote branch metadata after opening existing PR:", error);
@@ -2294,8 +2294,8 @@ export const createDraftPullRequest = action({
           target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
-          includePullRequestCheckSnapshots: false,
-          pullRequestCheckBranchNames: [],
+          includeBranchHeadCommitCheckSnapshots: false,
+          branchHeadCommitCheckBranchNames: [],
         });
       } catch (error) {
         console.warn("Failed to refresh remote branch metadata after creating draft PR:", error);
@@ -2323,8 +2323,8 @@ export const createDraftPullRequest = action({
             target: { scope: "repository" },
             includeAheadBehind: true,
             includePullRequestLinks: true,
-            includePullRequestCheckSnapshots: false,
-            pullRequestCheckBranchNames: [],
+            includeBranchHeadCommitCheckSnapshots: false,
+            branchHeadCommitCheckBranchNames: [],
           });
         } catch (refreshError) {
           console.warn(
@@ -2534,8 +2534,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
           target: { scope: "repository" },
           includeAheadBehind: true,
           includePullRequestLinks: true,
-          includePullRequestCheckSnapshots: false,
-          pullRequestCheckBranchNames: [],
+          includeBranchHeadCommitCheckSnapshots: false,
+          branchHeadCommitCheckBranchNames: [],
         });
       } catch (error) {
         console.warn(
@@ -2856,8 +2856,8 @@ export const pullFromGitHubInternal = internalAction({
         target: { scope: "branch", branch },
         includeAheadBehind: false,
         includePullRequestLinks: false,
-        includePullRequestCheckSnapshots: false,
-        pullRequestCheckBranchNames: [],
+        includeBranchHeadCommitCheckSnapshots: false,
+        branchHeadCommitCheckBranchNames: [],
       });
     }
 
@@ -2869,8 +2869,8 @@ export const pullFromGitHubInternal = internalAction({
       target: { scope: "repository" },
       includeAheadBehind: false,
       includePullRequestLinks: false,
-      includePullRequestCheckSnapshots: false,
-      pullRequestCheckBranchNames: [],
+      includeBranchHeadCommitCheckSnapshots: false,
+      branchHeadCommitCheckBranchNames: [],
     });
 
     return null;
@@ -2921,8 +2921,8 @@ export const batchReadFiles = action({
           target: { scope: "branch", branch: branchToLoad },
           includeAheadBehind: false,
           includePullRequestLinks: false,
-          includePullRequestCheckSnapshots: false,
-          pullRequestCheckBranchNames: [],
+          includeBranchHeadCommitCheckSnapshots: false,
+          branchHeadCommitCheckBranchNames: [],
         });
         branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
           vaultId: args.vaultId,
@@ -3907,8 +3907,8 @@ export const commitAllStaged = internalAction({
             target: { scope: "branch", branch: commitBranch },
             includeAheadBehind: false,
             includePullRequestLinks: false,
-            includePullRequestCheckSnapshots: false,
-            pullRequestCheckBranchNames: [],
+            includeBranchHeadCommitCheckSnapshots: false,
+            branchHeadCommitCheckBranchNames: [],
           });
         },
         loadUpdatedVault: async () =>

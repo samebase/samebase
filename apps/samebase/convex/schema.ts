@@ -128,18 +128,18 @@ export const vVaultDomainSource = union(
 );
 
 export const vVaultRemoteBranchState = union(literal("active"), literal("deleted_upstream"));
-export const vPullRequestCheckSource = union(literal("check_run"), literal("commit_status"));
-export type PullRequestCheckSource = Infer<typeof vPullRequestCheckSource>;
-export const vPullRequestCheckState = union(
+export const vCommitCheckSource = union(literal("check_run"), literal("commit_status"));
+export type CommitCheckSource = Infer<typeof vCommitCheckSource>;
+export const vCommitCheckState = union(
   literal("success"),
   literal("failure"),
   literal("running"),
   literal("neutral"),
   literal("unknown"),
 );
-export type PullRequestCheckState = Infer<typeof vPullRequestCheckState>;
+export type CommitCheckState = Infer<typeof vCommitCheckState>;
 const vCommitChecksSummaryFields = {
-  state: vPullRequestCheckState,
+  state: vCommitCheckState,
   totalCount: number(),
   checkRunCount: number(),
   statusContextCount: number(),
@@ -154,6 +154,12 @@ const vCommitChecksSummaryFields = {
 };
 export const vVaultBranchCommitChecksSummary = object(vCommitChecksSummaryFields);
 export type VaultBranchCommitChecksSummary = Infer<typeof vVaultBranchCommitChecksSummary>;
+export const vGithubCommitCheckSnapshot = object({
+  githubRepositoryId: string(),
+  commitSha: string(),
+  ...vCommitChecksSummaryFields,
+});
+export type GitHubCommitCheckSnapshot = Infer<typeof vGithubCommitCheckSnapshot>;
 export const vVaultBranchCommitSummary = object({
   sha: string(),
   title: optional(string()),
@@ -161,12 +167,6 @@ export const vVaultBranchCommitSummary = object({
   checks: optional(vVaultBranchCommitChecksSummary),
 });
 export type VaultBranchCommitSummary = Infer<typeof vVaultBranchCommitSummary>;
-export const vPullRequestStatusSummary = object({
-  pullRequestNumber: number(),
-  headCommitSha: string(),
-  ...vCommitChecksSummaryFields,
-});
-export type PullRequestStatusSummary = Infer<typeof vPullRequestStatusSummary>;
 
 export type TreeRefreshFailureKind = Infer<typeof vTreeRefreshFailureKind>;
 export type VaultDeletionStep = Infer<typeof vVaultDeletionStep>;
@@ -460,7 +460,6 @@ export default defineSchema({
     pullRequestLabels: optional(array(vPullRequestLabel)),
     pullRequestTitle: optional(string()),
     pullRequestIsDraft: optional(boolean()),
-    pullRequestStatusSummary: optional(vPullRequestStatusSummary),
     isDefault: boolean(),
     isProtected: boolean(),
     remoteState: vVaultRemoteBranchState,
@@ -472,21 +471,27 @@ export default defineSchema({
     .index("by_vault_and_remote_state", ["vaultId", "remoteState"]),
 
   /**
-   * Current GitHub check/status snapshot for one vault PR head.
+   * Current GitHub check/status summary for one commit in one GitHub repo.
    *
-   * Branch rows carry only the compact rollup. The per-check rows stay here so
-   * PRs with many providers do not rewrite large arrays on every refresh.
+   * GitHub attaches checks to commits inside repositories. Branch and PR rows
+   * point at commits; they do not own check state.
    */
-  vaultPullRequestCheckItems: defineTable({
-    vaultId: id("vaults"),
-    branchName: string(),
-    pullRequestNumber: number(),
-    headCommitSha: string(),
-    source: vPullRequestCheckSource,
+  githubCommitCheckSnapshots: defineTable(vGithubCommitCheckSnapshot).index(
+    "by_githubRepositoryId_and_commitSha",
+    ["githubRepositoryId", "commitSha"],
+  ),
+
+  /**
+   * Current GitHub check/status items for one commit in one GitHub repo.
+   */
+  githubCommitCheckItems: defineTable({
+    githubRepositoryId: string(),
+    commitSha: string(),
+    source: vCommitCheckSource,
     sourceKey: string(),
     name: string(),
     providerName: optional(string()),
-    state: vPullRequestCheckState,
+    state: vCommitCheckState,
     status: string(),
     conclusion: optional(string()),
     targetUrl: optional(string()),
@@ -500,7 +505,7 @@ export default defineSchema({
     completedAt: optional(number()),
     updatedAt: optional(number()),
     syncedAt: number(),
-  }).index("by_vault_and_branch_and_pr", ["vaultId", "branchName", "pullRequestNumber"]),
+  }).index("by_githubRepositoryId_and_commitSha", ["githubRepositoryId", "commitSha"]),
 
   /**
    * Branch-scoped Git trees for each vault.

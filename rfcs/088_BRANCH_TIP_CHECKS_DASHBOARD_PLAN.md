@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Accepted for branch-tip check identity
 - Owner: vault dashboard, GitHub checks, repository refresh
 - Created: 2026-06-24
 - Last updated: 2026-06-24
@@ -59,7 +59,7 @@ Rules:
 1. Pin the default branch at the top.
 2. Show checks for the default branch head commit.
 3. Show PR branches as branch rows with PR metadata, not as a separate PR-only model.
-4. Key check state by commit SHA.
+4. Key check state by GitHub repository ID plus commit SHA.
 5. Use the same compact check summary everywhere.
 6. Open the detailed check list from the compact summary instead of rendering every check inline by
    default.
@@ -169,7 +169,7 @@ Recommended durable entities:
 ```text
 vaultRepositoryRefs
   vaultId
-  repositoryFullName
+  githubRepositoryId
   refName
   kind: default | pull_request | branch
   headSha
@@ -180,8 +180,8 @@ vaultRepositoryRefs
   updatedAt
 
 commitCheckSnapshots
-  repositoryFullName
-  sha
+  githubRepositoryId
+  commitSha
   state
   totalCount
   successCount
@@ -193,8 +193,8 @@ commitCheckSnapshots
   syncedAt
 
 commitCheckItems
-  repositoryFullName
-  sha
+  githubRepositoryId
+  commitSha
   source: check_run | commit_status
   sourceKey
   name
@@ -212,16 +212,39 @@ commitCheckItems
   syncedAt
 
 commitSummaries
-  repositoryFullName
-  sha
+  githubRepositoryId
+  commitSha
   message
   authorName?
   committedAt
   url
 ```
 
-Exact table names may change, but the invariant should not: checks belong to commit SHAs; PRs and
-branches point at commit SHAs.
+Exact table names may change, but the invariant should not: GitHub checks belong to a commit inside
+one GitHub repository. Store check snapshots by `githubRepositoryId + commitSha`, not by
+`vaultId + commitSha`, `repositoryFullName + commitSha`, or `branchName + commitSha`.
+
+Rationale:
+
+1. `branchName` is only the ref currently pointing at a commit; checks are not branch-scoped.
+2. `vaultId` is Samebase's app container, not GitHub's check namespace.
+3. Repository full names can change on GitHub rename and have casing concerns.
+4. GitHub repository IDs are stable across renames, while the same SHA may have different checks in
+   different repositories or forks.
+
+Branch rows should read their vault's `githubRepositoryId`, take each row's `headSha`, and join to
+the matching commit check snapshot. If `main` and a feature branch point at the same commit, they
+must share one snapshot row.
+
+Commit-check snapshots are cache data. Repository refresh should delete snapshots and check items
+for commits no active branch currently points at, so the repository-level cache does not grow
+forever as branch heads move.
+
+Rollout is intentionally destructive for the old PR-check cache. The old `vaultRemoteBranches`
+PR-check rollup field and old PR-check item table are not supported by this model. Production
+deployment must clear those old rows/fields before the schema is narrowed, or reset the single-user
+production database before deploying this change. Do not keep old PR-check schema fields as a
+compatibility layer.
 
 ## Refresh Direction
 

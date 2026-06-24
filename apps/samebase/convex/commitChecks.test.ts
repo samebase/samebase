@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  buildPullRequestStatusSummary,
-  normalizePullRequestCheckRun,
-  normalizePullRequestCheckSnapshot,
-  normalizePullRequestCommitStatus,
-} from "./pullRequestChecks";
+  buildGitHubCommitCheckSnapshot,
+  normalizeCommitCheckRun,
+  normalizeCommitCheckSnapshot,
+  normalizeCommitStatus,
+} from "./commitChecks";
 
 const SUCCESSFUL_WORKERS_SUMMARY = `Preview URL: https://fc4977af-noter-worker.nicuchiciuc.workers.dev
 Preview Alias URL: https://codex-samebase-rebrand-rollout-plan-noter-worker.nicuchiciuc.workers.dev
@@ -13,10 +13,10 @@ Build ID: [5f9b6f2e-1e10-4062-988f-56b734c8c7a9](https://dash.cloudflare.com/bui
 Script: [noter-worker](https://dash.cloudflare.com/workers/services/view/noter-worker)
 Version ID: d5b7c5f1-4ddf-4930-a398-3f26f6d00a19`;
 
-describe("normalizePullRequestCheckRun", () => {
+describe("normalizeCommitCheckRun", () => {
   it("stores Cloudflare Workers preview metadata on the normalized check item", () => {
     expect(
-      normalizePullRequestCheckRun({
+      normalizeCommitCheckRun({
         id: 154,
         name: "Workers Builds: noter-worker",
         status: "completed",
@@ -53,7 +53,7 @@ describe("normalizePullRequestCheckRun", () => {
 
   it("keeps failed-build logs without inventing preview URLs", () => {
     expect(
-      normalizePullRequestCheckRun({
+      normalizeCommitCheckRun({
         id: 155,
         name: "Workers Builds: samebase",
         status: "completed",
@@ -78,7 +78,7 @@ describe("normalizePullRequestCheckRun", () => {
 
   it("rejects non-https preview and log URLs", () => {
     expect(
-      normalizePullRequestCheckRun({
+      normalizeCommitCheckRun({
         id: 156,
         name: "Workers Builds: samebase",
         status: "completed",
@@ -99,10 +99,10 @@ Preview Alias URL: http://branch.example.com`,
   });
 });
 
-describe("normalizePullRequestCommitStatus", () => {
+describe("normalizeCommitStatus", () => {
   it("normalizes legacy commit statuses into the same snapshot vocabulary", () => {
     expect(
-      normalizePullRequestCommitStatus({
+      normalizeCommitStatus({
         id: 99,
         state: "pending",
         context: "netlify/deploy-preview",
@@ -123,9 +123,9 @@ describe("normalizePullRequestCommitStatus", () => {
   });
 });
 
-describe("buildPullRequestStatusSummary", () => {
+describe("buildGitHubCommitCheckSnapshot", () => {
   it("summarizes check runs and commit statuses for the branch row", () => {
-    const items = normalizePullRequestCheckSnapshot({
+    const items = normalizeCommitCheckSnapshot({
       checkRuns: [
         {
           id: 1,
@@ -153,15 +153,15 @@ describe("buildPullRequestStatusSummary", () => {
     });
 
     expect(
-      buildPullRequestStatusSummary({
-        pullRequestNumber: 42,
-        headCommitSha: "abc123",
+      buildGitHubCommitCheckSnapshot({
+        githubRepositoryId: "123",
+        commitSha: "abc123",
         syncedAt: 1000,
         items,
       }),
     ).toEqual({
-      pullRequestNumber: 42,
-      headCommitSha: "abc123",
+      githubRepositoryId: "123",
+      commitSha: "abc123",
       state: "failure",
       totalCount: 3,
       checkRunCount: 2,

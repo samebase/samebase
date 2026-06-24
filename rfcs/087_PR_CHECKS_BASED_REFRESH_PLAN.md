@@ -41,8 +41,11 @@ from PR comments.
 
 This RFC documents the PR-check replacement that removed comment scraping. It is not the final
 dashboard model. Future dashboard work should use `rfcs/088_BRANCH_TIP_CHECKS_DASHBOARD_PLAN.md`:
-checks belong to commit SHAs, and PRs/default branches/active branches are views over those commit
-snapshots.
+checks belong to `githubRepositoryId + commitSha`, and PRs/default branches/active branches are
+views over those commit snapshots.
+
+The PR-specific data model below is historical implementation context, not current guidance. New
+work must not key check snapshots by PR number, branch name, vault ID, or repository full name.
 
 ## Live Probe Result
 

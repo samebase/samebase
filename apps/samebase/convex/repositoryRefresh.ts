@@ -139,7 +139,9 @@ function getRepositoryRefreshWorkerIntent(
   }
 }
 
-function shouldHydratePullRequestCheckSnapshots(demand: RepositoryScopeRefreshDemand): boolean {
+function shouldHydrateBranchHeadCommitCheckSnapshots(
+  demand: RepositoryScopeRefreshDemand,
+): boolean {
   switch (demand.source) {
     case "dashboard":
     case "manual":
@@ -913,8 +915,10 @@ export const runRepositoryRefreshRequest = internalAction({
           repo: input.repo,
           includeAheadBehind: true,
           includePullRequestLinks: true,
-          includePullRequestCheckSnapshots: shouldHydratePullRequestCheckSnapshots(input.demand),
-          pullRequestCheckBranchNames: [],
+          includeBranchHeadCommitCheckSnapshots: shouldHydrateBranchHeadCommitCheckSnapshots(
+            input.demand,
+          ),
+          branchHeadCommitCheckBranchNames: [],
           intent: getRepositoryRefreshWorkerIntent(input.demand),
         },
       });
