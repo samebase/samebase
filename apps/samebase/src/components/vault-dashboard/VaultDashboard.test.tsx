@@ -224,6 +224,64 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain(">Head abcdef1<");
   });
 
+  it("shows when the visible branch commits are only a history window", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          branch={{
+            name: "codex/history-window",
+            headCommitSha: "abcdef1234567890abcdef1234567890abcdef12",
+            commits: [
+              {
+                sha: "abcdef1234567890abcdef1234567890abcdef12",
+                checks: {
+                  state: "running",
+                  totalCount: 2,
+                  checkRunCount: 2,
+                  statusContextCount: 0,
+                  successCount: 0,
+                  failureCount: 0,
+                  runningCount: 2,
+                  neutralCount: 0,
+                  unknownCount: 0,
+                  syncedAt: 1,
+                },
+              },
+              {
+                sha: "654321abcdef1234567890abcdef1234567890ab",
+                checks: {
+                  state: "success",
+                  totalCount: 3,
+                  checkRunCount: 3,
+                  statusContextCount: 0,
+                  successCount: 3,
+                  failureCount: 0,
+                  runningCount: 0,
+                  neutralCount: 0,
+                  unknownCount: 0,
+                  syncedAt: 1,
+                },
+              },
+            ],
+            aheadBy: 5,
+            behindBy: 2,
+            isDefault: false,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(">Head abcdef1<");
+    expect(markup).toContain(">654321a<");
+    expect(markup).toContain(">↑5 ↓2<");
+    expect(markup).toContain(">+3 more<");
+    expect(markup).toContain('aria-label="3 more ahead commits not shown"');
+  });
+
   it("labels zero-check summaries as no checks", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>

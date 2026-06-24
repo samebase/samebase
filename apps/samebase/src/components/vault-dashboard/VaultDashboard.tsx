@@ -78,10 +78,6 @@ import {
   resolveVaultProviderSetupStatus,
   type VaultDashboardProviderSetup,
 } from "@/components/vault-dashboard/vaultProviderSetup";
-import {
-  buildGitHubBranchTreeUrl,
-  buildGitHubRepositoryAppInstallationsUrl,
-} from "@/lib/githubUrls";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import {
   DASHBOARD_ADD_APP_ROOT_QUERY_PARAM,
@@ -1721,17 +1717,37 @@ function VaultBranchCommitRow({
   );
 }
 
+function VaultBranchHiddenCommitCount({ count }: { count: number }) {
+  return (
+    <div
+      aria-label={`${count} more ahead commits not shown`}
+      className="font-mono text-sm tabular-nums text-muted-foreground"
+      title={`${count} more ahead commits not shown`}
+    >
+      +{count} more
+    </div>
+  );
+}
+
 function VaultBranchCommitStack({
   aheadBehindLabel,
+  aheadBy,
   commits,
+  isDefault,
 }: {
   aheadBehindLabel: string | null;
+  aheadBy: number | undefined;
   commits: readonly VaultBranchCommitViewModel[];
+  isDefault: boolean;
 }) {
   const visibleCommits = commits.filter((commit) => commit.checks || commit.isHead);
   if (visibleCommits.length === 0) {
     return null;
   }
+  const hiddenAheadCommitCount =
+    !isDefault && typeof aheadBy === "number" && aheadBy > visibleCommits.length
+      ? aheadBy - visibleCommits.length
+      : 0;
 
   return (
     <div className="space-y-1">
@@ -1742,6 +1758,9 @@ function VaultBranchCommitStack({
           commit={commit}
         />
       ))}
+      {hiddenAheadCommitCount > 0 ? (
+        <VaultBranchHiddenCommitCount count={hiddenAheadCommitCount} />
+      ) : null}
     </div>
   );
 }
@@ -1882,7 +1901,9 @@ export function VaultBranchLinkContent({
           <div className="space-y-1 text-base leading-6 text-muted-foreground/80">
             <VaultBranchCommitStack
               aheadBehindLabel={aheadBehindLabel}
+              aheadBy={branchRow.aheadBy}
               commits={branchRow.commits}
+              isDefault={branchRow.isDefault}
             />
             {hasPullRequestMetadata ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

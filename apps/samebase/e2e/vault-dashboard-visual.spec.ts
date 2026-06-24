@@ -845,14 +845,14 @@ test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await page.getByRole("button", { name: "Show 5 more branches" }).click();
+  await page.getByRole("button", { name: "Show 6 more branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
   await expect(page.getByRole("button", { name: "Show less branches" })).toBeVisible();
   await page.getByRole("button", { name: "Show less branches" }).click();
 
   await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Show 5 more branches" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show 6 more branches" })).toBeVisible();
 });
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
