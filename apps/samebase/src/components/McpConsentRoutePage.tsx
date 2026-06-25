@@ -173,7 +173,7 @@ export function McpConsentRoutePage() {
       <Unauthenticated>
         {requestId === null ? (
           <SignInForm
-            authPlacement="inline"
+            authPlacement="sidebar"
             landingPageMarkdown={landingPageMarkdown}
             topNotice={null}
           />

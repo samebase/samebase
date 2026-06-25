@@ -10,8 +10,8 @@ export function McpConsentSignInNotice() {
         before you click Authenticate in Codex.
       </p>
       <p className="mt-1 text-muted-foreground">
-        If you are not signed in yet, sign in here first. If Codex does not continue afterward, go
-        back and press Authenticate again.
+        If you are not signed in yet, use the sign-in controls in the sidebar first. If Codex does
+        not continue afterward, go back and press Authenticate again.
       </p>
     </div>
   );
@@ -20,7 +20,7 @@ export function McpConsentSignInNotice() {
 export function McpConsentSignInView() {
   return (
     <SignInForm
-      authPlacement="inline"
+      authPlacement="sidebar"
       landingPageMarkdown={landingPageMarkdown}
       topNotice={<McpConsentSignInNotice />}
     />
