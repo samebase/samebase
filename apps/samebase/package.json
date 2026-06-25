@@ -17,7 +17,7 @@
     "generate:install-icon-assets": "node ./scripts/generate-install-icon-assets.ts",
     "generate:cloudflare-redirects": "node ./scripts/generate-cloudflare-redirects.ts",
     "strip:public-prerender-modulepreloads": "node ./scripts/strip-public-prerender-modulepreloads.ts",
-    "verify:logo-assets": "pnpm run generate:logo-assets && git diff --exit-code -- public/brand public/logo-v1-side-primary.svg public/logo-v2-side-diagonal.svg public/logo-static.svg public/install-icon.svg public/apple-touch-icon.png public/icon-192.png public/icon-512.png public/icon-maskable-192.png public/icon-maskable-512.png public/samebase-social-card.svg public/samebase-social-card.png public/samebase-x-profile-banner.svg public/samebase-x-profile-banner.png",
+    "verify:logo-assets": "pnpm run generate:logo-assets && git diff --exit-code -- public/brand public/logo-v1-side-primary.svg public/logo-v2-side-diagonal.svg public/logo-static.svg public/install-icon.svg public/apple-touch-icon.png public/icon-192.png public/icon-512.png public/icon-maskable-192.png public/icon-maskable-512.png public/chatgpt-app-icon.png public/samebase-social-card.svg public/samebase-social-card.png public/samebase-x-profile-banner.svg public/samebase-x-profile-banner.png",
     "verify:install-icon-assets": "pnpm run verify:logo-assets",
     "verify:cloudflare-redirects": "pnpm run generate:cloudflare-redirects && git diff --exit-code -- public/_redirects",
     "predev": "node ./scripts/predev.ts",

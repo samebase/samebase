@@ -13,7 +13,7 @@ const MAX_REDIRECT_URI_LENGTH = 2048;
 const MAX_CLIENT_NAME_LENGTH = 120;
 const MAX_CONTACTS = 8;
 const MAX_CONTACT_LENGTH = 320;
-const MAX_STATE_LENGTH = 500;
+const MAX_STATE_LENGTH = 4096;
 
 const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;

@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "Samebase",
     "subtitle": "Create apps from chat",
-    "description": "Samebase helps users create and inspect GitHub-connected apps from ChatGPT. It can list the authenticated user's Samebase apps and start the managed app provisioning workflow that creates a GitHub repository, seeds the starter app, and provisions Convex and Cloudflare resources.",
+    "description": "Provision a Github + Convex + Cloudflare Worker app on your own accounts. Manage all your apps from a single dashboard. Samebase is made in itself, can your app-builder do that?",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {

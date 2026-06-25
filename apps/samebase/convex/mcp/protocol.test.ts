@@ -130,6 +130,26 @@ describe("validateAuthorizeRequestFromUrl", () => {
     }
   });
 
+  it("accepts OpenAI Platform relay state values longer than 500 characters", () => {
+    const url = new URL("https://samebase.com/oauth/mcp/authorize");
+    const relayPrefix = "openai_platform_oauth_relay__";
+    const state = `${relayPrefix}${"a".repeat(525 - relayPrefix.length)}`;
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("client_id", "client_123");
+    url.searchParams.set("redirect_uri", "https://chatgpt.com/connector/oauth/callback");
+    url.searchParams.set("resource", "https://samebase.com/mcp");
+    url.searchParams.set("scope", "access_app_create access_dashboard");
+    url.searchParams.set("state", state);
+    url.searchParams.set("code_challenge", "0123456789012345678901234567890123456789012");
+    url.searchParams.set("code_challenge_method", "S256");
+
+    const result = validateAuthorizeRequestFromUrl(url);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.state).toBe(state);
+    }
+  });
+
   it("accepts multiple supported scopes", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
