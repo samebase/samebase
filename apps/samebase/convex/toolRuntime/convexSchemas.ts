@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { ObjectType, PropertyValidators } from "convex/values";
 
 import { isRecord } from "../jsonUtils";
@@ -43,6 +42,90 @@ function readConvexJsonType(json: Record<string, unknown>): string {
   return json.type;
 }
 
+function hasOwnProperty(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function convexJsonValueMatches(json: unknown, value: unknown): boolean {
+  if (!isRecord(json)) {
+    throw new Error("Convex validator JSON is invalid.");
+  }
+
+  const type = readConvexJsonType(json);
+  switch (type) {
+    case "any":
+      return true;
+    case "string":
+    case "id":
+      return typeof value === "string";
+    case "boolean":
+      return typeof value === "boolean";
+    case "number":
+    case "float64":
+      return typeof value === "number";
+    case "bigint":
+    case "int64":
+      return typeof value === "bigint";
+    case "null":
+      return value === null;
+    case "literal":
+      return value === json.value;
+    case "array":
+      return (
+        Array.isArray(value) && value.every((item) => convexJsonValueMatches(json.value, item))
+      );
+    case "object":
+      return convexJsonObjectMatches(json.value, value);
+    case "record": {
+      if (!isRecord(value)) {
+        return false;
+      }
+      if (!isRecord(json.values)) {
+        throw new Error("Convex record validator JSON is invalid.");
+      }
+      const valueType = readConvexObjectFieldType(json.values);
+      return Object.values(value).every((item) => convexJsonValueMatches(valueType, item));
+    }
+    case "union": {
+      if (!Array.isArray(json.value)) {
+        throw new Error("Convex union validator JSON is invalid.");
+      }
+      return json.value.some((member) => convexJsonValueMatches(member, value));
+    }
+    default:
+      throw new Error(`Unsupported Convex validator type for runtime parsing: ${type}`);
+  }
+}
+
+function convexJsonObjectMatches(fields: unknown, value: unknown): boolean {
+  if (!isRecord(fields)) {
+    throw new Error("Convex object validator JSON is invalid.");
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const fieldNames = new Set(Object.keys(fields));
+  for (const key of Object.keys(value)) {
+    if (!fieldNames.has(key)) {
+      return false;
+    }
+  }
+
+  for (const [name, field] of Object.entries(fields)) {
+    if (!hasOwnProperty(value, name)) {
+      if (isOptionalConvexObjectField(field)) {
+        continue;
+      }
+      return false;
+    }
+    if (!convexJsonValueMatches(readConvexObjectFieldType(field), value[name])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
   if (!isRecord(json)) {
     throw new Error("Convex validator JSON is invalid.");
@@ -58,6 +141,7 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
     case "number":
     case "float64":
       return { type: "number" };
+    case "bigint":
     case "int64":
       return { type: "integer" };
     case "null":
@@ -69,6 +153,15 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
         type: "array",
         items: convexJsonToToolJsonSchema(json.value),
       };
+    case "record": {
+      if (!isRecord(json.values)) {
+        throw new Error("Convex record validator JSON is invalid.");
+      }
+      return {
+        type: "object",
+        additionalProperties: convexJsonToToolJsonSchema(readConvexObjectFieldType(json.values)),
+      };
+    }
     case "object": {
       if (!isRecord(json.value)) {
         throw new Error("Convex object validator JSON is invalid.");
@@ -102,62 +195,6 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
   }
 }
 
-function convexJsonToZod(json: unknown): z.ZodType<unknown> {
-  if (!isRecord(json)) {
-    throw new Error("Convex validator JSON is invalid.");
-  }
-
-  const type = readConvexJsonType(json);
-  switch (type) {
-    case "string":
-    case "id":
-      return z.string();
-    case "boolean":
-      return z.boolean();
-    case "number":
-    case "float64":
-      return z.number();
-    case "int64":
-      return z.bigint();
-    case "null":
-      return z.null();
-    case "literal": {
-      const value = json.value;
-      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-        return z.literal(value);
-      }
-      if (value === null) {
-        return z.null();
-      }
-      throw new Error("Convex literal validator JSON is invalid.");
-    }
-    case "array":
-      return z.array(convexJsonToZod(json.value));
-    case "object": {
-      if (!isRecord(json.value)) {
-        throw new Error("Convex object validator JSON is invalid.");
-      }
-
-      const shape: Record<string, z.ZodType<unknown>> = {};
-      for (const [name, field] of Object.entries(json.value)) {
-        const fieldSchema = convexJsonToZod(readConvexObjectFieldType(field));
-        shape[name] = isOptionalConvexObjectField(field) ? fieldSchema.optional() : fieldSchema;
-      }
-
-      return z.object(shape).strict();
-    }
-    case "union":
-      return z.custom((value) => {
-        if (!Array.isArray(json.value)) {
-          return false;
-        }
-        return json.value.some((member) => convexJsonToZod(member).safeParse(value).success);
-      });
-    default:
-      throw new Error(`Unsupported Convex validator type for Zod schema: ${type}`);
-  }
-}
-
 export function convexArgsToToolInputSchema(
   args: PropertyValidators,
   argsDescriptions?: Record<string, string>,
@@ -183,17 +220,38 @@ export function convexArgsToToolInputSchema(
   } satisfies ToolJsonSchema;
 }
 
-export function convexArgsToZodSchema<Args extends PropertyValidators>(
+export function parseConvexArgs<Args extends PropertyValidators>(
   args: Args,
-): z.ZodType<ObjectType<Args>> {
-  const shape: Record<string, z.ZodType<unknown>> = {};
-
-  for (const [name, validator] of Object.entries(args)) {
-    const fieldSchema = convexJsonToZod(readConvexValidatorJson(validator));
-    shape[name] = isOptionalConvexValidator(validator) ? fieldSchema.optional() : fieldSchema;
+  value: unknown,
+): { ok: true; value: ObjectType<Args> } | { ok: false } {
+  if (!isRecord(value)) {
+    return { ok: false };
   }
 
-  // @ts-expect-error Dynamic Convex validator metadata builds this shape at runtime,
-  // but TypeScript cannot connect Object.entries(args) back to ObjectType<Args>.
-  return z.object(shape).strict();
+  const fieldNames = new Set(Object.keys(args));
+  for (const key of Object.keys(value)) {
+    if (!fieldNames.has(key)) {
+      return { ok: false };
+    }
+  }
+
+  const parsed: Record<string, unknown> = {};
+  for (const [name, validator] of Object.entries(args)) {
+    if (!hasOwnProperty(value, name)) {
+      if (isOptionalConvexValidator(validator)) {
+        continue;
+      }
+      return { ok: false };
+    }
+
+    const fieldValue = value[name];
+    if (!convexJsonValueMatches(readConvexValidatorJson(validator), fieldValue)) {
+      return { ok: false };
+    }
+    parsed[name] = fieldValue;
+  }
+
+  // @ts-expect-error Runtime validation above follows Args metadata, but TypeScript
+  // cannot infer ObjectType<Args> from Object.entries(args).
+  return { ok: true, value: parsed };
 }

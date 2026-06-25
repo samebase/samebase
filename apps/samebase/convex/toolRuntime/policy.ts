@@ -8,7 +8,7 @@ export interface PolicyCheckResult {
 
 export function validateToolPolicy(args: {
   tool: Pick<
-    ToolDefinition<unknown>,
+    ToolDefinition,
     | "name"
     | "surfaces"
     | "requiredScopes"

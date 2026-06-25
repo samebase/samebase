@@ -139,6 +139,25 @@ describe("executeRuntimeTool write dispatch", () => {
     );
   });
 
+  it("rejects createRepository input that does not match its Convex args", async () => {
+    const actionCalls: ActionCall[] = [];
+    const context = makeResolvedContext({ actionCalls });
+
+    await expect(
+      executeRuntimeTool({
+        toolName: "vault.actions.createRepository",
+        context,
+        input: {
+          name: "todo-app",
+          owner: "samebase",
+          convexProjectName: "todo-app",
+        },
+      }),
+    ).rejects.toThrow("Invalid vault.actions.createRepository input.");
+
+    expect(actionCalls).toHaveLength(0);
+  });
+
   it("dispatches edit_file through collaborative mutation when file is staged", async () => {
     const queryCalls: QueryCall[] = [];
     const mutationCalls: MutationCall[] = [];

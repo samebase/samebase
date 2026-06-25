@@ -1,7 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import type { AccessKey } from "../../shared/accessModel";
-import type { z } from "zod";
+import type { PropertyValidators } from "convex/values";
 
 export type ToolSurface = "agent" | "mcp" | "ui";
 export type ToolSafety = "read_only" | "write" | "destructive" | "proposal_only";
@@ -13,10 +13,10 @@ export interface ToolJsonSchema {
   type: "object";
   properties: Record<string, unknown>;
   required?: string[];
-  additionalProperties: false;
+  additionalProperties: false | Record<string, unknown>;
 }
 
-export interface ToolDefinition<TInput> {
+export interface ToolDefinition<Args extends PropertyValidators = PropertyValidators> {
   name: string;
   description: string;
   surfaces: ToolSurface[];
@@ -26,8 +26,8 @@ export interface ToolDefinition<TInput> {
   requiresThreadContext: boolean;
   requiresGithubConnection: boolean;
   safety: ToolSafety;
+  inputArgs: Args;
   inputSchema: ToolJsonSchema;
-  agentArgs: z.ZodType<TInput>;
 }
 
 export interface ToolRunRequest {

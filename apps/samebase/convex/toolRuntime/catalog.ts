@@ -1,107 +1,140 @@
-import { z } from "zod";
+import { v, type PropertyValidators } from "convex/values";
 import type { ToolDefinition, ToolJsonSchema, ToolSurface } from "./types";
 import { hasAllScopes } from "./utils";
-import { isRecord } from "../jsonUtils";
 import { createRepositoryContract } from "../vault/createRepositoryContract";
-import { convexArgsToToolInputSchema, convexArgsToZodSchema } from "./convexSchemas";
+import { convexArgsToToolInputSchema } from "./convexSchemas";
 
-const emptyInputSchema = z.object({});
-export const createRepositoryInputSchema = convexArgsToZodSchema(createRepositoryContract.args);
-const readFileInputSchema = z.object({
-  path: z.string().describe("File path relative to repository root"),
-});
-const listFilesInputSchema = z.object({
-  directory: z
-    .string()
-    .optional()
-    .describe(
-      "Optional directory path to filter by (e.g. 'src/components'). Omit to list all files.",
-    ),
-});
-const editFileInputSchema = z.object({
-  path: z.string().describe("File path relative to repository root"),
-  content: z.string().describe("The new full content of the file"),
-});
-const replaceInFileReplacementSchema = z.object({
-  oldText: z.string().min(1).describe("Exact existing text to replace, including whitespace"),
-  newText: z.string().describe("Replacement text"),
-});
-const replaceInFileInputSchema = z.object({
-  path: z.string().describe("File path relative to repository root"),
-  replacements: z
-    .array(replaceInFileReplacementSchema)
-    .min(1)
-    .describe("Exact oldText/newText replacements to apply atomically"),
-});
-const createFileInputSchema = z.object({
-  path: z.string().describe("File path relative to repository root"),
-  content: z.string().describe("The content of the new file"),
-});
-const deleteFileInputSchema = z.object({
-  path: z.string().describe("File path relative to repository root"),
-});
-const prodReadScopeSchema = z.enum(["vault", "global"]);
-const prodReadAllowRawFallbackSchema = z.boolean().optional();
-const requestConvexLogsReadInputSchema = z.object({
-  maxLines: z.number().int().min(1).max(100).optional().describe("Maximum log lines to include"),
-  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
-    "In owner mode, allow explicit raw payload fallback",
-  ),
-});
-const requestConvexProjectsReadInputSchema = z.object({
-  limit: z.number().int().min(1).max(100).optional().describe("Maximum projects to include"),
-  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
-    "In owner mode, allow explicit raw payload fallback",
-  ),
-});
-const requestCloudflareLogsReadInputSchema = z.object({
-  maxEntries: z
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .optional()
-    .describe("Maximum deployment entries to include"),
-  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
-    "In owner mode, allow explicit raw payload fallback",
-  ),
-});
-const requestCloudflareAccountsReadInputSchema = z.object({
-  limit: z.number().int().min(1).max(100).optional().describe("Maximum accounts to include"),
-  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
-    "In owner mode, allow explicit raw payload fallback",
-  ),
-});
-const requestCloudflareWorkersInventoryReadInputSchema = z.object({
-  accountId: z
-    .string()
-    .optional()
-    .describe("Cloudflare account ID to query. Omit only when a default account is selected."),
-  limit: z.number().int().min(1).max(100).optional().describe("Maximum Workers to include"),
-  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
-    "In owner mode, allow explicit raw payload fallback",
-  ),
-});
-const convexDataTableSchema = z.enum([
-  "vaults",
-  "vaultConvexDeployments",
-  "vaultCloudflareWorkers",
-  "vaultDomains",
-  "codespaces",
-  "fileStaging",
-  "aiProdAccessRequests",
-  "aiProdAccessAudit",
-]);
-const requestConvexDataReadInputSchema = z.object({
-  table: convexDataTableSchema.describe("Convex table to sample"),
-  scope: prodReadScopeSchema.optional().describe("Read scope. Defaults to vault scope."),
-  limit: z.number().int().min(1).max(100).optional().describe("Maximum rows to return"),
-  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
-    "In owner mode, allow explicit raw payload fallback",
-  ),
-});
+const { array, boolean, literal, number, object, optional, string, union } = v;
 
-export type ToolCatalogEntry<TInput> = ToolDefinition<TInput>;
+export const emptyToolInputArgs = {} satisfies PropertyValidators;
+
+export const readFileInputArgs = {
+  path: string(),
+} satisfies PropertyValidators;
+const readFileInputDescriptions = {
+  path: "File path relative to repository root",
+};
+
+export const listFilesInputArgs = {
+  directory: optional(string()),
+} satisfies PropertyValidators;
+const listFilesInputDescriptions = {
+  directory:
+    "Optional directory path to filter by (e.g. 'src/components'). Omit to list all files.",
+};
+
+export const editFileInputArgs = {
+  path: string(),
+  content: string(),
+} satisfies PropertyValidators;
+const editFileInputDescriptions = {
+  path: "File path relative to repository root",
+  content: "The new full content of the file",
+};
+
+export const replaceInFileInputArgs = {
+  path: string(),
+  replacements: array(
+    object({
+      oldText: string(),
+      newText: string(),
+    }),
+  ),
+} satisfies PropertyValidators;
+const replaceInFileInputDescriptions = {
+  path: "File path relative to repository root",
+  replacements: "Exact oldText/newText replacements to apply atomically",
+};
+
+export const createFileInputArgs = {
+  path: string(),
+  content: string(),
+} satisfies PropertyValidators;
+const createFileInputDescriptions = {
+  path: "File path relative to repository root",
+  content: "The content of the new file",
+};
+
+export const deleteFileInputArgs = {
+  path: string(),
+} satisfies PropertyValidators;
+const deleteFileInputDescriptions = {
+  path: "File path relative to repository root",
+};
+
+export const requestConvexLogsReadInputArgs = {
+  maxLines: optional(number()),
+  allowRawFallback: optional(boolean()),
+} satisfies PropertyValidators;
+const requestConvexLogsReadInputDescriptions = {
+  maxLines: "Maximum log lines to include",
+  allowRawFallback: "In owner mode, allow explicit raw payload fallback",
+};
+
+export const requestConvexProjectsReadInputArgs = {
+  limit: optional(number()),
+  allowRawFallback: optional(boolean()),
+} satisfies PropertyValidators;
+const requestConvexProjectsReadInputDescriptions = {
+  limit: "Maximum projects to include",
+  allowRawFallback: "In owner mode, allow explicit raw payload fallback",
+};
+
+export const requestCloudflareLogsReadInputArgs = {
+  maxEntries: optional(number()),
+  allowRawFallback: optional(boolean()),
+} satisfies PropertyValidators;
+const requestCloudflareLogsReadInputDescriptions = {
+  maxEntries: "Maximum deployment entries to include",
+  allowRawFallback: "In owner mode, allow explicit raw payload fallback",
+};
+
+export const requestCloudflareAccountsReadInputArgs = {
+  limit: optional(number()),
+  allowRawFallback: optional(boolean()),
+} satisfies PropertyValidators;
+const requestCloudflareAccountsReadInputDescriptions = {
+  limit: "Maximum accounts to include",
+  allowRawFallback: "In owner mode, allow explicit raw payload fallback",
+};
+
+export const requestCloudflareWorkersInventoryReadInputArgs = {
+  accountId: optional(string()),
+  limit: optional(number()),
+  allowRawFallback: optional(boolean()),
+} satisfies PropertyValidators;
+const requestCloudflareWorkersInventoryReadInputDescriptions = {
+  accountId: "Cloudflare account ID to query. Omit only when a default account is selected.",
+  limit: "Maximum Workers to include",
+  allowRawFallback: "In owner mode, allow explicit raw payload fallback",
+};
+
+const prodReadScopeValidator = union(literal("vault"), literal("global"));
+const convexDataTableValidator = union(
+  literal("vaults"),
+  literal("vaultConvexDeployments"),
+  literal("vaultDomains"),
+  literal("codespaces"),
+  literal("fileStaging"),
+  literal("aiProdAccessRequests"),
+  literal("aiProdAccessAudit"),
+);
+
+export const requestConvexDataReadInputArgs = {
+  table: convexDataTableValidator,
+  scope: optional(prodReadScopeValidator),
+  limit: optional(number()),
+  allowRawFallback: optional(boolean()),
+} satisfies PropertyValidators;
+const requestConvexDataReadInputDescriptions = {
+  table: "Convex table to sample",
+  scope: "Read scope. Defaults to vault scope.",
+  limit: "Maximum rows to return",
+  allowRawFallback: "In owner mode, allow explicit raw payload fallback",
+};
+
+export type ToolCatalogEntry<Args extends PropertyValidators = PropertyValidators> =
+  ToolDefinition<Args>;
 
 function withRequiredFields(inputSchema: ToolJsonSchema, requiredFields: string[]): ToolJsonSchema {
   if (requiredFields.length === 0) {
@@ -115,7 +148,7 @@ function withRequiredFields(inputSchema: ToolJsonSchema, requiredFields: string[
 
 function contextRequiredFields(args: {
   tool: Pick<
-    ToolDefinition<unknown>,
+    ToolDefinition,
     "requiresVaultContext" | "requiresBranchContext" | "requiresThreadContext" | "inputSchema"
   >;
 }): string[] {
@@ -132,40 +165,9 @@ function contextRequiredFields(args: {
   return Array.from(required);
 }
 
-function parseRequiredFields(value: unknown): string[] | undefined {
-  if (!Array.isArray(value) || value.length === 0) {
-    return undefined;
-  }
-  const requiredFields: string[] = [];
-  for (const item of value) {
-    if (typeof item !== "string") {
-      return undefined;
-    }
-    requiredFields.push(item);
-  }
-  return requiredFields;
-}
-
-function zodToToolInputSchema(schema: z.ZodType<unknown>): ToolJsonSchema {
-  const jsonSchema = z.toJSONSchema(schema);
-  if (jsonSchema.type !== "object") {
-    throw new Error("Tool input schemas must serialize to JSON object schemas.");
-  }
-
-  const properties = isRecord(jsonSchema.properties) ? jsonSchema.properties : {};
-  const required = parseRequiredFields(jsonSchema.required);
-
-  return {
-    type: "object",
-    properties,
-    ...(required ? { required } : {}),
-    additionalProperties: false,
-  };
-}
-
 export function buildMcpToolInputSchema(
   tool: Pick<
-    ToolDefinition<unknown>,
+    ToolDefinition,
     "requiresVaultContext" | "requiresBranchContext" | "requiresThreadContext" | "inputSchema"
   >,
 ): ToolJsonSchema {
@@ -199,50 +201,74 @@ export function buildMcpToolInputSchema(
   );
 }
 
-export const emptyToolInputSchema = zodToToolInputSchema(emptyInputSchema);
+export const emptyToolInputSchema = convexArgsToToolInputSchema(emptyToolInputArgs);
 
 export const createRepositoryToolInputSchema = convexArgsToToolInputSchema(
   createRepositoryContract.args,
   createRepositoryContract.mcp.inputDescriptions,
 );
 
-export const readFileToolInputSchema = zodToToolInputSchema(readFileInputSchema);
-
-export const listFilesToolInputSchema = zodToToolInputSchema(listFilesInputSchema);
-
-export const editFileToolInputSchema = zodToToolInputSchema(editFileInputSchema);
-
-export const replaceInFileToolInputSchema = zodToToolInputSchema(replaceInFileInputSchema);
-
-export const createFileToolInputSchema = zodToToolInputSchema(createFileInputSchema);
-
-export const deleteFileToolInputSchema = zodToToolInputSchema(deleteFileInputSchema);
-
-export const requestConvexLogsReadToolInputSchema = zodToToolInputSchema(
-  requestConvexLogsReadInputSchema,
+export const readFileToolInputSchema = convexArgsToToolInputSchema(
+  readFileInputArgs,
+  readFileInputDescriptions,
 );
 
-export const requestConvexProjectsReadToolInputSchema = zodToToolInputSchema(
-  requestConvexProjectsReadInputSchema,
+export const listFilesToolInputSchema = convexArgsToToolInputSchema(
+  listFilesInputArgs,
+  listFilesInputDescriptions,
 );
 
-export const requestCloudflareLogsReadToolInputSchema = zodToToolInputSchema(
-  requestCloudflareLogsReadInputSchema,
+export const editFileToolInputSchema = convexArgsToToolInputSchema(
+  editFileInputArgs,
+  editFileInputDescriptions,
 );
 
-export const requestCloudflareAccountsReadToolInputSchema = zodToToolInputSchema(
-  requestCloudflareAccountsReadInputSchema,
+export const replaceInFileToolInputSchema = convexArgsToToolInputSchema(
+  replaceInFileInputArgs,
+  replaceInFileInputDescriptions,
 );
 
-export const requestCloudflareWorkersInventoryReadToolInputSchema = zodToToolInputSchema(
-  requestCloudflareWorkersInventoryReadInputSchema,
+export const createFileToolInputSchema = convexArgsToToolInputSchema(
+  createFileInputArgs,
+  createFileInputDescriptions,
 );
 
-export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
-  requestConvexDataReadInputSchema,
+export const deleteFileToolInputSchema = convexArgsToToolInputSchema(
+  deleteFileInputArgs,
+  deleteFileInputDescriptions,
 );
 
-export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
+export const requestConvexLogsReadToolInputSchema = convexArgsToToolInputSchema(
+  requestConvexLogsReadInputArgs,
+  requestConvexLogsReadInputDescriptions,
+);
+
+export const requestConvexProjectsReadToolInputSchema = convexArgsToToolInputSchema(
+  requestConvexProjectsReadInputArgs,
+  requestConvexProjectsReadInputDescriptions,
+);
+
+export const requestCloudflareLogsReadToolInputSchema = convexArgsToToolInputSchema(
+  requestCloudflareLogsReadInputArgs,
+  requestCloudflareLogsReadInputDescriptions,
+);
+
+export const requestCloudflareAccountsReadToolInputSchema = convexArgsToToolInputSchema(
+  requestCloudflareAccountsReadInputArgs,
+  requestCloudflareAccountsReadInputDescriptions,
+);
+
+export const requestCloudflareWorkersInventoryReadToolInputSchema = convexArgsToToolInputSchema(
+  requestCloudflareWorkersInventoryReadInputArgs,
+  requestCloudflareWorkersInventoryReadInputDescriptions,
+);
+
+export const requestConvexDataReadToolInputSchema = convexArgsToToolInputSchema(
+  requestConvexDataReadInputArgs,
+  requestConvexDataReadInputDescriptions,
+);
+
+export const MCP_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     name: createRepositoryContract.mcp.name,
     description: createRepositoryContract.mcp.description,
@@ -253,9 +279,12 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: createRepositoryContract.mcp.safety,
+    inputArgs: createRepositoryContract.args,
     inputSchema: createRepositoryToolInputSchema,
-    agentArgs: createRepositoryInputSchema,
   },
+];
+
+const LEGACY_AGENT_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     name: "read_file",
     description:
@@ -267,8 +296,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "read_only",
+    inputArgs: readFileInputArgs,
     inputSchema: readFileToolInputSchema,
-    agentArgs: readFileInputSchema,
   },
   {
     name: "list_files",
@@ -280,8 +309,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "read_only",
+    inputArgs: listFilesInputArgs,
     inputSchema: listFilesToolInputSchema,
-    agentArgs: listFilesInputSchema,
   },
   {
     name: "edit_file",
@@ -294,8 +323,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "write",
+    inputArgs: editFileInputArgs,
     inputSchema: editFileToolInputSchema,
-    agentArgs: editFileInputSchema,
   },
   {
     name: "replace_in_file",
@@ -308,8 +337,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "write",
+    inputArgs: replaceInFileInputArgs,
     inputSchema: replaceInFileToolInputSchema,
-    agentArgs: replaceInFileInputSchema,
   },
   {
     name: "create_file",
@@ -321,8 +350,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "write",
+    inputArgs: createFileInputArgs,
     inputSchema: createFileToolInputSchema,
-    agentArgs: createFileInputSchema,
   },
   {
     name: "delete_file",
@@ -334,8 +363,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "destructive",
+    inputArgs: deleteFileInputArgs,
     inputSchema: deleteFileToolInputSchema,
-    agentArgs: deleteFileInputSchema,
   },
   {
     name: "get_vault_remote_branches",
@@ -348,8 +377,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: false,
     requiresGithubConnection: false,
     safety: "read_only",
+    inputArgs: emptyToolInputArgs,
     inputSchema: emptyToolInputSchema,
-    agentArgs: emptyInputSchema,
   },
   {
     name: "request_convex_status_read",
@@ -362,8 +391,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: emptyToolInputArgs,
     inputSchema: emptyToolInputSchema,
-    agentArgs: emptyInputSchema,
   },
   {
     name: "request_convex_logs_read",
@@ -376,8 +405,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: requestConvexLogsReadInputArgs,
     inputSchema: requestConvexLogsReadToolInputSchema,
-    agentArgs: requestConvexLogsReadInputSchema,
   },
   {
     name: "request_convex_projects_read",
@@ -390,8 +419,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: requestConvexProjectsReadInputArgs,
     inputSchema: requestConvexProjectsReadToolInputSchema,
-    agentArgs: requestConvexProjectsReadInputSchema,
   },
   {
     name: "request_cloudflare_status_read",
@@ -404,8 +433,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: emptyToolInputArgs,
     inputSchema: emptyToolInputSchema,
-    agentArgs: emptyInputSchema,
   },
   {
     name: "request_cloudflare_logs_read",
@@ -418,8 +447,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: requestCloudflareLogsReadInputArgs,
     inputSchema: requestCloudflareLogsReadToolInputSchema,
-    agentArgs: requestCloudflareLogsReadInputSchema,
   },
   {
     name: "request_cloudflare_accounts_read",
@@ -432,8 +461,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: requestCloudflareAccountsReadInputArgs,
     inputSchema: requestCloudflareAccountsReadToolInputSchema,
-    agentArgs: requestCloudflareAccountsReadInputSchema,
   },
   {
     name: "request_cloudflare_workers_inventory_read",
@@ -446,8 +475,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: requestCloudflareWorkersInventoryReadInputArgs,
     inputSchema: requestCloudflareWorkersInventoryReadToolInputSchema,
-    agentArgs: requestCloudflareWorkersInventoryReadInputSchema,
   },
   {
     name: "request_convex_data_read",
@@ -460,12 +489,17 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
+    inputArgs: requestConvexDataReadInputArgs,
     inputSchema: requestConvexDataReadToolInputSchema,
-    agentArgs: requestConvexDataReadInputSchema,
   },
 ];
 
-export function findToolInCatalog(args: { name: string }): ToolCatalogEntry<unknown> | null {
+export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry[] = [
+  ...MCP_TOOL_CATALOG,
+  ...LEGACY_AGENT_TOOL_CATALOG,
+];
+
+export function findToolInCatalog(args: { name: string }): ToolCatalogEntry | null {
   for (const tool of RUNTIME_TOOL_CATALOG) {
     if (tool.name === args.name) {
       return tool;
@@ -477,7 +511,7 @@ export function findToolInCatalog(args: { name: string }): ToolCatalogEntry<unkn
 export function listCatalogToolsForSurface(args: {
   surface: ToolSurface;
   grantedScopes: string[];
-}): ToolCatalogEntry<unknown>[] {
+}): ToolCatalogEntry[] {
   return RUNTIME_TOOL_CATALOG.filter((tool) => {
     if (!tool.surfaces.includes(args.surface)) {
       return false;

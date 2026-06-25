@@ -1,7 +1,6 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { ZodError } from "zod";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import type { ActionCtx } from "../_generated/server";
@@ -44,14 +43,6 @@ function parseInputJson(inputJson: string): { ok: true; value: unknown } | { ok:
   } catch {
     return { ok: false };
   }
-}
-
-function formatZodError(error: ZodError): string {
-  const issues = error.issues.map((issue) => {
-    const path = issue.path.length > 0 ? issue.path.join(".") : "input";
-    return `${path}: ${issue.message}`;
-  });
-  return issues.join("; ");
 }
 
 function toActionResult(args: {
@@ -165,14 +156,6 @@ export const runTool = internalAction({
       });
     }
 
-    const parsedInput = tool.agentArgs.safeParse(inputParse.value);
-    if (!parsedInput.success) {
-      return toActionResult({
-        status: "error",
-        text: `Invalid input for ${tool.name}: ${formatZodError(parsedInput.error)}`,
-      });
-    }
-
     const resolvedContext = await resolveToolContext(ctx, args, tool.requiresGithubConnection);
     if (!resolvedContext.ok) {
       return toActionResult({
@@ -185,7 +168,7 @@ export const runTool = internalAction({
       const output = await executeRuntimeTool({
         toolName: tool.name,
         context: resolvedContext.value,
-        input: parsedInput.data,
+        input: inputParse.value,
       });
       return toActionResult({
         status: "ok",

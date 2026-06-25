@@ -1,6 +1,7 @@
 "use node";
 
 import { Octokit } from "@octokit/rest";
+import type { ObjectType, PropertyValidators } from "convex/values";
 import { internal } from "../_generated/api";
 import type { ResolvedToolContext, ToolExecutionOutput } from "./types";
 import {
@@ -8,46 +9,43 @@ import {
   ReplaceInFileError,
   type ReplaceInFileResolvedEdit,
 } from "../agent/replaceInFile";
-import { isRecord } from "../jsonUtils";
 import {
   createRepositoryContract,
   type CreateRepositoryArgs,
 } from "../vault/createRepositoryContract";
-import { createRepositoryInputSchema } from "./catalog";
-
-type ReadFileInput = {
-  path: string;
-};
-
-type ListFilesInput = {
-  directory?: string;
-};
-
-type EditFileInput = {
-  path: string;
-  content: string;
-};
-
-type ReplaceInFileReplacement = {
-  oldText: string;
-  newText: string;
-};
-
-type ReplaceInFileInput = {
-  path: string;
-  replacements: ReplaceInFileReplacement[];
-};
-
-type CreateFileInput = {
-  path: string;
-  content: string;
-};
-
-type DeleteFileInput = {
-  path: string;
-};
+import {
+  createFileInputArgs,
+  deleteFileInputArgs,
+  editFileInputArgs,
+  emptyToolInputArgs,
+  listFilesInputArgs,
+  readFileInputArgs,
+  replaceInFileInputArgs,
+  requestCloudflareAccountsReadInputArgs,
+  requestCloudflareLogsReadInputArgs,
+  requestCloudflareWorkersInventoryReadInputArgs,
+  requestConvexDataReadInputArgs,
+  requestConvexLogsReadInputArgs,
+  requestConvexProjectsReadInputArgs,
+} from "./catalog";
+import { parseConvexArgs } from "./convexSchemas";
 
 type CreateRepositoryInput = CreateRepositoryArgs;
+type ReadFileInput = ObjectType<typeof readFileInputArgs>;
+type ListFilesInput = ObjectType<typeof listFilesInputArgs>;
+type EditFileInput = ObjectType<typeof editFileInputArgs>;
+type ReplaceInFileInput = ObjectType<typeof replaceInFileInputArgs>;
+type ReplaceInFileReplacement = ReplaceInFileInput["replacements"][number];
+type CreateFileInput = ObjectType<typeof createFileInputArgs>;
+type DeleteFileInput = ObjectType<typeof deleteFileInputArgs>;
+type RequestConvexLogsReadInput = ObjectType<typeof requestConvexLogsReadInputArgs>;
+type RequestConvexProjectsReadInput = ObjectType<typeof requestConvexProjectsReadInputArgs>;
+type RequestCloudflareLogsReadInput = ObjectType<typeof requestCloudflareLogsReadInputArgs>;
+type RequestCloudflareAccountsReadInput = ObjectType<typeof requestCloudflareAccountsReadInputArgs>;
+type RequestCloudflareWorkersInventoryReadInput = ObjectType<
+  typeof requestCloudflareWorkersInventoryReadInputArgs
+>;
+type RequestConvexDataReadInput = ObjectType<typeof requestConvexDataReadInputArgs>;
 
 type ProdReadScope = "vault" | "global";
 type ProdReadProvider = "convex" | "cloudflare";
@@ -58,15 +56,6 @@ type ProdReadResourceKind =
   | "project_inventory"
   | "account_inventory"
   | "workers_inventory";
-
-type AllowedDataTable =
-  | "vaults"
-  | "vaultConvexDeployments"
-  | "vaultDomains"
-  | "codespaces"
-  | "fileStaging"
-  | "aiProdAccessRequests"
-  | "aiProdAccessAudit";
 
 type ProdReadProposalPayload = {
   type: "prod_read_proposal";
@@ -97,39 +86,6 @@ const PROD_READ_RESOURCE_LABELS: Record<ProdReadResourceKind, string> = {
 const PROD_READ_SCOPE_LABELS: Record<ProdReadScope, string> = {
   vault: "this vault",
   global: "global scope",
-};
-
-type RequestConvexLogsReadInput = {
-  maxLines?: number;
-  allowRawFallback?: boolean;
-};
-
-type RequestConvexProjectsReadInput = {
-  limit?: number;
-  allowRawFallback?: boolean;
-};
-
-type RequestCloudflareLogsReadInput = {
-  maxEntries?: number;
-  allowRawFallback?: boolean;
-};
-
-type RequestCloudflareAccountsReadInput = {
-  limit?: number;
-  allowRawFallback?: boolean;
-};
-
-type RequestCloudflareWorkersInventoryReadInput = {
-  accountId?: string;
-  limit?: number;
-  allowRawFallback?: boolean;
-};
-
-type RequestConvexDataReadInput = {
-  table: AllowedDataTable;
-  scope?: ProdReadScope;
-  limit?: number;
-  allowRawFallback?: boolean;
 };
 
 type StagedFile = {
@@ -993,321 +949,16 @@ async function executeRequestConvexDataRead(
   });
 }
 
-function toRecord(value: unknown): Record<string, unknown> | null {
-  if (!isRecord(value)) {
-    return null;
+function parseToolInput<Args extends PropertyValidators>(
+  toolName: string,
+  inputArgs: Args,
+  input: unknown,
+): ObjectType<Args> {
+  const parsed = parseConvexArgs(inputArgs, input);
+  if (!parsed.ok) {
+    throw new Error(`Invalid ${toolName} input.`);
   }
-  return value;
-}
-
-function parseReadFileInput(value: unknown): ReadFileInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const path = record.path;
-  if (typeof path !== "string") {
-    return null;
-  }
-  return { path };
-}
-
-function parseListFilesInput(value: unknown): ListFilesInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const directory = record.directory;
-  if (directory !== undefined && typeof directory !== "string") {
-    return null;
-  }
-  return {
-    ...(typeof directory === "string" ? { directory } : {}),
-  };
-}
-
-function parseEditFileInput(value: unknown): EditFileInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const path = record.path;
-  const content = record.content;
-  if (typeof path !== "string" || typeof content !== "string") {
-    return null;
-  }
-  return {
-    path,
-    content,
-  };
-}
-
-function parseReplaceInFileReplacement(value: unknown): ReplaceInFileReplacement | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const oldText = record.oldText;
-  const newText = record.newText;
-  if (typeof oldText !== "string" || typeof newText !== "string") {
-    return null;
-  }
-  return {
-    oldText,
-    newText,
-  };
-}
-
-function parseReplaceInFileInput(value: unknown): ReplaceInFileInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const path = record.path;
-  const replacements = record.replacements;
-  if (typeof path !== "string" || !Array.isArray(replacements)) {
-    return null;
-  }
-  if (replacements.length === 0) {
-    return null;
-  }
-  const parsed: ReplaceInFileReplacement[] = [];
-  for (const replacement of replacements) {
-    const parsedReplacement = parseReplaceInFileReplacement(replacement);
-    if (!parsedReplacement) {
-      return null;
-    }
-    parsed.push(parsedReplacement);
-  }
-  return {
-    path,
-    replacements: parsed,
-  };
-}
-
-function parseCreateFileInput(value: unknown): CreateFileInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const path = record.path;
-  const content = record.content;
-  if (typeof path !== "string" || typeof content !== "string") {
-    return null;
-  }
-  return {
-    path,
-    content,
-  };
-}
-
-function parseDeleteFileInput(value: unknown): DeleteFileInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const path = record.path;
-  if (typeof path !== "string") {
-    return null;
-  }
-  return {
-    path,
-  };
-}
-
-function parseOptionalBoolean(value: unknown): boolean | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  return typeof value === "boolean" ? value : undefined;
-}
-
-function parseOptionalPositiveInteger(value: unknown): number | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    return undefined;
-  }
-  return value > 0 ? value : undefined;
-}
-
-function parseOptionalString(value: unknown): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  return typeof value === "string" ? value : undefined;
-}
-
-function parseRequestConvexLogsReadInput(value: unknown): RequestConvexLogsReadInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const maxLines = parseOptionalPositiveInteger(record.maxLines);
-  if (record.maxLines !== undefined && maxLines === undefined) {
-    return null;
-  }
-  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
-  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
-    return null;
-  }
-
-  return {
-    ...(maxLines !== undefined ? { maxLines } : {}),
-    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
-  };
-}
-
-function parseRequestConvexProjectsReadInput(
-  value: unknown,
-): RequestConvexProjectsReadInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const limit = parseOptionalPositiveInteger(record.limit);
-  if (record.limit !== undefined && limit === undefined) {
-    return null;
-  }
-  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
-  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
-    return null;
-  }
-
-  return {
-    ...(limit !== undefined ? { limit } : {}),
-    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
-  };
-}
-
-function parseRequestCloudflareLogsReadInput(
-  value: unknown,
-): RequestCloudflareLogsReadInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const maxEntries = parseOptionalPositiveInteger(record.maxEntries);
-  if (record.maxEntries !== undefined && maxEntries === undefined) {
-    return null;
-  }
-  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
-  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
-    return null;
-  }
-
-  return {
-    ...(maxEntries !== undefined ? { maxEntries } : {}),
-    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
-  };
-}
-
-function parseRequestCloudflareAccountsReadInput(
-  value: unknown,
-): RequestCloudflareAccountsReadInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const limit = parseOptionalPositiveInteger(record.limit);
-  if (record.limit !== undefined && limit === undefined) {
-    return null;
-  }
-  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
-  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
-    return null;
-  }
-
-  return {
-    ...(limit !== undefined ? { limit } : {}),
-    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
-  };
-}
-
-function parseRequestCloudflareWorkersInventoryReadInput(
-  value: unknown,
-): RequestCloudflareWorkersInventoryReadInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const accountId = parseOptionalString(record.accountId);
-  if (record.accountId !== undefined && accountId === undefined) {
-    return null;
-  }
-  const limit = parseOptionalPositiveInteger(record.limit);
-  if (record.limit !== undefined && limit === undefined) {
-    return null;
-  }
-  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
-  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
-    return null;
-  }
-
-  return {
-    ...(accountId !== undefined ? { accountId } : {}),
-    ...(limit !== undefined ? { limit } : {}),
-    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
-  };
-}
-
-function parseConvexDataTable(value: unknown): AllowedDataTable | undefined {
-  if (
-    value === "vaults" ||
-    value === "vaultConvexDeployments" ||
-    value === "vaultDomains" ||
-    value === "codespaces" ||
-    value === "fileStaging" ||
-    value === "aiProdAccessRequests" ||
-    value === "aiProdAccessAudit"
-  ) {
-    return value;
-  }
-  return undefined;
-}
-
-function parseProdReadScope(value: unknown): ProdReadScope | undefined {
-  if (value === "vault" || value === "global") {
-    return value;
-  }
-  return undefined;
-}
-
-function parseRequestConvexDataReadInput(value: unknown): RequestConvexDataReadInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const table = parseConvexDataTable(record.table);
-  if (!table) {
-    return null;
-  }
-  const scope = parseProdReadScope(record.scope);
-  if (record.scope !== undefined && scope === undefined) {
-    return null;
-  }
-  const limit = parseOptionalPositiveInteger(record.limit);
-  if (record.limit !== undefined && limit === undefined) {
-    return null;
-  }
-  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
-  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
-    return null;
-  }
-
-  return {
-    table,
-    ...(scope !== undefined ? { scope } : {}),
-    ...(limit !== undefined ? { limit } : {}),
-    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
-  };
+  return parsed.value;
 }
 
 export async function executeRuntimeTool(args: {
@@ -1317,100 +968,92 @@ export async function executeRuntimeTool(args: {
 }): Promise<ToolExecutionOutput> {
   switch (args.toolName) {
     case createRepositoryContract.mcp.name: {
-      const input = createRepositoryInputSchema.safeParse(args.input);
-      if (!input.success) {
-        throw new Error(`Invalid ${createRepositoryContract.mcp.name} input.`);
-      }
-      return executeCreateRepository(args.context, input.data);
+      const input = parseToolInput(
+        createRepositoryContract.mcp.name,
+        createRepositoryContract.args,
+        args.input,
+      );
+      return executeCreateRepository(args.context, input);
     }
     case "get_vault_remote_branches":
+      parseToolInput("get_vault_remote_branches", emptyToolInputArgs, args.input);
       return executeGetVaultRemoteBranches(args.context);
     case "read_file": {
-      const input = parseReadFileInput(args.input);
-      if (!input) {
-        throw new Error("Invalid read_file input.");
-      }
+      const input = parseToolInput("read_file", readFileInputArgs, args.input);
       return executeReadFile(args.context, input);
     }
     case "list_files": {
-      const input = parseListFilesInput(args.input);
-      if (!input) {
-        throw new Error("Invalid list_files input.");
-      }
+      const input = parseToolInput("list_files", listFilesInputArgs, args.input);
       return executeListFiles(args.context, input);
     }
     case "edit_file": {
-      const input = parseEditFileInput(args.input);
-      if (!input) {
-        throw new Error("Invalid edit_file input.");
-      }
+      const input = parseToolInput("edit_file", editFileInputArgs, args.input);
       return executeEditFile(args.context, input);
     }
     case "replace_in_file": {
-      const input = parseReplaceInFileInput(args.input);
-      if (!input) {
-        throw new Error("Invalid replace_in_file input.");
-      }
+      const input = parseToolInput("replace_in_file", replaceInFileInputArgs, args.input);
       return executeReplaceInFile(args.context, input);
     }
     case "create_file": {
-      const input = parseCreateFileInput(args.input);
-      if (!input) {
-        throw new Error("Invalid create_file input.");
-      }
+      const input = parseToolInput("create_file", createFileInputArgs, args.input);
       return executeCreateFile(args.context, input);
     }
     case "delete_file": {
-      const input = parseDeleteFileInput(args.input);
-      if (!input) {
-        throw new Error("Invalid delete_file input.");
-      }
+      const input = parseToolInput("delete_file", deleteFileInputArgs, args.input);
       return executeDeleteFile(args.context, input);
     }
     case "request_convex_status_read":
+      parseToolInput("request_convex_status_read", emptyToolInputArgs, args.input);
       return executeRequestConvexStatusRead(args.context);
     case "request_convex_logs_read": {
-      const input = parseRequestConvexLogsReadInput(args.input);
-      if (!input) {
-        throw new Error("Invalid request_convex_logs_read input.");
-      }
+      const input = parseToolInput(
+        "request_convex_logs_read",
+        requestConvexLogsReadInputArgs,
+        args.input,
+      );
       return executeRequestConvexLogsRead(args.context, input);
     }
     case "request_convex_projects_read": {
-      const input = parseRequestConvexProjectsReadInput(args.input);
-      if (!input) {
-        throw new Error("Invalid request_convex_projects_read input.");
-      }
+      const input = parseToolInput(
+        "request_convex_projects_read",
+        requestConvexProjectsReadInputArgs,
+        args.input,
+      );
       return executeRequestConvexProjectsRead(args.context, input);
     }
     case "request_cloudflare_status_read":
+      parseToolInput("request_cloudflare_status_read", emptyToolInputArgs, args.input);
       return executeRequestCloudflareStatusRead(args.context);
     case "request_cloudflare_logs_read": {
-      const input = parseRequestCloudflareLogsReadInput(args.input);
-      if (!input) {
-        throw new Error("Invalid request_cloudflare_logs_read input.");
-      }
+      const input = parseToolInput(
+        "request_cloudflare_logs_read",
+        requestCloudflareLogsReadInputArgs,
+        args.input,
+      );
       return executeRequestCloudflareLogsRead(args.context, input);
     }
     case "request_cloudflare_accounts_read": {
-      const input = parseRequestCloudflareAccountsReadInput(args.input);
-      if (!input) {
-        throw new Error("Invalid request_cloudflare_accounts_read input.");
-      }
+      const input = parseToolInput(
+        "request_cloudflare_accounts_read",
+        requestCloudflareAccountsReadInputArgs,
+        args.input,
+      );
       return executeRequestCloudflareAccountsRead(args.context, input);
     }
     case "request_cloudflare_workers_inventory_read": {
-      const input = parseRequestCloudflareWorkersInventoryReadInput(args.input);
-      if (!input) {
-        throw new Error("Invalid request_cloudflare_workers_inventory_read input.");
-      }
+      const input = parseToolInput(
+        "request_cloudflare_workers_inventory_read",
+        requestCloudflareWorkersInventoryReadInputArgs,
+        args.input,
+      );
       return executeRequestCloudflareWorkersInventoryRead(args.context, input);
     }
     case "request_convex_data_read": {
-      const input = parseRequestConvexDataReadInput(args.input);
-      if (!input) {
-        throw new Error("Invalid request_convex_data_read input.");
-      }
+      const input = parseToolInput(
+        "request_convex_data_read",
+        requestConvexDataReadInputArgs,
+        args.input,
+      );
       return executeRequestConvexDataRead(args.context, input);
     }
     default:

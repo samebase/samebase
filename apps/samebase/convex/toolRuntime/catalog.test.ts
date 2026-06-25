@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildMcpToolInputSchema, findToolInCatalog, listCatalogToolsForSurface } from "./catalog";
+import {
+  buildMcpToolInputSchema,
+  findToolInCatalog,
+  listCatalogToolsForSurface,
+  MCP_TOOL_CATALOG,
+} from "./catalog";
 
 describe("listCatalogToolsForSurface", () => {
+  it("keeps the public MCP catalog focused on createRepository", () => {
+    expect(MCP_TOOL_CATALOG.map((tool) => tool.name)).toEqual(["vault.actions.createRepository"]);
+  });
+
   it("filters MCP tools by granted scopes", () => {
     const noScopeTools = listCatalogToolsForSurface({
       surface: "mcp",
