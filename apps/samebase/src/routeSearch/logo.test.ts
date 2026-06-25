@@ -572,8 +572,10 @@ describe("logoRouteSearch", () => {
       stripeW: "0.25",
     });
 
-    expect(defaultStripedSearch).toEqual({});
-    expect(defaultStripedSearch.leftFace).toBeUndefined();
+    expect(defaultStripedSearch).toEqual({
+      leftFace: "striped",
+    });
+    expect(defaultStripedSearch.leftFace).toBe("striped");
 
     expect(
       buildLogoRouteSearch({
@@ -608,10 +610,11 @@ describe("logoRouteSearch", () => {
     ).toEqual({
       depth: undefined,
       dist: undefined,
-      leftFace: undefined,
+      leftFace: "striped",
       stripeA: undefined,
       stripeBasis: undefined,
       stripeG: undefined,
+      stripeLink: undefined,
       stripeO: undefined,
       stripeW: undefined,
     });
@@ -658,10 +661,11 @@ describe("logoRouteSearch", () => {
     });
   });
 
-  it("preserves secondary as the explicit duotone route state", () => {
-    expect(validateLogoRouteSearch({ leftFace: "secondary" })).toEqual({
-      leftFace: "secondary",
-    });
+  it("drops secondary as the default duotone route state", () => {
+    const defaultSecondarySearch = validateLogoRouteSearch({ leftFace: "secondary" });
+
+    expect(defaultSecondarySearch).toEqual({});
+    expect(defaultSecondarySearch.leftFace).toBeUndefined();
 
     expect(
       buildLogoRouteSearch({
@@ -688,7 +692,7 @@ describe("logoRouteSearch", () => {
     ).toEqual({
       depth: undefined,
       dist: undefined,
-      leftFace: "secondary",
+      leftFace: undefined,
       stripeA: undefined,
       stripeBasis: undefined,
       stripeG: undefined,

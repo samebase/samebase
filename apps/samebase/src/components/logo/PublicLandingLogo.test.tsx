@@ -460,7 +460,7 @@ describe("PublicLandingLogo", () => {
 
     expect(source).toContain("#abcdef");
     expect(source).toContain("#445566");
-    expect(source).not.toContain("#778899");
+    expect(source).toContain("#778899");
   });
 
   it("refreshes default static fallback colors after reset clears stale document overrides", async () => {

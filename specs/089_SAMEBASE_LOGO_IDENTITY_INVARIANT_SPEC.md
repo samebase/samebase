@@ -22,7 +22,7 @@ The Samebase logo identity is one `3x3x3` voxel shape viewed through three stabl
 1. Version 1, side-primary: at rotation `0deg` and elevation `0deg`, the mark reads as a `3x3`
    primary-color square with the center cut out to the background.
 2. Version 2, side-diagonal: at rotation `45deg` and elevation `0deg`, the mark exposes the primary
-   side and striped left-face treatment without showing the top face.
+   side and secondary-color left face without showing the top face.
 3. Version 3, spatial: from the same `45deg` rotation tilted down to the static logo elevation, the
    mark exposes the white top faces and reads as the full 3D object.
 
@@ -40,7 +40,7 @@ face changes from secondary color to a primary/background stripe pattern.
 ## Source Of Truth
 
 - The canonical shape is `STATIC_LOGO_VOXEL_COORDINATES`.
-- The canonical default treatment is `DEFAULT_LOGO_FACE_TREATMENT`, currently `striped`.
+- The canonical default treatment is `DEFAULT_LOGO_FACE_TREATMENT`, currently `duotone`.
 - The canonical duotone colors are `DEFAULT_FACE_COLORS`: primary on the right face, secondary on
   the left face, and background on the top face.
 - The canonical single-color stripe treatment is `LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE`.

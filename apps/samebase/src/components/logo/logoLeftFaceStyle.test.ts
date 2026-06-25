@@ -7,7 +7,7 @@ import {
 } from "@/components/logo/logoLeftFaceStyle";
 
 describe("logoLeftFaceStyle", () => {
-  it("defines the canonical single-color stripe treatment as the striped default", () => {
+  it("defines the canonical single-color stripe treatment", () => {
     expect(LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE).toEqual({
       kind: "striped",
       stripeAngleDegrees: -45,

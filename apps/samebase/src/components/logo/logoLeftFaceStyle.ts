@@ -41,7 +41,7 @@ export const LOGO_SECONDARY_LEFT_FACE_STYLE: LogoSecondaryLeftFaceStyle = {
   kind: "secondary",
 };
 
-export const DEFAULT_LOGO_LEFT_FACE_STYLE = LOGO_SINGLE_COLOR_STRIPED_LEFT_FACE_STYLE;
+export const DEFAULT_LOGO_LEFT_FACE_STYLE = LOGO_SECONDARY_LEFT_FACE_STYLE;
 
 export const LOGO_LEFT_FACE_STRIPE = {
   angleDegrees: {
