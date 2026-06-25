@@ -1,10 +1,9 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { object, optional, string, unknown as unknownValue } from "@samebase/sure";
-import { asObjectValidator } from "convex/values";
-import { validate } from "convex-helpers/validators";
-import { asRecord } from "../jsonUtils";
+import { asRecord, type JsonRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
-import { httpAction } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
 import { createRepositoryContract } from "../vault/createRepositoryContract";
@@ -42,29 +41,52 @@ const mcpToolCallParams = object({
   name: string,
   arguments: optional(unknownValue),
 });
-const createRepositoryMcpInputValidator = asObjectValidator(createRepositoryContract.args);
-const mcpToolListEntries = [
+
+type McpToolInvocation = {
+  input: JsonRecord;
+  userId: Id<"users">;
+  grantedScopes: string[];
+};
+
+async function callCreateRepositoryMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  const { input, userId, grantedScopes } = invocation;
+  // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
+  return await ctx.runAction(internal.toolRuntime.runtime.createRepositoryTool, {
+    ...input,
+    userId,
+    grantedScopes,
+  });
+}
+
+async function callGetUserVaultsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  const { input, userId, grantedScopes } = invocation;
+  return await ctx.runAction(internal.toolRuntime.runtime.getUserVaultsTool, {
+    ...input,
+    userId,
+    grantedScopes,
+  });
+}
+
+const mcpToolCatalog = [
   {
     access: createRepositoryContract.access,
-    tool: {
-      name: createRepositoryContract.mcp.name,
-      description: createRepositoryContract.mcp.description,
-      inputSchema: convexArgsToToolInputSchema(
-        createRepositoryContract.args,
-        createRepositoryContract.mcp.inputDescriptions,
-      ),
-    },
+    name: createRepositoryContract.mcp.name,
+    description: createRepositoryContract.mcp.description,
+    inputSchema: convexArgsToToolInputSchema(
+      createRepositoryContract.args,
+      createRepositoryContract.mcp.inputDescriptions,
+    ),
+    call: callCreateRepositoryMcpTool,
   },
   {
     access: getUserVaultsContract.access,
-    tool: {
-      name: getUserVaultsContract.mcp.name,
-      description: getUserVaultsContract.mcp.description,
-      inputSchema: convexArgsToToolInputSchema(
-        getUserVaultsContract.args,
-        getUserVaultsContract.mcp.inputDescriptions,
-      ),
-    },
+    name: getUserVaultsContract.mcp.name,
+    description: getUserVaultsContract.mcp.description,
+    inputSchema: convexArgsToToolInputSchema(
+      getUserVaultsContract.args,
+      getUserVaultsContract.mcp.inputDescriptions,
+    ),
+    call: callGetUserVaultsMcpTool,
   },
 ] as const;
 type McpConsentRedirectSearchParams = {
@@ -669,9 +691,13 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
       result: {
-        tools: mcpToolListEntries
-          .filter((entry) => grantedScopes.includes(entry.access))
-          .map((entry) => entry.tool),
+        tools: mcpToolCatalog
+          .filter((tool) => grantedScopes.includes(tool.access))
+          .map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            inputSchema: tool.inputSchema,
+          })),
       },
     });
   }
@@ -715,51 +741,43 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     }
 
     const input = asRecord(params.arguments);
-    let result;
-    try {
-      switch (toolName) {
-        case createRepositoryContract.mcp.name:
-          if (!validate(createRepositoryMcpInputValidator, input)) {
-            return jsonRpcSuccessResponse({
-              id: rpcRequest.id,
-              result: {
-                content: [
-                  {
-                    type: "text",
-                    text: `Invalid arguments for ${createRepositoryContract.mcp.name}.`,
-                  },
-                ],
-                isError: true,
-              },
-            });
-          }
-          result = await ctx.runAction(internal.toolRuntime.runtime.createRepositoryTool, {
-            ...input,
-            userId: tokenValidation.userId,
-            grantedScopes,
-          });
-          break;
-        case getUserVaultsContract.mcp.name:
-          result = await ctx.runAction(internal.toolRuntime.runtime.getUserVaultsTool, {
-            ...input,
-            userId: tokenValidation.userId,
-            grantedScopes,
-          });
-          break;
-        default:
-          return jsonRpcSuccessResponse({
-            id: rpcRequest.id,
-            result: {
-              content: [
-                {
-                  type: "text",
-                  text: `Unknown tool: ${toolName}`,
-                },
-              ],
-              isError: true,
+    const tool = mcpToolCatalog.find((entry) => entry.name === toolName);
+    if (!tool) {
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: `Unknown tool: ${toolName}`,
             },
-          });
-      }
+          ],
+          isError: true,
+        },
+      });
+    }
+
+    try {
+      const result = await tool.call(ctx, {
+        input,
+        userId: tokenValidation.userId,
+        grantedScopes,
+      });
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: result.text,
+            },
+          ],
+          ...(result.structuredContent !== undefined
+            ? { structuredContent: result.structuredContent }
+            : {}),
+          ...(result.status !== "ok" ? { isError: true } : {}),
+        },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
       return jsonRpcSuccessResponse({
@@ -775,22 +793,6 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         },
       });
     }
-
-    return jsonRpcSuccessResponse({
-      id: rpcRequest.id,
-      result: {
-        content: [
-          {
-            type: "text",
-            text: result.text,
-          },
-        ],
-        ...(result.structuredContent !== undefined
-          ? { structuredContent: result.structuredContent }
-          : {}),
-        ...(result.status !== "ok" ? { isError: true } : {}),
-      },
-    });
   }
 
   if (isNotification) {
