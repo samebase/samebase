@@ -64,7 +64,24 @@ describe("MCP tool listing access", () => {
       listMcpToolsForAccess({
         grantedScopes: ["access_app_create", "access_dashboard"],
         currentAccessKeys: ["access_dashboard", "access_app_create"],
-      }).map((tool) => tool.name),
-    ).toEqual(["vault.actions.createRepository", "vault.dashboard.getUserVaults"]);
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        name: "vault.actions.createRepository",
+        annotations: {
+          readOnlyHint: false,
+          openWorldHint: true,
+          destructiveHint: false,
+        },
+      }),
+      expect.objectContaining({
+        name: "vault.dashboard.getUserVaults",
+        annotations: {
+          readOnlyHint: true,
+          openWorldHint: false,
+          destructiveHint: false,
+        },
+      }),
+    ]);
   });
 });
