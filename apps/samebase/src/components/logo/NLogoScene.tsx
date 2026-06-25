@@ -859,6 +859,30 @@ function getRecursiveTileDepth(recursiveRenderDepth: number): number {
   return Math.min(THREE_RECURSIVE_TILE_DEPTH, recursiveRenderDepth - 1);
 }
 
+function getRecursiveCameraFitRadius({
+  baseFilledVoxels,
+  baseGridSize,
+  distanceScale,
+  fullGridSize,
+}: {
+  baseFilledVoxels: ReadonlySet<string>;
+  baseGridSize: LogoGridSize;
+  distanceScale: number;
+  fullGridSize: number;
+}) {
+  const baseSurfaceQuads = buildDistanceScaledLogoSurfaceQuads(
+    baseFilledVoxels,
+    baseGridSize,
+    distanceScale,
+  );
+  const baseFitRadius =
+    baseSurfaceQuads.length > 0
+      ? getLogoSurfaceFitRadius(baseSurfaceQuads, baseGridSize)
+      : getDistanceScaledGridFitRadius(baseGridSize, distanceScale);
+
+  return baseFitRadius * (fullGridSize / baseGridSize);
+}
+
 function getTileWorldCenter({
   coordinate,
   distanceScale,
@@ -1011,7 +1035,12 @@ function createRecursiveLogoMeshes({
   const meshes = [mesh];
 
   return {
-    cameraFitRadius: getDistanceScaledGridFitRadius(fullGridSize, normalizedDistanceScale),
+    cameraFitRadius: getRecursiveCameraFitRadius({
+      baseFilledVoxels,
+      baseGridSize,
+      distanceScale: normalizedDistanceScale,
+      fullGridSize,
+    }),
     meshes,
     recursiveTileState: {
       currentFilledTiles: new Set(instanceState.filledTiles),
