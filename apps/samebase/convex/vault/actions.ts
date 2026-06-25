@@ -1,7 +1,7 @@
 "use node";
 
 import { v, type Infer } from "convex/values";
-import { internalAction, type ActionCtx } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
@@ -27,12 +27,7 @@ import {
   validateAppResourceName,
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
-import {
-  createRepositoryArgs,
-  createRepositoryContract,
-  type CreateRepositoryArgs,
-  vCreateRepositoryReturns,
-} from "./createRepositoryContract";
+import { createRepositoryContract, type CreateRepositoryArgs } from "./createRepositoryContract";
 
 const { array, boolean, literal, null: nullValue, object, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
@@ -49,7 +44,7 @@ const appResourceNameAvailability = object({
 
 type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
 type GitHubRepositoryOwnerOption = Infer<typeof githubRepositoryOwnerOption>;
-type CreateRepositoryResult = { vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> };
+export type CreateRepositoryResult = { vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> };
 
 function buildAvailableResult(): AppResourceNameAvailability {
   return {
@@ -714,10 +709,17 @@ export const connectRepository = action({
   },
 });
 
-async function createAppForUser(
+export async function createAppForUser(
   ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
   args: CreateRepositoryArgs & { userId: Id<"users"> },
 ): Promise<CreateRepositoryResult> {
+  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+    userId: args.userId,
+  });
+  if (viewer.user === null || !canAccess(createRepositoryContract.access, viewer.accessKeys)) {
+    throw new Error("Access denied");
+  }
+
   const repoName = toSafeRepoName(args.name);
   if (!repoName) {
     throw new Error("Repository name is required.");
@@ -814,28 +816,6 @@ export const createRepository = action({
       ...args,
       userId: ctx.viewer.userId,
     });
-  },
-});
-
-async function assertUserCanCreateRepository(
-  ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
-) {
-  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
-  if (viewer.user === null || !canAccess(createRepositoryContract.access, viewer.accessKeys)) {
-    throw new Error("Access denied");
-  }
-}
-
-export const createAppForUserInternal = internalAction({
-  args: {
-    userId: v.id("users"),
-    ...createRepositoryArgs,
-  },
-  returns: vCreateRepositoryReturns,
-  handler: async (ctx, args): Promise<CreateRepositoryResult> => {
-    await assertUserCanCreateRepository(ctx, args.userId);
-    return await createAppForUser(ctx, args);
   },
 });
 

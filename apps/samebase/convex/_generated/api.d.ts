@@ -84,7 +84,6 @@ import type * as stagingRebase from "../stagingRebase.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_catalog from "../toolRuntime/catalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
-import type * as toolRuntime_executors from "../toolRuntime/executors.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as toolRuntime_types from "../toolRuntime/types.js";
 import type * as userAccess from "../userAccess.js";
@@ -196,7 +195,6 @@ declare const fullApi: ApiFromModules<{
   starterSeed: typeof starterSeed;
   "toolRuntime/catalog": typeof toolRuntime_catalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
-  "toolRuntime/executors": typeof toolRuntime_executors;
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   "toolRuntime/types": typeof toolRuntime_types;
   userAccess: typeof userAccess;

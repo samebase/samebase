@@ -253,7 +253,6 @@ export const trackedFilePaths = [
   "apps/samebase/convex/toolRuntime/catalog.test.ts",
   "apps/samebase/convex/toolRuntime/catalog.ts",
   "apps/samebase/convex/toolRuntime/convexSchemas.ts",
-  "apps/samebase/convex/toolRuntime/executors.ts",
   "apps/samebase/convex/toolRuntime/runtime.ts",
   "apps/samebase/convex/toolRuntime/types.ts",
   "apps/samebase/convex/tsconfig.json",

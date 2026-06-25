@@ -3,8 +3,7 @@
 import { Infer, v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { createRepositoryContract } from "../vault/createRepositoryContract";
-import { executeCreateRepositoryTool } from "./executors";
-import type { ToolExecutionOutput } from "./types";
+import { createAppForUser, type CreateRepositoryResult } from "../vault/actions";
 
 const { array, id, literal, object, optional, string, union } = v;
 
@@ -29,9 +28,9 @@ function hasCreateRepositoryScope(grantedScopes: string[]): boolean {
 function toActionResult(args: {
   status: "ok" | "error" | "blocked";
   text: string;
-  output?: ToolExecutionOutput;
+  structuredContent?: CreateRepositoryResult;
 }): CreateRepositoryToolResult {
-  if (args.status !== "ok" || args.output?.structuredContent === undefined) {
+  if (args.status !== "ok" || args.structuredContent === undefined) {
     return {
       status: args.status,
       text: args.text,
@@ -40,7 +39,7 @@ function toActionResult(args: {
   return {
     status: args.status,
     text: args.text,
-    structuredContentJson: JSON.stringify(args.output.structuredContent),
+    structuredContentJson: JSON.stringify(args.structuredContent),
   };
 }
 
@@ -68,11 +67,11 @@ export const createRepositoryTool = internalAction({
     }
 
     try {
-      const output = await executeCreateRepositoryTool(ctx, buildCreateRepositoryInput(args));
+      const structuredContent = await createAppForUser(ctx, buildCreateRepositoryInput(args));
       return toActionResult({
         status: "ok",
-        text: output.text,
-        output,
+        text: JSON.stringify(structuredContent, null, 2),
+        structuredContent,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
