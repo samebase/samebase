@@ -14,6 +14,7 @@ const publicDir = path.join(appDir, "public");
 const ANDROID_HOME_SCREEN_ICON_BOX_RATIO = 464 / 512;
 
 type IconJob = { boxRatio?: number; canvasSize: number; filename: string };
+type CompactIconJob = IconJob & { colors: number };
 const logoFaceTreatmentValues = ["duotone", "striped"] as const;
 type LogoFaceTreatment = (typeof logoFaceTreatmentValues)[number];
 type LogoIdentitySvgAsset = {
@@ -60,6 +61,15 @@ const iconJobs: IconJob[] = [
   {
     canvasSize: 180,
     filename: "apple-touch-icon.png",
+  },
+];
+
+const compactIconJobs: CompactIconJob[] = [
+  {
+    canvasSize: 256,
+    filename: "chatgpt-app-icon.png",
+    boxRatio: 232 / 256,
+    colors: 32,
   },
 ];
 
@@ -269,6 +279,43 @@ function generateIconPng({
   );
 }
 
+function generateCompactIconPng({
+  boxRatio = 1,
+  canvasSize,
+  colors,
+  inputAssetPath,
+  outputAssetPath,
+}: CompactIconJob & {
+  inputAssetPath: string;
+  outputAssetPath: string;
+}) {
+  const iconSize = Math.round(canvasSize * boxRatio);
+  const outputPath = toPublicPath(outputAssetPath);
+  mkdirSync(path.dirname(outputPath), { recursive: true });
+
+  execFileSync(
+    "magick",
+    [
+      toPublicPath(inputAssetPath),
+      "-resize",
+      `${iconSize}x${iconSize}`,
+      "-background",
+      "white",
+      "-gravity",
+      "center",
+      "-extent",
+      `${canvasSize}x${canvasSize}`,
+      "-strip",
+      "-depth",
+      "8",
+      "-colors",
+      String(colors),
+      `PNG8:${outputPath}`,
+    ],
+    { stdio: "inherit" },
+  );
+}
+
 function generatePngAsset(inputAssetPath: string, outputAssetPath: string): void {
   const outputPath = toPublicPath(outputAssetPath);
   mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -295,6 +342,13 @@ function syncInstallIconAssets(modules: LogoAssetModules) {
         outputAssetPath: `/brand/install/${createTreatmentFilename(job.filename, faceTreatment)}`,
       });
     }
+    for (const job of compactIconJobs) {
+      generateCompactIconPng({
+        ...job,
+        inputAssetPath: brandInstallSvgPath,
+        outputAssetPath: `/brand/install/${createTreatmentFilename(job.filename, faceTreatment)}`,
+      });
+    }
   }
 
   copyTextAsset(
@@ -303,6 +357,13 @@ function syncInstallIconAssets(modules: LogoAssetModules) {
   );
   for (const job of iconJobs) {
     generateIconPng({
+      ...job,
+      inputAssetPath: "/install-icon.svg",
+      outputAssetPath: `/${job.filename}`,
+    });
+  }
+  for (const job of compactIconJobs) {
+    generateCompactIconPng({
       ...job,
       inputAssetPath: "/install-icon.svg",
       outputAssetPath: `/${job.filename}`,
