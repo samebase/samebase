@@ -7,7 +7,7 @@ import {
 export const LOGO_FACE_TREATMENTS = ["duotone", "striped"] as const;
 export type LogoFaceTreatment = (typeof LOGO_FACE_TREATMENTS)[number];
 
-export const DEFAULT_LOGO_FACE_TREATMENT = "striped" satisfies LogoFaceTreatment;
+export const DEFAULT_LOGO_FACE_TREATMENT = "duotone" satisfies LogoFaceTreatment;
 
 export function getLogoLeftFaceStyleForTreatment(treatment: LogoFaceTreatment): LogoLeftFaceStyle {
   switch (treatment) {

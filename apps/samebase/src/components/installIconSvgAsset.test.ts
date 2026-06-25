@@ -24,7 +24,7 @@ describe("installIconSvgAsset", () => {
 
     expect(generatedSvg).toContain(`fill="${INSTALL_ICON_BACKGROUND_COLOR}"`);
     expect(generatedSvg).not.toContain('fill="transparent"');
-    expect(generatedSvg).not.toContain('fill="#ecfccb"');
+    expect(generatedSvg).toContain('fill="#00b8db"');
     expect(generatedSvg).toContain('stroke="#ffffff"');
   });
 });
