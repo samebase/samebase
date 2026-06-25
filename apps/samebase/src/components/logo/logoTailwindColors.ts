@@ -324,10 +324,10 @@ const themeTailwindColorScales = {
   secondary: {
     base: {
       cssVariable: "--secondary",
-      fallbackHex: "#ecfccb",
+      fallbackHex: "#00b8db",
       fallbackHexByTheme: {
-        dark: "#ecfccb",
-        light: "#ecfccb",
+        dark: "#00b8db",
+        light: "#00b8db",
       },
     },
   },
