@@ -85,6 +85,7 @@ export type RouteStaticData = {
   availableEnvironments?: RouteAvailability;
   access: RouteAccess;
   pathSuggestion?: "hidden";
+  prerender?: false;
 
   /**
   Query keys this route's own search schema accepts, beyond the root-owned keys

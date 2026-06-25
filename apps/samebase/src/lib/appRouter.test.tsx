@@ -347,6 +347,20 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("redirects /landing to the public landing root route", async () => {
+    const router = await renderRoute("/landing");
+
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    expect(router.state.location.pathname).toBe("/");
+    expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
+      "Root index route",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
   it("renders /home through the explicit dashboard route", async () => {
     await renderRoute("/home");
 

@@ -11,6 +11,7 @@ describe("readPublicPrerenderPages", () => {
     expect(paths).toContain("/terms");
     expect(paths).not.toContain("/add");
     expect(paths).not.toContain("/indexDB");
+    expect(paths).not.toContain("/landing");
     expect(paths).not.toContain("/localStorage");
     expect(paths).not.toContain("/visual-fixture");
     expect(paths).not.toContain("/vault/$");
