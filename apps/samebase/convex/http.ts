@@ -19,8 +19,29 @@ import {
   registerMcpOauthClient,
 } from "./mcp/http";
 import { handlePolarWebhook } from "./polarWebhooks";
+import { env, httpAction } from "./_generated/server";
 
 const http = httpRouter();
+
+const openAiAppsChallenge = httpAction(async () => {
+  const token = env.OPENAI_APPS_CHALLENGE_TOKEN?.trim();
+  if (!token) {
+    return new Response("Not found", {
+      status: 404,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  return new Response(token, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
+});
 
 auth.addHttpRoutes(http);
 
@@ -94,6 +115,12 @@ http.route({
   path: "/.well-known/oauth-protected-resource",
   method: "GET",
   handler: getMcpOauthProtectedResourceMetadata,
+});
+
+http.route({
+  path: "/.well-known/openai-apps-challenge",
+  method: "GET",
+  handler: openAiAppsChallenge,
 });
 
 http.route({
