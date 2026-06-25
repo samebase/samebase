@@ -179,7 +179,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
       expect(result.value.resource).toBe("https://samebase.com/mcp");
     }
   });
-  it("defaults missing scope to the MCP tool surface scopes", () => {
+  it("defaults missing scope to the full app MCP tool surface", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -195,7 +195,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     }
   });
 
-  it("defaults blank scope to the MCP tool surface scopes", () => {
+  it("defaults blank scope to the full app MCP tool surface", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");

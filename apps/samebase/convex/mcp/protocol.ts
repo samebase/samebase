@@ -22,6 +22,9 @@ export const MCP_V1_SUPPORTED_SCOPES = [
   createRepositoryContract.access,
   getUserVaultsContract.access,
 ] as const;
+// Some MCP clients omit `scope`. Samebase's v1 app integration is meant to
+// install with the full public tool surface, including app creation; consent,
+// token scopes, and role access still gate execution.
 const DEFAULT_MCP_SCOPE = MCP_V1_SUPPORTED_SCOPES.join(" ");
 
 type McpSupportedScope = (typeof MCP_V1_SUPPORTED_SCOPES)[number];
