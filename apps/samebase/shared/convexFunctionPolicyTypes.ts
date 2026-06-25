@@ -42,6 +42,11 @@ export type AppFunctionMcpMetadata = {
   name: string;
   description: string;
   safety: "read_only" | "write" | "destructive" | "proposal_only";
+  annotations: {
+    readOnlyHint: boolean;
+    openWorldHint: boolean;
+    destructiveHint: boolean;
+  };
   inputDescriptions: Record<string, string>;
 };
 

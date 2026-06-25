@@ -80,6 +80,7 @@ const mcpToolCatalog = [
     access: createRepositoryContract.access,
     name: createRepositoryContract.mcp.name,
     description: createRepositoryContract.mcp.description,
+    annotations: createRepositoryContract.mcp.annotations,
     inputSchema: convexArgsToToolInputSchema(
       createRepositoryContract.args,
       createRepositoryContract.mcp.inputDescriptions,
@@ -90,6 +91,7 @@ const mcpToolCatalog = [
     access: getUserVaultsContract.access,
     name: getUserVaultsContract.mcp.name,
     description: getUserVaultsContract.mcp.description,
+    annotations: getUserVaultsContract.mcp.annotations,
     inputSchema: convexArgsToToolInputSchema(
       getUserVaultsContract.args,
       getUserVaultsContract.mcp.inputDescriptions,
@@ -110,6 +112,7 @@ export function listMcpToolsForAccess(args: {
     .map((tool) => ({
       name: tool.name,
       description: tool.description,
+      annotations: tool.annotations,
       inputSchema: tool.inputSchema,
     }));
 }

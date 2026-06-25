@@ -24,6 +24,11 @@ export const createRepositoryContract = {
     description:
       "Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.",
     safety: "write",
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: true,
+      destructiveHint: false,
+    },
     inputDescriptions: {
       name: "Name for the new app and GitHub repository.",
       owner: "GitHub user or organization where Samebase should create the app repository.",
