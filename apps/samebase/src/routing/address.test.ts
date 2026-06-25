@@ -67,11 +67,11 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/logo",
-        draftRouteAddress: "/logo?leftFace=secondary",
+        draftRouteAddress: "/logo?leftFace=striped",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/logo?leftFace=secondary",
+      routeAddress: "/logo?leftFace=striped",
     });
   });
 
@@ -79,11 +79,11 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/logo",
-        draftRouteAddress: "/logo?leftFace=secondary#appearance",
+        draftRouteAddress: "/logo?leftFace=striped#appearance",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/logo?leftFace=secondary#appearance",
+      routeAddress: "/logo?leftFace=striped#appearance",
     });
   });
 

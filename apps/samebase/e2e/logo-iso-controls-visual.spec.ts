@@ -148,10 +148,7 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
-  await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveAttribute(
-    "href",
-    "/home",
-  );
+  await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),
   ).toHaveCount(0);
@@ -162,6 +159,10 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   await expect(publicLinks.getByRole("link", { name: "/privacy", exact: true })).toHaveAttribute(
     "href",
     "/privacy",
+  );
+  await expect(publicLinks.getByRole("link", { name: "/landing", exact: true })).toHaveAttribute(
+    "href",
+    "/",
   );
   await expect(publicLinks.getByRole("link", { name: "?light", exact: true })).toHaveAttribute(
     "href",

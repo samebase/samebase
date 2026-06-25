@@ -41,7 +41,7 @@ describe("AppSidebarMetaSection", () => {
   }
 
   function BackLink() {
-    return <Link to="/">home</Link>;
+    return <Link to="/">root</Link>;
   }
 
   async function settleRouteUpdate() {
@@ -231,12 +231,22 @@ describe("AppSidebarMetaSection", () => {
     const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/terms",
     );
-    const backLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "home",
+    const landingLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/landing",
     );
-    if (!termsLink || !backLink) {
-      throw new Error("Expected terms and home links.");
+    const backLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "root",
+    );
+    if (!termsLink || !landingLink || !backLink) {
+      throw new Error("Expected terms, landing, and root links.");
     }
+
+    expect(landingLink.getAttribute("href")).toBe("/");
+    expect(
+      [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+        (link) => link.textContent === "/home",
+      ),
+    ).toBeUndefined();
 
     await act(async () => {
       termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
@@ -251,6 +261,12 @@ describe("AppSidebarMetaSection", () => {
 
     await clickLink(backLink);
 
+    expect(readLocationHref()).toBe("/");
+
+    await clickLink(termsLink);
+    expect(readLocationHref()).toBe("/terms");
+
+    await clickLink(landingLink);
     expect(readLocationHref()).toBe("/");
   });
 

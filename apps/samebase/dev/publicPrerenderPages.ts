@@ -17,6 +17,10 @@ function isProductionAvailable(availableEnvironments: readonly string[] | undefi
   return availableEnvironments === undefined || availableEnvironments.includes("production");
 }
 
+function isPrerenderEnabled(prerender: false | undefined): boolean {
+  return prerender !== false;
+}
+
 function compareRoutePaths(left: string, right: string): number {
   if (left === right) {
     return 0;
@@ -38,6 +42,7 @@ export function readPublicPrerenderPages() {
     .filter(
       ([routePath, routeAccessMetadata]) =>
         routeAccessMetadata.access === "access_public" &&
+        isPrerenderEnabled(routeAccessMetadata.prerender) &&
         isConcreteRoutePath(routePath) &&
         isProductionAvailable(routeAccessMetadata.availableEnvironments),
     )

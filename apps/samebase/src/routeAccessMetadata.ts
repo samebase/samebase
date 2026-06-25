@@ -1,7 +1,10 @@
 import type { RouteStaticData } from "./routing/permissions";
 import type { FileRoutesByFullPath } from "./routeTree.gen";
 
-type RouteMetadata = Pick<RouteStaticData, "access" | "availableEnvironments" | "pathSuggestion">;
+type RouteMetadata = Pick<
+  RouteStaticData,
+  "access" | "availableEnvironments" | "pathSuggestion" | "prerender"
+>;
 
 /**
  * Config-time consumers need route access policy without importing route
@@ -14,6 +17,7 @@ const routeAccessMetadataByPath = {
   "/connect-repo": { access: "access_repo_connect" },
   "/home": { access: "access_dashboard" },
   "/indexDB": { access: "access_admin" },
+  "/landing": { access: "access_public", pathSuggestion: "hidden", prerender: false },
   "/landing-preview": { access: "access_admin" },
   "/localStorage": { access: "access_admin" },
   "/logo": { access: "access_public" },
