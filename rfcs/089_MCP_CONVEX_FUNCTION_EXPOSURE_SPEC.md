@@ -40,6 +40,11 @@ export const createRepository = action({
     description:
       "Create a new Samebase app by creating a GitHub repository and provisioning Convex and Cloudflare.",
     safety: "write",
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: true,
+      destructiveHint: false,
+    },
   },
   handler: async (ctx, args) => {
     return await createRepositoryForViewer(ctx, args);
@@ -146,6 +151,11 @@ mcp: {
   name: "vault.actions.createRepository",
   description: "...",
   safety: "write",
+  annotations: {
+    readOnlyHint: false,
+    openWorldHint: true,
+    destructiveHint: false,
+  },
   inputDescriptions?: {
     name: "Name for the new app and GitHub repository.",
   },
@@ -160,6 +170,16 @@ mcp: {
   requiredScopes: ["..."],
 }
 ```
+
+`annotations` are required for every exposed tool because ChatGPT app review expects explicit
+`readOnlyHint`, `openWorldHint`, and `destructiveHint` values. These hints describe tool behavior
+for MCP clients; they do not replace the product's access checks, validators, or audit behavior.
+
+The generated `chatgpt-app-submission.json` file is a submission artifact for the current ChatGPT
+Apps form. It may live in the repo so reviewed form inputs are reproducible, but runtime behavior
+stays source-of-truth in the function contracts, MCP HTTP descriptor mapping, and tests. Regenerate
+or manually review the submission artifact whenever the exposed tool set, tool descriptions,
+annotations, or review test cases change.
 
 ### Viewer resolution
 
@@ -223,6 +243,11 @@ type AppFunctionMcpMetadata = {
   name: string;
   description: string;
   safety: "read_only" | "write" | "destructive" | "proposal_only";
+  annotations: {
+    readOnlyHint: boolean;
+    openWorldHint: boolean;
+    destructiveHint: boolean;
+  };
   inputDescriptions?: Record<string, string>;
 };
 
@@ -247,6 +272,7 @@ The `mcp` metadata does not include access, args, or returns.
    - tool name from `mcp.name`,
    - required access from `definition.access`,
    - input schema from `definition.args`,
+   - tool annotations from `mcp.annotations`,
    - output metadata from `definition.returns` where needed.
 
 ### Phase 2: App creation migration
@@ -289,10 +315,11 @@ The implementation should add or update tests that prove:
 1. A function with no `mcp` metadata is absent from `tools/list`.
 2. A function with `mcp` metadata appears under its explicit name.
 3. The MCP required scope equals the function's `access` key.
-4. MCP execution fails if the grant has the access key but the user no longer has it.
-5. MCP execution fails if the user has the access key but the grant does not.
-6. The normal web action still uses Convex Auth and does not accept MCP tokens.
-7. App creation has one product implementation shared by the web action and MCP bridge.
+4. MCP `tools/list` includes the explicit tool annotations.
+5. MCP execution fails if the grant has the access key but the user no longer has it.
+6. MCP execution fails if the user has the access key but the grant does not.
+7. The normal web action still uses Convex Auth and does not accept MCP tokens.
+8. App creation has one product implementation shared by the web action and MCP bridge.
 
 ## Current Recommendation
 
