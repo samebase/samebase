@@ -139,6 +139,16 @@ type LandingFontStableCapture = {
   webfontRequestCount: number;
 };
 
+type LandingLogoPaintBounds = {
+  height: number;
+  width: number;
+};
+
+type LandingLogoPaintMetrics = {
+  bounds: LandingLogoPaintBounds | null;
+  paintedPixelCount: number;
+};
+
 type RgbaPixel = {
   alpha: number;
   blue: number;
@@ -282,6 +292,44 @@ function getPixelColorDistance(first: RgbaPixel, second: RgbaPixel): number {
     Math.abs(first.green - second.green) +
     Math.abs(first.blue - second.blue)
   );
+}
+
+function isLandingLogoPaintPixel(pixel: RgbaPixel): boolean {
+  return pixel.alpha > 0 && (pixel.red <= 245 || pixel.green <= 245 || pixel.blue <= 245);
+}
+
+function readLandingLogoPaintMetrics(screenshot: Buffer): LandingLogoPaintMetrics {
+  const png = PNG.sync.read(screenshot);
+  let minX = png.width;
+  let minY = png.height;
+  let maxX = -1;
+  let maxY = -1;
+  let paintedPixelCount = 0;
+
+  for (let y = 0; y < png.height; y += 1) {
+    for (let x = 0; x < png.width; x += 1) {
+      if (!isLandingLogoPaintPixel(readPngPixel(png, x, y))) {
+        continue;
+      }
+
+      paintedPixelCount += 1;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  return {
+    bounds:
+      maxX >= 0
+        ? {
+            height: maxY - minY + 1,
+            width: maxX - minX + 1,
+          }
+        : null,
+    paintedPixelCount,
+  };
 }
 
 async function readLandingRightSidebarSeparatorPaint(page: Page): Promise<{
@@ -647,6 +695,15 @@ async function expectLandingLogoStaticFallbackVisible(page: Page) {
 async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toBeVisible();
   await expect(scene).toHaveAttribute("data-state", "ready");
+}
+
+async function readLandingLogoScenePaintMetrics(page: Page, pathWithSearch: string) {
+  await page.goto(pathWithSearch, { waitUntil: "domcontentloaded" });
+  await expectLandingLogoSceneReady(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID));
+
+  return readLandingLogoPaintMetrics(
+    await takeStableScreenshot(page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID)),
+  );
 }
 
 async function expectAppBuildVersion(versionLabel: Locator) {
@@ -1507,6 +1564,23 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({ page },
     maxDiffPixelRatio: 0.015,
     testInfo,
   });
+});
+
+test("public landing recursive logo depth keeps the orthographic square size", async ({ page }) => {
+  const baseMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=1");
+  const recursiveMetrics = await readLandingLogoScenePaintMetrics(page, "/?elev=0&rot=0&depth=2");
+
+  expect(baseMetrics.bounds).not.toBeNull();
+  expect(recursiveMetrics.bounds).not.toBeNull();
+  if (baseMetrics.bounds === null || recursiveMetrics.bounds === null) {
+    return;
+  }
+
+  expect(Math.abs(recursiveMetrics.bounds.width - baseMetrics.bounds.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(recursiveMetrics.bounds.height - baseMetrics.bounds.height)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(recursiveMetrics.paintedPixelCount).toBeLessThan(baseMetrics.paintedPixelCount);
 });
 
 test("prod-ui landing logo becomes draggable after the SVG fallback is removed", async ({
