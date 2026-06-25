@@ -12,6 +12,7 @@ import {
   MCP_CONSENT_APP_PATH,
   type McpAuthorizationSuccessSearchParams,
 } from "../../shared/mcpOAuth";
+import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import {
   createAccessTokenValue,
@@ -96,6 +97,28 @@ const mcpToolCatalog = [
     call: callGetUserVaultsMcpTool,
   },
 ] as const;
+
+export function listMcpToolsForAccess(args: {
+  grantedScopes: string[];
+  currentAccessKeys: readonly AccessKey[];
+}) {
+  return mcpToolCatalog
+    .filter(
+      (tool) =>
+        args.grantedScopes.includes(tool.access) && canAccess(tool.access, args.currentAccessKeys),
+    )
+    .map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+    }));
+}
+
+async function readMcpUserAccessKeys(ctx: ActionCtx, userId: Id<"users">): Promise<AccessKey[]> {
+  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
+  return viewer.accessKeys;
+}
+
 type McpConsentRedirectSearchParams = {
   mcp_consent_request: string;
   mcp_login_required: "1" | undefined;
@@ -695,16 +718,11 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       return new Response(null, { status: 202 });
     }
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
+    const currentAccessKeys = await readMcpUserAccessKeys(ctx, tokenValidation.userId);
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
       result: {
-        tools: mcpToolCatalog
-          .filter((tool) => grantedScopes.includes(tool.access))
-          .map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-          })),
+        tools: listMcpToolsForAccess({ grantedScopes, currentAccessKeys }),
       },
     });
   }
