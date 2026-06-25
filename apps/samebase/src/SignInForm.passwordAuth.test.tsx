@@ -55,7 +55,7 @@ vi.mock("convex/react", () => ({
   useQuery: () => componentState.deploymentAuthPolicy,
 }));
 
-function renderPasswordAuthForm(surface: "local_worktree" | "preview"): string {
+function renderPasswordAuthForm(surface: "local_worktree" | "seeded_sign_in"): string {
   return renderToStaticMarkup(<PasswordAuthForm surface={surface} />);
 }
 
@@ -87,10 +87,10 @@ describe("PasswordAuthForm", () => {
     vi.unstubAllEnvs();
   });
 
-  it("renders the preview sign-in-only surface without local shortcuts", () => {
-    const markup = renderPasswordAuthForm("preview");
+  it("renders the seeded sign-in-only surface without local shortcuts", () => {
+    const markup = renderPasswordAuthForm("seeded_sign_in");
 
-    expect(markup).toContain("Password auth (dev)");
+    expect(markup).toContain("Password sign in");
     expect(markup).toContain('placeholder="you@example.com"');
     expect(markup).toContain('autoComplete="current-password"');
     expect(markup).toContain(">Sign in</button>");
@@ -118,6 +118,7 @@ describe("PasswordAuthForm", () => {
 
     expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
     expect(markup).not.toContain("Password auth (dev)");
+    expect(markup).not.toContain("Password sign in");
   });
 
   it("renders the landing sidebar password auth after hydration", async () => {
@@ -136,7 +137,7 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(rootElement.innerHTML).toContain("Password auth (dev)");
+    expect(rootElement.innerHTML).toContain("Password sign in");
     expect(rootElement.innerHTML).toContain('placeholder="you@example.com"');
     expect(rootElement.innerHTML).toContain('autocomplete="current-password"');
     expect(rootElement.innerHTML).not.toContain("Google");
@@ -161,7 +162,7 @@ describe("PasswordAuthForm", () => {
 
     expect(recoverableErrors).toEqual([]);
     expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
-    expect(rootElement.innerHTML).toContain("Password auth (dev)");
+    expect(rootElement.innerHTML).toContain("Password sign in");
   });
 
   it("hides the landing sidebar password auth in prod-ui mode", () => {
@@ -175,6 +176,28 @@ describe("PasswordAuthForm", () => {
 
     expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
     expect(markup).not.toContain("Password auth (dev)");
+    expect(markup).not.toContain("Password sign in");
+  });
+
+  it("renders production review password auth even in prod-ui mode after hydration", async () => {
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "production" },
+      passwordAuthMode: "production_review_seed",
+    };
+    componentState.search = { "prod-ui": true };
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingPasswordAuthControls />);
+      await settleHydrationUpdate();
+    });
+
+    expect(rootElement.innerHTML).toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
+    expect(rootElement.innerHTML).toContain("Password sign in");
+    expect(rootElement.innerHTML).not.toContain("Need an account?");
   });
 
   it("hides the landing sidebar password auth after sign-in", () => {
@@ -188,6 +211,7 @@ describe("PasswordAuthForm", () => {
 
     expect(markup).not.toContain(PUBLIC_LANDING_PASSWORD_AUTH_SECTION_TEST_ID);
     expect(markup).not.toContain("Password auth (dev)");
+    expect(markup).not.toContain("Password sign in");
   });
 
   it("shows actionable copy when local worktree autofill credentials are missing", async () => {

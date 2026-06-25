@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
   assertPasswordAuthFlowAllowed,
+  assertProductionReviewPasswordEmailAllowed,
+  assertProductionReviewSeedPasswordAuthConfig,
   resolveDeploymentProfileFromEnv,
   resolvePasswordAuthMode,
+  resolvePasswordAuthModeFromEnv,
 } from "./deploymentProfile";
 
 describe("deploymentProfile", () => {
@@ -83,7 +86,87 @@ describe("deploymentProfile", () => {
     expect(resolvePasswordAuthMode({ kind: "preview" })).toBe("preview_seed");
     expect(resolvePasswordAuthMode({ kind: "local_development" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "convex_dev" })).toBe("off");
-    expect(resolvePasswordAuthMode({ kind: "production" })).toBe("off");
+    expect(resolvePasswordAuthModeFromEnv({ kind: "production" }, {})).toBe("off");
+  });
+
+  it("enables production review password auth only when both review envs are set", () => {
+    expect(
+      resolvePasswordAuthModeFromEnv(
+        { kind: "production" },
+        {
+          OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com",
+          OPENAI_REVIEW_AUTH_PASSWORD: "review-password",
+        },
+      ),
+    ).toBe("production_review_seed");
+
+    expect(resolvePasswordAuthModeFromEnv({ kind: "production" }, {})).toBe("off");
+    expect(
+      resolvePasswordAuthModeFromEnv(
+        { kind: "production" },
+        { OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com" },
+      ),
+    ).toBe("off");
+    expect(
+      resolvePasswordAuthModeFromEnv(
+        { kind: "production" },
+        { OPENAI_REVIEW_AUTH_PASSWORD: "review-password" },
+      ),
+    ).toBe("off");
+  });
+
+  it("rejects partial production review envs during password account seeding", () => {
+    expect(() =>
+      assertProductionReviewSeedPasswordAuthConfig({
+        OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com",
+      }),
+    ).toThrowError("OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together");
+    expect(() =>
+      assertProductionReviewSeedPasswordAuthConfig({
+        OPENAI_REVIEW_AUTH_PASSWORD: "review-password",
+      }),
+    ).toThrowError("OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together");
+
+    expect(() =>
+      assertProductionReviewSeedPasswordAuthConfig({
+        OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com",
+        OPENAI_REVIEW_AUTH_PASSWORD: "review-password",
+      }),
+    ).not.toThrow();
+  });
+
+  it("limits production review password sign-in to the configured email", () => {
+    expect(() =>
+      assertProductionReviewPasswordEmailAllowed({
+        email: "someone@example.com",
+        passwordAuthMode: "preview_seed",
+        reviewEmail: undefined,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      assertProductionReviewPasswordEmailAllowed({
+        email: " Noter.Guest@gmail.com ",
+        passwordAuthMode: "production_review_seed",
+        reviewEmail: " Noter.Guest@gmail.com ",
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      assertProductionReviewPasswordEmailAllowed({
+        email: "other@example.com",
+        passwordAuthMode: "production_review_seed",
+        reviewEmail: "noter.guest@gmail.com",
+      }),
+    ).toThrowError("Password sign-in is limited to the OpenAI review account");
+
+    expect(() =>
+      assertProductionReviewPasswordEmailAllowed({
+        email: "noter.guest@gmail.com",
+        passwordAuthMode: "production_review_seed",
+        reviewEmail: undefined,
+      }),
+    ).toThrowError("Missing required environment variable: OPENAI_REVIEW_AUTH_EMAIL");
   });
 
   it("blocks preview password sign-up while keeping preview sign-in enabled", () => {
@@ -92,5 +175,13 @@ describe("deploymentProfile", () => {
     );
 
     expect(() => assertPasswordAuthFlowAllowed("preview_seed", "signIn")).not.toThrow();
+  });
+
+  it("blocks production review password sign-up while keeping sign-in enabled", () => {
+    expect(() => assertPasswordAuthFlowAllowed("production_review_seed", "signUp")).toThrowError(
+      "Production review only allows password sign-in for the review account",
+    );
+
+    expect(() => assertPasswordAuthFlowAllowed("production_review_seed", "signIn")).not.toThrow();
   });
 });

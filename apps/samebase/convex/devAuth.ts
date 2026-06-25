@@ -5,7 +5,11 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
-import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
+import {
+  assertProductionReviewSeedPasswordAuthConfig,
+  resolveDeploymentProfile,
+  resolvePasswordAuthMode,
+} from "./deploymentProfile";
 import { internalAction, internalMutation, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -36,25 +40,28 @@ function readSeedValue(envName: string): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function readRequiredPreviewSeedPasswordAccountConfig(): {
+function readRequiredSeedPasswordAccountConfig(args: {
+  emailEnvName: string;
+  passwordEnvName: string;
+}): {
   email: string;
   password: string;
 } {
-  const previewEmail = readSeedValue("PREVIEW_SEED_AUTH_EMAIL");
-  const previewPassword = readSeedValue("PREVIEW_SEED_AUTH_PASSWORD");
-  if (previewEmail === undefined && previewPassword === undefined) {
-    throw new Error("PREVIEW_SEED_AUTH_EMAIL and PREVIEW_SEED_AUTH_PASSWORD are required");
+  const email = readSeedValue(args.emailEnvName);
+  const password = readSeedValue(args.passwordEnvName);
+  if (email === undefined && password === undefined) {
+    throw new Error(`${args.emailEnvName} and ${args.passwordEnvName} are required`);
   }
-  if (previewEmail === undefined || previewPassword === undefined) {
+  if (email === undefined || password === undefined) {
     throw new Error(
-      previewEmail === undefined
-        ? "PREVIEW_SEED_AUTH_EMAIL is required when PREVIEW_SEED_AUTH_PASSWORD is set"
-        : "PREVIEW_SEED_AUTH_PASSWORD is required when PREVIEW_SEED_AUTH_EMAIL is set",
+      email === undefined
+        ? `${args.emailEnvName} is required when ${args.passwordEnvName} is set`
+        : `${args.passwordEnvName} is required when ${args.emailEnvName} is set`,
     );
   }
   return {
-    email: normalizeEmail(previewEmail),
-    password: previewPassword,
+    email: normalizeEmail(email),
+    password,
   };
 }
 
@@ -65,16 +72,44 @@ function readRequiredPreviewSeedPasswordAccountConfig(): {
 function readSeedPasswordAccountConfig(): {
   email: string;
   password: string;
+  shouldLinkViaEmail: boolean;
 } {
-  const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+  const deploymentProfile = resolveDeploymentProfile();
+  const passwordAuthMode = resolvePasswordAuthMode(deploymentProfile);
+  if (deploymentProfile.kind === "production") {
+    const reviewEmail = readSeedValue("OPENAI_REVIEW_AUTH_EMAIL");
+    const reviewPassword = readSeedValue("OPENAI_REVIEW_AUTH_PASSWORD");
+    if (reviewEmail !== undefined || reviewPassword !== undefined) {
+      assertProductionReviewSeedPasswordAuthConfig({
+        OPENAI_REVIEW_AUTH_EMAIL: reviewEmail,
+        OPENAI_REVIEW_AUTH_PASSWORD: reviewPassword,
+      });
+    }
+  }
+
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return {
         email: normalizeEmail(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL),
         password: LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
+        shouldLinkViaEmail: false,
       };
     case "preview_seed":
-      return readRequiredPreviewSeedPasswordAccountConfig();
+      return {
+        ...readRequiredSeedPasswordAccountConfig({
+          emailEnvName: "PREVIEW_SEED_AUTH_EMAIL",
+          passwordEnvName: "PREVIEW_SEED_AUTH_PASSWORD",
+        }),
+        shouldLinkViaEmail: false,
+      };
+    case "production_review_seed":
+      return {
+        ...readRequiredSeedPasswordAccountConfig({
+          emailEnvName: "OPENAI_REVIEW_AUTH_EMAIL",
+          passwordEnvName: "OPENAI_REVIEW_AUTH_PASSWORD",
+        }),
+        shouldLinkViaEmail: true,
+      };
     case "off":
       throw new Error("Password account seeding is disabled for this deployment profile");
     default:
@@ -253,7 +288,7 @@ export const seedPasswordAccount = internalAction({
     created: boolean(),
   }),
   handler: async (ctx) => {
-    const { email, password } = readSeedPasswordAccountConfig();
+    const { email, password, shouldLinkViaEmail } = readSeedPasswordAccountConfig();
     const githubApiKey = readSeedValue("DEV_SEED_GITHUB_API_KEY");
     const convexManagementApiKey = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
@@ -301,8 +336,9 @@ export const seedPasswordAccount = internalAction({
         },
         profile: {
           email,
+          emailVerificationTime: Date.now(),
         },
-        shouldLinkViaEmail: false,
+        shouldLinkViaEmail,
         shouldLinkViaPhone: false,
       });
       created = true;

@@ -26,6 +26,8 @@ import type { DataModel } from "./dataModel.js";
  */
 type Env = {
   readonly OPENAI_APPS_CHALLENGE_TOKEN: string | undefined;
+  readonly OPENAI_REVIEW_AUTH_EMAIL: string | undefined;
+  readonly OPENAI_REVIEW_AUTH_PASSWORD: string | undefined;
 };
 
 /**

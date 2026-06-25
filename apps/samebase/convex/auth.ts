@@ -3,11 +3,12 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent/main";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
-import type { DatabaseWriter } from "./_generated/server";
+import { env, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
   assertPasswordAuthFlowAllowed,
+  assertProductionReviewPasswordEmailAllowed,
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
@@ -202,8 +203,14 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
               if (!isNonEmptyString(rawEmail)) {
                 throw new Error("Missing `email` for password authentication");
               }
+              const email = normalizeEmail(rawEmail);
+              assertProductionReviewPasswordEmailAllowed({
+                email,
+                passwordAuthMode,
+                reviewEmail: env.OPENAI_REVIEW_AUTH_EMAIL,
+              });
               return {
-                email: normalizeEmail(rawEmail),
+                email,
               };
             },
           }),
