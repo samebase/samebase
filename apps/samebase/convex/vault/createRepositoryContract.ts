@@ -1,10 +1,11 @@
 import { v, type Infer } from "convex/values";
 
+import { ACCESS_APP_CREATE } from "../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../shared/convexFunctionPolicyTypes";
 
 const { boolean, id, object, optional, string } = v;
 
-export const createRepositoryAccess = "access_app_create";
+export const createRepositoryAccess = ACCESS_APP_CREATE;
 
 export const createRepositoryArgs = {
   name: string(),

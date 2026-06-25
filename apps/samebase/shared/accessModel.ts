@@ -1,10 +1,12 @@
+export const ACCESS_APP_CREATE = "access_app_create";
+
 export const ACCESS_KEYS = [
   "access_public",
   "access_user_preferences",
   "access_dashboard",
   "access_provider_connections",
   "access_repo_connect",
-  "access_app_create",
+  ACCESS_APP_CREATE,
   "access_app_refresh",
   "access_files_read",
   "access_files_write",
@@ -35,7 +37,7 @@ export const ROLE_ACCESS_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_dashboard",
     "access_provider_connections",
     "access_repo_connect",
-    "access_app_create",
+    ACCESS_APP_CREATE,
     "access_app_refresh",
     "access_files_read",
     "access_files_write",
