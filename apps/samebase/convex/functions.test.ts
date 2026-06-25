@@ -26,6 +26,7 @@ const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_app_refresh",
     "access_files_read",
     "access_files_write",
+    "access_mcp",
   ],
   role_staff: ACCESS_KEYS,
 };

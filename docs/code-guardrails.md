@@ -172,6 +172,12 @@ declaring one.
   unless a production caller needs a different shape; do not add branches or adapters whose outputs
   are equivalent to the simpler expression. This includes helper factories parameterized for a
   single callsite — keep the direct function until multiple shipped callsites prove configurability.
+- When changing or defending a helper, trace every production call site and read the tests that name
+  the helper before keeping it. A helper with one production call site is guilty until proven
+  useful: inline it unless its name carries a non-obvious domain invariant or it quarantines a real
+  boundary. Tests that only assert the helper's obvious input/output wrapper are deletion evidence,
+  not coverage evidence; move the useful assertion to the caller behavior or delete the test with
+  the helper.
 - Do not add custom Error subclasses unless production code catches that exact class, branches on
   structured fields, or the error type is part of an existing module contract. Tests should not be
   the reason an error class exists.

@@ -1,7 +1,7 @@
 "use node";
 
 import { v, type Infer } from "convex/values";
-import { type ActionCtx } from "../_generated/server";
+import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { Octokit } from "@octokit/rest";
@@ -11,6 +11,7 @@ import { toErrorMessage } from "../jsonUtils";
 import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
+import { canAccess } from "../../shared/accessModel";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
@@ -26,8 +27,9 @@ import {
   validateAppResourceName,
   type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
+import { createRepositoryContract, type CreateRepositoryArgs } from "./createRepositoryContract";
 
-const { array, boolean, literal, null: nullValue, object, optional, string, union } = v;
+const { array, boolean, literal, null: nullValue, object, string, union } = v;
 const githubRepositoryOwnerKind = union(literal("user"), literal("organization"));
 const githubRepositoryOwnerOption = object({
   login: string(),
@@ -42,6 +44,7 @@ const appResourceNameAvailability = object({
 
 type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
 type GitHubRepositoryOwnerOption = Infer<typeof githubRepositoryOwnerOption>;
+export type CreateRepositoryResult = Infer<typeof createRepositoryContract.returns>;
 
 function buildAvailableResult(): AppResourceNameAvailability {
   return {
@@ -527,7 +530,7 @@ async function readCloudflareWorkerNameAvailability(args: {
 }
 
 async function checkCloudflareWorkerNameAvailability(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runAction">,
   args: {
     userId: Id<"users">;
     workerName: string;
@@ -574,7 +577,7 @@ async function checkCloudflareWorkerNameAvailability(
 }
 
 async function checkCreateResourceNameAvailabilityForUser(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
     githubRepositoryOwner: string;
@@ -706,106 +709,111 @@ export const connectRepository = action({
   },
 });
 
-export const createRepository = action({
-  access: "access_app_create",
-  args: {
-    name: v.string(),
-    owner: string(),
-    convexProjectName: string(),
-    cloudflareWorkerName: string(),
-    description: optional(v.string()),
-    private: optional(v.boolean()),
-  },
-  returns: v.object({
-    vaultId: v.id("vaults"),
-    runId: v.id("appProvisioningRuns"),
-  }),
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> }> => {
-    const userId = ctx.viewer.userId;
-    const repoName = toSafeRepoName(args.name);
-    if (!repoName) {
-      throw new Error("Repository name is required.");
-    }
-    const ghRepoOwnerInput = args.owner.trim();
-    if (!ghRepoOwnerInput) {
-      throw new Error("GitHub owner is required.");
-    }
+export async function createAppForUser(
+  ctx: Pick<ActionCtx, "runAction" | "runQuery" | "runMutation">,
+  args: CreateRepositoryArgs & { userId: Id<"users"> },
+): Promise<CreateRepositoryResult> {
+  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+    userId: args.userId,
+  });
+  if (viewer.user === null || !canAccess(createRepositoryContract.access, viewer.accessKeys)) {
+    throw new Error("Access denied");
+  }
 
-    const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId,
-      kind: "github",
-    });
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected.");
-    }
-    const githubUsername = await resolveGithubConnectionUsername(ctx, {
-      connection: githubConnection,
-      userId,
-    });
-    const githubOctokit = new Octokit({
-      auth: githubConnection.auth.credential,
-    });
-    const ghRepoOwner = resolveGitHubRepositoryCreateOwner({
-      owner: ghRepoOwnerInput,
-      ownerOptions: await listGitHubRepositoryOwnerOptions({
-        octokit: githubOctokit,
-        username: githubUsername,
-      }),
-    });
+  const repoName = toSafeRepoName(args.name);
+  if (!repoName) {
+    throw new Error("Repository name is required.");
+  }
+  const ghRepoOwnerInput = args.owner.trim();
+  if (!ghRepoOwnerInput) {
+    throw new Error("GitHub owner is required.");
+  }
 
-    const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
-    if (!convexNameValidation.valid) {
-      throw new Error(convexNameValidation.availability.message ?? "Invalid Convex project name.");
-    }
-    const cloudflareNameValidation = validateCreateResourceName(
-      "cloudflare",
-      args.cloudflareWorkerName,
+  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId: args.userId,
+    kind: "github",
+  });
+  if (githubConnection?.kind !== "github") {
+    throw new Error("GitHub is not connected.");
+  }
+  const githubUsername = await resolveGithubConnectionUsername(ctx, {
+    connection: githubConnection,
+    userId: args.userId,
+  });
+  const githubOctokit = new Octokit({
+    auth: githubConnection.auth.credential,
+  });
+  const ghRepoOwner = resolveGitHubRepositoryCreateOwner({
+    owner: ghRepoOwnerInput,
+    ownerOptions: await listGitHubRepositoryOwnerOptions({
+      octokit: githubOctokit,
+      username: githubUsername,
+    }),
+  });
+
+  const convexNameValidation = validateCreateResourceName("convex", args.convexProjectName);
+  if (!convexNameValidation.valid) {
+    throw new Error(convexNameValidation.availability.message ?? "Invalid Convex project name.");
+  }
+  const cloudflareNameValidation = validateCreateResourceName(
+    "cloudflare",
+    args.cloudflareWorkerName,
+  );
+  if (!cloudflareNameValidation.valid) {
+    throw new Error(
+      cloudflareNameValidation.availability.message ?? "Invalid Cloudflare Worker name.",
     );
-    if (!cloudflareNameValidation.valid) {
-      throw new Error(
-        cloudflareNameValidation.availability.message ?? "Invalid Cloudflare Worker name.",
-      );
-    }
+  }
 
-    const resourceNameAvailability = await checkCreateResourceNameAvailabilityForUser(ctx, {
-      userId,
-      githubRepositoryOwner: ghRepoOwner,
-      githubRepositoryName: repoName,
+  const resourceNameAvailability = await checkCreateResourceNameAvailabilityForUser(ctx, {
+    userId: args.userId,
+    githubRepositoryOwner: ghRepoOwner,
+    githubRepositoryName: repoName,
+    convexProjectName: convexNameValidation.value,
+    cloudflareWorkerName: cloudflareNameValidation.value,
+  });
+  assertResourceNameAvailable("GitHub repository name", resourceNameAvailability.github);
+  assertResourceNameAvailable("Convex project name", resourceNameAvailability.convex);
+  assertResourceNameAvailable("Cloudflare Worker name", resourceNameAvailability.cloudflare);
+  const { cloudflareAccountId } = await resolveCloudflareProvisioningConnection(ctx, args.userId);
+
+  const visibility = args.private === false ? "public" : "private";
+  const { vaultId, runId } = await ctx.runMutation(
+    internal.vault.records.createInitializingSamebaseManagedVaultForUser,
+    {
+      userId: args.userId,
+      ghRepoOwner,
+      ghRepoName: repoName,
+      visibility,
       convexProjectName: convexNameValidation.value,
+      cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation.value,
-    });
-    assertResourceNameAvailable("GitHub repository name", resourceNameAvailability.github);
-    assertResourceNameAvailable("Convex project name", resourceNameAvailability.convex);
-    assertResourceNameAvailable("Cloudflare Worker name", resourceNameAvailability.cloudflare);
-    const { cloudflareAccountId } = await resolveCloudflareProvisioningConnection(ctx, userId);
+    },
+  );
+  await startCreateAppProvisioningOrFail(ctx, {
+    vaultId,
+    runId,
+    userId: args.userId,
+    repositoryName: repoName,
+    repositoryOwner: ghRepoOwner,
+    description: args.description ?? null,
+    private: args.private ?? true,
+  });
 
-    const visibility = args.private === false ? "public" : "private";
-    const { vaultId, runId } = await ctx.runMutation(
-      internal.vault.records.createInitializingSamebaseManagedVaultForUser,
-      {
-        userId,
-        ghRepoOwner,
-        ghRepoName: repoName,
-        visibility,
-        convexProjectName: convexNameValidation.value,
-        cloudflareAccountId,
-        cloudflareWorkerName: cloudflareNameValidation.value,
-      },
-    );
-    await startCreateAppProvisioningOrFail(ctx, {
-      vaultId,
-      runId,
-      userId,
-      repositoryName: repoName,
-      repositoryOwner: ghRepoOwner,
-      description: args.description ?? null,
-      private: args.private ?? true,
-    });
+  return { vaultId, runId };
+}
 
-    return { vaultId, runId };
+// TODO: rename to createApp since we don't just create a repository
+export const createRepository = action({
+  access: createRepositoryContract.access,
+  args: createRepositoryContract.args,
+  returns: createRepositoryContract.returns,
+  mcp: createRepositoryContract.mcp,
+  handler: async (ctx, args): Promise<CreateRepositoryResult> => {
+    return await createAppForUser(ctx, {
+      ...args,
+      userId: ctx.viewer.userId,
+    });
   },
 });
 

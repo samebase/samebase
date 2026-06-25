@@ -1,16 +1,14 @@
-import { v, type Infer } from "convex/values";
-import { type QueryCtx } from "../_generated/server";
+import { v } from "convex/values";
+import { internal } from "../_generated/api";
+import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../functions";
-import { vAppProvisioningRunStep, vPullRequestLabel, vVaultBranchCommitSummary } from "../schema";
-import { vTreeRefreshFailureKind } from "./model";
 import {
   isConnectedVault,
   isLiveConnectedVault,
   isSamebaseManagedVault,
   type ConnectedVault,
 } from "./state";
-import { vVaultDeletionStep } from "./deletion/model";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
 import { compareRemoteBranchSortOrder, hasBranchStagingChanges } from "./branches";
@@ -18,97 +16,18 @@ import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
 import { getGitHubCommitCheckSnapshotsByCommitSha } from "../commitChecks";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import { vVaultResourceLinksState } from "./resourceLinksStateModel";
+import { canAccess } from "../../shared/accessModel";
+import {
+  getUserVaultsContract,
+  type ProviderSetupSummary,
+  type SourceSetupSummary,
+  type UserVaultResult,
+  type UserVaultsResult,
+  type VaultDeletionSummary,
+  vProviderSetupSummary,
+} from "./getUserVaultsContract";
 
-const { array, boolean, id, literal, number, object, optional, string, union } = v;
-const treeRefreshFailureFields = {
-  lastTreeRefreshFailedAt: optional(number()),
-  treeRefreshFailureKind: optional(vTreeRefreshFailureKind),
-  treeRefreshFailureMessage: optional(string()),
-  treeRefreshCooldownUntil: optional(number()),
-} as const;
-const sourceSetupSummary = union(
-  object({
-    status: literal("not_applicable"),
-  }),
-  object({
-    status: literal("ready"),
-  }),
-  object({
-    status: literal("running"),
-    runId: id("appProvisioningRuns"),
-    step: vAppProvisioningRunStep,
-    updatedAt: number(),
-  }),
-  object({
-    status: literal("failed"),
-    runId: id("appProvisioningRuns"),
-    step: vAppProvisioningRunStep,
-    message: string(),
-    updatedAt: number(),
-  }),
-);
-const providerSetupProvider = union(literal("convex"), literal("cloudflare"));
-const providerSetupSource = union(literal("managed"), literal("manual"));
-const providerSetupSummary = union(
-  object({
-    status: literal("not_applicable"),
-  }),
-  object({
-    status: literal("ready"),
-  }),
-  object({
-    status: literal("running"),
-    provider: providerSetupProvider,
-    source: providerSetupSource,
-    runId: id("appProvisioningRuns"),
-    step: vAppProvisioningRunStep,
-    updatedAt: number(),
-  }),
-  object({
-    status: literal("failed"),
-    provider: providerSetupProvider,
-    source: providerSetupSource,
-    runId: id("appProvisioningRuns"),
-    step: vAppProvisioningRunStep,
-    message: string(),
-    updatedAt: number(),
-  }),
-);
-const vaultDeletionSummary = union(
-  object({
-    state: literal("not_deleting"),
-    deleteAction: union(
-      object({
-        state: literal("available"),
-      }),
-      object({
-        state: literal("disabled"),
-        reason: string(),
-      }),
-    ),
-  }),
-  object({
-    state: literal("deleting"),
-    runId: id("vaultDeletionRuns"),
-    requestedAt: number(),
-    currentStep: vVaultDeletionStep,
-    message: string(),
-    updatedAt: number(),
-  }),
-  object({
-    state: literal("delete_failed"),
-    runId: id("vaultDeletionRuns"),
-    failedAt: number(),
-    currentStep: vVaultDeletionStep,
-    message: string(),
-    lastError: string(),
-    updatedAt: number(),
-  }),
-);
-
-type SourceSetupSummary = Infer<typeof sourceSetupSummary>;
-type ProviderSetupSummary = Infer<typeof providerSetupSummary>;
-type VaultDeletionSummary = Infer<typeof vaultDeletionSummary>;
+const { array, boolean, id, object, optional, string } = v;
 type SourceSetupVault = Extract<
   Doc<"vaults">,
   { githubMode: "create_repository" | "connect_existing_repository" }
@@ -781,305 +700,257 @@ export const createVaultAppRoot = mutation({
   },
 });
 
-const getUserVaultsResult = array(
-  object({
-    _id: id("vaults"),
-    _creationTime: number(),
-    ghRepoOwner: string(),
-    ghRepoName: string(),
-    repositoryFullName: string(),
-    commitSHA: optional(string()),
-    fileCount: number(),
-    lastEditTime: optional(number()),
-    lastTreeRefreshAt: optional(number()),
-    treeRefreshStartedAt: optional(number()),
-    ...treeRefreshFailureFields,
-    state: union(literal("copying_files"), literal("ready"), literal("failed")),
-    sourceSetup: sourceSetupSummary,
-    providerSetup: providerSetupSummary,
-    deletion: vaultDeletionSummary,
-    isSamebaseManaged: boolean(),
-    hasConnectedGitHubRepository: boolean(),
-    hasConvexProvision: boolean(),
-    hasCloudflareProvision: boolean(),
-    canRemoveConvexProvision: boolean(),
-    canRemoveCloudflareProvision: boolean(),
-    appRoots: array(
-      object({
-        appRoot: string(),
-      }),
-    ),
-    cloudflareWorkers: array(
-      object({
-        appRoot: string(),
-        workerName: string(),
-        workersDevUrl: optional(string()),
-        projectDashboardUrl: optional(string()),
-      }),
-    ),
-    convexDeployments: array(
-      object({
-        appRoot: string(),
-        projectId: string(),
-        projectSlug: string(),
-        teamSlug: string(),
-        deploymentName: string(),
-        cloudUrl: string(),
-        siteUrl: string(),
-        projectSettingsDashboardUrl: optional(string()),
-        deploymentDashboardUrl: optional(string()),
-      }),
-    ),
-    remoteBranches: array(
-      object({
-        name: string(),
-        headCommitSha: string(),
-        lastCommitAt: optional(number()),
-        aheadBy: optional(number()),
-        behindBy: optional(number()),
-        pullRequestUrl: optional(string()),
-        pullRequestNumber: optional(number()),
-        pullRequestLabels: optional(array(vPullRequestLabel)),
-        pullRequestTitle: optional(string()),
-        pullRequestIsDraft: optional(boolean()),
-        isDefault: boolean(),
-        isProtected: boolean(),
-        remoteState: union(literal("active"), literal("deleted_upstream")),
-        lastSyncedAt: number(),
-        commits: array(vVaultBranchCommitSummary),
-      }),
-    ),
-  }),
-);
-
-type UserVaultResult = Infer<typeof getUserVaultsResult>[number];
-
 // Get user's vaults with optional file staging stats
-export const getUserVaults = query({
-  access: "access_dashboard",
-  args: {},
-  returns: getUserVaultsResult,
-  handler: async (ctx) => {
-    // Get user's vaults
-    const vaults = await ctx.db
-      .query("vaults")
-      .withIndex("by_userId", (q) => q.eq("userId", ctx.viewer.userId))
-      .collect();
-    // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
-    // gated until a connected vault has branch data.
-    const connectedVaults = vaults.filter(isConnectedVault);
-    const initializingVaultResults: UserVaultResult[] = [];
-    for (const vault of vaults) {
-      if (vault.state !== "provisioning" && vault.state !== "failed") {
-        continue;
-      }
-      const deletion = await resolveVaultDeletionSummary(ctx, vault);
-      initializingVaultResults.push({
-        _id: vault._id,
-        _creationTime: vault._creationTime,
-        ghRepoOwner: vault.owner,
-        ghRepoName: vault.name,
-        repositoryFullName: `${vault.owner}/${vault.name}`,
-        commitSHA: undefined,
-        fileCount: 0,
-        lastEditTime: undefined,
-        lastTreeRefreshAt: vault.lastTreeRefreshAt,
-        treeRefreshStartedAt: vault.treeRefreshStartedAt,
-        lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-        treeRefreshFailureKind: vault.treeRefreshFailureKind,
-        treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-        treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-        state: vault.state === "failed" ? "failed" : "copying_files",
-        sourceSetup: await resolveSourceSetupSummary(ctx, {
-          hasUsableDefaultBranchTree: false,
-          vault,
-        }),
-        providerSetup: { status: "not_applicable" },
-        deletion,
-        isSamebaseManaged: vault.githubMode === "create_repository",
-        hasConnectedGitHubRepository: false,
-        hasConvexProvision: false,
-        hasCloudflareProvision: false,
-        canRemoveConvexProvision: false,
-        canRemoveCloudflareProvision: false,
-        appRoots: [],
-        cloudflareWorkers: [],
-        convexDeployments: [],
-        remoteBranches: [],
-      });
+async function readUserVaults(
+  ctx: Pick<QueryCtx, "db">,
+  userId: Id<"users">,
+): Promise<UserVaultsResult> {
+  // Get user's vaults
+  const vaults = await ctx.db
+    .query("vaults")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+  // Pre-GitHub vaults render as non-ready cards; repo-backed controls stay
+  // gated until a connected vault has branch data.
+  const connectedVaults = vaults.filter(isConnectedVault);
+  const initializingVaultResults: UserVaultResult[] = [];
+  for (const vault of vaults) {
+    if (vault.state !== "provisioning" && vault.state !== "failed") {
+      continue;
     }
+    const deletion = await resolveVaultDeletionSummary(ctx, vault);
+    initializingVaultResults.push({
+      _id: vault._id,
+      _creationTime: vault._creationTime,
+      ghRepoOwner: vault.owner,
+      ghRepoName: vault.name,
+      repositoryFullName: `${vault.owner}/${vault.name}`,
+      commitSHA: undefined,
+      fileCount: 0,
+      lastEditTime: undefined,
+      lastTreeRefreshAt: vault.lastTreeRefreshAt,
+      treeRefreshStartedAt: vault.treeRefreshStartedAt,
+      lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+      treeRefreshFailureKind: vault.treeRefreshFailureKind,
+      treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+      treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+      state: vault.state === "failed" ? "failed" : "copying_files",
+      sourceSetup: await resolveSourceSetupSummary(ctx, {
+        hasUsableDefaultBranchTree: false,
+        vault,
+      }),
+      providerSetup: { status: "not_applicable" },
+      deletion,
+      isSamebaseManaged: vault.githubMode === "create_repository",
+      hasConnectedGitHubRepository: false,
+      hasConvexProvision: false,
+      hasCloudflareProvision: false,
+      canRemoveConvexProvision: false,
+      canRemoveCloudflareProvision: false,
+      appRoots: [],
+      cloudflareWorkers: [],
+      convexDeployments: [],
+      remoteBranches: [],
+    });
+  }
 
-    // Get staging stats for each vault
-    const vaultResults: UserVaultResult[] = await Promise.all(
-      connectedVaults.map(async (vault) => {
-        const deletion = await resolveVaultDeletionSummary(ctx, vault);
-        const appRoots = await readVaultAppsForVault(ctx, vault._id);
-        const convexDeployments = await readConvexDeploymentsForVault(ctx, vault._id);
-        const cloudflareWorkers = await readCloudflareWorkersForVault(ctx, vault._id);
-        const hasConvexProvision = convexDeployments.length > 0;
-        const hasCloudflareProvision = cloudflareWorkers.length > 0;
-        const convexDeploymentSummaries = convexDeployments.map((deployment) => ({
-          appRoot: deployment.appRoot,
-          projectId: deployment.projectId,
+  // Get staging stats for each vault
+  const vaultResults: UserVaultResult[] = await Promise.all(
+    connectedVaults.map(async (vault) => {
+      const deletion = await resolveVaultDeletionSummary(ctx, vault);
+      const appRoots = await readVaultAppsForVault(ctx, vault._id);
+      const convexDeployments = await readConvexDeploymentsForVault(ctx, vault._id);
+      const cloudflareWorkers = await readCloudflareWorkersForVault(ctx, vault._id);
+      const hasConvexProvision = convexDeployments.length > 0;
+      const hasCloudflareProvision = cloudflareWorkers.length > 0;
+      const convexDeploymentSummaries = convexDeployments.map((deployment) => ({
+        appRoot: deployment.appRoot,
+        projectId: deployment.projectId,
+        projectSlug: deployment.projectSlug,
+        teamSlug: deployment.teamSlug,
+        deploymentName: deployment.deploymentName,
+        cloudUrl: deployment.cloudUrl,
+        siteUrl: deployment.siteUrl,
+        projectSettingsDashboardUrl: buildConvexProjectSettingsDashboardUrl({
           projectSlug: deployment.projectSlug,
           teamSlug: deployment.teamSlug,
+        }),
+        deploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
           deploymentName: deployment.deploymentName,
-          cloudUrl: deployment.cloudUrl,
-          siteUrl: deployment.siteUrl,
-          projectSettingsDashboardUrl: buildConvexProjectSettingsDashboardUrl({
-            projectSlug: deployment.projectSlug,
-            teamSlug: deployment.teamSlug,
-          }),
-          deploymentDashboardUrl: buildConvexDeploymentDashboardUrl({
-            deploymentName: deployment.deploymentName,
-            projectSlug: deployment.projectSlug,
-            teamSlug: deployment.teamSlug,
-          }),
-        }));
-        const canRemoveCloudflareProvision = cloudflareWorkers.some(
-          (worker) => worker.origin === "provisioned",
-        );
-        const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
-          appRoot: worker.appRoot,
-          workerName: worker.workerName,
-          workersDevUrl: worker.workersDevUrl,
-          projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),
-        }));
-        if (deletion.state !== "not_deleting") {
-          return {
-            _id: vault._id,
-            _creationTime: vault._creationTime,
-            ghRepoOwner: vault.owner,
-            ghRepoName: vault.name,
-            repositoryFullName: `${vault.owner}/${vault.name}`,
-            commitSHA: undefined,
-            fileCount: 0,
-            lastEditTime: undefined,
-            lastTreeRefreshAt: vault.lastTreeRefreshAt,
-            treeRefreshStartedAt: vault.treeRefreshStartedAt,
-            lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
-            treeRefreshFailureKind: vault.treeRefreshFailureKind,
-            treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
-            treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-            state: deletion.state === "delete_failed" ? "failed" : "copying_files",
-            sourceSetup: { status: "not_applicable" },
-            providerSetup: { status: "not_applicable" },
-            deletion,
-            isSamebaseManaged: isSamebaseManagedVault(vault),
-            hasConnectedGitHubRepository: true,
-            hasConvexProvision,
-            hasCloudflareProvision,
-            canRemoveConvexProvision: false,
-            canRemoveCloudflareProvision,
-            appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
-            cloudflareWorkers: cloudflareWorkerSummaries,
-            convexDeployments: convexDeploymentSummaries,
-            remoteBranches: [],
-          };
-        }
-
-        const [stagingData, remoteBranches, defaultBranchTree, hasCreatedConvexProject] =
-          await Promise.all([
-            ctx.db
-              .query("fileStaging")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-              .collect(),
-            ctx.db
-              .query("vaultRemoteBranches")
-              .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-              .collect(),
-            ctx.db
-              .query("vaultBranchTrees")
-              .withIndex("by_vault_and_branch", (q) =>
-                q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
-              )
-              .first(),
-            hasCreatedConvexProjectForVault(ctx, vault._id),
-          ]);
-        const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
-          githubRepositoryId: vault.ghRepoId,
-          commitShas: remoteBranches.map((branch) => branch.headCommitSha),
-        });
-
-        const fileCount = stagingData.filter(hasBranchStagingChanges).length;
-
-        const lastEditTime =
-          stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
-
-        const repositoryFullName = `${vault.owner}/${vault.name}`;
-        const hasUsableDefaultBranchTree = Boolean(defaultBranchTree);
-        const sourceSetup = await resolveSourceSetupSummary(ctx, {
-          hasUsableDefaultBranchTree,
-          vault,
-        });
-        const providerSetup = hasUsableDefaultBranchTree
-          ? await resolveProviderSetupSummary(ctx, vault, convexDeployments, cloudflareWorkers)
-          : { status: "not_applicable" as const };
-        const canRemoveConvexProvision =
-          hasCreatedConvexProject ||
-          convexDeployments.some((deployment) => canRemoveConvexProvisionForDeployment(deployment));
+          projectSlug: deployment.projectSlug,
+          teamSlug: deployment.teamSlug,
+        }),
+      }));
+      const canRemoveCloudflareProvision = cloudflareWorkers.some(
+        (worker) => worker.origin === "provisioned",
+      );
+      const cloudflareWorkerSummaries = cloudflareWorkers.map((worker) => ({
+        appRoot: worker.appRoot,
+        workerName: worker.workerName,
+        workersDevUrl: worker.workersDevUrl,
+        projectDashboardUrl: buildCloudflareWorkerDashboardUrl(worker),
+      }));
+      if (deletion.state !== "not_deleting") {
         return {
           _id: vault._id,
           _creationTime: vault._creationTime,
           ghRepoOwner: vault.owner,
           ghRepoName: vault.name,
-          repositoryFullName,
-          commitSHA: defaultBranchTree?.commitSHA,
-          fileCount,
-          lastEditTime,
+          repositoryFullName: `${vault.owner}/${vault.name}`,
+          commitSHA: undefined,
+          fileCount: 0,
+          lastEditTime: undefined,
           lastTreeRefreshAt: vault.lastTreeRefreshAt,
           treeRefreshStartedAt: vault.treeRefreshStartedAt,
           lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
           treeRefreshFailureKind: vault.treeRefreshFailureKind,
           treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
           treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
-          state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
-          sourceSetup,
-          providerSetup,
+          state: deletion.state === "delete_failed" ? "failed" : "copying_files",
+          sourceSetup: { status: "not_applicable" },
+          providerSetup: { status: "not_applicable" },
           deletion,
           isSamebaseManaged: isSamebaseManagedVault(vault),
           hasConnectedGitHubRepository: true,
           hasConvexProvision,
           hasCloudflareProvision,
-          canRemoveConvexProvision,
+          canRemoveConvexProvision: false,
           canRemoveCloudflareProvision,
           appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexDeployments: convexDeploymentSummaries,
-          remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
-            name: branch.name,
-            headCommitSha: branch.headCommitSha,
-            lastCommitAt: branch.lastCommitAt,
-            aheadBy: branch.aheadBy,
-            behindBy: branch.behindBy,
-            pullRequestUrl: branch.pullRequestUrl,
-            pullRequestNumber: branch.pullRequestNumber,
-            pullRequestLabels: branch.pullRequestLabels,
-            pullRequestTitle: branch.pullRequestTitle,
-            pullRequestIsDraft: branch.pullRequestIsDraft,
-            isDefault: branch.isDefault,
-            isProtected: branch.isProtected,
-            remoteState: branch.remoteState,
-            lastSyncedAt: branch.lastSyncedAt,
-            commits: buildVaultBranchCommitSummaries(
-              branch,
-              checkSnapshotsByCommitSha.get(branch.headCommitSha),
-            ),
-          })),
+          remoteBranches: [],
         };
-      }),
-    );
+      }
 
-    // Sort by last edit time if available, otherwise by creation time
-    return [...vaultResults, ...initializingVaultResults].sort((a, b) => {
-      const aTime = a.lastEditTime ?? a._creationTime;
-      const bTime = b.lastEditTime ?? b._creationTime;
-      return (
-        bTime - aTime ||
-        a.repositoryFullName.localeCompare(b.repositoryFullName) ||
-        a._id.localeCompare(b._id)
-      );
+      const [stagingData, remoteBranches, defaultBranchTree, hasCreatedConvexProject] =
+        await Promise.all([
+          ctx.db
+            .query("fileStaging")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+            .collect(),
+          ctx.db
+            .query("vaultRemoteBranches")
+            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+            .collect(),
+          ctx.db
+            .query("vaultBranchTrees")
+            .withIndex("by_vault_and_branch", (q) =>
+              q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
+            )
+            .first(),
+          hasCreatedConvexProjectForVault(ctx, vault._id),
+        ]);
+      const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
+        githubRepositoryId: vault.ghRepoId,
+        commitShas: remoteBranches.map((branch) => branch.headCommitSha),
+      });
+
+      const fileCount = stagingData.filter(hasBranchStagingChanges).length;
+
+      const lastEditTime =
+        stagingData.length > 0 ? Math.max(...stagingData.map((s) => s.lastEditTime)) : undefined;
+
+      const repositoryFullName = `${vault.owner}/${vault.name}`;
+      const hasUsableDefaultBranchTree = Boolean(defaultBranchTree);
+      const sourceSetup = await resolveSourceSetupSummary(ctx, {
+        hasUsableDefaultBranchTree,
+        vault,
+      });
+      const providerSetup = hasUsableDefaultBranchTree
+        ? await resolveProviderSetupSummary(ctx, vault, convexDeployments, cloudflareWorkers)
+        : { status: "not_applicable" as const };
+      const canRemoveConvexProvision =
+        hasCreatedConvexProject ||
+        convexDeployments.some((deployment) => canRemoveConvexProvisionForDeployment(deployment));
+      return {
+        _id: vault._id,
+        _creationTime: vault._creationTime,
+        ghRepoOwner: vault.owner,
+        ghRepoName: vault.name,
+        repositoryFullName,
+        commitSHA: defaultBranchTree?.commitSHA,
+        fileCount,
+        lastEditTime,
+        lastTreeRefreshAt: vault.lastTreeRefreshAt,
+        treeRefreshStartedAt: vault.treeRefreshStartedAt,
+        lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+        treeRefreshFailureKind: vault.treeRefreshFailureKind,
+        treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
+        treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+        state: hasUsableDefaultBranchTree ? "ready" : "copying_files",
+        sourceSetup,
+        providerSetup,
+        deletion,
+        isSamebaseManaged: isSamebaseManagedVault(vault),
+        hasConnectedGitHubRepository: true,
+        hasConvexProvision,
+        hasCloudflareProvision,
+        canRemoveConvexProvision,
+        canRemoveCloudflareProvision,
+        appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
+        cloudflareWorkers: cloudflareWorkerSummaries,
+        convexDeployments: convexDeploymentSummaries,
+        remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
+          name: branch.name,
+          headCommitSha: branch.headCommitSha,
+          lastCommitAt: branch.lastCommitAt,
+          aheadBy: branch.aheadBy,
+          behindBy: branch.behindBy,
+          pullRequestUrl: branch.pullRequestUrl,
+          pullRequestNumber: branch.pullRequestNumber,
+          pullRequestLabels: branch.pullRequestLabels,
+          pullRequestTitle: branch.pullRequestTitle,
+          pullRequestIsDraft: branch.pullRequestIsDraft,
+          isDefault: branch.isDefault,
+          isProtected: branch.isProtected,
+          remoteState: branch.remoteState,
+          lastSyncedAt: branch.lastSyncedAt,
+          commits: buildVaultBranchCommitSummaries(
+            branch,
+            checkSnapshotsByCommitSha.get(branch.headCommitSha),
+          ),
+        })),
+      };
+    }),
+  );
+
+  // Sort by last edit time if available, otherwise by creation time
+  return [...vaultResults, ...initializingVaultResults].sort((a, b) => {
+    const aTime = a.lastEditTime ?? a._creationTime;
+    const bTime = b.lastEditTime ?? b._creationTime;
+    return (
+      bTime - aTime ||
+      a.repositoryFullName.localeCompare(b.repositoryFullName) ||
+      a._id.localeCompare(b._id)
+    );
+  });
+}
+
+export const getUserVaults = query({
+  access: getUserVaultsContract.access,
+  args: getUserVaultsContract.args,
+  returns: getUserVaultsContract.returns,
+  mcp: getUserVaultsContract.mcp,
+  handler: async (ctx): Promise<UserVaultsResult> => {
+    return await readUserVaults(ctx, ctx.viewer.userId);
+  },
+});
+
+export const getUserVaultsForUser = internalQuery({
+  args: {
+    userId: id("users"),
+  },
+  returns: getUserVaultsContract.returns,
+  handler: async (ctx, args): Promise<UserVaultsResult> => {
+    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+      userId: args.userId,
     });
+    if (viewer.user === null || !canAccess(getUserVaultsContract.access, viewer.accessKeys)) {
+      throw new Error("Access denied");
+    }
+
+    return await readUserVaults(ctx, args.userId);
   },
 });
 
@@ -1090,7 +961,7 @@ export const getVaultInfrastructure = query({
   },
   returns: v.union(
     v.object({
-      providerSetup: providerSetupSummary,
+      providerSetup: vProviderSetupSummary,
       convexDeployments: v.array(
         v.object({
           appRoot: v.string(),

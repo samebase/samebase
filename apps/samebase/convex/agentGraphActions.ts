@@ -5,7 +5,6 @@ import { v, Infer } from "convex/values";
 import { api, components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./functions";
-import type { ToolContext } from "./agent/tools";
 import { runAgentGraph } from "./agent/graph";
 import { saveMessage } from "@convex-dev/agent";
 import { Octokit } from "@octokit/rest";
@@ -50,29 +49,6 @@ async function resolveThreadId(
   }
 
   return ctx.runMutation(api.chat.index.createThread, { vaultId });
-}
-
-async function buildToolContext(
-  ctx: ActionCtx,
-  threadId: string,
-  branch: string,
-  vault: {
-    _id: Id<"vaults">;
-    owner: string;
-    name: string;
-  },
-  args: { userId: Id<"users">; githubAccessToken: string },
-): Promise<ToolContext> {
-  return {
-    ctx,
-    threadId,
-    vaultId: vault._id,
-    owner: vault.owner,
-    repo: vault.name,
-    branch,
-    userId: args.userId,
-    accessToken: args.githubAccessToken,
-  };
 }
 
 function requireThreadBranch(branch: string | undefined): string {
@@ -206,13 +182,6 @@ export const sendAgentMessage = action({
       });
     }
 
-    const toolCtx = githubAccessToken
-      ? await buildToolContext(ctx, resolvedThreadId, threadBranch, connectedVault, {
-          userId: user._id,
-          githubAccessToken,
-        })
-      : undefined;
-
     let systemPrompt: string;
     try {
       systemPrompt = await loadAgentPrompt({
@@ -244,7 +213,6 @@ export const sendAgentMessage = action({
 
     const result = await runAgentGraph({
       ctx,
-      toolCtx,
       systemPrompt,
       threadId: resolvedThreadId,
       promptMessageId: messageId,

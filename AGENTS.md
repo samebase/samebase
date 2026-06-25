@@ -117,10 +117,9 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   override them.
 - Assume Cloudflare is the default front door and observability layer for `samebase.com`, and keep
   application logic in Convex by default unless there is a clear reason not to.
-- In copy, docs, and examples: never use Vercel as an example provider or integration; use Netlify
-  when a non-Cloudflare provider example is needed. Naming other providers is normal — the product
-  is provider-agnostic (it works off GitHub PRs and branches); Cloudflare is what Samebase itself
-  runs on and recommends via its single template.
+- In copy, docs, and examples: never use Vercel as an example provider; use Netlify when a
+  non-Cloudflare provider example is needed. The product is provider-agnostic; Samebase itself runs
+  on and recommends Cloudflare.
 - Prefer shell commands first and Node/ECMAScript second; do not reach for Python first in this
   repo.
 - Use template literals instead of arrays joined with `'\n'` for multi-line JavaScript and
@@ -310,6 +309,8 @@ Simplicity and deletion:
 - No custom Error subclasses unless production catches or branches on them; tests are not a reason.
 - Run a delete-first reduction pass on every patch-introduced helper/adapter/mirror; rerun it after
   swapping validation approaches.
+- When changing a helper, inspect every production call site and its tests before keeping it;
+  one-call helpers and tests that only restate the wrapper are delete-first signals.
 - Generated validation glue is a carrying cost, but do not replace broad OpenAPI coverage with
   hand-written schemas just to shrink generated files.
 - When tests want production mappers or branches for prettier assertions, simplify the test.

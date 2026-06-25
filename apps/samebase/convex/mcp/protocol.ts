@@ -1,5 +1,7 @@
 import { includes } from "@samebase/dependent/main";
 import { asRecord } from "../jsonUtils";
+import { createRepositoryContract } from "../vault/createRepositoryContract";
+import { getUserVaultsContract } from "../vault/getUserVaultsContract";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DEFAULT_RESPONSE_TYPES = ["code"] as const;
@@ -17,12 +19,13 @@ const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
 export const MCP_V1_SUPPORTED_SCOPES = [
-  "vaults.read",
-  "files.read",
-  "files.write",
-  "commits.propose",
-  "prod.read.propose",
+  createRepositoryContract.access,
+  getUserVaultsContract.access,
 ] as const;
+// Some MCP clients omit `scope`. Samebase's v1 app integration is meant to
+// install with the full public tool surface, including app creation; consent,
+// token scopes, and role access still gate execution.
+const DEFAULT_MCP_SCOPE = MCP_V1_SUPPORTED_SCOPES.join(" ");
 
 type McpSupportedScope = (typeof MCP_V1_SUPPORTED_SCOPES)[number];
 
@@ -459,9 +462,9 @@ export function validateAuthorizeRequestFromUrl(
   }
 
   // Codex/native MCP OAuth clients may omit `scope` on authorize requests.
-  // OAuth allows server-defined defaults, so use the minimum read scope that
-  // keeps discovery/tool listing functional instead of failing early.
-  const scopeRaw = url.searchParams.get("scope")?.trim() || "vaults.read";
+  // OAuth allows server-defined defaults, so use the scopes that back this
+  // MCP server's public tool surface.
+  const scopeRaw = url.searchParams.get("scope")?.trim() || DEFAULT_MCP_SCOPE;
   const scopes = scopeRaw
     .split(" ")
     .map(normalizeScopeToken)

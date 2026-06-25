@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
-import { X, Loader2, GitCommitHorizontal, Check, Wrench, ChevronRight, Plus } from "lucide-react";
+import { X, Loader2, GitCommitHorizontal, Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatInput, type ChatInputHandle } from "@/components/ChatInput";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
@@ -7,7 +7,6 @@ import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLay
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
 import { useUIMessages, type UIMessage } from "@convex-dev/agent/react";
 import {
   messageMetadataSchema,
@@ -16,7 +15,6 @@ import {
   type ProdReadProposalPayload as ProdReadProposal,
 } from "../../shared/chatMetadata";
 import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
-import { isRecord } from "@samebase/dependent";
 
 // --- Metadata parsing ---
 
@@ -25,254 +23,6 @@ type ChatUIMessage = UIMessage & { metadata?: unknown };
 function parseMetadata(metadata: unknown): MessageMetadata | null {
   const result = messageMetadataSchema.safeParse(metadata);
   return result.success ? result.data : null;
-}
-
-function getRecordValue(value: unknown, key: string): unknown {
-  return isRecord(value) && key in value ? value[key] : undefined;
-}
-
-// --- Tool activity badge ---
-
-function ToolActivityBadge({ tools }: { tools: Array<{ tool: string; input: unknown }> }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="mb-1">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="inline-flex items-center gap-1 corner-notch-1 bg-background/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-background/80"
-      >
-        <Wrench className="h-2.5 w-2.5" />
-        {tools.length} tool{tools.length !== 1 ? "s" : ""} used
-      </button>
-      {expanded && (
-        <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
-          {tools.map((t, idx) => {
-            const meta = TOOL_CATALOG.find((c) => c.name === t.tool);
-            const displayKey = meta?.inputDisplayKey;
-            const displayValue = displayKey
-              ? isRecord(t.input) && displayKey in t.input
-                ? String(t.input[displayKey])
-                : undefined
-              : undefined;
-            return (
-              <div key={idx} className="flex items-center gap-1">
-                <span className="font-mono">{t.tool}</span>
-                {displayValue && <span className="truncate opacity-70">{displayValue}</span>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type ToolCallInfo = {
-  tool: string;
-  input?: unknown;
-  output?: unknown;
-  errorText?: string;
-  state?: string;
-  providerExecuted?: boolean;
-};
-
-function extractToolCalls(parts: UIMessage["parts"] | undefined): ToolCallInfo[] {
-  if (!parts) return [];
-  const toolCalls: ToolCallInfo[] = [];
-  for (const part of parts) {
-    if (typeof part.type !== "string") continue;
-    if (!part.type.startsWith("tool-")) continue;
-    const tool = part.type.slice("tool-".length);
-    const input = getRecordValue(part, "input");
-    const output = getRecordValue(part, "output");
-    const errorText = getRecordValue(part, "errorText");
-    const state = getRecordValue(part, "state");
-    const providerExecuted = getRecordValue(part, "providerExecuted");
-    toolCalls.push({
-      tool,
-      input,
-      output,
-      errorText: typeof errorText === "string" ? errorText : undefined,
-      state: typeof state === "string" ? state : undefined,
-      providerExecuted: typeof providerExecuted === "boolean" ? providerExecuted : undefined,
-    });
-  }
-  return toolCalls;
-}
-
-function formatToolPayload(value: unknown): string {
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function formatToolState(state: string | undefined): string | null {
-  if (!state) return null;
-  if (state === "input-streaming") return "running";
-  if (state === "input-available") return "called";
-  if (state === "output-available") return "done";
-  if (state === "output-error") return "error";
-  return state;
-}
-
-function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
-  if (toolCalls.length === 0) return null;
-  return (
-    <div className="mb-1 corner-notch-1 border border-border/60 bg-background/70 px-2 py-1.5 text-[11px] text-muted-foreground">
-      <div className="flex items-center gap-1 text-foreground">
-        <Wrench className="h-3 w-3" />
-        Tool calls ({toolCalls.length})
-      </div>
-      <div className="mt-1 space-y-1">
-        {toolCalls.map((call, idx) => {
-          const meta = TOOL_CATALOG.find((tool) => tool.name === call.tool);
-          const displayKey = meta?.inputDisplayKey;
-          const displayValue = displayKey
-            ? isRecord(call.input) && displayKey in call.input
-              ? String(call.input[displayKey])
-              : undefined
-            : undefined;
-          const stateLabel = formatToolState(call.state);
-          return (
-            <details
-              key={`${call.tool}-${idx}`}
-              className="corner-notch-1 border border-border/60 bg-muted/40 px-2 py-1"
-            >
-              <summary className="cursor-pointer list-none">
-                <span className="flex items-center gap-2 text-foreground">
-                  <span className="font-mono">{call.tool}</span>
-                  {displayValue && (
-                    <span className="truncate text-muted-foreground">{displayValue}</span>
-                  )}
-                  {stateLabel && (
-                    <span
-                      className={cn(
-                        "corner-notch-1 px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
-                        stateLabel === "error"
-                          ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                          : stateLabel === "done"
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                            : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {stateLabel}
-                    </span>
-                  )}
-                </span>
-              </summary>
-              <div className="mt-1 space-y-1 text-[10px] text-muted-foreground">
-                {call.input !== undefined && (
-                  <div>
-                    <div className="font-medium text-foreground">Input</div>
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap corner-notch-1 bg-background/60 p-1">
-                      {formatToolPayload(call.input)}
-                    </pre>
-                  </div>
-                )}
-                {call.output !== undefined && (
-                  <div>
-                    <div className="font-medium text-foreground">Output</div>
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap corner-notch-1 bg-background/60 p-1">
-                      {formatToolPayload(call.output)}
-                    </pre>
-                  </div>
-                )}
-                {call.errorText && (
-                  <div className="text-red-600 dark:text-red-400">Error: {call.errorText}</div>
-                )}
-                {call.providerExecuted === false && (
-                  <div className="text-amber-700 dark:text-amber-400">
-                    Provider execution skipped.
-                  </div>
-                )}
-              </div>
-            </details>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// --- Capabilities panel ---
-
-function CapabilitiesPanel({
-  repositoryFullName,
-  vaultId,
-  hasGithubConnection,
-  systemPrompt,
-}: {
-  repositoryFullName?: string;
-  vaultId?: Id<"vaults">;
-  hasGithubConnection: boolean;
-  systemPrompt?: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const toolsEnabled = Boolean(repositoryFullName && vaultId && hasGithubConnection);
-
-  let statusLine = "Open a repository to enable tools.";
-  if (repositoryFullName) {
-    if (!vaultId) {
-      statusLine = "Repository is not connected yet.";
-    } else if (!hasGithubConnection) {
-      statusLine = "GitHub access is missing. Reconnect to enable tools.";
-    } else {
-      statusLine = `Tools are enabled for ${repositoryFullName}.`;
-    }
-  }
-
-  return (
-    <div className="mb-2 corner-notch-1 border border-border bg-muted/50 text-xs">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground hover:text-foreground"
-      >
-        <ChevronRight
-          className={cn("h-3 w-3 shrink-0 transition-transform", expanded && "rotate-90")}
-        />
-        <span className="font-medium">Chat tools</span>
-        <span
-          className={cn(
-            "ml-auto corner-notch-1 px-2 py-0.5 text-[10px] font-medium",
-            toolsEnabled
-              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {toolsEnabled ? "Enabled" : "Disabled"}
-        </span>
-      </button>
-      {expanded && (
-        <div className="border-t border-border px-3 py-2 text-muted-foreground">
-          <div>{statusLine}</div>
-          <div className="mt-2 text-foreground">Available tools</div>
-          <div className="mt-1 space-y-0.5">
-            {TOOL_CATALOG.map((toolInfo) => (
-              <div key={toolInfo.name} className="flex items-center gap-2">
-                <span className="font-mono text-[11px] text-foreground">{toolInfo.name}</span>
-                <span>{toolInfo.uiDescription}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2">Tool usage appears as a badge on assistant responses.</div>
-          {systemPrompt && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-[11px] text-muted-foreground">
-                System prompt
-              </summary>
-              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[11px] text-muted-foreground">
-                {systemPrompt}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 // --- Commit proposal card ---
@@ -475,21 +225,9 @@ function MessageBubble({ msg, threadId }: { msg: ChatUIMessage; threadId: string
 
   const isCommitProposal = metadata?.type === "commit_proposal";
   const isProdReadProposal = metadata?.type === "prod_read_proposal";
-  const toolCalls = extractToolCalls(msg.parts);
-  const toolsUsed =
-    metadata?.type === "tool_activity"
-      ? metadata.tools
-      : metadata?.type === "commit_proposal"
-        ? metadata.tools
-        : metadata?.type === "prod_read_proposal"
-          ? metadata.tools
-          : null;
-  const showToolBadge = toolCalls.length === 0 && Boolean(toolsUsed?.length);
 
   return (
     <div className="mb-2 max-w-[85%] corner-notch-1 bg-muted px-3 py-2 text-sm text-foreground">
-      {showToolBadge ? <ToolActivityBadge tools={toolsUsed ?? []} /> : null}
-      <ToolCallList toolCalls={toolCalls} />
       <ProsemarkReadOnly value={msg.text} className="text-sm" />
       {isCommitProposal && (
         <CommitProposalCard metadata={metadata} threadId={threadId} messageId={msg.id} />
@@ -569,8 +307,6 @@ export function EditorChatPanel({
   const creatingThreadRef = useRef<Promise<string> | null>(null);
   const flushDraftRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const flushDraftPromiseRef = useRef<Promise<void> | null>(null);
-
-  const viewer = useQuery(api.users.viewer);
 
   // Vault pages use the per-vault thread; non-vault pages fall back to the old local thread id.
   const vaultThread = useQuery(api.chat.index.getThreadForVault, vaultId ? { vaultId } : "skip");
@@ -928,12 +664,6 @@ export function EditorChatPanel({
 
       <div className="flex-1 overflow-y-auto py-2">
         <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
-          <CapabilitiesPanel
-            repositoryFullName={repositoryFullName}
-            vaultId={vaultId}
-            hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
-            systemPrompt={threadContext?.systemPrompt}
-          />
           {threadId
             ? messageResults.map((msg) => (
                 <MessageBubble key={msg.id} msg={msg} threadId={threadId} />

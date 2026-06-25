@@ -1,19 +1,18 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { asRecord } from "../jsonUtils";
+import { object, optional, string, unknown as unknownValue } from "@samebase/sure";
+import { asRecord, type JsonRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
-import { httpAction } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
-import {
-  buildMcpToolInputSchema,
-  findToolInCatalog,
-  listCatalogToolsForSurface,
-} from "../toolRuntime/catalog";
-import type { ToolJsonSchema } from "../toolRuntime/types";
-import { normalizeOptionalString } from "../toolRuntime/utils";
+import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
+import { createRepositoryContract } from "../vault/createRepositoryContract";
+import { getUserVaultsContract } from "../vault/getUserVaultsContract";
 import {
   MCP_CONSENT_APP_PATH,
   type McpAuthorizationSuccessSearchParams,
 } from "../../shared/mcpOAuth";
+import { canAccess, type AccessKey } from "../../shared/accessModel";
 import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import {
   createAccessTokenValue,
@@ -28,7 +27,6 @@ import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
   getDefaultMcpProtocolValidationOptions,
-  type McpProtocolValidationOptions,
   readBearerTokenFromAuthorizationHeader,
   redirectUriMatchesRegistered,
   validateAuthorizeRequestFromUrl,
@@ -40,6 +38,87 @@ import {
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
+const mcpToolCallParams = object({
+  name: string,
+  arguments: optional(unknownValue),
+});
+
+export type McpToolInvocation = {
+  input: JsonRecord;
+  userId: Id<"users">;
+  grantedScopes: string[];
+};
+
+export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
+  const input = { ...invocation.input };
+  delete input.userId;
+  delete input.grantedScopes;
+  return {
+    ...input,
+    userId: invocation.userId,
+    grantedScopes: invocation.grantedScopes,
+  };
+}
+
+async function callCreateRepositoryMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.createRepositoryTool,
+    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
+    buildMcpToolInvocationArgs(invocation),
+  );
+}
+
+async function callGetUserVaultsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.getUserVaultsTool,
+    buildMcpToolInvocationArgs(invocation),
+  );
+}
+
+const mcpToolCatalog = [
+  {
+    access: createRepositoryContract.access,
+    name: createRepositoryContract.mcp.name,
+    description: createRepositoryContract.mcp.description,
+    inputSchema: convexArgsToToolInputSchema(
+      createRepositoryContract.args,
+      createRepositoryContract.mcp.inputDescriptions,
+    ),
+    call: callCreateRepositoryMcpTool,
+  },
+  {
+    access: getUserVaultsContract.access,
+    name: getUserVaultsContract.mcp.name,
+    description: getUserVaultsContract.mcp.description,
+    inputSchema: convexArgsToToolInputSchema(
+      getUserVaultsContract.args,
+      getUserVaultsContract.mcp.inputDescriptions,
+    ),
+    call: callGetUserVaultsMcpTool,
+  },
+] as const;
+
+export function listMcpToolsForAccess(args: {
+  grantedScopes: string[];
+  currentAccessKeys: readonly AccessKey[];
+}) {
+  return mcpToolCatalog
+    .filter(
+      (tool) =>
+        args.grantedScopes.includes(tool.access) && canAccess(tool.access, args.currentAccessKeys),
+    )
+    .map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+    }));
+}
+
+async function readMcpUserAccessKeys(ctx: ActionCtx, userId: Id<"users">): Promise<AccessKey[]> {
+  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
+  return viewer.accessKeys;
+}
+
 type McpConsentRedirectSearchParams = {
   mcp_consent_request: string;
   mcp_login_required: "1" | undefined;
@@ -129,10 +208,6 @@ function buildMcpConsentRedirectUrl(args: {
   };
 }
 
-function getProtocolValidationOptions(): McpProtocolValidationOptions {
-  return getDefaultMcpProtocolValidationOptions();
-}
-
 function hasJsonContentType(request: Request): boolean {
   const contentType = request.headers.get("content-type");
   if (!contentType) {
@@ -183,42 +258,6 @@ function parseScopeTokens(grantedScope: string): string[] {
     .filter((scope) => scope.length > 0);
 }
 
-function buildMcpToolList(grantedScope: string): {
-  tools: {
-    name: string;
-    description: string;
-    inputSchema: ToolJsonSchema;
-  }[];
-} {
-  const tools = listCatalogToolsForSurface({
-    surface: "mcp",
-    grantedScopes: parseScopeTokens(grantedScope),
-  });
-  return {
-    tools: tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: buildMcpToolInputSchema(tool),
-    })),
-  };
-}
-
-function parseToolArguments(value: unknown): Record<string, unknown> {
-  const record = asRecord(value);
-  return record;
-}
-
-function parseStructuredContent(value: string | undefined): unknown {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return undefined;
-  }
-}
-
 export const getMcpOauthProtectedResourceMetadata = httpAction(async (_ctx, request) => {
   const origin = parseOrigin(request);
   return jsonResponse(buildMcpProtectedResourceMetadata(origin), 200);
@@ -265,7 +304,7 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 
   const validation = validateDynamicClientRegistrationPayload(
     payload,
-    getProtocolValidationOptions(),
+    getDefaultMcpProtocolValidationOptions(),
   );
   if (!validation.ok) {
     return oauthErrorResponse({
@@ -308,7 +347,7 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 
 export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   const now = Date.now();
-  const protocolValidationOptions = getProtocolValidationOptions();
+  const protocolValidationOptions = getDefaultMcpProtocolValidationOptions();
   const url = new URL(request.url);
   const validation = validateAuthorizeRequestFromUrl(url, protocolValidationOptions);
   if (!validation.ok) {
@@ -460,7 +499,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
   const rawBody = await request.text();
   const params = new URLSearchParams(rawBody);
   const now = Date.now();
-  const protocolValidationOptions = getProtocolValidationOptions();
+  const protocolValidationOptions = getDefaultMcpProtocolValidationOptions();
   const validation = validateTokenRequestFromSearchParams(params, protocolValidationOptions);
   if (!validation.ok) {
     return oauthErrorResponse({
@@ -678,9 +717,13 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     if (isNotification) {
       return new Response(null, { status: 202 });
     }
+    const grantedScopes = parseScopeTokens(tokenValidation.scope);
+    const currentAccessKeys = await readMcpUserAccessKeys(ctx, tokenValidation.userId);
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
-      result: buildMcpToolList(tokenValidation.scope),
+      result: {
+        tools: listMcpToolsForAccess({ grantedScopes, currentAccessKeys }),
+      },
     });
   }
 
@@ -690,8 +733,23 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     }
 
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
-    const params = asRecord(rpcRequest.params);
-    const toolName = normalizeOptionalString(params.name) ?? "";
+    const [hasParams, params] = mcpToolCallParams(rpcRequest.params);
+    if (!hasParams) {
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: "Invalid tool call params.",
+            },
+          ],
+          isError: true,
+        },
+      });
+    }
+
+    const toolName = params.name.trim();
     if (toolName.length === 0) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
@@ -707,7 +765,8 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       });
     }
 
-    const tool = findToolInCatalog({ name: toolName });
+    const input = asRecord(params.arguments);
+    const tool = mcpToolCatalog.find((entry) => entry.name === toolName);
     if (!tool) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
@@ -723,43 +782,42 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       });
     }
 
-    const args = parseToolArguments(params.arguments);
-    const toolInput: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(args)) {
-      if (key !== "vaultId" && key !== "branch" && key !== "threadId") {
-        toolInput[key] = value;
-      }
+    try {
+      const result = await tool.call(ctx, {
+        input,
+        userId: tokenValidation.userId,
+        grantedScopes,
+      });
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: result.text,
+            },
+          ],
+          ...(result.structuredContent !== undefined
+            ? { structuredContent: result.structuredContent }
+            : {}),
+          ...(result.status !== "ok" ? { isError: true } : {}),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Tool execution failed.";
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: message,
+            },
+          ],
+          isError: true,
+        },
+      });
     }
-
-    const result = await ctx.runAction(internal.toolRuntime.runtime.runTool, {
-      toolName: tool.name,
-      inputJson: JSON.stringify(toolInput),
-      surface: "mcp",
-      userId: tokenValidation.userId,
-      grantedScopes,
-      ...(tool.requiresVaultContext ? { vaultId: normalizeOptionalString(args.vaultId) } : {}),
-      ...(tool.requiresBranchContext ? { branch: normalizeOptionalString(args.branch) } : {}),
-      ...(tool.requiresThreadContext ? { threadId: normalizeOptionalString(args.threadId) } : {}),
-      ...(rpcRequest.id !== undefined && rpcRequest.id !== null
-        ? { requestId: String(rpcRequest.id) }
-        : {}),
-    });
-
-    const structuredContent = parseStructuredContent(result.structuredContentJson);
-
-    return jsonRpcSuccessResponse({
-      id: rpcRequest.id,
-      result: {
-        content: [
-          {
-            type: "text",
-            text: result.text,
-          },
-        ],
-        ...(structuredContent !== undefined ? { structuredContent } : {}),
-        ...(result.status !== "ok" ? { isError: true } : {}),
-      },
-    });
   }
 
   if (isNotification) {
