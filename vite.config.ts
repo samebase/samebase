@@ -18,7 +18,11 @@ export default defineConfig({
     __APP_BUILD_CONFIG__: JSON.stringify(testAppBuildConfig),
   },
   fmt: {
-    ignorePatterns: ["**/.agents/**", "**/convex/_generated/**"],
+    ignorePatterns: [
+      "**/.agents/**",
+      "**/convex/_generated/**",
+      "apps/samebase/src/routeTree.gen.ts",
+    ],
     printWidth: 100,
     proseWrap: "always",
   },
