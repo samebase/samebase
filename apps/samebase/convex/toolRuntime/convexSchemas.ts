@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PropertyValidators } from "convex/values";
+import type { ObjectType, PropertyValidators } from "convex/values";
 
 import { isRecord } from "../jsonUtils";
 import type { ToolJsonSchema } from "./types";
@@ -183,9 +183,9 @@ export function convexArgsToToolInputSchema(
   } satisfies ToolJsonSchema;
 }
 
-export function convexArgsToZodSchema(
-  args: PropertyValidators,
-): z.ZodType<Record<string, unknown>> {
+export function convexArgsToZodSchema<Args extends PropertyValidators>(
+  args: Args,
+): z.ZodType<ObjectType<Args>> {
   const shape: Record<string, z.ZodType<unknown>> = {};
 
   for (const [name, validator] of Object.entries(args)) {
@@ -193,5 +193,7 @@ export function convexArgsToZodSchema(
     shape[name] = isOptionalConvexValidator(validator) ? fieldSchema.optional() : fieldSchema;
   }
 
+  // @ts-expect-error Dynamic Convex validator metadata builds this shape at runtime,
+  // but TypeScript cannot connect Object.entries(args) back to ObjectType<Args>.
   return z.object(shape).strict();
 }

@@ -6,7 +6,7 @@ import { createRepositoryContract } from "../vault/createRepositoryContract";
 import { convexArgsToToolInputSchema, convexArgsToZodSchema } from "./convexSchemas";
 
 const emptyInputSchema = z.object({});
-const createRepositoryInputSchema = convexArgsToZodSchema(createRepositoryContract.args);
+export const createRepositoryInputSchema = convexArgsToZodSchema(createRepositoryContract.args);
 const readFileInputSchema = z.object({
   path: z.string().describe("File path relative to repository root"),
 });

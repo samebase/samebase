@@ -13,6 +13,7 @@ import {
   createRepositoryContract,
   type CreateRepositoryArgs,
 } from "../vault/createRepositoryContract";
+import { createRepositoryInputSchema } from "./catalog";
 
 type ReadFileInput = {
   path: string;
@@ -1114,42 +1115,6 @@ function parseDeleteFileInput(value: unknown): DeleteFileInput | null {
   };
 }
 
-function parseCreateRepositoryInput(value: unknown): CreateRepositoryInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-  const name = record.name;
-  const owner = record.owner;
-  const convexProjectName = record.convexProjectName;
-  const cloudflareWorkerName = record.cloudflareWorkerName;
-  if (
-    typeof name !== "string" ||
-    typeof owner !== "string" ||
-    typeof convexProjectName !== "string" ||
-    typeof cloudflareWorkerName !== "string"
-  ) {
-    return null;
-  }
-  const description = parseOptionalString(record.description);
-  if (record.description !== undefined && description === undefined) {
-    return null;
-  }
-  const privateRepository = parseOptionalBoolean(record.private);
-  if (record.private !== undefined && privateRepository === undefined) {
-    return null;
-  }
-
-  return {
-    name,
-    owner,
-    convexProjectName,
-    cloudflareWorkerName,
-    ...(description !== undefined ? { description } : {}),
-    ...(privateRepository !== undefined ? { private: privateRepository } : {}),
-  };
-}
-
 function parseOptionalBoolean(value: unknown): boolean | undefined {
   if (value === undefined) {
     return undefined;
@@ -1352,11 +1317,11 @@ export async function executeRuntimeTool(args: {
 }): Promise<ToolExecutionOutput> {
   switch (args.toolName) {
     case createRepositoryContract.mcp.name: {
-      const input = parseCreateRepositoryInput(args.input);
-      if (!input) {
+      const input = createRepositoryInputSchema.safeParse(args.input);
+      if (!input.success) {
         throw new Error(`Invalid ${createRepositoryContract.mcp.name} input.`);
       }
-      return executeCreateRepository(args.context, input);
+      return executeCreateRepository(args.context, input.data);
     }
     case "get_vault_remote_branches":
       return executeGetVaultRemoteBranches(args.context);
