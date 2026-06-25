@@ -4,19 +4,11 @@ import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
 import { z } from "zod";
-import { executeReadFile } from "../agent/tools";
-import type { ToolContext } from "../agent/tools";
 import { buildSystemPrompt } from "../agent/systemPrompt";
 import { runAgentGraph } from "../agent/graph";
 import { applyRedaction, getProdAccessMode } from "../infraReadPolicy";
-import type { MessageDoc } from "@convex-dev/agent/validators";
 import { saveMessage } from "@convex-dev/agent";
-import {
-  buildCommitProposalPayload,
-  buildProdReadProposalPayload,
-  buildProdReadResultPayload,
-  buildToolActivityPayload,
-} from "./metadata";
+import { buildProdReadResultPayload } from "./metadata";
 import { isLiveConnectedVault, type ConnectedVault } from "../vault/state";
 
 const MODEL = "claude-sonnet-4-20250514";
@@ -74,17 +66,6 @@ function parseAllowedDataTable(value: unknown): AllowedDataTable {
   return allowedDataTableSchema.parse(value);
 }
 
-function selectAssistantMessageId(messages: MessageDoc[] | undefined): string | undefined {
-  if (!messages) return undefined;
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const msg = messages[i];
-    if (!msg.tool && msg.message?.role === "assistant") {
-      return msg._id;
-    }
-  }
-  return undefined;
-}
-
 export const generateResponse = internalAction({
   args: {
     threadId: v.string(),
@@ -101,30 +82,16 @@ export const generateResponse = internalAction({
 
     // Load vault context if available
     let vault: ConnectedVault | null = null;
-    let githubAccessToken: string | null = null;
-
     if (threadContext.vaultId) {
       const v = await ctx.runQuery(internal.vault.records.getById, {
         id: threadContext.vaultId,
       });
       if (isLiveConnectedVault(v)) {
         vault = v;
-        const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: v.userId,
-          kind: "github",
-        });
-        if (githubConnection?.kind === "github") {
-          githubAccessToken = githubConnection.auth.credential;
-        }
       }
     }
 
-    const toolBranch =
-      vault && githubAccessToken && threadContext.branch ? threadContext.branch : null;
-    const hasToolAccess = Boolean(vault && githubAccessToken && toolBranch);
-
     // Gather context for the system prompt
-    let fileContent: string | undefined;
     let repoTree: string[] | undefined;
 
     if (vault) {
@@ -138,34 +105,12 @@ export const generateResponse = internalAction({
       }
     }
 
-    if (threadContext.filePath && vault && githubAccessToken && toolBranch) {
-      try {
-        fileContent = await executeReadFile(
-          {
-            ctx,
-            threadId: args.threadId,
-            vaultId: vault._id,
-            owner: vault.owner,
-            repo: vault.name,
-            branch: toolBranch,
-            userId: vault.userId,
-            accessToken: githubAccessToken,
-          },
-          { path: threadContext.filePath },
-        );
-      } catch {
-        // File content is optional context — don't fail the request
-      }
-    }
-
     const systemPrompt = buildSystemPrompt({
       owner: vault?.owner,
       repo: vault?.name,
       branch: threadContext.branch,
       filePath: threadContext.filePath,
-      fileContent,
       repoTree,
-      toolsEnabled: Boolean(hasToolAccess),
     });
 
     await ctx.runMutation(internal.chat.index.saveThreadSystemPrompt, {
@@ -173,94 +118,14 @@ export const generateResponse = internalAction({
       systemPrompt,
     });
 
-    const toolCtx: ToolContext | undefined =
-      toolBranch && vault && githubAccessToken
-        ? {
-            ctx,
-            threadId: args.threadId,
-            vaultId: vault._id,
-            owner: vault.owner,
-            repo: vault.name,
-            branch: toolBranch,
-            userId: vault.userId,
-            accessToken: githubAccessToken,
-          }
-        : undefined;
-
-    const result = await runAgentGraph({
+    await runAgentGraph({
       ctx,
-      toolCtx,
       systemPrompt,
       threadId: args.threadId,
       promptMessageId: args.promptMessageId,
       model: MODEL,
       userId: threadContext.userId,
     });
-
-    const assistantMessageId = selectAssistantMessageId(result.savedMessages);
-    if (!assistantMessageId) {
-      return null;
-    }
-
-    if (result.prodReadProposal) {
-      const summary = result.prodReadProposal.summary;
-      await ctx.runMutation(components.agent.messages.updateMessage, {
-        messageId: assistantMessageId,
-        patch: {
-          message: { role: "assistant", content: summary },
-        },
-      });
-
-      const payload = buildProdReadProposalPayload(
-        {
-          ...result.prodReadProposal,
-          status: "proposed",
-        },
-        result.toolActivity.length > 0 ? result.toolActivity : undefined,
-      );
-
-      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
-        messageId: assistantMessageId,
-        threadId: args.threadId,
-        type: payload.type,
-        payloadJson: JSON.stringify(payload),
-      });
-      return null;
-    }
-
-    if (result.commitProposal) {
-      const summary = `I've prepared the changes and propose committing them with the message: "${result.commitProposal}"`;
-      await ctx.runMutation(components.agent.messages.updateMessage, {
-        messageId: assistantMessageId,
-        patch: {
-          message: { role: "assistant", content: summary },
-        },
-      });
-
-      const payload = buildCommitProposalPayload({
-        message: result.commitProposal,
-        branch: threadContext.branch,
-        tools: result.toolActivity.length > 0 ? result.toolActivity : undefined,
-      });
-
-      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
-        messageId: assistantMessageId,
-        threadId: args.threadId,
-        type: payload.type,
-        payloadJson: JSON.stringify(payload),
-      });
-      return null;
-    }
-
-    if (result.toolActivity.length > 0) {
-      const payload = buildToolActivityPayload(result.toolActivity);
-      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
-        messageId: assistantMessageId,
-        threadId: args.threadId,
-        type: payload.type,
-        payloadJson: JSON.stringify(payload),
-      });
-    }
 
     return null;
   },

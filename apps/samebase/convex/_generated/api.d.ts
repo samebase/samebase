@@ -10,10 +10,7 @@
 
 import type * as accessModelValidators from "../accessModelValidators.js";
 import type * as agent_graph from "../agent/graph.js";
-import type * as agent_replaceInFile from "../agent/replaceInFile.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
-import type * as agent_toolCatalog from "../agent/toolCatalog.js";
-import type * as agent_tools from "../agent/tools.js";
 import type * as agentGraphActions from "../agentGraphActions.js";
 import type * as agentGraphLayout from "../agentGraphLayout.js";
 import type * as appProvisioningEvents from "../appProvisioningEvents.js";
@@ -88,11 +85,8 @@ import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_catalog from "../toolRuntime/catalog.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
 import type * as toolRuntime_executors from "../toolRuntime/executors.js";
-import type * as toolRuntime_policy from "../toolRuntime/policy.js";
-import type * as toolRuntime_queries from "../toolRuntime/queries.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as toolRuntime_types from "../toolRuntime/types.js";
-import type * as toolRuntime_utils from "../toolRuntime/utils.js";
 import type * as userAccess from "../userAccess.js";
 import type * as users from "../users.js";
 import type * as vault_actions from "../vault/actions.js";
@@ -128,10 +122,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   accessModelValidators: typeof accessModelValidators;
   "agent/graph": typeof agent_graph;
-  "agent/replaceInFile": typeof agent_replaceInFile;
   "agent/systemPrompt": typeof agent_systemPrompt;
-  "agent/toolCatalog": typeof agent_toolCatalog;
-  "agent/tools": typeof agent_tools;
   agentGraphActions: typeof agentGraphActions;
   agentGraphLayout: typeof agentGraphLayout;
   appProvisioningEvents: typeof appProvisioningEvents;
@@ -206,11 +197,8 @@ declare const fullApi: ApiFromModules<{
   "toolRuntime/catalog": typeof toolRuntime_catalog;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
   "toolRuntime/executors": typeof toolRuntime_executors;
-  "toolRuntime/policy": typeof toolRuntime_policy;
-  "toolRuntime/queries": typeof toolRuntime_queries;
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   "toolRuntime/types": typeof toolRuntime_types;
-  "toolRuntime/utils": typeof toolRuntime_utils;
   userAccess: typeof userAccess;
   users: typeof users;
   "vault/actions": typeof vault_actions;
