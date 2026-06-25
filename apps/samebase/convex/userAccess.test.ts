@@ -14,27 +14,10 @@ describe("isAdminUser", () => {
 
 describe("hasAppAccess", () => {
   it("allows explicitly approved users", () => {
-    expect(
-      hasAppAccess({
-        email: "samebase.guest@gmail.com",
-        isApproved: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("allows admins without a stored approval flag", () => {
-    expect(
-      hasAppAccess({
-        email: "nicu@samebase.com",
-      }),
-    ).toBe(true);
+    expect(hasAppAccess(true)).toBe(true);
   });
 
   it("blocks unapproved non-admin users", () => {
-    expect(
-      hasAppAccess({
-        email: "samebase.guest@gmail.com",
-      }),
-    ).toBe(false);
+    expect(hasAppAccess(false)).toBe(false);
   });
 });

@@ -11,12 +11,6 @@ export function isAdminUser(email?: string | null): boolean {
  * Keep invite approval in persisted user data so operators can flip one
  * `users.isApproved` field instead of editing a code-side email allowlist.
  */
-export function hasAppAccess(args: {
-  email?: string | null;
-  isApproved?: boolean | null | undefined;
-}): boolean {
-  if (args.isApproved === true) {
-    return true;
-  }
-  return isAdminUser(args.email);
+export function hasAppAccess(isApproved?: boolean | null): boolean {
+  return isApproved === true;
 }

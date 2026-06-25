@@ -131,12 +131,7 @@ function resolveViewerForUserRecord(args: {
     });
   }
 
-  if (
-    hasAppAccess({
-      email: args.user.email,
-      isApproved: args.user.isApproved,
-    })
-  ) {
+  if (hasAppAccess(args.user.isApproved)) {
     return resolveUserViewer({
       role: "role_member",
       userId: args.userId,
