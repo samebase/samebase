@@ -1,5 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { object, optional, string, unknown as unknownValue } from "@samebase/sure";
+import { asObjectValidator } from "convex/values";
+import { validate } from "convex-helpers/validators";
 import { asRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
@@ -40,6 +42,7 @@ const mcpToolCallParams = object({
   name: string,
   arguments: optional(unknownValue),
 });
+const createRepositoryMcpInputValidator = asObjectValidator(createRepositoryContract.args);
 const mcpToolListEntries = [
   {
     access: createRepositoryContract.access,
@@ -716,7 +719,20 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     try {
       switch (toolName) {
         case createRepositoryContract.mcp.name:
-          // @ts-expect-error Convex validates raw MCP arguments against createRepositoryContract.args before the action handler runs.
+          if (!validate(createRepositoryMcpInputValidator, input)) {
+            return jsonRpcSuccessResponse({
+              id: rpcRequest.id,
+              result: {
+                content: [
+                  {
+                    type: "text",
+                    text: `Invalid arguments for ${createRepositoryContract.mcp.name}.`,
+                  },
+                ],
+                isError: true,
+              },
+            });
+          }
           result = await ctx.runAction(internal.toolRuntime.runtime.createRepositoryTool, {
             ...input,
             userId: tokenValidation.userId,
