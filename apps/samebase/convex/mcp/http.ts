@@ -5,6 +5,7 @@ import { httpAction } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
 import { createRepositoryContract } from "../vault/createRepositoryContract";
+import { getUserVaultsContract } from "../vault/getUserVaultsContract";
 import {
   MCP_CONSENT_APP_PATH,
   type McpAuthorizationSuccessSearchParams,
@@ -632,21 +633,33 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     if (isNotification) {
       return new Response(null, { status: 202 });
     }
+    const grantedScopes = parseScopeTokens(tokenValidation.scope);
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
       result: {
-        tools: parseScopeTokens(tokenValidation.scope).includes(createRepositoryContract.access)
-          ? [
-              {
-                name: createRepositoryContract.mcp.name,
-                description: createRepositoryContract.mcp.description,
-                inputSchema: convexArgsToToolInputSchema(
-                  createRepositoryContract.args,
-                  createRepositoryContract.mcp.inputDescriptions,
-                ),
-              },
-            ]
-          : [],
+        tools: [
+          ...(grantedScopes.includes(createRepositoryContract.access)
+            ? [
+                {
+                  name: createRepositoryContract.mcp.name,
+                  description: createRepositoryContract.mcp.description,
+                  inputSchema: convexArgsToToolInputSchema(
+                    createRepositoryContract.args,
+                    createRepositoryContract.mcp.inputDescriptions,
+                  ),
+                },
+              ]
+            : []),
+          ...(grantedScopes.includes(getUserVaultsContract.access)
+            ? [
+                {
+                  name: getUserVaultsContract.mcp.name,
+                  description: getUserVaultsContract.mcp.description,
+                  inputSchema: convexArgsToToolInputSchema(getUserVaultsContract.args),
+                },
+              ]
+            : []),
+        ],
       },
     });
   }
@@ -675,30 +688,39 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       });
     }
 
-    if (toolName !== createRepositoryContract.mcp.name) {
-      return jsonRpcSuccessResponse({
-        id: rpcRequest.id,
-        result: {
-          content: [
-            {
-              type: "text",
-              text: `Unknown tool: ${toolName}`,
-            },
-          ],
-          isError: true,
-        },
-      });
-    }
-
     const input = asRecord(params.arguments);
     let result;
     try {
-      // @ts-expect-error Convex validates raw MCP arguments against createRepositoryContract.args before the action handler runs.
-      result = await ctx.runAction(internal.toolRuntime.runtime.createRepositoryTool, {
-        userId: tokenValidation.userId,
-        grantedScopes,
-        ...input,
-      });
+      switch (toolName) {
+        case createRepositoryContract.mcp.name:
+          // @ts-expect-error Convex validates raw MCP arguments against createRepositoryContract.args before the action handler runs.
+          result = await ctx.runAction(internal.toolRuntime.runtime.createRepositoryTool, {
+            ...input,
+            userId: tokenValidation.userId,
+            grantedScopes,
+          });
+          break;
+        case getUserVaultsContract.mcp.name:
+          result = await ctx.runAction(internal.toolRuntime.runtime.getUserVaultsTool, {
+            ...input,
+            userId: tokenValidation.userId,
+            grantedScopes,
+          });
+          break;
+        default:
+          return jsonRpcSuccessResponse({
+            id: rpcRequest.id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: `Unknown tool: ${toolName}`,
+                },
+              ],
+              isError: true,
+            },
+          });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Tool execution failed.";
       return jsonRpcSuccessResponse({

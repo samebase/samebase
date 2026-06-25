@@ -1,6 +1,7 @@
 import { includes } from "@samebase/dependent/main";
 import { asRecord } from "../jsonUtils";
 import { createRepositoryContract } from "../vault/createRepositoryContract";
+import { getUserVaultsContract } from "../vault/getUserVaultsContract";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DEFAULT_RESPONSE_TYPES = ["code"] as const;
@@ -17,7 +18,11 @@ const MAX_STATE_LENGTH = 500;
 const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
-export const MCP_V1_SUPPORTED_SCOPES = [createRepositoryContract.access] as const;
+export const MCP_V1_SUPPORTED_SCOPES = [
+  createRepositoryContract.access,
+  getUserVaultsContract.access,
+] as const;
+const DEFAULT_MCP_SCOPE = MCP_V1_SUPPORTED_SCOPES.join(" ");
 
 type McpSupportedScope = (typeof MCP_V1_SUPPORTED_SCOPES)[number];
 
@@ -454,9 +459,9 @@ export function validateAuthorizeRequestFromUrl(
   }
 
   // Codex/native MCP OAuth clients may omit `scope` on authorize requests.
-  // OAuth allows server-defined defaults, so use the single Samebase app
-  // creation scope that backs this MCP server's public tool surface.
-  const scopeRaw = url.searchParams.get("scope")?.trim() || createRepositoryContract.access;
+  // OAuth allows server-defined defaults, so use the scopes that back this
+  // MCP server's public tool surface.
+  const scopeRaw = url.searchParams.get("scope")?.trim() || DEFAULT_MCP_SCOPE;
   const scopes = scopeRaw
     .split(" ")
     .map(normalizeScopeToken)

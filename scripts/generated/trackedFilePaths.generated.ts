@@ -285,6 +285,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/vault/deletion/state.ts",
   "apps/samebase/convex/vault/deletion/workflow.convex.test.ts",
   "apps/samebase/convex/vault/deletion/workflow.ts",
+  "apps/samebase/convex/vault/getUserVaultsContract.ts",
   "apps/samebase/convex/vault/model.ts",
   "apps/samebase/convex/vault/records.convex.test.ts",
   "apps/samebase/convex/vault/records.ts",

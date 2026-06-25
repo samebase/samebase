@@ -232,6 +232,52 @@ describe("vault dashboard Convex contract", () => {
     expect(noChecksBranch?.commits[0]?.checks).toBeUndefined();
   });
 
+  it("exposes user vaults through the MCP user bridge", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+    });
+    const ids = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        userId,
+        ghRepoOwner: "ada",
+        ghRepoName: "existing-app",
+      },
+    );
+
+    const vaults = await t.query(internal.vault.dashboard.getUserVaultsForUser, {
+      userId,
+    });
+
+    expect(vaults).toHaveLength(1);
+    expect(vaults[0]).toMatchObject({
+      _id: ids.vaultId,
+      repositoryFullName: "ada/existing-app",
+    });
+  });
+
+  it("blocks the MCP user bridge for users without dashboard access", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: false,
+      });
+    });
+
+    await expect(
+      t.query(internal.vault.dashboard.getUserVaultsForUser, {
+        userId,
+      }),
+    ).rejects.toThrow("Access denied");
+  });
+
   it("persists vault resource link expansion per user vault", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {

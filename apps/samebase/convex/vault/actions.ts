@@ -803,15 +803,13 @@ export async function createAppForUser(
   return { vaultId, runId };
 }
 
+// TODO: rename to createApp since we don't just create a repository
 export const createRepository = action({
   access: createRepositoryContract.access,
   args: createRepositoryContract.args,
   returns: createRepositoryContract.returns,
   mcp: createRepositoryContract.mcp,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> }> => {
+  handler: async (ctx, args): Promise<CreateRepositoryResult> => {
     return await createAppForUser(ctx, {
       ...args,
       userId: ctx.viewer.userId,
