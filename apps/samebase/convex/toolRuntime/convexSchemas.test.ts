@@ -18,6 +18,10 @@ describe("convexArgsToToolInputSchema", () => {
       },
       {
         name: "App name.",
+        private: "Whether the app is private.",
+        visibility: "Repository visibility.",
+        labels: "Labels to apply.",
+        settings: "Provisioning settings.",
       },
     );
 
@@ -30,15 +34,18 @@ describe("convexArgsToToolInputSchema", () => {
         },
         private: {
           type: "boolean",
+          description: "Whether the app is private.",
         },
         visibility: {
           anyOf: [{ const: "public" }, { const: "private" }],
+          description: "Repository visibility.",
         },
         labels: {
           type: "array",
           items: {
             type: "string",
           },
+          description: "Labels to apply.",
         },
         settings: {
           type: "object",
@@ -52,6 +59,7 @@ describe("convexArgsToToolInputSchema", () => {
           },
           required: ["retries"],
           additionalProperties: false,
+          description: "Provisioning settings.",
         },
       },
       required: ["name", "visibility", "labels", "settings"],

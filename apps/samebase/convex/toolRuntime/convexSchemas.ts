@@ -1,3 +1,4 @@
+import { entries } from "@samebase/dependent/object";
 import type { PropertyValidators } from "convex/values";
 
 import { isRecord } from "../jsonUtils";
@@ -18,16 +19,6 @@ function readConvexValidatorJson(validator: unknown) {
 
 function isOptionalConvexValidator(validator: unknown): boolean {
   return isRecord(validator) && validator.isOptional === "optional";
-}
-
-function withDescription(schema: Record<string, unknown>, description: string | undefined) {
-  if (description === undefined) {
-    return schema;
-  }
-  return {
-    ...schema,
-    description,
-  };
 }
 
 function readConvexObjectFieldType(field: unknown): unknown {
@@ -117,18 +108,18 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
   }
 }
 
-export function convexArgsToToolInputSchema(
-  args: PropertyValidators,
-  argsDescriptions?: Record<string, string>,
+export function convexArgsToToolInputSchema<TArgs extends PropertyValidators>(
+  args: TArgs,
+  argsDescriptions: Record<keyof TArgs, string>,
 ) {
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
 
-  for (const [name, validator] of Object.entries(args)) {
-    properties[name] = withDescription(
-      convexJsonToToolJsonSchema(readConvexValidatorJson(validator)),
-      argsDescriptions?.[name],
-    );
+  for (const [name, validator] of entries(args)) {
+    properties[name] = {
+      ...convexJsonToToolJsonSchema(readConvexValidatorJson(validator)),
+      description: argsDescriptions[name],
+    };
     if (!isOptionalConvexValidator(validator)) {
       required.push(name);
     }

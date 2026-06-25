@@ -42,7 +42,7 @@ export type AppFunctionMcpMetadata = {
   name: string;
   description: string;
   safety: "read_only" | "write" | "destructive" | "proposal_only";
-  inputDescriptions?: Record<string, string>;
+  inputDescriptions: Record<string, string>;
 };
 
 type AppFunctionCtx<

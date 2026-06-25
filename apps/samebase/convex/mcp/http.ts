@@ -655,7 +655,10 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
                 {
                   name: getUserVaultsContract.mcp.name,
                   description: getUserVaultsContract.mcp.description,
-                  inputSchema: convexArgsToToolInputSchema(getUserVaultsContract.args),
+                  inputSchema: convexArgsToToolInputSchema(
+                    getUserVaultsContract.args,
+                    getUserVaultsContract.mcp.inputDescriptions,
+                  ),
                 },
               ]
             : []),

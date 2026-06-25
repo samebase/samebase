@@ -175,6 +175,7 @@ export const getUserVaultsContract = {
     description:
       "List the Samebase apps and repositories available to the authenticated user, including provisioning state, provider resources, and branch summaries.",
     safety: "read_only",
+    inputDescriptions: {},
   } satisfies AppFunctionMcpMetadata,
 } as const;
 
