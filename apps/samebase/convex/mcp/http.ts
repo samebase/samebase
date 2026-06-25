@@ -3,8 +3,8 @@ import { asRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
-import { findMcpTool, listMcpTools } from "../toolRuntime/catalog";
-import type { ToolJsonSchema } from "../toolRuntime/types";
+import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
+import { createRepositoryContract } from "../vault/createRepositoryContract";
 import {
   MCP_CONSENT_APP_PATH,
   type McpAuthorizationSuccessSearchParams,
@@ -23,7 +23,6 @@ import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
   getDefaultMcpProtocolValidationOptions,
-  type McpProtocolValidationOptions,
   readBearerTokenFromAuthorizationHeader,
   redirectUriMatchesRegistered,
   validateAuthorizeRequestFromUrl,
@@ -124,10 +123,6 @@ function buildMcpConsentRedirectUrl(args: {
   };
 }
 
-function getProtocolValidationOptions(): McpProtocolValidationOptions {
-  return getDefaultMcpProtocolValidationOptions();
-}
-
 function hasJsonContentType(request: Request): boolean {
   const contentType = request.headers.get("content-type");
   if (!contentType) {
@@ -178,47 +173,6 @@ function parseScopeTokens(grantedScope: string): string[] {
     .filter((scope) => scope.length > 0);
 }
 
-function normalizeOptionalString(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function buildMcpToolList(grantedScope: string): {
-  tools: {
-    name: string;
-    description: string;
-    inputSchema: ToolJsonSchema;
-  }[];
-} {
-  const tools = listMcpTools(parseScopeTokens(grantedScope));
-  return {
-    tools: tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-    })),
-  };
-}
-
-function parseToolArguments(value: unknown): Record<string, unknown> {
-  const record = asRecord(value);
-  return record;
-}
-
-function parseStructuredContent(value: string | undefined): unknown {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return undefined;
-  }
-}
-
 export const getMcpOauthProtectedResourceMetadata = httpAction(async (_ctx, request) => {
   const origin = parseOrigin(request);
   return jsonResponse(buildMcpProtectedResourceMetadata(origin), 200);
@@ -265,7 +219,7 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 
   const validation = validateDynamicClientRegistrationPayload(
     payload,
-    getProtocolValidationOptions(),
+    getDefaultMcpProtocolValidationOptions(),
   );
   if (!validation.ok) {
     return oauthErrorResponse({
@@ -308,7 +262,7 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 
 export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   const now = Date.now();
-  const protocolValidationOptions = getProtocolValidationOptions();
+  const protocolValidationOptions = getDefaultMcpProtocolValidationOptions();
   const url = new URL(request.url);
   const validation = validateAuthorizeRequestFromUrl(url, protocolValidationOptions);
   if (!validation.ok) {
@@ -460,7 +414,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
   const rawBody = await request.text();
   const params = new URLSearchParams(rawBody);
   const now = Date.now();
-  const protocolValidationOptions = getProtocolValidationOptions();
+  const protocolValidationOptions = getDefaultMcpProtocolValidationOptions();
   const validation = validateTokenRequestFromSearchParams(params, protocolValidationOptions);
   if (!validation.ok) {
     return oauthErrorResponse({
@@ -680,7 +634,20 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     }
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
-      result: buildMcpToolList(tokenValidation.scope),
+      result: {
+        tools: parseScopeTokens(tokenValidation.scope).includes(createRepositoryContract.access)
+          ? [
+              {
+                name: createRepositoryContract.mcp.name,
+                description: createRepositoryContract.mcp.description,
+                inputSchema: convexArgsToToolInputSchema(
+                  createRepositoryContract.args,
+                  createRepositoryContract.mcp.inputDescriptions,
+                ),
+              },
+            ]
+          : [],
+      },
     });
   }
 
@@ -691,7 +658,8 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
 
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
     const params = asRecord(rpcRequest.params);
-    const toolName = normalizeOptionalString(params.name) ?? "";
+    const rawToolName = params.name;
+    const toolName = typeof rawToolName === "string" ? rawToolName.trim() : "";
     if (toolName.length === 0) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
@@ -707,8 +675,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       });
     }
 
-    const tool = findMcpTool(toolName);
-    if (!tool) {
+    if (toolName !== createRepositoryContract.mcp.name) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
         result: {
@@ -723,7 +690,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       });
     }
 
-    const input = parseToolArguments(params.arguments);
+    const input = asRecord(params.arguments);
     let result;
     try {
       // @ts-expect-error Convex validates raw MCP arguments against createRepositoryContract.args before the action handler runs.
@@ -748,8 +715,6 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       });
     }
 
-    const structuredContent = parseStructuredContent(result.structuredContentJson);
-
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
       result: {
@@ -759,7 +724,9 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
             text: result.text,
           },
         ],
-        ...(structuredContent !== undefined ? { structuredContent } : {}),
+        ...(result.structuredContent !== undefined
+          ? { structuredContent: result.structuredContent }
+          : {}),
         ...(result.status !== "ok" ? { isError: true } : {}),
       },
     });

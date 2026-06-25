@@ -44,7 +44,7 @@ const appResourceNameAvailability = object({
 
 type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
 type GitHubRepositoryOwnerOption = Infer<typeof githubRepositoryOwnerOption>;
-export type CreateRepositoryResult = { vaultId: Id<"vaults">; runId: Id<"appProvisioningRuns"> };
+export type CreateRepositoryResult = Infer<typeof createRepositoryContract.returns>;
 
 function buildAvailableResult(): AppResourceNameAvailability {
   return {

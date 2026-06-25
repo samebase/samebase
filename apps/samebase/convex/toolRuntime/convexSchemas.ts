@@ -1,7 +1,13 @@
 import type { PropertyValidators } from "convex/values";
 
 import { isRecord } from "../jsonUtils";
-import type { ToolJsonSchema } from "./types";
+
+export interface ToolJsonSchema {
+  type: "object";
+  properties: Record<string, unknown>;
+  required?: string[];
+  additionalProperties: false | Record<string, unknown>;
+}
 
 function readConvexValidatorJson(validator: unknown) {
   if (!isRecord(validator) || !isRecord(validator.json)) {
