@@ -3,7 +3,7 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent/main";
 import { buildAuthTokenProfileCustomClaims } from "../shared/authTokenClaims";
-import type { DatabaseWriter } from "./_generated/server";
+import { env, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
@@ -179,6 +179,20 @@ if ((googleClientId === null) !== (googleClientSecret === null)) {
   );
 }
 
+function assertProductionReviewPasswordEmailAllowed(email: string): void {
+  if (passwordAuthMode !== "production_review_seed") {
+    return;
+  }
+
+  const reviewEmail = env.OPENAI_REVIEW_AUTH_EMAIL?.trim();
+  if (!reviewEmail) {
+    throw new Error("Missing required environment variable: OPENAI_REVIEW_AUTH_EMAIL");
+  }
+  if (email !== normalizeEmail(reviewEmail)) {
+    throw new Error("Password sign-in is limited to the OpenAI review account");
+  }
+}
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   jwt: {
     customClaims: async (ctx, { userId }) => {
@@ -202,8 +216,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
               if (!isNonEmptyString(rawEmail)) {
                 throw new Error("Missing `email` for password authentication");
               }
+              const email = normalizeEmail(rawEmail);
+              assertProductionReviewPasswordEmailAllowed(email);
               return {
-                email: normalizeEmail(rawEmail),
+                email,
               };
             },
           }),

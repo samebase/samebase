@@ -7,7 +7,7 @@ import {
 import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 
-export type PasswordAuthSurface = "hidden" | "local_worktree" | "preview";
+export type PasswordAuthSurface = "hidden" | "local_worktree" | "seeded_sign_in";
 
 function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
   try {
@@ -26,7 +26,12 @@ function readAuthProviderValue(): string | null {
 }
 
 const isStoredPasswordAuthMode = guard<string | null, PublicPasswordAuthMode>((value) =>
-  value === "off" || value === "local_worktree_seed" || value === "preview_seed" ? value : null,
+  value === "off" ||
+  value === "local_worktree_seed" ||
+  value === "preview_seed" ||
+  value === "production_review_seed"
+    ? value
+    : null,
 );
 
 function readStoredPasswordAuthMode(): PublicPasswordAuthMode | null {
@@ -127,7 +132,9 @@ export function getPasswordAuthSurface(
     case "local_worktree_seed":
       return "local_worktree";
     case "preview_seed":
-      return "preview";
+      return "seeded_sign_in";
+    case "production_review_seed":
+      return "seeded_sign_in";
     case "off":
       return "hidden";
     default:
@@ -144,7 +151,7 @@ export function getVisiblePasswordAuthSurface(args: {
   passwordAuthMode: PublicPasswordAuthMode;
   prodUiModeEnabled: boolean;
 }): PasswordAuthSurface {
-  if (args.prodUiModeEnabled) {
+  if (args.prodUiModeEnabled && args.passwordAuthMode !== "production_review_seed") {
     return "hidden";
   }
   return getPasswordAuthSurface(args.passwordAuthMode);

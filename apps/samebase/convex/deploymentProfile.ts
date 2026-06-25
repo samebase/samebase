@@ -1,6 +1,7 @@
 import { Infer, v } from "convex/values";
 import { notEmpty } from "@samebase/dependent/main";
 import { query } from "./functions";
+import { env } from "./_generated/server";
 import { readOptionalEnv } from "./oauthUtils";
 
 const { literal, object, union } = v;
@@ -18,6 +19,7 @@ export const vPasswordAuthMode = union(
   literal("off"),
   literal("local_worktree_seed"),
   literal("preview_seed"),
+  literal("production_review_seed"),
 );
 export type PasswordAuthMode = Infer<typeof vPasswordAuthMode>;
 
@@ -35,6 +37,8 @@ type DeploymentProfileEnv = {
   CONVEX_CLOUD_URL?: string;
   CONVEX_DEPLOYMENT?: string;
   CONVEX_SITE_URL?: string;
+  OPENAI_REVIEW_AUTH_EMAIL?: string;
+  OPENAI_REVIEW_AUTH_PASSWORD?: string;
   PREVIEW_SEED_AUTH_EMAIL?: string;
   PREVIEW_SEED_AUTH_PASSWORD?: string;
   SITE_URL?: string;
@@ -73,6 +77,20 @@ function hasPreviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
     readTrimmedValue(env.PREVIEW_SEED_AUTH_EMAIL) !== null &&
     readTrimmedValue(env.PREVIEW_SEED_AUTH_PASSWORD) !== null
   );
+}
+
+function hasProductionReviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
+  const email = readTrimmedValue(env.OPENAI_REVIEW_AUTH_EMAIL);
+  const password = readTrimmedValue(env.OPENAI_REVIEW_AUTH_PASSWORD);
+  if (email === null && password === null) {
+    return false;
+  }
+  if (email === null || password === null) {
+    throw new Error(
+      "OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together",
+    );
+  }
+  return true;
 }
 
 function readDeploymentSpecifier(env: DeploymentProfileEnv): string | null {
@@ -163,6 +181,8 @@ export function resolveDeploymentProfile(): DeploymentProfile {
     CONVEX_CLOUD_URL: readOptionalEnv("CONVEX_CLOUD_URL") ?? undefined,
     CONVEX_DEPLOYMENT: readOptionalEnv("CONVEX_DEPLOYMENT") ?? undefined,
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
+    OPENAI_REVIEW_AUTH_EMAIL: env.OPENAI_REVIEW_AUTH_EMAIL,
+    OPENAI_REVIEW_AUTH_PASSWORD: env.OPENAI_REVIEW_AUTH_PASSWORD,
     PREVIEW_SEED_AUTH_EMAIL: readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL") ?? undefined,
     PREVIEW_SEED_AUTH_PASSWORD: readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD") ?? undefined,
     SITE_URL: readOptionalEnv("SITE_URL") ?? undefined,
@@ -171,17 +191,22 @@ export function resolveDeploymentProfile(): DeploymentProfile {
 
 /**
  * Password auth intentionally stays narrower than the deployment profile:
- * only local worktrees and preview deployments get seeded credentials.
+ * only local worktrees, previews, and the temporary production review account
+ * get seeded credentials.
  */
-export function resolvePasswordAuthMode(profile: DeploymentProfile): PasswordAuthMode {
+export function resolvePasswordAuthModeFromEnv(
+  profile: DeploymentProfile,
+  deploymentEnv: DeploymentProfileEnv,
+): PasswordAuthMode {
   switch (profile.kind) {
     case "local_worktree":
       return "local_worktree_seed";
     case "preview":
       return "preview_seed";
+    case "production":
+      return hasProductionReviewSeedPasswordAuth(deploymentEnv) ? "production_review_seed" : "off";
     case "local_development":
     case "convex_dev":
-    case "production":
       return "off";
     default:
       profile satisfies never;
@@ -189,9 +214,17 @@ export function resolvePasswordAuthMode(profile: DeploymentProfile): PasswordAut
   }
 }
 
+export function resolvePasswordAuthMode(profile: DeploymentProfile): PasswordAuthMode {
+  return resolvePasswordAuthModeFromEnv(profile, {
+    OPENAI_REVIEW_AUTH_EMAIL: env.OPENAI_REVIEW_AUTH_EMAIL,
+    OPENAI_REVIEW_AUTH_PASSWORD: env.OPENAI_REVIEW_AUTH_PASSWORD,
+  });
+}
+
 /**
- * Preview deployments intentionally keep password auth to sign-in only. Local
- * worktrees may still use the full sign-up path because they are operator-owned.
+ * Preview and production-review deployments intentionally keep password auth
+ * to sign-in only. Local worktrees may still use the full sign-up path because
+ * they are operator-owned.
  */
 export function assertPasswordAuthFlowAllowed(
   passwordAuthMode: PasswordAuthMode,
@@ -201,6 +234,11 @@ export function assertPasswordAuthFlowAllowed(
     case "preview_seed":
       if (flow === "signUp") {
         throw new Error("Preview deployments only allow password sign-in for the seeded account");
+      }
+      return;
+    case "production_review_seed":
+      if (flow === "signUp") {
+        throw new Error("Production review only allows password sign-in for the review account");
       }
       return;
     case "local_worktree_seed":

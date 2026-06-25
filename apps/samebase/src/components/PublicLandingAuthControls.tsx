@@ -216,7 +216,7 @@ export function PasswordAuthForm({
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const effectiveFlow = surface === "preview" ? "signIn" : flow;
+  const effectiveFlow = surface === "seeded_sign_in" ? "signIn" : flow;
 
   const submitLabel = pending
     ? effectiveFlow === "signIn"
@@ -225,6 +225,7 @@ export function PasswordAuthForm({
     : effectiveFlow === "signIn"
       ? "Sign in"
       : "Create account";
+  const title = surface === "local_worktree" ? "Password auth (dev)" : "Password sign in";
 
   const runPasswordSignIn = (
     nextFlow: "signIn" | "signUp",
@@ -254,7 +255,7 @@ export function PasswordAuthForm({
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-medium">Password auth (dev)</div>
+        <div className="text-sm font-medium">{title}</div>
         {surface === "local_worktree" ? (
           <Button
             type="button"

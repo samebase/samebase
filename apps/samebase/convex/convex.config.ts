@@ -7,6 +7,8 @@ import workpool from "@convex-dev/workpool/convex.config";
 const app = defineApp({
   env: {
     OPENAI_APPS_CHALLENGE_TOKEN: v.optional(v.string()),
+    OPENAI_REVIEW_AUTH_EMAIL: v.optional(v.string()),
+    OPENAI_REVIEW_AUTH_PASSWORD: v.optional(v.string()),
   },
 });
 

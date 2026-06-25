@@ -3,6 +3,7 @@ import {
   assertPasswordAuthFlowAllowed,
   resolveDeploymentProfileFromEnv,
   resolvePasswordAuthMode,
+  resolvePasswordAuthModeFromEnv,
 } from "./deploymentProfile";
 
 describe("deploymentProfile", () => {
@@ -83,7 +84,27 @@ describe("deploymentProfile", () => {
     expect(resolvePasswordAuthMode({ kind: "preview" })).toBe("preview_seed");
     expect(resolvePasswordAuthMode({ kind: "local_development" })).toBe("off");
     expect(resolvePasswordAuthMode({ kind: "convex_dev" })).toBe("off");
-    expect(resolvePasswordAuthMode({ kind: "production" })).toBe("off");
+    expect(resolvePasswordAuthModeFromEnv({ kind: "production" }, {})).toBe("off");
+  });
+
+  it("enables production review password auth only when both review envs are set", () => {
+    expect(
+      resolvePasswordAuthModeFromEnv(
+        { kind: "production" },
+        {
+          OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com",
+          OPENAI_REVIEW_AUTH_PASSWORD: "review-password",
+        },
+      ),
+    ).toBe("production_review_seed");
+
+    expect(resolvePasswordAuthModeFromEnv({ kind: "production" }, {})).toBe("off");
+    expect(() =>
+      resolvePasswordAuthModeFromEnv(
+        { kind: "production" },
+        { OPENAI_REVIEW_AUTH_EMAIL: "noter.guest@gmail.com" },
+      ),
+    ).toThrowError("OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together");
   });
 
   it("blocks preview password sign-up while keeping preview sign-in enabled", () => {
@@ -92,5 +113,13 @@ describe("deploymentProfile", () => {
     );
 
     expect(() => assertPasswordAuthFlowAllowed("preview_seed", "signIn")).not.toThrow();
+  });
+
+  it("blocks production review password sign-up while keeping sign-in enabled", () => {
+    expect(() => assertPasswordAuthFlowAllowed("production_review_seed", "signUp")).toThrowError(
+      "Production review only allows password sign-in for the review account",
+    );
+
+    expect(() => assertPasswordAuthFlowAllowed("production_review_seed", "signIn")).not.toThrow();
   });
 });
