@@ -34,7 +34,12 @@ const NAVIGATION_BUDGET_MS = {
   load: 500,
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
-const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/home", "/terms", "/privacy"] as const;
+const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = [
+  "/home",
+  "/terms",
+  "/privacy",
+  "/landing",
+] as const;
 const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
   LANDING_DEV_MODE_QUERY_PARAM,
   true,
@@ -448,6 +453,7 @@ async function captureLandingFontStableFrames(
         "/home",
         "/terms",
         "/privacy",
+        "/landing",
       ] as const satisfies readonly LandingFontStableSidebarLinkLabel[];
       const minimumVisibleFrameCount = 10;
       const maximumSampleCount = 600;
@@ -741,21 +747,32 @@ async function expectAppBuildCommitLink(commitLabel: Locator) {
 async function expectLegalLinksUseRightSidebarInnerEdge(statusBar: Locator) {
   const termsLink = statusBar.getByRole("link", { name: "/terms" });
   const privacyLink = statusBar.getByRole("link", { name: "/privacy" });
+  const landingLink = statusBar.getByRole("link", { name: "/landing" });
   const versionLabel = statusBar.getByTestId(APP_BUILD_VERSION_TEST_ID);
 
   await expect(termsLink).toBeVisible();
   await expect(privacyLink).toBeVisible();
+  await expect(landingLink).toHaveAttribute("href", "/");
+  await expect(landingLink).toBeVisible();
   await expect(versionLabel).toBeVisible();
 
   const termsBox = await termsLink.boundingBox();
   const privacyBox = await privacyLink.boundingBox();
+  const landingBox = await landingLink.boundingBox();
   const versionBox = await versionLabel.boundingBox();
   const statusBarBox = await statusBar.boundingBox();
   expect(termsBox).not.toBeNull();
   expect(privacyBox).not.toBeNull();
+  expect(landingBox).not.toBeNull();
   expect(versionBox).not.toBeNull();
   expect(statusBarBox).not.toBeNull();
-  if (termsBox === null || privacyBox === null || versionBox === null || statusBarBox === null) {
+  if (
+    termsBox === null ||
+    privacyBox === null ||
+    landingBox === null ||
+    versionBox === null ||
+    statusBarBox === null
+  ) {
     return;
   }
 
@@ -764,7 +781,7 @@ async function expectLegalLinksUseRightSidebarInnerEdge(statusBar: Locator) {
     return Number.isFinite(value) ? value : 0;
   });
   const expectedLeftEdge = statusBarBox.x + leftPaddingPx;
-  for (const childBox of [termsBox, privacyBox, versionBox]) {
+  for (const childBox of [termsBox, privacyBox, landingBox, versionBox]) {
     expect(Math.abs(childBox.x - expectedLeftEdge)).toBeLessThanOrEqual(1);
   }
 }
@@ -1183,6 +1200,7 @@ test("public landing keeps legal links in the sidebar rail", async ({ page }, te
   await expectStatusBarInRightSidebar(page, statusBar);
   await expect(landingContent.getByRole("link", { name: "/terms" })).toHaveCount(0);
   await expect(landingContent.getByRole("link", { name: "/privacy" })).toHaveCount(0);
+  await expect(landingContent.getByRole("link", { name: "/landing" })).toHaveCount(0);
 
   const statusBarScreenshot = await takeStableScreenshot(statusBar);
   await testInfo.attach("public-landing-status-bar", {

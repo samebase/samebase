@@ -231,12 +231,17 @@ describe("AppSidebarMetaSection", () => {
     const termsLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/terms",
     );
+    const landingLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/landing",
+    );
     const backLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "home",
     );
-    if (!termsLink || !backLink) {
-      throw new Error("Expected terms and home links.");
+    if (!termsLink || !landingLink || !backLink) {
+      throw new Error("Expected terms, landing, and home links.");
     }
+
+    expect(landingLink.getAttribute("href")).toBe("/");
 
     await act(async () => {
       termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
@@ -251,6 +256,12 @@ describe("AppSidebarMetaSection", () => {
 
     await clickLink(backLink);
 
+    expect(readLocationHref()).toBe("/");
+
+    await clickLink(termsLink);
+    expect(readLocationHref()).toBe("/terms");
+
+    await clickLink(landingLink);
     expect(readLocationHref()).toBe("/");
   });
 

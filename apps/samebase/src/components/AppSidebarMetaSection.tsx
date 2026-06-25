@@ -228,6 +228,7 @@ export function AppSidebarMetaSection({
       <Link to={DASHBOARD_ROUTE}>/home</Link>
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
+      <Link to="/">/landing</Link>
 
       <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[linkAlignment]}>
         <span className="shrink-0" data-testid={APP_BUILD_VERSION_TEST_ID}>
