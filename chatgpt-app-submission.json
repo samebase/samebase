@@ -5,13 +5,7 @@
     "display_name": "Samebase",
     "subtitle": "Create apps from chat",
     "description": "Samebase lets you create a working app from ChatGPT. It sets up a GitHub repository, seeds the starter app, and provisions Convex and Cloudflare so you can move from idea to running project without juggling provider dashboards.",
-    "category": "DEVELOPER_TOOLS",
-    "developer": "Nicu Chiciuc",
-    "website_url": "https://samebase.com",
-    "customer_support_url_or_email": "nicu@samebase.com",
-    "privacy_policy_url": "https://samebase.com/privacy",
-    "terms_of_service_url": "https://samebase.com/terms",
-    "mcp_server_url": "https://api.samebase.com/mcp"
+    "category": "DEVELOPER_TOOLS"
   },
   "tools": {
     "vault.actions.createRepository": {

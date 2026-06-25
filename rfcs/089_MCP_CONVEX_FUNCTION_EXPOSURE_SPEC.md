@@ -179,9 +179,7 @@ The generated `chatgpt-app-submission.json` file is a submission artifact for th
 Apps form. It may live in the repo so reviewed form inputs are reproducible, but runtime behavior
 stays source-of-truth in the function contracts, MCP HTTP descriptor mapping, and tests. Regenerate
 or manually review the submission artifact whenever the exposed tool set, tool descriptions,
-annotations, or review test cases change. The import schema only guarantees a small core shape, so
-known form fields such as website, support, privacy, terms, and MCP server URLs may appear as
-best-effort extra properties.
+annotations, or review test cases change.
 
 ### Viewer resolution
 
