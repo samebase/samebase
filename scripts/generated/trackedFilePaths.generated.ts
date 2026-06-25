@@ -220,6 +220,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/infraReadQueries.ts",
   "apps/samebase/convex/jsonUtils.test.ts",
   "apps/samebase/convex/jsonUtils.ts",
+  "apps/samebase/convex/mcp/http.convex.test.ts",
   "apps/samebase/convex/mcp/http.ts",
   "apps/samebase/convex/mcp/oauth.ts",
   "apps/samebase/convex/mcp/oauthRedirect.test.ts",

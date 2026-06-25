@@ -42,29 +42,36 @@ const mcpToolCallParams = object({
   arguments: optional(unknownValue),
 });
 
-type McpToolInvocation = {
+export type McpToolInvocation = {
   input: JsonRecord;
   userId: Id<"users">;
   grantedScopes: string[];
 };
 
-async function callCreateRepositoryMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  const { input, userId, grantedScopes } = invocation;
-  // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
-  return await ctx.runAction(internal.toolRuntime.runtime.createRepositoryTool, {
+export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
+  const input = { ...invocation.input };
+  delete input.userId;
+  delete input.grantedScopes;
+  return {
     ...input,
-    userId,
-    grantedScopes,
-  });
+    userId: invocation.userId,
+    grantedScopes: invocation.grantedScopes,
+  };
+}
+
+async function callCreateRepositoryMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.createRepositoryTool,
+    // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
+    buildMcpToolInvocationArgs(invocation),
+  );
 }
 
 async function callGetUserVaultsMcpTool(ctx: ActionCtx, invocation: McpToolInvocation) {
-  const { input, userId, grantedScopes } = invocation;
-  return await ctx.runAction(internal.toolRuntime.runtime.getUserVaultsTool, {
-    ...input,
-    userId,
-    grantedScopes,
-  });
+  return await ctx.runAction(
+    internal.toolRuntime.runtime.getUserVaultsTool,
+    buildMcpToolInvocationArgs(invocation),
+  );
 }
 
 const mcpToolCatalog = [
