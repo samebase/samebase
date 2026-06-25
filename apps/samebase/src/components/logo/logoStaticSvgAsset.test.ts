@@ -42,12 +42,12 @@ describe("logoStaticSvgAsset", () => {
     expect(staticLogoSvg).toBe(generatedSvg);
   });
 
-  it("uses the striped treatment for the default static logo", () => {
+  it("uses the duotone treatment for the default static logo", () => {
     const generatedSvg = createStaticLogoSvgMarkup();
 
-    expect(DEFAULT_LOGO_FACE_TREATMENT).toBe("striped");
-    expect(generatedSvg).not.toContain('fill="#ecfccb"');
-    expect(generatedSvg).not.toContain('stroke="#ecfccb"');
+    expect(DEFAULT_LOGO_FACE_TREATMENT).toBe("duotone");
+    expect(generatedSvg).toContain('fill="#00b8db"');
+    expect(generatedSvg).toContain('stroke="#00b8db"');
   });
 
   it("exports real face polygons instead of a raster traced into one-pixel rects", () => {

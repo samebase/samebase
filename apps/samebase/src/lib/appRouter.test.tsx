@@ -528,12 +528,12 @@ describe("appRouter", () => {
     expect(router.state.location.searchStr).toBe(stringifyTanStackSearch({ dev: true }));
   });
 
-  it("retains the explicit logo left face across logo to dashboard navigation", async () => {
+  it("retains the explicit striped logo left face across logo to dashboard navigation", async () => {
     const router = await renderRoute(
       buildPathWithTanStackSearch({
         pathname: "/logo",
         search: {
-          leftFace: "secondary",
+          leftFace: "striped",
           secondary: "amber-500",
         },
       }),
@@ -549,7 +549,7 @@ describe("appRouter", () => {
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/home");
-    expect(searchParams.get("leftFace")).toBe("secondary");
+    expect(searchParams.get("leftFace")).toBe("striped");
     expect(searchParams.get("secondary")).toBe("amber-500");
   });
 

@@ -25,8 +25,8 @@ describe("socialLogoAssets", () => {
     );
   });
 
-  it("keeps social logo svgs on the striped treatment by default", () => {
-    expect(createSamebaseSocialCardSvgMarkup()).not.toContain("#ecfccb");
-    expect(createSamebaseXProfileBannerSvgMarkup()).not.toContain("#ecfccb");
+  it("keeps social logo svgs on the duotone treatment by default", () => {
+    expect(createSamebaseSocialCardSvgMarkup()).toContain("#00b8db");
+    expect(createSamebaseXProfileBannerSvgMarkup()).toContain("#00b8db");
   });
 });

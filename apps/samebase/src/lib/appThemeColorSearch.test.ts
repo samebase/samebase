@@ -127,7 +127,7 @@ describe("appThemeColorSearch", () => {
       background: "#000000",
       border: "#333333",
       primary: "primary-base",
-      secondary: "lime-100",
+      secondary: "cyan-500",
     });
 
     const styleElement = document.getElementById("samebase-app-theme-color-search");
