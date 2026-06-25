@@ -12,7 +12,6 @@ import {
   LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
 } from "@/routeSearch/landingPreview";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
@@ -225,7 +224,6 @@ export function AppSidebarMetaSection({
       <div aria-hidden="true" className="h-3" />
 
       {/* Path links live below query-param shortcuts. */}
-      <Link to={DASHBOARD_ROUTE}>/home</Link>
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
       <Link to="/">/landing</Link>

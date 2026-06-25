@@ -286,6 +286,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("not logged in");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("Providers");
+    expect(markup).not.toContain(">Home<");
   });
 
   it("uses the public signed-out account row after hydration when loading without local auth material", async () => {
@@ -463,6 +464,8 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("nicu@samebase.md");
     expect(hydratedMarkup).not.toContain("Nicu");
+    expect(hydratedMarkup).toContain('href="/home"');
+    expect(hydratedMarkup.indexOf(">Home<")).toBeLessThan(hydratedMarkup.indexOf(">Providers<"));
     expect(hydratedMarkup).toContain("Providers");
     expect(hydratedMarkup).toContain("New App");
     expect(hydratedMarkup).toContain("Connect existing app");

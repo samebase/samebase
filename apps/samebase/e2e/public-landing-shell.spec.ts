@@ -34,12 +34,7 @@ const NAVIGATION_BUDGET_MS = {
   load: 500,
 } as const;
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
-const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = [
-  "/home",
-  "/terms",
-  "/privacy",
-  "/landing",
-] as const;
+const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = ["/terms", "/privacy", "/landing"] as const;
 const landingDevModeLinkLabel = formatRouteSearchPresenceFlagLinkLabel(
   LANDING_DEV_MODE_QUERY_PARAM,
   true,
@@ -450,7 +445,6 @@ async function captureLandingFontStableFrames(
       Math.random = () => 0.57;
 
       const linkLabels = [
-        "/home",
         "/terms",
         "/privacy",
         "/landing",
@@ -1242,7 +1236,7 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
 
   await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
   await expectStatusBarInRightSidebar(page, statusBar);
-  await expect(statusBar.getByRole("link", { name: "/home" })).toBeVisible();
+  await expect(statusBar.getByRole("link", { name: "/home" })).toHaveCount(0);
   await expect(page.getByText("Temporary MCP sign-in note")).toBeVisible();
 });
 
@@ -1627,8 +1621,8 @@ test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) =>
   await expectLandingLogoReady(landingLogo);
   await expectLandingLogoSceneReady(landingLogoScene);
 
-  const homeLink = statusBar.getByRole("link", {
-    name: "/home",
+  const landingLink = statusBar.getByRole("link", {
+    name: "/landing",
     exact: true,
   });
   const termsLink = statusBar.getByRole("link", {
@@ -1637,14 +1631,14 @@ test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) =>
   });
 
   await expect(statusBar.getByRole("link", { name: "/logo", exact: true })).toHaveCount(0);
-  await expect(homeLink).toBeVisible();
+  await expect(landingLink).toBeVisible();
   await expect(termsLink).toBeVisible();
 
-  const homeBoxBefore = await homeLink.boundingBox();
+  const landingBoxBefore = await landingLink.boundingBox();
   const termsBoxBefore = await termsLink.boundingBox();
-  expect(homeBoxBefore).not.toBeNull();
+  expect(landingBoxBefore).not.toBeNull();
   expect(termsBoxBefore).not.toBeNull();
-  if (homeBoxBefore === null || termsBoxBefore === null) {
+  if (landingBoxBefore === null || termsBoxBefore === null) {
     return;
   }
 
@@ -1662,15 +1656,15 @@ test("prod-ui landing keeps /logo out of the right sidebar", async ({ page }) =>
 
   await expect(statusBar.getByRole("link", { name: "/logo", exact: true })).toHaveCount(0);
 
-  const homeBoxAfter = await homeLink.boundingBox();
+  const landingBoxAfter = await landingLink.boundingBox();
   const termsBox = await termsLink.boundingBox();
-  expect(homeBoxAfter).not.toBeNull();
+  expect(landingBoxAfter).not.toBeNull();
   expect(termsBox).not.toBeNull();
-  if (homeBoxAfter === null || termsBox === null) {
+  if (landingBoxAfter === null || termsBox === null) {
     return;
   }
 
-  expect(Math.abs(homeBoxAfter.y - homeBoxBefore.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(landingBoxAfter.y - landingBoxBefore.y)).toBeLessThanOrEqual(1);
   expect(Math.abs(termsBox.y - termsBoxBefore.y)).toBeLessThanOrEqual(1);
 
   await expect(statusBar).toHaveScreenshot("public-landing-status-bar-no-logo-link.png", {

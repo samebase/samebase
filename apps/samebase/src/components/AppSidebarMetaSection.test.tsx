@@ -41,7 +41,7 @@ describe("AppSidebarMetaSection", () => {
   }
 
   function BackLink() {
-    return <Link to="/">home</Link>;
+    return <Link to="/">root</Link>;
   }
 
   async function settleRouteUpdate() {
@@ -235,13 +235,18 @@ describe("AppSidebarMetaSection", () => {
       (link) => link.textContent === "/landing",
     );
     const backLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "home",
+      (link) => link.textContent === "root",
     );
     if (!termsLink || !landingLink || !backLink) {
-      throw new Error("Expected terms, landing, and home links.");
+      throw new Error("Expected terms, landing, and root links.");
     }
 
     expect(landingLink.getAttribute("href")).toBe("/");
+    expect(
+      [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
+        (link) => link.textContent === "/home",
+      ),
+    ).toBeUndefined();
 
     await act(async () => {
       termsLink.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));

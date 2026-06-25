@@ -15,6 +15,7 @@ import {
   type AppAuthPresentationProfile,
 } from "@/lib/appAuthPresentationState";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
 import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
@@ -166,6 +167,7 @@ function AppRightSidebarPrimaryLinks() {
         aria-label="App"
         className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3 text-sm"
       >
+        <Link to={DASHBOARD_ROUTE}>Home</Link>
         <Link to={PROVIDERS_ROUTE}>Providers</Link>
       </nav>
       <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
