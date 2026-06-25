@@ -1,4 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { object, optional, string, unknown as unknownValue } from "@samebase/sure";
 import { asRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
@@ -35,6 +36,34 @@ import {
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
+const mcpToolCallParams = object({
+  name: string,
+  arguments: optional(unknownValue),
+});
+const mcpToolListEntries = [
+  {
+    access: createRepositoryContract.access,
+    tool: {
+      name: createRepositoryContract.mcp.name,
+      description: createRepositoryContract.mcp.description,
+      inputSchema: convexArgsToToolInputSchema(
+        createRepositoryContract.args,
+        createRepositoryContract.mcp.inputDescriptions,
+      ),
+    },
+  },
+  {
+    access: getUserVaultsContract.access,
+    tool: {
+      name: getUserVaultsContract.mcp.name,
+      description: getUserVaultsContract.mcp.description,
+      inputSchema: convexArgsToToolInputSchema(
+        getUserVaultsContract.args,
+        getUserVaultsContract.mcp.inputDescriptions,
+      ),
+    },
+  },
+] as const;
 type McpConsentRedirectSearchParams = {
   mcp_consent_request: string;
   mcp_login_required: "1" | undefined;
@@ -637,32 +666,9 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
       result: {
-        tools: [
-          ...(grantedScopes.includes(createRepositoryContract.access)
-            ? [
-                {
-                  name: createRepositoryContract.mcp.name,
-                  description: createRepositoryContract.mcp.description,
-                  inputSchema: convexArgsToToolInputSchema(
-                    createRepositoryContract.args,
-                    createRepositoryContract.mcp.inputDescriptions,
-                  ),
-                },
-              ]
-            : []),
-          ...(grantedScopes.includes(getUserVaultsContract.access)
-            ? [
-                {
-                  name: getUserVaultsContract.mcp.name,
-                  description: getUserVaultsContract.mcp.description,
-                  inputSchema: convexArgsToToolInputSchema(
-                    getUserVaultsContract.args,
-                    getUserVaultsContract.mcp.inputDescriptions,
-                  ),
-                },
-              ]
-            : []),
-        ],
+        tools: mcpToolListEntries
+          .filter((entry) => grantedScopes.includes(entry.access))
+          .map((entry) => entry.tool),
       },
     });
   }
@@ -673,9 +679,23 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     }
 
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
-    const params = asRecord(rpcRequest.params);
-    const rawToolName = params.name;
-    const toolName = typeof rawToolName === "string" ? rawToolName.trim() : "";
+    const [hasParams, params] = mcpToolCallParams(rpcRequest.params);
+    if (!hasParams) {
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: "Invalid tool call params.",
+            },
+          ],
+          isError: true,
+        },
+      });
+    }
+
+    const toolName = params.name.trim();
     if (toolName.length === 0) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
