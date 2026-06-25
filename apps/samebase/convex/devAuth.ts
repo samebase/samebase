@@ -5,7 +5,11 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
-import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
+import {
+  assertProductionReviewSeedPasswordAuthConfig,
+  resolveDeploymentProfile,
+  resolvePasswordAuthMode,
+} from "./deploymentProfile";
 import { internalAction, internalMutation, type DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -70,7 +74,19 @@ function readSeedPasswordAccountConfig(): {
   password: string;
   shouldLinkViaEmail: boolean;
 } {
-  const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
+  const deploymentProfile = resolveDeploymentProfile();
+  const passwordAuthMode = resolvePasswordAuthMode(deploymentProfile);
+  if (deploymentProfile.kind === "production") {
+    const reviewEmail = readSeedValue("OPENAI_REVIEW_AUTH_EMAIL");
+    const reviewPassword = readSeedValue("OPENAI_REVIEW_AUTH_PASSWORD");
+    if (reviewEmail !== undefined || reviewPassword !== undefined) {
+      assertProductionReviewSeedPasswordAuthConfig({
+        OPENAI_REVIEW_AUTH_EMAIL: reviewEmail,
+        OPENAI_REVIEW_AUTH_PASSWORD: reviewPassword,
+      });
+    }
+  }
+
   switch (passwordAuthMode) {
     case "local_worktree_seed":
       return {

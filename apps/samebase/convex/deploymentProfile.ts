@@ -79,18 +79,38 @@ function hasPreviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
   );
 }
 
-function hasProductionReviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
+function hasCompleteProductionReviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
   const email = readTrimmedValue(env.OPENAI_REVIEW_AUTH_EMAIL);
   const password = readTrimmedValue(env.OPENAI_REVIEW_AUTH_PASSWORD);
-  if (email === null && password === null) {
-    return false;
-  }
+  return email !== null && password !== null;
+}
+
+export function assertProductionReviewSeedPasswordAuthConfig(env: DeploymentProfileEnv): void {
+  const email = readTrimmedValue(env.OPENAI_REVIEW_AUTH_EMAIL);
+  const password = readTrimmedValue(env.OPENAI_REVIEW_AUTH_PASSWORD);
   if (email === null || password === null) {
     throw new Error(
       "OPENAI_REVIEW_AUTH_EMAIL and OPENAI_REVIEW_AUTH_PASSWORD must be set together",
     );
   }
-  return true;
+}
+
+export function assertProductionReviewPasswordEmailAllowed(args: {
+  passwordAuthMode: PasswordAuthMode;
+  reviewEmail: string | undefined;
+  email: string;
+}): void {
+  if (args.passwordAuthMode !== "production_review_seed") {
+    return;
+  }
+
+  const reviewEmail = readTrimmedValue(args.reviewEmail);
+  if (reviewEmail === null) {
+    throw new Error("Missing required environment variable: OPENAI_REVIEW_AUTH_EMAIL");
+  }
+  if (args.email.trim().toLowerCase() !== reviewEmail.toLowerCase()) {
+    throw new Error("Password sign-in is limited to the OpenAI review account");
+  }
 }
 
 function readDeploymentSpecifier(env: DeploymentProfileEnv): string | null {
@@ -204,7 +224,9 @@ export function resolvePasswordAuthModeFromEnv(
     case "preview":
       return "preview_seed";
     case "production":
-      return hasProductionReviewSeedPasswordAuth(deploymentEnv) ? "production_review_seed" : "off";
+      return hasCompleteProductionReviewSeedPasswordAuth(deploymentEnv)
+        ? "production_review_seed"
+        : "off";
     case "local_development":
     case "convex_dev":
       return "off";
