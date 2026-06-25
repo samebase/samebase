@@ -21,7 +21,7 @@ import {
 } from "./_generated/server";
 import { vAccessKey, vViewerRole } from "./accessModelValidators";
 import schema from "./schema";
-import { hasAppAccess, isAdminUser } from "./userAccess";
+import { isAdminUser } from "./userAccess";
 import {
   canAccess,
   readAccessKeysForRole,
@@ -131,7 +131,7 @@ function resolveViewerForUserRecord(args: {
     });
   }
 
-  if (hasAppAccess(args.user.isApproved)) {
+  if (args.user.isApproved) {
     return resolveUserViewer({
       role: "role_member",
       userId: args.userId,

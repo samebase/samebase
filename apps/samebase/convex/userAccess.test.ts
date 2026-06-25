@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { hasAppAccess, isAdminUser } from "./userAccess";
+import { isAdminUser } from "./userAccess";
 
 describe("isAdminUser", () => {
   it("matches admin emails case-insensitively", () => {
@@ -9,15 +9,5 @@ describe("isAdminUser", () => {
 
   it("does not give staff access to the member test account by email", () => {
     expect(isAdminUser("nicu.dev@gmail.com")).toBe(false);
-  });
-});
-
-describe("hasAppAccess", () => {
-  it("allows explicitly approved users", () => {
-    expect(hasAppAccess(true)).toBe(true);
-  });
-
-  it("blocks unapproved non-admin users", () => {
-    expect(hasAppAccess(false)).toBe(false);
   });
 });

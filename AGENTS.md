@@ -310,6 +310,8 @@ Simplicity and deletion:
 - No custom Error subclasses unless production catches or branches on them; tests are not a reason.
 - Run a delete-first reduction pass on every patch-introduced helper/adapter/mirror; rerun it after
   swapping validation approaches.
+- When changing a helper, inspect every production call site and its tests before keeping it;
+  one-call helpers and tests that only restate the wrapper are delete-first signals.
 - Generated validation glue is a carrying cost, but do not replace broad OpenAPI coverage with
   hand-written schemas just to shrink generated files.
 - When tests want production mappers or branches for prettier assertions, simplify the test.
