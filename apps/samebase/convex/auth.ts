@@ -12,52 +12,18 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
-import { findPasswordReviewAuthUser, normalizeAuthEmail } from "./authUserLinking";
 import {
   buildSeedCloudflareDefaultAccount,
   getConnectionByUserAndKind,
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
-type UserPatch = {
-  name?: string;
-  email?: string;
-  image?: string;
-  emailVerificationTime?: number;
-  phoneVerificationTime?: number;
-};
-
 const isNonEmptyString = guard<unknown, string>((value) =>
   typeof value === "string" && value.trim().length > 0 ? value : null,
 );
 
 function normalizeEmail(email: string): string {
-  return normalizeAuthEmail(email);
-}
-
-function buildUserPatch(profile: Record<string, unknown>): UserPatch {
-  const patch: UserPatch = {};
-
-  if (isNonEmptyString(profile.name)) {
-    patch.name = profile.name;
-  }
-  if (isNonEmptyString(profile.email)) {
-    patch.email = normalizeEmail(profile.email);
-  }
-  if (isNonEmptyString(profile.image)) {
-    patch.image = profile.image;
-  }
-
-  if (typeof profile.emailVerificationTime === "number") {
-    patch.emailVerificationTime = profile.emailVerificationTime;
-  } else if (profile.emailVerified === true) {
-    patch.emailVerificationTime = Date.now();
-  }
-  if (profile.phoneVerified === true) {
-    patch.phoneVerificationTime = Date.now();
-  }
-
-  return patch;
+  return email.trim().toLowerCase();
 }
 
 async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
@@ -227,7 +193,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             profile: (profile) => ({
               id: profile.sub,
               name: profile.name,
-              email: profile.email,
+              email: isNonEmptyString(profile.email) ? normalizeEmail(profile.email) : undefined,
               image: profile.picture,
               emailVerified: profile.email_verified,
             }),
@@ -237,30 +203,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
 
   callbacks: {
-    createOrUpdateUser: async (ctx, args) => {
-      const patch = buildUserPatch(args.profile);
-      const existingReviewUser =
-        args.existingUserId === null &&
-        args.type === "credentials" &&
-        args.provider.id === "password" &&
-        passwordAuthMode === "production_review_seed" &&
-        patch.email !== undefined &&
-        env.OPENAI_REVIEW_AUTH_EMAIL !== undefined &&
-        patch.email === normalizeEmail(env.OPENAI_REVIEW_AUTH_EMAIL)
-          ? await findPasswordReviewAuthUser(ctx.db, patch.email)
-          : null;
-
-      // Always persist the auth user row first so invite access can be driven
-      // from `users.isApproved` instead of a hardcoded email list.
-      const userId =
-        args.existingUserId ?? existingReviewUser?._id ?? (await ctx.db.insert("users", patch));
-
-      if (args.existingUserId !== null || existingReviewUser !== null) {
-        await ctx.db.patch(userId, patch);
-      }
-
-      await applyAutoSeedProviderKeys(ctx.db, userId);
-      return userId;
+    afterUserCreatedOrUpdated: async (ctx, args) => {
+      await applyAutoSeedProviderKeys(ctx.db, args.userId);
     },
   },
 });
