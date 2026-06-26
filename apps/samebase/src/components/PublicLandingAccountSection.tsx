@@ -19,8 +19,9 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
-type PublicLandingAccountMode = "links" | "sign-in" | "create-account";
+type PublicLandingAccountMode = "links" | "sign-in" | "create-account" | "mcp-consent";
 type PublicLandingSignedInViewer = NonNullable<
   GetFunctionReferenceReturnType<typeof api.users.viewer>
 >;
@@ -31,6 +32,9 @@ function resolvePublicLandingAccountMode(
   pathname: string,
   rootRouteSearch: RootRouteSearch,
 ): PublicLandingAccountMode {
+  if (pathname === MCP_CONSENT_APP_PATH) {
+    return "mcp-consent";
+  }
   if (shouldRenderGoogleSignupClosedState(pathname, rootRouteSearch)) {
     return "create-account";
   }
@@ -82,6 +86,10 @@ function PublicAccountRouteLink({
 }
 
 function PublicLandingLoggedOutAccountContent({ mode }: { mode: PublicLandingAccountMode }) {
+  if (mode === "mcp-consent") {
+    return <SignInWithGoogle visible />;
+  }
+
   if (mode === "create-account") {
     return (
       <PublicSignupClosedNotice
@@ -127,7 +135,7 @@ function PublicLandingLoggedOutAccountSection() {
       open={open}
       onOpenChange={(isOpen) => {
         setAccountOpen(isOpen);
-        if (!isOpen && mode !== "links") {
+        if (!isOpen && (mode === "sign-in" || mode === "create-account")) {
           void navigate({
             replace: true,
             search: clearPublicAccountModeSearch,

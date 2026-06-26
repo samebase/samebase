@@ -345,4 +345,46 @@ describe("PasswordAuthForm", () => {
       "sign-in": undefined,
     });
   });
+
+  it("stays on the MCP consent route after password sign-in", async () => {
+    componentState.pathname = "/oauth/mcp/consent";
+    componentState.deploymentAuthPolicy = {
+      deploymentProfile: { kind: "preview" },
+      passwordAuthMode: "local_worktree_seed",
+    };
+    signInWithPasswordMock.mockResolvedValue(undefined);
+    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_EMAIL", "Nicu@samebase.com");
+    vi.stubEnv("VITE_LOCAL_WORKTREE_PASSWORD_VALUE", "pass1234");
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(<PublicLandingPasswordAuthControls />);
+    });
+
+    const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent === "Autofill & sign in",
+    );
+    if (!(autofillButton instanceof HTMLButtonElement)) {
+      throw new Error("Password auth autofill button not found.");
+    }
+
+    await act(async () => {
+      autofillButton.click();
+    });
+
+    componentState.isAuthenticated = true;
+    await act(async () => {
+      localRoot.render(<PublicLandingPasswordAuthControls />);
+    });
+
+    expect(signInWithPasswordMock).toHaveBeenCalledWith({
+      email: "nicu@samebase.com",
+      flow: "signIn",
+      password: "pass1234",
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
 });

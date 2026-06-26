@@ -1,8 +1,6 @@
 import { McpConsentSignInView } from "@/McpConsentSignInView";
-import { SignInForm } from "@/SignInForm";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { Button } from "@/components/ui/button";
-import { landingPageMarkdown } from "@/lib/landingCopy";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -171,15 +169,7 @@ export function McpConsentRoutePage() {
         </ApprovalGate>
       </Authenticated>
       <Unauthenticated>
-        {requestId === null ? (
-          <SignInForm
-            authPlacement="inline"
-            landingPageMarkdown={landingPageMarkdown}
-            topNotice={null}
-          />
-        ) : (
-          <McpConsentSignInView />
-        )}
+        <McpConsentSignInView />
       </Unauthenticated>
     </>
   );

@@ -25,6 +25,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 /**
  * SSG cannot read per-browser auth preferences. Password auth controls that
@@ -64,10 +65,13 @@ function usePublicLandingPasswordAuthControls(): {
   const { isAuthenticated } = useConvexAuth();
   const hasHydrated = useHasHydrated();
   const [passwordSignInReadyForDashboard, setPasswordSignInReadyForDashboard] = useState(false);
-  const searchStr = useLocation({
-    select: (location) => location.searchStr,
+  const location = useLocation({
+    select: (currentLocation) => ({
+      pathname: currentLocation.pathname,
+      searchStr: currentLocation.searchStr,
+    }),
   });
-  const rootRouteSearch = readRootRouteSearch(searchStr);
+  const rootRouteSearch = readRootRouteSearch(location.searchStr);
   const prodUiQueryEnabled = isProdUiModeEnabled(rootRouteSearch);
   const productionPublicOrigin = isBrowserProductionPublicOrigin();
   const deploymentAuthPolicy = useQuery(api.deploymentProfile.getPublicDeploymentAuthPolicy);
@@ -100,7 +104,11 @@ function usePublicLandingPasswordAuthControls(): {
   }, [deploymentAuthPolicy?.passwordAuthMode]);
 
   useEffect(() => {
-    if (!passwordSignInReadyForDashboard || !isAuthenticated) {
+    if (
+      !passwordSignInReadyForDashboard ||
+      !isAuthenticated ||
+      location.pathname === MCP_CONSENT_APP_PATH
+    ) {
       return;
     }
 
@@ -115,7 +123,7 @@ function usePublicLandingPasswordAuthControls(): {
       }),
       to: DASHBOARD_ROUTE,
     });
-  }, [isAuthenticated, navigate, passwordSignInReadyForDashboard]);
+  }, [isAuthenticated, location.pathname, navigate, passwordSignInReadyForDashboard]);
 
   useEffect(() => {
     // Router search state intentionally drives this effect even though the URL
