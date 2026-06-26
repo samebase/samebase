@@ -17418,6 +17418,32 @@
               "observability": {
                 "$ref": "#/components/schemas/workers_observability"
               },
+              "package_dependencies": {
+                "description": "The list of npm packages that were installed and used when this Worker\nversion was built.\n",
+                "items": {
+                  "properties": {
+                    "installedVersion": {
+                      "description": "The exact version that was resolved and installed by the package manager.",
+                      "example": "4.17.22",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "The npm package name.",
+                      "example": "lodash",
+                      "type": "string"
+                    },
+                    "packageJsonVersion": {
+                      "description": "The version constraint as written in package.json.",
+                      "example": "^4.17.21",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["name", "packageJsonVersion", "installedVersion"],
+                  "type": "object"
+                },
+                "type": "array",
+                "x-auditable": true
+              },
               "placement": {
                 "$ref": "#/components/schemas/workers_placement_info"
               },
@@ -22357,6 +22383,32 @@
             "type": "integer",
             "x-auditable": true
           },
+          "package_dependencies": {
+            "description": "The list of npm packages that were installed and used when this Worker\nversion was built.\n",
+            "items": {
+              "properties": {
+                "installedVersion": {
+                  "description": "The exact version that was resolved and installed by the package manager.",
+                  "example": "4.17.22",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "The npm package name.",
+                  "example": "lodash",
+                  "type": "string"
+                },
+                "packageJsonVersion": {
+                  "description": "The version constraint as written in package.json.",
+                  "example": "^4.17.21",
+                  "type": "string"
+                }
+              },
+              "required": ["name", "packageJsonVersion", "installedVersion"],
+              "type": "object"
+            },
+            "type": "array",
+            "x-auditable": true
+          },
           "placement": {
             "$ref": "#/components/schemas/workers_placement_info_no_status"
           },
@@ -22961,6 +23013,32 @@
                       "description": "Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker, which is required for Version Upload.",
                       "example": "worker.js",
                       "type": "string"
+                    },
+                    "package_dependencies": {
+                      "description": "The list of npm packages that were installed and used when this Worker\nversion was built.\n",
+                      "items": {
+                        "properties": {
+                          "installedVersion": {
+                            "description": "The exact version that was resolved and installed by the package manager.",
+                            "example": "4.17.22",
+                            "type": "string"
+                          },
+                          "name": {
+                            "description": "The npm package name.",
+                            "example": "lodash",
+                            "type": "string"
+                          },
+                          "packageJsonVersion": {
+                            "description": "The version constraint as written in package.json.",
+                            "example": "^4.17.21",
+                            "type": "string"
+                          }
+                        },
+                        "required": ["name", "packageJsonVersion", "installedVersion"],
+                        "type": "object"
+                      },
+                      "type": "array",
+                      "x-auditable": true
                     },
                     "usage_model": {
                       "$ref": "#/components/schemas/workers_usage_model"
