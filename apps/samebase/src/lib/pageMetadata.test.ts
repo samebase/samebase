@@ -329,6 +329,16 @@ describe("page metadata", () => {
     ).toBe(true);
     expect(
       rootHead.scripts.some((script) =>
+        script.children.includes("window.samebasePwaInstallPromptEvent = event;"),
+      ),
+    ).toBe(true);
+    expect(
+      rootHead.scripts.some((script) =>
+        script.children.includes('"samebase:pwa-install-availability"'),
+      ),
+    ).toBe(true);
+    expect(
+      rootHead.scripts.some((script) =>
         script.children.includes("samebase_app_workspace_sidebar_state"),
       ),
     ).toBe(true);

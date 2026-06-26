@@ -2,6 +2,7 @@ import { useAppAuthActions } from "@/authClient";
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
 import { PublicLandingPasswordAuthControls } from "@/components/PublicLandingAuthControls";
+import { PwaInstallAction } from "@/components/PwaInstallAction";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -47,6 +48,7 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
     <VaultDashboardSidebarContent>
       {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
       <PublicLandingPasswordAuthControls />
+      <PwaInstallAction />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -135,6 +137,7 @@ function TemporaryAuthenticatedAppRightSidebarContent({
   return (
     <VaultDashboardSidebarContent>
       <GenericSignedInAccountSection profile={profile} />
+      <PwaInstallAction />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -153,6 +156,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
   return (
     <VaultDashboardSidebarContent>
       <GenericSignedInAccountSection authProviders={authProviders} profile={profile} user={user} />
+      <PwaInstallAction />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -229,6 +233,7 @@ function AuthenticatedAppRightSidebarContent({
         user={user}
       />
       <AppRightSidebarPrimaryLinks />
+      <PwaInstallAction />
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>

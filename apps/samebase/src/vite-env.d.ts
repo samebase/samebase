@@ -11,8 +11,32 @@ interface Navigation extends EventTarget {
   forward(): void;
 }
 
+type BeforeInstallPromptOutcome = "accepted" | "dismissed";
+
+interface BeforeInstallPromptChoice {
+  readonly outcome: BeforeInstallPromptOutcome;
+  readonly platform: string;
+}
+
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: readonly string[];
+  readonly userChoice: Promise<BeforeInstallPromptChoice>;
+
+  prompt(): Promise<BeforeInstallPromptChoice>;
+}
+
+interface Navigator {
+  readonly standalone?: boolean;
+}
+
+interface WindowEventMap {
+  readonly beforeinstallprompt: BeforeInstallPromptEvent;
+  readonly "samebase:pwa-install-availability": Event;
+}
+
 interface Window {
   readonly navigation: Navigation;
+  samebasePwaInstallPromptEvent?: BeforeInstallPromptEvent | null;
 }
 
 interface ImportMetaEnv {

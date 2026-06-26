@@ -6,6 +6,12 @@ import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLand
 import { signInIfNeeded } from "./liveHelpers";
 import { expectScreenshotsToMatch } from "./visualDiff";
 
+declare global {
+  interface Window {
+    samebaseTestPwaInstallPromptCalls: number;
+  }
+}
+
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
 const APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE = {
   leftDesktopOpen: true,
@@ -79,6 +85,33 @@ async function openSignedInApp(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/");
   await page.waitForLoadState("networkidle");
+}
+
+async function dispatchInstallPromptEvent(page: Page) {
+  await page.evaluate(() => {
+    window.samebaseTestPwaInstallPromptCalls = 0;
+
+    const promptChoice = {
+      outcome: "dismissed",
+      platform: "web",
+    };
+    const event = new Event("beforeinstallprompt", { cancelable: true });
+    Object.defineProperties(event, {
+      platforms: {
+        value: ["web"],
+      },
+      prompt: {
+        value: () => {
+          window.samebaseTestPwaInstallPromptCalls += 1;
+          return Promise.resolve(promptChoice);
+        },
+      },
+      userChoice: {
+        value: Promise.resolve(promptChoice),
+      },
+    });
+    window.dispatchEvent(event);
+  });
 }
 
 async function expectNoHorizontalOverflow(locator: Locator) {
@@ -181,6 +214,24 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
     "app-right-sidebar-signed-in-account-section.png",
     appRightSidebarScreenshotOptions,
   );
+});
+
+test("signed-in app right sidebar renders the install action when the PWA prompt is available", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openSignedInApp(page);
+  await dispatchInstallPromptEvent(page);
+
+  const installAction = getRightSidebar(page).getByTestId("pwa-install-action");
+  await expect(installAction.getByRole("button", { name: "Install app" })).toBeVisible();
+  await expect(installAction).toHaveScreenshot(
+    "app-right-sidebar-pwa-install-action.png",
+    appRightSidebarScreenshotOptions,
+  );
+
+  await installAction.getByRole("button", { name: "Install app" }).click();
+  await expect.poll(() => page.evaluate(() => window.samebaseTestPwaInstallPromptCalls)).toBe(1);
 });
 
 test("signed-in app right sidebar keeps the account row inside a narrow desktop rail", async ({

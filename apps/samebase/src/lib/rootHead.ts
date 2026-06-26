@@ -1,5 +1,6 @@
 import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebarPrehydration";
 import { appAuthPresentationPrehydrationScript } from "@/lib/appAuthPresentationPrehydration";
+import { PWA_INSTALL_AVAILABILITY_EVENT_NAME } from "@/lib/pwaInstall";
 import { publicLandingLogoPrehydrationScript } from "@/lib/publicLandingLogoPrehydration";
 
 const appTitle = "Samebase | GitHub-backed workspace for notes, code, and AI";
@@ -25,9 +26,22 @@ const structuredData = {
   ],
 } as const;
 const disableInstallPromptScript = `
-window.addEventListener("beforeinstallprompt", (event) => {
-  event.preventDefault();
-});
+(() => {
+  const notifyInstallAvailability = () => {
+    window.dispatchEvent(new Event(${JSON.stringify(PWA_INSTALL_AVAILABILITY_EVENT_NAME)}));
+  };
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    window.samebasePwaInstallPromptEvent = event;
+    notifyInstallAvailability();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    window.samebasePwaInstallPromptEvent = null;
+    notifyInstallAvailability();
+  });
+})();
 `;
 const initialThemeScript = `
 (() => {
