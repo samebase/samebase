@@ -110,7 +110,11 @@ import {
   type VoxelEdit,
 } from "@/components/logo/logoVoxelState";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
-import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import {
+  buildLogoThemeColorSearch,
+  syncDocumentThemeColorSearch,
+  useResolvedAppThemeColorState,
+} from "@/lib/appThemeColorSearch";
 import {
   LOGO_ISO_ROUTE_SEARCH_KEYS,
   MAX_LOGO_OPACITY,
@@ -1001,6 +1005,7 @@ function useLogoPreviewController({
         }));
       },
       setThemeColors: (themeColors: LogoThemeColors) => {
+        syncDocumentThemeColorSearch(buildLogoThemeColorSearch(themeColors));
         commitRouteState((currentState) => ({
           ...currentState,
           themeColors,
