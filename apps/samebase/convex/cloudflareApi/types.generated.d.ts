@@ -3276,6 +3276,27 @@ export interface components {
           | components["schemas"]["workers_multiple_step_migrations"]
         >;
         observability?: components["schemas"]["workers_observability"];
+        /**
+         * @description The list of npm packages that were installed and used when this Worker
+         *     version was built.
+         */
+        package_dependencies?: {
+          /**
+           * @description The exact version that was resolved and installed by the package manager.
+           * @example 4.17.22
+           */
+          installedVersion: string;
+          /**
+           * @description The npm package name.
+           * @example lodash
+           */
+          name: string;
+          /**
+           * @description The version constraint as written in package.json.
+           * @example ^4.17.21
+           */
+          packageJsonVersion: string;
+        }[];
         placement?: components["schemas"]["workers_placement_info"];
         /** @description List of strings to use as tags for this Worker. */
         tags?: string[];
@@ -5687,6 +5708,27 @@ export interface components {
       }[];
       /** @description The integer version number, starting from one. */
       number: $Read<number>;
+      /**
+       * @description The list of npm packages that were installed and used when this Worker
+       *     version was built.
+       */
+      package_dependencies?: {
+        /**
+         * @description The exact version that was resolved and installed by the package manager.
+         * @example 4.17.22
+         */
+        installedVersion: string;
+        /**
+         * @description The npm package name.
+         * @example lodash
+         */
+        name: string;
+        /**
+         * @description The version constraint as written in package.json.
+         * @example ^4.17.21
+         */
+        packageJsonVersion: string;
+      }[];
       placement?: components["schemas"]["workers_placement_info_no_status"];
       /**
        * @description The client used to create the version.
@@ -6000,6 +6042,27 @@ export interface components {
              * @example worker.js
              */
             main_module: string;
+            /**
+             * @description The list of npm packages that were installed and used when this Worker
+             *     version was built.
+             */
+            package_dependencies?: {
+              /**
+               * @description The exact version that was resolved and installed by the package manager.
+               * @example 4.17.22
+               */
+              installedVersion: string;
+              /**
+               * @description The npm package name.
+               * @example lodash
+               */
+              name: string;
+              /**
+               * @description The version constraint as written in package.json.
+               * @example ^4.17.21
+               */
+              packageJsonVersion: string;
+            }[];
             usage_model?: components["schemas"]["workers_usage_model"];
           };
         };
