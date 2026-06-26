@@ -47,5 +47,6 @@ export const codespacesTable = defineTable({
 })
   .index("by_vault", ["vaultId"])
   .index("by_user", ["userId"])
+  .index("by_user_and_vault_and_state", ["userId", "vaultId", "state"])
   .index("by_gh_id", ["ghCodespaceId"])
   .index("by_state", ["state"]);

@@ -76,7 +76,7 @@
     "@playwright/test": "1.58.2",
     "@samebase/dependent": "workspace:*",
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
-    "convex-test": "^0.0.51",
+    "convex-test": "^0.0.53",
     "eslint-plugin-react-refresh": "^0.4.7",
     "execa": "9.6.1",
     "typescript": "5.9.2",
@@ -86,5 +86,5 @@
     "node": ">=24.0.0",
     "pnpm": ">=11.1.1"
   },
-  "packageManager": "pnpm@11.1.1"
+  "packageManager": "pnpm@11.9.0"
 }

@@ -9,9 +9,9 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future Convex releases do not bypass the
 # cooling period automatically.
 minimumReleaseAgeExclude:
-  # TODO(2026-06-17): Remove the protobufjs@7.6.3 release-age exception after
+  # TODO(2026-07-01): Remove the convex@1.42.0 release-age exception after
   # the normal 7-day cooling period has passed.
-  - convex@1.40.0
+  - convex@1.42.0
   # TODO(2026-06-25): Remove the dompurify@3.4.11 and undici@7.28.0 release-age
   # exceptions after the normal 7-day cooling period has passed. Keep the
   # overrides below until upstream packages no longer resolve vulnerable
@@ -27,6 +27,11 @@ minimumReleaseAgeIgnoreMissingTime: false
 blockExoticSubdeps: true
 # Rejects releases whose registry trust evidence is weaker than prior releases.
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  # TODO(2026-07-10): Recheck once upstream dependencies no longer resolve
+  # these trust-downgraded transitive versions.
+  - reselect@5.1.1
+  - undici-types@6.21.0
 overrides:
   "@babel/core": 7.29.7
   "@protobufjs/utf8": 1.1.1

@@ -6,6 +6,7 @@ import {
   type ActionCtx,
   type MutationCtx,
 } from "./_generated/server";
+import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "convex/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -639,7 +640,12 @@ export function selectExistingCloudflareWorker(args: {
   return { state: "planned" };
 }
 
-type ProvisioningEventCtx = Pick<ActionCtx, "runMutation"> & Pick<MutationCtx, "runMutation">;
+type ProvisioningEventCtx = {
+  runMutation<Mutation extends FunctionReference<"mutation", "public" | "internal">>(
+    mutation: Mutation,
+    ...args: OptionalRestArgs<Mutation>
+  ): Promise<FunctionReturnType<Mutation>>;
+};
 
 async function appendProvisioningRunEvent(
   ctx: ProvisioningEventCtx,

@@ -414,7 +414,8 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_and_state_and_deletion_state", ["userId", "state", "deletion.state"])
     .index("by_userId_and_ghRepoId", ["userId", "ghRepoId"])
-    .index("by_owner_and_name", ["owner", "name"]),
+    .index("by_owner_and_name", ["owner", "name"])
+    .index("by_userId_and_owner_and_name", ["userId", "owner", "name"]),
 
   /**
    * Deployable app roots inside a repo-backed vault. Provider resources attach
