@@ -12,7 +12,7 @@ import { type ReactNode, useState } from "react";
 
 type SignInFormProps = {
   authPlacement: "inline" | "sidebar";
-  landingPageMarkdown: string | null;
+  landingPageMarkdown: string;
   topNotice: ReactNode;
 };
 
@@ -20,7 +20,7 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
   const landingDevModeEnabled = isLandingDevModeEnabled(rootRouteSearch);
-  const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown ?? "");
+  const [landingMarkdownDraft, setLandingMarkdownDraft] = useState(landingPageMarkdown);
 
   return (
     <div data-testid={PUBLIC_LANDING_SCROLL_SHELL_TEST_ID} className="flex min-h-0 flex-1 flex-col">
@@ -45,16 +45,14 @@ export function SignInForm({ authPlacement, landingPageMarkdown, topNotice }: Si
             }}
             routeSearch={rootRouteSearch}
           />
-          {landingPageMarkdown === null ? null : (
-            <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
-              <LandingCopy
-                className="text-sm"
-                editable={landingDevModeEnabled}
-                markdown={landingMarkdownDraft}
-                onChange={setLandingMarkdownDraft}
-              />
-            </div>
-          )}
+          <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
+            <LandingCopy
+              className="text-sm"
+              editable={landingDevModeEnabled}
+              markdown={landingMarkdownDraft}
+              onChange={setLandingMarkdownDraft}
+            />
+          </div>
           {authPlacement === "inline" ? <PublicLandingAuthControls /> : null}
           <div className="flex flex-col gap-2 pt-2">
             <a

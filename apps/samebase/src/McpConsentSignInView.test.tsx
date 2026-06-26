@@ -1,24 +1,6 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
-
-vi.mock("./SignInForm", () => ({
-  SignInForm: ({
-    authPlacement,
-    landingPageMarkdown,
-  }: {
-    authPlacement: string;
-    landingPageMarkdown: string | null;
-  }) => (
-    <div
-      data-auth-placement={authPlacement}
-      data-landing-copy={landingPageMarkdown === null ? "hidden" : "visible"}
-    >
-      Sign in form
-    </div>
-  ),
-}));
-
-import { McpConsentSignInNotice, McpConsentSignInView } from "./McpConsentSignInView";
+import { McpConsentSignInNotice } from "./McpConsentSignInView";
 
 describe("McpConsentSignInNotice", () => {
   it("tells signed-out users to be logged into this browser before authenticating from Codex", () => {
@@ -28,13 +10,5 @@ describe("McpConsentSignInNotice", () => {
     expect(markup).toContain("already signed in to Samebase in this same browser");
     expect(markup).toContain("click Authenticate in Codex");
     expect(markup).toContain("press Authenticate again");
-  });
-
-  it("keeps MCP sign-in controls inline with the consent route", () => {
-    const markup = renderToStaticMarkup(<McpConsentSignInView />);
-
-    expect(markup).toContain('data-auth-placement="inline"');
-    expect(markup).not.toContain('data-auth-placement="sidebar"');
-    expect(markup).toContain('data-landing-copy="hidden"');
   });
 });
