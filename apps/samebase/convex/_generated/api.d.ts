@@ -18,6 +18,7 @@ import type * as appProvisioningRuns from "../appProvisioningRuns.js";
 import type * as appProvisioningWorkflow from "../appProvisioningWorkflow.js";
 import type * as appProvisioningWorkflowActions from "../appProvisioningWorkflowActions.js";
 import type * as auth from "../auth.js";
+import type * as authUserLinking from "../authUserLinking.js";
 import type * as billing from "../billing.js";
 import type * as chat_actions from "../chat/actions.js";
 import type * as chat_commitProposalClaim from "../chat/commitProposalClaim.js";
@@ -128,6 +129,7 @@ declare const fullApi: ApiFromModules<{
   appProvisioningWorkflow: typeof appProvisioningWorkflow;
   appProvisioningWorkflowActions: typeof appProvisioningWorkflowActions;
   auth: typeof auth;
+  authUserLinking: typeof authUserLinking;
   billing: typeof billing;
   "chat/actions": typeof chat_actions;
   "chat/commitProposalClaim": typeof chat_commitProposalClaim;

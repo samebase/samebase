@@ -12,6 +12,7 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
+import { findPasswordReviewAuthUser, normalizeAuthEmail } from "./authUserLinking";
 import {
   buildSeedCloudflareDefaultAccount,
   getConnectionByUserAndKind,
@@ -31,7 +32,7 @@ const isNonEmptyString = guard<unknown, string>((value) =>
 );
 
 function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+  return normalizeAuthEmail(email);
 }
 
 function buildUserPatch(profile: Record<string, unknown>): UserPatch {
@@ -41,13 +42,15 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
     patch.name = profile.name;
   }
   if (isNonEmptyString(profile.email)) {
-    patch.email = profile.email;
+    patch.email = normalizeEmail(profile.email);
   }
   if (isNonEmptyString(profile.image)) {
     patch.image = profile.image;
   }
 
-  if (profile.emailVerified === true) {
+  if (typeof profile.emailVerificationTime === "number") {
+    patch.emailVerificationTime = profile.emailVerificationTime;
+  } else if (profile.emailVerified === true) {
     patch.emailVerificationTime = Date.now();
   }
   if (profile.phoneVerified === true) {
@@ -236,15 +239,24 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     createOrUpdateUser: async (ctx, args) => {
       const patch = buildUserPatch(args.profile);
+      const existingReviewUser =
+        args.existingUserId === null &&
+        args.type === "credentials" &&
+        args.provider.id === "password" &&
+        passwordAuthMode === "production_review_seed" &&
+        patch.email !== undefined &&
+        env.OPENAI_REVIEW_AUTH_EMAIL !== undefined &&
+        patch.email === normalizeEmail(env.OPENAI_REVIEW_AUTH_EMAIL)
+          ? await findPasswordReviewAuthUser(ctx.db, patch.email)
+          : null;
 
       // Always persist the auth user row first so invite access can be driven
       // from `users.isApproved` instead of a hardcoded email list.
-      const userId = args.existingUserId
-        ? args.existingUserId
-        : await ctx.db.insert("users", patch);
+      const userId =
+        args.existingUserId ?? existingReviewUser?._id ?? (await ctx.db.insert("users", patch));
 
-      if (args.existingUserId) {
-        await ctx.db.patch(args.existingUserId, patch);
+      if (args.existingUserId !== null || existingReviewUser !== null) {
+        await ctx.db.patch(userId, patch);
       }
 
       await applyAutoSeedProviderKeys(ctx.db, userId);
