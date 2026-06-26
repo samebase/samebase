@@ -18,17 +18,10 @@ import {
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
-const { boolean, null: vNull, object, optional, string } = v;
+const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
-}
-
-function isMissingPasswordAccountError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.message.includes("does not exist") || error.message.includes("not found"))
-  );
 }
 
 function readSeedValue(envName: string): string | undefined {
@@ -217,7 +210,7 @@ async function upsertCloudflareApiKey(
 }
 
 const seedProviderConnectionsArgs = object({
-  email: string(),
+  userId: id("users"),
   githubApiKey: optional(string()),
   convexManagementApiKey: optional(string()),
   convexTeamId: optional(string()),
@@ -227,27 +220,22 @@ const seedProviderConnectionsArgs = object({
 });
 type SeedProviderConnectionsArgs = Infer<typeof seedProviderConnectionsArgs>;
 
-export const seedProviderConnectionsForEmail = internalMutation({
+export const seedProviderConnectionsForUser = internalMutation({
   args: seedProviderConnectionsArgs,
   returns: vNull(),
   handler: async (ctx, args) => {
-    const normalizedEmail = normalizeEmail(args.email);
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", normalizedEmail))
-      .first();
-    if (!user) {
-      return null;
+    const user = await ctx.db.get(args.userId);
+    if (user === null) {
+      throw new Error(`Cannot seed provider connections for missing user ${args.userId}`);
     }
-
     // Seeded preview/local password accounts must skip the pending access gate so
     // operators do not need a parallel code-side allowlist for dev access.
     if (user.isApproved !== true) {
-      await ctx.db.patch(user._id, { isApproved: true });
+      await ctx.db.patch(args.userId, { isApproved: true });
     }
 
     if (args.githubApiKey) {
-      await upsertGithubApiKey(ctx.db, user._id, args.githubApiKey);
+      await upsertGithubApiKey(ctx.db, args.userId, args.githubApiKey);
     }
 
     if (args.convexManagementApiKey || args.convexTeamId || args.convexTeamSlug) {
@@ -258,7 +246,7 @@ export const seedProviderConnectionsForEmail = internalMutation({
       }
       await upsertConvexApiKey(
         ctx.db,
-        user._id,
+        args.userId,
         args.convexManagementApiKey,
         args.convexTeamId,
         args.convexTeamSlug,
@@ -271,7 +259,7 @@ export const seedProviderConnectionsForEmail = internalMutation({
       }
       await upsertCloudflareApiKey(
         ctx.db,
-        user._id,
+        args.userId,
         args.cloudflareApiKey,
         args.cloudflareAccountId,
       );
@@ -281,13 +269,81 @@ export const seedProviderConnectionsForEmail = internalMutation({
   },
 });
 
+const seedPasswordAccountUserResolution = union(
+  object({
+    kind: literal("existing"),
+    userId: id("users"),
+  }),
+  object({
+    kind: literal("missing"),
+    verifiedUserId: optional(id("users")),
+  }),
+);
+type SeedPasswordAccountUserResolution = Infer<typeof seedPasswordAccountUserResolution>;
+
+export const resolveSeedPasswordAccountUser = internalMutation({
+  args: {
+    email: string(),
+    shouldLinkViaEmail: boolean(),
+  },
+  returns: seedPasswordAccountUserResolution,
+  handler: async (ctx, args): Promise<SeedPasswordAccountUserResolution> => {
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (q) =>
+        q.eq("provider", "password").eq("providerAccountId", args.email),
+      )
+      .take(2);
+    if (accounts.length > 1) {
+      throw new Error(`Multiple password auth accounts exist for ${args.email}`);
+    }
+    if (!args.shouldLinkViaEmail) {
+      if (accounts.length === 0) {
+        return { kind: "missing" };
+      }
+      return { kind: "existing", userId: accounts[0].userId };
+    }
+
+    const verifiedUserIds: Id<"users">[] = [];
+    for await (const user of ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))) {
+      if (user.emailVerificationTime !== undefined) {
+        verifiedUserIds.push(user._id);
+        if (verifiedUserIds.length > 1) {
+          break;
+        }
+      }
+    }
+    if (verifiedUserIds.length !== 1) {
+      throw new Error(
+        `Expected exactly one verified user for ${args.email}; found ${verifiedUserIds.length}`,
+      );
+    }
+    const verifiedUserId = verifiedUserIds[0];
+    if (accounts.length === 0) {
+      return { kind: "missing", verifiedUserId };
+    }
+    const account = accounts[0];
+    if (account.userId !== verifiedUserId) {
+      throw new Error(
+        `Review password account for ${args.email} is linked to ${account.userId}, not verified user ${verifiedUserId}`,
+      );
+    }
+    return { kind: "existing", userId: verifiedUserId };
+  },
+});
+
+const seedPasswordAccountReturns = object({
+  email: string(),
+  created: boolean(),
+});
+type SeedPasswordAccountResult = Infer<typeof seedPasswordAccountReturns>;
+
 export const seedPasswordAccount = internalAction({
   args: {},
-  returns: object({
-    email: string(),
-    created: boolean(),
-  }),
-  handler: async (ctx) => {
+  returns: seedPasswordAccountReturns,
+  handler: async (ctx): Promise<SeedPasswordAccountResult> => {
     const { email, password, shouldLinkViaEmail } = readSeedPasswordAccountConfig();
     const githubApiKey = readSeedValue("DEV_SEED_GITHUB_API_KEY");
     const convexManagementApiKey = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
@@ -295,7 +351,7 @@ export const seedPasswordAccount = internalAction({
     const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
-    const seedArgs: SeedProviderConnectionsArgs = { email };
+    const seedArgs: Omit<SeedProviderConnectionsArgs, "userId"> = {};
     if (githubApiKey !== undefined) {
       seedArgs.githubApiKey = githubApiKey;
     }
@@ -316,7 +372,15 @@ export const seedPasswordAccount = internalAction({
     }
 
     let created = false;
-    try {
+    let userId: Id<"users">;
+    const resolution: SeedPasswordAccountUserResolution = await ctx.runMutation(
+      internal.devAuth.resolveSeedPasswordAccountUser,
+      {
+        email,
+        shouldLinkViaEmail,
+      },
+    );
+    if (resolution.kind === "existing") {
       await modifyAccountCredentials(ctx, {
         provider: "password",
         account: {
@@ -324,11 +388,9 @@ export const seedPasswordAccount = internalAction({
           secret: password,
         },
       });
-    } catch (error) {
-      if (!isMissingPasswordAccountError(error)) {
-        throw error;
-      }
-      await createAccount(ctx, {
+      userId = resolution.userId;
+    } else {
+      const createdAccount = await createAccount(ctx, {
         provider: "password",
         account: {
           id: email,
@@ -341,10 +403,22 @@ export const seedPasswordAccount = internalAction({
         shouldLinkViaEmail,
         shouldLinkViaPhone: false,
       });
+      if (
+        resolution.verifiedUserId !== undefined &&
+        createdAccount.user._id !== resolution.verifiedUserId
+      ) {
+        throw new Error(
+          `Created review password account linked to ${createdAccount.user._id}, not verified user ${resolution.verifiedUserId}`,
+        );
+      }
+      userId = createdAccount.user._id;
       created = true;
     }
 
-    await ctx.runMutation(internal.devAuth.seedProviderConnectionsForEmail, seedArgs);
+    await ctx.runMutation(internal.devAuth.seedProviderConnectionsForUser, {
+      ...seedArgs,
+      userId,
+    });
 
     return { email, created };
   },

@@ -18,43 +18,12 @@ import {
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
-type UserPatch = {
-  name?: string;
-  email?: string;
-  image?: string;
-  emailVerificationTime?: number;
-  phoneVerificationTime?: number;
-};
-
 const isNonEmptyString = guard<unknown, string>((value) =>
   typeof value === "string" && value.trim().length > 0 ? value : null,
 );
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
-}
-
-function buildUserPatch(profile: Record<string, unknown>): UserPatch {
-  const patch: UserPatch = {};
-
-  if (isNonEmptyString(profile.name)) {
-    patch.name = profile.name;
-  }
-  if (isNonEmptyString(profile.email)) {
-    patch.email = profile.email;
-  }
-  if (isNonEmptyString(profile.image)) {
-    patch.image = profile.image;
-  }
-
-  if (profile.emailVerified === true) {
-    patch.emailVerificationTime = Date.now();
-  }
-  if (profile.phoneVerified === true) {
-    patch.phoneVerificationTime = Date.now();
-  }
-
-  return patch;
 }
 
 async function upsertSeedGithubConnection(db: DatabaseWriter, userId: Id<"users">): Promise<void> {
@@ -224,7 +193,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             profile: (profile) => ({
               id: profile.sub,
               name: profile.name,
-              email: profile.email,
+              email: isNonEmptyString(profile.email) ? normalizeEmail(profile.email) : undefined,
               image: profile.picture,
               emailVerified: profile.email_verified,
             }),
@@ -234,21 +203,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
 
   callbacks: {
-    createOrUpdateUser: async (ctx, args) => {
-      const patch = buildUserPatch(args.profile);
-
-      // Always persist the auth user row first so invite access can be driven
-      // from `users.isApproved` instead of a hardcoded email list.
-      const userId = args.existingUserId
-        ? args.existingUserId
-        : await ctx.db.insert("users", patch);
-
-      if (args.existingUserId) {
-        await ctx.db.patch(args.existingUserId, patch);
-      }
-
-      await applyAutoSeedProviderKeys(ctx.db, userId);
-      return userId;
+    afterUserCreatedOrUpdated: async (ctx, args) => {
+      await applyAutoSeedProviderKeys(ctx.db, args.userId);
     },
   },
 });
