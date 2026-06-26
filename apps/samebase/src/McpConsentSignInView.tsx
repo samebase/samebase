@@ -1,28 +1,12 @@
-import { SignInForm } from "./SignInForm";
-import { landingPageMarkdown } from "./lib/landingCopy";
-
-export function McpConsentSignInNotice() {
-  return (
-    <div className="rounded-md border px-3 py-3 text-sm">
-      <p className="font-medium">Temporary MCP sign-in note</p>
-      <p className="mt-1 text-muted-foreground">
-        This flow currently works best if you are already signed in to Samebase in this same browser
-        before you click Authenticate in Codex.
-      </p>
-      <p className="mt-1 text-muted-foreground">
-        If you are not signed in yet, sign in here first. If Codex does not continue afterward, go
-        back and press Authenticate again.
-      </p>
-    </div>
-  );
-}
-
 export function McpConsentSignInView() {
   return (
-    <SignInForm
-      authPlacement="inline"
-      landingPageMarkdown={landingPageMarkdown}
-      topNotice={<McpConsentSignInNotice />}
-    />
+    <div className="container my-auto">
+      <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center">
+        <h2 className="text-xl font-semibold tracking-tight">Sign in to continue</h2>
+        <p className="text-sm text-muted-foreground">
+          Use the account sidebar to sign in, then return here to approve the MCP request.
+        </p>
+      </div>
+    </div>
   );
 }

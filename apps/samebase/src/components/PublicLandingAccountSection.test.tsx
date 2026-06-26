@@ -314,6 +314,15 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("The app is still internal.");
   });
 
+  it("shows Google auth directly on the MCP consent route", () => {
+    const markup = renderLandingAccountSection("/oauth/mcp/consent");
+
+    expect(markup).toContain("not logged in");
+    expect(markup).toContain("Google");
+    expect(markup).not.toContain("?sign-in");
+    expect(markup).not.toContain("?create-account");
+  });
+
   it("shows the internal-app message from the create-account route state", () => {
     const markup = renderLandingAccountSection("/?create-account");
 
