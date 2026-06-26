@@ -19,10 +19,10 @@ describe("McpConsentSignInNotice", () => {
     expect(markup).toContain("press Authenticate again");
   });
 
-  it("leaves MCP sign-in controls in the sidebar", () => {
+  it("keeps MCP sign-in controls inline with the consent route", () => {
     const markup = renderToStaticMarkup(<McpConsentSignInView />);
 
-    expect(markup).toContain('data-auth-placement="sidebar"');
-    expect(markup).not.toContain('data-auth-placement="inline"');
+    expect(markup).toContain('data-auth-placement="inline"');
+    expect(markup).not.toContain('data-auth-placement="sidebar"');
   });
 });

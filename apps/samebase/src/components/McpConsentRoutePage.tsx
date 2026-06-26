@@ -1,5 +1,6 @@
 import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { ApprovalGate } from "@/components/ApprovalGate";
 import { Button } from "@/components/ui/button";
 import { landingPageMarkdown } from "@/lib/landingCopy";
@@ -164,7 +165,7 @@ export function McpConsentRoutePage() {
   usePageMetadata(pageMetadata);
 
   return (
-    <>
+    <AppWorkspaceRouteChrome headerVisible={false} left={null} right={null}>
       <Authenticated>
         <ApprovalGate>
           {requestId === null ? null : <McpConsentView requestId={requestId} />}
@@ -173,7 +174,7 @@ export function McpConsentRoutePage() {
       <Unauthenticated>
         {requestId === null ? (
           <SignInForm
-            authPlacement="sidebar"
+            authPlacement="inline"
             landingPageMarkdown={landingPageMarkdown}
             topNotice={null}
           />
@@ -181,6 +182,6 @@ export function McpConsentRoutePage() {
           <McpConsentSignInView />
         )}
       </Unauthenticated>
-    </>
+    </AppWorkspaceRouteChrome>
   );
 }
