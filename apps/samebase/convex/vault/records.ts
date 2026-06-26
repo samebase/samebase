@@ -560,8 +560,9 @@ async function getVaultByRepositoryHelper(
 
   const vault = await ctx.db
     .query("vaults")
-    .withIndex("by_owner_and_name", (q) => q.eq("owner", owner).eq("name", name))
-    .filter((q) => q.eq(q.field("userId"), args.userId))
+    .withIndex("by_userId_and_owner_and_name", (q) =>
+      q.eq("userId", args.userId).eq("owner", owner).eq("name", name),
+    )
     .first();
 
   if (!isLiveConnectedVault(vault)) {

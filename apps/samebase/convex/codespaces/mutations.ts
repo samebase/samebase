@@ -1,9 +1,48 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
 import { vCodespaceState } from "./model";
 import { query } from "../functions";
 import { assertConnectedVault, isLiveConnectedVault } from "../vault/state";
 import { CODESPACES_ENABLED } from "../../shared/featureFlags";
+
+const connectedCodespaceStates = [
+  "creating",
+  "starting",
+  "running",
+  "stopping",
+  "stopped",
+  "deleting",
+  "failed",
+] as const;
+
+function compareCodespacesByCreation(left: Doc<"codespaces">, right: Doc<"codespaces">): number {
+  return (
+    left.createdAt - right.createdAt ||
+    left._creationTime - right._creationTime ||
+    left._id.localeCompare(right._id)
+  );
+}
+
+async function listConnectedCodespaces(
+  ctx: QueryCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+  },
+) {
+  const codespacesByState = await Promise.all(
+    connectedCodespaceStates.map((state) =>
+      ctx.db
+        .query("codespaces")
+        .withIndex("by_user_and_vault_and_state", (q) =>
+          q.eq("userId", args.userId).eq("vaultId", args.vaultId).eq("state", state),
+        )
+        .collect(),
+    ),
+  );
+  return codespacesByState.flat().sort(compareCodespacesByCreation);
+}
 
 /**
  * Internal: Get Codespace by ID
@@ -274,13 +313,7 @@ export const listConnectedCodespacesForVault = internalQuery({
   },
   returns: v.array(connectedCodespaceSummary),
   handler: async (ctx, args) => {
-    const codespaces = await ctx.db
-      .query("codespaces")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .filter((q) =>
-        q.and(q.eq(q.field("userId"), args.userId), q.neq(q.field("state"), "deleted")),
-      )
-      .collect();
+    const codespaces = await listConnectedCodespaces(ctx, args);
 
     return codespaces.map((codespace) => ({
       _id: codespace._id,
@@ -305,12 +338,15 @@ export const getConnectedCodespacesCount = query({
       return 0;
     }
 
-    const codespaces = await ctx.db
-      .query("codespaces")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .filter((q) => q.and(q.eq(q.field("userId"), userId), q.neq(q.field("state"), "deleted")))
-      .collect();
+    if (vault.activeCodespaceId === undefined) {
+      return 0;
+    }
 
-    return codespaces.length;
+    const codespace = await ctx.db.get(vault.activeCodespaceId);
+    return codespace?.userId === userId &&
+      codespace.vaultId === args.vaultId &&
+      codespace.state !== "deleted"
+      ? 1
+      : 0;
   },
 });
