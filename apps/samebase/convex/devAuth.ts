@@ -1,4 +1,4 @@
-import { createAccount, modifyAccountCredentials, retrieveAccount } from "@convex-dev/auth/server";
+import { createAccount, modifyAccountCredentials } from "@convex-dev/auth/server";
 import { Infer, v } from "convex/values";
 import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
@@ -18,17 +18,10 @@ import {
 } from "./providerConnections";
 import { readOptionalEnv } from "./oauthUtils";
 
-const { boolean, id, null: vNull, object, optional, string } = v;
+const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
-}
-
-function isMissingPasswordAccountError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.message.includes("does not exist") || error.message.includes("not found"))
-  );
 }
 
 function readSeedValue(envName: string): string | undefined {
@@ -276,6 +269,71 @@ export const seedProviderConnectionsForUser = internalMutation({
   },
 });
 
+const seedPasswordAccountUserResolution = union(
+  object({
+    kind: literal("existing"),
+    userId: id("users"),
+  }),
+  object({
+    kind: literal("missing"),
+    verifiedUserId: optional(id("users")),
+  }),
+);
+type SeedPasswordAccountUserResolution = Infer<typeof seedPasswordAccountUserResolution>;
+
+export const resolveSeedPasswordAccountUser = internalMutation({
+  args: {
+    email: string(),
+    shouldLinkViaEmail: boolean(),
+  },
+  returns: seedPasswordAccountUserResolution,
+  handler: async (ctx, args): Promise<SeedPasswordAccountUserResolution> => {
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (q) =>
+        q.eq("provider", "password").eq("providerAccountId", args.email),
+      )
+      .take(2);
+    if (accounts.length > 1) {
+      throw new Error(`Multiple password auth accounts exist for ${args.email}`);
+    }
+    if (!args.shouldLinkViaEmail) {
+      if (accounts.length === 0) {
+        return { kind: "missing" };
+      }
+      return { kind: "existing", userId: accounts[0].userId };
+    }
+
+    const verifiedUserIds: Id<"users">[] = [];
+    for await (const user of ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))) {
+      if (user.emailVerificationTime !== undefined) {
+        verifiedUserIds.push(user._id);
+        if (verifiedUserIds.length > 1) {
+          break;
+        }
+      }
+    }
+    if (verifiedUserIds.length !== 1) {
+      throw new Error(
+        `Expected exactly one verified user for ${args.email}; found ${verifiedUserIds.length}`,
+      );
+    }
+    const verifiedUserId = verifiedUserIds[0];
+    if (accounts.length === 0) {
+      return { kind: "missing", verifiedUserId };
+    }
+    const account = accounts[0];
+    if (account.userId !== verifiedUserId) {
+      throw new Error(
+        `Review password account for ${args.email} is linked to ${account.userId}, not verified user ${verifiedUserId}`,
+      );
+    }
+    return { kind: "existing", userId: verifiedUserId };
+  },
+});
+
 const seedPasswordAccountReturns = object({
   email: string(),
   created: boolean(),
@@ -315,7 +373,14 @@ export const seedPasswordAccount = internalAction({
 
     let created = false;
     let userId: Id<"users">;
-    try {
+    const resolution: SeedPasswordAccountUserResolution = await ctx.runMutation(
+      internal.devAuth.resolveSeedPasswordAccountUser,
+      {
+        email,
+        shouldLinkViaEmail,
+      },
+    );
+    if (resolution.kind === "existing") {
       await modifyAccountCredentials(ctx, {
         provider: "password",
         account: {
@@ -323,18 +388,8 @@ export const seedPasswordAccount = internalAction({
           secret: password,
         },
       });
-      const retrieved = await retrieveAccount(ctx, {
-        provider: "password",
-        account: {
-          id: email,
-          secret: password,
-        },
-      });
-      userId = retrieved.user._id;
-    } catch (error) {
-      if (!isMissingPasswordAccountError(error)) {
-        throw error;
-      }
+      userId = resolution.userId;
+    } else {
       const createdAccount = await createAccount(ctx, {
         provider: "password",
         account: {
@@ -348,6 +403,14 @@ export const seedPasswordAccount = internalAction({
         shouldLinkViaEmail,
         shouldLinkViaPhone: false,
       });
+      if (
+        resolution.verifiedUserId !== undefined &&
+        createdAccount.user._id !== resolution.verifiedUserId
+      ) {
+        throw new Error(
+          `Created review password account linked to ${createdAccount.user._id}, not verified user ${resolution.verifiedUserId}`,
+        );
+      }
       userId = createdAccount.user._id;
       created = true;
     }

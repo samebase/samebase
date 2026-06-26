@@ -4,7 +4,34 @@ import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("devAuth password account seed", () => {
-  it("seeds the explicit password account user when duplicate emails exist", async () => {
+  it("resolves an existing password account linked to the verified review user", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const insertedUserId = await ctx.db.insert("users", {
+        email: "seed@example.com",
+        emailVerificationTime: 1,
+        isApproved: true,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId: insertedUserId,
+        provider: "password",
+        providerAccountId: "seed@example.com",
+      });
+      return insertedUserId;
+    });
+
+    await expect(
+      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+        email: "seed@example.com",
+        shouldLinkViaEmail: true,
+      }),
+    ).resolves.toEqual({
+      kind: "existing",
+      userId,
+    });
+  });
+
+  it("fails when the review password account is linked to a duplicate user", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const approvedUserId = await ctx.db.insert("users", {
@@ -15,31 +42,64 @@ describe("devAuth password account seed", () => {
       const passwordUserId = await ctx.db.insert("users", {
         email: "seed@example.com",
       });
-      const passwordAccountId = await ctx.db.insert("authAccounts", {
+      await ctx.db.insert("authAccounts", {
         userId: passwordUserId,
         provider: "password",
         providerAccountId: "seed@example.com",
       });
-      return { approvedUserId, passwordAccountId, passwordUserId };
+      return { approvedUserId, passwordUserId };
     });
 
     await expect(
-      t.mutation(internal.devAuth.seedProviderConnectionsForUser, {
-        userId: ids.passwordUserId,
+      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+        email: "seed@example.com",
+        shouldLinkViaEmail: true,
       }),
-    ).resolves.toBeNull();
+    ).rejects.toThrowError(
+      `Review password account for seed@example.com is linked to ${ids.passwordUserId}, not verified user ${ids.approvedUserId}`,
+    );
+  });
 
-    const snapshot = await t.run(async (ctx) => {
-      return {
-        approvedUser: await ctx.db.get(ids.approvedUserId),
-        passwordAccount: await ctx.db.get(ids.passwordAccountId),
-        passwordUser: await ctx.db.get(ids.passwordUserId),
-      };
+  it("returns the verified review user when the password account is missing", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "seed@example.com",
+        emailVerificationTime: 1,
+        isApproved: true,
+      });
     });
 
-    expect(snapshot.approvedUser?.isApproved).toBe(true);
-    expect(snapshot.passwordAccount?.userId).toBe(ids.passwordUserId);
-    expect(snapshot.passwordUser?.isApproved).toBe(true);
+    await expect(
+      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+        email: "seed@example.com",
+        shouldLinkViaEmail: true,
+      }),
+    ).resolves.toEqual({
+      kind: "missing",
+      verifiedUserId: userId,
+    });
+  });
+
+  it("fails when the review email has multiple verified users", async () => {
+    const t = makeConvexTest();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", {
+        email: "seed@example.com",
+        emailVerificationTime: 1,
+      });
+      await ctx.db.insert("users", {
+        email: "seed@example.com",
+        emailVerificationTime: 2,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+        email: "seed@example.com",
+        shouldLinkViaEmail: true,
+      }),
+    ).rejects.toThrowError("Expected exactly one verified user for seed@example.com; found 2");
   });
 
   it("adds provider keys to the explicit seed user", async () => {
