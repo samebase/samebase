@@ -20,7 +20,7 @@ export const createRepositoryContract = {
     runId: id("appProvisioningRuns"),
   }),
   mcp: {
-    name: "vault.actions.createRepository",
+    name: "create_app",
     description:
       "Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.",
     safety: "write",

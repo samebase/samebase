@@ -51,14 +51,14 @@ describe("MCP tool listing access", () => {
         grantedScopes: ["access_app_create", "access_dashboard"],
         currentAccessKeys: ["access_dashboard"],
       }).map((tool) => tool.name),
-    ).toEqual(["vault.dashboard.getUserVaults"]);
+    ).toEqual(["list_apps"]);
 
     expect(
       listMcpToolsForAccess({
         grantedScopes: ["access_dashboard"],
         currentAccessKeys: ["access_dashboard", "access_app_create"],
       }).map((tool) => tool.name),
-    ).toEqual(["vault.dashboard.getUserVaults"]);
+    ).toEqual(["list_apps"]);
 
     expect(
       listMcpToolsForAccess({
@@ -67,7 +67,7 @@ describe("MCP tool listing access", () => {
       }),
     ).toEqual([
       expect.objectContaining({
-        name: "vault.actions.createRepository",
+        name: "create_app",
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
@@ -75,7 +75,7 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "vault.dashboard.getUserVaults",
+        name: "list_apps",
         annotations: {
           readOnlyHint: true,
           openWorldHint: false,
@@ -83,5 +83,16 @@ describe("MCP tool listing access", () => {
         },
       }),
     ]);
+  });
+
+  it("uses Claude-compatible public tool names", () => {
+    const tools = listMcpToolsForAccess({
+      grantedScopes: ["access_app_create", "access_dashboard"],
+      currentAccessKeys: ["access_dashboard", "access_app_create"],
+    });
+
+    for (const tool of tools) {
+      expect(tool.name).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
+    }
   });
 });

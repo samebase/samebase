@@ -171,7 +171,7 @@ export const getUserVaultsContract = {
     }),
   ),
   mcp: {
-    name: "vault.dashboard.getUserVaults",
+    name: "list_apps",
     description:
       "List the Samebase apps and repositories available to the authenticated user, including provisioning state, provider resources, and branch summaries.",
     safety: "read_only",
