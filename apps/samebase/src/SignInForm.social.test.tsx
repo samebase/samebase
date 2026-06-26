@@ -43,6 +43,15 @@ describe("public Samebase social links", () => {
     expect(markup).toContain(SAMEBASE_X_PROFILE_URL);
   });
 
+  it("can render without public landing copy", () => {
+    const markup = renderToStaticMarkup(
+      <SignInForm authPlacement="inline" landingPageMarkdown={null} topNotice={null} />,
+    );
+
+    expect(markup).toContain("Auth controls");
+    expect(markup).not.toContain("Landing copy");
+  });
+
   it("renders the Samebase X profile link in the closed signup notice", () => {
     const markup = renderToStaticMarkup(<PublicSignupClosedNotice />);
 

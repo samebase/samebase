@@ -2,8 +2,19 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("./SignInForm", () => ({
-  SignInForm: ({ authPlacement }: { authPlacement: string }) => (
-    <div data-auth-placement={authPlacement}>Sign in form</div>
+  SignInForm: ({
+    authPlacement,
+    landingPageMarkdown,
+  }: {
+    authPlacement: string;
+    landingPageMarkdown: string | null;
+  }) => (
+    <div
+      data-auth-placement={authPlacement}
+      data-landing-copy={landingPageMarkdown === null ? "hidden" : "visible"}
+    >
+      Sign in form
+    </div>
   ),
 }));
 
@@ -24,5 +35,6 @@ describe("McpConsentSignInNotice", () => {
 
     expect(markup).toContain('data-auth-placement="inline"');
     expect(markup).not.toContain('data-auth-placement="sidebar"');
+    expect(markup).toContain('data-landing-copy="hidden"');
   });
 });

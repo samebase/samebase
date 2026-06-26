@@ -52,8 +52,19 @@ vi.mock("@/components/useAppRightSidebarPane", () => ({
 }));
 
 vi.mock("@/SignInForm", () => ({
-  SignInForm: ({ authPlacement }: { authPlacement: string }) => (
-    <div data-auth-placement={authPlacement}>Sign in form</div>
+  SignInForm: ({
+    authPlacement,
+    landingPageMarkdown,
+  }: {
+    authPlacement: string;
+    landingPageMarkdown: string | null;
+  }) => (
+    <div
+      data-auth-placement={authPlacement}
+      data-landing-copy={landingPageMarkdown === null ? "hidden" : "visible"}
+    >
+      Sign in form
+    </div>
   ),
 }));
 

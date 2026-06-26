@@ -57,8 +57,19 @@ vi.mock("@/components/AppWorkspaceShell", () => ({
 }));
 
 vi.mock("@/SignInForm", () => ({
-  SignInForm: ({ authPlacement }: { authPlacement: string }) => (
-    <div data-auth-placement={authPlacement}>Sign in form</div>
+  SignInForm: ({
+    authPlacement,
+    landingPageMarkdown,
+  }: {
+    authPlacement: string;
+    landingPageMarkdown: string | null;
+  }) => (
+    <div
+      data-auth-placement={authPlacement}
+      data-landing-copy={landingPageMarkdown === null ? "hidden" : "visible"}
+    >
+      Sign in form
+    </div>
   ),
 }));
 
@@ -109,6 +120,7 @@ describe("McpConsentRoutePage", () => {
     expect(markup).toContain('data-left="null"');
     expect(markup).toContain('data-right="null"');
     expect(markup).toContain('data-auth-placement="inline"');
+    expect(markup).toContain('data-landing-copy="hidden"');
     expect(markup).not.toContain('data-auth-placement="sidebar"');
   });
 });
