@@ -8,7 +8,7 @@
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
-    "vault.actions.createRepository": {
+    "vault_actions_createRepository": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -20,7 +20,7 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
-    "vault.dashboard.getUserVaults": {
+    "vault_dashboard_getUserVaults": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -38,7 +38,7 @@
       "description": "List the authenticated user's Samebase apps.",
       "user_prompt": "List my Samebase apps.",
       "file_attachment_urls": null,
-      "tools_triggered": "vault.dashboard.getUserVaults",
+      "tools_triggered": "vault_dashboard_getUserVaults",
       "expected_output": "Returns the user's Samebase apps with repository names, provisioning state, provider resources, and branch summaries.",
       "expected_output_url": null
     },
@@ -46,7 +46,7 @@
       "description": "Inspect provisioning status for existing Samebase apps.",
       "user_prompt": "Show me the provisioning state and provider resources for my Samebase apps.",
       "file_attachment_urls": null,
-      "tools_triggered": "vault.dashboard.getUserVaults",
+      "tools_triggered": "vault_dashboard_getUserVaults",
       "expected_output": "Summarizes each app's source setup, Convex and Cloudflare provisioning state, and relevant provider URLs when available.",
       "expected_output_url": null
     },
@@ -54,7 +54,7 @@
       "description": "Create a new private Samebase app with explicit provider resource names.",
       "user_prompt": "Create a private Samebase app named tmp-chatgpt-mcp-test under GitHub owner samebase, with Convex project tmp-chatgpt-mcp-test and Cloudflare Worker tmp-chatgpt-mcp-test.",
       "file_attachment_urls": null,
-      "tools_triggered": "vault.actions.createRepository",
+      "tools_triggered": "vault_actions_createRepository",
       "expected_output": "Starts app provisioning and returns the Samebase vault ID and provisioning run ID.",
       "expected_output_url": null
     },
@@ -62,7 +62,7 @@
       "description": "Create a public Samebase app when public repository visibility is explicitly requested.",
       "user_prompt": "Create a public Samebase app named tmp-public-chatgpt-test for GitHub owner samebase, Convex project tmp-public-chatgpt-test, and Cloudflare Worker tmp-public-chatgpt-test. Use the description 'ChatGPT MCP submission test app'.",
       "file_attachment_urls": null,
-      "tools_triggered": "vault.actions.createRepository",
+      "tools_triggered": "vault_actions_createRepository",
       "expected_output": "Starts app provisioning with public GitHub repository visibility and returns the Samebase vault ID and provisioning run ID.",
       "expected_output_url": null
     },
@@ -70,7 +70,7 @@
       "description": "Use the read tool before creating a new app when the user asks to inspect existing apps first.",
       "user_prompt": "Check my current Samebase apps, then create a private app named tmp-after-list-chatgpt under GitHub owner samebase with matching Convex project and Cloudflare Worker names.",
       "file_attachment_urls": null,
-      "tools_triggered": "vault.dashboard.getUserVaults, vault.actions.createRepository",
+      "tools_triggered": "vault_dashboard_getUserVaults, vault_actions_createRepository",
       "expected_output": "Lists the current Samebase apps, then starts provisioning for the requested new app and reports the created vault and run identifiers.",
       "expected_output_url": null
     }

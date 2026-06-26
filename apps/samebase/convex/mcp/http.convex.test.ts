@@ -51,14 +51,14 @@ describe("MCP tool listing access", () => {
         grantedScopes: ["access_app_create", "access_dashboard"],
         currentAccessKeys: ["access_dashboard"],
       }).map((tool) => tool.name),
-    ).toEqual(["list_apps"]);
+    ).toEqual(["vault_dashboard_getUserVaults"]);
 
     expect(
       listMcpToolsForAccess({
         grantedScopes: ["access_dashboard"],
         currentAccessKeys: ["access_dashboard", "access_app_create"],
       }).map((tool) => tool.name),
-    ).toEqual(["list_apps"]);
+    ).toEqual(["vault_dashboard_getUserVaults"]);
 
     expect(
       listMcpToolsForAccess({
@@ -67,7 +67,7 @@ describe("MCP tool listing access", () => {
       }),
     ).toEqual([
       expect.objectContaining({
-        name: "create_app",
+        name: "vault_actions_createRepository",
         annotations: {
           readOnlyHint: false,
           openWorldHint: true,
@@ -75,7 +75,7 @@ describe("MCP tool listing access", () => {
         },
       }),
       expect.objectContaining({
-        name: "list_apps",
+        name: "vault_dashboard_getUserVaults",
         annotations: {
           readOnlyHint: true,
           openWorldHint: false,
