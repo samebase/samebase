@@ -27,7 +27,7 @@ test("landing route uses the stable app workspace shell", async ({ page }) => {
   });
 });
 
-test("app workspace header exposes the route URL editor", async ({ page }) => {
+test("app workspace address chrome exposes the route URL editor", async ({ page }) => {
   await page.addInitScript(() => {
     Math.random = () => 0.57;
   });
@@ -40,7 +40,9 @@ test("app workspace header exposes the route URL editor", async ({ page }) => {
 
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
-  const routeUrlDisplay = page.getByTestId("route-url-editor-display");
+  const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
+  const routeUrlDisplay = addressChrome.getByTestId("route-url-editor-display");
+  await expect(addressChrome).toBeVisible();
   await expect(routeUrlDisplay).toHaveValue("/?dev");
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/?dev`);
   await expect(page).toHaveScreenshot("app-workspace-landing-dev.png", {
@@ -73,8 +75,10 @@ test("app workspace route URL editor stays compact for long URLs", async ({ page
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
   const routeAddress = `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`;
-  const routeUrlEditor = page.getByTestId("route-url-editor");
-  const routeUrlDisplay = page.getByTestId("route-url-editor-display");
+  const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
+  const routeUrlEditor = addressChrome.getByTestId("route-url-editor");
+  const routeUrlDisplay = addressChrome.getByTestId("route-url-editor-display");
+  await expect(addressChrome).toBeVisible();
   await expect(routeUrlDisplay).toHaveValue(routeAddress);
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}${routeAddress}`);
 

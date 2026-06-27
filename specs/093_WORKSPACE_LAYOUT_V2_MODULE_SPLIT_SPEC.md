@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-05-06
+- Last updated: 2026-06-27
 - Related files:
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts`
@@ -75,17 +75,19 @@ After these splits, `WorkspaceLayoutV2.tsx` should primarily contain:
 
 - public component props
 - `WorkspaceLayoutV2FullPage`
+- address chrome wiring
 - main-pane header wiring
 - viewport measurement and transient layout store consumption
 - resize-handle construction and mode selection
 
-`WorkspaceLayoutV2` is the pane-shell orchestration root. It is high enough to see viewport size,
-pane state, pane availability, active resize edge, mobile surface ownership, carousel settled state,
-and the selected mobile pane. Do not reintroduce wrapper components around it only to preserve old
-internal names.
+`WorkspaceLayoutV2` is the workspace-frame orchestration root. It owns the shared address chrome
+region and the pane viewport. It is high enough to see viewport size, pane state, pane availability,
+active resize edge, mobile surface ownership, carousel settled state, and the selected mobile pane.
+Do not reintroduce wrapper components around it only to preserve old internal names.
 
 `WorkspaceLayoutV2FullPage` should stay an adapter from route-facing `WorkspaceLayoutV2PaneFrame`
-props to rendered pane content. It should not own mobile surface state or pane gesture state.
+props and optional address chrome content to rendered workspace content. It should not own address
+editor behavior, mobile surface state, or pane gesture state.
 
 The main file can still be the entrypoint for app callsites, but it should not become a same-name
 re-export shim. If a constant or type is no longer owned by the main component module, current

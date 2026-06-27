@@ -201,13 +201,14 @@ const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 });
 
-function AppWorkspaceMainHeader({ accessory }: { accessory?: ReactNode }) {
+function AppWorkspaceAddressChrome() {
+  return <RouteUrlEditorNext />;
+}
+
+function AppWorkspaceMainHeader({ accessory }: { accessory: ReactNode }) {
   return (
     <div className="flex h-full min-w-0 items-center gap-2">
-      <div className="min-w-0 flex-1">
-        <RouteUrlEditorNext />
-      </div>
-      {accessory ? <div className="min-w-0 shrink-0">{accessory}</div> : null}
+      <div className="min-w-0 flex-1">{accessory}</div>
     </div>
   );
 }
@@ -260,11 +261,10 @@ function AppWorkspaceShellFrame({
 }) {
   const sidebarState = useAppWorkspaceSidebarState();
   const appRightSidebarPane = useAppRightSidebarPane();
+  const shouldRenderSharedChrome = chrome?.headerVisible !== false;
+  const headerAccessory = shouldRenderSharedChrome ? chrome?.headerAccessory : undefined;
   const mainPane = {
-    header:
-      chrome?.headerVisible === false ? undefined : (
-        <AppWorkspaceMainHeader accessory={chrome?.headerAccessory} />
-      ),
+    header: headerAccessory ? <AppWorkspaceMainHeader accessory={headerAccessory} /> : undefined,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies WorkspaceLayoutV2PaneFrameProps;
   const leftPane = chrome?.left === null ? undefined : (chrome?.left ?? {});
@@ -276,6 +276,7 @@ function AppWorkspaceShellFrame({
       shortcutPaneSide={chrome?.shortcutPaneSide ?? "right"}
     >
       <WorkspaceLayoutV2FullPage
+        addressChrome={shouldRenderSharedChrome ? <AppWorkspaceAddressChrome /> : undefined}
         dataTestId={chrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID}
         left={leftPane}
         leftToggleVisibility={chrome?.leftToggleVisibility ?? "desktop"}

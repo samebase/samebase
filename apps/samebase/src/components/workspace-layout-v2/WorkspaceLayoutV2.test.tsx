@@ -121,6 +121,26 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(2);
   });
 
+  it("renders address chrome above the pane viewport", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceLayoutV2TestSidebarProvider>
+        <WorkspaceLayoutV2FullPage
+          addressChrome={<div data-testid="address-chrome-content">/logo</div>}
+          main={{
+            content: <div>main pane</div>,
+          }}
+        />
+      </WorkspaceLayoutV2TestSidebarProvider>,
+    );
+
+    const addressIndex = markup.indexOf('data-testid="workspace-layout-v2-address-chrome"');
+    const viewportIndex = markup.indexOf('data-workspace-layout-v2="responsive"');
+
+    expect(addressIndex).toBeGreaterThanOrEqual(0);
+    expect(markup).toContain('data-testid="address-chrome-content"');
+    expect(viewportIndex).toBeGreaterThan(addressIndex);
+  });
+
   it("omits the right pane and right toggle when a route does not provide a right pane", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider>

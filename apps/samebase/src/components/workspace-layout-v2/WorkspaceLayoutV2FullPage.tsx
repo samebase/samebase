@@ -76,6 +76,7 @@ function WorkspaceLayoutV2MainPaneHeader({
 }
 
 export function WorkspaceLayoutV2FullPage({
+  addressChrome,
   dataTestId,
   left,
   main,
@@ -85,6 +86,7 @@ export function WorkspaceLayoutV2FullPage({
   leftToggleVisibility = "desktop",
   rightToggleVisibility = "desktop",
 }: {
+  addressChrome?: ReactNode;
   dataTestId?: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
@@ -104,6 +106,7 @@ export function WorkspaceLayoutV2FullPage({
 
   return (
     <WorkspaceLayoutV2
+      addressChrome={addressChrome}
       left={left ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined}
       main={
         <WorkspaceLayoutV2PaneFrame
