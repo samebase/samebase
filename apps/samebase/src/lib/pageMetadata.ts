@@ -7,6 +7,7 @@ import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./samebaseSync";
+import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
 
 export type PageMetadata = {
   title: string;
@@ -16,14 +17,13 @@ export type PageMetadata = {
   openGraphType?: "website" | "article";
 };
 
-const DEFAULT_SITE_NAME = "Samebase";
+const DEFAULT_SITE_NAME = SAMEBASE_BRAND_COPY.productName;
 const DEFAULT_SITE_ORIGIN = "https://samebase.com";
 const DEFAULT_SOCIAL_IMAGE_PATH = "/samebase-social-card.png";
 
 export const HOME_PAGE_METADATA: PageMetadata = {
-  title: "Samebase | GitHub-backed workspace for notes, code, and AI",
-  description:
-    "GitHub-backed workspace for notes, code, and AI. Keep work in a real repository, collaborate in real time, and ship small apps from the same workspace.",
+  title: SAMEBASE_BRAND_COPY.homepage.title,
+  description: SAMEBASE_BRAND_COPY.homepage.description,
   canonicalPath: "/",
   robots: "index,follow",
   openGraphType: "website",

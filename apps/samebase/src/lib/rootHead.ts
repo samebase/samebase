@@ -1,25 +1,23 @@
 import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebarPrehydration";
 import { appAuthPresentationPrehydrationScript } from "@/lib/appAuthPresentationPrehydration";
 import { publicLandingLogoPrehydrationScript } from "@/lib/publicLandingLogoPrehydration";
+import { SAMEBASE_BRAND_COPY } from "@/lib/samebaseBrandCopy";
 
-const appTitle = "Samebase | GitHub-backed workspace for notes, code, and AI";
-const appDescription =
-  "GitHub-backed workspace for notes, code, and AI. Keep work in a real repository, collaborate in real time, and ship small apps from the same workspace.";
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
-      name: "Samebase",
-      alternateName: "samebase.com",
+      name: SAMEBASE_BRAND_COPY.productName,
+      alternateName: SAMEBASE_BRAND_COPY.siteName,
       url: "https://samebase.com/",
       logo: "https://samebase.com/logo-static.svg",
       sameAs: ["https://github.com/samebase/samebase"],
     },
     {
       "@type": "WebSite",
-      name: "Samebase",
-      alternateName: "samebase.com",
+      name: SAMEBASE_BRAND_COPY.productName,
+      alternateName: SAMEBASE_BRAND_COPY.siteName,
       url: "https://samebase.com/",
     },
   ],
@@ -137,11 +135,11 @@ export function buildRootHead() {
         content: "width=device-width, initial-scale=1.0",
       },
       {
-        title: appTitle,
+        title: SAMEBASE_BRAND_COPY.homepage.title,
       },
       {
         name: "description",
-        content: appDescription,
+        content: SAMEBASE_BRAND_COPY.homepage.description,
       },
       {
         name: "robots",
@@ -153,7 +151,7 @@ export function buildRootHead() {
       },
       {
         property: "og:site_name",
-        content: "Samebase",
+        content: SAMEBASE_BRAND_COPY.productName,
       },
       {
         property: "og:type",
@@ -161,11 +159,11 @@ export function buildRootHead() {
       },
       {
         property: "og:title",
-        content: appTitle,
+        content: SAMEBASE_BRAND_COPY.homepage.title,
       },
       {
         property: "og:description",
-        content: appDescription,
+        content: SAMEBASE_BRAND_COPY.homepage.description,
       },
       {
         property: "og:url",
@@ -181,11 +179,11 @@ export function buildRootHead() {
       },
       {
         name: "twitter:title",
-        content: appTitle,
+        content: SAMEBASE_BRAND_COPY.homepage.title,
       },
       {
         name: "twitter:description",
-        content: appDescription,
+        content: SAMEBASE_BRAND_COPY.homepage.description,
       },
       {
         name: "twitter:image",

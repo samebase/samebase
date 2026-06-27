@@ -1,5 +1,6 @@
 import { DEFAULT_LOGO_FACE_TREATMENT, type LogoFaceTreatment } from "./logo/logoFaceTreatment";
 import { createLogoIdentityViewSvgMarkup } from "./logo/logoStaticSvgAsset";
+import { SAMEBASE_BRAND_COPY } from "../lib/samebaseBrandCopy";
 
 const BRAND_PRIMARY_COLOR = "#394447";
 const BRAND_BACKGROUND_COLOR = "#ffffff";
@@ -33,9 +34,9 @@ export function createSamebaseSocialCardSvgMarkup({
   role="img"
   aria-labelledby="title desc"
 >
-  <title id="title">samebase.com social card</title>
+  <title id="title">${SAMEBASE_BRAND_COPY.socialCard.title}</title>
   <desc id="desc">
-    Samebase logo and the text GitHub-backed workspace for notes, code, and AI.
+    ${SAMEBASE_BRAND_COPY.socialCard.accessibleDescription}
   </desc>
 
   <rect width="1200" height="630" fill="${BRAND_BACKGROUND_COLOR}" />
@@ -53,7 +54,7 @@ ${logoBody}
     font-weight="650"
     letter-spacing="0"
   >
-    samebase.com
+    ${SAMEBASE_BRAND_COPY.siteName}
   </text>
   <text
     x="560"
@@ -64,7 +65,7 @@ ${logoBody}
     font-weight="430"
     letter-spacing="0"
   >
-    GitHub-backed workspace for notes, code, and AI
+    ${SAMEBASE_BRAND_COPY.socialCard.text}
   </text>
 </svg>`;
 }
