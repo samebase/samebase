@@ -76,22 +76,8 @@ describe("LogoPreviewPage", () => {
       root = null;
     }
     document.body.replaceChildren();
-    document.documentElement.className = "";
     syncDocumentThemeColorSearch({});
     vi.clearAllMocks();
-  });
-
-  it("keeps the default primary logo face dark on dark theme refresh", async () => {
-    document.documentElement.classList.add("dark");
-
-    const rendered = await renderLogoPreviewPage({ dark: true });
-    root = rendered.root;
-
-    expect(latestThreeSceneFaceColors).toHaveBeenLastCalledWith({
-      left: "#00b8db",
-      right: "#394447",
-      top: "#394447",
-    });
   });
 
   it("clears stale secondary color overrides before applying default colors", async () => {

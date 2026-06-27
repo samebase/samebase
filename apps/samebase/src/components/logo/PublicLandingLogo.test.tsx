@@ -420,7 +420,7 @@ describe("PublicLandingLogo", () => {
     const logoImage = getLogoImage(rootElement);
     const lightSource = logoImage.getAttribute("src");
 
-    expect(decodeURIComponent(lightSource ?? "")).toContain("#ffffff");
+    expect(decodeURIComponent(lightSource ?? "")).toContain("#1a1a1a");
 
     await act(async () => {
       document.documentElement.classList.add("dark");
@@ -432,7 +432,7 @@ describe("PublicLandingLogo", () => {
     const darkSource = logoImage.getAttribute("src");
 
     expect(darkSource).not.toBe(lightSource);
-    expect(decodeURIComponent(darkSource ?? "")).toContain("#000000");
+    expect(decodeURIComponent(darkSource ?? "")).toContain("#e6e6e6");
   });
 
   it("renders static fallback colors from explicit app theme overrides", async () => {

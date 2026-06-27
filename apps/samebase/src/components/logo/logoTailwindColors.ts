@@ -534,8 +534,6 @@ export const DEFAULT_APP_THEME_COLORS: AppThemeColors = {
 };
 export const DEFAULT_LOGO_THEME_COLORS: LogoThemeColors = {
   ...DEFAULT_APP_THEME_COLORS,
-  // The logo primary face keeps the brand mark color; app primary turns white in dark chrome.
-  primary: "mist-700",
   top: DEFAULT_APP_THEME_COLORS.background,
 };
 // RGB colors only the logo faces; the page background stays app-theme backed.

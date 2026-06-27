@@ -268,15 +268,29 @@ test("logo public query links repaint the three scene theme colors", async ({ pa
 
   expect(lightPixel).toEqual([255, 255, 255, 255]);
   expect(darkPixel).toEqual([57, 68, 71, 255]);
-  await expect(page.locator("canvas").first()).toHaveScreenshot(
-    "logo-dark-default-three-scene.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      maxDiffPixelRatio: 0.01,
-      scale: "css",
-    },
-  );
+});
+
+test("logo dark refresh paints the wide scene gutters dark", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto("/logo?dark", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  const scene = page.getByTestId("logo-preview-scene");
+  const mainPane = page.locator("[data-workspace-layout-v2-mobile-main-pane]");
+
+  await expect(page.locator("canvas").first()).toBeVisible();
+  await waitForPaint(page);
+
+  expect(await sampleLogoCanvasCorner(page)).toEqual([57, 68, 71, 255]);
+  await expect(scene).toHaveCSS("background-color", "rgb(57, 68, 71)");
+  await expect(mainPane).toHaveScreenshot("logo-dark-wide-main-pane.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.01,
+    scale: "css",
+  });
 });
 
 test("logo public query color overrides repaint the three scene background color", async ({

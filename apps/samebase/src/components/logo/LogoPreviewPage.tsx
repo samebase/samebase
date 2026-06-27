@@ -1462,10 +1462,16 @@ export function LogoPreviewPage({
     2,
   )}`;
   const logoSceneSizeValue = `min(${logoSceneSizeContainerPercent}cqw, ${logoSceneSizeContainerPercent}cqh)`;
+  const sceneUsesDefaultBackground =
+    state.themeColors.background === DEFAULT_LOGO_THEME_COLORS.background;
   const sceneContent = (
     <div
-      className="flex h-full min-h-0 items-center justify-center @container-[size]"
-      style={{ backgroundColor }}
+      data-testid="logo-preview-scene"
+      className={cn(
+        "flex h-full min-h-0 items-center justify-center @container-[size]",
+        sceneUsesDefaultBackground ? "bg-background" : "",
+      )}
+      style={sceneUsesDefaultBackground ? undefined : { backgroundColor }}
     >
       {/* Keep touch capture square so mobile top/bottom drag lanes stay free. */}
       <div className="relative" style={{ height: logoSceneSizeValue, width: logoSceneSizeValue }}>

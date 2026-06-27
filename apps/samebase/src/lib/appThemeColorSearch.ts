@@ -168,11 +168,10 @@ export function readLogoThemeColorSearch(search: LogoThemeColorSearchInput): Log
 }
 
 export function readLogoThemeColors(search: LogoThemeColorSearchInput): LogoThemeColors {
+  const appThemeColors = readAppThemeColors(search);
+
   return {
-    background: search.background ?? DEFAULT_LOGO_THEME_COLORS.background,
-    border: search.border ?? DEFAULT_LOGO_THEME_COLORS.border,
-    primary: search.primary ?? DEFAULT_LOGO_THEME_COLORS.primary,
-    secondary: search.secondary ?? DEFAULT_LOGO_THEME_COLORS.secondary,
+    ...appThemeColors,
     top: search.top ?? DEFAULT_LOGO_THEME_COLORS.top,
   };
 }
@@ -243,6 +242,9 @@ export function useResolvedAppThemeColorState(
     };
 
     window.addEventListener(APP_THEME_COLOR_SEARCH_SYNC_EVENT, handleThemeColorSearchSync);
+    // SSR cannot read computed theme CSS variables; reread them once hydration
+    // has loaded the stylesheet and applied the root theme class.
+    handleThemeColorSearchSync();
     return () => {
       window.removeEventListener(APP_THEME_COLOR_SEARCH_SYNC_EVENT, handleThemeColorSearchSync);
     };
@@ -261,7 +263,7 @@ export function buildLogoThemeColorSearch(themeColors: LogoThemeColors): LogoThe
     // from reviving stale colors while the URL serializer still omits the
     // default-valued keys from the visible query string.
     result[searchKey] =
-      themeColors[colorKey] !== DEFAULT_LOGO_THEME_COLORS[colorKey]
+      themeColors[colorKey] !== DEFAULT_APP_THEME_COLORS[colorKey]
         ? themeColors[colorKey]
         : undefined;
 
