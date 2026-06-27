@@ -288,7 +288,7 @@ export function WorkspaceLayoutV2({
     >
       <div
         data-testid="workspace-layout-v2-address-chrome"
-        className="h-8 shrink-0 border-b border-border bg-background"
+        className="shrink-0 border-b border-border bg-background"
       >
         {addressChrome}
       </div>

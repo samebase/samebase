@@ -255,10 +255,10 @@ Shared address chrome such as the route URL editor belongs to `WorkspaceLayoutV2
 region above the pane viewport. This preserves the single-layout contract while keeping global
 navigation controls visible when mobile users move between side and main pane surfaces.
 
-The layout shell owns the address region's sizing, stacking, and containment. It does not own
-Samebase route intelligence. URL parsing, route readiness, access-aware path suggestions,
-query-param suggestions, hash suggestions, preview/commit/restore semantics, and router integration
-stay in the app-provided editor component.
+The layout shell owns the address region's placement, background, separator, and containment. It
+does not own Samebase route intelligence or the URL editor control height. URL parsing, route
+readiness, access-aware path suggestions, query-param suggestions, hash suggestions,
+preview/commit/restore semantics, and router integration stay in the app-provided editor component.
 
 Accepted address direction:
 

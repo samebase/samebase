@@ -24,10 +24,10 @@ is ready to load.
 `WorkspaceLayoutV2` address chrome region. The region is part of the canonical workspace layout, not
 a separate app shell above it and not a pane header inside the mobile carousel.
 
-`WorkspaceLayoutV2` owns only the address chrome region: height, stacking, and its placement above
-the pane viewport. Samebase owns the editor's route intelligence: TanStack router integration, route
-readiness, access-aware path suggestions, query-param suggestions, hash suggestions, and
-preview/commit/restore behavior.
+`WorkspaceLayoutV2` owns only the address chrome region: placement, background, separator, and its
+relationship to the pane viewport. Samebase owns the editor's control height and route intelligence:
+TanStack router integration, route readiness, access-aware path suggestions, query-param
+suggestions, hash suggestions, and preview/commit/restore behavior.
 
 ## Requirements
 
