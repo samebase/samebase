@@ -1,4 +1,4 @@
-const tagline = "GitHub-backed workspace for notes, code, and AI";
+const tagline = "App builder for busy devs";
 
 export const SAMEBASE_BRAND_COPY = {
   productName: "Samebase",
@@ -6,7 +6,7 @@ export const SAMEBASE_BRAND_COPY = {
   tagline,
   homepage: {
     title: `Samebase | ${tagline}`,
-    description: `${tagline}. Keep work in a real repository, collaborate in real time, and ship small apps from the same workspace.`,
+    description: `${tagline}. Code & data on your own infra.`,
   },
   socialCard: {
     title: "samebase.com social card",

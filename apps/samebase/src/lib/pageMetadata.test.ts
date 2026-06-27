@@ -8,6 +8,7 @@ import {
   resolveNotFoundPageMetadata,
   resolvePageMetadata,
 } from "./pageMetadata";
+import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
 
 class FakeHeadElement {
   readonly attributes = new Map<string, string>();
@@ -209,11 +210,10 @@ describe("page metadata", () => {
       }),
     ).toEqual({
       canonicalPath: "/",
-      description:
-        "GitHub-backed workspace for notes, code, and AI. Keep work in a real repository, collaborate in real time, and ship small apps from the same workspace.",
+      description: SAMEBASE_BRAND_COPY.homepage.description,
       openGraphType: "website",
       robots: "index,follow",
-      title: "Samebase | GitHub-backed workspace for notes, code, and AI",
+      title: SAMEBASE_BRAND_COPY.homepage.title,
     });
   });
 
