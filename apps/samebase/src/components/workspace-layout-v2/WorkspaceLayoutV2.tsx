@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type ReactElement } from "react";
+import { useRef, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
 import {
   useWorkspaceLayoutV2Actions,
@@ -31,6 +31,7 @@ import { useWorkspaceLayoutV2MobileCarouselController } from "./useWorkspaceLayo
 import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLayoutV2MobileResize";
 
 type WorkspaceLayoutV2Props = {
+  addressChrome: ReactNode;
   left?: ReactElement;
   main: ReactElement;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
@@ -72,6 +73,7 @@ function getAvailableMobilePane({
 }
 
 export function WorkspaceLayoutV2({
+  addressChrome,
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
@@ -284,6 +286,12 @@ export function WorkspaceLayoutV2({
       data-testid={dataTestId}
       className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
     >
+      <div
+        data-testid="workspace-layout-v2-address-chrome"
+        className="shrink-0 border-b border-border bg-background"
+      >
+        {addressChrome}
+      </div>
       <div
         ref={viewportRef}
         data-mobile-pane={mobilePane}

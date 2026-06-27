@@ -1299,7 +1299,7 @@ test("landing footer links keep browser link styling", async ({ page }, testInfo
 test.describe("mobile landing dev toggle", () => {
   test.use(mobileLandingDevice);
 
-  test("landing fits below the mobile route header without vertical scrolling", async ({
+  test("landing fits below the mobile address chrome without vertical scrolling", async ({
     page,
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
@@ -1308,10 +1308,11 @@ test.describe("mobile landing dev toggle", () => {
     await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
 
     const mobileShell = page.locator('[data-workspace-layout-v2="responsive"]');
+    const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
     await expect(mobileShell).toHaveAttribute("data-mobile-pane", "main");
     await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(1);
-    await expect(page.getByTestId("workspace-layout-v2-main-pane-header")).toBeVisible();
-    await expect(page.getByTestId("route-url-editor")).toBeVisible();
+    await expect(addressChrome).toBeVisible();
+    await expect(addressChrome.getByTestId("route-url-editor")).toBeVisible();
     await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
 

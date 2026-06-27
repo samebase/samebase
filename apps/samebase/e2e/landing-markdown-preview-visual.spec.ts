@@ -166,7 +166,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await expect(finalHeading).toBeInViewport();
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
-    .toBeLessThan(80);
+    .toBeLessThan(81);
 });
 
 test("landing markdown preview sidebar hash links keep the mobile sidebar open", async ({

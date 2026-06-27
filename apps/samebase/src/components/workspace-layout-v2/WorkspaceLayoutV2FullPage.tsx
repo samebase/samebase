@@ -57,7 +57,7 @@ function WorkspaceLayoutV2MainPaneHeader({
 
       {/* Keep route-level header actions visible on mobile; only the sidebar
           toggles stay desktop-only in the v2 main pane shell. */}
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex h-full min-w-0 flex-1 items-center">{children}</div>
 
       {rightToggleButtonClassName !== null ? (
         <Button
@@ -76,6 +76,7 @@ function WorkspaceLayoutV2MainPaneHeader({
 }
 
 export function WorkspaceLayoutV2FullPage({
+  addressChrome,
   dataTestId,
   left,
   main,
@@ -85,6 +86,7 @@ export function WorkspaceLayoutV2FullPage({
   leftToggleVisibility = "desktop",
   rightToggleVisibility = "desktop",
 }: {
+  addressChrome: ReactNode;
   dataTestId?: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
@@ -104,6 +106,7 @@ export function WorkspaceLayoutV2FullPage({
 
   return (
     <WorkspaceLayoutV2
+      addressChrome={addressChrome}
       left={left ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined}
       main={
         <WorkspaceLayoutV2PaneFrame

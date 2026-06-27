@@ -133,14 +133,15 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   });
 
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
+  const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
   const linksSidebar = page.getByTestId("workspace-layout-v2-pane-right");
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
-  const routeUrlDisplay = mainPane.getByTestId("route-url-editor-display");
+  const routeUrlDisplay = addressChrome.getByTestId("route-url-editor-display");
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
   await expect(controlsSidebar).toBeVisible();
+  await expect(addressChrome).toBeVisible();
   await expect(controlsSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)).toHaveCount(0);
   await expect(routeUrlDisplay).toHaveValue("/logo");
   await expect(routeUrlDisplay).toHaveAttribute("title", `${origin}/logo`);
@@ -859,7 +860,7 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
   const workspace = page.locator("[data-workspace-layout-v2]");
   const carousel = page.getByTestId("workspace-layout-v2-pane-main");
   const controlsSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
+  const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
 
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
   await expect(controlsSidebar).toContainText("Shape");
@@ -867,7 +868,7 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
   await expect(carousel).toBeVisible();
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
-  await expect(mainHeader).toHaveScreenshot("logo-mobile-main-header.png", {
+  await expect(addressChrome).toHaveScreenshot("logo-mobile-main-header.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",

@@ -34,6 +34,7 @@ function WorkspaceLayoutV2HydrationSubject() {
   return (
     <WorkspaceLayoutV2MemorySidebarProvider initialState={WORKSPACE_LAYOUT_V2_HYDRATION_STATE}>
       <WorkspaceLayoutV2FullPage
+        addressChrome={<div data-testid="test-address-chrome">/test</div>}
         left={{
           content: <div>left pane</div>,
         }}

@@ -204,7 +204,12 @@ async function expectTermsPage(page: Page): Promise<void> {
 }
 
 async function clickOutsideRouteUrlEditor(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  const viewport = page.viewportSize();
+  if (viewport === null) {
+    throw new Error("Route URL editor outside click needs a measured viewport.");
+  }
+
+  await page.mouse.click(viewport.width / 2, viewport.height - 24);
 }
 
 async function pressArrowDownToSuggestion(

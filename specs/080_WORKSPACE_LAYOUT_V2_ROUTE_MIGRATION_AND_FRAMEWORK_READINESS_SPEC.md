@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-04-11
+- Last updated: 2026-06-27
 - Depends on:
   - `apps/samebase/index.html`
   - `apps/samebase/package.json`
@@ -208,7 +208,8 @@ The v2 shell primitives already exist and are valid:
 
 - `AppPageFrame` for app-level page framing
 - `WorkspaceLayoutV2FullPage` for the shared route-level workspace shell
-- `WorkspaceLayoutV2` for the three-pane viewport math inside that shell
+- `WorkspaceLayoutV2` for the workspace frame, including shared address chrome and pane viewport
+  math
 - `WorkspaceLayoutV2PaneFrame` for intentionally compact fixed-header panes
 - `useWorkspaceLayoutV2DragSurface` for declarative shell drag opt-in inside child surfaces
 
@@ -245,10 +246,35 @@ Required direction:
 This keeps the migration consistent across runtime routes and fixtures, and it keeps the routing
 layer from becoming the place where shell behavior is re-decided.
 
-### 3. Preserve route-owned pane chrome
+### 3. Shared address chrome is part of the workspace frame
 
-`WorkspaceLayoutV2` is the outer three-pane shell. It does not require every pane to use the same
-internal chrome.
+`WorkspaceLayoutV2` is the canonical workspace frame. The left/main/right carousel or desktop flex
+viewport is the pane region inside that frame, not the whole frame.
+
+Shared address chrome such as the route URL editor belongs to `WorkspaceLayoutV2` as a first-class
+region above the pane viewport. This preserves the single-layout contract while keeping global
+navigation controls visible when mobile users move between side and main pane surfaces.
+
+The layout shell owns the address region's placement, background, separator, and containment. It
+does not own Samebase route intelligence or the URL editor control height. URL parsing, route
+readiness, access-aware path suggestions, query-param suggestions, hash suggestions,
+preview/commit/restore semantics, and router integration stay in the app-provided editor component.
+
+Accepted address direction:
+
+- `WorkspaceLayoutV2` exposes a named address chrome slot rather than a generic route-local top bar.
+- `AppWorkspaceShell` always supplies Samebase's `RouteUrlEditorNext` to that slot for app routes
+- fixture defaults may hide pane chrome and sidebars before route chrome registration, but they must
+  not hide the shared address editor
+- moving address chrome above the pane viewport must not create a second app shell outside
+  `WorkspaceLayoutV2`
+- sidebar toggles and route-owned pane header accessories remain pane chrome unless a separate
+  accepted UX decision moves them into shared address chrome
+
+### 4. Preserve route-owned pane chrome
+
+`WorkspaceLayoutV2` owns the workspace frame and pane viewport. It does not require every pane to
+use the same internal chrome.
 
 Each `left`, `main`, and `right` prop should receive a complete route-owned pane surface that
 preserves the route's current structure.
@@ -300,7 +326,7 @@ Accepted panel direction:
 - compact panel content may reuse `WorkspaceLayoutV2PaneFrame` when the panel genuinely fits the
   compact fixed-header contract
 
-### 4. `WorkspaceLayoutV2PaneFrame` is compact-only
+### 5. `WorkspaceLayoutV2PaneFrame` is compact-only
 
 `WorkspaceLayoutV2PaneFrame` is a compact primitive, not the universal route adapter.
 
@@ -324,7 +350,7 @@ Compact panes and fixtures may keep using `WorkspaceLayoutV2PaneFrame`:
 
 Real routes should use it only when the route already wants that compact shape.
 
-### 5. `WorkspaceScene` stays in scope for the first pass
+### 6. `WorkspaceScene` stays in scope for the first pass
 
 `WorkspaceScene` owns important route behavior today:
 
@@ -340,7 +366,7 @@ Accepted first-pass direction:
 - treat outer shell migration and inner scene redesign as separate decisions
 - only replace `WorkspaceScene` when there is a specific accepted contract for its responsibilities
 
-### 6. `FileView` cannot migrate until the editor drag contract moves with it
+### 7. `FileView` cannot migrate until the editor drag contract moves with it
 
 `FileView` still depends on the old shell-owned imperative bridge through
 `useProsemarkMobilePaneDrag`.
@@ -358,7 +384,7 @@ Required direction:
 The accepted v2 direction is declarative shell opt-in through `useWorkspaceLayoutV2DragSurface`, not
 indefinite continued reliance on `useWorkspaceMobilePaneDrag`.
 
-### 7. Empty panes must still be escapable on mobile
+### 8. Empty panes must still be escapable on mobile
 
 A migrated route may not strand the user inside an empty side pane on mobile.
 
@@ -371,7 +397,7 @@ Required behavior:
 
 This is a route-level contract, not a fixture-only concern.
 
-### 8. Bootstrap split-brain removal is a primary simplification goal
+### 9. Bootstrap split-brain removal is a primary simplification goal
 
 If the team chooses to pursue React Router framework mode around this route contract work, the
 landing bootstrap path should be treated as deletion candidate code, not as architecture to
@@ -388,7 +414,7 @@ Required direction:
 The route-level shell contract in this spec should make that deletion easier by keeping shared
 wrappers reusable on either side of a framework migration.
 
-### 9. Framework readiness is now a hard constraint
+### 10. Framework readiness is now a hard constraint
 
 The repo currently uses `BrowserRouter` plus a monolithic `<Routes>` tree in `App.tsx`. That should
 not shape the shell migration more than necessary.
@@ -420,7 +446,7 @@ Accepted implication:
 - `App.tsx` can keep using those wrappers today, but it should not become the permanent home of
   route-shell decisions
 
-### 10. Framework migration staging
+### 11. Framework migration staging
 
 If the team chooses to pursue Vite plus React Router framework mode soon, the accepted order is
 still to stabilize the route-level shell contract first and then move route definitions.
@@ -439,7 +465,7 @@ This avoids stacking two moving targets at once:
 What should survive the framework migration is the shared wrapper contract, not the current
 `App.tsx` organization.
 
-### 11. Route adoption order
+### 12. Route adoption order
 
 Accepted order:
 
@@ -470,6 +496,10 @@ The following are explicitly out of contract:
 8. Teaching shared workspace wrappers about framework-only router concepts before route modules
    actually exist.
 9. Rebuilding the bootstrap landing shell inside a new framework setup instead of deleting it.
+10. Moving shared address chrome into an app wrapper above `WorkspaceLayoutV2`, which would make the
+    pane layout canonical only by convention instead of by component structure.
+11. Importing Samebase route registry, access, query-param, or suggestion logic into
+    `workspace-layout-v2` to implement the address chrome slot.
 
 ## Simplification Opportunities
 
@@ -539,14 +569,16 @@ route abstraction boundary itself.
    instead of per-route rewrites.
 3. `FileView` and `VaultDashboard` preserve their current visible chrome density and control
    availability after migration.
-4. `WorkspaceLayoutV2PaneFrame` is used only where the compact fixed-header contract is actually
+4. `WorkspaceLayoutV2` owns the shared address chrome region above the pane viewport, while
+   Samebase-specific URL editor behavior remains in the app-supplied editor content.
+5. `WorkspaceLayoutV2PaneFrame` is used only where the compact fixed-header contract is actually
    intended.
-5. `WorkspaceScene` remains in place for routes that still need its current scroll, dock, and
+6. `WorkspaceScene` remains in place for routes that still need its current scroll, dock, and
    overlay behavior.
-6. `FileView` mobile editor drag remains correct under the migrated shell.
-7. The resulting shared layout components remain suitable for a later React Router framework
+7. `FileView` mobile editor drag remains correct under the migrated shell.
+8. The resulting shared layout components remain suitable for a later React Router framework
    migration instead of tying the app more tightly to the current `BrowserRouter` route tree.
-8. A later route-module extraction could adopt the shared wrappers as layout routes without
+9. A later route-module extraction could adopt the shared wrappers as layout routes without
    redesigning the workspace shell again.
-9. If a framework migration happens, the landing experience runs through the normal route tree
-   rather than a bootstrap-only DOM shell.
+10. If a framework migration happens, the landing experience runs through the normal route tree
+    rather than a bootstrap-only DOM shell.

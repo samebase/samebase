@@ -20,6 +20,15 @@ Path changes such as `/privacy -> /terms -> /logo -> /indexDB` swap route conten
 not the shared workspace shell. The editor may therefore preview path changes when the target route
 is ready to load.
 
+`AppWorkspaceShell` always supplies `RouteUrlEditorNext` as Samebase's address editor for the
+`WorkspaceLayoutV2` address chrome region. The region is part of the canonical workspace layout, not
+a separate app shell above it and not a pane header inside the mobile carousel.
+
+`WorkspaceLayoutV2` owns only the address chrome region: placement, background, separator, and its
+relationship to the pane viewport. Samebase owns the editor's control height and route intelligence:
+TanStack router integration, route readiness, access-aware path suggestions, query-param
+suggestions, hash suggestions, and preview/commit/restore behavior.
+
 ## Requirements
 
 ### R0: Focus adds a search continuation marker
