@@ -103,7 +103,7 @@ export function RouteUrlEditorNext() {
   return (
     <form
       {...vm.rootProps}
-      className="relative flex h-8 w-full min-w-0 items-center gap-1 bg-background px-1 text-foreground"
+      className="relative flex h-8 w-full min-w-0 items-center gap-1 px-1 text-foreground"
       data-testid="route-url-editor"
       onSubmit={(event) => {
         event.preventDefault();
