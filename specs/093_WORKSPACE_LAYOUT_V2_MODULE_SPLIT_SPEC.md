@@ -86,8 +86,8 @@ active resize edge, mobile surface ownership, carousel settled state, and the se
 Do not reintroduce wrapper components around it only to preserve old internal names.
 
 `WorkspaceLayoutV2FullPage` should stay an adapter from route-facing `WorkspaceLayoutV2PaneFrame`
-props and optional address chrome content to rendered workspace content. It should not own address
-editor behavior, mobile surface state, or pane gesture state.
+props and address chrome content to rendered workspace content. It should not own address editor
+behavior, mobile surface state, or pane gesture state.
 
 The main file can still be the entrypoint for app callsites, but it should not become a same-name
 re-export shim. If a constant or type is no longer owned by the main component module, current

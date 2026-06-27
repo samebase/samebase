@@ -263,8 +263,9 @@ stay in the app-provided editor component.
 Accepted address direction:
 
 - `WorkspaceLayoutV2` exposes a named address chrome slot rather than a generic route-local top bar.
-- callers may omit address chrome when a fixture or package consumer does not need it
-- `AppWorkspaceShell` supplies Samebase's `RouteUrlEditorNext` to that slot
+- `AppWorkspaceShell` always supplies Samebase's `RouteUrlEditorNext` to that slot for app routes
+- fixture defaults may hide pane chrome and sidebars before route chrome registration, but they must
+  not hide the shared address editor
 - moving address chrome above the pane viewport must not create a second app shell outside
   `WorkspaceLayoutV2`
 - sidebar toggles and route-owned pane header accessories remain pane chrome unless a separate
@@ -568,8 +569,8 @@ route abstraction boundary itself.
    instead of per-route rewrites.
 3. `FileView` and `VaultDashboard` preserve their current visible chrome density and control
    availability after migration.
-4. `WorkspaceLayoutV2` owns any shared address chrome region above the pane viewport, while
-   Samebase-specific URL editor behavior remains in caller-provided content.
+4. `WorkspaceLayoutV2` owns the shared address chrome region above the pane viewport, while
+   Samebase-specific URL editor behavior remains in the app-supplied editor content.
 5. `WorkspaceLayoutV2PaneFrame` is used only where the compact fixed-header contract is actually
    intended.
 6. `WorkspaceScene` remains in place for routes that still need its current scroll, dock, and

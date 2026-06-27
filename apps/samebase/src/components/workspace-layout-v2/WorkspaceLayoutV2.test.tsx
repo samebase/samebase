@@ -8,6 +8,7 @@ import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 
 const OMIT_HEADER = Symbol("omit-header");
+const TEST_ADDRESS_CHROME = <div data-testid="test-address-chrome">/test</div>;
 
 function WorkspaceLayoutV2TestSidebarProvider({
   children,
@@ -58,6 +59,7 @@ function renderFullPageMarkup({
   return renderToStaticMarkup(
     <WorkspaceLayoutV2TestSidebarProvider rightOpen>
       <WorkspaceLayoutV2FullPage
+        addressChrome={TEST_ADDRESS_CHROME}
         left={
           includeLeftPane
             ? {
@@ -101,6 +103,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
+          addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
           }}
@@ -145,6 +148,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
+          addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
           }}
@@ -187,6 +191,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
+          addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
           }}
@@ -207,6 +212,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider rightOpen>
         <WorkspaceLayoutV2FullPage
+          addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
           }}
@@ -239,6 +245,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     const markup = renderToStaticMarkup(
       <WorkspaceLayoutV2TestSidebarProvider>
         <WorkspaceLayoutV2FullPage
+          addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
           }}

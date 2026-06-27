@@ -36,7 +36,6 @@ type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
 type AppWorkspaceRouteChromeConfig = {
   dataTestId?: string;
   headerAccessory?: ReactNode;
-  headerVisible?: boolean;
   left?: AppWorkspaceRouteChromePane;
   leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
@@ -74,7 +73,6 @@ const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
 const VISUAL_FIXTURE_ROUTE_CHROME = {
   dataTestId: "visual-fixture-shell",
-  headerVisible: false,
   left: null,
   leftToggleVisibility: "hidden",
   right: null,
@@ -182,8 +180,8 @@ function useAppWorkspaceDefaultRouteChrome() {
     return null;
   }
 
-  // Visual fixtures need chromeless first paint before route chrome registration
-  // effects can run; keep the route-specific default here to avoid header flash.
+  // Visual fixtures hide pane chrome before route chrome registration effects can
+  // run, but the address editor remains part of the global workspace frame.
   return {
     ...VISUAL_FIXTURE_ROUTE_CHROME,
     pathname,
@@ -200,10 +198,6 @@ const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
   // the shell read the new chrome.
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 });
-
-function AppWorkspaceAddressChrome() {
-  return <RouteUrlEditorNext />;
-}
 
 function AppWorkspaceMainHeader({ accessory }: { accessory: ReactNode }) {
   return (
@@ -261,8 +255,7 @@ function AppWorkspaceShellFrame({
 }) {
   const sidebarState = useAppWorkspaceSidebarState();
   const appRightSidebarPane = useAppRightSidebarPane();
-  const shouldRenderSharedChrome = chrome?.headerVisible !== false;
-  const headerAccessory = shouldRenderSharedChrome ? chrome?.headerAccessory : undefined;
+  const headerAccessory = chrome?.headerAccessory;
   const mainPane = {
     header: headerAccessory ? <AppWorkspaceMainHeader accessory={headerAccessory} /> : undefined,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
@@ -276,7 +269,7 @@ function AppWorkspaceShellFrame({
       shortcutPaneSide={chrome?.shortcutPaneSide ?? "right"}
     >
       <WorkspaceLayoutV2FullPage
-        addressChrome={shouldRenderSharedChrome ? <AppWorkspaceAddressChrome /> : undefined}
+        addressChrome={<RouteUrlEditorNext />}
         dataTestId={chrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID}
         left={leftPane}
         leftToggleVisibility={chrome?.leftToggleVisibility ?? "desktop"}
@@ -323,7 +316,6 @@ export function AppWorkspaceRouteChrome({
   children,
   dataTestId,
   headerAccessory,
-  headerVisible,
   left,
   leftToggleVisibility,
   mobileMinResizeBehavior,
@@ -357,7 +349,6 @@ export function AppWorkspaceRouteChrome({
     () => ({
       dataTestId,
       headerAccessory,
-      headerVisible,
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,
@@ -369,7 +360,6 @@ export function AppWorkspaceRouteChrome({
     [
       dataTestId,
       headerAccessory,
-      headerVisible,
       left,
       leftToggleVisibility,
       mobileMinResizeBehavior,

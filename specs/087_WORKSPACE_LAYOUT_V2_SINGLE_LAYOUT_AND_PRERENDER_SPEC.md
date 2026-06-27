@@ -61,11 +61,11 @@ The route may choose which panes exist and what content they contain, but the pa
 behavior, mobile carousel behavior, headers, footers, and scroll ownership must come from
 `WorkspaceLayoutV2`.
 
-The route may also provide shared address chrome. `WorkspaceLayoutV2` owns that region's height,
-stacking, and relationship to the pane viewport so mobile pane navigation cannot hide global
-navigation controls. The address chrome content itself is caller-owned: Samebase may pass its
-route-aware URL editor, while an extracted package consumer may pass a simpler location editor or no
-address chrome at all.
+The Samebase app route tree always provides shared address chrome through `AppWorkspaceShell`.
+`WorkspaceLayoutV2` owns that region's height, stacking, and relationship to the pane viewport so
+mobile pane navigation cannot hide global navigation controls. The address chrome content itself is
+app-owned: Samebase passes `RouteUrlEditorNext`, which owns route-aware parsing, suggestions,
+preview, commit, and restore behavior. Extracted package variations are outside this app contract.
 
 ### Prerendering
 

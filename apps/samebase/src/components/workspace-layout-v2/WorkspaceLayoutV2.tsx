@@ -31,7 +31,7 @@ import { useWorkspaceLayoutV2MobileCarouselController } from "./useWorkspaceLayo
 import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLayoutV2MobileResize";
 
 type WorkspaceLayoutV2Props = {
-  addressChrome?: ReactNode;
+  addressChrome: ReactNode;
   left?: ReactElement;
   main: ReactElement;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
@@ -286,14 +286,12 @@ export function WorkspaceLayoutV2({
       data-testid={dataTestId}
       className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
     >
-      {addressChrome ? (
-        <div
-          data-testid="workspace-layout-v2-address-chrome"
-          className="relative z-10 h-8 shrink-0"
-        >
-          {addressChrome}
-        </div>
-      ) : null}
+      <div
+        data-testid="workspace-layout-v2-address-chrome"
+        className="relative z-10 h-8 shrink-0 border-b border-border"
+      >
+        {addressChrome}
+      </div>
       <div
         ref={viewportRef}
         data-mobile-pane={mobilePane}

@@ -86,7 +86,7 @@ export function WorkspaceLayoutV2FullPage({
   leftToggleVisibility = "desktop",
   rightToggleVisibility = "desktop",
 }: {
-  addressChrome?: ReactNode;
+  addressChrome: ReactNode;
   dataTestId?: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;

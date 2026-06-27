@@ -117,6 +117,7 @@ function renderMobileLayoutContent({
 
   return (
     <WorkspaceLayoutV2FullPage
+      addressChrome={<div data-testid="test-address-chrome">/test</div>}
       left={
         includeLeftPane
           ? {

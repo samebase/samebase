@@ -251,8 +251,8 @@ The same rule applies to shared top bars and status bars:
 - a slot filler like `AppBuildStatusBar` should return only the content inside that shell
 - otherwise every route or fixture that uses the slot can drift when the shared shell changes
 - this example covers app-level top/status bars; the accepted `WorkspaceLayoutV2` address chrome
-  region is different because it belongs inside the canonical workspace frame while its editor
-  content remains caller-provided
+  region is different because it belongs inside the canonical workspace frame, and the Samebase app
+  shell always supplies the route URL editor as its content
 
 ### Example 2: Stop passing a prop first, then delete the prop
 
