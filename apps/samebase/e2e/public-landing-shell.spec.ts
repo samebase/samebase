@@ -1299,7 +1299,7 @@ test("landing footer links keep browser link styling", async ({ page }, testInfo
 test.describe("mobile landing dev toggle", () => {
   test.use(mobileLandingDevice);
 
-  test("landing fits below the mobile route header without vertical scrolling", async ({
+  test("landing fits below the mobile address chrome without vertical scrolling", async ({
     page,
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });

@@ -320,7 +320,7 @@ test.describe("vault dashboard hash scrolling", () => {
     test.slow();
     test.skip(
       testInfo.project.name !== "chromium-desktop",
-      "route URL editor hash click path is covered on the desktop workspace header",
+      "route URL editor hash click path is covered on the desktop address chrome",
     );
 
     await page.goto("/home", { waitUntil: "domcontentloaded" });
