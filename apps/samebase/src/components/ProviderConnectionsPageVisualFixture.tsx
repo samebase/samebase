@@ -101,6 +101,48 @@ const providerConnectionsVisualFixtureState = {
     teamId: "team_samebase",
     teamSlug: "samebase",
   },
+  convexAccess: {
+    authMethod: "api_key",
+    checkedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 6 * 60_000,
+    checks: [
+      {
+        key: "token",
+        label: "Token details",
+        message: "Probe GET /token_details returned team token Samebase operator token.",
+        status: "ok",
+      },
+      {
+        key: "projects",
+        label: "Projects",
+        message: "Probe GET /teams/{team_id}/list_projects returned 3 visible projects.",
+        status: "ok",
+      },
+      {
+        key: "deployments",
+        label: "Deployments",
+        message: "Probe GET /teams/{team_id}/list_deployments returned 5 visible deployments.",
+        status: "ok",
+      },
+    ],
+    connected: true,
+    requestedAccess: [
+      {
+        key: "team",
+        label: "Team-scoped Convex Management API access",
+      },
+    ],
+    team: {
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    },
+    token: {
+      createdAt: Date.UTC(2026, 5, 1, 9, 30, 0),
+      id: "token_samebase_provider",
+      name: "Samebase operator token",
+      teamId: "team_samebase",
+      type: "team_token",
+    },
+  },
   githubHealth: {
     authMethod: "oauth",
     checkedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 8 * 60_000,
@@ -228,6 +270,8 @@ export function ProviderConnectionsPageVisualFixture() {
         selectedAccountId: "",
       }}
       cloudflareConnection={providerConnectionsVisualFixtureState.cloudflareConnection}
+      convexAccess={providerConnectionsVisualFixtureState.convexAccess}
+      convexAccessError={null}
       convexConnection={providerConnectionsVisualFixtureState.convexConnection}
       disconnectingProvider={null}
       githubDisconnectedNotice={null}
@@ -236,10 +280,12 @@ export function ProviderConnectionsPageVisualFixture() {
       githubProviderSummary={providerConnectionsVisualFixtureState.githubProviderSummary}
       isAutoCheckingCloudflareToken={false}
       isCheckingCloudflareAccess={false}
+      isCheckingConvexAccess={false}
       isCheckingGithubAccess={false}
       isReauthorizingGithub={false}
       now={providerConnectionsVisualFixtureState.now}
       onCheckCloudflareAccess={noop}
+      onCheckConvexAccess={noop}
       onCheckGithubAccess={noop}
       onCloudflareAccountChange={noop}
       onCloudflareAccountOpenChange={noop}

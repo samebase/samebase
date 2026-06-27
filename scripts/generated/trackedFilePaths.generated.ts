@@ -190,6 +190,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/convexManagementApi/validators.generated.d.ts",
   "apps/samebase/convex/convexManagementApi/validators.generated.js",
   "apps/samebase/convex/convexOAuth.ts",
+  "apps/samebase/convex/convexProviderAccess.ts",
   "apps/samebase/convex/dashboardSettings.ts",
   "apps/samebase/convex/deploymentProfile.test.ts",
   "apps/samebase/convex/deploymentProfile.ts",
