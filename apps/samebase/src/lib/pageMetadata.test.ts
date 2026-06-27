@@ -299,6 +299,12 @@ describe("page metadata", () => {
       rel: "manifest",
       href: "/manifest.webmanifest",
     });
+    expect(rootHead.links).toContainEqual({
+      rel: "icon",
+      type: "image/png",
+      href: "/icon-192.png",
+      sizes: "192x192",
+    });
     const stylesheetLinks = rootHead.links.filter((link) => link.rel === "stylesheet");
     expect(stylesheetLinks).toEqual(
       import.meta.env.DEV
