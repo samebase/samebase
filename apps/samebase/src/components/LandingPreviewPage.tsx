@@ -37,16 +37,26 @@ const LANDING_STACK_PROVIDERS = [
     name: "Cloudflare",
     src: "/landing-preview/logos/cloudflare.jpg",
   },
+] as const;
+
+const LANDING_WORK_LANES = [
   {
-    description: "Codex for app-building work",
-    name: "OpenAI",
-    src: "/landing-preview/logos/openai.svg",
+    body: "The main checkout keeps a persistent local deployment for ordinary development.",
+    label: "Local folder",
+  },
+  {
+    body: "Each worktree can have its own local database deployment, so multiple agents can build in parallel.",
+    label: "Worktree",
+  },
+  {
+    body: "Each pull request gets a preview deploy, so review happens on the exact branch being discussed.",
+    label: "Pull request",
   },
 ] as const;
 
 const LANDING_CORRECT_PRINCIPLES = [
   {
-    body: "Samebase runs on the same base it recommends. If the recipe is correct, the builder should be able to use it for itself.",
+    body: "Samebase runs on the same GitHub, Convex, and Cloudflare base it recommends. The agent or editor is a collaborator on top of the repo, not the base itself.",
     title: "Same stack",
   },
   {
@@ -187,7 +197,7 @@ function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDoc
 
 function LandingPreviewProviderGrid() {
   return (
-    <div className="grid gap-px border bg-border sm:grid-cols-2">
+    <div className="grid gap-px border bg-border sm:grid-cols-3">
       {LANDING_STACK_PROVIDERS.map((provider) => (
         <div
           className="flex min-h-32 flex-col justify-between bg-background p-4"
@@ -209,6 +219,31 @@ function LandingPreviewProviderGrid() {
         </div>
       ))}
     </div>
+  );
+}
+
+function LandingWorkLanes() {
+  return (
+    <section className="grid gap-8 border-b pb-14 lg:grid-cols-[18rem_minmax(0,1fr)]">
+      <div>
+        <h2 className="text-2xl font-semibold leading-8">Built for parallel work</h2>
+      </div>
+      <div>
+        <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+          Samebase treats a local folder, a git worktree, and a pull request as different work
+          lanes. Each lane can have its own deploy surface, so people and agents do not have to
+          share the same database while they are trying different changes.
+        </p>
+        <div className="mt-6 grid gap-px border bg-border md:grid-cols-3">
+          {LANDING_WORK_LANES.map((lane) => (
+            <section className="bg-background p-5" key={lane.label}>
+              <h3 className="text-base font-semibold leading-6">{lane.label}</h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{lane.body}</p>
+            </section>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -256,9 +291,9 @@ function LandingPreviewOverview() {
               way to build web apps
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Samebase creates real apps from your own GitHub, Convex, Cloudflare, and OpenAI
-              accounts. It chooses the same stack it runs on, then leaves you with a normal repo and
-              normal infrastructure.
+              Samebase creates real apps from your own GitHub, Convex, and Cloudflare accounts. It
+              chooses the same stack it runs on, then leaves you with a normal repo, normal
+              infrastructure, and room to use the dev tool you already know.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -293,11 +328,12 @@ function LandingPreviewOverview() {
         <section className="grid gap-8 border-b pb-14 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start">
           <div>
             <h2 className="max-w-2xl text-3xl font-semibold leading-10">
-              Samebase uses the exact technologies it recommends.
+              The core stack is a trio.
             </h2>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-              The builder is not a wrapper around a secret stack. It uses the same base it gives
-              users, because recommendations should come from daily operation, not marketing pages.
+              GitHub, Convex, and Cloudflare are the base Samebase uses for itself and recommends
+              for apps. AI tools sit above that base: use Codex, another agent, or the editor you
+              are already comfortable with.
             </p>
           </div>
           <LandingPreviewProviderGrid />
@@ -310,8 +346,8 @@ function LandingPreviewOverview() {
               <div className="font-mono text-sm text-muted-foreground">01</div>
               <h3 className="mt-5 text-base font-semibold leading-6">Connect accounts</h3>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                GitHub for code, Convex for the backend, Cloudflare for the front door, OpenAI for
-                app-building work.
+                GitHub for code, Convex for the backend, and Cloudflare for deploys, domains, and
+                the front door.
               </p>
             </li>
             <li className="bg-background p-5">
@@ -332,6 +368,8 @@ function LandingPreviewOverview() {
             </li>
           </ol>
         </section>
+
+        <LandingWorkLanes />
 
         <LandingCorrectPrinciples />
 

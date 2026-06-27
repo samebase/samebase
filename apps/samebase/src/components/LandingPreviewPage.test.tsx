@@ -72,13 +72,18 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("correct");
     expect(markup).toContain("way to build web apps");
     expect(markup).toContain("Samebase creates real apps");
+    expect(markup).toContain("The core stack is a trio.");
+    expect(markup).toContain("Built for parallel work");
+    expect(markup).toContain("Each worktree can have its own local database deployment");
+    expect(markup).toContain("Each pull request gets a preview deploy");
     expect(markup).toContain("Start with Samebase");
     expect(markup).toContain("Do it yourself");
     expect(markup).toContain("/landing/do-it-yourself");
     expect(markup).toContain("GitHub");
     expect(markup).toContain("Convex");
     expect(markup).toContain("Cloudflare");
-    expect(markup).toContain("OpenAI");
+    expect(markup).toContain("Codex, another agent, or the editor");
+    expect(markup).not.toContain('alt="OpenAI"');
     expect(markup).not.toContain("Create Github, Convex, Cloudflare");
   });
 

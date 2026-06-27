@@ -110,14 +110,22 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article).toContainText("Correct means honest about the stack");
   await expect(
     article.getByRole("heading", {
-      name: "Samebase uses the exact technologies it recommends.",
+      name: "The core stack is a trio.",
     }),
   ).toBeVisible();
+  await expect(article).toContainText("use Codex, another agent, or the editor");
   await expect(
     article.getByRole("heading", {
       name: "What Samebase does",
     }),
   ).toBeVisible();
+  await expect(
+    article.getByRole("heading", {
+      name: "Built for parallel work",
+    }),
+  ).toBeVisible();
+  await expect(article).toContainText("Each worktree can have its own local database deployment");
+  await expect(article).toContainText("Each pull request gets a preview deploy");
   await expect(
     article.getByRole("heading", {
       name: "What correct means here",
@@ -140,7 +148,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Cloudflare" })).toBeVisible();
-  await expect(article.getByRole("img", { name: "OpenAI" })).toBeVisible();
+  await expect(article.getByRole("img", { name: "OpenAI" })).toHaveCount(0);
   await expect(
     article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
   ).toHaveCount(0);
