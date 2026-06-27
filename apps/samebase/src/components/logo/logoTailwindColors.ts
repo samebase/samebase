@@ -166,20 +166,12 @@ function readThemeColor(cssVariable: `--${string}`): HexColorToken | null {
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }
 
-function resolveColorSource(
-  source: ColorSource,
-  fallbackThemeMode?: LogoColorThemeMode,
-): HexColorToken {
+function resolveColorSource(source: ColorSource): HexColorToken {
   if (typeof source === "string") {
     return normalizeRenderableColor(source);
   }
 
-  return (
-    readThemeColor(source.cssVariable) ??
-    (fallbackThemeMode
-      ? (source.fallbackHexByTheme?.[fallbackThemeMode] ?? source.fallbackHex)
-      : source.fallbackHex)
-  );
+  return readThemeColor(source.cssVariable) ?? source.fallbackHex;
 }
 
 function resolveStaticColorSource(
@@ -569,15 +561,12 @@ function getStaticTailwindColorHex(
   return resolveStaticColorSource(getTailwindColorOption(token)?.source ?? "#000000", themeMode);
 }
 
-export function getTailwindColorHex(
-  token: LogoColorToken,
-  fallbackThemeMode?: LogoColorThemeMode,
-): HexColorToken {
+export function getTailwindColorHex(token: LogoColorToken): HexColorToken {
   if (isHexColorToken(token)) {
     return token;
   }
 
-  return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000", fallbackThemeMode);
+  return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
 }
 
 export function getLogoColorCssHsl(

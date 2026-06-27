@@ -122,30 +122,6 @@ describe("appThemeColorSearch", () => {
     });
   });
 
-  it("uses dark token fallbacks without changing default logo face tokens", () => {
-    expect(
-      resolveAppThemeColorState({
-        search: {},
-        themeMode: "dark",
-      }),
-    ).toMatchObject({
-      backgroundColor: "#394447",
-      faceColors: {
-        left: "#00b8db",
-        right: "#ffffff",
-        top: "#394447",
-      },
-      resolvedThemeColors: {
-        background: "#394447",
-        border: "#292524",
-        primary: "#ffffff",
-        secondary: "#00b8db",
-        top: "#394447",
-      },
-      themeColors: DEFAULT_LOGO_THEME_COLORS,
-    });
-  });
-
   it("syncs typed search colors into theme-aware document CSS variables", () => {
     syncDocumentThemeColorSearch({
       background: "#000000",

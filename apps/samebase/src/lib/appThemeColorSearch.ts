@@ -176,25 +176,19 @@ export function readLogoThemeColors(search: LogoThemeColorSearchInput): LogoThem
   };
 }
 
-function resolveAppThemeColorHexes(
-  themeColors: AppThemeColors,
-  themeMode: LogoColorThemeMode,
-): ResolvedAppThemeColors {
+function resolveAppThemeColorHexes(themeColors: AppThemeColors): ResolvedAppThemeColors {
   return {
-    background: getTailwindColorHex(themeColors.background, themeMode),
-    border: getTailwindColorHex(themeColors.border, themeMode),
-    primary: getTailwindColorHex(themeColors.primary, themeMode),
-    secondary: getTailwindColorHex(themeColors.secondary, themeMode),
+    background: getTailwindColorHex(themeColors.background),
+    border: getTailwindColorHex(themeColors.border),
+    primary: getTailwindColorHex(themeColors.primary),
+    secondary: getTailwindColorHex(themeColors.secondary),
   };
 }
 
-function resolveLogoThemeColorHexes(
-  themeColors: LogoThemeColors,
-  themeMode: LogoColorThemeMode,
-): ResolvedLogoThemeColors {
+function resolveLogoThemeColorHexes(themeColors: LogoThemeColors): ResolvedLogoThemeColors {
   return {
-    ...resolveAppThemeColorHexes(themeColors, themeMode),
-    top: getTailwindColorHex(themeColors.top, themeMode),
+    ...resolveAppThemeColorHexes(themeColors),
+    top: getTailwindColorHex(themeColors.top),
   };
 }
 
@@ -206,7 +200,7 @@ export function resolveAppThemeColorState({
   themeMode: DocumentThemeMode;
 }): ResolvedAppThemeColorState {
   const themeColors = readLogoThemeColors(search);
-  const resolvedThemeColors = resolveLogoThemeColorHexes(themeColors, themeMode);
+  const resolvedThemeColors = resolveLogoThemeColorHexes(themeColors);
   const faceColors = getFaceColorsFromLogoThemeColors(resolvedThemeColors);
 
   return {
