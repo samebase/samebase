@@ -185,8 +185,8 @@ test("landing preview route renders the React overview in workspace chrome", asy
     }),
   ).toBeVisible();
   await expect(
-    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
-  ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
+    article.locator('[id="1-create-github-convex-and-cloudflare-accounts"]'),
+  ).toContainText("1: Create Github, Convex, and Cloudflare accounts");
   await expect(article.locator("details")).toHaveCount(3);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");
@@ -202,11 +202,13 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await firstTaskCheckbox.check();
   await expect(firstTaskCheckbox).toBeChecked();
 
-  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#6-connect-codex-to-github`, {
+  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#6-connect-your-dev-tool-to-github`, {
     waitUntil: "domcontentloaded",
   });
   await expect(
-    page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID).locator('[id="6-connect-codex-to-github"]'),
+    page
+      .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+      .locator('[id="6-connect-your-dev-tool-to-github"]'),
   ).toBeInViewport();
 
   await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#why-is-samebase-com-free`, {
