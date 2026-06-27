@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LandingDoItYourselfPage } from "@/components/LandingMarkdownPreviewPage";
+import { LandingDoItYourselfPage } from "@/components/LandingPreviewPage";
 import {
   LANDING_DO_IT_YOURSELF_ROUTE,
-  LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
-  validateLandingMarkdownPreviewRouteSearch,
+  LANDING_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
+  validateLandingPreviewRouteSearch,
 } from "@/routeSearch/landingPreview";
 import { LANDING_DO_IT_YOURSELF_PAGE_METADATA } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -18,8 +18,8 @@ function LandingDoItYourselfRouteComponent() {
 export const Route = createFileRoute("/landing/do-it-yourself")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[LANDING_DO_IT_YOURSELF_ROUTE],
-    ...LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
+    ...LANDING_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
   },
   component: LandingDoItYourselfRouteComponent,
-  validateSearch: validateLandingMarkdownPreviewRouteSearch,
+  validateSearch: validateLandingPreviewRouteSearch,
 });

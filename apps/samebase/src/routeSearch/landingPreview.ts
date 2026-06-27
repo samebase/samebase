@@ -8,14 +8,14 @@ import {
 } from "@/routing/searchParamMetadata";
 import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 
-export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
+export const LANDING_PREVIEW_ROUTE = "/landing-preview";
 export const LANDING_DO_IT_YOURSELF_ROUTE = "/landing/do-it-yourself";
 
-export const LANDING_MARKDOWN_PREVIEW_TEST_ID = "landing-markdown-preview";
-export const LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID = "landing-markdown-preview-article";
-export const LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID = "landing-markdown-preview-sidebar";
+export const LANDING_PREVIEW_TEST_ID = "landing-preview";
+export const LANDING_PREVIEW_ARTICLE_TEST_ID = "landing-preview-article";
+export const LANDING_PREVIEW_SIDEBAR_TEST_ID = "landing-preview-sidebar";
 
-const RouteSearchSchema_landingMarkdownPreview = defineRouteSearchParams({
+const RouteSearchSchema_landingPreview = defineRouteSearchParams({
   left: routeSearchPresenceParam({
     access: "access_public",
     suggestion: "hidden",
@@ -26,26 +26,24 @@ const RouteSearchSchema_landingMarkdownPreview = defineRouteSearchParams({
   }),
 });
 
-export type LandingMarkdownPreviewRouteSearch = InferRouteSearch<
-  typeof RouteSearchSchema_landingMarkdownPreview
->;
+export type LandingPreviewRouteSearch = InferRouteSearch<typeof RouteSearchSchema_landingPreview>;
 
-const landingMarkdownPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
-  RouteSearchSchema_landingMarkdownPreview,
+const landingPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  RouteSearchSchema_landingPreview,
 );
 
-const LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
-  landingMarkdownPreviewRouteSearchParamMetadata,
+const LANDING_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  landingPreviewRouteSearchParamMetadata,
 );
 
-export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
-  landingMarkdownPreviewRouteSearchParamMetadata,
+export const LANDING_PREVIEW_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  landingPreviewRouteSearchParamMetadata,
 );
 
-export function validateLandingMarkdownPreviewRouteSearch(
+export function validateLandingPreviewRouteSearch(
   search: Record<string, unknown>,
-): LandingMarkdownPreviewRouteSearch {
-  return RouteSearchSchema_landingMarkdownPreview.parse(
-    normalizeRouteSearchPresenceFlags(search, LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS),
+): LandingPreviewRouteSearch {
+  return RouteSearchSchema_landingPreview.parse(
+    normalizeRouteSearchPresenceFlags(search, LANDING_PREVIEW_PRESENCE_SEARCH_KEYS),
   );
 }

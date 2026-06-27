@@ -2,10 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
 import {
   LANDING_DO_IT_YOURSELF_ROUTE,
-  LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_MARKDOWN_PREVIEW_ROUTE,
-  LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
-  LANDING_MARKDOWN_PREVIEW_TEST_ID,
+  LANDING_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_PREVIEW_ROUTE,
+  LANDING_PREVIEW_SIDEBAR_TEST_ID,
+  LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 
 const expectedLandingPreviewSidebarFiles = ["Overview", "Do it yourself"] as const;
@@ -58,7 +58,7 @@ async function expectSidebarFiles(sidebar: Locator) {
   }
   await expect(sidebar.getByRole("link", { name: "Overview" })).toHaveAttribute(
     "href",
-    LANDING_MARKDOWN_PREVIEW_ROUTE,
+    LANDING_PREVIEW_ROUTE,
   );
   await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
     "href",
@@ -80,10 +80,10 @@ async function hideLandingPreviewVideosForScreenshot(page: Page) {
   });
 }
 
-test("landing markdown preview route renders markdown in workspace chrome", async ({ page }) => {
+test("landing preview route renders the React overview in workspace chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
 
-  await page.goto(LANDING_MARKDOWN_PREVIEW_ROUTE, {
+  await page.goto(LANDING_PREVIEW_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -92,9 +92,9 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     await document.fonts.ready;
   });
 
-  const preview = page.getByTestId(LANDING_MARKDOWN_PREVIEW_TEST_ID);
-  const article = page.getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID);
-  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+  const preview = page.getByTestId(LANDING_PREVIEW_TEST_ID);
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const sidebar = page.getByTestId(LANDING_PREVIEW_SIDEBAR_TEST_ID);
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
@@ -104,25 +104,43 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   });
   await expect(
     article.getByRole("heading", {
-      name: "The correct* way to build web apps",
+      name: /The correct\s*\*\s*way to build web apps/,
     }),
   ).toBeVisible();
-  await expect(article.locator("small")).toContainText("Correct means the default is honest");
+  await expect(article).toContainText("Correct means honest about the stack");
   await expect(
     article.getByRole("heading", {
-      name: "What Samebase is",
+      name: "Samebase uses the exact technologies it recommends.",
     }),
   ).toBeVisible();
   await expect(
     article.getByRole("heading", {
-      name: "Do it yourself",
+      name: "What Samebase does",
     }),
   ).toBeVisible();
+  await expect(
+    article.getByRole("heading", {
+      name: "What correct means here",
+    }),
+  ).toBeVisible();
+  await expect(
+    article.getByRole("heading", {
+      name: "Manual setup is proof",
+    }),
+  ).toBeVisible();
+  await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveAttribute(
+    "href",
+    "/?sign-in",
+  );
   await expect(
     article.getByRole("link", {
       name: "Do it yourself",
     }),
   ).toHaveAttribute("href", LANDING_DO_IT_YOURSELF_ROUTE);
+  await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
+  await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
+  await expect(article.getByRole("img", { name: "Cloudflare" })).toBeVisible();
+  await expect(article.getByRole("img", { name: "OpenAI" })).toBeVisible();
   await expect(
     article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
   ).toHaveCount(0);
@@ -132,7 +150,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     animations: "disabled",
     caret: "hide",
     // The app build footer changes on every squash; keep this snapshot focused
-    // on the markdown preview layout and rendered content.
+    // on the landing preview layout and rendered content.
     mask: [page.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
     maskColor: "#ffffff",
     maxDiffPixelRatio: 0.02,
@@ -180,16 +198,14 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     waitUntil: "domcontentloaded",
   });
   await expect(
-    page
-      .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
-      .locator('[id="6-connect-codex-to-github"]'),
+    page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID).locator('[id="6-connect-codex-to-github"]'),
   ).toBeInViewport();
 
   await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#why-is-samebase-com-free`, {
     waitUntil: "domcontentloaded",
   });
   const finalHeading = page
-    .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
+    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .locator('[id="why-is-samebase-com-free"]');
   await expect(finalHeading).toBeInViewport();
   await expect
@@ -197,7 +213,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     .toBeLessThan(81);
 });
 
-test("landing markdown preview mobile pane query opens the flat sidebar", async ({ page }) => {
+test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
   await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}?left&dark`, {
     waitUntil: "domcontentloaded",
@@ -207,7 +223,7 @@ test("landing markdown preview mobile pane query opens the flat sidebar", async 
     await document.fonts.ready;
   });
 
-  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+  const sidebar = page.getByTestId(LANDING_PREVIEW_SIDEBAR_TEST_ID);
   const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);

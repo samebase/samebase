@@ -137,13 +137,11 @@ vi.mock("@/components/MachineConnectPage", () => ({
   MachineConnectPage: () => <div data-testid="machine-connect-page">Machine connect page</div>,
 }));
 
-vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
+vi.mock("@/components/LandingPreviewPage", () => ({
   LandingDoItYourselfPage: () => (
     <div data-testid="landing-do-it-yourself-page">Landing do it yourself page</div>
   ),
-  LandingMarkdownPreviewPage: () => (
-    <div data-testid="landing-markdown-preview-page">Landing markdown preview page</div>
-  ),
+  LandingPreviewPage: () => <div data-testid="landing-preview-page">Landing preview page</div>,
 }));
 
 vi.mock("@/components/CodespaceChatOnlyView", () => ({
@@ -722,8 +720,8 @@ describe("appRouter", () => {
     await renderRoute("/landing-preview");
 
     expect(
-      rootElement?.querySelector('[data-testid="landing-markdown-preview-page"]')?.textContent,
-    ).toContain("Landing markdown preview page");
+      rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
+    ).toContain("Landing preview page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
@@ -808,8 +806,8 @@ describe("appRouter", () => {
     await renderRoute("/landing-preview?lang=ro");
 
     expect(
-      rootElement?.querySelector('[data-testid="landing-markdown-preview-page"]')?.textContent,
-    ).toContain("Landing markdown preview page");
+      rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
+    ).toContain("Landing preview page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

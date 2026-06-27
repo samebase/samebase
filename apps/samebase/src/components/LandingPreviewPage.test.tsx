@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import {
-  LandingDoItYourselfPage,
-  LandingMarkdownPreviewPage,
-} from "@/components/LandingMarkdownPreviewPage";
+import { LandingDoItYourselfPage, LandingPreviewPage } from "@/components/LandingPreviewPage";
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -31,6 +28,27 @@ vi.mock("@/components/MarkdownLandingDocument", () => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
+  Link: ({
+    children,
+    className,
+    search,
+    to,
+  }: {
+    children: ReactNode;
+    className?: string;
+    search?: Record<string, true | null | undefined>;
+    to: string;
+  }) => {
+    const searchEntries = Object.entries(search ?? {}).filter((entry) => entry[1] === true);
+    const searchSuffix =
+      searchEntries.length === 0 ? "" : `?${searchEntries.map((entry) => entry[0]).join("&")}`;
+
+    return (
+      <a className={className} href={`${to}${searchSuffix}`}>
+        {children}
+      </a>
+    );
+  },
   useLocation: ({ select }: { select: (location: { searchStr: string }) => string }) =>
     select({ searchStr: "" }),
   useNavigate: () => () => {},
@@ -46,19 +64,26 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
   }),
 }));
 
-describe("LandingMarkdownPreviewPage", () => {
-  it("renders the English preview by default", () => {
-    const markup = renderToStaticMarkup(<LandingMarkdownPreviewPage />);
+describe("LandingPreviewPage", () => {
+  it("renders the React landing overview by default", () => {
+    const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
-    expect(markup).toContain("The correct");
+    expect(markup).toContain("The");
+    expect(markup).toContain("correct");
+    expect(markup).toContain("way to build web apps");
+    expect(markup).toContain("Samebase creates real apps");
+    expect(markup).toContain("Start with Samebase");
     expect(markup).toContain("Do it yourself");
     expect(markup).toContain("/landing/do-it-yourself");
-    expect(markup).not.toContain("Language: English");
+    expect(markup).toContain("GitHub");
+    expect(markup).toContain("Convex");
+    expect(markup).toContain("Cloudflare");
+    expect(markup).toContain("OpenAI");
     expect(markup).not.toContain("Create Github, Convex, Cloudflare");
   });
 
   it("keeps the help sidebar as two flat files instead of linking every heading", () => {
-    const markup = renderToStaticMarkup(<LandingMarkdownPreviewPage />);
+    const markup = renderToStaticMarkup(<LandingPreviewPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
     expect(sidebarMarkup).toContain("Overview");
@@ -72,7 +97,7 @@ describe("LandingMarkdownPreviewPage", () => {
   });
 
   it("starts the landing preview with both desktop sidebars closed", () => {
-    const markup = renderToStaticMarkup(<LandingMarkdownPreviewPage />);
+    const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
     expect(markup).toContain(
       `data-sidebar-default-state="{&quot;leftDesktopOpen&quot;:false,&quot;rightDesktopOpen&quot;:false}"`,
