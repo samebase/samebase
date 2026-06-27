@@ -15,6 +15,7 @@ import {
 import { isRecord } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
 import { vCloudflareDefaultAccount } from "./schema";
+import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
@@ -762,10 +763,10 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }
 
-  const returnTo =
-    process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
-  const baseOrigin = new URL(request.url).origin;
-  const returnUrl = new URL(returnTo, baseOrigin).toString();
+  const returnUrl = buildProviderOAuthDefaultReturnUrl({
+    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    requestUrl: request.url,
+  });
   const returnOrigin = new URL(returnUrl).origin;
 
   const html = `<!doctype html>

@@ -12,6 +12,7 @@ import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealt
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import { vCloudflareDefaultAccount } from "./schema";
 import { utf8ToBase64 } from "../shared/base64";
+import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
@@ -590,10 +591,10 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }
 
-  const returnTo =
-    process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
-  const baseOrigin = new URL(request.url).origin;
-  const returnUrl = new URL(returnTo, baseOrigin).toString();
+  const returnUrl = buildProviderOAuthDefaultReturnUrl({
+    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    requestUrl: request.url,
+  });
   const returnOrigin = new URL(returnUrl).origin;
 
   const html = `<!doctype html>

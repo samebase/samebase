@@ -14,6 +14,7 @@ import {
   isSafeGithubOAuthReturnToPath,
 } from "../shared/githubOAuth";
 import { CODESPACES_ENABLED } from "../shared/featureFlags";
+import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { utf8ToBase64 } from "../shared/base64";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
@@ -320,10 +321,10 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     throw error;
   }
 
-  const defaultReturnTo =
-    process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
-  const baseOrigin = new URL(request.url).origin;
-  const fallbackReturnUrl = new URL(defaultReturnTo, baseOrigin).toString();
+  const fallbackReturnUrl = buildProviderOAuthDefaultReturnUrl({
+    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    requestUrl: request.url,
+  });
   const returnUrl =
     typeof oauthState.returnToPath === "string" &&
     isSafeGithubOAuthReturnToPath(oauthState.returnToPath)

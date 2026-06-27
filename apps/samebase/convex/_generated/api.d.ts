@@ -30,6 +30,7 @@ import type * as cloudflareApi_client from "../cloudflareApi/client.js";
 import type * as cloudflareMcp from "../cloudflareMcp.js";
 import type * as cloudflareMcpOAuth from "../cloudflareMcpOAuth.js";
 import type * as cloudflareOAuth from "../cloudflareOAuth.js";
+import type * as cloudflareProviderAccess from "../cloudflareProviderAccess.js";
 import type * as cloudflareResources from "../cloudflareResources.js";
 import type * as codespaces_executor from "../codespaces/executor.js";
 import type * as codespaces_index from "../codespaces/index.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   cloudflareMcp: typeof cloudflareMcp;
   cloudflareMcpOAuth: typeof cloudflareMcpOAuth;
   cloudflareOAuth: typeof cloudflareOAuth;
+  cloudflareProviderAccess: typeof cloudflareProviderAccess;
   cloudflareResources: typeof cloudflareResources;
   "codespaces/executor": typeof codespaces_executor;
   "codespaces/index": typeof codespaces_index;

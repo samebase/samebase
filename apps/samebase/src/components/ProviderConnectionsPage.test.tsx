@@ -187,6 +187,10 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth).");
     expect(markup).toContain("Manage account");
+    expect(markup).toContain(
+      "Run Check access to see the OAuth scopes Samebase requested from Cloudflare.",
+    );
+    expect(markup).toContain("Reconnect");
     expect(markup).not.toContain("Token Valid.");
     expect(markup).not.toContain("Check token");
     expect(markup).toContain("Disconnect");
@@ -206,6 +210,12 @@ describe("ProviderConnectionsPage", () => {
     );
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth). Account Samebase Preview.");
+    expect(markup).toContain("account-settings.read");
+    expect(markup).toContain("Samebase Preview (cloudflare-account-1) · Selected");
+    expect(markup).toContain("Workers Builds: Needs attention");
+    expect(markup).toContain(
+      "Cloudflare denied Workers Builds limits. Reconnect Cloudflare and approve Workers Builds access.",
+    );
   });
 
   it("renders GitHub API key connections without OAuth scope wording", () => {
@@ -324,6 +334,112 @@ describe("ProviderConnectionsPage", () => {
     );
     expect(container.textContent).toContain(
       "Organization access: OK - GitHub returned 1 organization visible to this credential.",
+    );
+  });
+
+  it("runs the Cloudflare access check and renders live access rows", async () => {
+    const checkCloudflareConnectionAccess = vi.fn(async () => ({
+      accounts: [
+        {
+          accountId: "account_123",
+          accountName: "samebase",
+          selected: true,
+        },
+      ],
+      authMethod: "oauth",
+      checkedAt: Date.now(),
+      checks: [
+        {
+          key: "token",
+          label: "OAuth token",
+          message:
+            "Stored OAuth token metadata says the token is valid until 2026-06-22T14:00:00.000Z. Live probes below verify current Cloudflare access.",
+          status: "ok",
+        },
+        {
+          key: "accounts",
+          label: "Accounts",
+          message: "Probe GET /accounts returned 1 visible account: samebase.",
+          status: "ok",
+        },
+        {
+          key: "selected_account",
+          label: "Selected account",
+          message: "The Accounts probe returned selected account samebase (account_123).",
+          status: "ok",
+        },
+        {
+          key: "workers",
+          label: "Workers",
+          message:
+            "Probe GET /accounts/{account_id}/workers/account-settings succeeded for samebase.",
+          status: "ok",
+        },
+        {
+          key: "workers_builds",
+          label: "Workers Builds",
+          message: "Probe GET /accounts/{account_id}/builds/account/limits succeeded for samebase.",
+          status: "ok",
+        },
+      ],
+      connected: true,
+      requestedScopes: [
+        {
+          label: "Read account metadata",
+          scope: "account-settings.read",
+        },
+        {
+          label: "Read Workers",
+          scope: "workers-scripts.read",
+        },
+      ],
+    }));
+    queryState.handlersByFunctionName.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareConnectionAccess,
+    );
+    const container = renderMountedProviderConnectionsPage(
+      new Map([
+        [
+          getFunctionName(api.users.getGithubProviderSummary),
+          {
+            connected: false,
+            requiredScopes: [],
+            reauthorizeAvailable: false,
+          },
+        ],
+        [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
+        [
+          getFunctionName(api.users.getCloudflareConnectionStatus),
+          {
+            accountId: "account_123",
+            accountName: "samebase",
+            authMethod: "oauth",
+            connected: true,
+          },
+        ],
+        [getFunctionName(api.users.viewer), { _id: "user_123" }],
+      ]),
+    );
+    const checkAccessButton = findButtonByText(container, "Check access");
+    if (!checkAccessButton) {
+      throw new Error("Expected Check access button.");
+    }
+
+    await act(async () => {
+      checkAccessButton.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+      await Promise.resolve();
+    });
+
+    expect(checkCloudflareConnectionAccess).toHaveBeenCalledWith({});
+    expect(container.textContent).toContain("account-settings.read · Read account metadata");
+    expect(container.textContent).toContain("workers-scripts.read · Read Workers");
+    expect(container.textContent).toContain("samebase (account_123) · Selected");
+    expect(container.textContent).toContain(
+      "OAuth token: OK - Stored OAuth token metadata says the token is valid until 2026-06-22T14:00:00.000Z. Live probes below verify current Cloudflare access.",
+    );
+    expect(container.textContent).toContain(
+      "Workers Builds: OK - Probe GET /accounts/{account_id}/builds/account/limits succeeded for samebase.",
     );
   });
 });

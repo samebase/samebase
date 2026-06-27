@@ -12,8 +12,7 @@ import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
-import { isRecord } from "@samebase/dependent";
-import { useLocation } from "@tanstack/react-router";
+import { isRecord, notEmpty } from "@samebase/dependent";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import {
@@ -68,6 +67,8 @@ type AppGithubProviderSummary = (typeof api.users.getGithubProviderSummary)["_re
 type AppGithubConnectionHealth = (typeof api.users.checkGithubConnectionHealth)["_returnType"];
 type AppConvexConnection = (typeof api.users.getConvexConnectionStatus)["_returnType"];
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
+type AppCloudflareConnectionAccess =
+  (typeof api.cloudflareProviderAccess.checkCloudflareConnectionAccess)["_returnType"];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 type CloudflareAccountDialogState = {
   error: string | null;
@@ -78,6 +79,7 @@ type CloudflareAccountDialogState = {
   selectedAccountId: string;
 };
 export type ProviderConnectionsPageConnectionState = {
+  cloudflareAccess: AppCloudflareConnectionAccess | null;
   cloudflareConnection: AppCloudflareConnection | undefined;
   convexConnection: AppConvexConnection | undefined;
   githubHealth: AppGithubConnectionHealth | null;
@@ -88,11 +90,14 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   apiKeyDialog: ReactNode;
   cloudflareAccountDialog: CloudflareAccountDialogState;
   disconnectingProvider: ProviderKey | null;
+  cloudflareAccessError: string | null;
   githubDisconnectedNotice: string | null;
   githubHealthError: string | null;
   isAutoCheckingCloudflareToken: boolean;
+  isCheckingCloudflareAccess: boolean;
   isCheckingGithubAccess: boolean;
   isReauthorizingGithub: boolean;
+  onCheckCloudflareAccess: () => void;
   onCheckGithubAccess: () => void;
   onCloudflareAccountChange: (accountId: string) => void;
   onCloudflareAccountOpenChange: (isOpen: boolean) => void;
@@ -139,6 +144,13 @@ function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | "device_au
   return "Unknown";
 }
 
+function getCloudflareManageAccessUrl(authMethod: "oauth" | "mcp_oauth" | "api_key" | undefined) {
+  if (authMethod === "api_key") {
+    return "https://dash.cloudflare.com/profile/api-tokens";
+  }
+  return "https://dash.cloudflare.com/?to=%2Fprofile%2Faccess-management%2Fauthorization";
+}
+
 function getRedirectOrigin(oauthUrl: string): string | null {
   try {
     const url = new URL(oauthUrl);
@@ -148,6 +160,10 @@ function getRedirectOrigin(oauthUrl: string): string | null {
   } catch {
     return null;
   }
+}
+
+function getCurrentRootRelativeUrl(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
 function GitHubConnectionDetails({
@@ -302,6 +318,143 @@ function GitHubDisconnectedDetails({ notice }: { notice: string }) {
   return <div className="space-y-1 text-xs leading-5 text-muted-foreground">{notice}</div>;
 }
 
+function CloudflareConnectionDetails({
+  access,
+  connection,
+  error,
+  isChecking,
+  now,
+}: {
+  access: AppCloudflareConnectionAccess | null;
+  connection: AppCloudflareConnection | undefined;
+  error: string | null;
+  isChecking: boolean;
+  now: number;
+}) {
+  if (connection?.connected !== true) {
+    return null;
+  }
+
+  const checkedAccess = access?.connected === true ? access : null;
+  const requestedScopes = checkedAccess?.requestedScopes ?? [];
+  const accounts = checkedAccess?.accounts ?? [];
+  const checks = checkedAccess?.checks ?? [];
+  const token = checkedAccess?.token;
+
+  return (
+    <div className="space-y-3 text-xs leading-5">
+      <div className="space-y-2">
+        <div className="font-medium text-foreground">Requested OAuth scopes</div>
+        {requestedScopes.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {requestedScopes.map((scope) => (
+              <span
+                key={scope.scope}
+                className="rounded-sm border border-border bg-muted/40 px-2 py-0.5 text-foreground"
+                title={scope.label}
+              >
+                {scope.scope} · {scope.label}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="text-muted-foreground">
+            {connection.authMethod === "api_key"
+              ? "API token policy is not read. Samebase verifies this credential with live Cloudflare API probes."
+              : checkedAccess
+                ? "No OAuth scopes were recorded for this connection."
+                : "Run Check access to see the OAuth scopes Samebase requested from Cloudflare."}
+          </div>
+        )}
+      </div>
+      {token ? (
+        <div className="space-y-1 text-muted-foreground">
+          <div className="font-medium text-foreground">API token</div>
+          <div>
+            {[
+              token.status ? `Status ${token.status}` : null,
+              token.id ? `ID ${token.id}` : null,
+              token.expiresOn ? `Expires ${token.expiresOn}` : null,
+              token.notBefore ? `Valid after ${token.notBefore}` : null,
+            ]
+              .filter(notEmpty)
+              .join(". ")}
+          </div>
+        </div>
+      ) : null}
+      {checkedAccess ? (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <div className="font-medium text-foreground">Accounts</div>
+            {accounts.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {accounts.map((account) => (
+                  <span
+                    key={account.accountId}
+                    className={
+                      account.selected
+                        ? "rounded-sm border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800"
+                        : "rounded-sm border border-border bg-background px-2 py-0.5 text-foreground"
+                    }
+                    title={account.accountId}
+                  >
+                    {account.accountName} ({account.accountId})
+                    {account.selected ? " · Selected" : ""}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-muted-foreground">
+                Visible accounts appear here when the Accounts probe succeeds.
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <div className="font-medium text-foreground">Live probes</div>
+            <div className="space-y-1 text-muted-foreground">
+              {checks.map((check) => (
+                <div key={check.key}>
+                  <span
+                    className={
+                      check.status === "ok"
+                        ? "text-emerald-700"
+                        : check.status === "error"
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                    }
+                  >
+                    {check.label}:{" "}
+                    {check.status === "ok"
+                      ? "OK"
+                      : check.status === "error"
+                        ? "Needs attention"
+                        : "Not checked"}
+                  </span>
+                  {check.message ? ` - ${check.message}` : ""}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="text-muted-foreground">
+            Last checked {formatRelativeTimeAgo(checkedAccess.checkedAt, now)}.
+          </div>
+        </div>
+      ) : (
+        <div className="text-muted-foreground">
+          {isChecking
+            ? "Checking Cloudflare access..."
+            : "Run Check access to probe account visibility, selected account access, Workers, and Workers Builds."}
+        </div>
+      )}
+      <div className="text-muted-foreground">
+        Workers and Workers Builds write access is requested for provisioning; this check performs
+        read-only probes.
+      </div>
+      {error ? <div>Error: {error}</div> : null}
+    </div>
+  );
+}
+
 function ProviderConnectionRows({
   providerRows,
 }: {
@@ -384,6 +537,8 @@ function ProviderConnectionRows({
 
 export function ProviderConnectionsPageView({
   apiKeyDialog,
+  cloudflareAccess,
+  cloudflareAccessError,
   cloudflareAccountDialog,
   cloudflareConnection,
   convexConnection,
@@ -393,9 +548,11 @@ export function ProviderConnectionsPageView({
   githubHealthError,
   githubProviderSummary,
   isAutoCheckingCloudflareToken,
+  isCheckingCloudflareAccess,
   isCheckingGithubAccess,
   isReauthorizingGithub,
   now,
+  onCheckCloudflareAccess,
   onCheckGithubAccess,
   onCloudflareAccountChange,
   onCloudflareAccountOpenChange,
@@ -536,9 +693,30 @@ export function ProviderConnectionsPageView({
         ? `Account ${cloudflareConnection.accountName}.`
         : "";
     const cloudflareActionsDisabled =
-      disconnectingProvider !== null || isAutoCheckingCloudflareToken;
+      disconnectingProvider !== null || isAutoCheckingCloudflareToken || isCheckingCloudflareAccess;
     cloudflareProviderRow = {
       actions: [
+        {
+          disabled: cloudflareActionsDisabled,
+          isPending: isCheckingCloudflareAccess,
+          key: "check-cloudflare-access",
+          label: "Check access",
+          onClick: onCheckCloudflareAccess,
+          pendingLabel: "Checking...",
+        },
+        {
+          disabled: cloudflareActionsDisabled,
+          href: getCloudflareManageAccessUrl(cloudflareConnection.authMethod),
+          key: "manage-cloudflare-access",
+          label: "Manage access",
+          target: "_blank",
+        },
+        {
+          disabled: cloudflareActionsDisabled,
+          key: "reconnect-cloudflare",
+          label: "Reconnect",
+          onClick: () => onConnect("cloudflare"),
+        },
         {
           disabled: cloudflareActionsDisabled,
           key: "select-account",
@@ -554,6 +732,15 @@ export function ProviderConnectionsPageView({
           pendingLabel: "Disconnecting...",
         },
       ],
+      details: (
+        <CloudflareConnectionDetails
+          access={cloudflareAccess}
+          connection={cloudflareConnection}
+          error={cloudflareAccessError}
+          isChecking={isCheckingCloudflareAccess}
+          now={now}
+        />
+      ),
       icon: PROVIDER_METADATA.cloudflare.icon,
       key: "cloudflare",
       label: PROVIDER_METADATA.cloudflare.label,
@@ -790,12 +977,14 @@ function useCloudflareMcpTokenAutoCheck({
 }
 
 export function ProviderConnectionsPage() {
-  const location = useLocation();
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const reauthorizeGithubOAuth = useAction(api.githubOAuth.reauthorizeGithubOAuth);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareOAuthUrl = useAction(api.cloudflareOAuth.getCloudflareOAuthUrl);
   const checkGithubConnectionHealth = useAction(api.users.checkGithubConnectionHealth);
+  const checkCloudflareConnectionAccess = useAction(
+    api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
+  );
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
@@ -817,10 +1006,15 @@ export function ProviderConnectionsPage() {
   const cloudflareAccountDialogRequestIdRef = useRef(0);
   const githubReauthorizePopupCloseTimerRef = useRef<number | null>(null);
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
+  const [cloudflareAccess, setCloudflareAccess] = useState<AppCloudflareConnectionAccess | null>(
+    null,
+  );
+  const [cloudflareAccessError, setCloudflareAccessError] = useState<string | null>(null);
   const [githubHealth, setGithubHealth] = useState<AppGithubConnectionHealth | null>(null);
   const [githubHealthError, setGithubHealthError] = useState<string | null>(null);
   const [githubDisconnectedNotice, setGithubDisconnectedNotice] = useState<string | null>(null);
   const [isCheckingGithubAccess, setIsCheckingGithubAccess] = useState(false);
+  const [isCheckingCloudflareAccess, setIsCheckingCloudflareAccess] = useState(false);
   const [isReauthorizingGithub, setIsReauthorizingGithub] = useState(false);
   const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] = useState(false);
   const [cloudflareAccountDialog, setCloudflareAccountDialog] =
@@ -934,6 +1128,24 @@ export function ProviderConnectionsPage() {
     }
   }, [checkGithubConnectionHealth, isCheckingGithubAccess]);
 
+  const runCloudflareAccessCheck = useCallback(async () => {
+    if (isCheckingCloudflareAccess) {
+      return;
+    }
+
+    setCloudflareAccessError(null);
+    setIsCheckingCloudflareAccess(true);
+    try {
+      setCloudflareAccess(await checkCloudflareConnectionAccess({}));
+    } catch (error) {
+      setCloudflareAccessError(
+        error instanceof Error ? error.message : "Could not check Cloudflare access.",
+      );
+    } finally {
+      setIsCheckingCloudflareAccess(false);
+    }
+  }, [checkCloudflareConnectionAccess, isCheckingCloudflareAccess]);
+
   const loadCloudflareAccountDialogResources = async (preferredAccountId: string | undefined) => {
     const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
     cloudflareAccountDialogRequestIdRef.current = requestId;
@@ -984,11 +1196,15 @@ export function ProviderConnectionsPage() {
     if (provider === "github") {
       setGithubDisconnectedNotice(null);
     }
+    if (provider === "cloudflare") {
+      setCloudflareAccess(null);
+      setCloudflareAccessError(null);
+    }
     try {
       const oauthUrl =
         provider === "github"
           ? await getGithubOAuthUrl({
-              returnToPath: location.href,
+              returnToPath: getCurrentRootRelativeUrl(),
             })
           : await providerConfig.getOAuthUrl();
       if (isInIframe()) {
@@ -1018,7 +1234,7 @@ export function ProviderConnectionsPage() {
     setIsReauthorizingGithub(true);
     try {
       const oauthUrl = await reauthorizeGithubOAuth({
-        returnToPath: location.href,
+        returnToPath: getCurrentRootRelativeUrl(),
       });
       if (isInIframe()) {
         githubPopupOriginRef.current = getRedirectOrigin(oauthUrl) ?? window.location.origin;
@@ -1052,6 +1268,11 @@ export function ProviderConnectionsPage() {
         setIsCheckingGithubAccess(false);
         setIsReauthorizingGithub(false);
       }
+      if (provider === "cloudflare") {
+        setCloudflareAccess(null);
+        setCloudflareAccessError(null);
+        setIsCheckingCloudflareAccess(false);
+      }
     } catch (error) {
       console.error(`Failed to disconnect ${providerMetadata.label}:`, error);
     } finally {
@@ -1075,6 +1296,8 @@ export function ProviderConnectionsPage() {
       await selectCloudflareDefaultAccount({
         accountId: cloudflareAccountDialog.selectedAccountId,
       });
+      setCloudflareAccess(null);
+      setCloudflareAccessError(null);
       handleCloudflareAccountDialogOpenChange(false);
     } catch (error) {
       setCloudflareAccountDialog((current) => ({
@@ -1089,6 +1312,8 @@ export function ProviderConnectionsPage() {
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={apiKeyDialog}
+      cloudflareAccess={cloudflareAccess}
+      cloudflareAccessError={cloudflareAccessError}
       cloudflareAccountDialog={cloudflareAccountDialog}
       cloudflareConnection={cloudflareConnection}
       convexConnection={convexConnection}
@@ -1098,9 +1323,13 @@ export function ProviderConnectionsPage() {
       githubHealthError={githubHealthError}
       githubProviderSummary={githubProviderSummary}
       isAutoCheckingCloudflareToken={isAutoCheckingCloudflareToken}
+      isCheckingCloudflareAccess={isCheckingCloudflareAccess}
       isCheckingGithubAccess={isCheckingGithubAccess}
       isReauthorizingGithub={isReauthorizingGithub}
       now={now}
+      onCheckCloudflareAccess={() => {
+        void runCloudflareAccessCheck();
+      }}
       onCheckGithubAccess={() => {
         void runGithubHealthCheck();
       }}

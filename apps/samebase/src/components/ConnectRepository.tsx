@@ -53,6 +53,10 @@ const GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL =
 const GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL =
   "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps";
 
+function getCurrentRootRelativeUrl(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
 function formatTimeAgo(timestamp: number) {
   const now = Date.now();
   const diff = now - timestamp;
@@ -210,7 +214,7 @@ export function ConnectRepository() {
       setConnectError(null);
       try {
         const oauthUrl = await getGithubOAuthUrl({
-          returnToPath: location.href,
+          returnToPath: getCurrentRootRelativeUrl(),
         });
         if (isInIframe()) {
           const popup = openGithubOAuthPopup(oauthUrl);
