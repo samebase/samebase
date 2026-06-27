@@ -7,62 +7,11 @@ const BRAND_BACKGROUND_COLOR = "#ffffff";
 const SOCIAL_CARD_TEXT_X = 530;
 const SOCIAL_CARD_SITE_NAME_Y = 292;
 const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 86;
-const SOCIAL_CARD_TAGLINE_FIRST_LINE_Y = 356;
+const SOCIAL_CARD_TAGLINE_Y = 356;
 const SOCIAL_CARD_TAGLINE_FONT_SIZE = 34;
-const SOCIAL_CARD_TAGLINE_LINE_HEIGHT = 42;
-const SOCIAL_CARD_TAGLINE_MAX_CHARACTERS = 34;
 
 function escapeSvgText(text: string): string {
   return text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
-}
-
-function wrapSocialCardText(text: string): string[] {
-  const words = text
-    .trim()
-    .split(/\s+/u)
-    .filter((word) => word.length > 0);
-  const lines: string[] = [];
-  let currentLine = "";
-
-  for (const word of words) {
-    if (currentLine.length === 0) {
-      currentLine = word;
-      continue;
-    }
-
-    const nextLine = `${currentLine} ${word}`;
-    if (nextLine.length <= SOCIAL_CARD_TAGLINE_MAX_CHARACTERS) {
-      currentLine = nextLine;
-      continue;
-    }
-
-    lines.push(currentLine);
-    currentLine = word;
-  }
-
-  if (currentLine.length > 0) {
-    lines.push(currentLine);
-  }
-
-  return lines.length > 0 ? lines : [""];
-}
-
-function createSocialCardTaglineTextMarkup(): string {
-  return wrapSocialCardText(SAMEBASE_BRAND_COPY.socialCard.text)
-    .map(
-      (line, index) => `  <text
-    x="${SOCIAL_CARD_TEXT_X}"
-    y="${SOCIAL_CARD_TAGLINE_FIRST_LINE_Y + index * SOCIAL_CARD_TAGLINE_LINE_HEIGHT}"
-    fill="${BRAND_PRIMARY_COLOR}"
-    font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="${SOCIAL_CARD_TAGLINE_FONT_SIZE}"
-    font-weight="430"
-    letter-spacing="0"
-  >
-    ${escapeSvgText(line)}
-  </text>`,
-    )
-    .join("\n");
 }
 
 function readSvgBody(svgMarkup: string): string {
@@ -85,7 +34,6 @@ export function createSamebaseSocialCardSvgMarkup({
   faceTreatment?: LogoFaceTreatment;
 } = {}) {
   const logoBody = createLogoSvgBody("spatial", faceTreatment);
-  const taglineTextMarkup = createSocialCardTaglineTextMarkup();
 
   return `<svg
   xmlns="http://www.w3.org/2000/svg"
@@ -117,7 +65,17 @@ ${logoBody}
   >
     ${escapeSvgText(SAMEBASE_BRAND_COPY.siteName)}
   </text>
-${taglineTextMarkup}
+  <text
+    x="${SOCIAL_CARD_TEXT_X}"
+    y="${SOCIAL_CARD_TAGLINE_Y}"
+    fill="${BRAND_PRIMARY_COLOR}"
+    font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="${SOCIAL_CARD_TAGLINE_FONT_SIZE}"
+    font-weight="430"
+    letter-spacing="0"
+  >
+    ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.text)}
+  </text>
 </svg>`;
 }
 
