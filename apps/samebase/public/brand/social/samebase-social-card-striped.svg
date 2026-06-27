@@ -8,7 +8,7 @@
 >
   <title id="title">samebase.com social card</title>
   <desc id="desc">
-    Samebase logo and the text App builder for busy devs.
+    Samebase logo and the text The proper way to build web apps.
   </desc>
 
   <rect width="1200" height="630" fill="#ffffff" />
@@ -37,6 +37,6 @@
     font-weight="430"
     letter-spacing="0"
   >
-    App builder for busy devs
+    The proper way to build web apps
   </text>
 </svg>

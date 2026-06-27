@@ -1,4 +1,4 @@
-const tagline = "App builder for busy devs";
+const tagline = "The proper way to build web apps";
 
 export const SAMEBASE_BRAND_COPY = {
   productName: "Samebase",
