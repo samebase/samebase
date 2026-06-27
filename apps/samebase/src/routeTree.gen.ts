@@ -23,6 +23,7 @@ import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
+import { Route as dashboardHomeRouteImport } from "./routes/dashboard-home";
 import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
@@ -35,8 +36,7 @@ import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
 import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
-import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
-import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
+import { Route as landingDoItYourselfRouteImport } from "./routes/landing-do-it-yourself";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
@@ -117,6 +117,11 @@ const indexDBRoute = indexDBRouteImport.update({
   path: "/indexDB",
   getParentRoute: () => rootRouteImport,
 } as any);
+const dashboardHomeRoute = dashboardHomeRouteImport.update({
+  id: "/home",
+  path: "/home",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const connectRepoRoute = connectRepoRouteImport.update({
   id: "/connect-repo",
   path: "/connect-repo",
@@ -177,14 +182,9 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
-const vaultDashboardRootRoute = vaultDashboardRootRouteImport.update({
-  id: "/vault/",
-  path: "/vault/",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const vaultDashboardRoute = vaultDashboardRouteImport.update({
-  id: "/vault/$owner/$repo",
-  path: "/vault/$owner/$repo",
+const landingDoItYourselfRoute = landingDoItYourselfRouteImport.update({
+  id: "/landing/do-it-yourself",
+  path: "/landing/do-it-yourself",
   getParentRoute: () => rootRouteImport,
 } as any);
 const codexThreadBrowserResearchRoute =
@@ -238,6 +238,7 @@ const vaultDatabaseMonoRoute = vaultDatabaseMonoRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/connect-repo": typeof connectRepoRoute;
+  "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -252,7 +253,7 @@ export interface FileRoutesByFullPath {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
-  "/vault/": typeof vaultDashboardRootRoute;
+  "/landing/do-it-yourself": typeof landingDoItYourselfRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -267,7 +268,6 @@ export interface FileRoutesByFullPath {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
-  "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
   "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
@@ -277,6 +277,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/connect-repo": typeof connectRepoRoute;
+  "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -291,7 +292,7 @@ export interface FileRoutesByTo {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
-  "/vault": typeof vaultDashboardRootRoute;
+  "/landing/do-it-yourself": typeof landingDoItYourselfRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -306,7 +307,6 @@ export interface FileRoutesByTo {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
-  "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
   "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
@@ -317,6 +317,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
   "/connect-repo": typeof connectRepoRoute;
+  "/home": typeof dashboardHomeRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -331,7 +332,7 @@ export interface FileRoutesById {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
-  "/vault/": typeof vaultDashboardRootRoute;
+  "/landing/do-it-yourself": typeof landingDoItYourselfRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -346,7 +347,6 @@ export interface FileRoutesById {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
-  "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
   "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
@@ -358,6 +358,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/connect-repo"
+    | "/home"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -372,7 +373,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
-    | "/vault/"
+    | "/landing/do-it-yourself"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -387,7 +388,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/root"
     | "/vault/$owner/$repo/schema/$branch/root"
@@ -397,6 +397,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/connect-repo"
+    | "/home"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -411,7 +412,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
-    | "/vault"
+    | "/landing/do-it-yourself"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -426,7 +427,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/root"
     | "/vault/$owner/$repo/schema/$branch/root"
@@ -436,6 +436,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/connect-repo"
+    | "/home"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -450,7 +451,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
-    | "/vault/"
+    | "/landing/do-it-yourself"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -465,7 +466,6 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/root"
     | "/vault/$owner/$repo/schema/$branch/root"
@@ -476,6 +476,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   connectRepoRoute: typeof connectRepoRoute;
+  dashboardHomeRoute: typeof dashboardHomeRoute;
   indexDBRoute: typeof indexDBRoute;
   landingRoute: typeof landingRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
@@ -490,7 +491,7 @@ export interface RootRouteChildren {
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
-  vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
+  landingDoItYourselfRoute: typeof landingDoItYourselfRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoRasterRoute: typeof logoRasterRoute;
   logoRasterSeamsRoute: typeof logoRasterSeamsRoute;
@@ -505,7 +506,6 @@ export interface RootRouteChildren {
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
-  vaultDashboardRoute: typeof vaultDashboardRoute;
   codespaceChatRoute: typeof codespaceChatRoute;
   vaultDatabaseRootRoute: typeof vaultDatabaseRootRoute;
   vaultSchemaRootRoute: typeof vaultSchemaRootRoute;
@@ -613,6 +613,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof indexDBRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/home": {
+      id: "/home";
+      path: "/home";
+      fullPath: "/home";
+      preLoaderRoute: typeof dashboardHomeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/connect-repo": {
       id: "/connect-repo";
       path: "/connect-repo";
@@ -697,18 +704,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoIsoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault/": {
-      id: "/vault/";
-      path: "/vault";
-      fullPath: "/vault/";
-      preLoaderRoute: typeof vaultDashboardRootRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/vault/$owner/$repo": {
-      id: "/vault/$owner/$repo";
-      path: "/vault/$owner/$repo";
-      fullPath: "/vault/$owner/$repo";
-      preLoaderRoute: typeof vaultDashboardRouteImport;
+    "/landing/do-it-yourself": {
+      id: "/landing/do-it-yourself";
+      path: "/landing/do-it-yourself";
+      fullPath: "/landing/do-it-yourself";
+      preLoaderRoute: typeof landingDoItYourselfRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/research/codex-app-server/browser": {
@@ -780,6 +780,7 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   connectRepoRoute: connectRepoRoute,
+  dashboardHomeRoute: dashboardHomeRoute,
   indexDBRoute: indexDBRoute,
   landingRoute: landingRoute,
   landingPreviewRoute: landingPreviewRoute,
@@ -794,7 +795,7 @@ const rootRouteChildren: RootRouteChildren = {
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
-  vaultDashboardRootRoute: vaultDashboardRootRoute,
+  landingDoItYourselfRoute: landingDoItYourselfRoute,
   logoIsoRoute: logoIsoRoute,
   logoRasterRoute: logoRasterRoute,
   logoRasterSeamsRoute: logoRasterSeamsRoute,
@@ -809,7 +810,6 @@ const rootRouteChildren: RootRouteChildren = {
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,
-  vaultDashboardRoute: vaultDashboardRoute,
   codespaceChatRoute: codespaceChatRoute,
   vaultDatabaseRootRoute: vaultDatabaseRootRoute,
   vaultSchemaRootRoute: vaultSchemaRootRoute,

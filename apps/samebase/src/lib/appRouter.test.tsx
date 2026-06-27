@@ -138,6 +138,9 @@ vi.mock("@/components/MachineConnectPage", () => ({
 }));
 
 vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
+  LandingDoItYourselfPage: () => (
+    <div data-testid="landing-do-it-yourself-page">Landing do it yourself page</div>
+  ),
   LandingMarkdownPreviewPage: () => (
     <div data-testid="landing-markdown-preview-page">Landing markdown preview page</div>
   ),
@@ -724,6 +727,15 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("renders the do-it-yourself landing guide through an explicit route", async () => {
+    await renderRoute("/landing/do-it-yourself");
+
+    expect(
+      rootElement?.querySelector('[data-testid="landing-do-it-yourself-page"]')?.textContent,
+    ).toContain("Landing do it yourself page");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
   it("renders localStorage through an explicit route with the shared app workspace shell", async () => {
     await renderRoute("/localStorage");
 
@@ -792,7 +804,7 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="app-workspace-left-pane"]')).not.toBeNull();
   });
 
-  it("accepts the Romanian landing preview query on the explicit route", async () => {
+  it("ignores the obsolete language query on the landing preview route", async () => {
     await renderRoute("/landing-preview?lang=ro");
 
     expect(

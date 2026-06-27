@@ -93,6 +93,7 @@ const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   rightDesktopWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
   rightMobileWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
+const LANDING_DO_IT_YOURSELF_PATHNAME = "/landing/do-it-yourself";
 const LANDING_PREVIEW_PATHNAME = "/landing-preview";
 const LANDING_PREVIEW_ROUTE_CHROME_DEFAULTS = {
   sidebarDefaultState: {
@@ -188,7 +189,7 @@ function useAppWorkspaceDefaultRouteChrome() {
     select: (location) => location.pathname,
   });
 
-  if (pathname === LANDING_PREVIEW_PATHNAME) {
+  if (pathname === LANDING_PREVIEW_PATHNAME || pathname === LANDING_DO_IT_YOURSELF_PATHNAME) {
     return {
       ...LANDING_PREVIEW_ROUTE_CHROME_DEFAULTS,
       pathname,

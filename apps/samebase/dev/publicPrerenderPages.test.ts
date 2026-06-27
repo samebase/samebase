@@ -7,6 +7,8 @@ describe("readPublicPrerenderPages", () => {
     const paths = pages.map((page) => page.path);
 
     expect(paths).toContain("/");
+    expect(paths).toContain("/landing/do-it-yourself");
+    expect(paths).toContain("/landing-preview");
     expect(paths).toContain("/privacy");
     expect(paths).toContain("/terms");
     expect(paths).not.toContain("/add");

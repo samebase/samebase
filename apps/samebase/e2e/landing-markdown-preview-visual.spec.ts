@@ -1,15 +1,14 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
 import {
+  LANDING_DO_IT_YOURSELF_ROUTE,
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
   LANDING_MARKDOWN_PREVIEW_ROUTE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
-import { buildPathWithTanStackSearch } from "../src/lib/tanstackSearchParams";
 
-const expectedLandingPreviewSidebarFiles = ["Overview", "Build it yourself"] as const;
+const expectedLandingPreviewSidebarFiles = ["Overview", "Do it yourself"] as const;
 const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-1-create-accounts.mp4",
   "/landing-preview/step-2-use-template.mp4",
@@ -17,12 +16,6 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-4-create-convex-project.mp4",
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
-const expectedRomanianPreviewHref = buildPathWithTanStackSearch({
-  pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
-  search: {
-    [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
-  },
-});
 
 async function expectDesktopPaneWidths(
   page: Page,
@@ -58,10 +51,19 @@ async function expectDesktopPaneWidths(
 }
 
 async function expectSidebarFiles(sidebar: Locator) {
-  await expect(sidebar.getByRole("link")).toHaveCount(0);
+  const sidebarLinks = sidebar.getByRole("link");
+  await expect(sidebarLinks).toHaveCount(expectedLandingPreviewSidebarFiles.length);
   for (const fileLabel of expectedLandingPreviewSidebarFiles) {
     await expect(sidebar.getByText(fileLabel, { exact: true })).toBeVisible();
   }
+  await expect(sidebar.getByRole("link", { name: "Overview" })).toHaveAttribute(
+    "href",
+    LANDING_MARKDOWN_PREVIEW_ROUTE,
+  );
+  await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
+    "href",
+    LANDING_DO_IT_YOURSELF_ROUTE,
+  );
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
 }
@@ -112,27 +114,18 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   ).toBeVisible();
   await expect(
     article.getByRole("heading", {
-      name: /Build it yourself: Deploy a production-ready, real-time web app/,
+      name: "Do it yourself",
     }),
-  ).toHaveCount(1);
-  await expect(
-    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
-  ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
+  ).toBeVisible();
   await expect(
     article.getByRole("link", {
-      name: "Română",
+      name: "Do it yourself",
     }),
-  ).toHaveAttribute("href", expectedRomanianPreviewHref);
-  await expect(article.locator("details")).toHaveCount(4);
-  await expect(article.locator("details video")).toHaveCount(0);
-  const videos = article.locator("video");
-  await expect(videos).toHaveCount(expectedLandingPreviewVideoSrcs.length);
-  for (const [index, expectedVideoSrc] of expectedLandingPreviewVideoSrcs.entries()) {
-    const video = videos.nth(index);
-    await expect(video).toBeVisible();
-    await expect(video).toHaveAttribute("src", expectedVideoSrc);
-  }
-  await hideLandingPreviewVideosForScreenshot(page);
+  ).toHaveAttribute("href", LANDING_DO_IT_YOURSELF_ROUTE);
+  await expect(
+    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
+  ).toHaveCount(0);
+  await expect(article.locator("video")).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("landing-markdown-preview-desktop.png", {
     animations: "disabled",
@@ -153,13 +146,36 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
   await expect(rightSidebar).toHaveCSS("width", "0px");
+  await sidebar.getByRole("link", { name: "Do it yourself" }).click();
+  await expect(page).toHaveURL(new RegExp(`${LANDING_DO_IT_YOURSELF_ROUTE}$`));
+  await expectDesktopPaneWidths(page, {
+    left: "240px",
+    right: "0px",
+  });
+  await expect(
+    article.getByRole("heading", {
+      name: "Do it yourself: Deploy a production-ready, real-time web app for $0/month",
+    }),
+  ).toBeVisible();
+  await expect(
+    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
+  ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
+  await expect(article.locator("details")).toHaveCount(3);
+  await expect(article.locator("details video")).toHaveCount(0);
+  const videos = article.locator("video");
+  await expect(videos).toHaveCount(expectedLandingPreviewVideoSrcs.length);
+  for (const [index, expectedVideoSrc] of expectedLandingPreviewVideoSrcs.entries()) {
+    const video = videos.nth(index);
+    await expect(video).toBeVisible();
+    await expect(video).toHaveAttribute("src", expectedVideoSrc);
+  }
 
   const firstTaskCheckbox = article.locator('input[type="checkbox"]').first();
   await expect(firstTaskCheckbox).toBeEnabled();
   await firstTaskCheckbox.check();
   await expect(firstTaskCheckbox).toBeChecked();
 
-  await page.goto("/landing-preview#6-connect-codex-to-github", {
+  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#6-connect-codex-to-github`, {
     waitUntil: "domcontentloaded",
   });
   await expect(
@@ -168,7 +184,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
       .locator('[id="6-connect-codex-to-github"]'),
   ).toBeInViewport();
 
-  await page.goto("/landing-preview#why-is-samebase-com-free", {
+  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#why-is-samebase-com-free`, {
     waitUntil: "domcontentloaded",
   });
   const finalHeading = page
@@ -182,7 +198,7 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
 
 test("landing markdown preview mobile pane query opens the flat sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
-  await page.goto("/landing-preview?left&dark", {
+  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}?left&dark`, {
     waitUntil: "domcontentloaded",
   });
 

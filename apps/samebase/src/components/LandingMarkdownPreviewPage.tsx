@@ -8,70 +8,82 @@ import {
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import {
   LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE,
+  LANDING_DO_IT_YOURSELF_ROUTE,
+  LANDING_MARKDOWN_PREVIEW_ROUTE,
   LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_MARKDOWN_PREVIEW_TEST_ID,
-  type LandingMarkdownPreviewLanguage,
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
+import landingDoItYourselfMarkdown from "@/content/landing-do-it-yourself.md?raw";
 import landingPreviewMarkdown from "@/content/landing-preview.md?raw";
-import landingPreviewRomanianMarkdown from "@/content/landing-preview.ro.md?raw";
-import { useLocation } from "@tanstack/react-router";
-import { useLayoutEffect } from "react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useLayoutEffect, type MouseEvent as ReactMouseEvent } from "react";
 
-const LANDING_MARKDOWN_BY_LANGUAGE = {
-  en: landingPreviewMarkdown,
-  ro: landingPreviewRomanianMarkdown,
-} satisfies Record<LandingMarkdownPreviewLanguage, string>;
+type LandingMarkdownDocumentKey = "overview" | "doItYourself";
+
+const LANDING_MARKDOWN_BY_DOCUMENT_KEY = {
+  doItYourself: landingDoItYourselfMarkdown,
+  overview: landingPreviewMarkdown,
+} satisfies Record<LandingMarkdownDocumentKey, string>;
 
 type LandingPreviewHelpCenter = {
   items: FileTreeItem[];
   selectedFile: string;
 };
 
+type LandingPreviewClickEvent = Pick<
+  ReactMouseEvent<HTMLElement>,
+  "altKey" | "button" | "ctrlKey" | "defaultPrevented" | "metaKey" | "shiftKey"
+>;
+
+function shouldUseNativeLinkClick(event: LandingPreviewClickEvent) {
+  return (
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.shiftKey
+  );
+}
+
 function createLandingPreviewHelpCenter({
-  buildManualLabel,
-  overviewLabel,
+  documentKey,
 }: {
-  buildManualLabel: string;
-  overviewLabel: string;
+  documentKey: LandingMarkdownDocumentKey;
 }): LandingPreviewHelpCenter {
   const overviewPath = "01 Overview.md";
-  const buildManualPath = "02 Build it yourself.md";
+  const doItYourselfPath = "02 Do it yourself.md";
 
   return {
     items: [
       {
-        label: overviewLabel,
+        href: LANDING_MARKDOWN_PREVIEW_ROUTE,
+        label: "Overview",
         originalPath: overviewPath,
         path: overviewPath,
         type: "blob",
       },
       {
-        label: buildManualLabel,
-        originalPath: buildManualPath,
-        path: buildManualPath,
+        href: LANDING_DO_IT_YOURSELF_ROUTE,
+        label: "Do it yourself",
+        originalPath: doItYourselfPath,
+        path: doItYourselfPath,
         type: "blob",
       },
     ],
-    selectedFile: overviewPath,
+    selectedFile: documentKey === "overview" ? overviewPath : doItYourselfPath,
   };
 }
 
-const LANDING_PREVIEW_HELP_CENTER_BY_LANGUAGE = {
-  en: createLandingPreviewHelpCenter({
-    buildManualLabel: "Build it yourself",
-    overviewLabel: "Overview",
-  }),
-  ro: createLandingPreviewHelpCenter({
-    buildManualLabel: "Manual",
-    overviewLabel: "Prezentare",
-  }),
-} satisfies Record<LandingMarkdownPreviewLanguage, LandingPreviewHelpCenter>;
 const LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,
   rightDesktopOpen: false,
 } as const;
+const LANDING_ROUTE_BY_HELP_CENTER_PATH = new Map([
+  ["01 Overview.md", LANDING_MARKDOWN_PREVIEW_ROUTE],
+  ["02 Do it yourself.md", LANDING_DO_IT_YOURSELF_ROUTE],
+]);
 
 function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
   const searchParams = parseTanStackSearch(search);
@@ -108,8 +120,13 @@ function LandingMarkdownPreviewPaneUrlSync() {
   return null;
 }
 
-function LandingMarkdownPreviewSidebar({ language }: { language: LandingMarkdownPreviewLanguage }) {
-  const landingPreviewHelpCenter = LANDING_PREVIEW_HELP_CENTER_BY_LANGUAGE[language];
+function LandingMarkdownPreviewSidebar({
+  documentKey,
+}: {
+  documentKey: LandingMarkdownDocumentKey;
+}) {
+  const landingPreviewHelpCenter = createLandingPreviewHelpCenter({ documentKey });
+  const navigate = useNavigate();
 
   return (
     <nav
@@ -121,39 +138,52 @@ function LandingMarkdownPreviewSidebar({ language }: { language: LandingMarkdown
         items={landingPreviewHelpCenter.items}
         selectedFile={landingPreviewHelpCenter.selectedFile}
         folderExpansionStates={[]}
+        onFileSelect={(path, _status, event) => {
+          const route = LANDING_ROUTE_BY_HELP_CENTER_PATH.get(path);
+          if (route === undefined || event === undefined || shouldUseNativeLinkClick(event)) {
+            return;
+          }
+
+          event.preventDefault();
+          void navigate({ to: route });
+        }}
       />
     </nav>
   );
 }
 
 function LandingMarkdownPreviewDocument({
-  language,
+  documentKey,
 }: {
-  language: LandingMarkdownPreviewLanguage;
+  documentKey: LandingMarkdownDocumentKey;
 }) {
   return (
     <MarkdownLandingDocument
       className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
       dataTestId={LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID}
-      markdown={LANDING_MARKDOWN_BY_LANGUAGE[language]}
+      markdown={LANDING_MARKDOWN_BY_DOCUMENT_KEY[documentKey]}
     />
   );
 }
 
-export function LandingMarkdownPreviewPage({
-  language = LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE,
-}: {
-  language?: LandingMarkdownPreviewLanguage;
-}) {
+function LandingMarkdownPage({ documentKey }: { documentKey: LandingMarkdownDocumentKey }) {
   return (
     <AppWorkspaceRouteChrome
-      left={{ content: <LandingMarkdownPreviewSidebar language={language} /> }}
+      left={{ content: <LandingMarkdownPreviewSidebar documentKey={documentKey} /> }}
       sidebarDefaultState={LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE}
     >
       <LandingMarkdownPreviewPaneUrlSync />
       <div data-testid={LANDING_MARKDOWN_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
-        <LandingMarkdownPreviewDocument language={language} />
+        <LandingMarkdownPreviewDocument documentKey={documentKey} />
       </div>
     </AppWorkspaceRouteChrome>
   );
+}
+
+export function LandingMarkdownPreviewPage() {
+  return <LandingMarkdownPage documentKey="overview" />;
+}
+
+export function LandingDoItYourselfPage() {
+  return <LandingMarkdownPage documentKey="doItYourself" />;
 }

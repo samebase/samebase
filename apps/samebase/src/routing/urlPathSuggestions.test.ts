@@ -37,6 +37,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
+    expect(suggestions).not.toContain("/landing/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
@@ -71,6 +72,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/connect-repo");
     expect(suggestions).not.toContain("/vault");
     expect(suggestions).not.toContain("/indexDB");
+    expect(suggestions).not.toContain("/landing/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/logo/iso");

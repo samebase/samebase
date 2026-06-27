@@ -6,7 +6,6 @@ import { useLocation } from "@tanstack/react-router";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { isMarkdownVideoUrl } from "@/lib/landingMarkdownMedia";
-import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/routeSearch/landingPreview";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act } = React;
@@ -171,12 +170,10 @@ describe("MarkdownLandingDocument", () => {
   });
 
   it("routes local markdown links through TanStack Router", async () => {
-    const element = await renderRouterMarkdown(
-      `[Română](${LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL})`,
-    );
+    const element = await renderRouterMarkdown(`[Open manual](/landing/do-it-yourself)`);
 
     const link = element.querySelector<HTMLAnchorElement>("a");
-    expect(link?.getAttribute("href")).toBe("/landing-preview?lang=ro");
+    expect(link?.getAttribute("href")).toBe("/landing/do-it-yourself");
 
     await act(async () => {
       link?.dispatchEvent(
@@ -189,7 +186,7 @@ describe("MarkdownLandingDocument", () => {
     });
 
     expect(element.querySelector('[data-testid="router-location"]')?.textContent).toBe(
-      "/landing-preview?lang=ro",
+      "/landing/do-it-yourself",
     );
   });
 

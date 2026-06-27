@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
-import { LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL } from "@/routeSearch/landingPreview";
+import {
+  LandingDoItYourselfPage,
+  LandingMarkdownPreviewPage,
+} from "@/components/LandingMarkdownPreviewPage";
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -31,6 +33,7 @@ vi.mock("@/components/MarkdownLandingDocument", () => ({
 vi.mock("@tanstack/react-router", () => ({
   useLocation: ({ select }: { select: (location: { searchStr: string }) => string }) =>
     select({ searchStr: "" }),
+  useNavigate: () => () => {},
 }));
 
 vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
@@ -47,9 +50,11 @@ describe("LandingMarkdownPreviewPage", () => {
   it("renders the English preview by default", () => {
     const markup = renderToStaticMarkup(<LandingMarkdownPreviewPage />);
 
-    expect(markup).toContain("Deploy a production-ready");
-    expect(markup).toContain("Language: English");
-    expect(markup).toContain(LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL);
+    expect(markup).toContain("The correct");
+    expect(markup).toContain("Do it yourself");
+    expect(markup).toContain("/landing/do-it-yourself");
+    expect(markup).not.toContain("Language: English");
+    expect(markup).not.toContain("Create Github, Convex, Cloudflare");
   });
 
   it("keeps the help sidebar as two flat files instead of linking every heading", () => {
@@ -57,7 +62,9 @@ describe("LandingMarkdownPreviewPage", () => {
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
     expect(sidebarMarkup).toContain("Overview");
-    expect(sidebarMarkup).toContain("Build it yourself");
+    expect(sidebarMarkup).toContain("Do it yourself");
+    expect(sidebarMarkup).toContain('href="/landing-preview"');
+    expect(sidebarMarkup).toContain('href="/landing/do-it-yourself"');
     expect(sidebarMarkup).not.toContain("Start here");
     expect(sidebarMarkup).not.toContain("samebase.com");
     expect(sidebarMarkup).not.toContain('href="#');
@@ -72,12 +79,11 @@ describe("LandingMarkdownPreviewPage", () => {
     );
   });
 
-  it("renders the Romanian preview when selected", () => {
-    const markup = renderToStaticMarkup(<LandingMarkdownPreviewPage language="ro" />);
+  it("renders the do-it-yourself guide separately", () => {
+    const markup = renderToStaticMarkup(<LandingDoItYourselfPage />);
 
-    expect(markup).toContain("Lansează o aplicație web");
+    expect(markup).toContain("Do it yourself: Deploy a production-ready");
     expect(markup).toContain("/landing-preview/step-1-create-accounts.mp4");
-    expect(markup).toContain("Prezentare");
-    expect(markup).toContain("Manual");
+    expect(markup).toContain("Manual setup TLDR");
   });
 });

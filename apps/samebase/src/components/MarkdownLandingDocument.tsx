@@ -461,6 +461,13 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
         </summary>
       );
     },
+    sup({ children }) {
+      return (
+        <sup className="relative -top-3 ml-0.5 text-[0.625rem] font-medium leading-none">
+          {children}
+        </sup>
+      );
+    },
     table({ children }) {
       return (
         <div className="overflow-x-auto border">

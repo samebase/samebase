@@ -407,11 +407,11 @@ describe("AppWorkspaceShell", () => {
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
   });
 
-  it("server-renders the landing preview with closed desktop sidebars by default", () => {
+  it("server-renders landing markdown pages with closed desktop sidebars by default", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/landing-preview"]}>
+      <TestRouterProvider initialEntries={["/landing/do-it-yourself"]}>
         <AppWorkspaceShell>
-          <div data-testid="workspace-route-content">landing preview content</div>
+          <div data-testid="workspace-route-content">landing markdown content</div>
         </AppWorkspaceShell>
       </TestRouterProvider>,
     );
