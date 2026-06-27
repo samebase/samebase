@@ -165,7 +165,7 @@ export const checkCloudflareConnectionAccess = action({
         },
         describe: (verification) => {
           const status = verification.status ?? "verified";
-          return `Cloudflare accepted the API token (${status}).`;
+          return `Probe GET /user/tokens/verify succeeded (${status}).`;
         },
       });
       checks.push(tokenProbe.check);
@@ -194,85 +194,84 @@ export const checkCloudflareConnectionAccess = action({
       },
       describe: (accounts) => {
         if (accounts.length === 0) {
-          return "Cloudflare returned no visible accounts.";
+          return "Probe GET /accounts succeeded and returned no visible accounts.";
         }
         if (accounts.length === 1) {
-          return `Cloudflare returned 1 visible account: ${accounts[0].accountName}.`;
+          return `Probe GET /accounts returned 1 visible account: ${accounts[0].accountName}.`;
         }
-        return `Cloudflare returned ${accounts.length} visible accounts.`;
+        return `Probe GET /accounts returned ${accounts.length} visible accounts.`;
       },
     });
     checks.push(accountsProbe.check);
 
     const visibleAccounts = accountsProbe.state === "ok" ? accountsProbe.value : [];
     const selectedAccount = readSelectedCloudflareAccount(resolvedConnection.defaultAccount);
-    checks.push(
-      buildSelectedCloudflareAccountCheck({
-        selectedAccount,
-        accountsProbe,
-        visibleAccounts,
-      }),
-    );
-
     const selectedVisibleAccount =
       selectedAccount === null
         ? null
         : (visibleAccounts.find((account) => account.accountId === selectedAccount.accountId) ??
           null);
+    checks.push(
+      buildSelectedCloudflareAccountCheck({
+        selectedAccount,
+        accountsProbe,
+        selectedVisibleAccount,
+      }),
+    );
 
     if (selectedVisibleAccount === null) {
       checks.push(
         buildUnknownCloudflareCheck({
           key: "workers",
           label: "Workers",
-          message:
-            selectedAccount === null
-              ? "Choose a Cloudflare account before checking Workers access."
-              : "The selected Cloudflare account was not visible to this credential.",
+          message: buildSkippedCloudflareCapabilityProbeMessage({
+            accountsProbe,
+            capabilityLabel: "Workers",
+            selectedAccount,
+          }),
         }),
-      );
-      checks.push(
         buildUnknownCloudflareCheck({
           key: "workers_builds",
           label: "Workers Builds",
-          message:
-            selectedAccount === null
-              ? "Choose a Cloudflare account before checking Workers Builds access."
-              : "The selected Cloudflare account was not visible to this credential.",
+          message: buildSkippedCloudflareCapabilityProbeMessage({
+            accountsProbe,
+            capabilityLabel: "Workers Builds",
+            selectedAccount,
+          }),
         }),
       );
     } else {
-      const workersProbe = await runCloudflareProbe({
-        key: "workers",
-        label: "Workers",
-        run: async () => {
-          await checkCloudflareWorkersAccess({
-            accountId: selectedVisibleAccount.accountId,
-            token,
-            transport,
-          });
-        },
-        describe: () => {
-          return `Cloudflare returned Workers account settings for ${selectedVisibleAccount.accountName}.`;
-        },
-      });
-      checks.push(workersProbe.check);
-
-      const buildsProbe = await runCloudflareProbe({
-        key: "workers_builds",
-        label: "Workers Builds",
-        run: async () => {
-          await checkCloudflareWorkersBuildsAccess({
-            accountId: selectedVisibleAccount.accountId,
-            token,
-            transport,
-          });
-        },
-        describe: () => {
-          return `Cloudflare returned Workers Builds account limits for ${selectedVisibleAccount.accountName}.`;
-        },
-      });
-      checks.push(buildsProbe.check);
+      const [workersProbe, buildsProbe] = await Promise.all([
+        runCloudflareProbe({
+          key: "workers",
+          label: "Workers",
+          run: async () => {
+            await checkCloudflareWorkersAccess({
+              accountId: selectedVisibleAccount.accountId,
+              token,
+              transport,
+            });
+          },
+          describe: () => {
+            return `Probe GET /accounts/{account_id}/workers/account-settings succeeded for ${selectedVisibleAccount.accountName}.`;
+          },
+        }),
+        runCloudflareProbe({
+          key: "workers_builds",
+          label: "Workers Builds",
+          run: async () => {
+            await checkCloudflareWorkersBuildsAccess({
+              accountId: selectedVisibleAccount.accountId,
+              token,
+              transport,
+            });
+          },
+          describe: () => {
+            return `Probe GET /accounts/{account_id}/builds/account/limits succeeded for ${selectedVisibleAccount.accountName}.`;
+          },
+        }),
+      ]);
+      checks.push(workersProbe.check, buildsProbe.check);
     }
 
     return {
@@ -341,11 +340,15 @@ async function verifyCloudflareApiToken({
     params: {},
   });
 
+  if (!verification) {
+    return {};
+  }
+
   return {
-    id: normalizeOptionalString(verification?.id),
-    status: normalizeOptionalString(verification?.status),
-    expiresOn: normalizeOptionalString(verification?.expires_on),
-    notBefore: normalizeOptionalString(verification?.not_before),
+    id: normalizeOptionalString(verification.id),
+    status: normalizeOptionalString(verification.status),
+    expiresOn: normalizeOptionalString(verification.expires_on),
+    notBefore: normalizeOptionalString(verification.not_before),
   };
 }
 
@@ -418,25 +421,25 @@ function buildCloudflareOAuthTokenCheck({
     key: "token",
     label: "OAuth token",
     status: "ok",
-    message: `Samebase has a ${formatCloudflareTokenStatus(status)} Cloudflare OAuth token expiring ${new Date(expiresAt).toISOString()}.`,
+    message: `Stored OAuth token metadata says the token is ${formatCloudflareTokenStatus(status)} until ${new Date(expiresAt).toISOString()}. Live probes below verify current Cloudflare access.`,
   };
 }
 
 function buildSelectedCloudflareAccountCheck({
   selectedAccount,
   accountsProbe,
-  visibleAccounts,
+  selectedVisibleAccount,
 }: {
   selectedAccount: SelectedCloudflareAccount | null;
   accountsProbe: CloudflareProbeResult<CloudflareVisibleAccount[]>;
-  visibleAccounts: CloudflareVisibleAccount[];
+  selectedVisibleAccount: CloudflareVisibleAccount | null;
 }): CloudflareAccessCheck {
   if (selectedAccount === null) {
     return {
       key: "selected_account",
       label: "Selected account",
       status: "unknown",
-      message: "No Cloudflare account is selected.",
+      message: "Skipped: no Cloudflare account is selected.",
     };
   }
 
@@ -445,19 +448,17 @@ function buildSelectedCloudflareAccountCheck({
       key: "selected_account",
       label: "Selected account",
       status: "unknown",
-      message: "Account visibility could not be checked.",
+      message:
+        "Skipped: the Accounts probe failed, so selected-account visibility could not be checked.",
     };
   }
 
-  const matchingAccount = visibleAccounts.find(
-    (account) => account.accountId === selectedAccount.accountId,
-  );
-  if (matchingAccount === undefined) {
+  if (selectedVisibleAccount === null) {
     return {
       key: "selected_account",
       label: "Selected account",
       status: "error",
-      message: `${selectedAccount.accountName} is selected but was not returned by Cloudflare.`,
+      message: `The Accounts probe did not return selected account ${selectedAccount.accountName} (${selectedAccount.accountId}).`,
     };
   }
 
@@ -465,8 +466,28 @@ function buildSelectedCloudflareAccountCheck({
     key: "selected_account",
     label: "Selected account",
     status: "ok",
-    message: `${matchingAccount.accountName} is selected and visible to this credential.`,
+    message: `The Accounts probe returned selected account ${selectedVisibleAccount.accountName} (${selectedVisibleAccount.accountId}).`,
   };
+}
+
+function buildSkippedCloudflareCapabilityProbeMessage({
+  accountsProbe,
+  capabilityLabel,
+  selectedAccount,
+}: {
+  accountsProbe: CloudflareProbeResult<CloudflareVisibleAccount[]>;
+  capabilityLabel: string;
+  selectedAccount: SelectedCloudflareAccount | null;
+}): string {
+  if (selectedAccount === null) {
+    return `Skipped: choose a Cloudflare account before probing ${capabilityLabel}.`;
+  }
+
+  if (accountsProbe.state === "error") {
+    return `Skipped: the Accounts probe failed, so Samebase could not confirm the selected account before probing ${capabilityLabel}.`;
+  }
+
+  return `Skipped: the Accounts probe did not return selected account ${selectedAccount.accountName} (${selectedAccount.accountId}).`;
 }
 
 function buildUnknownCloudflareCheck({
@@ -539,32 +560,32 @@ function getCloudflareRequestedScopes(
   }
 }
 
-function labelCloudflareOAuthScope(scope: string): string {
-  switch (scope) {
-    case "account-settings.read":
-    case "account:read":
-      return "Read account metadata";
-    case "offline_access":
-      return "Refresh access without reconnecting";
-    case "user:read":
-      return "Read user profile";
-    case "workers-ci.read":
-    case "workers_builds:read":
-      return "Read Workers Builds";
-    case "workers-ci.write":
-    case "workers_builds:write":
-      return "Manage Workers Builds";
-    case "workers-scripts.read":
-    case "workers:read":
-      return "Read Workers";
-    case "workers-scripts.write":
-    case "workers:write":
-    case "workers_scripts:write":
-      return "Manage Workers";
-    default:
-      return scope;
-  }
+type CloudflareRequestedOAuthScope =
+  | (typeof CLOUDFLARE_OAUTH_SCOPES)[number]
+  | (typeof CLOUDFLARE_MCP_OAUTH_SCOPES)[number];
+
+function labelCloudflareOAuthScope(scope: CloudflareRequestedOAuthScope): string {
+  return CLOUDFLARE_OAUTH_SCOPE_LABELS[scope];
 }
+
+const CLOUDFLARE_OAUTH_SCOPE_LABELS = {
+  "account-settings.read": "Read account metadata",
+  "account:read": "Read account metadata",
+  offline_access: "Refresh access without reconnecting",
+  "user:read": "Read user profile",
+  "workers-ci.read": "Read Workers Builds",
+  "workers-ci.write": "Manage Workers Builds",
+  "workers_builds:read": "Read Workers Builds",
+  "workers_builds:write": "Manage Workers Builds",
+  "workers-scripts.read": "Read Workers",
+  "workers-scripts.write": "Manage Workers",
+  "workers:read": "Read Workers",
+  "workers:write": "Manage Workers",
+  "workers_scripts:write": "Manage Workers",
+} satisfies Record<
+  (typeof CLOUDFLARE_OAUTH_SCOPES)[number] | (typeof CLOUDFLARE_MCP_OAUTH_SCOPES)[number],
+  string
+>;
 
 function formatCloudflareTokenStatus(status: McpTokenHealth["status"]): string {
   switch (status) {

@@ -188,7 +188,7 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("Connected (OAuth).");
     expect(markup).toContain("Manage account");
     expect(markup).toContain(
-      "Run Check access to see the Cloudflare OAuth scopes Samebase requested.",
+      "Run Check access to see the OAuth scopes Samebase requested from Cloudflare.",
     );
     expect(markup).toContain("Reconnect");
     expect(markup).not.toContain("Token Valid.");
@@ -352,31 +352,33 @@ describe("ProviderConnectionsPage", () => {
         {
           key: "token",
           label: "OAuth token",
-          message: "Samebase has a valid Cloudflare OAuth token expiring 2026-06-22T14:00:00.000Z.",
+          message:
+            "Stored OAuth token metadata says the token is valid until 2026-06-22T14:00:00.000Z. Live probes below verify current Cloudflare access.",
           status: "ok",
         },
         {
           key: "accounts",
           label: "Accounts",
-          message: "Cloudflare returned 1 visible account: samebase.",
+          message: "Probe GET /accounts returned 1 visible account: samebase.",
           status: "ok",
         },
         {
           key: "selected_account",
           label: "Selected account",
-          message: "samebase is selected and visible to this credential.",
+          message: "The Accounts probe returned selected account samebase (account_123).",
           status: "ok",
         },
         {
           key: "workers",
           label: "Workers",
-          message: "Cloudflare returned Workers account settings for samebase.",
+          message:
+            "Probe GET /accounts/{account_id}/workers/account-settings succeeded for samebase.",
           status: "ok",
         },
         {
           key: "workers_builds",
           label: "Workers Builds",
-          message: "Cloudflare returned Workers Builds account limits for samebase.",
+          message: "Probe GET /accounts/{account_id}/builds/account/limits succeeded for samebase.",
           status: "ok",
         },
       ],
@@ -430,14 +432,14 @@ describe("ProviderConnectionsPage", () => {
     });
 
     expect(checkCloudflareConnectionAccess).toHaveBeenCalledWith({});
-    expect(container.textContent).toContain("account-settings.read");
-    expect(container.textContent).toContain("workers-scripts.read");
+    expect(container.textContent).toContain("account-settings.read · Read account metadata");
+    expect(container.textContent).toContain("workers-scripts.read · Read Workers");
     expect(container.textContent).toContain("samebase (account_123) · Selected");
     expect(container.textContent).toContain(
-      "OAuth token: OK - Samebase has a valid Cloudflare OAuth token expiring 2026-06-22T14:00:00.000Z.",
+      "OAuth token: OK - Stored OAuth token metadata says the token is valid until 2026-06-22T14:00:00.000Z. Live probes below verify current Cloudflare access.",
     );
     expect(container.textContent).toContain(
-      "Workers Builds: OK - Cloudflare returned Workers Builds account limits for samebase.",
+      "Workers Builds: OK - Probe GET /accounts/{account_id}/builds/account/limits succeeded for samebase.",
     );
   });
 });

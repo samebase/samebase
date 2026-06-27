@@ -29,25 +29,28 @@ const providerConnectionsVisualFixtureState = {
       {
         key: "token",
         label: "OAuth token",
-        message: "Samebase has a valid Cloudflare OAuth token expiring 2026-06-22T14:00:00.000Z.",
+        message:
+          "Stored OAuth token metadata says the token is valid until 2026-06-22T14:00:00.000Z. Live probes below verify current Cloudflare access.",
         status: "ok",
       },
       {
         key: "accounts",
         label: "Accounts",
-        message: "Cloudflare returned 2 visible accounts.",
+        message: "Probe GET /accounts returned 2 visible accounts.",
         status: "ok",
       },
       {
         key: "selected_account",
         label: "Selected account",
-        message: "Samebase Preview is selected and visible to this credential.",
+        message:
+          "The Accounts probe returned selected account Samebase Preview (cloudflare-account-1).",
         status: "ok",
       },
       {
         key: "workers",
         label: "Workers",
-        message: "Cloudflare returned Workers account settings for Samebase Preview.",
+        message:
+          "Probe GET /accounts/{account_id}/workers/account-settings succeeded for Samebase Preview.",
         status: "ok",
       },
       {

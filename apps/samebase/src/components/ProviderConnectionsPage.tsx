@@ -344,7 +344,7 @@ function CloudflareConnectionDetails({
   return (
     <div className="space-y-3 text-xs leading-5">
       <div className="space-y-2">
-        <div className="font-medium text-foreground">Requested access</div>
+        <div className="font-medium text-foreground">Requested OAuth scopes</div>
         {requestedScopes.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {requestedScopes.map((scope) => (
@@ -353,17 +353,17 @@ function CloudflareConnectionDetails({
                 className="rounded-sm border border-border bg-muted/40 px-2 py-0.5 text-foreground"
                 title={scope.label}
               >
-                {scope.scope}
+                {scope.scope} · {scope.label}
               </span>
             ))}
           </div>
         ) : (
           <div className="text-muted-foreground">
             {connection.authMethod === "api_key"
-              ? "API token policy details are checked with live Cloudflare requests."
+              ? "API token policy is not read. Samebase verifies this credential with live Cloudflare API probes."
               : checkedAccess
                 ? "No OAuth scopes were recorded for this connection."
-                : "Run Check access to see the Cloudflare OAuth scopes Samebase requested."}
+                : "Run Check access to see the OAuth scopes Samebase requested from Cloudflare."}
           </div>
         )}
       </div>
@@ -405,12 +405,12 @@ function CloudflareConnectionDetails({
               </div>
             ) : (
               <div className="text-muted-foreground">
-                No Cloudflare accounts visible to this credential.
+                Visible accounts appear here when the Accounts probe succeeds.
               </div>
             )}
           </div>
           <div className="space-y-1">
-            <div className="font-medium text-foreground">Live checks</div>
+            <div className="font-medium text-foreground">Live probes</div>
             <div className="space-y-1 text-muted-foreground">
               {checks.map((check) => (
                 <div key={check.key}>
@@ -443,7 +443,7 @@ function CloudflareConnectionDetails({
         <div className="text-muted-foreground">
           {isChecking
             ? "Checking Cloudflare access..."
-            : "Run Check access to see live account, Workers, and Workers Builds checks."}
+            : "Run Check access to probe account visibility, selected account access, Workers, and Workers Builds."}
         </div>
       )}
       <div className="text-muted-foreground">
