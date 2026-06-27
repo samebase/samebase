@@ -1,8 +1,18 @@
 import { DEFAULT_LOGO_FACE_TREATMENT, type LogoFaceTreatment } from "./logo/logoFaceTreatment";
 import { createLogoIdentityViewSvgMarkup } from "./logo/logoStaticSvgAsset";
+import { SAMEBASE_BRAND_COPY } from "../lib/samebaseBrandCopy";
 
 const BRAND_PRIMARY_COLOR = "#394447";
 const BRAND_BACKGROUND_COLOR = "#ffffff";
+const SOCIAL_CARD_TEXT_X = 530;
+const SOCIAL_CARD_SITE_NAME_Y = 292;
+const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 86;
+const SOCIAL_CARD_TAGLINE_Y = 356;
+const SOCIAL_CARD_TAGLINE_FONT_SIZE = 34;
+
+function escapeSvgText(text: string): string {
+  return text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
+}
 
 function readSvgBody(svgMarkup: string): string {
   const openTagEnd = svgMarkup.indexOf(">");
@@ -33,9 +43,9 @@ export function createSamebaseSocialCardSvgMarkup({
   role="img"
   aria-labelledby="title desc"
 >
-  <title id="title">samebase.com social card</title>
+  <title id="title">${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.title)}</title>
   <desc id="desc">
-    Samebase logo and the text GitHub-backed workspace for notes, code, and AI.
+    ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.accessibleDescription)}
   </desc>
 
   <rect width="1200" height="630" fill="${BRAND_BACKGROUND_COLOR}" />
@@ -45,26 +55,26 @@ ${logoBody}
   </svg>
 
   <text
-    x="560"
-    y="292"
+    x="${SOCIAL_CARD_TEXT_X}"
+    y="${SOCIAL_CARD_SITE_NAME_Y}"
     fill="${BRAND_PRIMARY_COLOR}"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="96"
+    font-size="${SOCIAL_CARD_SITE_NAME_FONT_SIZE}"
     font-weight="650"
     letter-spacing="0"
   >
-    samebase.com
+    ${escapeSvgText(SAMEBASE_BRAND_COPY.siteName)}
   </text>
   <text
-    x="560"
-    y="356"
+    x="${SOCIAL_CARD_TEXT_X}"
+    y="${SOCIAL_CARD_TAGLINE_Y}"
     fill="${BRAND_PRIMARY_COLOR}"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="34"
+    font-size="${SOCIAL_CARD_TAGLINE_FONT_SIZE}"
     font-weight="430"
     letter-spacing="0"
   >
-    GitHub-backed workspace for notes, code, and AI
+    ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.text)}
   </text>
 </svg>`;
 }

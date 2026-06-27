@@ -8,7 +8,7 @@
 >
   <title id="title">samebase.com social card</title>
   <desc id="desc">
-    Samebase logo and the text GitHub-backed workspace for notes, code, and AI.
+    Samebase logo and the text App builder for busy devs.
   </desc>
 
   <rect width="1200" height="630" fill="#ffffff" />
@@ -18,18 +18,18 @@
   </svg>
 
   <text
-    x="560"
+    x="530"
     y="292"
     fill="#394447"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="96"
+    font-size="86"
     font-weight="650"
     letter-spacing="0"
   >
     samebase.com
   </text>
   <text
-    x="560"
+    x="530"
     y="356"
     fill="#394447"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
@@ -37,6 +37,6 @@
     font-weight="430"
     letter-spacing="0"
   >
-    GitHub-backed workspace for notes, code, and AI
+    App builder for busy devs
   </text>
 </svg>
