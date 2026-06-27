@@ -151,6 +151,15 @@ describe("MarkdownLandingDocument", () => {
     expect(heading?.textContent).toBe("Create accounts");
   });
 
+  it("renders raw small footnotes", () => {
+    const element = renderMarkdown("<small><sup>\\*</sup> Correct means honest defaults.</small>");
+
+    const footnote = element.querySelector("small");
+    const marker = footnote?.querySelector("sup");
+    expect(footnote?.textContent).toBe("* Correct means honest defaults.");
+    expect(marker?.textContent).toBe("*");
+  });
+
   it("keeps duplicate generated heading anchors unique", () => {
     const element = renderMarkdown("## Repeat\n\n## Repeat");
 

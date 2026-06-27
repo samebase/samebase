@@ -104,9 +104,10 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
   });
   await expect(
     article.getByRole("heading", {
-      name: "The correct✱ way to build web apps",
+      name: "The correct* way to build web apps",
     }),
   ).toBeVisible();
+  await expect(article.locator("small")).toContainText("Correct means the default is honest");
   await expect(
     article.getByRole("heading", {
       name: "What Samebase is",

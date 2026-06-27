@@ -1,10 +1,10 @@
-# The correct<sup>✱</sup> way to build web apps
+# The correct<sup>\*</sup> way to build web apps
+
+<small><sup>\*</sup> Correct means the default is honest about its stack, cheap to leave running,
+simple enough to understand, and transparent enough to replace.</small>
 
 Samebase creates real web apps from your own GitHub, Convex, Cloudflare, and OpenAI accounts. It
 chooses the same stack it runs on, then leaves you with a normal repo and normal infrastructure.
-
-> ✱ Correct means the default is honest about its stack, cheap to leave running, simple enough to
-> understand, and transparent enough to replace.
 
 ## What Samebase is
 
