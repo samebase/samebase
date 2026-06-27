@@ -109,12 +109,6 @@ export function buildRootHead() {
         sizes: "32x32",
       },
       {
-        rel: "icon",
-        type: "image/png",
-        href: "/icon-192.png",
-        sizes: "192x192",
-      },
-      {
         rel: "manifest",
         href: "/manifest.webmanifest",
       },
