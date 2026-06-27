@@ -13,7 +13,6 @@ import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { openGithubOAuthPopup } from "@/lib/githubOAuthFlow";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { isRecord, notEmpty } from "@samebase/dependent";
-import { useLocation } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import {
@@ -161,6 +160,10 @@ function getRedirectOrigin(oauthUrl: string): string | null {
   } catch {
     return null;
   }
+}
+
+function getCurrentRootRelativeUrl(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
 function GitHubConnectionDetails({
@@ -974,7 +977,6 @@ function useCloudflareMcpTokenAutoCheck({
 }
 
 export function ProviderConnectionsPage() {
-  const location = useLocation();
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const reauthorizeGithubOAuth = useAction(api.githubOAuth.reauthorizeGithubOAuth);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
@@ -1202,7 +1204,7 @@ export function ProviderConnectionsPage() {
       const oauthUrl =
         provider === "github"
           ? await getGithubOAuthUrl({
-              returnToPath: location.href,
+              returnToPath: getCurrentRootRelativeUrl(),
             })
           : await providerConfig.getOAuthUrl();
       if (isInIframe()) {
@@ -1232,7 +1234,7 @@ export function ProviderConnectionsPage() {
     setIsReauthorizingGithub(true);
     try {
       const oauthUrl = await reauthorizeGithubOAuth({
-        returnToPath: location.href,
+        returnToPath: getCurrentRootRelativeUrl(),
       });
       if (isInIframe()) {
         githubPopupOriginRef.current = getRedirectOrigin(oauthUrl) ?? window.location.origin;

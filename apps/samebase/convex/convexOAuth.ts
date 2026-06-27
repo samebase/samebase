@@ -17,6 +17,7 @@ import {
   parseConvexOAuthTokenResponse,
   type ConvexOAuthTokenResponse,
 } from "./convexManagementApi/oauthToken";
+import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
 const CONVEX_AUTHORIZE_URL = "https://dashboard.convex.dev/oauth/authorize/team";
@@ -265,11 +266,10 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     throw error;
   }
 
-  const returnTo =
-    process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
-
-  const baseOrigin = new URL(request.url).origin;
-  const returnUrl = new URL(returnTo, baseOrigin).toString();
+  const returnUrl = buildProviderOAuthDefaultReturnUrl({
+    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    requestUrl: request.url,
+  });
   const returnOrigin = new URL(returnUrl).origin;
 
   const html = `<!doctype html>
