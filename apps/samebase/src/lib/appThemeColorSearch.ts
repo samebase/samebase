@@ -168,27 +168,34 @@ export function readLogoThemeColorSearch(search: LogoThemeColorSearchInput): Log
 }
 
 export function readLogoThemeColors(search: LogoThemeColorSearchInput): LogoThemeColors {
-  const appThemeColors = readAppThemeColors(search);
-
   return {
-    ...appThemeColors,
+    background: search.background ?? DEFAULT_LOGO_THEME_COLORS.background,
+    border: search.border ?? DEFAULT_LOGO_THEME_COLORS.border,
+    primary: search.primary ?? DEFAULT_LOGO_THEME_COLORS.primary,
+    secondary: search.secondary ?? DEFAULT_LOGO_THEME_COLORS.secondary,
     top: search.top ?? DEFAULT_LOGO_THEME_COLORS.top,
   };
 }
 
-function resolveAppThemeColorHexes(themeColors: AppThemeColors): ResolvedAppThemeColors {
+function resolveAppThemeColorHexes(
+  themeColors: AppThemeColors,
+  themeMode: LogoColorThemeMode,
+): ResolvedAppThemeColors {
   return {
-    background: getTailwindColorHex(themeColors.background),
-    border: getTailwindColorHex(themeColors.border),
-    primary: getTailwindColorHex(themeColors.primary),
-    secondary: getTailwindColorHex(themeColors.secondary),
+    background: getTailwindColorHex(themeColors.background, themeMode),
+    border: getTailwindColorHex(themeColors.border, themeMode),
+    primary: getTailwindColorHex(themeColors.primary, themeMode),
+    secondary: getTailwindColorHex(themeColors.secondary, themeMode),
   };
 }
 
-function resolveLogoThemeColorHexes(themeColors: LogoThemeColors): ResolvedLogoThemeColors {
+function resolveLogoThemeColorHexes(
+  themeColors: LogoThemeColors,
+  themeMode: LogoColorThemeMode,
+): ResolvedLogoThemeColors {
   return {
-    ...resolveAppThemeColorHexes(themeColors),
-    top: getTailwindColorHex(themeColors.top),
+    ...resolveAppThemeColorHexes(themeColors, themeMode),
+    top: getTailwindColorHex(themeColors.top, themeMode),
   };
 }
 
@@ -200,7 +207,7 @@ export function resolveAppThemeColorState({
   themeMode: DocumentThemeMode;
 }): ResolvedAppThemeColorState {
   const themeColors = readLogoThemeColors(search);
-  const resolvedThemeColors = resolveLogoThemeColorHexes(themeColors);
+  const resolvedThemeColors = resolveLogoThemeColorHexes(themeColors, themeMode);
   const faceColors = getFaceColorsFromLogoThemeColors(resolvedThemeColors);
 
   return {
@@ -254,7 +261,7 @@ export function buildLogoThemeColorSearch(themeColors: LogoThemeColors): LogoThe
     // from reviving stale colors while the URL serializer still omits the
     // default-valued keys from the visible query string.
     result[searchKey] =
-      themeColors[colorKey] !== DEFAULT_APP_THEME_COLORS[colorKey]
+      themeColors[colorKey] !== DEFAULT_LOGO_THEME_COLORS[colorKey]
         ? themeColors[colorKey]
         : undefined;
 

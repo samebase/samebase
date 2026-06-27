@@ -122,6 +122,19 @@ describe("appThemeColorSearch", () => {
     });
   });
 
+  it("keeps default logo primary dark in dark theme mode", () => {
+    expect(
+      resolveAppThemeColorState({
+        search: {},
+        themeMode: "dark",
+      }).faceColors,
+    ).toEqual({
+      left: "#00b8db",
+      right: "#394447",
+      top: "#394447",
+    });
+  });
+
   it("syncs typed search colors into theme-aware document CSS variables", () => {
     syncDocumentThemeColorSearch({
       background: "#000000",

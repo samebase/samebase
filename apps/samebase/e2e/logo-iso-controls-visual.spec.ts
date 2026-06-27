@@ -268,6 +268,15 @@ test("logo public query links repaint the three scene theme colors", async ({ pa
 
   expect(lightPixel).toEqual([255, 255, 255, 255]);
   expect(darkPixel).toEqual([57, 68, 71, 255]);
+  await expect(page.locator("canvas").first()).toHaveScreenshot(
+    "logo-dark-default-three-scene.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+      scale: "css",
+    },
+  );
 });
 
 test("logo public query color overrides repaint the three scene background color", async ({

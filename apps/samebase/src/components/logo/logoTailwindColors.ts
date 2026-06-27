@@ -166,12 +166,20 @@ function readThemeColor(cssVariable: `--${string}`): HexColorToken | null {
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }
 
-function resolveColorSource(source: ColorSource): HexColorToken {
+function resolveColorSource(
+  source: ColorSource,
+  fallbackThemeMode?: LogoColorThemeMode,
+): HexColorToken {
   if (typeof source === "string") {
     return normalizeRenderableColor(source);
   }
 
-  return readThemeColor(source.cssVariable) ?? source.fallbackHex;
+  return (
+    readThemeColor(source.cssVariable) ??
+    (fallbackThemeMode
+      ? (source.fallbackHexByTheme?.[fallbackThemeMode] ?? source.fallbackHex)
+      : source.fallbackHex)
+  );
 }
 
 function resolveStaticColorSource(
@@ -526,6 +534,8 @@ export const DEFAULT_APP_THEME_COLORS: AppThemeColors = {
 };
 export const DEFAULT_LOGO_THEME_COLORS: LogoThemeColors = {
   ...DEFAULT_APP_THEME_COLORS,
+  // The logo primary face keeps the brand mark color; app primary turns white in dark chrome.
+  primary: "mist-700",
   top: DEFAULT_APP_THEME_COLORS.background,
 };
 // RGB colors only the logo faces; the page background stays app-theme backed.
@@ -561,12 +571,15 @@ function getStaticTailwindColorHex(
   return resolveStaticColorSource(getTailwindColorOption(token)?.source ?? "#000000", themeMode);
 }
 
-export function getTailwindColorHex(token: LogoColorToken): HexColorToken {
+export function getTailwindColorHex(
+  token: LogoColorToken,
+  fallbackThemeMode?: LogoColorThemeMode,
+): HexColorToken {
   if (isHexColorToken(token)) {
     return token;
   }
 
-  return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
+  return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000", fallbackThemeMode);
 }
 
 export function getLogoColorCssHsl(
