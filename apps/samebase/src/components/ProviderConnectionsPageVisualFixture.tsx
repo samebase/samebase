@@ -10,6 +10,82 @@ const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_GITHUB_MANAGE_URL =
   "https://github.com/settings/connections/applications/samebase-local-fixture";
 
 const providerConnectionsVisualFixtureState = {
+  cloudflareAccess: {
+    accounts: [
+      {
+        accountId: "cloudflare-account-1",
+        accountName: "Samebase Preview",
+        selected: true,
+      },
+      {
+        accountId: "cloudflare-account-2",
+        accountName: "Acme Product",
+        selected: false,
+      },
+    ],
+    authMethod: "oauth",
+    checkedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 4 * 60_000,
+    checks: [
+      {
+        key: "token",
+        label: "OAuth token",
+        message: "Samebase has a valid Cloudflare OAuth token expiring 2026-06-22T14:00:00.000Z.",
+        status: "ok",
+      },
+      {
+        key: "accounts",
+        label: "Accounts",
+        message: "Cloudflare returned 2 visible accounts.",
+        status: "ok",
+      },
+      {
+        key: "selected_account",
+        label: "Selected account",
+        message: "Samebase Preview is selected and visible to this credential.",
+        status: "ok",
+      },
+      {
+        key: "workers",
+        label: "Workers",
+        message: "Cloudflare returned Workers account settings for Samebase Preview.",
+        status: "ok",
+      },
+      {
+        key: "workers_builds",
+        label: "Workers Builds",
+        message:
+          "Cloudflare denied Workers Builds limits. Reconnect Cloudflare and approve Workers Builds access.",
+        status: "error",
+      },
+    ],
+    connected: true,
+    requestedScopes: [
+      {
+        label: "Read account metadata",
+        scope: "account-settings.read",
+      },
+      {
+        label: "Read Workers Builds",
+        scope: "workers-ci.read",
+      },
+      {
+        label: "Manage Workers Builds",
+        scope: "workers-ci.write",
+      },
+      {
+        label: "Read Workers",
+        scope: "workers-scripts.read",
+      },
+      {
+        label: "Manage Workers",
+        scope: "workers-scripts.write",
+      },
+      {
+        label: "Refresh access without reconnecting",
+        scope: "offline_access",
+      },
+    ],
+  },
   cloudflareConnection: {
     accountId: "cloudflare-account-1",
     accountName: "Samebase Preview",
@@ -138,6 +214,8 @@ export function ProviderConnectionsPageVisualFixture() {
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={null}
+      cloudflareAccess={providerConnectionsVisualFixtureState.cloudflareAccess}
+      cloudflareAccessError={null}
       cloudflareAccountDialog={{
         error: null,
         isLoadingAccounts: false,
@@ -154,9 +232,11 @@ export function ProviderConnectionsPageVisualFixture() {
       githubHealthError={null}
       githubProviderSummary={providerConnectionsVisualFixtureState.githubProviderSummary}
       isAutoCheckingCloudflareToken={false}
+      isCheckingCloudflareAccess={false}
       isCheckingGithubAccess={false}
       isReauthorizingGithub={false}
       now={providerConnectionsVisualFixtureState.now}
+      onCheckCloudflareAccess={noop}
       onCheckGithubAccess={noop}
       onCloudflareAccountChange={noop}
       onCloudflareAccountOpenChange={noop}
