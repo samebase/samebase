@@ -1,192 +1,55 @@
 import { Button } from "@/components/ui/button";
-import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logo/logoStaticSvgContract";
 import { Link } from "@tanstack/react-router";
+import {
+  STANDARD_TWO_BY_TWO_TRANSITION_CUBE_SCENE,
+  TRANSITION_CUBE_DEFAULT_END_OFFSET,
+  TRANSITION_CUBE_DEFAULT_SELECTED_KEY,
+  type TransitionCubeFace,
+} from "@/components/logo/logoTransitionCubeScene";
 import {
   addOffset,
   formatOffset,
-  getFaceCenter,
   mixOffset,
   type DragSession,
   type Point,
 } from "@/components/logo/logoTransitionLabUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { notEmpty } from "@samebase/dependent";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
-type ViewBox = {
-  minX: number;
-  minY: number;
-  width: number;
-  height: number;
-};
+const CUBE_FACE_STROKE_WIDTH = 0.9;
+const SELECTED_CUBE_STROKE_WIDTH = 1.35;
 
-type Face = {
-  animateTo: Point;
-  fill: string;
-  points: Point[];
-  stroke: string;
-  strokeWidth: number;
-};
-
-const DEFAULT_VIEW_BOX: ViewBox = {
-  minX: 0,
-  minY: 0,
-  width: 500,
-  height: 500,
-};
-
-function parseViewBox(rawValue: string | null): ViewBox {
-  if (!rawValue) {
-    return DEFAULT_VIEW_BOX;
-  }
-
-  const values = rawValue
-    .trim()
-    .split(/[\s,]+/)
-    .map((token) => Number(token))
-    .filter((value) => Number.isFinite(value));
-
-  if (values.length !== 4) {
-    return DEFAULT_VIEW_BOX;
-  }
-
-  return {
-    minX: values[0],
-    minY: values[1],
-    width: values[2],
-    height: values[3],
-  };
+function serializePoints(points: readonly Point[]): string {
+  return points.map((point) => `${point.x} ${point.y}`).join(" ");
 }
 
-function parsePointList(rawValue: string): Point[] {
-  const values = rawValue
-    .trim()
-    .split(/[\s,]+/)
-    .map((token) => Number(token))
-    .filter((value) => Number.isFinite(value));
-
-  const points: Point[] = [];
-  for (let index = 0; index < values.length - 1; index += 2) {
-    points.push({
-      x: values[index],
-      y: values[index + 1],
-    });
-  }
-
-  return points;
-}
-
-function parseTranslate(rawValue: string | null): Point {
-  if (!rawValue) {
-    return { x: 0, y: 0 };
-  }
-
-  const values = rawValue
-    .trim()
-    .split(/[\s,]+/)
-    .map((token) => Number(token))
-    .filter((value) => Number.isFinite(value));
-
-  if (values.length < 2) {
-    return { x: 0, y: 0 };
-  }
-
-  return {
-    x: values[0],
-    y: values[1],
-  };
-}
-
-function parseStrokeWidth(
-  strokeWidthAttribute: string | null,
-  styleAttribute: string | null,
-): number {
-  const styleMatch = styleAttribute?.match(/stroke-width\s*:\s*([0-9.]+)/);
-  const rawValue = styleMatch?.[1] ?? strokeWidthAttribute ?? "0.14";
-  const parsed = Number(rawValue);
-
-  return Number.isFinite(parsed) ? parsed : 0.14;
+function offsetPoints(points: readonly Point[], offset: Point): Point[] {
+  return points.map((point) => addOffset(point, offset));
 }
 
 export function LogoTransitionLabPage() {
-  const [faces, setFaces] = useState<Face[]>([]);
-  const [viewBox, setViewBox] = useState(DEFAULT_VIEW_BOX);
-  const [selectedFaceIndex, setSelectedFaceIndex] = useState<number>(-1);
+  const [selectedCubeKey, setSelectedCubeKey] = useState(TRANSITION_CUBE_DEFAULT_SELECTED_KEY);
   const [activeFrame, setActiveFrame] = useState<"start" | "end">("end");
   const [startOffset, setStartOffset] = useState<Point>({ x: 0, y: 0 });
-  const [endOffset, setEndOffset] = useState<Point>({ x: 0, y: 0 });
+  const [endOffset, setEndOffset] = useState<Point>(TRANSITION_CUBE_DEFAULT_END_OFFSET);
   const [previewProgress, setPreviewProgress] = useState(1);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragSessionRef = useRef<DragSession | null>(null);
+  const scene = STANDARD_TWO_BY_TWO_TRANSITION_CUBE_SCENE;
+  const selectedCube = scene.cubes.find((cube) => cube.key === selectedCubeKey) ?? null;
+  const selectedCubeFaces = scene.faces.filter((face) => face.cubeKey === selectedCubeKey);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadSvg = async () => {
-      const response = await fetch(DEFAULT_STATIC_LOGO_SVG_URL);
-      const markup = await response.text();
-      if (cancelled) {
-        return;
-      }
-
-      const document = new DOMParser().parseFromString(markup, "image/svg+xml");
-      const svgElement = document.querySelector("svg");
-      if (!svgElement) {
-        return;
-      }
-
-      const parsedFaces = Array.from(svgElement.querySelectorAll<SVGPolygonElement>("polygon"))
-        .map((polygonElement) => {
-          const points = parsePointList(polygonElement.getAttribute("points") ?? "");
-          if (points.length < 3) {
-            return null;
-          }
-
-          const animateElement = polygonElement.querySelector("animateTransform");
-
-          return {
-            animateTo: parseTranslate(animateElement?.getAttribute("to") ?? null),
-            fill: polygonElement.getAttribute("fill") ?? "#000000",
-            points,
-            stroke: polygonElement.getAttribute("stroke") ?? "#000000",
-            strokeWidth: parseStrokeWidth(
-              polygonElement.getAttribute("stroke-width"),
-              polygonElement.getAttribute("style"),
-            ),
-          };
-        })
-        .filter(notEmpty);
-
-      const defaultFaceIndex = parsedFaces.findIndex(
-        (face) => face.fill.toLowerCase() === "#390000",
-      );
-
-      setFaces(parsedFaces);
-      setViewBox(parseViewBox(svgElement.getAttribute("viewBox")));
-      setSelectedFaceIndex(defaultFaceIndex >= 0 ? defaultFaceIndex : 0);
-    };
-
-    void loadSvg();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (selectedFaceIndex < 0 || selectedFaceIndex >= faces.length) {
+  const selectCube = (cubeKey: string) => {
+    if (cubeKey === selectedCubeKey) {
       return;
     }
 
-    const selectedFace = faces[selectedFaceIndex];
+    setSelectedCubeKey(cubeKey);
     setStartOffset({ x: 0, y: 0 });
-    setEndOffset(selectedFace.animateTo);
+    setEndOffset(TRANSITION_CUBE_DEFAULT_END_OFFSET);
     setActiveFrame("end");
     setPreviewProgress(1);
-  }, [faces, selectedFaceIndex]);
-
-  const selectedFace =
-    selectedFaceIndex >= 0 && selectedFaceIndex < faces.length ? faces[selectedFaceIndex] : null;
+  };
 
   const getSvgPoint = (clientX: number, clientY: number): Point | null => {
     const svgElement = svgRef.current;
@@ -200,16 +63,19 @@ export function LogoTransitionLabPage() {
     }
 
     return {
-      x: viewBox.minX + ((clientX - bounds.left) / bounds.width) * viewBox.width,
-      y: viewBox.minY + ((clientY - bounds.top) / bounds.height) * viewBox.height,
+      x: scene.viewBox.minX + ((clientX - bounds.left) / bounds.width) * scene.viewBox.width,
+      y: scene.viewBox.minY + ((clientY - bounds.top) / bounds.height) * scene.viewBox.height,
     };
   };
 
   const currentEditableOffset = activeFrame === "start" ? startOffset : endOffset;
   const previewOffset = mixOffset(startOffset, endOffset, previewProgress);
+  const selectedCubeCenter = selectedCube
+    ? addOffset(selectedCube.projectedCenter, currentEditableOffset)
+    : null;
 
   const beginDrag = (event: React.PointerEvent<SVGPolygonElement | SVGCircleElement>) => {
-    if (!selectedFace) {
+    if (!selectedCube) {
       return;
     }
 
@@ -265,6 +131,28 @@ export function LogoTransitionLabPage() {
     }
   };
 
+  const renderCubeOutline = ({
+    faces,
+    offset,
+    stroke,
+    strokeDasharray,
+  }: {
+    faces: readonly TransitionCubeFace[];
+    offset: Point;
+    stroke: string;
+    strokeDasharray?: string;
+  }) =>
+    faces.map((face) => (
+      <polygon
+        key={`${face.key}:${stroke}:${offset.x}:${offset.y}`}
+        points={serializePoints(offsetPoints(face.points, offset))}
+        fill="none"
+        stroke={stroke}
+        strokeDasharray={strokeDasharray}
+        strokeWidth={SELECTED_CUBE_STROKE_WIDTH}
+      />
+    ));
+
   return (
     <div className="mx-auto grid max-w-7xl gap-6 p-4 text-black sm:px-6">
       <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white p-2">
@@ -297,13 +185,10 @@ export function LogoTransitionLabPage() {
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
               Setup
             </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-              Start / End Transition Lab
-            </h1>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">2x2 Cube Transition Lab</h1>
             <p className="mt-2 text-sm leading-6 text-black/60">
-              Click a rhombus in the scene, switch between start and end, then drag the active face
-              to where it should land. The scrubber shows the straight interpolation between those
-              two points.
+              The scene starts from a solid 2x2x2 block. Pick a visible cube, set its start and end
+              positions, then scrub the straight translation between them.
             </p>
           </div>
 
@@ -388,9 +273,9 @@ export function LogoTransitionLabPage() {
 
           <div className="grid gap-2 border border-black/10 bg-[#fbfaf6] p-3 text-sm leading-6 text-black/65">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-              Selected Face
+              Selected Cube
             </div>
-            <div>Polygon {selectedFaceIndex >= 0 ? selectedFaceIndex + 1 : "?"}</div>
+            <div>{selectedCube?.label ?? "None"}</div>
             <div>Start: {formatOffset(startOffset)}</div>
             <div>End: {formatOffset(endOffset)}</div>
           </div>
@@ -399,6 +284,7 @@ export function LogoTransitionLabPage() {
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
               Generated Transform
             </div>
+            <div>{`cube="${selectedCube?.key ?? "none"}"`}</div>
             <div>{`from="${formatOffset(startOffset)}"`}</div>
             <div>{`to="${formatOffset(endOffset)}"`}</div>
           </div>
@@ -408,8 +294,8 @@ export function LogoTransitionLabPage() {
               Notes
             </div>
             <p className="mt-2">
-              Black outline is the start frame. Orange outline is the end frame. Cyan outline is the
-              scrubbed preview. The solid face is the one you are dragging right now.
+              Black outline is start, orange is end, and cyan is the current preview. The solid
+              offset cube is the active frame.
             </p>
           </div>
         </div>
@@ -421,112 +307,105 @@ export function LogoTransitionLabPage() {
                 Workspace
               </div>
               <div className="mt-1 text-sm text-black/60">
-                Click any rhombus to select it. Drag the solid version of the selected face.
+                Visible cube faces are selectable. Drag the solid offset cube.
               </div>
             </div>
-            <div className="font-mono text-[11px] text-black/45">/logo-transition-lab</div>
+            <div className="font-mono text-[11px] text-black/45">/logo/transition</div>
           </div>
 
           <div className="flex min-h-[38rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
-            {selectedFace ? (
+            {selectedCube ? (
               <svg
                 ref={svgRef}
-                viewBox={`${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`}
+                aria-label="2x2 cube transition scene"
+                data-testid="logo-transition-cube-scene"
+                viewBox={`${scene.viewBox.minX} ${scene.viewBox.minY} ${scene.viewBox.width} ${scene.viewBox.height}`}
                 className="block w-full max-w-[42rem] touch-none"
                 onPointerCancel={endDrag}
                 onPointerMove={updateDrag}
                 onPointerUp={endDrag}
               >
-                {faces.map((face, index) => (
+                {scene.faces.map((face) => (
                   <polygon
-                    key={`face-${index}`}
-                    points={face.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                    fill={face.fill}
-                    stroke={face.stroke}
-                    strokeWidth={face.strokeWidth}
-                    opacity={index === selectedFaceIndex ? 0.18 : 1}
+                    key={face.key}
+                    points={serializePoints(face.points)}
+                    fill={face.color}
+                    stroke="#111111"
+                    strokeOpacity={0.24}
+                    strokeWidth={CUBE_FACE_STROKE_WIDTH}
+                    opacity={face.cubeKey === selectedCubeKey ? 0.2 : 1}
                     onClick={() => {
-                      setSelectedFaceIndex(index);
+                      selectCube(face.cubeKey);
                     }}
                     style={{ cursor: "pointer" }}
                   />
                 ))}
 
-                <polygon
-                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="#111111"
-                  strokeDasharray="4 4"
-                  strokeWidth={1.5}
-                  transform={`translate(${startOffset.x} ${startOffset.y})`}
-                />
-
-                <polygon
-                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="#ff5a1f"
-                  strokeDasharray="4 4"
-                  strokeWidth={1.5}
-                  transform={`translate(${endOffset.x} ${endOffset.y})`}
-                />
-
-                <polygon
-                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="#0ea5e9"
-                  strokeWidth={1.5}
-                  transform={`translate(${previewOffset.x} ${previewOffset.y})`}
-                />
-
-                <polygon
-                  points={selectedFace.points.map((point) => `${point.x} ${point.y}`).join(" ")}
-                  fill={selectedFace.fill}
-                  fillOpacity={0.88}
-                  stroke={selectedFace.stroke}
-                  strokeWidth={selectedFace.strokeWidth}
-                  transform={`translate(${currentEditableOffset.x} ${currentEditableOffset.y})`}
-                  onPointerDown={beginDrag}
-                  style={{ cursor: "grab" }}
-                />
-
-                {selectedFace.points.map((point, pointIndex) => {
-                  const positionedPoint = addOffset(point, currentEditableOffset);
-                  return (
-                    <circle
-                      key={`handle-${pointIndex}`}
-                      cx={positionedPoint.x}
-                      cy={positionedPoint.y}
-                      r={5}
-                      fill={activeFrame === "start" ? "#111111" : "#ff5a1f"}
-                      stroke="#ffffff"
-                      strokeWidth={1.5}
-                      onPointerDown={beginDrag}
-                      style={{ cursor: "grab" }}
-                    />
-                  );
+                {renderCubeOutline({
+                  faces: selectedCubeFaces,
+                  offset: startOffset,
+                  stroke: "#111111",
+                  strokeDasharray: "4 4",
+                })}
+                {renderCubeOutline({
+                  faces: selectedCubeFaces,
+                  offset: endOffset,
+                  stroke: "#ff5a1f",
+                  strokeDasharray: "4 4",
+                })}
+                {renderCubeOutline({
+                  faces: selectedCubeFaces,
+                  offset: previewOffset,
+                  stroke: "#0ea5e9",
                 })}
 
+                {selectedCubeFaces.map((face) => (
+                  <polygon
+                    key={`${face.key}:active`}
+                    points={serializePoints(offsetPoints(face.points, currentEditableOffset))}
+                    fill={face.color}
+                    fillOpacity={0.9}
+                    stroke="#111111"
+                    strokeOpacity={0.26}
+                    strokeWidth={CUBE_FACE_STROKE_WIDTH}
+                    onPointerDown={beginDrag}
+                    style={{ cursor: "grab" }}
+                  />
+                ))}
+
+                {selectedCubeCenter ? (
+                  <circle
+                    cx={selectedCubeCenter.x}
+                    cy={selectedCubeCenter.y}
+                    r={5}
+                    fill={activeFrame === "start" ? "#111111" : "#ff5a1f"}
+                    stroke="#ffffff"
+                    strokeWidth={1.5}
+                    onPointerDown={beginDrag}
+                    style={{ cursor: "grab" }}
+                  />
+                ) : null}
                 <circle
-                  cx={getFaceCenter(selectedFace.points, startOffset).x}
-                  cy={getFaceCenter(selectedFace.points, startOffset).y}
+                  cx={addOffset(selectedCube.projectedCenter, startOffset).x}
+                  cy={addOffset(selectedCube.projectedCenter, startOffset).y}
                   r={4}
                   fill="#111111"
                 />
                 <circle
-                  cx={getFaceCenter(selectedFace.points, endOffset).x}
-                  cy={getFaceCenter(selectedFace.points, endOffset).y}
+                  cx={addOffset(selectedCube.projectedCenter, endOffset).x}
+                  cy={addOffset(selectedCube.projectedCenter, endOffset).y}
                   r={4}
                   fill="#ff5a1f"
                 />
                 <circle
-                  cx={getFaceCenter(selectedFace.points, previewOffset).x}
-                  cy={getFaceCenter(selectedFace.points, previewOffset).y}
+                  cx={addOffset(selectedCube.projectedCenter, previewOffset).x}
+                  cy={addOffset(selectedCube.projectedCenter, previewOffset).y}
                   r={4}
                   fill="#0ea5e9"
                 />
               </svg>
             ) : (
-              <div className="text-sm text-black/50">Loading SVG lab…</div>
+              <div className="text-sm text-black/50">No selectable cube.</div>
             )}
           </div>
         </div>

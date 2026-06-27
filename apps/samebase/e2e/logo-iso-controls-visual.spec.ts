@@ -474,6 +474,19 @@ test("logo raster face-on recursion renders without tile seams", async ({ page }
   });
 });
 
+test("logo transition lab starts from 2x2 cube blocks", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await gotoLogoAdminRoute(page, "/logo/transition");
+
+  const scene = page.getByTestId("logo-transition-cube-scene");
+
+  await expect(scene).toBeVisible();
+  await expect(page.getByText("2x2 Cube Transition Lab")).toBeVisible();
+  await expect(page.getByText("Cube 2,2,2")).toBeVisible();
+  await waitForPaint(page);
+  await expect(scene.locator("polygon")).toHaveCount(24);
+});
+
 test("logo raster seam lab shows the tiny 2x2 image-composition diagnostic", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster-seams?elev=22&rot=22");
