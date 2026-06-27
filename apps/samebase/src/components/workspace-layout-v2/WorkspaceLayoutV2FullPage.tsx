@@ -57,7 +57,7 @@ function WorkspaceLayoutV2MainPaneHeader({
 
       {/* Keep route-level header actions visible on mobile; only the sidebar
           toggles stay desktop-only in the v2 main pane shell. */}
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex h-full min-w-0 flex-1 items-center">{children}</div>
 
       {rightToggleButtonClassName !== null ? (
         <Button

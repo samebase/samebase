@@ -199,14 +199,6 @@ const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 });
 
-function AppWorkspaceMainHeader({ accessory }: { accessory: ReactNode }) {
-  return (
-    <div className="flex h-full min-w-0 items-center gap-2">
-      <div className="min-w-0 flex-1">{accessory}</div>
-    </div>
-  );
-}
-
 function useAppWorkspaceSidebarState() {
   const pathname = useLocation({
     select: (location) => location.pathname,
@@ -257,7 +249,7 @@ function AppWorkspaceShellFrame({
   const appRightSidebarPane = useAppRightSidebarPane();
   const headerAccessory = chrome?.headerAccessory;
   const mainPane = {
-    header: headerAccessory ? <AppWorkspaceMainHeader accessory={headerAccessory} /> : undefined,
+    header: headerAccessory,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies WorkspaceLayoutV2PaneFrameProps;
   const leftPane = chrome?.left === null ? undefined : (chrome?.left ?? {});
