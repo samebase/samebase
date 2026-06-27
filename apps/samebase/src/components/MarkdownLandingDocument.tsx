@@ -282,7 +282,7 @@ function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode, headingId: str
         <h1
           data-landing-heading-id={headingId}
           id={headingId}
-          className="scroll-mt-4 text-3xl font-semibold leading-tight tracking-normal sm:text-4xl"
+          className="max-w-2xl scroll-mt-4 text-4xl font-semibold leading-tight tracking-normal"
         >
           {children}
         </h1>
@@ -292,7 +292,7 @@ function renderHeading(level: 1 | 2 | 3 | 4, children: ReactNode, headingId: str
         <h2
           data-landing-heading-id={headingId}
           id={headingId}
-          className="scroll-mt-4 text-2xl font-semibold leading-tight tracking-normal"
+          className="mt-6 scroll-mt-4 border-t pt-8 text-2xl font-semibold leading-tight tracking-normal"
         >
           {children}
         </h2>
@@ -361,7 +361,11 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
       );
     },
     blockquote({ children }) {
-      return <blockquote className="border-l pl-4 text-muted-foreground">{children}</blockquote>;
+      return (
+        <blockquote className="border-l-2 border-foreground py-1 pl-4 [&_p]:text-muted-foreground">
+          {children}
+        </blockquote>
+      );
     },
     br() {
       return <br />;
@@ -523,7 +527,7 @@ export function MarkdownLandingDocument({
     <article
       data-testid={dataTestId}
       className={cn(
-        "mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-8 text-sm sm:px-6 lg:py-12",
+        "mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-10 text-sm sm:px-6 lg:py-14",
         className,
       )}
     >

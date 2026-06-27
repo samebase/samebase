@@ -26,13 +26,13 @@ export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MA
 
 const RouteSearchSchema_landingMarkdownPreview = defineRouteSearchParams({
   left: routeSearchPresenceParam({
-    access: "access_admin",
+    access: "access_public",
     suggestion: "hidden",
   }),
   [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: routeSearchValueParam(
     routeSearchStringValue(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
     {
-      access: "access_admin",
+      access: "access_public",
       sampleValue: "ro",
       suggestion: "route",
       valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
@@ -40,7 +40,7 @@ const RouteSearchSchema_landingMarkdownPreview = defineRouteSearchParams({
     },
   ),
   right: routeSearchPresenceParam({
-    access: "access_admin",
+    access: "access_public",
     suggestion: "hidden",
   }),
 });

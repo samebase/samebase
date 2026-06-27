@@ -31,13 +31,13 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
-    expect(suggestions).toContain("/landing-preview");
     expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
+    expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
     expect(suggestions).toEqual(
