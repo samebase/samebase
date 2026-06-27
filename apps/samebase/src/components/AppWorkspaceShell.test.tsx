@@ -529,7 +529,7 @@ describe("AppWorkspaceShell", () => {
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
   });
 
-  it("does not prehydrate invalid local sidebar widths", () => {
+  it("prehydrates default desktop geometry for invalid local sidebar widths", () => {
     window.localStorage.setItem(
       APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
       JSON.stringify({
@@ -544,7 +544,12 @@ describe("AppWorkspaceShell", () => {
 
     runAppWorkspaceSidebarPrehydrationScript();
 
-    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
+    expectPrehydrationStyle({
+      leftDesktopOpen: true,
+      leftDesktopWidth: "240px",
+      rightDesktopOpen: true,
+      rightDesktopWidth: "288px",
+    });
   });
 
   it("prehydrates closed local sidebars as zero width", () => {
@@ -568,6 +573,27 @@ describe("AppWorkspaceShell", () => {
       rightDesktopOpen: false,
       rightDesktopWidth: "0px",
     });
+  });
+
+  it("prehydrates default mobile pane geometry before hydration", () => {
+    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-left-mobile-width")).toBe(
+      "240px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "390px",
+    );
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
+      "288px",
+    );
+    expect(carousel.scrollLeft).toBe(240);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
   });
 
   it("prehydrates the unmerged mobile pane before hydration", () => {

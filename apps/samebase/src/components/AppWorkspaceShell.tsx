@@ -27,7 +27,10 @@ import {
   appWorkspaceMobilePanePrehydrationScript,
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import {
+  APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
+  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+} from "@/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
@@ -67,8 +70,6 @@ type AppWorkspaceRouteChromeContextValue = {
   store: AppWorkspaceRouteChromeStore;
 };
 
-const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
-const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
 const VISUAL_FIXTURE_ROUTE_CHROME = {
@@ -77,17 +78,6 @@ const VISUAL_FIXTURE_ROUTE_CHROME = {
   leftToggleVisibility: "hidden",
   right: null,
 } satisfies AppWorkspaceRouteChromeConfig;
-
-const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: true,
-  leftDesktopWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-  leftMobileWidthPx: APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
-  mobilePane: "main",
-  mobileSurface: { kind: "unmerged" },
-  rightDesktopOpen: true,
-  rightDesktopWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
-  rightMobileWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
-} satisfies WorkspaceSidebarState;
 
 const AppWorkspaceRouteChromeContext = createContext<AppWorkspaceRouteChromeContextValue | null>(
   null,

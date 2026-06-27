@@ -21,6 +21,7 @@ export type WorkspaceLayoutV2PrehydrationState = Pick<
 
 export type WorkspaceLayoutV2PrehydrationArgs = {
   desktopStyleElementId: string;
+  defaultState: WorkspaceLayoutV2PrehydrationState;
   storageKey: string;
   storageVersion: number;
 };
@@ -84,6 +85,24 @@ function InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar(
   args: WorkspaceLayoutV2PrehydrationInlineArgs,
   readWorkspaceSidebarState: ReadWorkspaceLayoutV2PrehydrationState,
 ) {
+  function getFallbackWorkspaceSidebarState() {
+    return args.defaultState;
+  }
+
+  function getStoredWorkspaceSidebarState() {
+    const storedValue = window.localStorage.getItem(args.storageKey);
+    if (storedValue === null) return getFallbackWorkspaceSidebarState();
+
+    const stored: unknown = JSON.parse(storedValue);
+    if (stored === null || typeof stored !== "object") return getFallbackWorkspaceSidebarState();
+    if (!("version" in stored) || stored.version !== args.storageVersion) {
+      return getFallbackWorkspaceSidebarState();
+    }
+    if (!("state" in stored)) return getFallbackWorkspaceSidebarState();
+
+    return readWorkspaceSidebarState(stored.state) ?? getFallbackWorkspaceSidebarState();
+  }
+
   function installPrehydrationStyle({
     left,
     right,
@@ -130,16 +149,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar(
   }
 
   try {
-    const storedValue = window.localStorage.getItem(args.storageKey);
-    if (storedValue === null) return;
-
-    const stored: unknown = JSON.parse(storedValue);
-    if (stored === null || typeof stored !== "object") return;
-    if (!("version" in stored) || stored.version !== args.storageVersion) return;
-    if (!("state" in stored)) return;
-
-    const state = readWorkspaceSidebarState(stored.state);
-    if (state === null) return;
+    const state = getStoredWorkspaceSidebarState();
 
     const leftDesktopWidth = readDesktopWidth(state.leftDesktopOpen, state.leftDesktopWidthPx);
     const rightDesktopWidth = readDesktopWidth(state.rightDesktopOpen, state.rightDesktopWidthPx);
@@ -174,16 +184,22 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
   args: WorkspaceLayoutV2PrehydrationInlineArgs,
   readWorkspaceSidebarState: ReadWorkspaceLayoutV2PrehydrationState,
 ) {
+  function getFallbackWorkspaceSidebarState() {
+    return args.defaultState;
+  }
+
   function getStoredWorkspaceSidebarState() {
     const storedValue = window.localStorage.getItem(args.storageKey);
-    if (storedValue === null) return null;
+    if (storedValue === null) return getFallbackWorkspaceSidebarState();
 
     const stored: unknown = JSON.parse(storedValue);
-    if (stored === null || typeof stored !== "object") return null;
-    if (!("version" in stored) || stored.version !== args.storageVersion) return null;
-    if (!("state" in stored)) return null;
+    if (stored === null || typeof stored !== "object") return getFallbackWorkspaceSidebarState();
+    if (!("version" in stored) || stored.version !== args.storageVersion) {
+      return getFallbackWorkspaceSidebarState();
+    }
+    if (!("state" in stored)) return getFallbackWorkspaceSidebarState();
 
-    return readWorkspaceSidebarState(stored.state);
+    return readWorkspaceSidebarState(stored.state) ?? getFallbackWorkspaceSidebarState();
   }
 
   function clampNumber(value: number, min: number, max: number) {
@@ -349,7 +365,6 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     if (layoutRoot === null) return;
 
     const state = getStoredWorkspaceSidebarState();
-    if (state === null) return;
 
     const hasLeftPane =
       carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]') !== null;

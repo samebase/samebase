@@ -6,6 +6,7 @@ import {
   type WorkspaceLayoutV2PrehydrationState,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Prehydration";
 import {
+  APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
   APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } from "@/lib/appWorkspaceSidebarPreferences";
@@ -15,6 +16,7 @@ const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
 
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopStyleElementId: APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID,
+  defaultState: APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
   storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } satisfies WorkspaceLayoutV2PrehydrationArgs;
