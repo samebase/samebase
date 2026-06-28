@@ -185,6 +185,10 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).toContain("Manage access");
     expect(markup).toContain("Reauthorize");
     expect(markup).toContain("Connected to samebase");
+    expect(markup).toContain("Team-scoped Convex Management API access");
+    expect(markup).toContain("Run Check access to verify token details and live Convex access.");
+    expect(markup).toContain("https://dashboard.convex.dev/t/samebase/settings");
+    expect(markup).toContain("Update token");
     expect(markup).toContain("Connected (OAuth).");
     expect(markup).toContain("Manage account");
     expect(markup).toContain(
@@ -209,6 +213,9 @@ describe("ProviderConnectionsPage", () => {
       "GitHub could not list repositories for this credential. Reauthorize GitHub and approve organization access if prompted.",
     );
     expect(markup).toContain("Connected to samebase");
+    expect(markup).toContain("Team token. Name Samebase operator token.");
+    expect(markup).toContain("Projects: OK");
+    expect(markup).toContain("Deployments: OK");
     expect(markup).toContain("Connected (OAuth). Account Samebase Preview.");
     expect(markup).toContain("account-settings.read");
     expect(markup).toContain("Samebase Preview (cloudflare-account-1) · Selected");
@@ -334,6 +341,104 @@ describe("ProviderConnectionsPage", () => {
     );
     expect(container.textContent).toContain(
       "Organization access: OK - GitHub returned 1 organization visible to this credential.",
+    );
+  });
+
+  it("runs the Convex access check and renders live token probes", async () => {
+    const checkConvexConnectionAccess = vi.fn(async () => ({
+      authMethod: "oauth",
+      checkedAt: Date.now(),
+      checks: [
+        {
+          key: "token",
+          label: "Token details",
+          message: "Probe GET /token_details returned team token Samebase OAuth grant.",
+          status: "ok",
+        },
+        {
+          key: "projects",
+          label: "Projects",
+          message: "Probe GET /teams/{team_id}/list_projects returned 2 visible projects.",
+          status: "ok",
+        },
+        {
+          key: "deployments",
+          label: "Deployments",
+          message: "Probe GET /teams/{team_id}/list_deployments returned 4 visible deployments.",
+          status: "ok",
+        },
+      ],
+      connected: true,
+      requestedAccess: [
+        {
+          key: "team",
+          label: "Team-scoped Convex Management API access",
+        },
+      ],
+      team: {
+        teamId: "team_samebase",
+        teamSlug: "samebase",
+      },
+      token: {
+        createdAt: Date.UTC(2026, 5, 1, 9, 30, 0),
+        id: "token_123",
+        name: "Samebase OAuth grant",
+        teamId: "team_samebase",
+        type: "team_token",
+      },
+    }));
+    queryState.handlersByFunctionName.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      checkConvexConnectionAccess,
+    );
+    const container = renderMountedProviderConnectionsPage(
+      new Map([
+        [
+          getFunctionName(api.users.getGithubProviderSummary),
+          {
+            connected: false,
+            requiredScopes: [],
+            reauthorizeAvailable: false,
+          },
+        ],
+        [
+          getFunctionName(api.users.getConvexConnectionStatus),
+          {
+            authMethod: "oauth",
+            connected: true,
+            teamId: "team_samebase",
+            teamSlug: "samebase",
+          },
+        ],
+        [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.viewer), { _id: "user_123" }],
+      ]),
+    );
+    const checkAccessButton = findButtonByText(container, "Check access");
+    if (!checkAccessButton) {
+      throw new Error("Expected Check access button.");
+    }
+
+    await act(async () => {
+      checkAccessButton.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+      await Promise.resolve();
+    });
+
+    expect(checkConvexConnectionAccess).toHaveBeenCalledWith({});
+    expect(container.textContent).toContain("Team-scoped Convex Management API access");
+    expect(container.textContent).toContain("Team token. Name Samebase OAuth grant. ID token_123");
+    expect(container.textContent).toContain("Slug samebase. ID team_samebase");
+    expect(container.textContent).toContain(
+      "Token details: OK - Probe GET /token_details returned team token Samebase OAuth grant.",
+    );
+    expect(container.textContent).toContain(
+      "Projects: OK - Probe GET /teams/{team_id}/list_projects returned 2 visible projects.",
+    );
+    expect(container.textContent).toContain(
+      "Deployments: OK - Probe GET /teams/{team_id}/list_deployments returned 4 visible deployments.",
+    );
+    expect(container.textContent).toContain(
+      "Project and deployment creation are not probed here because that would create resources.",
     );
   });
 

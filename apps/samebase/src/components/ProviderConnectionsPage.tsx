@@ -66,6 +66,8 @@ type ProviderConnectionRowViewModel = {
 type AppGithubProviderSummary = (typeof api.users.getGithubProviderSummary)["_returnType"];
 type AppGithubConnectionHealth = (typeof api.users.checkGithubConnectionHealth)["_returnType"];
 type AppConvexConnection = (typeof api.users.getConvexConnectionStatus)["_returnType"];
+type AppConvexConnectionAccess =
+  (typeof api.convexProviderAccess.checkConvexConnectionAccess)["_returnType"];
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 type AppCloudflareConnectionAccess =
   (typeof api.cloudflareProviderAccess.checkCloudflareConnectionAccess)["_returnType"];
@@ -81,6 +83,7 @@ type CloudflareAccountDialogState = {
 export type ProviderConnectionsPageConnectionState = {
   cloudflareAccess: AppCloudflareConnectionAccess | null;
   cloudflareConnection: AppCloudflareConnection | undefined;
+  convexAccess: AppConvexConnectionAccess | null;
   convexConnection: AppConvexConnection | undefined;
   githubHealth: AppGithubConnectionHealth | null;
   githubProviderSummary: AppGithubProviderSummary | undefined;
@@ -91,13 +94,16 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   cloudflareAccountDialog: CloudflareAccountDialogState;
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: string | null;
+  convexAccessError: string | null;
   githubDisconnectedNotice: string | null;
   githubHealthError: string | null;
   isAutoCheckingCloudflareToken: boolean;
   isCheckingCloudflareAccess: boolean;
+  isCheckingConvexAccess: boolean;
   isCheckingGithubAccess: boolean;
   isReauthorizingGithub: boolean;
   onCheckCloudflareAccess: () => void;
+  onCheckConvexAccess: () => void;
   onCheckGithubAccess: () => void;
   onCloudflareAccountChange: (accountId: string) => void;
   onCloudflareAccountOpenChange: (isOpen: boolean) => void;
@@ -149,6 +155,14 @@ function getCloudflareManageAccessUrl(authMethod: "oauth" | "mcp_oauth" | "api_k
     return "https://dash.cloudflare.com/profile/api-tokens";
   }
   return "https://dash.cloudflare.com/?to=%2Fprofile%2Faccess-management%2Fauthorization";
+}
+
+function getConvexManageAccessUrl(teamSlug: string | undefined) {
+  const normalizedTeamSlug = teamSlug?.trim();
+  if (!normalizedTeamSlug) {
+    return "https://dashboard.convex.dev/";
+  }
+  return `https://dashboard.convex.dev/t/${encodeURIComponent(normalizedTeamSlug)}/settings`;
 }
 
 function getRedirectOrigin(oauthUrl: string): string | null {
@@ -316,6 +330,135 @@ function GitHubConnectionDetails({
 
 function GitHubDisconnectedDetails({ notice }: { notice: string }) {
   return <div className="space-y-1 text-xs leading-5 text-muted-foreground">{notice}</div>;
+}
+
+function formatProviderTimestamp(timestamp: number) {
+  return new Date(timestamp).toISOString();
+}
+
+function formatConvexTokenType(type: "team_token" | "project_token") {
+  switch (type) {
+    case "team_token":
+      return "Team token";
+    case "project_token":
+      return "Project token";
+    default:
+      const unhandledType: never = type;
+      return unhandledType;
+  }
+}
+
+function ConvexConnectionDetails({
+  access,
+  connection,
+  error,
+  isChecking,
+  now,
+}: {
+  access: AppConvexConnectionAccess | null;
+  connection: AppConvexConnection | undefined;
+  error: string | null;
+  isChecking: boolean;
+  now: number;
+}) {
+  if (connection?.connected !== true) {
+    return null;
+  }
+
+  const checkedAccess = access?.connected === true ? access : null;
+  const requestedAccess = checkedAccess?.requestedAccess ?? [
+    {
+      key: "team",
+      label: "Team-scoped Convex Management API access",
+    },
+  ];
+  const team = checkedAccess?.team;
+  const teamId = team?.teamId ?? connection.teamId;
+  const teamSlug = team?.teamSlug ?? connection.teamSlug;
+
+  return (
+    <div className="space-y-3 text-xs leading-5">
+      <div className="space-y-2">
+        <div className="font-medium text-foreground">Requested access</div>
+        <div className="flex flex-wrap gap-1.5">
+          {requestedAccess.map((item) => (
+            <span
+              key={item.key}
+              className="rounded-sm border border-border bg-muted/40 px-2 py-0.5 text-foreground"
+            >
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </div>
+      {checkedAccess?.token ? (
+        <div className="space-y-1 text-muted-foreground">
+          <div className="font-medium text-foreground">Token</div>
+          <div>
+            {[
+              formatConvexTokenType(checkedAccess.token.type),
+              `Name ${checkedAccess.token.name}`,
+              `ID ${checkedAccess.token.id}`,
+              `Created ${formatProviderTimestamp(checkedAccess.token.createdAt)}`,
+            ].join(". ")}
+          </div>
+        </div>
+      ) : (
+        <div className="text-muted-foreground">
+          {isChecking
+            ? "Checking Convex access..."
+            : "Run Check access to verify token details and live Convex access."}
+        </div>
+      )}
+      {teamId || teamSlug ? (
+        <div className="space-y-1 text-muted-foreground">
+          <div className="font-medium text-foreground">Team</div>
+          <div>
+            {[teamSlug ? `Slug ${teamSlug}` : null, teamId ? `ID ${teamId}` : null]
+              .filter(notEmpty)
+              .join(". ")}
+          </div>
+        </div>
+      ) : null}
+      {checkedAccess ? (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <div className="font-medium text-foreground">Live probes</div>
+            <div className="space-y-1 text-muted-foreground">
+              {checkedAccess.checks.map((check) => (
+                <div key={check.key}>
+                  <span
+                    className={
+                      check.status === "ok"
+                        ? "text-emerald-700"
+                        : check.status === "error"
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                    }
+                  >
+                    {check.label}:{" "}
+                    {check.status === "ok"
+                      ? "OK"
+                      : check.status === "error"
+                        ? "Needs attention"
+                        : "Not checked"}
+                  </span>
+                  {check.message ? ` - ${check.message}` : ""}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="text-muted-foreground">
+            Last checked {formatRelativeTimeAgo(checkedAccess.checkedAt, now)}.
+          </div>
+        </div>
+      ) : null}
+      <div className="text-muted-foreground">
+        Project and deployment creation are not probed here because that would create resources.
+      </div>
+      {error ? <div>Error: {error}</div> : null}
+    </div>
+  );
 }
 
 function CloudflareConnectionDetails({
@@ -541,6 +684,8 @@ export function ProviderConnectionsPageView({
   cloudflareAccessError,
   cloudflareAccountDialog,
   cloudflareConnection,
+  convexAccess,
+  convexAccessError,
   convexConnection,
   disconnectingProvider,
   githubDisconnectedNotice,
@@ -549,10 +694,12 @@ export function ProviderConnectionsPageView({
   githubProviderSummary,
   isAutoCheckingCloudflareToken,
   isCheckingCloudflareAccess,
+  isCheckingConvexAccess,
   isCheckingGithubAccess,
   isReauthorizingGithub,
   now,
   onCheckCloudflareAccess,
+  onCheckConvexAccess,
   onCheckGithubAccess,
   onCloudflareAccountChange,
   onCloudflareAccountOpenChange,
@@ -648,22 +795,66 @@ export function ProviderConnectionsPageView({
         } satisfies ProviderConnectionRowViewModel);
   const convexProviderRow =
     convexConnection?.connected === true
-      ? ({
-          actions: [
-            {
-              disabled: disconnectingProvider !== null,
-              isPending: disconnectingProvider === "convex",
-              key: "disconnect",
-              label: "Disconnect",
-              onClick: () => onDisconnect("convex"),
-              pendingLabel: "Disconnecting...",
-            },
-          ],
-          icon: PROVIDER_METADATA.convex.icon,
-          key: "convex",
-          label: PROVIDER_METADATA.convex.label,
-          status: `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`,
-        } satisfies ProviderConnectionRowViewModel)
+      ? (() => {
+          const convexActionsDisabled = disconnectingProvider !== null || isCheckingConvexAccess;
+          return {
+            actions: [
+              {
+                disabled: convexActionsDisabled,
+                isPending: isCheckingConvexAccess,
+                key: "check-convex-access",
+                label: "Check access",
+                onClick: onCheckConvexAccess,
+                pendingLabel: "Checking...",
+              },
+              {
+                disabled: convexActionsDisabled,
+                href: getConvexManageAccessUrl(convexConnection.teamSlug),
+                key: "manage-convex-access",
+                label: "Manage access",
+                target: "_blank",
+              },
+              ...(convexConnection.authMethod === "oauth"
+                ? [
+                    {
+                      disabled: convexActionsDisabled,
+                      key: "reauthorize-convex",
+                      label: "Reauthorize",
+                      onClick: () => onConnect("convex"),
+                    },
+                  ]
+                : [
+                    {
+                      disabled: convexActionsDisabled,
+                      key: "update-convex-token",
+                      label: "Update token",
+                      onClick: () => onOpenApiKeyDialog("convex"),
+                    },
+                  ]),
+              {
+                disabled: convexActionsDisabled,
+                isPending: disconnectingProvider === "convex",
+                key: "disconnect",
+                label: "Disconnect",
+                onClick: () => onDisconnect("convex"),
+                pendingLabel: "Disconnecting...",
+              },
+            ],
+            details: (
+              <ConvexConnectionDetails
+                access={convexAccess}
+                connection={convexConnection}
+                error={convexAccessError}
+                isChecking={isCheckingConvexAccess}
+                now={now}
+              />
+            ),
+            icon: PROVIDER_METADATA.convex.icon,
+            key: "convex",
+            label: PROVIDER_METADATA.convex.label,
+            status: `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`,
+          } satisfies ProviderConnectionRowViewModel;
+        })()
       : ({
           actions: [
             {
@@ -982,6 +1173,9 @@ export function ProviderConnectionsPage() {
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareOAuthUrl = useAction(api.cloudflareOAuth.getCloudflareOAuthUrl);
   const checkGithubConnectionHealth = useAction(api.users.checkGithubConnectionHealth);
+  const checkConvexConnectionAccess = useAction(
+    api.convexProviderAccess.checkConvexConnectionAccess,
+  );
   const checkCloudflareConnectionAccess = useAction(
     api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
   );
@@ -1010,10 +1204,13 @@ export function ProviderConnectionsPage() {
     null,
   );
   const [cloudflareAccessError, setCloudflareAccessError] = useState<string | null>(null);
+  const [convexAccess, setConvexAccess] = useState<AppConvexConnectionAccess | null>(null);
+  const [convexAccessError, setConvexAccessError] = useState<string | null>(null);
   const [githubHealth, setGithubHealth] = useState<AppGithubConnectionHealth | null>(null);
   const [githubHealthError, setGithubHealthError] = useState<string | null>(null);
   const [githubDisconnectedNotice, setGithubDisconnectedNotice] = useState<string | null>(null);
   const [isCheckingGithubAccess, setIsCheckingGithubAccess] = useState(false);
+  const [isCheckingConvexAccess, setIsCheckingConvexAccess] = useState(false);
   const [isCheckingCloudflareAccess, setIsCheckingCloudflareAccess] = useState(false);
   const [isReauthorizingGithub, setIsReauthorizingGithub] = useState(false);
   const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] = useState(false);
@@ -1047,8 +1244,17 @@ export function ProviderConnectionsPage() {
     },
   };
   const now = useNow();
+  const connectConvexWithApiKeyAndClearAccess = useCallback(
+    async (args: { token: string }) => {
+      const result = await connectConvexWithApiKey(args);
+      setConvexAccess(null);
+      setConvexAccessError(null);
+      return result;
+    },
+    [connectConvexWithApiKey],
+  );
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
-    connectConvexWithApiKey,
+    connectConvexWithApiKey: connectConvexWithApiKeyAndClearAccess,
     connectGithubWithApiKey,
   });
 
@@ -1128,6 +1334,24 @@ export function ProviderConnectionsPage() {
     }
   }, [checkGithubConnectionHealth, isCheckingGithubAccess]);
 
+  const runConvexAccessCheck = useCallback(async () => {
+    if (isCheckingConvexAccess) {
+      return;
+    }
+
+    setConvexAccessError(null);
+    setIsCheckingConvexAccess(true);
+    try {
+      setConvexAccess(await checkConvexConnectionAccess({}));
+    } catch (error) {
+      setConvexAccessError(
+        error instanceof Error ? error.message : "Could not check Convex access.",
+      );
+    } finally {
+      setIsCheckingConvexAccess(false);
+    }
+  }, [checkConvexConnectionAccess, isCheckingConvexAccess]);
+
   const runCloudflareAccessCheck = useCallback(async () => {
     if (isCheckingCloudflareAccess) {
       return;
@@ -1199,6 +1423,10 @@ export function ProviderConnectionsPage() {
     if (provider === "cloudflare") {
       setCloudflareAccess(null);
       setCloudflareAccessError(null);
+    }
+    if (provider === "convex") {
+      setConvexAccess(null);
+      setConvexAccessError(null);
     }
     try {
       const oauthUrl =
@@ -1273,6 +1501,11 @@ export function ProviderConnectionsPage() {
         setCloudflareAccessError(null);
         setIsCheckingCloudflareAccess(false);
       }
+      if (provider === "convex") {
+        setConvexAccess(null);
+        setConvexAccessError(null);
+        setIsCheckingConvexAccess(false);
+      }
     } catch (error) {
       console.error(`Failed to disconnect ${providerMetadata.label}:`, error);
     } finally {
@@ -1316,6 +1549,8 @@ export function ProviderConnectionsPage() {
       cloudflareAccessError={cloudflareAccessError}
       cloudflareAccountDialog={cloudflareAccountDialog}
       cloudflareConnection={cloudflareConnection}
+      convexAccess={convexAccess}
+      convexAccessError={convexAccessError}
       convexConnection={convexConnection}
       disconnectingProvider={disconnectingProvider}
       githubDisconnectedNotice={githubDisconnectedNotice}
@@ -1324,11 +1559,15 @@ export function ProviderConnectionsPage() {
       githubProviderSummary={githubProviderSummary}
       isAutoCheckingCloudflareToken={isAutoCheckingCloudflareToken}
       isCheckingCloudflareAccess={isCheckingCloudflareAccess}
+      isCheckingConvexAccess={isCheckingConvexAccess}
       isCheckingGithubAccess={isCheckingGithubAccess}
       isReauthorizingGithub={isReauthorizingGithub}
       now={now}
       onCheckCloudflareAccess={() => {
         void runCloudflareAccessCheck();
+      }}
+      onCheckConvexAccess={() => {
+        void runConvexAccessCheck();
       }}
       onCheckGithubAccess={() => {
         void runGithubHealthCheck();

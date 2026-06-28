@@ -49,6 +49,7 @@ import type * as convexManagementApi_client from "../convexManagementApi/client.
 import type * as convexManagementApi_errors from "../convexManagementApi/errors.js";
 import type * as convexManagementApi_oauthToken from "../convexManagementApi/oauthToken.js";
 import type * as convexOAuth from "../convexOAuth.js";
+import type * as convexProviderAccess from "../convexProviderAccess.js";
 import type * as dashboardSettings from "../dashboardSettings.js";
 import type * as deploymentProfile from "../deploymentProfile.js";
 import type * as devAuth from "../devAuth.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "convexManagementApi/errors": typeof convexManagementApi_errors;
   "convexManagementApi/oauthToken": typeof convexManagementApi_oauthToken;
   convexOAuth: typeof convexOAuth;
+  convexProviderAccess: typeof convexProviderAccess;
   dashboardSettings: typeof dashboardSettings;
   deploymentProfile: typeof deploymentProfile;
   devAuth: typeof devAuth;
