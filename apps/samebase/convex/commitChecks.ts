@@ -345,11 +345,10 @@ function selectPrimaryLogUrl(items: CommitCheckItemInput[]): string | undefined 
   return item?.logUrl ?? item?.detailsUrl ?? item?.targetUrl;
 }
 
-export function selectPrimaryPreviewUrlFromCommitCheckItems(
-  items: readonly Pick<CommitCheckItemInput, "previewAliasUrl" | "previewUrl">[],
+export function selectBranchPreviewAliasUrlFromCommitCheckItems(
+  items: readonly Pick<CommitCheckItemInput, "previewAliasUrl">[],
 ): string | undefined {
-  const item = items.find((candidate) => candidate.previewAliasUrl ?? candidate.previewUrl);
-  return item?.previewAliasUrl ?? item?.previewUrl;
+  return items.find((candidate) => candidate.previewAliasUrl)?.previewAliasUrl;
 }
 
 export function buildGitHubCommitCheckSnapshot(args: {

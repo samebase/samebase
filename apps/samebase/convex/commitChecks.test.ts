@@ -5,11 +5,16 @@ import {
   normalizeCommitCheckRun,
   normalizeCommitCheckSnapshot,
   normalizeCommitStatus,
-  selectPrimaryPreviewUrlFromCommitCheckItems,
+  selectBranchPreviewAliasUrlFromCommitCheckItems,
 } from "./commitChecks";
 
 const SUCCESSFUL_WORKERS_SUMMARY = `Preview URL: https://fc4977af-noter-worker.nicuchiciuc.workers.dev
 Preview Alias URL: https://codex-samebase-rebrand-rollout-plan-noter-worker.nicuchiciuc.workers.dev
+Build ID: [5f9b6f2e-1e10-4062-988f-56b734c8c7a9](https://dash.cloudflare.com/builds/5f9b6f2e-1e10-4062-988f-56b734c8c7a9)
+Script: [noter-worker](https://dash.cloudflare.com/workers/services/view/noter-worker)
+Version ID: d5b7c5f1-4ddf-4930-a398-3f26f6d00a19`;
+
+const COMMIT_ONLY_WORKERS_SUMMARY = `Preview URL: https://fc4977af-noter-worker.nicuchiciuc.workers.dev
 Build ID: [5f9b6f2e-1e10-4062-988f-56b734c8c7a9](https://dash.cloudflare.com/builds/5f9b6f2e-1e10-4062-988f-56b734c8c7a9)
 Script: [noter-worker](https://dash.cloudflare.com/workers/services/view/noter-worker)
 Version ID: d5b7c5f1-4ddf-4930-a398-3f26f6d00a19`;
@@ -179,7 +184,7 @@ describe("buildGitHubCommitCheckSnapshot", () => {
     });
   });
 
-  it("selects preview aliases from normalized check items without adding them to summaries", () => {
+  it("selects branch preview aliases from normalized check items without adding them to summaries", () => {
     const items = normalizeCommitCheckSnapshot({
       checkRuns: [
         {
@@ -194,8 +199,27 @@ describe("buildGitHubCommitCheckSnapshot", () => {
       statuses: [],
     });
 
-    expect(selectPrimaryPreviewUrlFromCommitCheckItems(items)).toBe(
+    expect(selectBranchPreviewAliasUrlFromCommitCheckItems(items)).toBe(
       "https://codex-samebase-rebrand-rollout-plan-noter-worker.nicuchiciuc.workers.dev/",
     );
+  });
+
+  it("does not promote commit preview URLs into branch preview aliases", () => {
+    const items = normalizeCommitCheckSnapshot({
+      checkRuns: [
+        {
+          id: 1,
+          name: "Workers Builds: samebase",
+          status: "completed",
+          conclusion: "success",
+          appSlug: "cloudflare-workers-and-pages",
+          outputSummary: COMMIT_ONLY_WORKERS_SUMMARY,
+        },
+      ],
+      statuses: [],
+    });
+
+    expect(items[0]?.previewUrl).toBe("https://fc4977af-noter-worker.nicuchiciuc.workers.dev/");
+    expect(selectBranchPreviewAliasUrlFromCommitCheckItems(items)).toBeUndefined();
   });
 });

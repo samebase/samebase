@@ -10,7 +10,7 @@ import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord, toErrorMessage } from "./jsonUtils";
 import {
   normalizeCommitCheckSnapshot,
-  selectPrimaryPreviewUrlFromCommitCheckItems,
+  selectBranchPreviewAliasUrlFromCommitCheckItems,
   type GitHubCheckRunSnapshotInput,
   type GitHubCommitStatusSnapshotInput,
 } from "./commitChecks";
@@ -1087,7 +1087,7 @@ async function syncBranchHeadCommitCheckSnapshotsByBranch(
             {
               vaultId: args.vaultId,
               branchName: branch.name,
-              previewUrl: selectPrimaryPreviewUrlFromCommitCheckItems(snapshot.items),
+              previewUrl: selectBranchPreviewAliasUrlFromCommitCheckItems(snapshot.items),
               syncedAt: args.syncedAt,
             },
           );
