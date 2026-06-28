@@ -4,11 +4,12 @@ import { SAMEBASE_BRAND_COPY } from "../lib/samebaseBrandCopy";
 
 const BRAND_PRIMARY_COLOR = "#394447";
 const BRAND_BACKGROUND_COLOR = "#ffffff";
-const SOCIAL_CARD_TEXT_X = 530;
-const SOCIAL_CARD_SITE_NAME_Y = 292;
-const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 86;
-const SOCIAL_CARD_TAGLINE_Y = 366;
-const SOCIAL_CARD_TAGLINE_FONT_SIZE = 44;
+const SOCIAL_CARD_TEXT_X = 520;
+const SOCIAL_CARD_SITE_NAME_Y = 286;
+const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 82;
+const SOCIAL_CARD_TAGLINE_LINE_ONE_Y = 360;
+const SOCIAL_CARD_TAGLINE_LINE_TWO_Y = 417;
+const SOCIAL_CARD_TAGLINE_FONT_SIZE = 48;
 
 function escapeSvgText(text: string): string {
   return text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
@@ -66,15 +67,18 @@ ${logoBody}
     ${escapeSvgText(SAMEBASE_BRAND_COPY.siteName)}
   </text>
   <text
-    x="${SOCIAL_CARD_TEXT_X}"
-    y="${SOCIAL_CARD_TAGLINE_Y}"
     fill="${BRAND_PRIMARY_COLOR}"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     font-size="${SOCIAL_CARD_TAGLINE_FONT_SIZE}"
     font-weight="460"
     letter-spacing="0"
   >
-    ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.text)}
+    <tspan x="${SOCIAL_CARD_TEXT_X}" y="${SOCIAL_CARD_TAGLINE_LINE_ONE_Y}">
+      ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.textLines[0])}
+    </tspan>
+    <tspan x="${SOCIAL_CARD_TEXT_X}" y="${SOCIAL_CARD_TAGLINE_LINE_TWO_Y}">
+      ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.textLines[1])}
+    </tspan>
   </text>
 </svg>`;
 }

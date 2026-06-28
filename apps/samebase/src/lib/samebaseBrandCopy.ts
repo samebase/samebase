@@ -1,4 +1,5 @@
-const tagline = "The correct way to build web apps";
+const socialCardTaglineLines = ["The correct way", "to build web apps"] as const;
+const tagline = `${socialCardTaglineLines[0]} ${socialCardTaglineLines[1]}`;
 
 export const SAMEBASE_BRAND_COPY = {
   productName: "Samebase",
@@ -12,5 +13,6 @@ export const SAMEBASE_BRAND_COPY = {
     title: "samebase.com social card",
     accessibleDescription: `Samebase logo and the text ${tagline}.`,
     text: tagline,
+    textLines: socialCardTaglineLines,
   },
 } as const;
