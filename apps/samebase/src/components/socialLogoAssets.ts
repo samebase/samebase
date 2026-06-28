@@ -4,11 +4,14 @@ import { SAMEBASE_BRAND_COPY } from "../lib/samebaseBrandCopy";
 
 const BRAND_PRIMARY_COLOR = "#394447";
 const BRAND_BACKGROUND_COLOR = "#ffffff";
-const SOCIAL_CARD_TEXT_X = 530;
-const SOCIAL_CARD_SITE_NAME_Y = 292;
-const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 86;
-const SOCIAL_CARD_TAGLINE_Y = 356;
-const SOCIAL_CARD_TAGLINE_FONT_SIZE = 34;
+const SOCIAL_CARD_WIDTH = 1200;
+const SOCIAL_CARD_HEIGHT = 630;
+const SOCIAL_CARD_TEXT_X = 520;
+const SOCIAL_CARD_SITE_NAME_Y = 286;
+const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 82;
+const SOCIAL_CARD_TAGLINE_LINE_ONE_Y = 360;
+const SOCIAL_CARD_TAGLINE_LINE_TWO_Y = 417;
+const SOCIAL_CARD_TAGLINE_FONT_SIZE = 48;
 
 function escapeSvgText(text: string): string {
   return text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
@@ -37,9 +40,9 @@ export function createSamebaseSocialCardSvgMarkup({
 
   return `<svg
   xmlns="http://www.w3.org/2000/svg"
-  width="1200"
-  height="630"
-  viewBox="0 0 1200 630"
+  width="${SOCIAL_CARD_WIDTH}"
+  height="${SOCIAL_CARD_HEIGHT}"
+  viewBox="0 0 ${SOCIAL_CARD_WIDTH} ${SOCIAL_CARD_HEIGHT}"
   role="img"
   aria-labelledby="title desc"
 >
@@ -48,7 +51,7 @@ export function createSamebaseSocialCardSvgMarkup({
     ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.accessibleDescription)}
   </desc>
 
-  <rect width="1200" height="630" fill="${BRAND_BACKGROUND_COLOR}" />
+  <rect width="${SOCIAL_CARD_WIDTH}" height="${SOCIAL_CARD_HEIGHT}" fill="${BRAND_BACKGROUND_COLOR}" />
 
   <svg x="120" y="155" width="320" height="320" viewBox="0 0 360 360" aria-hidden="true">
 ${logoBody}
@@ -66,15 +69,24 @@ ${logoBody}
     ${escapeSvgText(SAMEBASE_BRAND_COPY.siteName)}
   </text>
   <text
-    x="${SOCIAL_CARD_TEXT_X}"
-    y="${SOCIAL_CARD_TAGLINE_Y}"
     fill="${BRAND_PRIMARY_COLOR}"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     font-size="${SOCIAL_CARD_TAGLINE_FONT_SIZE}"
-    font-weight="430"
+    font-weight="460"
     letter-spacing="0"
   >
-    ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.text)}
+    <tspan
+      x="${SOCIAL_CARD_TEXT_X}"
+      y="${SOCIAL_CARD_TAGLINE_LINE_ONE_Y}"
+    >
+      ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.textLines[0])}
+    </tspan>
+    <tspan
+      x="${SOCIAL_CARD_TEXT_X}"
+      y="${SOCIAL_CARD_TAGLINE_LINE_TWO_Y}"
+    >
+      ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.textLines[1])}
+    </tspan>
   </text>
 </svg>`;
 }
