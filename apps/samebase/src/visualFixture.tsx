@@ -94,6 +94,7 @@ import {
   ProviderConnectionsPageVisualFixture,
   type ProviderConnectionsPageVisualMode,
 } from "@/components/ProviderConnectionsPageVisualFixture";
+import { SocialCardVisualFixture } from "@/components/SocialCardVisualFixture";
 import { PublicLandingAccountLoadingSection } from "@/components/PublicLandingAccountSection";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { includes } from "@samebase/dependent";
@@ -125,6 +126,7 @@ type VisualFixtureMode =
   | "public-account-checking-login"
   | "vault-dashboard-branch-pr-title"
   | "button"
+  | "social-card"
   | AppBootFailureStateVisualMode
   | "corner-notch"
   | "corner-notch-detail";
@@ -235,6 +237,7 @@ const ROUTE_URL_EDITOR_VISUAL_MODES = [
 const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-connected",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
+const BRAND_VISUAL_MODES = ["social-card"] as const satisfies readonly VisualFixtureMode[];
 const MISC_VISUAL_MODES = [
   "codex-app-server-research",
   "codex-thread-browser",
@@ -302,6 +305,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Providers",
     modes: PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES,
+  },
+  {
+    label: "Brand",
+    modes: BRAND_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -465,6 +472,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "providers-page-connected") {
     return <ProviderConnectionsPageVisualFixture />;
+  }
+
+  if (mode === "social-card") {
+    return <SocialCardVisualFixture />;
   }
 
   if (mode === "button") {

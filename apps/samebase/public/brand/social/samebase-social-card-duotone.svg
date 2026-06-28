@@ -18,6 +18,7 @@
   </svg>
 
   <text
+    data-social-card-metric="site-name"
     x="520"
     y="286"
     fill="#394447"
@@ -35,10 +36,18 @@
     font-weight="460"
     letter-spacing="0"
   >
-    <tspan x="520" y="360">
+    <tspan
+      data-social-card-metric="tagline-line-one"
+      x="520"
+      y="360"
+    >
       The correct way
     </tspan>
-    <tspan x="520" y="417">
+    <tspan
+      data-social-card-metric="tagline-line-two"
+      x="520"
+      y="417"
+    >
       to build web apps
     </tspan>
   </text>

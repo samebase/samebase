@@ -56,6 +56,7 @@ ${logoBody}
   </svg>
 
   <text
+    data-social-card-metric="site-name"
     x="${SOCIAL_CARD_TEXT_X}"
     y="${SOCIAL_CARD_SITE_NAME_Y}"
     fill="${BRAND_PRIMARY_COLOR}"
@@ -73,10 +74,18 @@ ${logoBody}
     font-weight="460"
     letter-spacing="0"
   >
-    <tspan x="${SOCIAL_CARD_TEXT_X}" y="${SOCIAL_CARD_TAGLINE_LINE_ONE_Y}">
+    <tspan
+      data-social-card-metric="tagline-line-one"
+      x="${SOCIAL_CARD_TEXT_X}"
+      y="${SOCIAL_CARD_TAGLINE_LINE_ONE_Y}"
+    >
       ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.textLines[0])}
     </tspan>
-    <tspan x="${SOCIAL_CARD_TEXT_X}" y="${SOCIAL_CARD_TAGLINE_LINE_TWO_Y}">
+    <tspan
+      data-social-card-metric="tagline-line-two"
+      x="${SOCIAL_CARD_TEXT_X}"
+      y="${SOCIAL_CARD_TAGLINE_LINE_TWO_Y}"
+    >
       ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.textLines[1])}
     </tspan>
   </text>
