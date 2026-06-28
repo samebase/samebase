@@ -4,6 +4,8 @@ import { SAMEBASE_BRAND_COPY } from "../lib/samebaseBrandCopy";
 
 const BRAND_PRIMARY_COLOR = "#394447";
 const BRAND_BACKGROUND_COLOR = "#ffffff";
+export const SOCIAL_CARD_WIDTH = 1200;
+export const SOCIAL_CARD_HEIGHT = 630;
 const SOCIAL_CARD_TEXT_X = 520;
 const SOCIAL_CARD_SITE_NAME_Y = 286;
 const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 82;
@@ -38,9 +40,9 @@ export function createSamebaseSocialCardSvgMarkup({
 
   return `<svg
   xmlns="http://www.w3.org/2000/svg"
-  width="1200"
-  height="630"
-  viewBox="0 0 1200 630"
+  width="${SOCIAL_CARD_WIDTH}"
+  height="${SOCIAL_CARD_HEIGHT}"
+  viewBox="0 0 ${SOCIAL_CARD_WIDTH} ${SOCIAL_CARD_HEIGHT}"
   role="img"
   aria-labelledby="title desc"
 >
@@ -49,7 +51,7 @@ export function createSamebaseSocialCardSvgMarkup({
     ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.accessibleDescription)}
   </desc>
 
-  <rect width="1200" height="630" fill="${BRAND_BACKGROUND_COLOR}" />
+  <rect width="${SOCIAL_CARD_WIDTH}" height="${SOCIAL_CARD_HEIGHT}" fill="${BRAND_BACKGROUND_COLOR}" />
 
   <svg x="120" y="155" width="320" height="320" viewBox="0 0 360 360" aria-hidden="true">
 ${logoBody}
