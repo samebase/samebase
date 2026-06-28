@@ -236,6 +236,9 @@ export function useResolvedAppThemeColorState(
     };
 
     window.addEventListener(APP_THEME_COLOR_SEARCH_SYNC_EVENT, handleThemeColorSearchSync);
+    // SSR cannot read computed theme CSS variables; reread them once hydration
+    // has loaded the stylesheet and applied the root theme class.
+    handleThemeColorSearchSync();
     return () => {
       window.removeEventListener(APP_THEME_COLOR_SEARCH_SYNC_EVENT, handleThemeColorSearchSync);
     };
