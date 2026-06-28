@@ -1,4 +1,4 @@
-const tagline = "App builder for busy devs";
+const tagline = "The correct way to build web apps";
 
 export const SAMEBASE_BRAND_COPY = {
   productName: "Samebase",
@@ -6,7 +6,7 @@ export const SAMEBASE_BRAND_COPY = {
   tagline,
   homepage: {
     title: `Samebase | ${tagline}`,
-    description: `${tagline}. Code & data on your own infra.`,
+    description: `${tagline}. Convex + Cloudflare is all you need. You own 100% of your code and data.`,
   },
   socialCard: {
     title: "samebase.com social card",
