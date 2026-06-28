@@ -321,8 +321,7 @@ function LandingPreviewOverview() {
               aria-describedby="landing-correct-footnote"
               className="max-w-3xl text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl"
             >
-              The correct<sup className="text-[0.25em] font-medium leading-none">*</sup> way to
-              build web apps
+              The correct<sup>*</sup> way to build web apps
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-7 text-muted-foreground">
               Samebase turns GitHub, Convex, and Cloudflare into a normal app you own. Use Codex,
