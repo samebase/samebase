@@ -7,8 +7,8 @@ const BRAND_BACKGROUND_COLOR = "#ffffff";
 const SOCIAL_CARD_TEXT_X = 530;
 const SOCIAL_CARD_SITE_NAME_Y = 292;
 const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 86;
-const SOCIAL_CARD_TAGLINE_Y = 356;
-const SOCIAL_CARD_TAGLINE_FONT_SIZE = 34;
+const SOCIAL_CARD_TAGLINE_Y = 366;
+const SOCIAL_CARD_TAGLINE_FONT_SIZE = 44;
 
 function escapeSvgText(text: string): string {
   return text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
@@ -71,7 +71,7 @@ ${logoBody}
     fill="${BRAND_PRIMARY_COLOR}"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     font-size="${SOCIAL_CARD_TAGLINE_FONT_SIZE}"
-    font-weight="430"
+    font-weight="460"
     letter-spacing="0"
   >
     ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.text)}
