@@ -7,7 +7,7 @@ import { CodespaceIframe } from "./CodespaceIframe";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
-import { parseVaultPathContext } from "@/lib/vaultRoutes";
+import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set(["stopped", "failed", "deleted"]);
 
@@ -105,7 +105,11 @@ export function CodespaceChatOnlyView() {
 
   const resolvedBranch = targetBranch ?? vault?.resolvedBranch;
   const fileViewPath = resolvedBranch
-    ? `/vault/${owner}/${repoName}/${encodeURIComponent(resolvedBranch)}`
+    ? buildVaultFileRoute({
+        owner,
+        repoName,
+        branch: resolvedBranch,
+      })
     : `/vault/${owner}/${repoName}`;
 
   if (vault === undefined) {

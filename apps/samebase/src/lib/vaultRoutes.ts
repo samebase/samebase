@@ -18,7 +18,7 @@ function encodeVaultFilePath(filePath: string): string {
 }
 
 /**
- * Build the shipped `/vault/...` file route shape.
+ * Build the shipped `/vault/.../-/...` file route shape.
  *
  * This stays path-string based for now because TanStack `_splat` currently
  * double-encodes pre-encoded branch segments like `feature%2Flogin`, which
@@ -30,7 +30,7 @@ export function buildVaultFileRoute(args: {
   branch: string;
   filePath?: string;
 }): string {
-  const basePath = `/vault/${args.owner}/${args.repoName}/${encodeVaultBranchSegment(args.branch)}`;
+  const basePath = `/vault/${args.owner}/${args.repoName}/-/${encodeVaultBranchSegment(args.branch)}`;
 
   if (!args.filePath || args.filePath.length === 0) {
     return basePath;
@@ -59,6 +59,7 @@ export interface ParsedVaultPathContext {
   branch?: string;
   filePath?: string;
   isCodespaceChatRoute?: boolean;
+  isInvalidVaultRoute?: boolean;
 }
 
 export function parseVaultPathContext(pathname: string): ParsedVaultPathContext {
@@ -95,11 +96,30 @@ export function parseVaultPathContext(pathname: string): ParsedVaultPathContext 
     };
   }
 
-  const branch = decodeRouteSegmentSafe(routeKind);
+  if (routeKind !== "-") {
+    return {
+      owner,
+      repositoryFullName,
+      repoName,
+      isInvalidVaultRoute: true,
+    };
+  }
+
+  const encodedBranch = segments[4];
+  if (!encodedBranch || encodedBranch.length === 0) {
+    return {
+      owner,
+      repositoryFullName,
+      repoName,
+      isInvalidVaultRoute: true,
+    };
+  }
+
+  const branch = decodeRouteSegmentSafe(encodedBranch);
   const filePath =
-    segments.length > 4
+    segments.length > 5
       ? segments
-          .slice(4)
+          .slice(5)
           .map((segment) => decodeRouteSegmentSafe(segment))
           .join("/")
       : undefined;

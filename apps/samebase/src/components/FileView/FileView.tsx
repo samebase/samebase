@@ -120,13 +120,15 @@ function FileViewWrapper() {
     repoName,
     branch: branchParam,
     filePath: filePathParam,
+    isInvalidVaultRoute,
   } = useMemo(() => parseVaultPathContext(pathname), [pathname]);
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
   const routeBranch = branchParam;
   const selectedFile = filePathParam ?? "";
-  const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
+  const repositoryFullName =
+    owner && repoName && !isInvalidVaultRoute ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
   // TODO: Keep vault existence checks on live query until useCacheQuery exposes
@@ -232,7 +234,7 @@ function FileViewWrapper() {
 
   /**
    * Old routes could omit the branch segment. Once we know the real branch,
-   * rewrite `/vault/:owner/:repo` into `/vault/:owner/:repo/:branch`.
+   * rewrite `/vault/:owner/:repo` into `/vault/:owner/:repo/-/:branch`.
    */
   useEffect(() => {
     if (!owner || !repoName || !branch || branchParam) {
@@ -249,7 +251,7 @@ function FileViewWrapper() {
 
   /**
    * If we recovered a file path from an old branchless URL, rewrite the URL to
-   * the canonical `/vault/:owner/:repo/:branch/:file` form.
+   * the canonical `/vault/:owner/:repo/-/:branch/:file` form.
    */
   useEffect(() => {
     if (!owner || !repoName || !branch || !branchParam || !legacyBranchlessFilePath) {
@@ -488,6 +490,9 @@ function FileViewWrapper() {
     repoName,
   ]);
 
+  if (isInvalidVaultRoute) {
+    return <FileViewInvalidRouteState />;
+  }
   if (!vault || !owner || !repoName || !branch) {
     return null;
   }
@@ -504,6 +509,16 @@ function FileViewWrapper() {
       repoName={repoName}
       stagedFile={stagedFile ?? null}
     />
+  );
+}
+
+function FileViewInvalidRouteState() {
+  return (
+    <AppWorkspaceRouteChrome>
+      <div className="flex h-full min-h-0 items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">Invalid vault route.</p>
+      </div>
+    </AppWorkspaceRouteChrome>
   );
 }
 
