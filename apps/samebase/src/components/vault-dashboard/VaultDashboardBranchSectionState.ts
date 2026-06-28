@@ -21,6 +21,7 @@ export interface VaultRemoteBranchListItem {
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
   pullRequestIsDraft?: boolean;
+  previewUrl?: string;
 }
 
 export interface VaultBranchCommitListItem {

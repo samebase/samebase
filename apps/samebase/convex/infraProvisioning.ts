@@ -1227,6 +1227,7 @@ export const upsertDomainRecord = internalMutation({
     source: v.union(
       v.literal("cloudflare_workers_default"),
       v.literal("cloudflare_workers_custom"),
+      v.literal("cloudflare_workers_preview"),
     ),
     active: v.boolean(),
   },

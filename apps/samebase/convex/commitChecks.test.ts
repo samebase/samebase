@@ -5,10 +5,16 @@ import {
   normalizeCommitCheckRun,
   normalizeCommitCheckSnapshot,
   normalizeCommitStatus,
+  selectBranchPreviewAliasUrlFromCommitCheckItems,
 } from "./commitChecks";
 
 const SUCCESSFUL_WORKERS_SUMMARY = `Preview URL: https://fc4977af-noter-worker.nicuchiciuc.workers.dev
 Preview Alias URL: https://codex-samebase-rebrand-rollout-plan-noter-worker.nicuchiciuc.workers.dev
+Build ID: [5f9b6f2e-1e10-4062-988f-56b734c8c7a9](https://dash.cloudflare.com/builds/5f9b6f2e-1e10-4062-988f-56b734c8c7a9)
+Script: [noter-worker](https://dash.cloudflare.com/workers/services/view/noter-worker)
+Version ID: d5b7c5f1-4ddf-4930-a398-3f26f6d00a19`;
+
+const COMMIT_ONLY_WORKERS_SUMMARY = `Preview URL: https://fc4977af-noter-worker.nicuchiciuc.workers.dev
 Build ID: [5f9b6f2e-1e10-4062-988f-56b734c8c7a9](https://dash.cloudflare.com/builds/5f9b6f2e-1e10-4062-988f-56b734c8c7a9)
 Script: [noter-worker](https://dash.cloudflare.com/workers/services/view/noter-worker)
 Version ID: d5b7c5f1-4ddf-4930-a398-3f26f6d00a19`;
@@ -133,6 +139,7 @@ describe("buildGitHubCommitCheckSnapshot", () => {
           status: "in_progress",
           appSlug: "cloudflare-workers-and-pages",
           detailsUrl: "https://dash.cloudflare.com/builds/running",
+          outputSummary: SUCCESSFUL_WORKERS_SUMMARY,
         },
         {
           id: 2,
@@ -175,5 +182,44 @@ describe("buildGitHubCommitCheckSnapshot", () => {
       primaryLogUrl: "https://app.netlify.com/sites/example/deploys/3",
       syncedAt: 1000,
     });
+  });
+
+  it("selects branch preview aliases from normalized check items without adding them to summaries", () => {
+    const items = normalizeCommitCheckSnapshot({
+      checkRuns: [
+        {
+          id: 1,
+          name: "Workers Builds: samebase",
+          status: "completed",
+          conclusion: "success",
+          appSlug: "cloudflare-workers-and-pages",
+          outputSummary: SUCCESSFUL_WORKERS_SUMMARY,
+        },
+      ],
+      statuses: [],
+    });
+
+    expect(selectBranchPreviewAliasUrlFromCommitCheckItems(items)).toBe(
+      "https://codex-samebase-rebrand-rollout-plan-noter-worker.nicuchiciuc.workers.dev/",
+    );
+  });
+
+  it("does not promote commit preview URLs into branch preview aliases", () => {
+    const items = normalizeCommitCheckSnapshot({
+      checkRuns: [
+        {
+          id: 1,
+          name: "Workers Builds: samebase",
+          status: "completed",
+          conclusion: "success",
+          appSlug: "cloudflare-workers-and-pages",
+          outputSummary: COMMIT_ONLY_WORKERS_SUMMARY,
+        },
+      ],
+      statuses: [],
+    });
+
+    expect(items[0]?.previewUrl).toBe("https://fc4977af-noter-worker.nicuchiciuc.workers.dev/");
+    expect(selectBranchPreviewAliasUrlFromCommitCheckItems(items)).toBeUndefined();
   });
 });

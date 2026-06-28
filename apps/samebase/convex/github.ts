@@ -1,6 +1,7 @@
 "use node";
 
 import { internalAction, type ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
@@ -9,6 +10,7 @@ import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord, toErrorMessage } from "./jsonUtils";
 import {
   normalizeCommitCheckSnapshot,
+  selectBranchPreviewAliasUrlFromCommitCheckItems,
   type GitHubCheckRunSnapshotInput,
   type GitHubCommitStatusSnapshotInput,
 } from "./commitChecks";
@@ -1042,6 +1044,7 @@ async function readBranchHeadCommitCheckSnapshot(args: {
 async function syncBranchHeadCommitCheckSnapshotsByBranch(
   ctx: ActionCtx,
   args: {
+    vaultId: Id<"vaults">;
     githubRepositoryId: string;
     octokit: Octokit;
     owner: string;
@@ -1079,6 +1082,15 @@ async function syncBranchHeadCommitCheckSnapshotsByBranch(
             syncedAt: args.syncedAt,
             items: snapshot.items,
           });
+          await ctx.runMutation(
+            internal.vault.branches.syncVaultBranchPreviewDomainFromCheckSnapshot,
+            {
+              vaultId: args.vaultId,
+              branchName: branch.name,
+              previewUrl: selectBranchPreviewAliasUrlFromCommitCheckItems(snapshot.items),
+              syncedAt: args.syncedAt,
+            },
+          );
         } catch (error: unknown) {
           if (getErrorStatus(error) !== 404) {
             throw error;
@@ -2419,6 +2431,7 @@ export const syncRepositoryMetadata = internalAction({
       })
     ) {
       await syncBranchHeadCommitCheckSnapshotsByBranch(ctx, {
+        vaultId: vault._id,
         githubRepositoryId: vault.ghRepoId,
         octokit,
         owner: args.owner,

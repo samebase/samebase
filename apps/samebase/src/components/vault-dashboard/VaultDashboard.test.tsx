@@ -184,6 +184,7 @@ describe("VaultBranchLinkContent", () => {
                 },
               },
             ],
+            previewUrl: "https://preview-branch.example.workers.dev",
             isDefault: true,
             isProtected: false,
             lastSyncedAt: 0,
@@ -194,7 +195,9 @@ describe("VaultBranchLinkContent", () => {
     );
 
     expect(markup).toContain('href="https://github.com/samebase/samebase/actions/runs/456"');
+    expect(markup).toContain('href="https://preview-branch.example.workers.dev"');
     expect(markup).toContain(">2 failed<");
+    expect(markup).toContain(">Preview<");
     expect(markup).not.toContain("Pull request");
   });
 

@@ -125,6 +125,7 @@ export const vVaultDomainKind = union(literal("main"), literal("branch_preview")
 export const vVaultDomainSource = union(
   literal("cloudflare_workers_default"),
   literal("cloudflare_workers_custom"),
+  literal("cloudflare_workers_preview"),
 );
 
 export const vVaultRemoteBranchState = union(literal("active"), literal("deleted_upstream"));

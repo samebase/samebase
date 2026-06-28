@@ -22,6 +22,7 @@ import {
   CircleDashed,
   CircleDot,
   CircleX,
+  ExternalLink,
   GitBranch,
   Loader2,
 } from "lucide-react";
@@ -1678,6 +1679,29 @@ function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewMode
   );
 }
 
+function BranchPreviewLink({ previewUrl }: { previewUrl: string | undefined }) {
+  if (!previewUrl) {
+    return null;
+  }
+
+  return (
+    <a
+      href={previewUrl}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-label="Open branch preview"
+      className={clsx(
+        "inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 font-mono text-sm transition-colors hover:underline",
+        linkStyle,
+      )}
+      title={previewUrl}
+    >
+      <ExternalLink className="h-4 w-4" strokeWidth={2} />
+      <span>Preview</span>
+    </a>
+  );
+}
+
 function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel }) {
   const label = commit.isHead ? `Head ${commit.shortSha}` : commit.shortSha;
 
@@ -1700,9 +1724,11 @@ function VaultBranchCommitLink({ commit }: { commit: VaultBranchCommitViewModel 
 function VaultBranchCommitRow({
   aheadBehindLabel,
   commit,
+  previewUrl,
 }: {
   aheadBehindLabel: string | null;
   commit: VaultBranchCommitViewModel;
+  previewUrl: string | undefined;
 }) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -1713,6 +1739,7 @@ function VaultBranchCommitRow({
         </span>
       ) : null}
       <CommitChecksSummaryLink commit={commit} />
+      <BranchPreviewLink previewUrl={previewUrl} />
     </div>
   );
 }
@@ -1734,11 +1761,13 @@ function VaultBranchCommitStack({
   aheadBy,
   commits,
   isDefault,
+  previewUrl,
 }: {
   aheadBehindLabel: string | null;
   aheadBy: number | undefined;
   commits: readonly VaultBranchCommitViewModel[];
   isDefault: boolean;
+  previewUrl: string | undefined;
 }) {
   const visibleCommits = commits.filter((commit) => commit.checks || commit.isHead);
   if (visibleCommits.length === 0) {
@@ -1756,6 +1785,7 @@ function VaultBranchCommitStack({
           key={commit.sha}
           aheadBehindLabel={commit.isHead ? aheadBehindLabel : null}
           commit={commit}
+          previewUrl={commit.isHead ? previewUrl : undefined}
         />
       ))}
       {hiddenAheadCommitCount > 0 ? (
@@ -1904,6 +1934,7 @@ export function VaultBranchLinkContent({
               aheadBy={branchRow.aheadBy}
               commits={branchRow.commits}
               isDefault={branchRow.isDefault}
+              previewUrl={branchRow.previewUrl}
             />
             {hasPullRequestMetadata ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

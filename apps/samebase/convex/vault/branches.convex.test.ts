@@ -134,6 +134,12 @@ describe("vault branch mutations", () => {
         },
       ],
     });
+    await t.mutation(internal.vault.branches.syncVaultBranchPreviewDomainFromCheckSnapshot, {
+      vaultId: ids.vaultId,
+      branchName: "feature/no-pr",
+      previewUrl: "https://feature-no-pr.example.workers.dev",
+      syncedAt: 40,
+    });
 
     const asOwner = t.withIdentity({
       subject: `${ids.userId}|owner-session`,
@@ -165,6 +171,7 @@ describe("vault branch mutations", () => {
       },
       {
         name: "feature/no-pr",
+        previewUrl: "https://feature-no-pr.example.workers.dev",
         commits: [
           {
             sha: "abc123",
@@ -179,6 +186,18 @@ describe("vault branch mutations", () => {
     ]);
     expect(branches[0]?.pullRequestNumber).toBeUndefined();
     expect(branches[1]?.pullRequestNumber).toBeUndefined();
+    await t.mutation(internal.vault.branches.syncVaultBranchPreviewDomainFromCheckSnapshot, {
+      vaultId: ids.vaultId,
+      branchName: "feature/no-pr",
+      syncedAt: 50,
+    });
+    const branchesAfterMissingPreview = await asOwner.query(
+      api.vault.branches.getVaultRemoteBranches,
+      {
+        vaultId: ids.vaultId,
+      },
+    );
+    expect(branchesAfterMissingPreview[1]?.previewUrl).toBeUndefined();
     await expect(
       t.run(async (ctx) => {
         const staleSnapshot = await ctx.db
