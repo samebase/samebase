@@ -1591,6 +1591,7 @@ export const trackedFilePaths = [
   "specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md",
   "specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md",
   "specs/109_ROUTE_URL_EDITOR_REBUILD_REQUIREMENTS_SPEC.md",
+  "specs/110_VAULT_ROUTE_SURFACE_SPEC.md",
   "specs/README.md",
   "tsconfig.base.json",
   "tsconfig.json",
