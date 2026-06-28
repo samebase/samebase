@@ -107,7 +107,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
       name: /The correct\s*\*\s*way to build web apps/,
     }),
   ).toBeVisible();
-  await expect(article).toContainText("Correct means:");
+  await expect(article).toContainText("Correct means Samebase uses the stack it recommends");
   await expect(
     article.getByRole("heading", {
       name: "The base is a trio.",

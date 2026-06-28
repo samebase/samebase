@@ -212,12 +212,9 @@ function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDoc
 
 function LandingPreviewProviderGrid() {
   return (
-    <div className="grid gap-px border bg-border sm:grid-cols-3">
+    <div className="grid gap-5 sm:grid-cols-3">
       {LANDING_STACK_PROVIDERS.map((provider) => (
-        <div
-          className="flex min-h-28 flex-col justify-between bg-background p-4"
-          key={provider.name}
-        >
+        <div className="flex min-h-28 flex-col justify-between border-t pt-4" key={provider.name}>
           <img
             alt={provider.name}
             className="h-8 w-fit max-w-32 bg-white object-contain px-1 py-1"
@@ -244,9 +241,9 @@ function LandingWorkLanes() {
         <h2 className="text-2xl font-semibold leading-8">Parallel by default</h2>
       </div>
       <div>
-        <div className="grid gap-px border bg-border md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-3">
           {LANDING_WORK_LANES.map((lane) => (
-            <section className="bg-background p-5" key={lane.label}>
+            <section className="border-t pt-4" key={lane.label}>
               <h3 className="text-lg font-semibold leading-6">{lane.label}</h3>
               <p className="mt-3 text-sm leading-5 text-muted-foreground">{lane.body}</p>
             </section>
@@ -263,9 +260,9 @@ function LandingCorrectPrinciples() {
       <div>
         <h2 className="text-2xl font-semibold leading-8">What correct means here</h2>
       </div>
-      <div className="grid gap-px border bg-border sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         {LANDING_CORRECT_PRINCIPLES.map((principle) => (
-          <section className="min-h-32 bg-background p-5" key={principle.title}>
+          <section className="border-t pt-4" key={principle.title}>
             <h3 className="text-lg font-semibold leading-6">{principle.title}</h3>
             <p className="mt-3 text-sm leading-5 text-muted-foreground">{principle.body}</p>
           </section>
@@ -275,30 +272,13 @@ function LandingCorrectPrinciples() {
   );
 }
 
-function LandingCorrectFootnote() {
-  return (
-    <aside className="border p-5" id="landing-correct-footnote">
-      <p className="text-sm leading-6 text-muted-foreground">
-        <sup>*</sup> Correct means:
-      </p>
-      <div className="mt-4 grid gap-px border bg-border sm:grid-cols-2 lg:grid-cols-1">
-        {LANDING_CORRECT_PRINCIPLES.map((principle) => (
-          <div className="bg-background px-4 py-3" key={principle.title}>
-            <div className="text-sm font-medium leading-5">{principle.title}</div>
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
-}
-
 function LandingAppSteps() {
   return (
     <section className="grid gap-6 border-b pb-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
       <h2 className="text-2xl font-semibold leading-8">What Samebase does</h2>
-      <ol className="grid gap-px border bg-border md:grid-cols-3">
+      <ol className="grid gap-5 md:grid-cols-3">
         {LANDING_APP_STEPS.map((step) => (
-          <li className="bg-background p-5" key={step.label}>
+          <li className="border-t pt-4" key={step.label}>
             <h3 className="text-xl font-semibold leading-7">{step.label}</h3>
             <p className="mt-3 text-sm leading-5 text-muted-foreground">{step.body}</p>
           </li>
@@ -315,7 +295,7 @@ function LandingPreviewOverview() {
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
-        <section className="grid gap-8 border-b pb-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <section className="border-b pb-12">
           <div className="max-w-4xl">
             <h1
               aria-describedby="landing-correct-footnote"
@@ -343,9 +323,14 @@ function LandingPreviewOverview() {
                 Do it yourself
               </Link>
             </div>
+            <p
+              className="mt-6 max-w-2xl text-sm leading-6 text-muted-foreground"
+              id="landing-correct-footnote"
+            >
+              <sup>*</sup> Correct means Samebase uses the stack it recommends, stays cheap when
+              idle, keeps the backend simple, and leaves transparent output.
+            </p>
           </div>
-
-          <LandingCorrectFootnote />
         </section>
 
         <section className="grid gap-6 border-b pb-10 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start">
