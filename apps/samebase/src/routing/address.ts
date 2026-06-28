@@ -240,7 +240,7 @@ that matches the draft path.
 
 Example: when the draft route address is `/logo?to`, the path is `/logo`, so
 the editor should suggest `/logo` search params such as `top`. When the draft
-route address is `/vault/acme/demo/main/README.md?d`, the path matches the
+route address is `/vault/acme/demo/-/main/README.md?d`, the path matches the
 `/vault/$` route, so an admin viewer can see file-view suggestions such as
 `diff`.
 */

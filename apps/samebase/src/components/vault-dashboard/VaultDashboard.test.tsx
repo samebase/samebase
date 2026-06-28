@@ -366,7 +366,7 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/samebase/samebase/main"');
+    expect(markup).toContain('href="/vault/samebase/samebase/-/main"');
     expect(markup).toContain('title="Open branch in Samebase"');
     expect(markup).toContain(">Edit<");
     expect(markup).not.toContain(">View changes<");
@@ -391,7 +391,7 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/samebase/samebase/codex%2Fview%20changes?compare"');
+    expect(markup).toContain('href="/vault/samebase/samebase/-/codex%2Fview%20changes?compare"');
     expect(markup).toContain('title="View changes in Samebase"');
     expect(markup).toContain(">View changes<");
     expect(markup).not.toContain(">Edit<");

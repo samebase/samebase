@@ -401,7 +401,7 @@ export function CommitReviewVisualFixture({ mode }: { mode: CommitReviewVisualMo
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden">
           {mode === "deleted-staged-changes" ? (
-            <TestRouterProvider initialEntries={["/vault/samebase/samebase/main/README.md"]}>
+            <TestRouterProvider initialEntries={["/vault/samebase/samebase/-/main/README.md"]}>
               <div className="mb-3 space-y-3">
                 <div className="flex items-center justify-between border px-3 py-2">
                   <div className="text-xs text-muted-foreground">Staged changes header</div>

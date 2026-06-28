@@ -811,13 +811,13 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/main");
+    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/-/main");
     expect(rootElement?.querySelector('[data-testid="codespace-chat-page"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).not.toBeNull();
   });
 
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/vault/samebase/samebase/main/README.md");
+    await renderRoute("/vault/samebase/samebase/-/main/README.md");
 
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent).toBe(
       "File view page",
