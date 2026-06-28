@@ -371,6 +371,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-controls.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-picker-popover.png",
+  "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-dark-wide-main-pane.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-depth-2-opacity-three-scene.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-depth-3-three-scene.png",
   "apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-iso-controls.png",
