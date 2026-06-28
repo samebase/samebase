@@ -4,8 +4,8 @@ import { SAMEBASE_BRAND_COPY } from "../lib/samebaseBrandCopy";
 
 const BRAND_PRIMARY_COLOR = "#394447";
 const BRAND_BACKGROUND_COLOR = "#ffffff";
-export const SOCIAL_CARD_WIDTH = 1200;
-export const SOCIAL_CARD_HEIGHT = 630;
+const SOCIAL_CARD_WIDTH = 1200;
+const SOCIAL_CARD_HEIGHT = 630;
 const SOCIAL_CARD_TEXT_X = 520;
 const SOCIAL_CARD_SITE_NAME_Y = 286;
 const SOCIAL_CARD_SITE_NAME_FONT_SIZE = 82;
@@ -58,7 +58,6 @@ ${logoBody}
   </svg>
 
   <text
-    data-social-card-metric="site-name"
     x="${SOCIAL_CARD_TEXT_X}"
     y="${SOCIAL_CARD_SITE_NAME_Y}"
     fill="${BRAND_PRIMARY_COLOR}"
@@ -77,14 +76,12 @@ ${logoBody}
     letter-spacing="0"
   >
     <tspan
-      data-social-card-metric="tagline-line-one"
       x="${SOCIAL_CARD_TEXT_X}"
       y="${SOCIAL_CARD_TAGLINE_LINE_ONE_Y}"
     >
       ${escapeSvgText(SAMEBASE_BRAND_COPY.socialCard.textLines[0])}
     </tspan>
     <tspan
-      data-social-card-metric="tagline-line-two"
       x="${SOCIAL_CARD_TEXT_X}"
       y="${SOCIAL_CARD_TAGLINE_LINE_TWO_Y}"
     >
