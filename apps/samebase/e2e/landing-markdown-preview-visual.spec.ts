@@ -107,13 +107,13 @@ test("landing preview route renders the React overview in workspace chrome", asy
       name: /The correct\s*\*\s*way to build web apps/,
     }),
   ).toBeVisible();
-  await expect(article).toContainText("Correct means honest about the stack");
+  await expect(article).toContainText("Correct means:");
   await expect(
     article.getByRole("heading", {
-      name: "The core stack is a trio.",
+      name: "The base is a trio.",
     }),
   ).toBeVisible();
-  await expect(article).toContainText("use Codex, another agent, or the editor");
+  await expect(article).toContainText("AI tools sit above the base");
   await expect(
     article.getByRole("heading", {
       name: "What Samebase does",
@@ -121,11 +121,11 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toBeVisible();
   await expect(
     article.getByRole("heading", {
-      name: "Built for parallel work",
+      name: "Parallel by default",
     }),
   ).toBeVisible();
-  await expect(article).toContainText("Each worktree can have its own local database deployment");
-  await expect(article).toContainText("Each pull request gets a preview deploy");
+  await expect(article).toContainText("A separate local database deploy for each parallel agent");
+  await expect(article).toContainText("A preview deploy for the exact branch under review");
   await expect(
     article.getByRole("heading", {
       name: "What correct means here",
@@ -133,7 +133,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toBeVisible();
   await expect(
     article.getByRole("heading", {
-      name: "Manual setup is proof",
+      name: "Manual setup proves it",
     }),
   ).toBeVisible();
   await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveAttribute(

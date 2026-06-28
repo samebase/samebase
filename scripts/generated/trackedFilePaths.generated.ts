@@ -1401,6 +1401,7 @@ export const trackedFilePaths = [
   "research/2026-06-18-workos-authorization-model.md",
   "research/2026-06-22-cloudflare-oauth-apps-mcp-fit.md",
   "research/2026-06-25-noter-guest-create-app-manual-test.md",
+  "research/2026-06-28-landing-positioning-ideas.md",
   "research/2026-07-01-vault-route-rename.md",
   "research/2026-07-01-vault-sidebar-dashboard.md",
   "research/README.md",

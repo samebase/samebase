@@ -41,35 +41,50 @@ const LANDING_STACK_PROVIDERS = [
 
 const LANDING_WORK_LANES = [
   {
-    body: "The main checkout keeps a persistent local deployment for ordinary development.",
+    body: "A persistent local deploy for day-to-day development.",
     label: "Local folder",
   },
   {
-    body: "Each worktree can have its own local database deployment, so multiple agents can build in parallel.",
+    body: "A separate local database deploy for each parallel agent.",
     label: "Worktree",
   },
   {
-    body: "Each pull request gets a preview deploy, so review happens on the exact branch being discussed.",
+    body: "A preview deploy for the exact branch under review.",
     label: "Pull request",
   },
 ] as const;
 
 const LANDING_CORRECT_PRINCIPLES = [
   {
-    body: "Samebase runs on the same GitHub, Convex, and Cloudflare base it recommends. The agent or editor is a collaborator on top of the repo, not the base itself.",
+    body: "Samebase runs on GitHub, Convex, and Cloudflare too.",
     title: "Same stack",
   },
   {
-    body: "A forgotten idea should not become a monthly tax. The cost should stay close to idle when the app is idle, then scale with real usage.",
-    title: "Cost follows usage",
+    body: "A forgotten idea should not become a monthly tax.",
+    title: "Idle stays cheap",
   },
   {
-    body: "Simple means fewer moving parts you have to remember. Convex keeps the backend, database, and realtime behavior in one model that can still grow.",
-    title: "Simple does not mean toy",
+    body: "Convex keeps data, backend, and realtime behavior in one model.",
+    title: "Simple core",
   },
   {
-    body: "The first user is me, then friends, then strangers. That order forces the app, repo, and infrastructure to stay inspectable and replaceable.",
-    title: "Transparent by default",
+    body: "Normal repo. Normal infrastructure. Replaceable tools.",
+    title: "Transparent output",
+  },
+] as const;
+
+const LANDING_APP_STEPS = [
+  {
+    body: "Connect GitHub, Convex, and Cloudflare.",
+    label: "Connect",
+  },
+  {
+    body: "Samebase creates the repo and deploy path.",
+    label: "Create",
+  },
+  {
+    body: "You keep normal code on normal infrastructure.",
+    label: "Own",
   },
 ] as const;
 
@@ -200,7 +215,7 @@ function LandingPreviewProviderGrid() {
     <div className="grid gap-px border bg-border sm:grid-cols-3">
       {LANDING_STACK_PROVIDERS.map((provider) => (
         <div
-          className="flex min-h-32 flex-col justify-between bg-background p-4"
+          className="flex min-h-28 flex-col justify-between bg-background p-4"
           key={provider.name}
         >
           <img
@@ -224,21 +239,16 @@ function LandingPreviewProviderGrid() {
 
 function LandingWorkLanes() {
   return (
-    <section className="grid gap-8 border-b pb-14 lg:grid-cols-[18rem_minmax(0,1fr)]">
+    <section className="grid gap-6 border-b pb-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
       <div>
-        <h2 className="text-2xl font-semibold leading-8">Built for parallel work</h2>
+        <h2 className="text-2xl font-semibold leading-8">Parallel by default</h2>
       </div>
       <div>
-        <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-          Samebase treats a local folder, a git worktree, and a pull request as different work
-          lanes. Each lane can have its own deploy surface, so people and agents do not have to
-          share the same database while they are trying different changes.
-        </p>
-        <div className="mt-6 grid gap-px border bg-border md:grid-cols-3">
+        <div className="grid gap-px border bg-border md:grid-cols-3">
           {LANDING_WORK_LANES.map((lane) => (
             <section className="bg-background p-5" key={lane.label}>
-              <h3 className="text-base font-semibold leading-6">{lane.label}</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{lane.body}</p>
+              <h3 className="text-lg font-semibold leading-6">{lane.label}</h3>
+              <p className="mt-3 text-sm leading-5 text-muted-foreground">{lane.body}</p>
             </section>
           ))}
         </div>
@@ -249,21 +259,51 @@ function LandingWorkLanes() {
 
 function LandingCorrectPrinciples() {
   return (
-    <section className="grid gap-8 border-b pb-14 lg:grid-cols-[18rem_minmax(0,1fr)]">
+    <section className="grid gap-6 border-b pb-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
       <div>
         <h2 className="text-2xl font-semibold leading-8">What correct means here</h2>
       </div>
-      <div className="divide-y border-y">
+      <div className="grid gap-px border bg-border sm:grid-cols-2">
         {LANDING_CORRECT_PRINCIPLES.map((principle) => (
-          <section
-            className="grid gap-3 py-6 md:grid-cols-[13rem_minmax(0,1fr)]"
-            key={principle.title}
-          >
-            <h3 className="text-base font-semibold leading-6">{principle.title}</h3>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground">{principle.body}</p>
+          <section className="min-h-32 bg-background p-5" key={principle.title}>
+            <h3 className="text-lg font-semibold leading-6">{principle.title}</h3>
+            <p className="mt-3 text-sm leading-5 text-muted-foreground">{principle.body}</p>
           </section>
         ))}
       </div>
+    </section>
+  );
+}
+
+function LandingCorrectFootnote() {
+  return (
+    <aside className="border p-5" id="landing-correct-footnote">
+      <p className="text-sm leading-6 text-muted-foreground">
+        <sup>*</sup> Correct means:
+      </p>
+      <div className="mt-4 grid gap-px border bg-border sm:grid-cols-2 lg:grid-cols-1">
+        {LANDING_CORRECT_PRINCIPLES.map((principle) => (
+          <div className="bg-background px-4 py-3" key={principle.title}>
+            <div className="text-sm font-medium leading-5">{principle.title}</div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function LandingAppSteps() {
+  return (
+    <section className="grid gap-6 border-b pb-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <h2 className="text-2xl font-semibold leading-8">What Samebase does</h2>
+      <ol className="grid gap-px border bg-border md:grid-cols-3">
+        {LANDING_APP_STEPS.map((step) => (
+          <li className="bg-background p-5" key={step.label}>
+            <h3 className="text-xl font-semibold leading-7">{step.label}</h3>
+            <p className="mt-3 text-sm leading-5 text-muted-foreground">{step.body}</p>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
@@ -274,26 +314,19 @@ function LandingPreviewOverview() {
       className="min-h-full shrink-0 bg-background pb-[calc(100svh-4rem)] text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
-        <section className="grid gap-10 border-b pb-12 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+        <section className="grid gap-8 border-b pb-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
           <div className="max-w-4xl">
             <h1
               aria-describedby="landing-correct-footnote"
               className="max-w-3xl text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl"
             >
-              The{" "}
-              <span className="relative inline-block pr-3">
-                correct
-                <sup className="absolute right-0 top-1 text-[0.7rem] font-medium leading-none">
-                  *
-                </sup>
-              </span>{" "}
-              way to build web apps
+              The correct<sup className="text-[0.25em] font-medium leading-none">*</sup> way to
+              build web apps
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Samebase creates real apps from your own GitHub, Convex, and Cloudflare accounts. It
-              chooses the same stack it runs on, then leaves you with a normal repo, normal
-              infrastructure, and room to use the dev tool you already know.
+            <p className="mt-6 max-w-2xl text-lg leading-7 text-muted-foreground">
+              Samebase turns GitHub, Convex, and Cloudflare into a normal app you own. Use Codex,
+              Claude Code, or any editor on top.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -313,72 +346,31 @@ function LandingPreviewOverview() {
             </div>
           </div>
 
-          <aside className="border-l pl-5">
-            <p
-              className="max-w-sm text-sm leading-6 text-muted-foreground"
-              id="landing-correct-footnote"
-            >
-              <sup className="text-[0.7rem] font-medium leading-none">*</sup> Correct means honest
-              about the stack, cheap to leave running, simple enough to understand, and transparent
-              enough to replace.
-            </p>
-          </aside>
+          <LandingCorrectFootnote />
         </section>
 
-        <section className="grid gap-8 border-b pb-14 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start">
+        <section className="grid gap-6 border-b pb-10 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start">
           <div>
-            <h2 className="max-w-2xl text-3xl font-semibold leading-10">
-              The core stack is a trio.
-            </h2>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-              GitHub, Convex, and Cloudflare are the base Samebase uses for itself and recommends
-              for apps. AI tools sit above that base: use Codex, another agent, or the editor you
-              are already comfortable with.
+            <h2 className="max-w-2xl text-3xl font-semibold leading-10">The base is a trio.</h2>
+            <p className="mt-4 max-w-xl text-base leading-6 text-muted-foreground">
+              Samebase recommends the same services it uses for itself. AI tools sit above the base;
+              they are not the lock-in.
             </p>
           </div>
           <LandingPreviewProviderGrid />
         </section>
 
-        <section className="grid gap-8 border-b pb-14 lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <h2 className="text-2xl font-semibold leading-8">What Samebase does</h2>
-          <ol className="grid gap-px border bg-border md:grid-cols-3">
-            <li className="bg-background p-5">
-              <div className="font-mono text-sm text-muted-foreground">01</div>
-              <h3 className="mt-5 text-base font-semibold leading-6">Connect accounts</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                GitHub for code, Convex for the backend, and Cloudflare for deploys, domains, and
-                the front door.
-              </p>
-            </li>
-            <li className="bg-background p-5">
-              <div className="font-mono text-sm text-muted-foreground">02</div>
-              <h3 className="mt-5 text-base font-semibold leading-6">Create the app</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Samebase creates the repo, provisions the services, and keeps the app editable from
-                the browser.
-              </p>
-            </li>
-            <li className="bg-background p-5">
-              <div className="font-mono text-sm text-muted-foreground">03</div>
-              <h3 className="mt-5 text-base font-semibold leading-6">Keep ownership</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                The result is normal code on normal infrastructure, not a project trapped inside an
-                app builder.
-              </p>
-            </li>
-          </ol>
-        </section>
+        <LandingAppSteps />
 
         <LandingWorkLanes />
 
         <LandingCorrectPrinciples />
 
-        <section className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <h2 className="text-2xl font-semibold leading-8">Manual setup is proof</h2>
+        <section className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+          <h2 className="text-2xl font-semibold leading-8">Manual setup proves it</h2>
           <div>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-              The do-it-yourself guide stays separate because it is not the landing page. It is the
-              receipt: if the stack is correct, you should be able to build it without Samebase.
+            <p className="max-w-xl text-base leading-6 text-muted-foreground">
+              If the stack is correct, you should be able to build it without Samebase.
             </p>
             <Link
               className="mt-6 inline-flex h-10 items-center gap-2 border px-4 text-sm font-medium text-foreground no-underline hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
