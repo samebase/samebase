@@ -6,11 +6,12 @@
   "type": "module",
   "scripts": {
     "build": "wrangler deploy",
-    "build:preview": "wrangler versions upload",
-    "check": "pnpm run typecheck && pnpm run deploy:dry-run",
-    "deploy:dry-run": "wrangler deploy --dry-run",
-    "dev": "wrangler dev",
+    "check": "pnpm run typecheck && pnpm run deploy:dry-run && pnpm run deploy:preview:dry-run",
     "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler versions upload",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "deploy:preview:dry-run": "wrangler versions upload --dry-run",
+    "dev": "wrangler dev",
     "typecheck": "pnpm --dir ../.. exec tsgo -p apps/posthog-proxy/tsconfig.json --pretty false"
   },
   "devDependencies": {
