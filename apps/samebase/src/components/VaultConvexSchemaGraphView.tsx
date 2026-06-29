@@ -68,9 +68,7 @@ function VaultConvexSchemaGraphRouteStatusShell({
         content: <VaultConvexSchemaGraphRouteStatusSidebar context={context} status={status} />,
       }}
       leftToggleVisibility="all"
-      right={null}
-      rightToggleVisibility="hidden"
-      shortcutPaneSide="left"
+      rightToggleVisibility="all"
     >
       <div data-testid="vault-schema-page" className="flex h-full min-h-0 flex-col bg-background">
         <VaultConvexSchemaGraphRouteStatus>{status}</VaultConvexSchemaGraphRouteStatus>
