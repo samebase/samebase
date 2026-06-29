@@ -95,6 +95,8 @@ import type * as vault_cloudflare from "../vault/cloudflare.js";
 import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js";
 import type * as vault_convex from "../vault/convex.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
+import type * as vault_convexSchemaGraph from "../vault/convexSchemaGraph.js";
+import type * as vault_convexSchemaGraphModel from "../vault/convexSchemaGraphModel.js";
 import type * as vault_createRepositoryContract from "../vault/createRepositoryContract.js";
 import type * as vault_dashboard from "../vault/dashboard.js";
 import type * as vault_database from "../vault/database.js";
@@ -208,6 +210,8 @@ declare const fullApi: ApiFromModules<{
   "vault/cloudflareMutations": typeof vault_cloudflareMutations;
   "vault/convex": typeof vault_convex;
   "vault/convexMutations": typeof vault_convexMutations;
+  "vault/convexSchemaGraph": typeof vault_convexSchemaGraph;
+  "vault/convexSchemaGraphModel": typeof vault_convexSchemaGraphModel;
   "vault/createRepositoryContract": typeof vault_createRepositoryContract;
   "vault/dashboard": typeof vault_dashboard;
   "vault/database": typeof vault_database;

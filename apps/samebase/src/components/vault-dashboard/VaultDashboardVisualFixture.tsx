@@ -10,6 +10,10 @@ import {
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
+import {
+  VaultConvexSchemaGraphContent,
+  type VaultConvexSchemaGraphState,
+} from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
@@ -50,6 +54,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
+  | "vault-convex-schema-graph"
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -104,6 +109,18 @@ function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeConvexDeploymentId(): Id<"vaultConvexDeployments"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeConvexSchemaSnapshotId(): Id<"vaultConvexSchemaSnapshots"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
 const FIXTURE_CLOUDFLARE_WORKERS = [
@@ -582,6 +599,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
     >
       <TestRouterProvider>
         <VaultDashboardView
+          convexSchemaGraphsVisible={false}
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}
@@ -657,6 +675,202 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
           </div>
         </VaultDashboardRepositoryList>
       </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultConvexSchemaGraphFixture() {
+  const deploymentId = fakeConvexDeploymentId();
+  const graphState: VaultConvexSchemaGraphState = {
+    deployments: [
+      {
+        _id: deploymentId,
+        appRoot: ".",
+        deploymentName: "samebase-prod",
+        projectSlug: "samebase",
+        teamSlug: "samebase",
+      },
+    ],
+    selectedDeploymentId: deploymentId,
+    snapshot: {
+      _id: fakeConvexSchemaSnapshotId(),
+      fetchedAt: Date.parse("2026-06-29T09:00:00Z"),
+      schemaHash: "f7c9a120",
+      graph: {
+        tables: [
+          {
+            name: "users",
+            source: "mixed",
+            documentCount: 124,
+            indexes: [{ name: "email", fields: ["email"] }],
+            fields: [
+              {
+                path: "email",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "name",
+                kind: "string",
+                optional: true,
+                source: "declared",
+              },
+              {
+                path: "isApproved",
+                kind: "boolean",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "vaults",
+            source: "mixed",
+            documentCount: 48,
+            indexes: [{ name: "by_userId", fields: ["userId"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "owner",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "name",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "lastTreeRefreshAt",
+                kind: "number",
+                optional: true,
+                source: "inferred",
+              },
+            ],
+          },
+          {
+            name: "providerConnections",
+            source: "declared",
+            documentCount: 16,
+            indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "kind",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "auth.method",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "fileStaging",
+            source: "mixed",
+            documentCount: 318,
+            indexes: [{ name: "by_vault_and_branch", fields: ["vaultId", "branch"] }],
+            fields: [
+              {
+                path: "vaultId",
+                kind: "Id<vaults>",
+                optional: false,
+                source: "declared",
+                targetTable: "vaults",
+              },
+              {
+                path: "lastEditUserId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "filePath",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "content.kind",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+        ],
+        relationships: [
+          {
+            id: "declared:vaults:userId:users",
+            fromTable: "vaults",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:providerConnections:userId:users",
+            fromTable: "providerConnections",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:fileStaging:vaultId:vaults",
+            fromTable: "fileStaging",
+            fromField: "vaultId",
+            toTable: "vaults",
+            source: "declared",
+          },
+          {
+            id: "declared:fileStaging:lastEditUserId:users",
+            fromTable: "fileStaging",
+            fromField: "lastEditUserId",
+            toTable: "users",
+            source: "declared",
+          },
+        ],
+        warnings: [],
+      },
+    },
+    layout: [
+      { nodeId: "users", x: 0, y: 40 },
+      { nodeId: "vaults", x: 360, y: 0 },
+      { nodeId: "providerConnections", x: 360, y: 250 },
+      { nodeId: "fileStaging", x: 720, y: 130 },
+    ],
+  };
+
+  return (
+    <div
+      data-testid="vault-convex-schema-graph-fixture"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <VaultConvexSchemaGraphContent
+        state={graphState}
+        refreshPending={false}
+        refreshError={null}
+        onRefresh={() => {}}
+      />
     </div>
   );
 }
@@ -1339,6 +1553,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
+  }
+
+  if (mode === "vault-convex-schema-graph") {
+    return <VaultConvexSchemaGraphFixture />;
   }
 
   if (mode === "vault-dashboard-sticky-header") {

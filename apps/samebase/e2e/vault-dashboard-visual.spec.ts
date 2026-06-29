@@ -241,6 +241,26 @@ test("vault dashboard fixture (developer tools query spacing)", async ({ page })
   expect(Math.round(visibleBox.height)).toBe(Math.round(hiddenBox.height));
 });
 
+test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
+  await page.setViewportSize({ width: 1040, height: 720 });
+  await openVaultDashboardVisualFixture(page, "vault-convex-schema-graph");
+
+  const fixture = page.getByTestId("vault-convex-schema-graph-fixture");
+  await expect(fixture.getByText("Convex schema")).toBeVisible();
+  await expect(
+    fixture.getByTestId("rf__node-users").getByText("users", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByTestId("rf__node-fileStaging").getByText("fileStaging", { exact: true }),
+  ).toBeVisible();
+  await expect(fixture).toHaveScreenshot("vault-convex-schema-graph.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-delete-open");

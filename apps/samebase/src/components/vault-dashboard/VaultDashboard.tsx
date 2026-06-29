@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
+import { VaultConvexSchemaGraph } from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import {
   buildVaultDashboardRepositoryHashHref,
@@ -2527,6 +2528,7 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
 }
 
 type VaultDashboardViewProps = {
+  convexSchemaGraphsVisible?: boolean;
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
@@ -2811,6 +2813,7 @@ function resolveActiveVaultDashboardCardHashId({
 }
 
 export function VaultDashboardView({
+  convexSchemaGraphsVisible = true,
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
@@ -3207,6 +3210,22 @@ export function VaultDashboardView({
         const setupSection =
           deletionSection ?? deleteBlockedSection ?? sourceSetupSection ?? providerSetupSection;
         const titleRepositoryOwnerVisible = (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
+        const branchSection =
+          isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
+            <VaultBranchSection
+              convexDeployments={vault.convexDeployments}
+              filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+              vaultId={vault._id}
+              repositoryFullName={vault.repositoryFullName}
+              visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
+              productionApps={productionApps}
+              stagedSummaries={stagedBranchSummaries}
+            />
+          ) : undefined;
+        const schemaGraphSection =
+          convexSchemaGraphsVisible && isReady && vault.convexDeployments.length > 0 ? (
+            <VaultConvexSchemaGraph vaultId={vault._id} />
+          ) : undefined;
 
         return (
           <div
@@ -3311,16 +3330,11 @@ export function VaultDashboardView({
                 ) : undefined
               }
               branchSection={
-                isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
-                  <VaultBranchSection
-                    convexDeployments={vault.convexDeployments}
-                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                    vaultId={vault._id}
-                    repositoryFullName={vault.repositoryFullName}
-                    visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
-                    productionApps={productionApps}
-                    stagedSummaries={stagedBranchSummaries}
-                  />
+                branchSection || schemaGraphSection ? (
+                  <div className="space-y-3">
+                    {branchSection}
+                    {schemaGraphSection}
+                  </div>
                 ) : undefined
               }
               developerToolsSection={

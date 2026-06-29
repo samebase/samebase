@@ -40,9 +40,7 @@ import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-t
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
-import { Route as vaultDatabaseRootRouteImport } from "./routes/vault-database-root";
 import { Route as codespaceChatRouteImport } from "./routes/codespace-chat";
-import { Route as vaultDatabaseMonoRouteImport } from "./routes/vault-database-mono";
 
 const visualFixtureRoute = visualFixtureRouteImport.update({
   id: "/visual-fixture",
@@ -201,19 +199,9 @@ const logoTransitionTransformsLabRoute =
     path: "/logo/transition/transforms",
     getParentRoute: () => rootRouteImport,
   } as any);
-const vaultDatabaseRootRoute = vaultDatabaseRootRouteImport.update({
-  id: "/vault/$owner/$repo/db/$branch/root",
-  path: "/vault/$owner/$repo/db/$branch/root",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const codespaceChatRoute = codespaceChatRouteImport.update({
   id: "/vault/$owner/$repo/codespace/$branch/chat",
   path: "/vault/$owner/$repo/codespace/$branch/chat",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const vaultDatabaseMonoRoute = vaultDatabaseMonoRouteImport.update({
-  id: "/vault/$owner/$repo/db/$branch/mono/$",
-  path: "/vault/$owner/$repo/db/$branch/mono/$",
   getParentRoute: () => rootRouteImport,
 } as any);
 
@@ -250,8 +238,6 @@ export interface FileRoutesByFullPath {
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
-  "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
-  "/vault/$owner/$repo/db/$branch/mono/$": typeof vaultDatabaseMonoRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
@@ -286,8 +272,6 @@ export interface FileRoutesByTo {
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
-  "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
-  "/vault/$owner/$repo/db/$branch/mono/$": typeof vaultDatabaseMonoRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -323,8 +307,6 @@ export interface FileRoutesById {
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
-  "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
-  "/vault/$owner/$repo/db/$branch/mono/$": typeof vaultDatabaseMonoRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -360,9 +342,7 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/vault/$owner/$repo/codespace/$branch/chat"
-    | "/vault/$owner/$repo/db/$branch/root"
-    | "/vault/$owner/$repo/db/$branch/mono/$";
+    | "/vault/$owner/$repo/codespace/$branch/chat";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
@@ -396,9 +376,7 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/vault/$owner/$repo/codespace/$branch/chat"
-    | "/vault/$owner/$repo/db/$branch/root"
-    | "/vault/$owner/$repo/db/$branch/mono/$";
+    | "/vault/$owner/$repo/codespace/$branch/chat";
   id:
     | "__root__"
     | "/"
@@ -432,9 +410,7 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
-    | "/vault/$owner/$repo/codespace/$branch/chat"
-    | "/vault/$owner/$repo/db/$branch/root"
-    | "/vault/$owner/$repo/db/$branch/mono/$";
+    | "/vault/$owner/$repo/codespace/$branch/chat";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -470,8 +446,6 @@ export interface RootRouteChildren {
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
   codespaceChatRoute: typeof codespaceChatRoute;
-  vaultDatabaseRootRoute: typeof vaultDatabaseRootRoute;
-  vaultDatabaseMonoRoute: typeof vaultDatabaseMonoRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -693,25 +667,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoTransitionTransformsLabRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/vault/$owner/$repo/db/$branch/root": {
-      id: "/vault/$owner/$repo/db/$branch/root";
-      path: "/vault/$owner/$repo/db/$branch/root";
-      fullPath: "/vault/$owner/$repo/db/$branch/root";
-      preLoaderRoute: typeof vaultDatabaseRootRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/vault/$owner/$repo/codespace/$branch/chat": {
       id: "/vault/$owner/$repo/codespace/$branch/chat";
       path: "/vault/$owner/$repo/codespace/$branch/chat";
       fullPath: "/vault/$owner/$repo/codespace/$branch/chat";
       preLoaderRoute: typeof codespaceChatRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/vault/$owner/$repo/db/$branch/mono/$": {
-      id: "/vault/$owner/$repo/db/$branch/mono/$";
-      path: "/vault/$owner/$repo/db/$branch/mono/$";
-      fullPath: "/vault/$owner/$repo/db/$branch/mono/$";
-      preLoaderRoute: typeof vaultDatabaseMonoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }
@@ -750,21 +710,16 @@ const rootRouteChildren: RootRouteChildren = {
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,
   codespaceChatRoute: codespaceChatRoute,
-  vaultDatabaseRootRoute: vaultDatabaseRootRoute,
-  vaultDatabaseMonoRoute: vaultDatabaseMonoRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>();
 
 import type { getRouter } from "./router.tsx";
-
 import type { createStart } from "@tanstack/react-start";
-
 declare module "@tanstack/react-start" {
   interface Register {
     ssr: true;
-
     router: Awaited<ReturnType<typeof getRouter>>;
   }
 }
