@@ -199,6 +199,23 @@ async function readRequiredBounds(locator: Locator, label: string) {
   return box;
 }
 
+async function waitForAnimationFrame(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<null>((resolve) => {
+        window.requestAnimationFrame(() => {
+          resolve(null);
+        });
+      }),
+  );
+}
+
+async function readReactFlowViewportTransform(container: Locator): Promise<string> {
+  return await container.locator(".react-flow__viewport").evaluate((viewport) => {
+    return viewport.getAttribute("transform") ?? window.getComputedStyle(viewport).transform;
+  });
+}
+
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await openVaultDashboardVisualFixture(page, "vault-branch-pr-labels");
@@ -278,6 +295,36 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+});
+
+test("vault dashboard fixture (Convex schema graph drag keeps viewport)", async ({ page }) => {
+  await page.setViewportSize({ width: 1040, height: 720 });
+  await openVaultDashboardVisualFixture(page, "vault-convex-schema-graph");
+
+  const fixture = page.getByTestId("vault-convex-schema-graph-fixture");
+  const graphViewport = fixture.locator("[data-schema-graph-layout]");
+  await expect(graphViewport).toHaveAttribute("data-schema-graph-layout", "ready");
+  await waitForAnimationFrame(page);
+
+  const transformBeforeDrag = await readReactFlowViewportTransform(fixture);
+  const usersNode = fixture.getByTestId("rf__node-users");
+  const usersBoxBeforeDrag = await readRequiredBounds(usersNode, "users node");
+  const dragStart = {
+    x: usersBoxBeforeDrag.x + usersBoxBeforeDrag.width / 2,
+    y: usersBoxBeforeDrag.y + usersBoxBeforeDrag.height / 2,
+  };
+
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragStart.x + 80, dragStart.y + 48, { steps: 6 });
+  await page.mouse.up();
+
+  await expect(graphViewport).toHaveAttribute("data-schema-graph-layout", "ready");
+  await waitForAnimationFrame(page);
+
+  const usersBoxAfterDrag = await readRequiredBounds(usersNode, "users node after drag");
+  expect(Math.round(usersBoxAfterDrag.x)).not.toBe(Math.round(usersBoxBeforeDrag.x));
+  await expect.poll(async () => readReactFlowViewportTransform(fixture)).toBe(transformBeforeDrag);
 });
 
 test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) => {

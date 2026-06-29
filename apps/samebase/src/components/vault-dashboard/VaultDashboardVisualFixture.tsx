@@ -1,5 +1,5 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -858,8 +858,31 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
   };
 }
 
+function saveFixtureConvexSchemaGraphLayout(
+  layout: VaultConvexSchemaGraphState["layout"],
+  nodeId: string,
+  x: number,
+  y: number,
+): VaultConvexSchemaGraphState["layout"] {
+  return [
+    ...layout.filter((entry) => entry.nodeId !== nodeId),
+    {
+      nodeId,
+      x,
+      y,
+    },
+  ].sort((left, right) => left.nodeId.localeCompare(right.nodeId));
+}
+
 function VaultConvexSchemaGraphFixture() {
-  const graphState = buildFixtureConvexSchemaGraphState();
+  const [graphState, setGraphState] = useState(buildFixtureConvexSchemaGraphState);
+  const handleSaveLayout = useCallback((nodeId: string, x: number, y: number) => {
+    setGraphState((currentState) => ({
+      ...currentState,
+      layout: saveFixtureConvexSchemaGraphLayout(currentState.layout, nodeId, x, y),
+    }));
+  }, []);
+
   return (
     <div
       data-testid="vault-convex-schema-graph-fixture"
@@ -870,13 +893,20 @@ function VaultConvexSchemaGraphFixture() {
         refreshPending={false}
         refreshError={null}
         onRefresh={() => {}}
+        onSaveLayout={handleSaveLayout}
       />
     </div>
   );
 }
 
 function VaultConvexSchemaRouteMobileFixture() {
-  const graphState = buildFixtureConvexSchemaGraphState();
+  const [graphState, setGraphState] = useState(buildFixtureConvexSchemaGraphState);
+  const handleSaveLayout = useCallback((nodeId: string, x: number, y: number) => {
+    setGraphState((currentState) => ({
+      ...currentState,
+      layout: saveFixtureConvexSchemaGraphLayout(currentState.layout, nodeId, x, y),
+    }));
+  }, []);
   const context = {
     appRoot: ".",
     branch: "main",
@@ -891,7 +921,7 @@ function VaultConvexSchemaRouteMobileFixture() {
       refreshError={null}
       onDeploymentChange={() => {}}
       onRefresh={() => {}}
-      onSaveLayout={() => {}}
+      onSaveLayout={handleSaveLayout}
     />
   );
 }

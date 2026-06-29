@@ -157,6 +157,23 @@ function buildFallbackSchemaNodes(
   );
 }
 
+function mergeSchemaNodesWithSavedLayout(
+  currentNodes: SchemaTableNode[],
+  tables: ConvexSchemaGraphTable[],
+  layout: ConvexSchemaGraphLayout[],
+): SchemaTableNode[] {
+  const currentNodesById = new Map(currentNodes.map((node) => [node.id, node]));
+  const layoutByNodeId = buildLayoutMap(layout);
+  return tables.map((table, index) =>
+    buildSchemaNode(
+      table,
+      layoutByNodeId.get(table.name) ??
+        currentNodesById.get(table.name)?.position ??
+        buildDefaultNodePosition(index),
+    ),
+  );
+}
+
 function buildElkEdges(
   tables: ConvexSchemaGraphTable[],
   relationships: ConvexSchemaGraphRelationship[],
@@ -394,13 +411,31 @@ function VaultConvexSchemaGraphCanvas({
   const reactFlowInstanceRef = useRef<ReactFlowInstance<SchemaTableNode, SchemaGraphEdge> | null>(
     null,
   );
+  const lastAppliedSchemaKeyRef = useRef<string | null>(null);
   const nodeTypes = useMemo(() => ({ schemaTable: SchemaTableNode }), []);
   const layoutReady = readyLayoutKey === layoutKey;
+  const fitSchemaGraphView = useCallback(() => {
+    if (!reactFlowInstanceRef.current) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      void reactFlowInstanceRef.current?.fitView(fitViewOptions);
+    });
+  }, [fitViewOptions]);
 
-  // React Flow owns transient drag state; reset it when Convex publishes a new snapshot or layout.
+  // React Flow owns transient drag state; only schema changes should rebuild and refit the canvas.
   useEffect(() => {
     if (!snapshot) {
       setNodes([]);
+      setReadyLayoutKey(layoutKey);
+      lastAppliedSchemaKeyRef.current = "empty";
+      return;
+    }
+
+    if (lastAppliedSchemaKeyRef.current === snapshot.schemaHash) {
+      setNodes((currentNodes) =>
+        mergeSchemaNodesWithSavedLayout(currentNodes, snapshot.graph.tables, state.layout),
+      );
       setReadyLayoutKey(layoutKey);
       return;
     }
@@ -410,7 +445,9 @@ function VaultConvexSchemaGraphCanvas({
     setNodes(fallbackNodesFromSnapshot);
 
     if (hasSavedLayoutForEveryTable(snapshot.graph.tables, state.layout)) {
+      lastAppliedSchemaKeyRef.current = snapshot.schemaHash;
       setReadyLayoutKey(layoutKey);
+      fitSchemaGraphView();
       return;
     }
 
@@ -420,24 +457,23 @@ function VaultConvexSchemaGraphCanvas({
           return;
         }
         setNodes(layoutedNodes);
+        lastAppliedSchemaKeyRef.current = snapshot.schemaHash;
         setReadyLayoutKey(layoutKey);
-        if (reactFlowInstanceRef.current) {
-          window.requestAnimationFrame(() => {
-            void reactFlowInstanceRef.current?.fitView(fitViewOptions);
-          });
-        }
+        fitSchemaGraphView();
       })
       .catch(() => {
         if (!shouldApplyLayout) {
           return;
         }
+        lastAppliedSchemaKeyRef.current = snapshot.schemaHash;
         setReadyLayoutKey(layoutKey);
+        fitSchemaGraphView();
       });
 
     return () => {
       shouldApplyLayout = false;
     };
-  }, [fallbackNodesFromSnapshot, fitViewOptions, layoutKey, setNodes, snapshot, state.layout]);
+  }, [fallbackNodesFromSnapshot, fitSchemaGraphView, layoutKey, setNodes, snapshot, state.layout]);
 
   if (!snapshot) {
     if (variant === "route") {
