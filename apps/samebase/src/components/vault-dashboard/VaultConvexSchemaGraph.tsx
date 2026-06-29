@@ -627,7 +627,7 @@ export function VaultConvexSchemaGraphRouteWorkspaceContent({
   onSaveLayout,
 }: {
   context: VaultConvexSchemaGraphRouteContext;
-  state: ConvexSchemaGraphState | null | undefined;
+  state: VaultConvexSchemaGraphState | null | undefined;
   refreshError: string | null;
   refreshPending: boolean;
   onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
