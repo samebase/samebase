@@ -1,5 +1,5 @@
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { useRouter } from "@tanstack/react-router";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import "@xyflow/react/dist/style.css";
@@ -14,26 +14,22 @@ import { useRootRouteSearch } from "@/routeSearch/root";
 import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
-import { identifySamebasePostHogUser, loadSamebasePostHogClient } from "@/lib/posthogClient";
+import { captureSamebasePostHogPageview, identifySamebasePostHogUser } from "@/lib/posthogClient";
 
-const POSTHOG_INIT_DELAY_MS = 10_000;
+function usePostHogPageviews() {
+  const href = useLocation({
+    select: (location) => location.href,
+  });
+  const capturedHrefRef = useRef<string | null>(null);
 
-function useDeferredPostHogInit() {
   useEffect(() => {
-    // Keep analytics out of the first paint path; the landing page has no
-    // product dependency on PostHog before the user can see and act on it.
-    let cancelled = false;
-    const timeoutId = window.setTimeout(() => {
-      if (!cancelled) {
-        void loadSamebasePostHogClient();
-      }
-    }, POSTHOG_INIT_DELAY_MS);
+    if (capturedHrefRef.current === href) {
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
+    capturedHrefRef.current = href;
+    void captureSamebasePostHogPageview(href);
+  }, [href]);
 }
 
 function usePostHogViewerIdentity() {
@@ -65,7 +61,7 @@ function usePostHogViewerIdentity() {
 function AppRouterRoot() {
   const { background, border, dark, light, primary, secondary } = useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
-  useDeferredPostHogInit();
+  usePostHogPageviews();
   usePostHogViewerIdentity();
 
   useLayoutEffect(() => {

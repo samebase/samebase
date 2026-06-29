@@ -40,6 +40,9 @@ export function buildSamebasePostHogInitConfig(args: {
   return {
     api_host: args.apiHost,
     capture_exceptions: true,
+    // Samebase captures route pageviews from TanStack Router so the first
+    // pageview is tied to app mount, not to PostHog's SDK boot heuristics.
+    capture_pageview: false,
     defaults: "2026-01-30",
     // Replays still require "Record user sessions" in PostHog project settings.
     // This keeps Samebase app code from disabling the recorder once the project
@@ -86,6 +89,13 @@ export async function loadSamebasePostHogClient(): Promise<SamebasePostHogClient
   }
 
   return await postHogClientPromise;
+}
+
+export async function captureSamebasePostHogPageview(href: string) {
+  const posthog = await loadSamebasePostHogClient();
+  posthog?.capture("$pageview", {
+    $current_url: href,
+  });
 }
 
 /**
