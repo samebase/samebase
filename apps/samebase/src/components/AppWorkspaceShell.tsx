@@ -41,6 +41,7 @@ type AppWorkspaceRouteChromeConfig = {
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: AppWorkspaceRouteChromePane;
+  rightToggleVisibility?: AppWorkspaceShellToggleVisibility;
   shortcutPaneSide?: WorkspacePaneSide;
 };
 
@@ -269,7 +270,7 @@ function AppWorkspaceShellFrame({
         mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
         panel={chrome?.panel}
         right={rightPane}
-        rightToggleVisibility="desktop"
+        rightToggleVisibility={chrome?.rightToggleVisibility ?? "desktop"}
       />
       <script
         suppressHydrationWarning
@@ -313,6 +314,7 @@ export function AppWorkspaceRouteChrome({
   mobileMinResizeBehavior,
   panel,
   right,
+  rightToggleVisibility,
   shortcutPaneSide,
 }: AppWorkspaceRouteChromeConfig & { children?: ReactNode }) {
   const context = useContext(AppWorkspaceRouteChromeContext);
@@ -347,6 +349,7 @@ export function AppWorkspaceRouteChrome({
       panel,
       pathname,
       right,
+      rightToggleVisibility,
       shortcutPaneSide,
     }),
     [
@@ -358,6 +361,7 @@ export function AppWorkspaceRouteChrome({
       panel,
       pathname,
       right,
+      rightToggleVisibility,
       shortcutPaneSide,
     ],
   );

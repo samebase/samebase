@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { parseVaultDatabasePathContext } from "@/lib/vaultRoutes";
 import { useLocation } from "@tanstack/react-router";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 
 const EMBEDDED_DASHBOARD_ORIGIN = "https://dashboard-embedded.convex.dev";
 const EMBEDDED_DASHBOARD_URL = `${EMBEDDED_DASHBOARD_ORIGIN}/data`;
@@ -31,7 +32,7 @@ function formatVaultDatabaseNotice(
     case "missing_deployment":
       return "No Convex deployment is connected for this app root.";
     case "missing_connection":
-      return "Connect Convex to view deployment data.";
+      return "Connect Convex to open deployment data.";
   }
   result satisfies never;
   return "Data is unavailable.";
@@ -179,25 +180,27 @@ export function VaultDatabaseView() {
   ].filter((part) => typeof part === "string" && part.length > 0);
 
   return (
-    <div data-testid="vault-database-page" className="flex h-full min-h-0 flex-col bg-background">
-      {loadError ? (
-        <VaultDatabaseStatus>{loadError}</VaultDatabaseStatus>
-      ) : readyCredentials ? (
-        <iframe
-          ref={iframeRef}
-          allow="clipboard-write"
-          className="min-h-0 flex-1 border-0"
-          src={EMBEDDED_DASHBOARD_URL}
-          title={`Convex data for ${titleParts.join(" / ")}`}
-        />
-      ) : credentialsResult && credentialsResult.kind !== "ready" ? (
-        <VaultDatabaseStatus>{formatVaultDatabaseNotice(credentialsResult)}</VaultDatabaseStatus>
-      ) : (
-        <VaultDatabaseStatus>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading data
-        </VaultDatabaseStatus>
-      )}
-    </div>
+    <AppWorkspaceRouteChrome leftToggleVisibility="all" rightToggleVisibility="all">
+      <div data-testid="vault-database-page" className="flex h-full min-h-0 flex-col bg-background">
+        {loadError ? (
+          <VaultDatabaseStatus>{loadError}</VaultDatabaseStatus>
+        ) : readyCredentials ? (
+          <iframe
+            ref={iframeRef}
+            allow="clipboard-write"
+            className="min-h-0 flex-1 border-0"
+            src={EMBEDDED_DASHBOARD_URL}
+            title={`Convex data for ${titleParts.join(" / ")}`}
+          />
+        ) : credentialsResult && credentialsResult.kind !== "ready" ? (
+          <VaultDatabaseStatus>{formatVaultDatabaseNotice(credentialsResult)}</VaultDatabaseStatus>
+        ) : (
+          <VaultDatabaseStatus>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading data
+          </VaultDatabaseStatus>
+        )}
+      </div>
+    </AppWorkspaceRouteChrome>
   );
 }

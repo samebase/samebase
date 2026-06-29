@@ -24,7 +24,7 @@ Accepted target routes:
 3. Repository filesystem:
    - `/vault/:owner/:repo/fs/:branch`
    - `/vault/:owner/:repo/fs/:branch/:filePath...`
-4. Deployment database:
+4. Deployment database editor:
    - `/vault/:owner/:repo/db/:branch/root`
    - `/vault/:owner/:repo/db/:branch/mono/:appRoot...`
 
@@ -54,10 +54,10 @@ for the selected branch/file, not separate route surfaces.
 5. Do not use a generic `/-/` delimiter in the target contract. The old delimiter route shape is
    superseded by named surfaces.
 
-## MVP Database Scope
+## MVP Database Editor Scope
 
-The first database implementation only needs to link and render the production/default branch. The
-accepted MVP route is:
+The first database editor implementation only needs to link and render the production/default
+branch. The accepted MVP route is:
 
 ```txt
 /vault/:owner/:repo/db/:defaultBranch/root
@@ -68,13 +68,21 @@ Preview branch database routes may reuse the same shape later, after Samebase ca
 matching Convex preview deployment for a branch. Until that resolver exists, non-default branch
 database links should not silently show production data.
 
+The embedded database surface is an editor, not a read-only viewer. OAuth-backed embedded dashboard
+credentials use the connected user's normal Convex grant. API-key fallback credentials must request
+the deployment data actions needed for editing, including both data view and data write access.
+
+On mobile, the database editor route must expose explicit left and right workspace sidebar toggles.
+The embedded dashboard runs in a cross-origin iframe, so iframe-owned touch gestures cannot be the
+only way to reach Samebase's mobile workspace sidebars.
+
 ## Non-Goals
 
 1. This spec does not require a vault settings page to ship before the database route.
-2. This spec does not require preview deployment data access in the MVP.
+2. This spec does not require preview deployment data editing in the MVP.
 3. This spec does not preserve internal backward compatibility for superseded vault route shapes.
-4. This spec does not define the embedded Convex dashboard credential exchange; it only defines the
-   Samebase browser route shape.
+4. This spec does not define every embedded Convex dashboard credential exchange detail; it only
+   defines the Samebase browser route shape and route-level access expectations.
 
 ## Validation
 
@@ -94,6 +102,6 @@ Route implementation PRs should prove:
 
 1. Replace the current vault file route helper and parser with the `fs` route contract.
 2. Update dashboard, editor, auth-return, tests, and route suggestions to use the new helpers.
-3. Add the MVP production database page at `/vault/:owner/:repo/db/:branch/root` and
+3. Add the MVP production database editor at `/vault/:owner/:repo/db/:branch/root` and
    `/vault/:owner/:repo/db/:branch/mono/:appRoot...`.
-4. Add preview database resolution only after the production data page is working end to end.
+4. Add preview database resolution only after the production database editor is working end to end.
