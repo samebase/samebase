@@ -148,6 +148,6 @@ test("commit review fixture renders deleted staged changes popup", async ({ page
 
   await deletedAgentsFile.click();
   await expect(page.getByTestId("commit-review-staged-changes-location")).toContainText(
-    "/vault/samebase/samebase/main/AGENTS.md?diff",
+    "/vault/samebase/samebase/fs/main/AGENTS.md?diff",
   );
 });
