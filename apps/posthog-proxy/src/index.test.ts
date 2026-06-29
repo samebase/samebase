@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { createPostHogOriginRequest, isPostHogAssetPath } from "./index";
+import {
+  createPostHogOriginRequest,
+  createPostHogProxyPreflightResponse,
+  isPostHogAssetPath,
+  withPostHogProxyCorsHeaders,
+} from "./index";
 
 describe("posthog proxy worker", () => {
   it("routes PostHog SDK assets to the asset host", () => {
@@ -30,5 +35,55 @@ describe("posthog proxy worker", () => {
     expect(originRequest.headers.get("content-type")).toBe("text/plain");
     expect(originRequest.headers.get("X-Forwarded-For")).toBe("203.0.113.10");
     expect(await originRequest.text()).toBe("compressed-event-body");
+  });
+
+  it("adds browser CORS headers for Samebase app requests", async () => {
+    const response = withPostHogProxyCorsHeaders(
+      new Response("config", {
+        headers: {
+          "content-type": "application/javascript",
+          vary: "Accept-Encoding",
+        },
+      }),
+      new Request("https://e.samebase.com/array/phc_test/config.js", {
+        headers: {
+          origin: "https://samebase.com",
+        },
+      }),
+    );
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://samebase.com");
+    expect(response.headers.get("Vary")).toBe("Accept-Encoding, Origin");
+    expect(await response.text()).toBe("config");
+  });
+
+  it("does not add CORS headers for other origins", () => {
+    const response = withPostHogProxyCorsHeaders(
+      new Response("config"),
+      new Request("https://e.samebase.com/array/phc_test/config.js", {
+        headers: {
+          origin: "https://example.com",
+        },
+      }),
+    );
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it("answers Samebase CORS preflights without forwarding to PostHog", () => {
+    const response = createPostHogProxyPreflightResponse(
+      new Request("https://e.samebase.com/e/", {
+        headers: {
+          "Access-Control-Request-Headers": "content-type",
+          origin: "https://samebase.com",
+        },
+        method: "OPTIONS",
+      }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://samebase.com");
+    expect(response.headers.get("Access-Control-Allow-Headers")).toBe("content-type");
+    expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, HEAD, POST, OPTIONS");
   });
 });
