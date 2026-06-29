@@ -53,7 +53,7 @@ export default defineConfig({
       },
       {
         name: "samebase",
-        specifier: "./scripts/lint/eslint-plugin-samebase.mjs",
+        specifier: "./scripts/lint/eslint-plugin-samebase.js",
       },
     ],
     rules: {

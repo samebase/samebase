@@ -217,6 +217,10 @@ describe("lint config", () => {
           name: "react-refresh",
           specifier: "eslint-plugin-react-refresh",
         },
+        {
+          name: "samebase",
+          specifier: "./scripts/lint/eslint-plugin-samebase.js",
+        },
       ]),
     );
     expect(oxlintConfig.jsPlugins).not.toContainEqual({
