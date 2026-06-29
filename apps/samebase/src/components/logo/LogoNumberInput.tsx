@@ -52,18 +52,24 @@ export function LogoNumberInput({
     }
 
     const nextInputValue = formatValue(normalizedValue);
-    setInputValue((currentInputValue) =>
-      currentInputValue === nextInputValue ? currentInputValue : nextInputValue,
-    );
-  }, [formatValue, normalizedValue]);
+    if (inputValue !== nextInputValue) {
+      setInputValue(nextInputValue);
+    }
+  }, [formatValue, inputValue, normalizedValue]);
 
   const commitInputValue = (rawInputValue: string) => {
     isEditingRef.current = false;
     const parsedValue = parseLogoNumberInput(rawInputValue);
     const nextValue = parsedValue === null ? normalizedValue : normalizeValue(parsedValue);
 
-    onValueChange(nextValue);
-    setInputValue(formatValue(nextValue));
+    if (nextValue !== normalizedValue) {
+      onValueChange(nextValue);
+    }
+
+    const nextInputValue = formatValue(nextValue);
+    if (inputValue !== nextInputValue) {
+      setInputValue(nextInputValue);
+    }
   };
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +80,10 @@ export function LogoNumberInput({
     setInputValue(nextInputValue);
 
     if (parsedValue !== null) {
-      onValueChange(normalizeValue(parsedValue));
+      const nextValue = normalizeValue(parsedValue);
+      if (nextValue !== normalizedValue) {
+        onValueChange(nextValue);
+      }
     }
   };
 
