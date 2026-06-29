@@ -115,7 +115,7 @@ afterEach(() => {
 });
 
 describe("createEmbeddedDashboardCredentials", () => {
-  it("mints and revokes OAuth-backed deploy keys without request-scoped actions", async () => {
+  it("mints and revokes OAuth-backed deploy keys without request-scoped options", async () => {
     const t = makeConvexTest();
     const user = await seedDatabaseEditorVault(t, {
       method: "oauth",
@@ -157,7 +157,6 @@ describe("createEmbeddedDashboardCredentials", () => {
     );
     expect(requests[0]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
     await expect(requests[0]?.json()).resolves.toEqual({
-      expiresAt: 1_710_003_600_000,
       name: "samebase-embedded-data-demo-prod-1710003600000",
     });
 

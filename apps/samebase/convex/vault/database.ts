@@ -165,7 +165,7 @@ export const createEmbeddedDashboardCredentials = action({
       expiresAt,
     });
     // Convex OAuth deploy keys reuse the OAuth grant, so request-scoped
-    // allowedActions are only valid for API-key backed deploy keys.
+    // options are only valid for API-key backed deploy keys.
     const body =
       context.convexConnection.auth.method === "api_key"
         ? {
@@ -174,7 +174,6 @@ export const createEmbeddedDashboardCredentials = action({
             name: deployKeyName,
           }
         : {
-            expiresAt,
             name: deployKeyName,
           };
     const { deployKey } = await requestConvexManagementApi(
