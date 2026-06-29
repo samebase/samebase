@@ -32,8 +32,9 @@ product yet.
 - Billing state. For paid plans, Samebase stores billing provider, plan, status, renewal period end,
   and a Polar external customer ID. The current app code does not store raw payment card numbers.
 - Product analytics and diagnostics. The current app code initializes PostHog in the browser. That
-  integration can collect page-view, navigation, session, browser, device, referrer, URL,
-  performance, and client-side error data needed for product analytics and diagnostics.
+  integration can collect page-view, navigation, session replay, browser, device, referrer, URL,
+  performance, and client-side error data needed for product analytics and diagnostics. The current
+  PostHog configuration masks input values and editor text in session replays.
 
 ## Browser Storage and Cookies
 

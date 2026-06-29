@@ -6,6 +6,7 @@ import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { AUTH_FLAG_STORAGE_KEY, AUTH_PROVIDER_STORAGE_KEY } from "@/lib/authStorageKeys";
 import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
 import { type RootRouteSearch } from "@/routeSearch/root";
+import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 
 type AuthProvider = "google" | "password";
 const POPUP_WATCH_INTERVAL_MS = 500;
@@ -121,16 +122,11 @@ export function signOutWithAnalytics(args: {
 
 /**
  * Reset PostHog on sign-out without importing analytics into the initial auth
- * client chunk. A top-level `posthog-js` import here would make the public
- * landing path preload analytics again; sign-out is the only path that needs
- * this cleanup, so load it lazily and keep failures best-effort.
+ * client chunk. The PostHog helper keeps the SDK import lazy, so sign-out can
+ * clear analytics identity without making the public landing path preload it.
  */
 function resetDeferredPostHogClient() {
-  void import("posthog-js")
-    .then((module) => {
-      module.default.reset();
-    })
-    .catch(() => {});
+  resetSamebasePostHogClient();
 }
 
 const deferredPostHogResetClient: PostHogResetClient = {
