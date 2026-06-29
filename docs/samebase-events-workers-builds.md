@@ -13,7 +13,7 @@ Use these settings for the production trigger:
 - Root directory: `apps/posthog-proxy`
 - Build command: `pnpm run build`
 - Deploy command: `pnpm run deploy`
-- Version command: `pnpm run build:preview`
+- Non-production branch deploy command: `pnpm run deploy:preview`
 - Production branch: `main`
 - Include paths:
   - `apps/posthog-proxy/*`
