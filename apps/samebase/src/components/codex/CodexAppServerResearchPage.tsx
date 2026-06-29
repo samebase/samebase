@@ -239,7 +239,7 @@ function ProtocolFilesViewer(props: {
       <Textarea
         readOnly
         value={activeFile?.content ?? ""}
-        className="min-h-[320px] font-mono text-xs"
+        className="min-h-[320px] font-mono text-base"
       />
     </div>
   );
@@ -391,7 +391,7 @@ function SelectedThreadDetailPanel(props: {
             <Textarea
               readOnly
               value={formatJson(props.thread.raw)}
-              className="min-h-[260px] font-mono text-xs"
+              className="min-h-[260px] font-mono text-base"
             />
           </div>
         </>
@@ -1120,7 +1120,7 @@ export function CodexAppServerResearchPage() {
                           prompt: event.target.value,
                         }));
                       }}
-                      className="min-h-[180px] font-mono text-xs"
+                      className="min-h-[180px] font-mono text-base"
                     />
                     <div className="grid gap-3 md:grid-cols-3">
                       <Input
@@ -1245,7 +1245,7 @@ export function CodexAppServerResearchPage() {
                   <Textarea
                     readOnly
                     value={lastResponse ? formatJson(lastResponse) : ""}
-                    className="min-h-[220px] font-mono text-xs"
+                    className="min-h-[220px] font-mono text-base"
                   />
                 </div>
               </CardContent>
@@ -1273,7 +1273,7 @@ export function CodexAppServerResearchPage() {
                     <Textarea
                       readOnly
                       value={formatJson(request.params)}
-                      className="min-h-[160px] font-mono text-xs"
+                      className="min-h-[160px] font-mono text-base"
                     />
                     <div className="flex flex-wrap gap-2">
                       {["accept", "acceptForSession", "decline", "cancel"].map((decision) => (
@@ -1350,7 +1350,7 @@ export function CodexAppServerResearchPage() {
                             <Textarea
                               readOnly
                               value={formatJson(event.normalized?.data)}
-                              className="min-h-[120px] font-mono text-xs"
+                              className="min-h-[120px] font-mono text-base"
                             />
                           </div>
                         ))}
@@ -1377,7 +1377,7 @@ export function CodexAppServerResearchPage() {
                           <Textarea
                             readOnly
                             value={formatJson(event.params)}
-                            className="min-h-[140px] font-mono text-xs"
+                            className="min-h-[140px] font-mono text-base"
                           />
                         </div>
                       ))}

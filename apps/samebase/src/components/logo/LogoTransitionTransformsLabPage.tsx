@@ -270,7 +270,7 @@ export function LogoTransitionTransformsLabPage() {
               readOnly
               spellCheck={false}
               value={scene.svgMarkup}
-              className="min-h-[18rem] w-full resize-y border border-black/10 bg-[#fcfbf7] p-4 font-mono text-xs leading-5 text-black"
+              className="min-h-[18rem] w-full resize-y border border-black/10 bg-[#fcfbf7] p-4 font-mono text-base leading-6 text-black"
             />
           </div>
         </div>

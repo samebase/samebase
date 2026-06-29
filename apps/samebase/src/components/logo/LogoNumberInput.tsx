@@ -2,9 +2,9 @@ import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 const LOGO_NUMBER_INPUT_CLASS_NAMES = {
-  preview: "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-sm",
+  preview: "h-9 w-full max-w-32 rounded-none border-border bg-background px-2 font-mono text-base",
   seamLab:
-    "h-9 w-full rounded-none border-black/15 bg-white px-2 font-mono text-sm text-black shadow-none",
+    "h-9 w-full rounded-none border-black/15 bg-white px-2 font-mono text-base text-black shadow-none",
 } as const;
 
 type LogoNumberInputVariant = keyof typeof LOGO_NUMBER_INPUT_CLASS_NAMES;

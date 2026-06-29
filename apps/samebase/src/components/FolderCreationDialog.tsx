@@ -189,7 +189,7 @@ export function FolderCreationDialog({
             onChange={handleFolderInputChange}
             onFocus={handleFolderInputFocus}
             onKeyDown={handleFolderKeyDown}
-            className="text-sm"
+            className="text-base"
           />
 
           {/* Dropdown */}
@@ -225,7 +225,7 @@ export function FolderCreationDialog({
           value={newFolderName}
           onChange={(e) => setNewFolderName(e.target.value)}
           onKeyDown={handleFolderCreateKeyDown}
-          className="text-sm"
+          className="text-base"
           autoFocus
         />
       </div>

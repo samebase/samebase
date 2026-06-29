@@ -23,6 +23,9 @@ import {
   DEFAULT_VOXEL_STATE,
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
+  LOGO_GRID_SIZE_4,
+  LOGO_GRID_SIZE_5,
+  MAX_LOGO_GRID_SIZE,
   createDefaultVoxelState,
 } from "@/components/logo/logoVoxelState";
 import {
@@ -350,6 +353,9 @@ describe("logoRouteSearch", () => {
   it("keeps grid size and voxel state as one coherent route shape", () => {
     const grid2VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_2);
     const grid3VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_3);
+    const grid4VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_4);
+    const grid5VoxelState = createDefaultVoxelState(LOGO_GRID_SIZE_5);
+    const grid10VoxelState = createDefaultVoxelState(MAX_LOGO_GRID_SIZE);
 
     expect(DEFAULT_LOGO_GRID_SIZE).toBe(LOGO_GRID_SIZE_3);
     expect(validateLogoRouteSearch({ vox: grid3VoxelState })).toEqual({
@@ -364,6 +370,19 @@ describe("logoRouteSearch", () => {
     expect(validateLogoRouteSearch({ gridSize: "2", vox: grid3VoxelState })).toEqual({
       gridSize: LOGO_GRID_SIZE_2,
     });
+    expect(validateLogoRouteSearch({ vox: grid4VoxelState })).toEqual({
+      gridSize: LOGO_GRID_SIZE_4,
+      vox: grid4VoxelState,
+    });
+    expect(validateLogoRouteSearch({ gridSize: "5", vox: grid5VoxelState })).toEqual({
+      gridSize: LOGO_GRID_SIZE_5,
+      vox: grid5VoxelState,
+    });
+    expect(validateLogoRouteSearch({ gridSize: "10", vox: grid10VoxelState })).toEqual({
+      gridSize: MAX_LOGO_GRID_SIZE,
+      vox: grid10VoxelState,
+    });
+    expect(validateLogoRouteSearch({ gridSize: "11" })).toEqual({});
 
     const builtSearch = buildLogoRouteSearch({
       autoRotateEnabled: false,
