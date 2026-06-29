@@ -41,6 +41,18 @@ describe("build-cloudflare", () => {
     ).toThrow("Set PROD_POSTHOG_PROJECT_TOKEN");
   });
 
+  it("rejects the app-facing PostHog host during Workers builds", () => {
+    expect(() =>
+      selectConvexDeployPlan({
+        PROD_CONVEX_DEPLOY_KEY: "prod-key",
+        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+        VITE_PUBLIC_POSTHOG_HOST: "https://posthog.samebase.com",
+        WORKERS_CI: "1",
+        WORKERS_CI_BRANCH: "main",
+      }),
+    ).toThrow("Do not set VITE_PUBLIC_POSTHOG_HOST");
+  });
+
   it("selects the production key for the main branch", () => {
     expect(
       selectConvexDeployPlan({
@@ -54,6 +66,7 @@ describe("build-cloudflare", () => {
       kind: "deploy",
       deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
       deployKey: "prod-key",
+      postHogHost: "https://e.samebase.com",
       postHogProjectToken: "phc_prod",
       routeEnvironment: "production",
       args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
@@ -70,6 +83,7 @@ describe("build-cloudflare", () => {
       }),
     ).toMatchObject({
       kind: "deploy",
+      postHogHost: null,
       postHogProjectToken: null,
     });
   });

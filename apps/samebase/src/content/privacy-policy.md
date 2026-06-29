@@ -34,7 +34,8 @@ product yet.
 - Product analytics and diagnostics. The current app code initializes PostHog in the browser. That
   integration can collect page-view, navigation, session replay, browser, device, referrer, URL,
   performance, and client-side error data needed for product analytics and diagnostics. The current
-  PostHog configuration masks input values and editor text in session replays.
+  PostHog configuration masks input values and editor text in session replays, and production
+  telemetry is relayed through a Samebase-controlled Cloudflare Worker before reaching PostHog.
 
 ## Browser Storage and Cookies
 
@@ -85,6 +86,8 @@ browser storage and provider integrations described on this page.
 - With Polar when you start checkout or open the billing portal, and when subscription state is
   synchronized by webhook.
 - With PostHog when the app sends product analytics, browser error, and related client telemetry.
+  Production browser telemetry is first sent to Samebase's Cloudflare-hosted event proxy and then
+  forwarded to PostHog.
 - With MCP clients that you explicitly authorize through Samebase's MCP OAuth flow.
 
 If you ask Samebase to create hosted previews or production infrastructure, deployment URLs and

@@ -1,0 +1,18 @@
+{
+  "name": "@samebase/posthog-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "build": "wrangler deploy",
+    "build:preview": "wrangler versions upload",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "check": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "4.90.0"
+  }
+}

@@ -75,6 +75,12 @@ importers:
         specifier: 4.90.0
         version: 4.90.0
 
+  apps/posthog-proxy:
+    devDependencies:
+      wrangler:
+        specifier: 4.90.0
+        version: 4.90.0
+
   apps/samebase:
     dependencies:
       '@ai-sdk/anthropic':
