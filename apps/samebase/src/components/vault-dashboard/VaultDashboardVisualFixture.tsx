@@ -854,12 +854,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
         warnings: [],
       },
     },
-    layout: [
-      { nodeId: "users", x: 0, y: 40 },
-      { nodeId: "vaults", x: 360, y: 0 },
-      { nodeId: "providerConnections", x: 360, y: 250 },
-      { nodeId: "fileStaging", x: 720, y: 130 },
-    ],
+    layout: [],
   };
 }
 

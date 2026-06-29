@@ -91,6 +91,7 @@
     "convex": "1.42.0",
     "convex-helpers": "^0.1.118",
     "diff": "^8.0.4",
+    "elkjs": "^0.11.1",
     "html-to-image": "^1.11.13",
     "isomorphic-git": "^1.33.0",
     "lossless-json": "^4.3.0",

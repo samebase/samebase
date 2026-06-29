@@ -190,6 +190,15 @@ async function expectElementInsideViewportInline(page: Page, element: Locator) {
   expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth - 16 + 1);
 }
 
+async function readRequiredBounds(locator: Locator, label: string) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  if (box === null) {
+    throw new Error(`Expected ${label} bounds`);
+  }
+  return box;
+}
+
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await openVaultDashboardVisualFixture(page, "vault-branch-pr-labels");
@@ -246,7 +255,9 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
   await openVaultDashboardVisualFixture(page, "vault-convex-schema-graph");
 
   const fixture = page.getByTestId("vault-convex-schema-graph-fixture");
+  const graphViewport = fixture.locator("[data-schema-graph-layout]");
   await expect(fixture.getByText("Convex schema")).toBeVisible();
+  await expect(graphViewport).toHaveAttribute("data-schema-graph-layout", "ready");
   await expect(
     fixture.getByTestId("rf__node-users").getByText("users", { exact: true }),
   ).toBeVisible();
@@ -254,6 +265,13 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
     fixture.getByTestId("rf__node-fileStaging").getByText("fileStaging", { exact: true }),
   ).toBeVisible();
   await expect(fixture.locator(".react-flow__edge")).toHaveCount(4);
+  const [fileStagingBox, vaultsBox, usersBox] = await Promise.all([
+    readRequiredBounds(fixture.getByTestId("rf__node-fileStaging"), "fileStaging node"),
+    readRequiredBounds(fixture.getByTestId("rf__node-vaults"), "vaults node"),
+    readRequiredBounds(fixture.getByTestId("rf__node-users"), "users node"),
+  ]);
+  expect(fileStagingBox.x).toBeLessThan(vaultsBox.x);
+  expect(vaultsBox.x).toBeLessThan(usersBox.x);
   await expect(fixture).toHaveScreenshot("vault-convex-schema-graph.png", {
     animations: "disabled",
     caret: "hide",
@@ -269,6 +287,10 @@ test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) =>
   const fixtureLayout = page.locator("[data-workspace-layout-v2]");
   const routeMain = page.getByTestId("vault-schema-page");
   await expect(fixtureLayout).toHaveAttribute("data-mobile-pane", "main");
+  await expect(routeMain.locator("[data-schema-graph-layout]")).toHaveAttribute(
+    "data-schema-graph-layout",
+    "ready",
+  );
   await expect(routeMain.getByText("Convex schema")).toHaveCount(0);
   await expect(
     routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),

@@ -7,8 +7,9 @@ import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { clsx } from "clsx";
+import type { ELK, ElkExtendedEdge, ElkNode, LayoutOptions } from "elkjs/lib/elk.bundled.js";
 import { Database, Loader2, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Background,
   Controls,
@@ -20,6 +21,7 @@ import {
   type Edge,
   type Node,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 
 type ConvexSchemaGraphState = NonNullable<(typeof api.vault.convexSchemaGraph.get)["_returnType"]>;
@@ -60,9 +62,21 @@ type VaultConvexSchemaGraphController = {
 };
 
 const SCHEMA_NODE_WIDTH = 300;
+const SCHEMA_NODE_HEADER_HEIGHT = 64;
+const SCHEMA_NODE_ROW_HEIGHT = 24;
+const SCHEMA_NODE_HIDDEN_FIELDS_HEIGHT = 24;
 const SCHEMA_NODE_X_GAP = 380;
 const SCHEMA_NODE_Y_GAP = 260;
 const SCHEMA_NODE_COLUMNS = 3;
+const SCHEMA_NODE_VISIBLE_FIELD_LIMIT = 9;
+const SCHEMA_GRAPH_ELK_OPTIONS = {
+  "elk.algorithm": "layered",
+  "elk.direction": "RIGHT",
+  "elk.edgeRouting": "ORTHOGONAL",
+  "elk.spacing.nodeNode": "80",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "160",
+  "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+} satisfies LayoutOptions;
 const FIELD_SOURCE_CLASS_NAMES = {
   declared: "text-foreground",
   inferred: "text-muted-foreground",
@@ -72,6 +86,7 @@ const TABLE_SOURCE_LABELS = {
   inferred: "inferred",
   mixed: "declared + inferred",
 } satisfies Record<ConvexSchemaGraphTable["source"], string>;
+let schemaGraphElkPromise: Promise<ELK> | null = null;
 
 function formatSnapshotTimestamp(fetchedAt: number): string {
   return `${new Date(fetchedAt).toISOString().slice(0, 16).replace("T", " ")} UTC`;
@@ -92,20 +107,153 @@ function buildLayoutMap(layout: ConvexSchemaGraphLayout[]): Map<string, { x: num
   return new Map(layout.map((entry) => [entry.nodeId, { x: entry.x, y: entry.y }]));
 }
 
-function buildSchemaNodes(
+function hasSavedLayoutForEveryTable(
+  tables: ConvexSchemaGraphTable[],
+  layout: ConvexSchemaGraphLayout[],
+): boolean {
+  const layoutNodeIds = new Set(layout.map((entry) => entry.nodeId));
+  return tables.every((table) => layoutNodeIds.has(table.name));
+}
+
+function buildSchemaLayoutKey(
+  snapshot: ConvexSchemaGraphSnapshot,
+  layout: ConvexSchemaGraphLayout[],
+): string {
+  const savedLayoutKey = layout
+    .map((entry) => `${entry.nodeId}:${entry.x}:${entry.y}`)
+    .sort()
+    .join("|");
+  return `${snapshot.schemaHash}:${savedLayoutKey}`;
+}
+
+function getSchemaNodeHeight(table: ConvexSchemaGraphTable): number {
+  const visibleFieldCount = Math.min(table.fields.length, SCHEMA_NODE_VISIBLE_FIELD_LIMIT);
+  const hiddenFieldsHeight =
+    table.fields.length > visibleFieldCount ? SCHEMA_NODE_HIDDEN_FIELDS_HEIGHT : 0;
+  return (
+    SCHEMA_NODE_HEADER_HEIGHT + visibleFieldCount * SCHEMA_NODE_ROW_HEIGHT + hiddenFieldsHeight
+  );
+}
+
+function buildSchemaNode(table: ConvexSchemaGraphTable, position: { x: number; y: number }) {
+  return {
+    id: table.name,
+    type: "schemaTable",
+    data: { table },
+    position,
+    sourcePosition: Position.Right,
+    targetPosition: Position.Left,
+    style: { width: SCHEMA_NODE_WIDTH },
+  } satisfies SchemaTableNode;
+}
+
+function buildFallbackSchemaNodes(
   tables: ConvexSchemaGraphTable[],
   layout: ConvexSchemaGraphLayout[],
 ): SchemaTableNode[] {
   const layoutByNodeId = buildLayoutMap(layout);
-  return tables.map((table, index) => ({
-    id: table.name,
-    type: "schemaTable",
-    data: { table },
-    position: layoutByNodeId.get(table.name) ?? buildDefaultNodePosition(index),
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
-    style: { width: SCHEMA_NODE_WIDTH },
-  }));
+  return tables.map((table, index) =>
+    buildSchemaNode(table, layoutByNodeId.get(table.name) ?? buildDefaultNodePosition(index)),
+  );
+}
+
+function buildElkEdges(
+  tables: ConvexSchemaGraphTable[],
+  relationships: ConvexSchemaGraphRelationship[],
+): ElkExtendedEdge[] {
+  const tableNames = new Set(tables.map((table) => table.name));
+  const edges: ElkExtendedEdge[] = [];
+  for (const relationship of relationships) {
+    if (!tableNames.has(relationship.fromTable) || !tableNames.has(relationship.toTable)) {
+      continue;
+    }
+    edges.push({
+      id: relationship.id,
+      sources: [relationship.fromTable],
+      targets: [relationship.toTable],
+    });
+  }
+  return edges;
+}
+
+function normalizeSchemaLayoutPositions(
+  positions: Map<string, { x: number; y: number }>,
+): Map<string, { x: number; y: number }> {
+  if (positions.size === 0) {
+    return positions;
+  }
+
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  for (const position of positions.values()) {
+    minX = Math.min(minX, position.x);
+    minY = Math.min(minY, position.y);
+  }
+
+  return new Map(
+    Array.from(positions.entries()).map(([nodeId, position]) => [
+      nodeId,
+      {
+        x: position.x - minX,
+        y: position.y - minY,
+      },
+    ]),
+  );
+}
+
+function getSchemaGraphElk(): Promise<ELK> {
+  schemaGraphElkPromise ??= import("elkjs/lib/elk.bundled.js").then(
+    ({ default: ElkConstructor }) =>
+      new ElkConstructor({
+        defaultLayoutOptions: SCHEMA_GRAPH_ELK_OPTIONS,
+      }),
+  );
+  return schemaGraphElkPromise;
+}
+
+async function buildAutomaticSchemaLayoutMap(
+  tables: ConvexSchemaGraphTable[],
+  relationships: ConvexSchemaGraphRelationship[],
+): Promise<Map<string, { x: number; y: number }>> {
+  const graph = {
+    id: "convex-schema",
+    layoutOptions: SCHEMA_GRAPH_ELK_OPTIONS,
+    children: tables.map((table) => ({
+      id: table.name,
+      width: SCHEMA_NODE_WIDTH,
+      height: getSchemaNodeHeight(table),
+    })),
+    edges: buildElkEdges(tables, relationships),
+  } satisfies ElkNode;
+  const schemaGraphElk = await getSchemaGraphElk();
+  const layout = await schemaGraphElk.layout(graph);
+  const positions = new Map<string, { x: number; y: number }>();
+
+  for (const child of layout.children ?? []) {
+    if (child.x === undefined || child.y === undefined) {
+      continue;
+    }
+    positions.set(child.id, { x: child.x, y: child.y });
+  }
+
+  return normalizeSchemaLayoutPositions(positions);
+}
+
+async function buildSchemaNodes(
+  tables: ConvexSchemaGraphTable[],
+  relationships: ConvexSchemaGraphRelationship[],
+  layout: ConvexSchemaGraphLayout[],
+): Promise<SchemaTableNode[]> {
+  const layoutByNodeId = buildLayoutMap(layout);
+  const automaticLayoutByNodeId = await buildAutomaticSchemaLayoutMap(tables, relationships);
+  return tables.map((table, index) =>
+    buildSchemaNode(
+      table,
+      layoutByNodeId.get(table.name) ??
+        automaticLayoutByNodeId.get(table.name) ??
+        buildDefaultNodePosition(index),
+    ),
+  );
 }
 
 function buildSchemaEdges(relationships: ConvexSchemaGraphRelationship[]): SchemaGraphEdge[] {
@@ -160,7 +308,7 @@ function VaultConvexSchemaGraphCanvasStatus({ children }: { children: ReactNode 
 
 function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
   const table = data.table;
-  const visibleFields = table.fields.slice(0, 9);
+  const visibleFields = table.fields.slice(0, SCHEMA_NODE_VISIBLE_FIELD_LIMIT);
   const hiddenFieldCount = table.fields.length - visibleFields.length;
   return (
     <div className="relative w-[300px] overflow-hidden border border-border bg-background text-xs text-foreground">
@@ -227,21 +375,69 @@ function VaultConvexSchemaGraphCanvas({
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
 }) {
   const snapshot = state.snapshot;
-  const nodesFromSnapshot = useMemo(
-    () => (snapshot ? buildSchemaNodes(snapshot.graph.tables, state.layout) : []),
+  const fallbackNodesFromSnapshot = useMemo(
+    () => (snapshot ? buildFallbackSchemaNodes(snapshot.graph.tables, state.layout) : []),
     [snapshot, state.layout],
   );
   const edges = useMemo(
     () => (snapshot ? buildSchemaEdges(snapshot.graph.relationships) : []),
     [snapshot],
   );
-  const [nodes, setNodes, onNodesChange] = useNodesState<SchemaTableNode>(nodesFromSnapshot);
+  const layoutKey = useMemo(
+    () => (snapshot ? buildSchemaLayoutKey(snapshot, state.layout) : "empty"),
+    [snapshot, state.layout],
+  );
+  const fitViewOptions = useMemo(() => ({ padding: variant === "route" ? 0.08 : 0.18 }), [variant]);
+  const [nodes, setNodes, onNodesChange] =
+    useNodesState<SchemaTableNode>(fallbackNodesFromSnapshot);
+  const [readyLayoutKey, setReadyLayoutKey] = useState<string | null>(null);
+  const reactFlowInstanceRef = useRef<ReactFlowInstance<SchemaTableNode, SchemaGraphEdge> | null>(
+    null,
+  );
   const nodeTypes = useMemo(() => ({ schemaTable: SchemaTableNode }), []);
+  const layoutReady = readyLayoutKey === layoutKey;
 
   // React Flow owns transient drag state; reset it when Convex publishes a new snapshot or layout.
   useEffect(() => {
-    setNodes(nodesFromSnapshot);
-  }, [nodesFromSnapshot, setNodes]);
+    if (!snapshot) {
+      setNodes([]);
+      setReadyLayoutKey(layoutKey);
+      return;
+    }
+
+    let shouldApplyLayout = true;
+    setReadyLayoutKey(null);
+    setNodes(fallbackNodesFromSnapshot);
+
+    if (hasSavedLayoutForEveryTable(snapshot.graph.tables, state.layout)) {
+      setReadyLayoutKey(layoutKey);
+      return;
+    }
+
+    void buildSchemaNodes(snapshot.graph.tables, snapshot.graph.relationships, state.layout)
+      .then((layoutedNodes) => {
+        if (!shouldApplyLayout) {
+          return;
+        }
+        setNodes(layoutedNodes);
+        setReadyLayoutKey(layoutKey);
+        if (reactFlowInstanceRef.current) {
+          window.requestAnimationFrame(() => {
+            void reactFlowInstanceRef.current?.fitView(fitViewOptions);
+          });
+        }
+      })
+      .catch(() => {
+        if (!shouldApplyLayout) {
+          return;
+        }
+        setReadyLayoutKey(layoutKey);
+      });
+
+    return () => {
+      shouldApplyLayout = false;
+    };
+  }, [fallbackNodesFromSnapshot, fitViewOptions, layoutKey, setNodes, snapshot, state.layout]);
 
   if (!snapshot) {
     if (variant === "route") {
@@ -257,7 +453,10 @@ function VaultConvexSchemaGraphCanvas({
   }
 
   return (
-    <div className={getSchemaGraphViewportClassName(variant)}>
+    <div
+      className={getSchemaGraphViewportClassName(variant)}
+      data-schema-graph-layout={layoutReady ? "ready" : "pending"}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -265,8 +464,11 @@ function VaultConvexSchemaGraphCanvas({
         onNodesChange={onNodesChange}
         nodesConnectable={false}
         fitView
-        fitViewOptions={{ padding: variant === "route" ? 0.08 : 0.18 }}
+        fitViewOptions={fitViewOptions}
         minZoom={variant === "route" ? 0.1 : 0.5}
+        onInit={(instance) => {
+          reactFlowInstanceRef.current = instance;
+        }}
         onNodeDragStop={(_event, node) => {
           onSaveLayout?.(node.id, node.position.x, node.position.y);
         }}
