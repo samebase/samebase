@@ -181,7 +181,7 @@ export function FileCreationDialog({
             onChange={handleFolderInputChange}
             onFocus={handleFolderInputFocus}
             onKeyDown={handleFolderKeyDown}
-            className="text-sm"
+            className="text-base"
           />
 
           {/* Dropdown */}
@@ -217,7 +217,7 @@ export function FileCreationDialog({
           value={newFileName}
           onChange={(e) => setNewFileName(e.target.value)}
           onKeyDown={handleFileCreateKeyDown}
-          className="text-sm"
+          className="text-base"
           autoFocus={!showFolderDropdown}
         />
       </div>

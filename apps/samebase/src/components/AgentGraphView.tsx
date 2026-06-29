@@ -394,7 +394,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
                 mode="prosemark"
                 rows={2}
                 className="nowheel nopan"
-                textareaClassName="min-h-[2.75rem] text-xs"
+                textareaClassName="min-h-[2.75rem] text-base"
                 sendButtonClassName="h-7 w-7"
               />
               {error && <div className="mt-1 text-[11px] text-red-600">{error}</div>}

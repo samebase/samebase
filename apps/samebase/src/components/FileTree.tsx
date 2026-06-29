@@ -369,7 +369,7 @@ function TreeNodeComponent({
           onKeyDown={handleRenameKeyDown}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
-          className="flex-1 bg-background border border-border corner-notch-1 px-1 text-xs"
+          className="flex-1 bg-background border border-border corner-notch-1 px-1 text-base"
           autoFocus
         />
       ) : (

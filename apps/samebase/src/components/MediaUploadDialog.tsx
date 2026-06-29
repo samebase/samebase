@@ -217,7 +217,7 @@ export function MediaUploadDialog({
             onChange={handleFolderInputChange}
             onFocus={handleFolderInputFocus}
             onKeyDown={handleFolderKeyDown}
-            className="text-sm"
+            className="text-base"
             disabled={isSubmitting}
             autoFocus
           />

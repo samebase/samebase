@@ -224,6 +224,7 @@ describe("lint config", () => {
       specifier: "eslint-plugin-samebase-local",
     });
     expect(oxlintConfig.rules).toMatchObject({
+      "samebase/no-ios-small-text-entry-control": "error",
       "samebase/no-raw-public-convex-function-builders": "error",
       "react-refresh/only-export-components": ["error", { allowConstantExport: true }],
       "@typescript-eslint/await-thenable": "error",
