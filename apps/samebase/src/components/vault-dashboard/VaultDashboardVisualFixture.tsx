@@ -760,7 +760,7 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "providerConnections",
+            name: "vaultInfrastructureOwnershipRecords",
             source: "declared",
             documentCount: 16,
             indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
@@ -830,8 +830,8 @@ function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
             source: "declared",
           },
           {
-            id: "declared:providerConnections:userId:users",
-            fromTable: "providerConnections",
+            id: "declared:vaultInfrastructureOwnershipRecords:userId:users",
+            fromTable: "vaultInfrastructureOwnershipRecords",
             fromField: "userId",
             toTable: "users",
             source: "declared",

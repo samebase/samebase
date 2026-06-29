@@ -61,8 +61,12 @@ type VaultConvexSchemaGraphController = {
   onSaveLayout: (nodeId: string, x: number, y: number) => void;
 };
 
-const SCHEMA_NODE_WIDTH = 300;
-const SCHEMA_NODE_HEADER_HEIGHT = 64;
+const SCHEMA_NODE_MIN_WIDTH = 300;
+const SCHEMA_NODE_MAX_WIDTH = 520;
+const SCHEMA_NODE_HORIZONTAL_PADDING_PX = 24;
+const SCHEMA_NODE_TITLE_CHARACTER_WIDTH_PX = 8;
+const SCHEMA_NODE_TITLE_LINE_HEIGHT = 18;
+const SCHEMA_NODE_HEADER_BASE_HEIGHT = 76;
 const SCHEMA_NODE_ROW_HEIGHT = 24;
 const SCHEMA_NODE_HIDDEN_FIELDS_HEIGHT = 24;
 const SCHEMA_NODE_X_GAP = 380;
@@ -82,9 +86,9 @@ const FIELD_SOURCE_CLASS_NAMES = {
   inferred: "text-muted-foreground",
 } satisfies Record<ConvexSchemaGraphTable["fields"][number]["source"], string>;
 const TABLE_SOURCE_LABELS = {
-  declared: "declared",
-  inferred: "inferred",
-  mixed: "declared + inferred",
+  declared: "declared schema",
+  inferred: "sampled documents",
+  mixed: "schema + sampled documents",
 } satisfies Record<ConvexSchemaGraphTable["source"], string>;
 let schemaGraphElkPromise: Promise<ELK> | null = null;
 
@@ -126,12 +130,31 @@ function buildSchemaLayoutKey(
   return `${snapshot.schemaHash}:${savedLayoutKey}`;
 }
 
+function getSchemaNodeWidth(table: ConvexSchemaGraphTable): number {
+  return Math.max(
+    SCHEMA_NODE_MIN_WIDTH,
+    Math.min(
+      SCHEMA_NODE_MAX_WIDTH,
+      SCHEMA_NODE_HORIZONTAL_PADDING_PX + table.name.length * SCHEMA_NODE_TITLE_CHARACTER_WIDTH_PX,
+    ),
+  );
+}
+
+function getSchemaNodeTitleLineCount(table: ConvexSchemaGraphTable): number {
+  const textWidth = table.name.length * SCHEMA_NODE_TITLE_CHARACTER_WIDTH_PX;
+  const availableWidth = getSchemaNodeWidth(table) - SCHEMA_NODE_HORIZONTAL_PADDING_PX;
+  return Math.max(1, Math.ceil(textWidth / availableWidth));
+}
+
 function getSchemaNodeHeight(table: ConvexSchemaGraphTable): number {
   const visibleFieldCount = Math.min(table.fields.length, SCHEMA_NODE_VISIBLE_FIELD_LIMIT);
   const hiddenFieldsHeight =
     table.fields.length > visibleFieldCount ? SCHEMA_NODE_HIDDEN_FIELDS_HEIGHT : 0;
   return (
-    SCHEMA_NODE_HEADER_HEIGHT + visibleFieldCount * SCHEMA_NODE_ROW_HEIGHT + hiddenFieldsHeight
+    SCHEMA_NODE_HEADER_BASE_HEIGHT +
+    (getSchemaNodeTitleLineCount(table) - 1) * SCHEMA_NODE_TITLE_LINE_HEIGHT +
+    visibleFieldCount * SCHEMA_NODE_ROW_HEIGHT +
+    hiddenFieldsHeight
   );
 }
 
@@ -143,7 +166,7 @@ function buildSchemaNode(table: ConvexSchemaGraphTable, position: { x: number; y
     position,
     sourcePosition: Position.Right,
     targetPosition: Position.Left,
-    style: { width: SCHEMA_NODE_WIDTH },
+    style: { width: getSchemaNodeWidth(table) },
   } satisfies SchemaTableNode;
 }
 
@@ -237,7 +260,7 @@ async function buildAutomaticSchemaLayoutMap(
     layoutOptions: SCHEMA_GRAPH_ELK_OPTIONS,
     children: tables.map((table) => ({
       id: table.name,
-      width: SCHEMA_NODE_WIDTH,
+      width: getSchemaNodeWidth(table),
       height: getSchemaNodeHeight(table),
     })),
     edges: buildElkEdges(tables, relationships),
@@ -328,18 +351,19 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
   const visibleFields = table.fields.slice(0, SCHEMA_NODE_VISIBLE_FIELD_LIMIT);
   const hiddenFieldCount = table.fields.length - visibleFields.length;
   return (
-    <div className="relative w-[300px] overflow-hidden border border-border bg-background text-xs text-foreground">
+    <div
+      className="relative overflow-hidden border border-border bg-background text-xs text-foreground"
+      style={{ width: getSchemaNodeWidth(table) }}
+    >
       <Handle
         type="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-border !bg-background"
       />
       <div className="border-b border-border px-3 py-2">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <div className="min-w-0 truncate font-mono text-sm font-semibold">{table.name}</div>
-          <div className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
-            {TABLE_SOURCE_LABELS[table.source]}
-          </div>
+        <div className="break-words font-mono text-sm font-semibold leading-snug">{table.name}</div>
+        <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          {TABLE_SOURCE_LABELS[table.source]}
         </div>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
           <span>{table.fields.length} fields</span>

@@ -281,6 +281,11 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
   await expect(
     fixture.getByTestId("rf__node-fileStaging").getByText("fileStaging", { exact: true }),
   ).toBeVisible();
+  const longTableName = fixture
+    .getByTestId("rf__node-vaultInfrastructureOwnershipRecords")
+    .getByText("vaultInfrastructureOwnershipRecords", { exact: true });
+  await expect(longTableName).toBeVisible();
+  await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
   await expect(fixture.locator(".react-flow__edge")).toHaveCount(4);
   const [fileStagingBox, vaultsBox, usersBox] = await Promise.all([
     readRequiredBounds(fixture.getByTestId("rf__node-fileStaging"), "fileStaging node"),
