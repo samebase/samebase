@@ -616,6 +616,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           openDeveloperToolsByVaultId={{}}
           persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+          schemaGraphAccessEnabled
           locationHash=""
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onOpenDeveloperToolsChange={() => {}}

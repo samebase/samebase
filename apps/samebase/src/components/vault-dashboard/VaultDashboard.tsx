@@ -1460,6 +1460,7 @@ interface VaultBranchLinkRowProps {
   branch: VaultRemoteBranchListItem;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
+  schemaGraphAccessEnabled?: boolean;
   stagedSummary?: StagedSummary;
 }
 
@@ -1670,6 +1671,7 @@ function buildVaultDashboardBranchConvexLinks(args: {
   repositoryFullName: string;
   branchName: string;
   convexDeployments: readonly VaultDashboardConvexDeployment[];
+  schemaGraphAccessEnabled: boolean;
 }): VaultBranchConvexLink[] {
   const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
 
@@ -1689,34 +1691,39 @@ function buildVaultDashboardBranchConvexLinks(args: {
         left.appRoot.localeCompare(right.appRoot) ||
         left.deploymentName.localeCompare(right.deploymentName),
     )
-    .flatMap((deployment) => [
-      {
-        href: buildVaultDatabaseRoute({
-          owner,
-          repoName,
-          branch: args.branchName,
-          appRoot: deployment.appRoot,
-        }),
-        label: deployment.appRoot === "." ? "Data" : `Data: ${deployment.appRoot}`,
-        title:
-          deployment.appRoot === "."
-            ? `Open production data for ${deployment.deploymentName}`
-            : `Open production data for ${deployment.deploymentName} at ${deployment.appRoot}`,
-      },
-      {
-        href: buildVaultSchemaRoute({
-          owner,
-          repoName,
-          branch: args.branchName,
-          appRoot: deployment.appRoot,
-        }),
-        label: deployment.appRoot === "." ? "Schema" : `Schema: ${deployment.appRoot}`,
-        title:
-          deployment.appRoot === "."
-            ? `Open Convex schema for ${deployment.deploymentName}`
-            : `Open Convex schema for ${deployment.deploymentName} at ${deployment.appRoot}`,
-      },
-    ]);
+    .flatMap((deployment) => {
+      const links = [
+        {
+          href: buildVaultDatabaseRoute({
+            owner,
+            repoName,
+            branch: args.branchName,
+            appRoot: deployment.appRoot,
+          }),
+          label: deployment.appRoot === "." ? "Data" : `Data: ${deployment.appRoot}`,
+          title:
+            deployment.appRoot === "."
+              ? `Open production data for ${deployment.deploymentName}`
+              : `Open production data for ${deployment.deploymentName} at ${deployment.appRoot}`,
+        },
+      ];
+      if (args.schemaGraphAccessEnabled) {
+        links.push({
+          href: buildVaultSchemaRoute({
+            owner,
+            repoName,
+            branch: args.branchName,
+            appRoot: deployment.appRoot,
+          }),
+          label: deployment.appRoot === "." ? "Schema" : `Schema: ${deployment.appRoot}`,
+          title:
+            deployment.appRoot === "."
+              ? `Open Convex schema for ${deployment.deploymentName}`
+              : `Open Convex schema for ${deployment.deploymentName} at ${deployment.appRoot}`,
+        });
+      }
+      return links;
+    });
 }
 
 function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewModel }) {
@@ -1907,11 +1914,13 @@ export function VaultBranchLinkContent({
   branch,
   convexDeployments = [],
   productionApps = [],
+  schemaGraphAccessEnabled = false,
 }: {
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
+  schemaGraphAccessEnabled?: boolean;
 }) {
   const branchRow = buildVaultBranchRowViewModel({
     branch,
@@ -1948,6 +1957,7 @@ export function VaultBranchLinkContent({
         repositoryFullName,
         branchName: branchRow.name,
         convexDeployments,
+        schemaGraphAccessEnabled,
       })
     : [];
 
@@ -2076,6 +2086,7 @@ export function VaultBranchLinkRow({
   branch,
   convexDeployments,
   productionApps,
+  schemaGraphAccessEnabled,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
@@ -2093,6 +2104,7 @@ export function VaultBranchLinkRow({
         branch={branch}
         convexDeployments={convexDeployments}
         productionApps={productionApps}
+        schemaGraphAccessEnabled={schemaGraphAccessEnabled}
       />
       {showRowActions ? (
         <div className="flex shrink-0 items-start gap-2">
@@ -2118,6 +2130,7 @@ interface VaultBranchListProps {
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   remoteBranches: VaultRemoteBranchListItem[];
   productionApps?: readonly VaultBranchProductionApp[];
+  schemaGraphAccessEnabled?: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   expansion?: VaultBranchListExpansionProps;
 }
@@ -2162,6 +2175,7 @@ function VaultBranchList({
   convexDeployments,
   remoteBranches,
   productionApps,
+  schemaGraphAccessEnabled,
   stagedSummaries,
   expansion,
 }: VaultBranchListProps) {
@@ -2182,6 +2196,7 @@ function VaultBranchList({
           stagedSummary={summaryByBranch.get(branch.name)}
           convexDeployments={branch.isDefault ? convexDeployments : undefined}
           productionApps={branch.isDefault ? productionApps : undefined}
+          schemaGraphAccessEnabled={schemaGraphAccessEnabled}
         />
       ))}
       {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
@@ -2230,6 +2245,7 @@ function VaultBranchSection({
   filteredBranchCount,
   productionApps,
   repositoryFullName,
+  schemaGraphAccessEnabled,
   stagedSummaries,
   vaultId,
   visibleRemoteBranches,
@@ -2238,6 +2254,7 @@ function VaultBranchSection({
   filteredBranchCount: number;
   productionApps?: readonly VaultBranchProductionApp[];
   repositoryFullName: string;
+  schemaGraphAccessEnabled: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   vaultId: Id<"vaults">;
   visibleRemoteBranches: VaultRemoteBranchListItem[];
@@ -2251,6 +2268,7 @@ function VaultBranchSection({
           remoteBranches={visibleRemoteBranches}
           convexDeployments={convexDeployments}
           productionApps={productionApps}
+          schemaGraphAccessEnabled={schemaGraphAccessEnabled}
           stagedSummaries={stagedSummaries}
         />
       ) : null}
@@ -2554,6 +2572,7 @@ type VaultDashboardViewProps = {
   openDeveloperToolsByVaultId: Partial<Record<Id<"vaults">, boolean>>;
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   persistedVaultResourceLinksOpenByVaultId: Map<string, boolean>;
+  schemaGraphAccessEnabled: boolean;
   deleteRepositoryFullName?: string;
   addConvexRepositoryFullName?: string;
   addCloudflareWorkerRepositoryFullName?: string;
@@ -2838,6 +2857,7 @@ export function VaultDashboardView({
   openDeveloperToolsByVaultId,
   persistedVaultBranchFiltersByVaultId,
   persistedVaultResourceLinksOpenByVaultId,
+  schemaGraphAccessEnabled,
   deleteRepositoryFullName,
   addConvexRepositoryFullName,
   addCloudflareWorkerRepositoryFullName,
@@ -3228,6 +3248,7 @@ export function VaultDashboardView({
             <VaultBranchSection
               convexDeployments={vault.convexDeployments}
               filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+              schemaGraphAccessEnabled={schemaGraphAccessEnabled}
               vaultId={vault._id}
               repositoryFullName={vault.repositoryFullName}
               visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
@@ -3471,6 +3492,9 @@ export function VaultDashboard() {
   const userVaultResourceLinksState = useConvexQuery(
     api.vault.dashboard.getUserVaultResourceLinksState,
   );
+  const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
+  const schemaGraphAccessEnabled =
+    viewerAccess?.accessKeys.includes("access_schema_graph") === true;
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const connectedCloudflareConnection =
     cloudflareConnection?.connected === true ? cloudflareConnection : null;
@@ -4463,6 +4487,7 @@ export function VaultDashboard() {
       openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
       persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+      schemaGraphAccessEnabled={schemaGraphAccessEnabled}
       deleteRepositoryFullName={deleteRepositoryFullName}
       addConvexRepositoryFullName={addConvexRepositoryFullName}
       addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}

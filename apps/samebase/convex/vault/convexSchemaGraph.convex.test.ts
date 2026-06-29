@@ -92,7 +92,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Ada",
-      email: "ada@example.com",
+      email: "nicu@samebase.com",
       isApproved: true,
     });
     await ctx.db.insert("providerConnections", {

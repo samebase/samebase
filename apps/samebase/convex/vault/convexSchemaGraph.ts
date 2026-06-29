@@ -1001,7 +1001,7 @@ function buildRawSchemaJsonStorage(args: {
 }
 
 export const get = query({
-  access: "access_dashboard",
+  access: "access_schema_graph",
   args: {
     vaultId: id("vaults"),
     appRoot: optional(string()),
@@ -1072,7 +1072,7 @@ export const get = query({
 });
 
 export const saveLayout = mutation({
-  access: "access_dashboard",
+  access: "access_schema_graph",
   args: {
     vaultId: id("vaults"),
     deploymentId: id("vaultConvexDeployments"),
@@ -1138,7 +1138,7 @@ export const saveLayout = mutation({
 });
 
 export const refresh = action({
-  access: "access_dashboard",
+  access: "access_schema_graph",
   args: {
     vaultId: id("vaults"),
     deploymentId: optional(id("vaultConvexDeployments")),

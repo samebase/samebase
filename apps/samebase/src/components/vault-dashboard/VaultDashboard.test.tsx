@@ -398,6 +398,7 @@ describe("VaultBranchLinkContent", () => {
               siteUrl: "https://samebase-production.convex.site",
             },
           ]}
+          schemaGraphAccessEnabled
         />
       </TestRouterProvider>,
     );
@@ -408,6 +409,41 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('href="/vault/samebase/samebase/schema/main/root"');
     expect(markup).toContain('title="Open Convex schema for samebase-production"');
     expect(markup).toContain(">Schema<");
+  });
+
+  it("hides default branch schema tools without schema graph access", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          branch={{
+            name: "main",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+          convexDeployments={[
+            {
+              appRoot: ".",
+              projectId: "project-1",
+              projectSlug: "samebase",
+              teamSlug: "samebase",
+              deploymentName: "samebase-production",
+              cloudUrl: "https://samebase-production.convex.cloud",
+              siteUrl: "https://samebase-production.convex.site",
+            },
+          ]}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="/vault/samebase/samebase/db/main/root"');
+    expect(markup).toContain(">Data<");
+    expect(markup).not.toContain("/schema/main/root");
+    expect(markup).not.toContain(">Schema<");
   });
 
   it("links non-default branch Samebase actions to changed files", () => {
