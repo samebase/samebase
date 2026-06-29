@@ -14,7 +14,7 @@ export function ConnectedMachineHeartbeatLogSection(props: { heartbeatLog: strin
         readOnly
         rows={2}
         value={props.heartbeatLog}
-        className="min-h-0 resize-y font-mono text-xs"
+        className="min-h-0 resize-y font-mono text-base"
       />
     </section>
   );

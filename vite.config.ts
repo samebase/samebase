@@ -53,11 +53,12 @@ export default defineConfig({
       },
       {
         name: "samebase",
-        specifier: "./scripts/lint/eslint-plugin-samebase.mjs",
+        specifier: "./scripts/lint/eslint-plugin-samebase.js",
       },
     ],
     rules: {
       "samebase/no-hand-written-type-predicate": "error",
+      "samebase/no-ios-small-text-entry-control": "error",
       "samebase/no-raw-public-convex-function-builders": "error",
       "react-refresh/only-export-components": [
         "error",

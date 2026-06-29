@@ -145,7 +145,7 @@ const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(function
         rows={rows}
         disabled={disabled}
         className={cn(
-          "max-h-60 min-h-[4.5rem] flex-1 resize-none corner-notch-1 border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
+          "max-h-60 min-h-[4.5rem] flex-1 resize-none corner-notch-1 border border-input bg-background px-3 py-1.5 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
           textareaClassName,
         )}
       />

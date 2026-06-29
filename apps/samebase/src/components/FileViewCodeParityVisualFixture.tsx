@@ -776,7 +776,7 @@ export function FileViewCodeParityVisualFixture({
 
                             setEditorResolutionScale(clampParityEditorResolutionScale(nextValue));
                           }}
-                          className="h-8 w-16 bg-background px-2 py-1 text-right font-mono text-xs"
+                          className="h-8 w-16 bg-background px-2 py-1 text-right font-mono text-base"
                         />
                         <span>{editorResolutionScale}x</span>
                       </div>

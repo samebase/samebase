@@ -731,7 +731,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                       }}
                       placeholder="Continue this thread from the browser..."
                       disabled={props.selectedThreadId === null || selectedThreadIsArchived}
-                      className="min-h-[128px] border-slate-200 bg-slate-50 font-mono text-sm"
+                      className="min-h-[128px] border-slate-200 bg-slate-50 font-mono text-base"
                     />
                     <div className="flex justify-end">
                       <Button disabled={sendTurnDisabled} onClick={props.onTurnSubmit}>
