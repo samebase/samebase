@@ -1230,7 +1230,7 @@ export const trackedFilePaths = [
   "docs/playwright-visual-testing.md",
   "docs/repo-documentation-standard.md",
   "docs/samebase-domains-workers-builds.md",
-  "docs/samebase-events-workers-builds.md",
+  "docs/samebase-posthog-proxy-workers-builds.md",
   "docs/samebase-pr-preview-cleanup.md",
   "docs/tracked-file-paths.md",
   "links.md",
