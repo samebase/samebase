@@ -165,10 +165,14 @@ async function readDeploymentsForVault(
 
 function selectDeployment(args: {
   deployments: Doc<"vaultConvexDeployments">[];
+  appRoot?: string;
   deploymentId?: Id<"vaultConvexDeployments">;
 }): Doc<"vaultConvexDeployments"> | null {
   if (args.deploymentId !== undefined) {
     return args.deployments.find((deployment) => deployment._id === args.deploymentId) ?? null;
+  }
+  if (args.appRoot !== undefined) {
+    return args.deployments.find((deployment) => deployment.appRoot === args.appRoot) ?? null;
   }
   return args.deployments[0] ?? null;
 }
@@ -888,6 +892,7 @@ export const get = query({
   access: "access_dashboard",
   args: {
     vaultId: id("vaults"),
+    appRoot: optional(string()),
     deploymentId: optional(id("vaultConvexDeployments")),
   },
   returns: union(vConvexSchemaGraphStateResult, nullValue()),
@@ -900,6 +905,7 @@ export const get = query({
     const deployments = await readDeploymentsForVault(ctx, args.vaultId);
     const selectedDeployment = selectDeployment({
       deployments,
+      appRoot: args.appRoot,
       deploymentId: args.deploymentId,
     });
     if (!selectedDeployment) {

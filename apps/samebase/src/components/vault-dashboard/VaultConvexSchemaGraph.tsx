@@ -7,7 +7,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { clsx } from "clsx";
 import { Database, Loader2, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Background,
   Controls,
@@ -32,11 +32,13 @@ type SchemaTableNodeData = {
 };
 type SchemaTableNode = Node<SchemaTableNodeData, "schemaTable">;
 type SchemaGraphEdge = Edge;
+type VaultConvexSchemaGraphVariant = "dashboard" | "route";
 
 type VaultConvexSchemaGraphContentProps = {
   state: ConvexSchemaGraphState;
   refreshError: string | null;
   refreshPending: boolean;
+  variant?: VaultConvexSchemaGraphVariant;
   onDeploymentChange?: (deploymentId: Id<"vaultConvexDeployments">) => void;
   onRefresh?: () => void;
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
@@ -105,6 +107,34 @@ function buildSchemaEdges(relationships: ConvexSchemaGraphRelationship[]): Schem
   }));
 }
 
+function getSchemaGraphContainerClassName(variant: VaultConvexSchemaGraphVariant): string {
+  return variant === "route"
+    ? "flex min-h-0 flex-1 flex-col gap-3 p-4"
+    : "space-y-2 border-t border-border/50 pt-3";
+}
+
+function getSchemaGraphViewportClassName(variant: VaultConvexSchemaGraphVariant): string {
+  return variant === "route"
+    ? "min-h-[28rem] flex-1 overflow-hidden border border-border/50"
+    : "h-[34rem] min-h-0 overflow-hidden border border-border/50";
+}
+
+function VaultConvexSchemaGraphStatus({
+  children,
+  variant,
+}: {
+  children: ReactNode;
+  variant: VaultConvexSchemaGraphVariant;
+}) {
+  return (
+    <section className={getSchemaGraphContainerClassName(variant)}>
+      <div className="flex min-h-20 items-center justify-center text-sm text-muted-foreground">
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
   const table = data.table;
   const visibleFields = table.fields.slice(0, 9);
@@ -158,6 +188,7 @@ export function VaultConvexSchemaGraphContent({
   state,
   refreshError,
   refreshPending,
+  variant = "dashboard",
   onDeploymentChange,
   onRefresh,
   onSaveLayout,
@@ -194,7 +225,7 @@ export function VaultConvexSchemaGraphContent({
   );
 
   return (
-    <section className="space-y-2 border-t border-border/50 pt-3">
+    <section className={getSchemaGraphContainerClassName(variant)}>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
@@ -246,7 +277,7 @@ export function VaultConvexSchemaGraphContent({
       {refreshError ? <div className="text-xs text-destructive">{refreshError}</div> : null}
 
       {snapshot ? (
-        <div className="h-[34rem] min-h-0 overflow-hidden border border-border/50">
+        <div className={getSchemaGraphViewportClassName(variant)}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -280,7 +311,15 @@ export function VaultConvexSchemaGraphContent({
   );
 }
 
-export function VaultConvexSchemaGraph({ vaultId }: { vaultId: Id<"vaults"> }) {
+export function VaultConvexSchemaGraph({
+  appRoot,
+  vaultId,
+  variant = "dashboard",
+}: {
+  appRoot?: string;
+  vaultId: Id<"vaults">;
+  variant?: VaultConvexSchemaGraphVariant;
+}) {
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<Id<"vaultConvexDeployments">>();
   const [refreshPending, setRefreshPending] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -289,14 +328,18 @@ export function VaultConvexSchemaGraph({ vaultId }: { vaultId: Id<"vaults"> }) {
     () =>
       selectedDeploymentId
         ? { vaultId, deploymentId: selectedDeploymentId }
-        : {
-            vaultId,
-          },
-    [selectedDeploymentId, vaultId],
+        : appRoot !== undefined
+          ? { vaultId, appRoot }
+          : { vaultId },
+    [appRoot, selectedDeploymentId, vaultId],
   );
   const state = useQuery(api.vault.convexSchemaGraph.get, queryArgs);
   const refresh = useAction(api.vault.convexSchemaGraph.refresh);
   const saveLayout = useMutation(api.vault.convexSchemaGraph.saveLayout);
+
+  useEffect(() => {
+    setSelectedDeploymentId(undefined);
+  }, [appRoot, vaultId]);
 
   const handleRefresh = useCallback(async () => {
     const deploymentId = state?.selectedDeploymentId;
@@ -337,7 +380,7 @@ export function VaultConvexSchemaGraph({ vaultId }: { vaultId: Id<"vaults"> }) {
 
   if (state === undefined) {
     return (
-      <section className="space-y-2 border-t border-border/50 pt-3">
+      <section className={getSchemaGraphContainerClassName(variant)}>
         <div className="flex items-center gap-2 text-sm font-medium">
           <Database className="h-4 w-4 text-muted-foreground" />
           <span>Convex schema</span>
@@ -348,12 +391,20 @@ export function VaultConvexSchemaGraph({ vaultId }: { vaultId: Id<"vaults"> }) {
   }
 
   if (state === null || state.deployments.length === 0) {
+    if (variant === "route") {
+      return (
+        <VaultConvexSchemaGraphStatus variant={variant}>
+          No Convex deployment.
+        </VaultConvexSchemaGraphStatus>
+      );
+    }
     return null;
   }
 
   return (
     <VaultConvexSchemaGraphContent
       state={state}
+      variant={variant}
       refreshPending={refreshPending}
       refreshError={refreshError ?? layoutError}
       onDeploymentChange={setSelectedDeploymentId}

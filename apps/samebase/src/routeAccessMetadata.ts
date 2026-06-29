@@ -46,6 +46,8 @@ const routeAccessMetadataByPath = {
   "/vault/$owner/$repo/codespace/$branch/chat": { access: "access_machines" },
   "/vault/$owner/$repo/db/$branch/root": { access: "access_files_read" },
   "/vault/$owner/$repo/db/$branch/mono/$": { access: "access_files_read" },
+  "/vault/$owner/$repo/schema/$branch/root": { access: "access_dashboard" },
+  "/vault/$owner/$repo/schema/$branch/mono/$": { access: "access_dashboard" },
   "/visual-fixture": { availableEnvironments: ["local"], access: "access_public" },
 } as const satisfies Record<keyof FileRoutesByFullPath, RouteMetadata>;
 

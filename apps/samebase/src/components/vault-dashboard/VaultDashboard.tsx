@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
-import { VaultConvexSchemaGraph } from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
 import {
   buildVaultDashboardRepositoryHashHref,
@@ -75,6 +74,7 @@ import {
   buildVaultCodespaceChatRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
+  buildVaultSchemaRoute,
 } from "@/lib/vaultRoutes";
 import {
   formatVaultSourceSetupStep,
@@ -1477,7 +1477,7 @@ type VaultBranchProductionApp = {
   links: readonly VaultBranchProductionLink[];
 };
 
-type VaultBranchDatabaseLink = {
+type VaultBranchConvexLink = {
   href: string;
   label: string;
   title: string;
@@ -1666,11 +1666,11 @@ function buildVaultDashboardBranchRoute(args: {
   });
 }
 
-function buildVaultDashboardBranchDatabaseLinks(args: {
+function buildVaultDashboardBranchConvexLinks(args: {
   repositoryFullName: string;
   branchName: string;
   convexDeployments: readonly VaultDashboardConvexDeployment[];
-}): VaultBranchDatabaseLink[] {
+}): VaultBranchConvexLink[] {
   const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
 
   if (
@@ -1689,19 +1689,34 @@ function buildVaultDashboardBranchDatabaseLinks(args: {
         left.appRoot.localeCompare(right.appRoot) ||
         left.deploymentName.localeCompare(right.deploymentName),
     )
-    .map((deployment) => ({
-      href: buildVaultDatabaseRoute({
-        owner,
-        repoName,
-        branch: args.branchName,
-        appRoot: deployment.appRoot,
-      }),
-      label: deployment.appRoot === "." ? "Data" : `Data: ${deployment.appRoot}`,
-      title:
-        deployment.appRoot === "."
-          ? `Open production data for ${deployment.deploymentName}`
-          : `Open production data for ${deployment.deploymentName} at ${deployment.appRoot}`,
-    }));
+    .flatMap((deployment) => [
+      {
+        href: buildVaultDatabaseRoute({
+          owner,
+          repoName,
+          branch: args.branchName,
+          appRoot: deployment.appRoot,
+        }),
+        label: deployment.appRoot === "." ? "Data" : `Data: ${deployment.appRoot}`,
+        title:
+          deployment.appRoot === "."
+            ? `Open production data for ${deployment.deploymentName}`
+            : `Open production data for ${deployment.deploymentName} at ${deployment.appRoot}`,
+      },
+      {
+        href: buildVaultSchemaRoute({
+          owner,
+          repoName,
+          branch: args.branchName,
+          appRoot: deployment.appRoot,
+        }),
+        label: deployment.appRoot === "." ? "Schema" : `Schema: ${deployment.appRoot}`,
+        title:
+          deployment.appRoot === "."
+            ? `Open Convex schema for ${deployment.deploymentName}`
+            : `Open Convex schema for ${deployment.deploymentName} at ${deployment.appRoot}`,
+      },
+    ]);
 }
 
 function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewModel }) {
@@ -1928,8 +1943,8 @@ export function VaultBranchLinkContent({
     ? "Open branch in Samebase"
     : "View changes in Samebase";
   const activeProductionApps = branchRow.isDefault ? productionApps : [];
-  const activeDatabaseLinks = branchRow.isDefault
-    ? buildVaultDashboardBranchDatabaseLinks({
+  const activeConvexLinks = branchRow.isDefault
+    ? buildVaultDashboardBranchConvexLinks({
         repositoryFullName,
         branchName: branchRow.name,
         convexDeployments,
@@ -2033,7 +2048,7 @@ export function VaultBranchLinkContent({
                   </DashboardLinkIconSlot>
                   <span>{branchSamebaseLinkLabel}</span>
                 </Link>
-                {activeDatabaseLinks.map((link) => (
+                {activeConvexLinks.map((link) => (
                   <Link
                     key={link.href}
                     to={link.href}
@@ -2528,7 +2543,6 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
 }
 
 type VaultDashboardViewProps = {
-  convexSchemaGraphsVisible?: boolean;
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
@@ -2813,7 +2827,6 @@ function resolveActiveVaultDashboardCardHashId({
 }
 
 export function VaultDashboardView({
-  convexSchemaGraphsVisible = true,
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
@@ -3222,11 +3235,6 @@ export function VaultDashboardView({
               stagedSummaries={stagedBranchSummaries}
             />
           ) : undefined;
-        const schemaGraphSection =
-          convexSchemaGraphsVisible && isReady && vault.convexDeployments.length > 0 ? (
-            <VaultConvexSchemaGraph vaultId={vault._id} />
-          ) : undefined;
-
         return (
           <div
             key={vault._id}
@@ -3329,14 +3337,7 @@ export function VaultDashboardView({
                   />
                 ) : undefined
               }
-              branchSection={
-                branchSection || schemaGraphSection ? (
-                  <div className="space-y-3">
-                    {branchSection}
-                    {schemaGraphSection}
-                  </div>
-                ) : undefined
-              }
+              branchSection={branchSection}
               developerToolsSection={
                 isReady || hasProvisioningLog
                   ? {

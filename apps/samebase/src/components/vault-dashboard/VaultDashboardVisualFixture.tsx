@@ -599,7 +599,6 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
     >
       <TestRouterProvider>
         <VaultDashboardView
-          convexSchemaGraphsVisible={false}
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}

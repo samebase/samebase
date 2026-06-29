@@ -373,7 +373,7 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).not.toContain("?compare");
   });
 
-  it("links default branch Convex data to the database route", () => {
+  it("links default branch Convex tools to their app routes", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider>
         <VaultBranchLinkContent
@@ -405,6 +405,9 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('href="/vault/samebase/samebase/db/main/root"');
     expect(markup).toContain('title="Open production data for samebase-production"');
     expect(markup).toContain(">Data<");
+    expect(markup).toContain('href="/vault/samebase/samebase/schema/main/root"');
+    expect(markup).toContain('title="Open Convex schema for samebase-production"');
+    expect(markup).toContain(">Schema<");
   });
 
   it("links non-default branch Samebase actions to changed files", () => {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
+  buildVaultSchemaRoute,
   buildVaultCodespaceChatRoute,
   parseVaultPathContext,
 } from "./vaultRoutes";
@@ -63,6 +64,30 @@ describe("buildVaultDatabaseRoute", () => {
         appRoot: "apps/web app",
       }),
     ).toBe("/vault/octo/repo/db/main/mono/apps/web%20app");
+  });
+});
+
+describe("buildVaultSchemaRoute", () => {
+  it("builds root app schema routes", () => {
+    expect(
+      buildVaultSchemaRoute({
+        owner: "octo",
+        repoName: "repo",
+        branch: "feature/login-flow",
+        appRoot: ".",
+      }),
+    ).toBe("/vault/octo/repo/schema/feature%2Flogin-flow/root");
+  });
+
+  it("builds monorepo app schema routes", () => {
+    expect(
+      buildVaultSchemaRoute({
+        owner: "octo",
+        repoName: "repo",
+        branch: "main",
+        appRoot: "apps/web app",
+      }),
+    ).toBe("/vault/octo/repo/schema/main/mono/apps/web%20app");
   });
 });
 
