@@ -1,12 +1,21 @@
 import { Infer, v } from "convex/values";
-import type { components } from "../convexManagementApi/types.generated";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "../_generated/server";
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
-import { requestConvexManagementApi } from "../convexManagementApi/client";
 import { isLiveConnectedVault } from "./state";
+import {
+  createConvexDeploymentDeployKey,
+  deleteConvexDeploymentDeployKey,
+  type ConvexDeployKeyAllowedAction,
+  type ConvexDeployKeyAuthMethod,
+} from "./convexDeployKeys";
 import {
   vConvexSchemaGraph,
   type ConvexSchemaGraph,
@@ -21,12 +30,8 @@ import { vVaultConvexDeployment } from "./model";
 
 const { array, id, literal, null: nullValue, number, object, optional, string, union } = v;
 
-type ConvexDeployKeyAllowedAction = NonNullable<
-  components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
->[number];
-type ConvexProviderAuthMethod = "api_key" | "oauth";
 type ConvexSchemaRefreshTarget = {
-  authMethod: ConvexProviderAuthMethod;
+  authMethod: ConvexDeployKeyAuthMethod;
   deployment: Doc<"vaultConvexDeployments">;
   token: string;
 };
@@ -51,6 +56,7 @@ type FieldCollectorArgs = {
   fields: Map<string, ConvexSchemaGraphField>;
   optional: boolean;
   path: string;
+  skipCurrentField?: boolean;
   source: ConvexSchemaGraphFieldSource;
   value: unknown;
 };
@@ -62,7 +68,10 @@ type ConvexSchemaFetchResult = {
 
 const CONVEX_SCHEMA_REFRESH_TIMEOUT_MS = 10_000;
 const CONVEX_SCHEMA_INSPECTION_KEY_TTL_MS = 31 * 60 * 1000;
-const CONVEX_SCHEMA_RAW_JSON_MAX_LENGTH = 500_000;
+const CONVEX_SCHEMA_SNAPSHOT_DOCUMENT_SOFT_LIMIT = 900_000;
+const CONVEX_SCHEMA_RAW_JSON_TOTAL_MAX_LENGTH = 500_000;
+const CONVEX_SCHEMA_SNAPSHOT_RETENTION_COUNT = 5;
+const CONVEX_SCHEMA_TABLE_COUNT_CONCURRENCY = 8;
 const CONVEX_SCHEMA_DEPLOY_KEY_ALLOWED_ACTIONS = [
   "deployment:data:view",
 ] satisfies ConvexDeployKeyAllowedAction[];
@@ -127,7 +136,12 @@ function compareGraphTable(left: ConvexSchemaGraphTable, right: ConvexSchemaGrap
 }
 
 function compareGraphField(left: ConvexSchemaGraphField, right: ConvexSchemaGraphField): number {
-  return left.path.localeCompare(right.path) || left.source.localeCompare(right.source);
+  return (
+    left.path.localeCompare(right.path) ||
+    left.source.localeCompare(right.source) ||
+    readFieldTargetTables(left).join("\0").localeCompare(readFieldTargetTables(right).join("\0")) ||
+    left.kind.localeCompare(right.kind)
+  );
 }
 
 function compareGraphRelationship(
@@ -206,9 +220,29 @@ function parseJsonOrNull(json: string): unknown {
   }
 }
 
-function maybeStoreRawJson(value: unknown): string | undefined {
-  const json = JSON.stringify(value);
-  return json.length <= CONVEX_SCHEMA_RAW_JSON_MAX_LENGTH ? json : undefined;
+function uniqueSortedStrings(values: string[]): string[] {
+  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+
+function readFieldTargetTables(field: ConvexSchemaGraphField): string[] {
+  if (field.targetTables !== undefined) {
+    return field.targetTables;
+  }
+  return field.targetTable ? [field.targetTable] : [];
+}
+
+function buildFieldTargetProperties(targetTables: string[]): {
+  targetTable?: string;
+  targetTables?: string[];
+} {
+  const uniqueTargetTables = uniqueSortedStrings(targetTables);
+  if (uniqueTargetTables.length === 0) {
+    return {};
+  }
+  if (uniqueTargetTables.length === 1) {
+    return { targetTable: uniqueTargetTables[0] };
+  }
+  return { targetTables: uniqueTargetTables };
 }
 
 function readSystemQueryResponse(response: unknown): ConvexSystemQueryResponse | null {
@@ -218,14 +252,6 @@ function readSystemQueryResponse(response: unknown): ConvexSystemQueryResponse |
   return { value: response.value };
 }
 
-function parseDeployKeyIdentifier(deployKey: string): string {
-  const pipeIdx = deployKey.indexOf("|");
-  if (pipeIdx === -1) {
-    return deployKey.slice(0, 64);
-  }
-  return deployKey.slice(0, pipeIdx);
-}
-
 function buildConvexInspectionDeployKeyName(deploymentName: string): string {
   const timestamp = Date.now().toString(36);
   const normalizedDeploymentName = deploymentName.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 40);
@@ -233,49 +259,33 @@ function buildConvexInspectionDeployKeyName(deploymentName: string): string {
 }
 
 async function createConvexInspectionDeployKey(args: {
-  authMethod: ConvexProviderAuthMethod;
+  authMethod: ConvexDeployKeyAuthMethod;
   deploymentName: string;
   token: string;
-}): Promise<string> {
+}): Promise<{ deployKey: string; name: string }> {
   const name = buildConvexInspectionDeployKeyName(args.deploymentName);
   const expiresAt = Date.now() + CONVEX_SCHEMA_INSPECTION_KEY_TTL_MS;
-  const body =
-    args.authMethod === "api_key"
-      ? {
-          allowedActions: CONVEX_SCHEMA_DEPLOY_KEY_ALLOWED_ACTIONS,
-          expiresAt,
-          name,
-        }
-      : {
-          expiresAt,
-          name,
-        };
-  const { deployKey } = await requestConvexManagementApi(
-    args.token,
-    "POST",
-    "/deployments/{deployment_name}/create_deploy_key",
-    {
-      params: { path: { deployment_name: args.deploymentName } },
-      body,
-    },
-  );
-  return deployKey;
+  const deployKey = await createConvexDeploymentDeployKey({
+    allowedActions: CONVEX_SCHEMA_DEPLOY_KEY_ALLOWED_ACTIONS,
+    authMethod: args.authMethod,
+    deploymentName: args.deploymentName,
+    expiresAt,
+    name,
+    token: args.token,
+  });
+  return { deployKey, name };
 }
 
 async function deleteConvexInspectionDeployKey(args: {
   deploymentName: string;
-  deployKey: string;
+  name: string;
   token: string;
 }): Promise<void> {
-  await requestConvexManagementApi(
-    args.token,
-    "POST",
-    "/deployments/{deployment_name}/delete_deploy_key",
-    {
-      params: { path: { deployment_name: args.deploymentName } },
-      body: { id: parseDeployKeyIdentifier(args.deployKey) },
-    },
-  );
+  await deleteConvexDeploymentDeployKey({
+    deploymentName: args.deploymentName,
+    name: args.name,
+    token: args.token,
+  });
 }
 
 async function fetchConvexDeploymentJson(args: {
@@ -463,19 +473,26 @@ function formatDeclaredType(value: unknown): string {
   }
 }
 
-function readTargetTable(value: unknown): string | undefined {
+function readDeclaredTargetTables(value: unknown): string[] {
   const unwrapped = unwrapConvexFieldType(value);
-  if (!isRecord(unwrapped.value) || unwrapped.value.type !== "id") {
-    return undefined;
+  if (!isRecord(unwrapped.value)) {
+    return [];
   }
-  return readString(unwrapped.value, "tableName");
+  if (unwrapped.value.type === "id") {
+    const tableName = readString(unwrapped.value, "tableName");
+    return tableName ? [tableName] : [];
+  }
+  if (unwrapped.value.type === "union" && Array.isArray(unwrapped.value.value)) {
+    return uniqueSortedStrings(unwrapped.value.value.flatMap(readDeclaredTargetTables));
+  }
+  return [];
 }
 
 function collectDeclaredFields(args: FieldCollectorArgs): void {
   const unwrapped = unwrapConvexFieldType(args.value);
   const optional = args.optional || unwrapped.optional;
   if (!isRecord(unwrapped.value)) {
-    if (args.path.length > 0) {
+    if (args.path.length > 0 && args.skipCurrentField !== true) {
       args.fields.set(args.path, {
         path: args.path,
         kind: "unknown",
@@ -487,14 +504,14 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
   }
 
   const type = readString(unwrapped.value, "type");
-  if (args.path.length > 0) {
-    const targetTable = readTargetTable(unwrapped.value);
+  if (args.path.length > 0 && args.skipCurrentField !== true) {
+    const targetTables = readDeclaredTargetTables(unwrapped.value);
     args.fields.set(args.path, {
       path: args.path,
       kind: formatDeclaredType(unwrapped.value),
       optional,
       source: args.source,
-      ...(targetTable ? { targetTable } : {}),
+      ...buildFieldTargetProperties(targetTables),
     });
   }
 
@@ -505,6 +522,7 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
         ...args,
         optional,
         path: childPath,
+        skipCurrentField: false,
         value: fieldValue,
       });
     }
@@ -516,6 +534,7 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
       ...args,
       optional,
       path: args.path.length > 0 ? `${args.path}[]` : "[]",
+      skipCurrentField: false,
       value: unwrapped.value.value,
     });
     return;
@@ -526,6 +545,7 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
       ...args,
       optional,
       path: args.path.length > 0 ? `${args.path}.*` : "*",
+      skipCurrentField: false,
       value: unwrapped.value.value,
     });
     return;
@@ -536,6 +556,7 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
       collectDeclaredFields({
         ...args,
         optional: true,
+        skipCurrentField: true,
         value: member,
       });
     }
@@ -586,6 +607,21 @@ function formatInferredShapeType(value: unknown): string {
   }
 }
 
+function readInferredTargetTables(value: unknown): string[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+  const type = readString(value, "type");
+  if (type === "Id") {
+    const tableName = readString(value, "tableName");
+    return tableName ? [tableName] : [];
+  }
+  if (type === "Union" && Array.isArray(value.shapes)) {
+    return uniqueSortedStrings(value.shapes.flatMap(readInferredTargetTables));
+  }
+  return [];
+}
+
 function collectInferredFields(args: FieldCollectorArgs): void {
   if (Array.isArray(args.value)) {
     for (const member of args.value) {
@@ -602,14 +638,14 @@ function collectInferredFields(args: FieldCollectorArgs): void {
   }
 
   const type = readString(args.value, "type");
-  if (args.path.length > 0) {
-    const targetTable = type === "Id" ? readString(args.value, "tableName") : undefined;
+  if (args.path.length > 0 && args.skipCurrentField !== true) {
+    const targetTables = readInferredTargetTables(args.value);
     args.fields.set(args.path, {
       path: args.path,
       kind: formatInferredShapeType(args.value),
       optional: args.optional,
       source: args.source,
-      ...(targetTable ? { targetTable } : {}),
+      ...buildFieldTargetProperties(targetTables),
     });
   }
 
@@ -627,6 +663,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
         ...args,
         optional: args.optional || readBoolean(field, "optional") === true,
         path: childPath,
+        skipCurrentField: false,
         value: field.shape,
       });
     }
@@ -637,6 +674,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
     collectInferredFields({
       ...args,
       path: args.path.length > 0 ? `${args.path}[]` : "[]",
+      skipCurrentField: false,
       value: args.value.shape,
     });
     return;
@@ -646,6 +684,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
     collectInferredFields({
       ...args,
       path: args.path.length > 0 ? `${args.path}.*` : "*",
+      skipCurrentField: false,
       value: args.value.shape,
     });
     return;
@@ -656,6 +695,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
       collectInferredFields({
         ...args,
         optional: true,
+        skipCurrentField: true,
         value: shape,
       });
     }
@@ -741,34 +781,37 @@ function buildRelationships(args: {
   const relationships = new Map<string, ConvexSchemaGraphRelationship>();
   for (const table of args.tables) {
     for (const field of [...table.declaredFields, ...table.inferredFields]) {
-      if (!field.targetTable) {
+      const targetTables = readFieldTargetTables(field);
+      if (targetTables.length === 0) {
         continue;
       }
-      if (!args.tableNames.has(field.targetTable)) {
-        args.warnings.push(
-          `${table.name}.${field.path} references missing table ${field.targetTable}.`,
-        );
-        continue;
+      for (const targetTable of targetTables) {
+        if (!args.tableNames.has(targetTable)) {
+          args.warnings.push(
+            `${table.name}.${field.path} references missing table ${targetTable}.`,
+          );
+          continue;
+        }
+        if (targetTable === table.name) {
+          continue;
+        }
+        const idValue = relationshipId({
+          fromTable: table.name,
+          fromField: field.path,
+          toTable: targetTable,
+        });
+        const existing = relationships.get(idValue);
+        if (existing?.source === "declared" && field.source === "inferred") {
+          continue;
+        }
+        relationships.set(idValue, {
+          id: idValue,
+          fromTable: table.name,
+          fromField: field.path,
+          toTable: targetTable,
+          source: field.source,
+        });
       }
-      if (field.targetTable === table.name) {
-        continue;
-      }
-      const idValue = relationshipId({
-        fromTable: table.name,
-        fromField: field.path,
-        toTable: field.targetTable,
-      });
-      const existing = relationships.get(idValue);
-      if (existing?.source === "declared" && field.source === "inferred") {
-        continue;
-      }
-      relationships.set(idValue, {
-        id: idValue,
-        fromTable: table.name,
-        fromField: field.path,
-        toTable: field.targetTable,
-        source: field.source,
-      });
     }
   }
   return [...relationships.values()].sort(compareGraphRelationship);
@@ -795,19 +838,26 @@ async function buildSchemaGraph(args: {
     draft.inferredFields = fieldsFromInferredShape(entry.shape);
   }
 
-  await Promise.all(
-    [...tableDrafts.values()].map(async (table) => {
-      table.documentCount = await fetchTableCount({
-        deployKey: args.deployKey,
-        deploymentUrl: args.deploymentUrl,
-        tableName: table.name,
-      });
-    }),
-  );
+  const tableDraftList = [...tableDrafts.values()];
+  for (
+    let index = 0;
+    index < tableDraftList.length;
+    index += CONVEX_SCHEMA_TABLE_COUNT_CONCURRENCY
+  ) {
+    await Promise.all(
+      tableDraftList
+        .slice(index, index + CONVEX_SCHEMA_TABLE_COUNT_CONCURRENCY)
+        .map(async (table) => {
+          table.documentCount = await fetchTableCount({
+            deployKey: args.deployKey,
+            deploymentUrl: args.deploymentUrl,
+            tableName: table.name,
+          });
+        }),
+    );
+  }
 
-  const drafts = [...tableDrafts.values()].sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
+  const drafts = tableDraftList.sort((left, right) => left.name.localeCompare(right.name));
   const tableNames = new Set(drafts.map((table) => table.name));
   const tables = drafts
     .map((table): ConvexSchemaGraphTable => {
@@ -840,17 +890,19 @@ async function fetchConvexSchemaGraph(args: {
   deploymentUrl: string;
 }): Promise<ConvexSchemaFetchResult> {
   const warnings: string[] = [];
-  const inferredShapes = await fetchConvexDeploymentJson({
-    deployKey: args.deployKey,
-    deploymentUrl: args.deploymentUrl,
-    path: "/api/shapes2",
-  });
-  const schemaResponse = await fetchConvexSystemQuery({
-    deployKey: args.deployKey,
-    deploymentUrl: args.deploymentUrl,
-    path: "_system/frontend/getSchemas",
-    queryArgs: {},
-  });
+  const [inferredShapes, schemaResponse] = await Promise.all([
+    fetchConvexDeploymentJson({
+      deployKey: args.deployKey,
+      deploymentUrl: args.deploymentUrl,
+      path: "/api/shapes2",
+    }),
+    fetchConvexSystemQuery({
+      deployKey: args.deployKey,
+      deploymentUrl: args.deploymentUrl,
+      path: "_system/frontend/getSchemas",
+      queryArgs: {},
+    }),
+  ]);
   const activeSchemaJson =
     schemaResponse === null ? undefined : readActiveSchemaJson({ value: schemaResponse.value });
   const declaredSchema = activeSchemaJson ? parseJsonOrNull(activeSchemaJson) : null;
@@ -860,28 +912,25 @@ async function fetchConvexSchemaGraph(args: {
     warnings.push("Declared Convex schema JSON could not be parsed.");
   }
 
-  const inferredSchemaJson = maybeStoreRawJson(inferredShapes);
-  const declaredSchemaJson =
-    activeSchemaJson && activeSchemaJson.length <= CONVEX_SCHEMA_RAW_JSON_MAX_LENGTH
-      ? activeSchemaJson
-      : undefined;
-  if (!inferredSchemaJson) {
-    warnings.push("Inferred schema JSON was too large to store with the snapshot.");
-  }
-  if (activeSchemaJson && !declaredSchemaJson) {
-    warnings.push("Declared schema JSON was too large to store with the snapshot.");
-  }
-
+  const graph = await buildSchemaGraph({
+    deployKey: args.deployKey,
+    deploymentUrl: args.deploymentUrl,
+    declaredSchema,
+    inferredShapes,
+    warnings,
+  });
+  const rawJson = buildRawSchemaJsonStorage({
+    activeSchemaJson,
+    graph,
+    inferredShapes,
+    warnings,
+  });
   return {
-    graph: await buildSchemaGraph({
-      deployKey: args.deployKey,
-      deploymentUrl: args.deploymentUrl,
-      declaredSchema,
-      inferredShapes,
-      warnings,
-    }),
-    ...(declaredSchemaJson ? { declaredSchemaJson } : {}),
-    ...(inferredSchemaJson ? { inferredSchemaJson } : {}),
+    graph: {
+      ...graph,
+      warnings: [...warnings].sort(),
+    },
+    ...rawJson,
   };
 }
 
@@ -896,6 +945,59 @@ function hashString(value: string): string {
 
 function buildSchemaHash(graph: ConvexSchemaGraph): string {
   return hashString(JSON.stringify(graph));
+}
+
+function stringifyJson(value: unknown): string | undefined {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function buildRawSchemaJsonStorage(args: {
+  activeSchemaJson?: string;
+  graph: ConvexSchemaGraph;
+  inferredShapes: unknown;
+  warnings: string[];
+}): {
+  declaredSchemaJson?: string;
+  inferredSchemaJson?: string;
+} {
+  const graphLength = JSON.stringify(args.graph).length;
+  let remainingBudget = Math.min(
+    CONVEX_SCHEMA_RAW_JSON_TOTAL_MAX_LENGTH,
+    CONVEX_SCHEMA_SNAPSHOT_DOCUMENT_SOFT_LIMIT - graphLength,
+  );
+  if (remainingBudget <= 0) {
+    if (args.activeSchemaJson) {
+      args.warnings.push("Declared schema JSON was too large to store with the snapshot.");
+    }
+    args.warnings.push("Inferred schema JSON was too large to store with the snapshot.");
+    return {};
+  }
+
+  const storage: {
+    declaredSchemaJson?: string;
+    inferredSchemaJson?: string;
+  } = {};
+  if (args.activeSchemaJson) {
+    if (args.activeSchemaJson.length <= remainingBudget) {
+      storage.declaredSchemaJson = args.activeSchemaJson;
+      remainingBudget -= args.activeSchemaJson.length;
+    } else {
+      args.warnings.push("Declared schema JSON was too large to store with the snapshot.");
+    }
+  }
+
+  const inferredSchemaJson = stringifyJson(args.inferredShapes);
+  if (inferredSchemaJson !== undefined && inferredSchemaJson.length <= remainingBudget) {
+    storage.inferredSchemaJson = inferredSchemaJson;
+  } else {
+    args.warnings.push("Inferred schema JSON was too large to store with the snapshot.");
+  }
+
+  return storage;
 }
 
 export const get = query({
@@ -918,9 +1020,10 @@ export const get = query({
       appRoot: args.appRoot,
       deploymentId: args.deploymentId,
     });
+    const deploymentOptions = deployments.map(readDeploymentOption);
     if (!selectedDeployment) {
       return {
-        deployments: [],
+        deployments: deploymentOptions,
         selectedDeploymentId: null,
         snapshot: null,
         layout: [],
@@ -947,7 +1050,7 @@ export const get = query({
     ]);
 
     return {
-      deployments: deployments.map(readDeploymentOption),
+      deployments: deploymentOptions,
       selectedDeploymentId: selectedDeployment._id,
       snapshot: snapshot
         ? {
@@ -1048,12 +1151,15 @@ export const refresh = action({
       deploymentId: args.deploymentId,
     });
     let deployKey: string | null = null;
+    let deployKeyName: string | null = null;
     try {
-      deployKey = await createConvexInspectionDeployKey({
+      const createdDeployKey = await createConvexInspectionDeployKey({
         authMethod: target.authMethod,
         deploymentName: target.deployment.deploymentName,
         token: target.token,
       });
+      deployKey = createdDeployKey.deployKey;
+      deployKeyName = createdDeployKey.name;
       const fetched = await fetchConvexSchemaGraph({
         deployKey,
         deploymentUrl: target.deployment.cloudUrl,
@@ -1073,11 +1179,11 @@ export const refresh = action({
       });
       return { snapshotId };
     } finally {
-      if (deployKey) {
+      if (deployKeyName) {
         try {
           await deleteConvexInspectionDeployKey({
             deploymentName: target.deployment.deploymentName,
-            deployKey,
+            name: deployKeyName,
             token: target.token,
           });
         } catch (error) {
@@ -1133,6 +1239,20 @@ export const readRefreshTarget = internalQuery({
   },
 });
 
+async function pruneSchemaSnapshots(
+  ctx: MutationCtx,
+  deploymentId: Id<"vaultConvexDeployments">,
+): Promise<void> {
+  const snapshots = await ctx.db
+    .query("vaultConvexSchemaSnapshots")
+    .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", deploymentId))
+    .order("desc")
+    .take(CONVEX_SCHEMA_SNAPSHOT_RETENTION_COUNT + 1);
+  for (const snapshot of snapshots.slice(CONVEX_SCHEMA_SNAPSHOT_RETENTION_COUNT)) {
+    await ctx.db.delete(snapshot._id);
+  }
+}
+
 export const recordSnapshot = internalMutation({
   args: {
     userId: id("users"),
@@ -1159,6 +1279,22 @@ export const recordSnapshot = internalMutation({
       throw new Error("Convex deployment not found.");
     }
 
+    const latestSnapshot = await ctx.db
+      .query("vaultConvexSchemaSnapshots")
+      .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", args.deploymentId))
+      .order("desc")
+      .first();
+    if (latestSnapshot?.schemaHash === args.schemaHash) {
+      await ctx.db.patch(latestSnapshot._id, {
+        fetchedAt: args.fetchedAt,
+      });
+      await ctx.db.patch(args.deploymentId, {
+        lastObservedAt: args.fetchedAt,
+      });
+      await pruneSchemaSnapshots(ctx, args.deploymentId);
+      return latestSnapshot._id;
+    }
+
     const snapshotId = await ctx.db.insert("vaultConvexSchemaSnapshots", {
       userId: args.userId,
       vaultId: args.vaultId,
@@ -1174,6 +1310,7 @@ export const recordSnapshot = internalMutation({
     await ctx.db.patch(args.deploymentId, {
       lastObservedAt: args.fetchedAt,
     });
+    await pruneSchemaSnapshots(ctx, args.deploymentId);
     return snapshotId;
   },
 });

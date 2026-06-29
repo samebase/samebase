@@ -4,15 +4,14 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import type { AuthenticatedAppViewer } from "../functions";
-import { requestConvexManagementApi } from "../convexManagementApi/client";
-import type { components } from "../convexManagementApi/types.generated";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
+import {
+  createConvexDeploymentDeployKey,
+  deleteConvexDeploymentDeployKey,
+  type ConvexDeployKeyAllowedAction,
+} from "./convexDeployKeys";
 
 const { literal, null: nullValue, object, string, union } = v;
-
-type ConvexDeployKeyAllowedAction = NonNullable<
-  components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
->[number];
 
 const EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS = 60 * 60 * 1000;
 const EMBEDDED_DASHBOARD_ALLOWED_ACTIONS = [
@@ -164,27 +163,14 @@ export const createEmbeddedDashboardCredentials = action({
       deploymentName: context.deployment.deploymentName,
       expiresAt,
     });
-    // Convex OAuth deploy keys reuse the OAuth grant, so request-scoped
-    // options are only valid for API-key backed deploy keys.
-    const body =
-      context.convexConnection.auth.method === "api_key"
-        ? {
-            allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
-            expiresAt,
-            name: deployKeyName,
-          }
-        : {
-            name: deployKeyName,
-          };
-    const { deployKey } = await requestConvexManagementApi(
-      context.convexConnection.auth.credential,
-      "POST",
-      "/deployments/{deployment_name}/create_deploy_key",
-      {
-        params: { path: { deployment_name: context.deployment.deploymentName } },
-        body,
-      },
-    );
+    const deployKey = await createConvexDeploymentDeployKey({
+      allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
+      authMethod: context.convexConnection.auth.method,
+      deploymentName: context.deployment.deploymentName,
+      expiresAt,
+      name: deployKeyName,
+      token: context.convexConnection.auth.credential,
+    });
 
     return {
       kind: "ready",
@@ -218,15 +204,11 @@ export const revokeEmbeddedDashboardCredentials = action({
       return null;
     }
 
-    await requestConvexManagementApi(
-      context.convexConnection.auth.credential,
-      "POST",
-      "/deployments/{deployment_name}/delete_deploy_key",
-      {
-        params: { path: { deployment_name: context.deployment.deploymentName } },
-        body: { id: args.deployKeyName },
-      },
-    );
+    await deleteConvexDeploymentDeployKey({
+      deploymentName: context.deployment.deploymentName,
+      name: args.deployKeyName,
+      token: context.convexConnection.auth.credential,
+    });
 
     return null;
   },

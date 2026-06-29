@@ -109,6 +109,25 @@ const TABLE_SOURCE_LABELS = {
   mixed: "schema + sampled documents",
 } satisfies Record<ConvexSchemaGraphTable["source"], string>;
 
+function readSchemaFieldTargetTables(field: ConvexSchemaGraphTable["fields"][number]): string[] {
+  if (field.targetTables !== undefined) {
+    return field.targetTables;
+  }
+  return field.targetTable ? [field.targetTable] : [];
+}
+
+function hasSchemaFieldRelationship(field: ConvexSchemaGraphTable["fields"][number]): boolean {
+  return readSchemaFieldTargetTables(field).length > 0;
+}
+
+function formatSchemaFieldKind(field: ConvexSchemaGraphTable["fields"][number]): string {
+  const targetTables = readSchemaFieldTargetTables(field);
+  if (targetTables.length === 0) {
+    return field.kind;
+  }
+  return `Id<${targetTables.join(" | ")}>`;
+}
+
 function formatSnapshotTimestamp(fetchedAt: number): string {
   return `${new Date(fetchedAt).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
@@ -170,7 +189,7 @@ function readSchemaNodeVisibleFields(
   const relationshipFields: ConvexSchemaGraphTable["fields"] = [];
   const otherFields: ConvexSchemaGraphTable["fields"] = [];
   for (const field of table.fields) {
-    if (field.targetTable) {
+    if (hasSchemaFieldRelationship(field)) {
       relationshipFields.push(field);
     } else {
       otherFields.push(field);
@@ -182,7 +201,7 @@ function readSchemaNodeVisibleFields(
 function countSchemaRelationshipFields(table: ConvexSchemaGraphTable): number {
   let count = 0;
   for (const field of table.fields) {
-    if (field.targetTable) {
+    if (hasSchemaFieldRelationship(field)) {
       count += 1;
     }
   }
@@ -618,7 +637,7 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
       <div className="max-h-56 overflow-hidden py-1">
         {visibleFields.map((field) => (
           <div
-            key={`${field.source}:${field.path}`}
+            key={`${field.source}:${field.path}:${formatSchemaFieldKind(field)}`}
             className="grid min-h-6 grid-cols-[minmax(0,1fr)_minmax(5rem,auto)] gap-2 px-3 py-0.5"
           >
             <div
@@ -629,7 +648,7 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
               {field.optional ? "?" : ""}
             </div>
             <div className="min-w-0 truncate text-right font-mono text-muted-foreground">
-              {field.targetTable ? `Id<${field.targetTable}>` : field.kind}
+              {formatSchemaFieldKind(field)}
             </div>
           </div>
         ))}
@@ -832,6 +851,8 @@ export function VaultConvexSchemaGraphContent({
   const selectedDeployment = state.deployments.find(
     (deployment) => deployment._id === state.selectedDeploymentId,
   );
+  const showDeploymentSelect =
+    state.deployments.length > 0 && (state.deployments.length > 1 || !selectedDeployment);
 
   const handleDeploymentValueChange = useCallback(
     (value: string) => {
@@ -860,10 +881,10 @@ export function VaultConvexSchemaGraphContent({
           </div>
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {state.deployments.length > 1 ? (
+          {showDeploymentSelect ? (
             <Select value={selectedDeploymentId} onValueChange={handleDeploymentValueChange}>
               <SelectTrigger className="h-8 min-w-44 max-w-60 text-xs">
-                <SelectValue />
+                <SelectValue placeholder="Select deployment" />
               </SelectTrigger>
               <AppSelectContent>
                 {state.deployments.map((deployment) => (
@@ -928,6 +949,11 @@ function VaultConvexSchemaGraphRouteSidebar({
   const selectedDeployment = state?.deployments.find(
     (deployment) => deployment._id === state.selectedDeploymentId,
   );
+  const showDeploymentSelect =
+    state !== null &&
+    state !== undefined &&
+    state.deployments.length > 0 &&
+    (state.deployments.length > 1 || !selectedDeployment);
   const zoneSummaries = useMemo(
     () =>
       snapshot ? buildSchemaZoneSummaries(snapshot.graph.tables, snapshot.graph.relationships) : [],
@@ -971,10 +997,10 @@ function VaultConvexSchemaGraphRouteSidebar({
       ) : (
         <>
           <div className="grid gap-2">
-            {state.deployments.length > 1 ? (
+            {showDeploymentSelect ? (
               <Select value={selectedDeploymentId} onValueChange={handleDeploymentValueChange}>
                 <SelectTrigger className="h-8 w-full text-xs">
-                  <SelectValue />
+                  <SelectValue placeholder="Select deployment" />
                 </SelectTrigger>
                 <AppSelectContent>
                   {state.deployments.map((deployment) => (

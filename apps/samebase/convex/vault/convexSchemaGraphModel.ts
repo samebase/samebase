@@ -23,6 +23,7 @@ export const vConvexSchemaGraphField = object({
   optional: v.boolean(),
   source: vConvexSchemaGraphFieldSource,
   targetTable: optional(string()),
+  targetTables: optional(array(string())),
 });
 export type ConvexSchemaGraphField = Infer<typeof vConvexSchemaGraphField>;
 
