@@ -1,6 +1,7 @@
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
@@ -42,6 +43,19 @@ type VaultConvexSchemaGraphContentProps = {
   onDeploymentChange?: (deploymentId: Id<"vaultConvexDeployments">) => void;
   onRefresh?: () => void;
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
+};
+export type VaultConvexSchemaGraphRouteContext = {
+  appRoot: string;
+  branch: string;
+  repositoryFullName: string;
+};
+type VaultConvexSchemaGraphController = {
+  state: ConvexSchemaGraphState | null | undefined;
+  refreshError: string | null;
+  refreshPending: boolean;
+  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onRefresh: () => void;
+  onSaveLayout: (nodeId: string, x: number, y: number) => void;
 };
 
 const SCHEMA_NODE_WIDTH = 300;
@@ -109,13 +123,13 @@ function buildSchemaEdges(relationships: ConvexSchemaGraphRelationship[]): Schem
 
 function getSchemaGraphContainerClassName(variant: VaultConvexSchemaGraphVariant): string {
   return variant === "route"
-    ? "flex min-h-0 flex-1 flex-col gap-3 p-4"
+    ? "flex h-full min-h-0 flex-1 flex-col"
     : "space-y-2 border-t border-border/50 pt-3";
 }
 
 function getSchemaGraphViewportClassName(variant: VaultConvexSchemaGraphVariant): string {
   return variant === "route"
-    ? "min-h-[28rem] flex-1 overflow-hidden border border-border/50"
+    ? "h-full min-h-0 flex-1 overflow-hidden bg-background"
     : "h-[34rem] min-h-0 overflow-hidden border border-border/50";
 }
 
@@ -132,6 +146,14 @@ function VaultConvexSchemaGraphStatus({
         {children}
       </div>
     </section>
+  );
+}
+
+function VaultConvexSchemaGraphCanvasStatus({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-background px-3 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
   );
 }
 
@@ -184,15 +206,15 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
   );
 }
 
-export function VaultConvexSchemaGraphContent({
+function VaultConvexSchemaGraphCanvas({
   state,
-  refreshError,
-  refreshPending,
   variant = "dashboard",
-  onDeploymentChange,
-  onRefresh,
   onSaveLayout,
-}: VaultConvexSchemaGraphContentProps) {
+}: {
+  state: ConvexSchemaGraphState;
+  variant?: VaultConvexSchemaGraphVariant;
+  onSaveLayout?: (nodeId: string, x: number, y: number) => void;
+}) {
   const snapshot = state.snapshot;
   const nodesFromSnapshot = useMemo(
     () => (snapshot ? buildSchemaNodes(snapshot.graph.tables, state.layout) : []),
@@ -204,15 +226,61 @@ export function VaultConvexSchemaGraphContent({
   );
   const [nodes, setNodes, onNodesChange] = useNodesState<SchemaTableNode>(nodesFromSnapshot);
   const nodeTypes = useMemo(() => ({ schemaTable: SchemaTableNode }), []);
-  const selectedDeploymentId = state.selectedDeploymentId ?? undefined;
-  const selectedDeployment = state.deployments.find(
-    (deployment) => deployment._id === state.selectedDeploymentId,
-  );
 
   // React Flow owns transient drag state; reset it when Convex publishes a new snapshot or layout.
   useEffect(() => {
     setNodes(nodesFromSnapshot);
   }, [nodesFromSnapshot, setNodes]);
+
+  if (!snapshot) {
+    if (variant === "route") {
+      return (
+        <VaultConvexSchemaGraphCanvasStatus>No schema snapshot.</VaultConvexSchemaGraphCanvasStatus>
+      );
+    }
+    return (
+      <div className="border border-dashed border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
+        Refresh to inspect the live Convex deployment.
+      </div>
+    );
+  }
+
+  return (
+    <div className={getSchemaGraphViewportClassName(variant)}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        nodesConnectable={false}
+        fitView
+        fitViewOptions={{ padding: variant === "route" ? 0.08 : 0.18 }}
+        minZoom={variant === "route" ? 0.1 : 0.5}
+        onNodeDragStop={(_event, node) => {
+          onSaveLayout?.(node.id, node.position.x, node.position.y);
+        }}
+      >
+        <Background gap={18} size={1} />
+        <Controls />
+      </ReactFlow>
+    </div>
+  );
+}
+
+export function VaultConvexSchemaGraphContent({
+  state,
+  refreshError,
+  refreshPending,
+  variant = "dashboard",
+  onDeploymentChange,
+  onRefresh,
+  onSaveLayout,
+}: VaultConvexSchemaGraphContentProps) {
+  const snapshot = state.snapshot;
+  const selectedDeploymentId = state.selectedDeploymentId ?? undefined;
+  const selectedDeployment = state.deployments.find(
+    (deployment) => deployment._id === state.selectedDeploymentId,
+  );
 
   const handleDeploymentValueChange = useCallback(
     (value: string) => {
@@ -276,29 +344,7 @@ export function VaultConvexSchemaGraphContent({
 
       {refreshError ? <div className="text-xs text-destructive">{refreshError}</div> : null}
 
-      {snapshot ? (
-        <div className={getSchemaGraphViewportClassName(variant)}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            nodesConnectable={false}
-            fitView
-            fitViewOptions={{ padding: 0.18 }}
-            onNodeDragStop={(_event, node) => {
-              onSaveLayout?.(node.id, node.position.x, node.position.y);
-            }}
-          >
-            <Background gap={18} size={1} />
-            <Controls />
-          </ReactFlow>
-        </div>
-      ) : (
-        <div className="border border-dashed border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
-          Refresh to inspect the live Convex deployment.
-        </div>
-      )}
+      <VaultConvexSchemaGraphCanvas state={state} variant={variant} onSaveLayout={onSaveLayout} />
 
       {snapshot && snapshot.graph.warnings.length > 0 ? (
         <div className="space-y-1 text-xs text-muted-foreground">
@@ -311,15 +357,148 @@ export function VaultConvexSchemaGraphContent({
   );
 }
 
-export function VaultConvexSchemaGraph({
+function VaultConvexSchemaGraphRouteSidebar({
+  context,
+  state,
+  refreshError,
+  refreshPending,
+  onDeploymentChange,
+  onRefresh,
+}: {
+  context: VaultConvexSchemaGraphRouteContext;
+  state: VaultConvexSchemaGraphState | null | undefined;
+  refreshError: string | null;
+  refreshPending: boolean;
+  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onRefresh: () => void;
+}) {
+  const snapshot = state?.snapshot ?? null;
+  const selectedDeploymentId = state?.selectedDeploymentId ?? undefined;
+  const selectedDeployment = state?.deployments.find(
+    (deployment) => deployment._id === state.selectedDeploymentId,
+  );
+
+  const handleDeploymentValueChange = useCallback(
+    (value: string) => {
+      const deployment = state?.deployments.find((item) => item._id === value);
+      if (deployment) {
+        onDeploymentChange(deployment._id);
+      }
+    },
+    [onDeploymentChange, state?.deployments],
+  );
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-2 py-2 text-sm">
+      <div className="grid min-w-0 gap-1 border-b border-border/60 pb-3">
+        <div className="flex min-w-0 items-center gap-2 font-medium">
+          <Database className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 truncate">Convex schema</span>
+        </div>
+        <div className="min-w-0 truncate text-xs text-muted-foreground">
+          {context.repositoryFullName}
+        </div>
+        <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+          {context.branch}
+        </div>
+      </div>
+
+      {state === undefined ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>Loading schema</span>
+        </div>
+      ) : state === null ? (
+        <div className="text-xs text-muted-foreground">Schema unavailable.</div>
+      ) : state.deployments.length === 0 ? (
+        <div className="text-xs text-muted-foreground">No Convex deployment.</div>
+      ) : (
+        <>
+          <div className="grid gap-2">
+            {state.deployments.length > 1 ? (
+              <Select value={selectedDeploymentId} onValueChange={handleDeploymentValueChange}>
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <AppSelectContent>
+                  {state.deployments.map((deployment) => (
+                    <AppSelectItem key={deployment._id} value={deployment._id}>
+                      {deployment.appRoot === "."
+                        ? deployment.deploymentName
+                        : `${deployment.appRoot}: ${deployment.deploymentName}`}
+                    </AppSelectItem>
+                  ))}
+                </AppSelectContent>
+              </Select>
+            ) : (
+              <div className="min-w-0 truncate text-xs text-muted-foreground">
+                {selectedDeployment?.deploymentName}
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={!state.selectedDeploymentId || refreshPending}
+              onClick={onRefresh}
+            >
+              {refreshPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {refreshPending ? "Refreshing" : "Refresh"}
+            </Button>
+          </div>
+
+          <div className="grid gap-1 text-xs text-muted-foreground">
+            <div className="flex min-w-0 justify-between gap-2">
+              <span>App root</span>
+              <span className="min-w-0 truncate font-mono text-foreground">{context.appRoot}</span>
+            </div>
+            <div className="flex min-w-0 justify-between gap-2">
+              <span>Tables</span>
+              <span className="font-mono text-foreground">
+                {snapshot ? formatCount(snapshot.graph.tables.length) : "-"}
+              </span>
+            </div>
+            <div className="flex min-w-0 justify-between gap-2">
+              <span>Relationships</span>
+              <span className="font-mono text-foreground">
+                {snapshot ? formatCount(snapshot.graph.relationships.length) : "-"}
+              </span>
+            </div>
+            <div className="grid min-w-0 gap-0.5">
+              <span>Snapshot</span>
+              <span className="min-w-0 truncate font-mono text-foreground">
+                {snapshot ? formatSnapshotTimestamp(snapshot.fetchedAt) : "No snapshot"}
+              </span>
+            </div>
+          </div>
+
+          {refreshError ? <div className="text-xs text-destructive">{refreshError}</div> : null}
+
+          {snapshot && snapshot.graph.warnings.length > 0 ? (
+            <div className="grid gap-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+              {snapshot.graph.warnings.slice(0, 3).map((warning) => (
+                <div key={warning}>{warning}</div>
+              ))}
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function useVaultConvexSchemaGraphController({
   appRoot,
   vaultId,
-  variant = "dashboard",
 }: {
   appRoot?: string;
   vaultId: Id<"vaults">;
-  variant?: VaultConvexSchemaGraphVariant;
-}) {
+}): VaultConvexSchemaGraphController {
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<Id<"vaultConvexDeployments">>();
   const [refreshPending, setRefreshPending] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -378,6 +557,30 @@ export function VaultConvexSchemaGraph({
     [saveLayout, state?.selectedDeploymentId, vaultId],
   );
 
+  return {
+    state,
+    refreshPending,
+    refreshError: refreshError ?? layoutError,
+    onDeploymentChange: setSelectedDeploymentId,
+    onRefresh: () => {
+      void handleRefresh();
+    },
+    onSaveLayout: handleSaveLayout,
+  };
+}
+
+export function VaultConvexSchemaGraph({
+  appRoot,
+  vaultId,
+  variant = "dashboard",
+}: {
+  appRoot?: string;
+  vaultId: Id<"vaults">;
+  variant?: VaultConvexSchemaGraphVariant;
+}) {
+  const controller = useVaultConvexSchemaGraphController({ appRoot, vaultId });
+  const { state } = controller;
+
   if (state === undefined) {
     return (
       <section className={getSchemaGraphContainerClassName(variant)}>
@@ -405,13 +608,91 @@ export function VaultConvexSchemaGraph({
     <VaultConvexSchemaGraphContent
       state={state}
       variant={variant}
-      refreshPending={refreshPending}
-      refreshError={refreshError ?? layoutError}
-      onDeploymentChange={setSelectedDeploymentId}
-      onRefresh={() => {
-        void handleRefresh();
+      refreshPending={controller.refreshPending}
+      refreshError={controller.refreshError}
+      onDeploymentChange={controller.onDeploymentChange}
+      onRefresh={controller.onRefresh}
+      onSaveLayout={controller.onSaveLayout}
+    />
+  );
+}
+
+export function VaultConvexSchemaGraphRouteWorkspaceContent({
+  context,
+  state,
+  refreshError,
+  refreshPending,
+  onDeploymentChange,
+  onRefresh,
+  onSaveLayout,
+}: {
+  context: VaultConvexSchemaGraphRouteContext;
+  state: ConvexSchemaGraphState | null | undefined;
+  refreshError: string | null;
+  refreshPending: boolean;
+  onDeploymentChange: (deploymentId: Id<"vaultConvexDeployments">) => void;
+  onRefresh: () => void;
+  onSaveLayout: (nodeId: string, x: number, y: number) => void;
+}) {
+  return (
+    <AppWorkspaceRouteChrome
+      left={{
+        content: (
+          <VaultConvexSchemaGraphRouteSidebar
+            context={context}
+            state={state}
+            refreshPending={refreshPending}
+            refreshError={refreshError}
+            onDeploymentChange={onDeploymentChange}
+            onRefresh={onRefresh}
+          />
+        ),
       }}
-      onSaveLayout={handleSaveLayout}
+      leftToggleVisibility="all"
+      right={null}
+      rightToggleVisibility="hidden"
+      shortcutPaneSide="left"
+    >
+      <div data-testid="vault-schema-page" className="flex h-full min-h-0 flex-col bg-background">
+        {state === undefined ? (
+          <VaultConvexSchemaGraphCanvasStatus>Loading schema</VaultConvexSchemaGraphCanvasStatus>
+        ) : state === null ? (
+          <VaultConvexSchemaGraphCanvasStatus>
+            Schema unavailable.
+          </VaultConvexSchemaGraphCanvasStatus>
+        ) : state.deployments.length === 0 ? (
+          <VaultConvexSchemaGraphCanvasStatus>
+            No Convex deployment.
+          </VaultConvexSchemaGraphCanvasStatus>
+        ) : (
+          <VaultConvexSchemaGraphCanvas state={state} variant="route" onSaveLayout={onSaveLayout} />
+        )}
+      </div>
+    </AppWorkspaceRouteChrome>
+  );
+}
+
+export function VaultConvexSchemaGraphRouteWorkspace({
+  context,
+  vaultId,
+}: {
+  context: VaultConvexSchemaGraphRouteContext;
+  vaultId: Id<"vaults">;
+}) {
+  const controller = useVaultConvexSchemaGraphController({
+    appRoot: context.appRoot,
+    vaultId,
+  });
+
+  return (
+    <VaultConvexSchemaGraphRouteWorkspaceContent
+      context={context}
+      state={controller.state}
+      refreshPending={controller.refreshPending}
+      refreshError={controller.refreshError}
+      onDeploymentChange={controller.onDeploymentChange}
+      onRefresh={controller.onRefresh}
+      onSaveLayout={controller.onSaveLayout}
     />
   );
 }

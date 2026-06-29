@@ -189,6 +189,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-sticky-header",
   "vault-dashboard-list-spacing",
   "vault-convex-schema-graph",
+  "vault-convex-schema-route-mobile",
   "vault-last-updated-status",
   "vault-branch-filters",
   "vault-branch-pr-labels",
@@ -378,6 +379,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-sticky-header" ||
     mode === "vault-dashboard-list-spacing" ||
     mode === "vault-convex-schema-graph" ||
+    mode === "vault-convex-schema-route-mobile" ||
     mode === "vault-last-updated-status" ||
     mode === "vault-branch-filters" ||
     mode === "vault-branch-pr-labels" ||

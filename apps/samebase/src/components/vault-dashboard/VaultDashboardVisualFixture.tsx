@@ -12,6 +12,8 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
   VaultConvexSchemaGraphContent,
+  VaultConvexSchemaGraphRouteWorkspaceContent,
+  type VaultConvexSchemaGraphRouteContext,
   type VaultConvexSchemaGraphState,
 } from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
@@ -55,6 +57,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
   | "vault-convex-schema-graph"
+  | "vault-convex-schema-route-mobile"
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -678,9 +681,9 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
   );
 }
 
-function VaultConvexSchemaGraphFixture() {
+function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
   const deploymentId = fakeConvexDeploymentId();
-  const graphState: VaultConvexSchemaGraphState = {
+  return {
     deployments: [
       {
         _id: deploymentId,
@@ -858,7 +861,10 @@ function VaultConvexSchemaGraphFixture() {
       { nodeId: "fileStaging", x: 720, y: 130 },
     ],
   };
+}
 
+function VaultConvexSchemaGraphFixture() {
+  const graphState = buildFixtureConvexSchemaGraphState();
   return (
     <div
       data-testid="vault-convex-schema-graph-fixture"
@@ -871,6 +877,27 @@ function VaultConvexSchemaGraphFixture() {
         onRefresh={() => {}}
       />
     </div>
+  );
+}
+
+function VaultConvexSchemaRouteMobileFixture() {
+  const graphState = buildFixtureConvexSchemaGraphState();
+  const context = {
+    appRoot: ".",
+    branch: "main",
+    repositoryFullName: "samebase/samebase",
+  } satisfies VaultConvexSchemaGraphRouteContext;
+
+  return (
+    <VaultConvexSchemaGraphRouteWorkspaceContent
+      context={context}
+      state={graphState}
+      refreshPending={false}
+      refreshError={null}
+      onDeploymentChange={() => {}}
+      onRefresh={() => {}}
+      onSaveLayout={() => {}}
+    />
   );
 }
 
@@ -1556,6 +1583,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-convex-schema-graph") {
     return <VaultConvexSchemaGraphFixture />;
+  }
+
+  if (mode === "vault-convex-schema-route-mobile") {
+    return <VaultConvexSchemaRouteMobileFixture />;
   }
 
   if (mode === "vault-dashboard-sticky-header") {

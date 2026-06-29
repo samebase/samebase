@@ -261,6 +261,25 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openVaultDashboardVisualFixture(page, "vault-convex-schema-route-mobile");
+
+  const fixtureLayout = page.locator("[data-workspace-layout-v2]");
+  const routeMain = page.getByTestId("vault-schema-page");
+  await expect(fixtureLayout).toHaveAttribute("data-mobile-pane", "main");
+  await expect(routeMain.getByText("Convex schema")).toHaveCount(0);
+  await expect(
+    routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),
+  ).toBeVisible();
+  await expect(routeMain).toHaveScreenshot("vault-convex-schema-route-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (delete dialog)", async ({ page }) => {
   await page.setViewportSize({ width: 720, height: 360 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-delete-open");
