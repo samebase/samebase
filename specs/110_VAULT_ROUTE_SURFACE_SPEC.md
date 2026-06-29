@@ -26,7 +26,7 @@ Accepted target routes:
    - `/vault/:owner/:repo/fs/:branch/:filePath...`
 4. Deployment database:
    - `/vault/:owner/:repo/db/:branch/root`
-   - `/vault/:owner/:repo/db/:branch/app/:appRoot...`
+   - `/vault/:owner/:repo/db/:branch/mono/:appRoot...`
 
 The `:branch` segment is the exact Git branch name encoded as one path segment with
 `encodeURIComponent(...)` and decoded exactly once. Branch names containing `/` therefore stay valid
@@ -38,9 +38,9 @@ or `fs` is addressed through the filesystem surface, such as `/vault/:owner/:rep
 
 The database route target includes the app root in the path because the selected app deployment is
 part of the database identity, not an optional view filter. Use `/root` for the repository-root app.
-Use `/app/:appRoot...` for a nested app root. The `:appRoot...` tail is the repo-relative app-root
-path with each path segment encoded individually. A nested app root named `root` is addressed as
-`/vault/:owner/:repo/db/:branch/app/root`.
+Use `/mono/:appRoot...` for a nested monorepo app root. The `:appRoot...` tail is the repo-relative
+app-root path with each path segment encoded individually. A nested app root named `root` is
+addressed as `/vault/:owner/:repo/db/:branch/mono/root`.
 
 File compare, diff, and review modes remain query params on filesystem routes. They are view modes
 for the selected branch/file, not separate route surfaces.
@@ -61,7 +61,7 @@ accepted MVP route is:
 
 ```txt
 /vault/:owner/:repo/db/:defaultBranch/root
-/vault/:owner/:repo/db/:defaultBranch/app/apps/web
+/vault/:owner/:repo/db/:defaultBranch/mono/apps/web
 ```
 
 Preview branch database routes may reuse the same shape later, after Samebase can resolve the
@@ -81,12 +81,12 @@ database links should not silently show production data.
 Route implementation PRs should prove:
 
 1. Route builders emit `/vault/:owner/:repo/fs/:branch`, `/vault/:owner/:repo/db/:branch/root`, and
-   `/vault/:owner/:repo/db/:branch/app/:appRoot...`.
+   `/vault/:owner/:repo/db/:branch/mono/:appRoot...`.
 2. Branch names containing `/`, spaces, or other special characters round-trip through one encoded
    branch segment.
 3. Files named `db`, `settings`, or `fs` resolve under `/fs/:branch/...`, not as repo-level pages.
 4. Nested app roots containing `/`, spaces, or other special characters round-trip through the
-   `/app/:appRoot...` path tail.
+   `/mono/:appRoot...` path tail.
 5. Dashboard branch links use the accepted route builders.
 6. New code does not emit the superseded `/vault/:owner/:repo/-/...` route shape.
 
@@ -95,5 +95,5 @@ Route implementation PRs should prove:
 1. Replace the current vault file route helper and parser with the `fs` route contract.
 2. Update dashboard, editor, auth-return, tests, and route suggestions to use the new helpers.
 3. Add the MVP production database page at `/vault/:owner/:repo/db/:branch/root` and
-   `/vault/:owner/:repo/db/:branch/app/:appRoot...`.
+   `/vault/:owner/:repo/db/:branch/mono/:appRoot...`.
 4. Add preview database resolution only after the production data page is working end to end.
