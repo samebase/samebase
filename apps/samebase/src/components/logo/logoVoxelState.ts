@@ -125,19 +125,9 @@ function isExteriorVoxel(gridSize: LogoGridSize, x: number, y: number, z: number
   );
 }
 
-function isEvenGridDefaultViewNearCorner(
-  gridSize: LogoGridSize,
-  x: number,
-  y: number,
-  z: number,
-): boolean {
-  return (
-    gridSize !== LOGO_GRID_SIZE_2 &&
-    gridSize % 2 === 0 &&
-    x === gridSize - 1 &&
-    y === gridSize - 1 &&
-    z === gridSize - 1
-  );
+function isDefaultCheckerCell(gridSize: LogoGridSize, x: number, y: number, z: number): boolean {
+  const defaultViewNearCornerDistance = gridSize - 1 - x + (gridSize - 1 - y) + (gridSize - 1 - z);
+  return defaultViewNearCornerDistance % 2 === 1;
 }
 
 export function createDefaultVoxelCoordinates(gridSize: LogoGridSize): VoxelCoordinate[] {
@@ -150,13 +140,7 @@ export function createDefaultVoxelCoordinates(gridSize: LogoGridSize): VoxelCoor
   for (let x = 0; x < gridSize; x += 1) {
     for (let y = 0; y < gridSize; y += 1) {
       for (let z = 0; z < gridSize; z += 1) {
-        const isOddCheckerCell = (x + y + z) % 2 === 1;
-
-        if (
-          isOddCheckerCell &&
-          isExteriorVoxel(gridSize, x, y, z) &&
-          !isEvenGridDefaultViewNearCorner(gridSize, x, y, z)
-        ) {
+        if (isDefaultCheckerCell(gridSize, x, y, z) && isExteriorVoxel(gridSize, x, y, z)) {
           coordinates.push([x, y, z]);
         }
       }

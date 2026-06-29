@@ -60,11 +60,11 @@ describe("logoVoxelState", () => {
     const grid10 = createLogoFractalVoxelGrid({ depth: 1, gridSize: MAX_LOGO_GRID_SIZE });
 
     expect(grid4.gridSize).toBe(4);
-    expect(grid4.filledVoxels.size).toBe(27);
+    expect(grid4.filledVoxels.size).toBe(28);
     expect(grid5.gridSize).toBe(5);
     expect(grid5.filledVoxels.size).toBe(48);
     expect(grid10.gridSize).toBe(10);
-    expect(grid10.filledVoxels.size).toBe(243);
+    expect(grid10.filledVoxels.size).toBe(244);
 
     for (const voxelGrid of [grid4, grid5, grid10]) {
       for (const key of voxelGrid.filledVoxels) {
@@ -76,18 +76,23 @@ describe("logoVoxelState", () => {
           x === voxelGrid.gridSize - 1 ||
           y === voxelGrid.gridSize - 1 ||
           z === voxelGrid.gridSize - 1;
+        const defaultViewNearCornerDistance =
+          voxelGrid.gridSize - 1 - x + (voxelGrid.gridSize - 1 - y) + (voxelGrid.gridSize - 1 - z);
 
         expect(isExterior).toBe(true);
-        expect((x + y + z) % 2).toBe(1);
+        expect(defaultViewNearCornerDistance % 2).toBe(1);
       }
     }
 
     expect(grid4.filledVoxels.has(voxelKey(1, 1, 1))).toBe(false);
     expect(grid4.filledVoxels.has(voxelKey(3, 3, 3))).toBe(false);
+    expect(grid4.filledVoxels.has(voxelKey(2, 3, 3))).toBe(true);
     expect(grid5.filledVoxels.has(voxelKey(1, 2, 3))).toBe(false);
     expect(grid5.filledVoxels.has(voxelKey(4, 4, 4))).toBe(false);
+    expect(grid5.filledVoxels.has(voxelKey(3, 4, 4))).toBe(true);
     expect(grid10.filledVoxels.has(voxelKey(1, 2, 3))).toBe(false);
     expect(grid10.filledVoxels.has(voxelKey(9, 9, 9))).toBe(false);
+    expect(grid10.filledVoxels.has(voxelKey(8, 9, 9))).toBe(true);
   });
 
   it("accepts whole-number logo grid sizes from 2 through 10", () => {
