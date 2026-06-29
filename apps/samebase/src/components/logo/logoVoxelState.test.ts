@@ -5,12 +5,24 @@ import {
   DEFAULT_VOXEL_STATE,
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
+  LOGO_GRID_SIZE_4,
+  LOGO_GRID_SIZE_5,
   createDefaultFilledVoxelSet,
   createDefaultVoxelState,
   createLogoFractalVoxelGrid,
   normalizeLogoFractalDepth,
+  parseVoxelKey,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
+
+function readTestVoxelKey(key: string) {
+  const coordinate = parseVoxelKey(key);
+  if (coordinate === null) {
+    throw new Error(`Unexpected voxel key: ${key}`);
+  }
+
+  return coordinate;
+}
 
 describe("logoVoxelState", () => {
   it("keeps the 3x3 checker lattice as the global default mark", () => {
@@ -37,6 +49,35 @@ describe("logoVoxelState", () => {
     expect(voxelGrid.filledVoxels.has(voxelKey(1, 0, 1))).toBe(true);
     expect(voxelGrid.filledVoxels.has(voxelKey(1, 1, 0))).toBe(true);
     expect(voxelGrid.filledVoxels.has(voxelKey(0, 1, 1))).toBe(true);
+  });
+
+  it("extends the checker lattice across only exterior faces for larger grids", () => {
+    const grid4 = createLogoFractalVoxelGrid({ depth: 1, gridSize: LOGO_GRID_SIZE_4 });
+    const grid5 = createLogoFractalVoxelGrid({ depth: 1, gridSize: LOGO_GRID_SIZE_5 });
+
+    expect(grid4.gridSize).toBe(4);
+    expect(grid4.filledVoxels.size).toBe(28);
+    expect(grid5.gridSize).toBe(5);
+    expect(grid5.filledVoxels.size).toBe(48);
+
+    for (const voxelGrid of [grid4, grid5]) {
+      for (const key of voxelGrid.filledVoxels) {
+        const [x, y, z] = readTestVoxelKey(key);
+        const isExterior =
+          x === 0 ||
+          y === 0 ||
+          z === 0 ||
+          x === voxelGrid.gridSize - 1 ||
+          y === voxelGrid.gridSize - 1 ||
+          z === voxelGrid.gridSize - 1;
+
+        expect(isExterior).toBe(true);
+        expect((x + y + z) % 2).toBe(1);
+      }
+    }
+
+    expect(grid4.filledVoxels.has(voxelKey(1, 1, 1))).toBe(false);
+    expect(grid5.filledVoxels.has(voxelKey(1, 2, 3))).toBe(false);
   });
 
   it("keeps recursive 3D corners empty while preserving the 3x3 side carpet", () => {

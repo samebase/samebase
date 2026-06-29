@@ -69,6 +69,8 @@ import {
   MIN_LOGO_FRACTAL_DEPTH,
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
+  LOGO_GRID_SIZE_4,
+  LOGO_GRID_SIZE_5,
   createDefaultVoxelState,
   readLogoGridSize,
   normalizeLogoGridSize,
@@ -110,7 +112,12 @@ const LOGO_ISOMETRIC_STYLE_VALUES = [
   "cap-4",
 ] as const satisfies readonly LogoIsometricStyleId[];
 
-const LOGO_GRID_SIZE_VALUE_SUGGESTIONS = [`${LOGO_GRID_SIZE_2}`, `${LOGO_GRID_SIZE_3}`] as const;
+const LOGO_GRID_SIZE_VALUE_SUGGESTIONS = [
+  `${LOGO_GRID_SIZE_2}`,
+  `${LOGO_GRID_SIZE_3}`,
+  `${LOGO_GRID_SIZE_4}`,
+  `${LOGO_GRID_SIZE_5}`,
+] as const;
 const LOGO_SHUFFLE_PARALLEL_MOVES_VALUE_SUGGESTIONS = [
   "1",
   "2",
