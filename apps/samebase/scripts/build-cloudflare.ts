@@ -5,6 +5,8 @@ import { pathToFileURL } from "node:url";
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 const PROD_POSTHOG_PROJECT_TOKEN = "PROD_POSTHOG_PROJECT_TOKEN";
+const PRODUCTION_POSTHOG_PROXY_HOST = "https://e.samebase.com";
+const VITE_PUBLIC_POSTHOG_HOST = "VITE_PUBLIC_POSTHOG_HOST";
 const VITE_PUBLIC_POSTHOG_PROJECT_TOKEN = "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN";
 const VITE_SAMEBASE_ROUTE_ENVIRONMENT = "VITE_SAMEBASE_ROUTE_ENVIRONMENT";
 
@@ -109,6 +111,12 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
     );
   }
 
+  if (isWorkersBuild(env) && env[VITE_PUBLIC_POSTHOG_HOST]) {
+    throw new Error(
+      `Do not set ${VITE_PUBLIC_POSTHOG_HOST} in Cloudflare Workers build variables. Samebase production builds derive the first-party PostHog proxy host from source control.`,
+    );
+  }
+
   const branch = env.WORKERS_CI_BRANCH;
   if (!branch) {
     if (isWorkersBuild(env)) {
@@ -186,7 +194,10 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     // the app-facing Vite env out of previews by deriving it only after the
     // script has selected the production deploy plan.
     ...(plan.kind === "deploy" && plan.postHogProjectToken
-      ? { [VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]: plan.postHogProjectToken }
+      ? {
+          [VITE_PUBLIC_POSTHOG_HOST]: PRODUCTION_POSTHOG_PROXY_HOST,
+          [VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]: plan.postHogProjectToken,
+        }
       : {}),
     ...(plan.kind === "deploy" ? { SAMEBASE_PRERENDER_ORIGIN: "https://samebase.com" } : {}),
   });

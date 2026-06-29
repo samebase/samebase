@@ -11,6 +11,7 @@ type SamebasePostHogEnv = {
 };
 
 const DEFAULT_POSTHOG_API_HOST = "https://eu.i.posthog.com";
+const DEFAULT_POSTHOG_UI_HOST = "https://eu.posthog.com";
 
 let postHogClientPromise: Promise<SamebasePostHogClient | null> | null = null;
 
@@ -51,6 +52,7 @@ export function buildSamebasePostHogInitConfig(args: {
     // Keep localhost sessions visible while developing instead of classifying
     // them as internal/test users under the defaults snapshot.
     internal_or_test_user_hostname: args.dev ? null : undefined,
+    ui_host: DEFAULT_POSTHOG_UI_HOST,
     session_recording: {
       // Add data-posthog-block to a wrapper when the whole subtree should be
       // removed from replay, for example a temporary credential preview.

@@ -20,6 +20,8 @@ Current key docs:
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
 - `docs/samebase-domains-workers-builds.md` for the `samebase-domains` Workers Builds trigger
   settings
+- `docs/samebase-events-workers-builds.md` for the `samebase-events` PostHog proxy Workers Builds
+  trigger settings
 - `docs/compliance/` for compliance artifacts
 
 Do not use `docs/` as a dumping ground for accepted behavior or open-ended research; put those in

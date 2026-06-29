@@ -41,6 +41,7 @@ describe("posthog client setup", () => {
       capture_pageview: false,
       defaults: "2026-01-30",
       disable_session_recording: false,
+      ui_host: "https://eu.posthog.com",
       session_recording: {
         blockSelector: "[data-posthog-block]",
         maskAllInputs: true,
