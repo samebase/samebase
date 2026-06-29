@@ -1,6 +1,6 @@
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 
 const EditableLandingCopy = lazy(async () => {
   const module = await import("@/components/ProsemarkReadOnly");
@@ -116,6 +116,51 @@ function StaticLandingCopy({ className, markdown }: { className?: string; markdo
   );
 }
 
+/**
+ * The static landing HTML is server-rendered, while editable ProseMark is a
+ * browser-only editor. Keep the first client render identical to SSR and swap
+ * the editor in only after hydration has attached.
+ */
+function useHasHydrated() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  return hasHydrated;
+}
+
+function EditableLandingCopyAfterHydration({
+  className,
+  markdown,
+  onChange,
+  staticCopy,
+}: {
+  className?: string;
+  markdown: string;
+  onChange?: (value: string) => void;
+  staticCopy: ReactNode;
+}) {
+  const hasHydrated = useHasHydrated();
+
+  if (!hasHydrated) {
+    return staticCopy;
+  }
+
+  return (
+    <Suspense fallback={staticCopy}>
+      <EditableLandingCopy
+        value={markdown}
+        // The static renderer uses native blocks; keep the editable ProseMark baseline aligned.
+        className={cn(className, "pt-px")}
+        editable={true}
+        onChange={onChange}
+      />
+    </Suspense>
+  );
+}
+
 export function LandingCopy({
   className,
   editable = false,
@@ -129,19 +174,16 @@ export function LandingCopy({
 }) {
   const staticCopy = <StaticLandingCopy className={className} markdown={markdown} />;
 
-  if (!editable || typeof window === "undefined") {
+  if (!editable) {
     return staticCopy;
   }
 
   return (
-    <Suspense fallback={staticCopy}>
-      <EditableLandingCopy
-        value={markdown}
-        // The static renderer uses native blocks; keep the editable ProseMark baseline aligned.
-        className={cn(className, "pt-px")}
-        editable={editable}
-        onChange={onChange}
-      />
-    </Suspense>
+    <EditableLandingCopyAfterHydration
+      className={className}
+      markdown={markdown}
+      onChange={onChange}
+      staticCopy={staticCopy}
+    />
   );
 }

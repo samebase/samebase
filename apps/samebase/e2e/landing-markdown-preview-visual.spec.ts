@@ -186,11 +186,13 @@ test("landing markdown preview sidebar hash links keep the mobile sidebar open",
   });
 
   const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+  const layoutRoot = page.locator("[data-workspace-layout-v2]");
   const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
   const screenshotHeading = page
     .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
     .locator('[id="9-create-an-app-in-a-single-step-using-samebase-com"]');
   await expect(sidebar).toBeVisible();
+  await expect(layoutRoot).toHaveAttribute("data-mobile-pane", "left");
   await expectSidebarLinksToMatchMarkdown(sidebar);
   await expect(firstVideo).toBeVisible();
   await expect(screenshotHeading).toBeInViewport();
