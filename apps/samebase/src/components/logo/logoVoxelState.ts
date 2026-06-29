@@ -129,8 +129,17 @@ export function createDefaultVoxelCoordinates(gridSize: LogoGridSize): VoxelCoor
     for (let y = 0; y < gridSize; y += 1) {
       for (let z = 0; z < gridSize; z += 1) {
         const isOddCheckerCell = (x + y + z) % 2 === 1;
+        const isGrid4DefaultViewNearCorner =
+          gridSize === LOGO_GRID_SIZE_4 &&
+          x === LOGO_GRID_SIZE_4 - 1 &&
+          y === LOGO_GRID_SIZE_4 - 1 &&
+          z === LOGO_GRID_SIZE_4 - 1;
 
-        if (isOddCheckerCell && isExteriorVoxel(gridSize, x, y, z)) {
+        if (
+          isOddCheckerCell &&
+          isExteriorVoxel(gridSize, x, y, z) &&
+          !isGrid4DefaultViewNearCorner
+        ) {
           coordinates.push([x, y, z]);
         }
       }

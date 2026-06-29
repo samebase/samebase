@@ -56,7 +56,7 @@ describe("logoVoxelState", () => {
     const grid5 = createLogoFractalVoxelGrid({ depth: 1, gridSize: LOGO_GRID_SIZE_5 });
 
     expect(grid4.gridSize).toBe(4);
-    expect(grid4.filledVoxels.size).toBe(28);
+    expect(grid4.filledVoxels.size).toBe(27);
     expect(grid5.gridSize).toBe(5);
     expect(grid5.filledVoxels.size).toBe(48);
 
@@ -77,7 +77,9 @@ describe("logoVoxelState", () => {
     }
 
     expect(grid4.filledVoxels.has(voxelKey(1, 1, 1))).toBe(false);
+    expect(grid4.filledVoxels.has(voxelKey(3, 3, 3))).toBe(false);
     expect(grid5.filledVoxels.has(voxelKey(1, 2, 3))).toBe(false);
+    expect(grid5.filledVoxels.has(voxelKey(4, 4, 4))).toBe(false);
   });
 
   it("keeps recursive 3D corners empty while preserving the 3x3 side carpet", () => {
