@@ -12,6 +12,7 @@ export const ACCESS_KEYS = [
   "access_files_write",
   "access_machines",
   "access_mcp",
+  "access_schema_graph",
   "access_admin",
 ] as const;
 

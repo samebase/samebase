@@ -151,6 +151,7 @@ function VaultDashboardViewHarness() {
       openDeveloperToolsByVaultId={{}}
       persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
       persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+      schemaGraphAccessEnabled
       locationHash={locationHash}
       rootRouteSearch={ROOT_ROUTE_SEARCH}
       onOpenDeveloperToolsChange={() => {}}
@@ -224,6 +225,7 @@ describe("VaultDashboardView", () => {
           openDeveloperToolsByVaultId={{}}
           persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+          schemaGraphAccessEnabled
           locationHash={locationHash}
           rootRouteSearch={ROOT_ROUTE_SEARCH}
           onOpenDeveloperToolsChange={() => {}}

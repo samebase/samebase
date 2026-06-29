@@ -1,5 +1,5 @@
 import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUpdatedStatus";
 import { VaultBranchFiltersControl } from "@/components/vault-dashboard/VaultBranchFilters";
@@ -10,6 +10,12 @@ import {
   VaultDashboardScrollTargetEndPadding,
   VaultDashboardSidebarContent,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
+import {
+  VaultConvexSchemaGraphContent,
+  VaultConvexSchemaGraphRouteWorkspaceContent,
+  type VaultConvexSchemaGraphRouteContext,
+  type VaultConvexSchemaGraphState,
+} from "@/components/vault-dashboard/VaultConvexSchemaGraph";
 import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
@@ -50,6 +56,8 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
   | "vault-dashboard-list-spacing"
+  | "vault-convex-schema-graph"
+  | "vault-convex-schema-route-mobile"
   | "vault-last-updated-status"
   | "vault-branch-filters"
   | "vault-branch-pr-labels"
@@ -104,6 +112,18 @@ function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeConvexDeploymentId(): Id<"vaultConvexDeployments"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return "nd7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+}
+
+function fakeConvexSchemaSnapshotId(): Id<"vaultConvexSchemaSnapshots"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
 const FIXTURE_CLOUDFLARE_WORKERS = [
@@ -596,6 +616,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           openDeveloperToolsByVaultId={{}}
           persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
           persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+          schemaGraphAccessEnabled
           locationHash=""
           rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
           onOpenDeveloperToolsChange={() => {}}
@@ -658,6 +679,456 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
         </VaultDashboardRepositoryList>
       </TestRouterProvider>
     </div>
+  );
+}
+
+function buildFixtureConvexSchemaGraphState(): VaultConvexSchemaGraphState {
+  const deploymentId = fakeConvexDeploymentId();
+  return {
+    deployments: [
+      {
+        _id: deploymentId,
+        appRoot: ".",
+        deploymentName: "samebase-prod",
+        projectSlug: "samebase",
+        teamSlug: "samebase",
+      },
+    ],
+    selectedDeploymentId: deploymentId,
+    snapshot: {
+      _id: fakeConvexSchemaSnapshotId(),
+      fetchedAt: Date.parse("2026-06-29T09:00:00Z"),
+      schemaHash: "f7c9a120",
+      graph: {
+        tables: [
+          {
+            name: "users",
+            source: "mixed",
+            documentCount: 124,
+            indexes: [{ name: "email", fields: ["email"] }],
+            fields: [
+              {
+                path: "email",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "name",
+                kind: "string",
+                optional: true,
+                source: "declared",
+              },
+              {
+                path: "isApproved",
+                kind: "boolean",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "providerConnections",
+            source: "declared",
+            documentCount: 42,
+            indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "kind",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "auth.method",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "connectedMachines",
+            source: "declared",
+            documentCount: 6,
+            indexes: [{ name: "by_user_machine_id", fields: ["userId", "machineId"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "machineId",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "lastSeenAt",
+                kind: "number",
+                optional: true,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "vaults",
+            source: "mixed",
+            documentCount: 48,
+            indexes: [{ name: "by_userId", fields: ["userId"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "owner",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "name",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "lastTreeRefreshAt",
+                kind: "number",
+                optional: true,
+                source: "inferred",
+              },
+            ],
+          },
+          {
+            name: "vaultRemoteBranches",
+            source: "mixed",
+            documentCount: 96,
+            indexes: [{ name: "by_vault_branch", fields: ["vaultId", "branch"] }],
+            fields: [
+              {
+                path: "vaultId",
+                kind: "Id<vaults>",
+                optional: false,
+                source: "declared",
+                targetTable: "vaults",
+              },
+              {
+                path: "branch",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "headCommitSha",
+                kind: "string",
+                optional: true,
+                source: "inferred",
+              },
+            ],
+          },
+          {
+            name: "vaultInfrastructureOwnership",
+            source: "declared",
+            documentCount: 16,
+            indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "kind",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "auth.method",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "appProvisioningRuns",
+            source: "declared",
+            documentCount: 24,
+            indexes: [{ name: "by_vault", fields: ["vaultId"] }],
+            fields: [
+              {
+                path: "vaultId",
+                kind: "Id<vaults>",
+                optional: false,
+                source: "declared",
+                targetTable: "vaults",
+              },
+              {
+                path: "state",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "createdAt",
+                kind: "number",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "fileStaging",
+            source: "mixed",
+            documentCount: 318,
+            indexes: [{ name: "by_vault_and_branch", fields: ["vaultId", "branch"] }],
+            fields: [
+              {
+                path: "vaultId",
+                kind: "Id<vaults>",
+                optional: false,
+                source: "declared",
+                targetTable: "vaults",
+              },
+              {
+                path: "lastEditUserId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "filePath",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "content.kind",
+                kind: "union",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "agentThreadContext",
+            source: "mixed",
+            documentCount: 54,
+            indexes: [{ name: "by_user", fields: ["userId"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "vaultId",
+                kind: "Id<vaults>",
+                optional: true,
+                source: "declared",
+                targetTable: "vaults",
+              },
+              {
+                path: "threadId",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "mcpGrants",
+            source: "declared",
+            documentCount: 12,
+            indexes: [{ name: "by_user_client", fields: ["userId", "clientId"] }],
+            fields: [
+              {
+                path: "userId",
+                kind: "Id<users>",
+                optional: false,
+                source: "declared",
+                targetTable: "users",
+              },
+              {
+                path: "clientId",
+                kind: "string",
+                optional: false,
+                source: "declared",
+              },
+              {
+                path: "scope",
+                kind: "array",
+                optional: false,
+                source: "declared",
+              },
+            ],
+          },
+        ],
+        relationships: [
+          {
+            id: "declared:providerConnections:userId:users",
+            fromTable: "providerConnections",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:connectedMachines:userId:users",
+            fromTable: "connectedMachines",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:vaults:userId:users",
+            fromTable: "vaults",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:vaultRemoteBranches:vaultId:vaults",
+            fromTable: "vaultRemoteBranches",
+            fromField: "vaultId",
+            toTable: "vaults",
+            source: "declared",
+          },
+          {
+            id: "declared:vaultInfrastructureOwnership:userId:users",
+            fromTable: "vaultInfrastructureOwnership",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:appProvisioningRuns:vaultId:vaults",
+            fromTable: "appProvisioningRuns",
+            fromField: "vaultId",
+            toTable: "vaults",
+            source: "declared",
+          },
+          {
+            id: "declared:fileStaging:vaultId:vaults",
+            fromTable: "fileStaging",
+            fromField: "vaultId",
+            toTable: "vaults",
+            source: "declared",
+          },
+          {
+            id: "declared:fileStaging:lastEditUserId:users",
+            fromTable: "fileStaging",
+            fromField: "lastEditUserId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:agentThreadContext:userId:users",
+            fromTable: "agentThreadContext",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+          {
+            id: "declared:mcpGrants:userId:users",
+            fromTable: "mcpGrants",
+            fromField: "userId",
+            toTable: "users",
+            source: "declared",
+          },
+        ],
+        warnings: [],
+      },
+    },
+    layout: [],
+  };
+}
+
+function saveFixtureConvexSchemaGraphLayout(
+  layout: VaultConvexSchemaGraphState["layout"],
+  nodeId: string,
+  x: number,
+  y: number,
+): VaultConvexSchemaGraphState["layout"] {
+  return [
+    ...layout.filter((entry) => entry.nodeId !== nodeId),
+    {
+      nodeId,
+      x,
+      y,
+    },
+  ].sort((left, right) => left.nodeId.localeCompare(right.nodeId));
+}
+
+function VaultConvexSchemaGraphFixture() {
+  const [graphState, setGraphState] = useState(buildFixtureConvexSchemaGraphState);
+  const handleSaveLayout = useCallback((nodeId: string, x: number, y: number) => {
+    setGraphState((currentState) => ({
+      ...currentState,
+      layout: saveFixtureConvexSchemaGraphLayout(currentState.layout, nodeId, x, y),
+    }));
+  }, []);
+
+  return (
+    <div
+      data-testid="vault-convex-schema-graph-fixture"
+      className="w-full bg-background p-4 text-foreground"
+    >
+      <VaultConvexSchemaGraphContent
+        state={graphState}
+        refreshPending={false}
+        refreshError={null}
+        onRefresh={() => {}}
+        onSaveLayout={handleSaveLayout}
+      />
+    </div>
+  );
+}
+
+function VaultConvexSchemaRouteMobileFixture() {
+  const [graphState, setGraphState] = useState(buildFixtureConvexSchemaGraphState);
+  const handleSaveLayout = useCallback((nodeId: string, x: number, y: number) => {
+    setGraphState((currentState) => ({
+      ...currentState,
+      layout: saveFixtureConvexSchemaGraphLayout(currentState.layout, nodeId, x, y),
+    }));
+  }, []);
+  const context = {
+    appRoot: ".",
+    branch: "main",
+    repositoryFullName: "samebase/samebase",
+  } satisfies VaultConvexSchemaGraphRouteContext;
+
+  return (
+    <VaultConvexSchemaGraphRouteWorkspaceContent
+      context={context}
+      state={graphState}
+      refreshPending={false}
+      refreshError={null}
+      onDeploymentChange={() => {}}
+      onRefresh={() => {}}
+      onSaveLayout={handleSaveLayout}
+    />
   );
 }
 
@@ -1339,6 +1810,14 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
+  }
+
+  if (mode === "vault-convex-schema-graph") {
+    return <VaultConvexSchemaGraphFixture />;
+  }
+
+  if (mode === "vault-convex-schema-route-mobile") {
+    return <VaultConvexSchemaRouteMobileFixture />;
   }
 
   if (mode === "vault-dashboard-sticky-header") {

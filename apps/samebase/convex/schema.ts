@@ -29,6 +29,7 @@ import { vRepositoryRefreshRequest } from "./repositoryRefreshModel";
 import { codespacesTable } from "./codespaces/model";
 import { vWorkspaceSidebarStateRow } from "./workspaceSidebarStateModel";
 import { vVaultResourceLinksStateRow } from "./vault/resourceLinksStateModel";
+import { vConvexSchemaGraphLayout, vConvexSchemaSnapshot } from "./vault/convexSchemaGraphModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const { users: _authUsers, ...authTablesWithoutUsers } = authTables;
@@ -446,6 +447,24 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_vault_and_appRoot", ["vaultId", "appRoot"])
     .index("by_vault_and_project", ["vaultId", "projectId"]),
+
+  /**
+   * Live Convex deployment schema snapshots normalized into table graph data.
+   * Raw schema JSON is retained for export/debugging; deploy keys are never stored.
+   */
+  vaultConvexSchemaSnapshots: defineTable(vConvexSchemaSnapshot)
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_deployment_and_fetched_at", ["deploymentId", "fetchedAt"]),
+
+  /**
+   * Per-user Convex schema graph node positions. Layout is intentionally
+   * separate from snapshots so refreshes do not reset manual arrangement.
+   */
+  vaultConvexSchemaGraphLayouts: defineTable(vConvexSchemaGraphLayout)
+    .index("by_vault", ["vaultId"])
+    .index("by_user_vault_deployment", ["userId", "vaultId", "deploymentId"])
+    .index("by_user_vault_deployment_node", ["userId", "vaultId", "deploymentId", "nodeId"]),
 
   /**
    * Remote Git branches mirrored from GitHub for a vault repository.

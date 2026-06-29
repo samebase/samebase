@@ -190,6 +190,32 @@ async function expectElementInsideViewportInline(page: Page, element: Locator) {
   expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth - 16 + 1);
 }
 
+async function readRequiredBounds(locator: Locator, label: string) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  if (box === null) {
+    throw new Error(`Expected ${label} bounds`);
+  }
+  return box;
+}
+
+async function waitForAnimationFrame(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<null>((resolve) => {
+        window.requestAnimationFrame(() => {
+          resolve(null);
+        });
+      }),
+  );
+}
+
+async function readReactFlowViewportTransform(container: Locator): Promise<string> {
+  return await container.locator(".react-flow__viewport").evaluate((viewport) => {
+    return viewport.getAttribute("transform") ?? window.getComputedStyle(viewport).transform;
+  });
+}
+
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await openVaultDashboardVisualFixture(page, "vault-branch-pr-labels");
@@ -239,6 +265,109 @@ test("vault dashboard fixture (developer tools query spacing)", async ({ page })
     throw new Error("Expected visible developer tools fixture card bounds");
   }
   expect(Math.round(visibleBox.height)).toBe(Math.round(hiddenBox.height));
+});
+
+test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
+  await page.setViewportSize({ width: 1040, height: 720 });
+  await openVaultDashboardVisualFixture(page, "vault-convex-schema-graph");
+
+  const fixture = page.getByTestId("vault-convex-schema-graph-fixture");
+  const graphViewport = fixture.locator("[data-schema-graph-layout]");
+  await expect(fixture.getByText("Convex schema")).toBeVisible();
+  await expect(graphViewport).toHaveAttribute("data-schema-graph-layout", "ready");
+  await expect(
+    fixture.getByTestId("rf__node-users").getByText("users", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    fixture.getByTestId("rf__node-fileStaging").getByText("fileStaging", { exact: true }),
+  ).toBeVisible();
+  const longTableName = fixture
+    .getByTestId("rf__node-vaultInfrastructureOwnership")
+    .getByText("vaultInfrastructureOwnership", { exact: true });
+  await expect(longTableName).toBeVisible();
+  await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
+  await expect(fixture.locator(".react-flow__edge")).toHaveCount(10);
+  await expect(fixture.locator('[data-schema-graph-zone="identity"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="machines"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="repository"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="infrastructure"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="files"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="agent"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="mcp"]')).toBeVisible();
+  const [identityZoneBox, vaultZoneBox, infrastructureZoneBox] = await Promise.all([
+    readRequiredBounds(fixture.locator('[data-schema-graph-zone="identity"]'), "identity zone"),
+    readRequiredBounds(fixture.locator('[data-schema-graph-zone="vault"]'), "vault zone"),
+    readRequiredBounds(
+      fixture.locator('[data-schema-graph-zone="infrastructure"]'),
+      "infrastructure zone",
+    ),
+  ]);
+  expect(identityZoneBox.x).toBeLessThan(vaultZoneBox.x);
+  expect(vaultZoneBox.x).toBeLessThan(infrastructureZoneBox.x);
+  await expect(fixture).toHaveScreenshot("vault-convex-schema-graph.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (Convex schema graph drag keeps viewport)", async ({ page }) => {
+  await page.setViewportSize({ width: 1040, height: 720 });
+  await openVaultDashboardVisualFixture(page, "vault-convex-schema-graph");
+
+  const fixture = page.getByTestId("vault-convex-schema-graph-fixture");
+  const graphViewport = fixture.locator("[data-schema-graph-layout]");
+  await expect(graphViewport).toHaveAttribute("data-schema-graph-layout", "ready");
+  await waitForAnimationFrame(page);
+
+  const transformBeforeDrag = await readReactFlowViewportTransform(fixture);
+  const usersNode = fixture.getByTestId("rf__node-users");
+  const usersBoxBeforeDrag = await readRequiredBounds(usersNode, "users node");
+  const dragStart = {
+    x: usersBoxBeforeDrag.x + usersBoxBeforeDrag.width / 2,
+    y: usersBoxBeforeDrag.y + usersBoxBeforeDrag.height / 2,
+  };
+
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragStart.x + 80, dragStart.y + 48, { steps: 6 });
+  await page.mouse.up();
+
+  await expect(graphViewport).toHaveAttribute("data-schema-graph-layout", "ready");
+  await waitForAnimationFrame(page);
+
+  const usersBoxAfterDrag = await readRequiredBounds(usersNode, "users node after drag");
+  expect(Math.round(usersBoxAfterDrag.x)).not.toBe(Math.round(usersBoxBeforeDrag.x));
+  await expect.poll(async () => readReactFlowViewportTransform(fixture)).toBe(transformBeforeDrag);
+});
+
+test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openVaultDashboardVisualFixture(page, "vault-convex-schema-route-mobile");
+
+  const fixtureLayout = page.locator("[data-workspace-layout-v2]");
+  const routeMain = page.getByTestId("vault-schema-page");
+  await expect(fixtureLayout).toHaveAttribute("data-mobile-pane", "main");
+  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Toggle Right Sidebar" })).toBeVisible();
+  await expect(routeMain.locator("[data-schema-graph-layout]")).toHaveAttribute(
+    "data-schema-graph-layout",
+    "ready",
+  );
+  await expect(routeMain.getByText("Convex schema")).toHaveCount(0);
+  await expect(
+    routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),
+  ).toBeVisible();
+  await expect(routeMain.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
+  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(10);
+  await expect(routeMain).toHaveScreenshot("vault-convex-schema-route-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
 });
 
 test("vault dashboard fixture (delete dialog)", async ({ page }) => {

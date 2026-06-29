@@ -52,5 +52,7 @@ export const routes = rootRoute("root.tsx", [
   route("/vault/$owner/$repo/codespace/$branch/chat", "codespace-chat.tsx"),
   route("/vault/$owner/$repo/db/$branch/root", "vault-database-root.tsx"),
   route("/vault/$owner/$repo/db/$branch/mono/$", "vault-database-mono.tsx"),
+  route("/vault/$owner/$repo/schema/$branch/root", "vault-schema-root.tsx"),
+  route("/vault/$owner/$repo/schema/$branch/mono/$", "vault-schema-mono.tsx"),
   route("/vault/$", "vault-file.tsx"),
 ]);
