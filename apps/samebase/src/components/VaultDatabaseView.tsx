@@ -32,6 +32,8 @@ function formatVaultDatabaseNotice(
       return "No Convex deployment is connected for this app root.";
     case "missing_connection":
       return "Connect Convex to view deployment data.";
+    case "unsupported_connection":
+      return "Connect Convex with an API key to view deployment data.";
   }
   result satisfies never;
   return "Data is unavailable.";
@@ -55,6 +57,9 @@ export function VaultDatabaseView() {
   });
   const createEmbeddedDashboardCredentials = useAction(
     api.vault.database.createEmbeddedDashboardCredentials,
+  );
+  const revokeEmbeddedDashboardCredentials = useAction(
+    api.vault.database.revokeEmbeddedDashboardCredentials,
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const credentialsRef = useRef<ReadyEmbeddedDashboardCredentials | null>(null);
@@ -114,16 +119,34 @@ export function VaultDatabaseView() {
     }
 
     let cancelled = false;
+    let mintedCredentials: ReadyEmbeddedDashboardCredentials | null = null;
     setCredentialsResult(null);
     setLoadError(null);
-
-    void createEmbeddedDashboardCredentials({
+    const requestArgs = {
       owner: context.owner,
       repoName: context.repoName,
       branch: context.branch,
       appRoot: context.appRoot,
-    })
+    };
+    const revokeCredentials = (credentials: ReadyEmbeddedDashboardCredentials) => {
+      void revokeEmbeddedDashboardCredentials({
+        ...requestArgs,
+        deployKeyName: credentials.deployKeyName,
+      }).catch((error: unknown) => {
+        console.warn("Failed to revoke embedded dashboard credentials", error);
+      });
+    };
+
+    void createEmbeddedDashboardCredentials(requestArgs)
       .then((result) => {
+        if (result.kind === "ready") {
+          if (cancelled) {
+            revokeCredentials(result);
+            return;
+          }
+          mintedCredentials = result;
+        }
+
         if (!cancelled) {
           setCredentialsResult(result);
         }
@@ -137,6 +160,9 @@ export function VaultDatabaseView() {
 
     return () => {
       cancelled = true;
+      if (mintedCredentials) {
+        revokeCredentials(mintedCredentials);
+      }
     };
   }, [
     context.appRoot,
@@ -145,6 +171,7 @@ export function VaultDatabaseView() {
     context.owner,
     context.repoName,
     createEmbeddedDashboardCredentials,
+    revokeEmbeddedDashboardCredentials,
   ]);
 
   const titleParts = [
