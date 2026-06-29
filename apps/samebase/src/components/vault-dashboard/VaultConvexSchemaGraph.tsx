@@ -5,9 +5,15 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
+import {
+  SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION,
+  SAMEBASE_SCHEMA_GRAPH_ZONES,
+  readSamebaseSchemaGraphZoneId,
+  type SamebaseSchemaGraphZone,
+  type SamebaseSchemaGraphZoneId,
+} from "@/components/vault-dashboard/samebaseSchemaGraphZones";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { clsx } from "clsx";
-import type { ELK, ElkExtendedEdge, ElkNode, LayoutOptions } from "elkjs/lib/elk.bundled.js";
 import { Database, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -35,6 +41,17 @@ type SchemaTableNodeData = {
   table: ConvexSchemaGraphTable;
 };
 type SchemaTableNode = Node<SchemaTableNodeData, "schemaTable">;
+type SchemaZoneSummary = {
+  zone: SamebaseSchemaGraphZone;
+  tableCount: number;
+  relationshipCount: number;
+  crossZoneRelationshipCount: number;
+};
+type SchemaZoneNodeData = {
+  summary: SchemaZoneSummary;
+};
+type SchemaZoneNode = Node<SchemaZoneNodeData, "schemaZone">;
+type SchemaGraphNode = SchemaTableNode | SchemaZoneNode;
 type SchemaGraphEdge = Edge;
 type VaultConvexSchemaGraphVariant = "dashboard" | "route";
 
@@ -61,7 +78,7 @@ type VaultConvexSchemaGraphController = {
   onSaveLayout: (nodeId: string, x: number, y: number) => void;
 };
 
-const SCHEMA_NODE_MIN_WIDTH = 300;
+const SCHEMA_NODE_MIN_WIDTH = 260;
 const SCHEMA_NODE_MAX_WIDTH = 520;
 const SCHEMA_NODE_HORIZONTAL_PADDING_PX = 24;
 const SCHEMA_NODE_TITLE_CHARACTER_WIDTH_PX = 8;
@@ -69,18 +86,19 @@ const SCHEMA_NODE_TITLE_LINE_HEIGHT = 18;
 const SCHEMA_NODE_HEADER_BASE_HEIGHT = 76;
 const SCHEMA_NODE_ROW_HEIGHT = 24;
 const SCHEMA_NODE_HIDDEN_FIELDS_HEIGHT = 24;
-const SCHEMA_NODE_X_GAP = 380;
-const SCHEMA_NODE_Y_GAP = 260;
-const SCHEMA_NODE_COLUMNS = 3;
-const SCHEMA_NODE_VISIBLE_FIELD_LIMIT = 9;
-const SCHEMA_GRAPH_ELK_OPTIONS = {
-  "elk.algorithm": "layered",
-  "elk.direction": "RIGHT",
-  "elk.edgeRouting": "ORTHOGONAL",
-  "elk.spacing.nodeNode": "80",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "160",
-  "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
-} satisfies LayoutOptions;
+const SCHEMA_NODE_VISIBLE_FIELD_LIMIT = 4;
+const SCHEMA_ZONE_PADDING_X = 36;
+const SCHEMA_ZONE_PADDING_BOTTOM = 36;
+const SCHEMA_ZONE_HEADER_HEIGHT = 98;
+const SCHEMA_ZONE_TABLE_X_GAP = 48;
+const SCHEMA_ZONE_TABLE_Y_GAP = 40;
+const SCHEMA_ZONE_X_GAP = 176;
+const SCHEMA_ZONE_Y_GAP = 132;
+const SCHEMA_ZONE_TABLE_COLUMN_LIMIT = 2;
+const SCHEMA_INACTIVE_EDGE_OPACITY = 0.24;
+const SCHEMA_ACTIVE_EDGE_OPACITY = 0.72;
+const SCHEMA_ROUTE_READABLE_TABLE_LIMIT = 16;
+const SCHEMA_ROUTE_READABLE_ZOOM = 0.55;
 const FIELD_SOURCE_CLASS_NAMES = {
   declared: "text-foreground",
   inferred: "text-muted-foreground",
@@ -90,7 +108,6 @@ const TABLE_SOURCE_LABELS = {
   inferred: "sampled documents",
   mixed: "schema + sampled documents",
 } satisfies Record<ConvexSchemaGraphTable["source"], string>;
-let schemaGraphElkPromise: Promise<ELK> | null = null;
 
 function formatSnapshotTimestamp(fetchedAt: number): string {
   return `${new Date(fetchedAt).toISOString().slice(0, 16).replace("T", " ")} UTC`;
@@ -100,34 +117,35 @@ function formatCount(count: number): string {
   return new Intl.NumberFormat("en-US").format(count);
 }
 
-function buildDefaultNodePosition(index: number): { x: number; y: number } {
-  return {
-    x: (index % SCHEMA_NODE_COLUMNS) * SCHEMA_NODE_X_GAP,
-    y: Math.floor(index / SCHEMA_NODE_COLUMNS) * SCHEMA_NODE_Y_GAP,
-  };
+function buildSchemaLayoutNodeId(tableName: string): string {
+  return `${SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION}:${tableName}`;
 }
 
 function buildLayoutMap(layout: ConvexSchemaGraphLayout[]): Map<string, { x: number; y: number }> {
-  return new Map(layout.map((entry) => [entry.nodeId, { x: entry.x, y: entry.y }]));
-}
-
-function hasSavedLayoutForEveryTable(
-  tables: ConvexSchemaGraphTable[],
-  layout: ConvexSchemaGraphLayout[],
-): boolean {
-  const layoutNodeIds = new Set(layout.map((entry) => entry.nodeId));
-  return tables.every((table) => layoutNodeIds.has(table.name));
+  const prefix = `${SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION}:`;
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const entry of layout) {
+    if (!entry.nodeId.startsWith(prefix)) {
+      continue;
+    }
+    positions.set(entry.nodeId.slice(prefix.length), { x: entry.x, y: entry.y });
+  }
+  return positions;
 }
 
 function buildSchemaLayoutKey(
   snapshot: ConvexSchemaGraphSnapshot,
   layout: ConvexSchemaGraphLayout[],
 ): string {
-  const savedLayoutKey = layout
-    .map((entry) => `${entry.nodeId}:${entry.x}:${entry.y}`)
+  const savedLayoutKey = [...buildLayoutMap(layout)]
+    .map(([nodeId, position]) => `${nodeId}:${position.x}:${position.y}`)
     .sort()
     .join("|");
-  return `${snapshot.schemaHash}:${savedLayoutKey}`;
+  return `${SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION}:${snapshot.schemaHash}:${savedLayoutKey}`;
+}
+
+function buildSchemaStructureLayoutKey(snapshot: ConvexSchemaGraphSnapshot): string {
+  return `${SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION}:${snapshot.schemaHash}`;
 }
 
 function getSchemaNodeWidth(table: ConvexSchemaGraphTable): number {
@@ -146,8 +164,33 @@ function getSchemaNodeTitleLineCount(table: ConvexSchemaGraphTable): number {
   return Math.max(1, Math.ceil(textWidth / availableWidth));
 }
 
+function readSchemaNodeVisibleFields(
+  table: ConvexSchemaGraphTable,
+): ConvexSchemaGraphTable["fields"] {
+  const relationshipFields: ConvexSchemaGraphTable["fields"] = [];
+  const otherFields: ConvexSchemaGraphTable["fields"] = [];
+  for (const field of table.fields) {
+    if (field.targetTable) {
+      relationshipFields.push(field);
+    } else {
+      otherFields.push(field);
+    }
+  }
+  return [...relationshipFields, ...otherFields].slice(0, SCHEMA_NODE_VISIBLE_FIELD_LIMIT);
+}
+
+function countSchemaRelationshipFields(table: ConvexSchemaGraphTable): number {
+  let count = 0;
+  for (const field of table.fields) {
+    if (field.targetTable) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function getSchemaNodeHeight(table: ConvexSchemaGraphTable): number {
-  const visibleFieldCount = Math.min(table.fields.length, SCHEMA_NODE_VISIBLE_FIELD_LIMIT);
+  const visibleFieldCount = readSchemaNodeVisibleFields(table).length;
   const hiddenFieldsHeight =
     table.fields.length > visibleFieldCount ? SCHEMA_NODE_HIDDEN_FIELDS_HEIGHT : 0;
   return (
@@ -158,7 +201,106 @@ function getSchemaNodeHeight(table: ConvexSchemaGraphTable): number {
   );
 }
 
-function buildSchemaNode(table: ConvexSchemaGraphTable, position: { x: number; y: number }) {
+function buildTableZoneMap(
+  tables: ConvexSchemaGraphTable[],
+): Map<string, SamebaseSchemaGraphZoneId> {
+  return new Map(tables.map((table) => [table.name, readSamebaseSchemaGraphZoneId(table.name)]));
+}
+
+function buildTableDegreeMap(
+  tables: ConvexSchemaGraphTable[],
+  relationships: ConvexSchemaGraphRelationship[],
+): Map<string, number> {
+  const tableDegrees = new Map(tables.map((table) => [table.name, 0]));
+  for (const relationship of relationships) {
+    const fromDegree = tableDegrees.get(relationship.fromTable);
+    if (fromDegree !== undefined) {
+      tableDegrees.set(relationship.fromTable, fromDegree + 1);
+    }
+
+    const toDegree = tableDegrees.get(relationship.toTable);
+    if (toDegree !== undefined) {
+      tableDegrees.set(relationship.toTable, toDegree + 1);
+    }
+  }
+  return tableDegrees;
+}
+
+function compareSchemaTablesByGraphRole(
+  tableDegrees: Map<string, number>,
+  left: ConvexSchemaGraphTable,
+  right: ConvexSchemaGraphTable,
+): number {
+  const degreeOrder = (tableDegrees.get(right.name) ?? 0) - (tableDegrees.get(left.name) ?? 0);
+  if (degreeOrder !== 0) {
+    return degreeOrder;
+  }
+
+  return left.name.localeCompare(right.name);
+}
+
+function buildSchemaZoneSummaries(
+  tables: ConvexSchemaGraphTable[],
+  relationships: ConvexSchemaGraphRelationship[],
+): SchemaZoneSummary[] {
+  const tableZones = buildTableZoneMap(tables);
+  const summariesByZoneId = new Map(
+    SAMEBASE_SCHEMA_GRAPH_ZONES.map((zone) => [
+      zone.id,
+      {
+        zone,
+        tableCount: 0,
+        relationshipCount: 0,
+        crossZoneRelationshipCount: 0,
+      },
+    ]),
+  );
+
+  for (const table of tables) {
+    const zoneId = tableZones.get(table.name) ?? "other";
+    const summary = summariesByZoneId.get(zoneId);
+    if (summary) {
+      summary.tableCount += 1;
+    }
+  }
+
+  for (const relationship of relationships) {
+    const fromZoneId = tableZones.get(relationship.fromTable);
+    const toZoneId = tableZones.get(relationship.toTable);
+    if (!fromZoneId || !toZoneId) {
+      continue;
+    }
+
+    if (fromZoneId === toZoneId) {
+      const summary = summariesByZoneId.get(fromZoneId);
+      if (summary) {
+        summary.relationshipCount += 1;
+      }
+      continue;
+    }
+
+    const fromSummary = summariesByZoneId.get(fromZoneId);
+    if (fromSummary) {
+      fromSummary.crossZoneRelationshipCount += 1;
+    }
+    const toSummary = summariesByZoneId.get(toZoneId);
+    if (toSummary) {
+      toSummary.crossZoneRelationshipCount += 1;
+    }
+  }
+
+  const summaries: SchemaZoneSummary[] = [];
+  for (const zone of SAMEBASE_SCHEMA_GRAPH_ZONES) {
+    const summary = summariesByZoneId.get(zone.id);
+    if (summary && summary.tableCount > 0) {
+      summaries.push(summary);
+    }
+  }
+
+  return summaries;
+}
+
+function buildSchemaTableNode(table: ConvexSchemaGraphTable, position: { x: number; y: number }) {
   return {
     id: table.name,
     type: "schemaTable",
@@ -166,146 +308,220 @@ function buildSchemaNode(table: ConvexSchemaGraphTable, position: { x: number; y
     position,
     sourcePosition: Position.Right,
     targetPosition: Position.Left,
+    zIndex: 2,
     style: { width: getSchemaNodeWidth(table) },
   } satisfies SchemaTableNode;
 }
 
-function buildFallbackSchemaNodes(
-  tables: ConvexSchemaGraphTable[],
-  layout: ConvexSchemaGraphLayout[],
-): SchemaTableNode[] {
-  const layoutByNodeId = buildLayoutMap(layout);
-  return tables.map((table, index) =>
-    buildSchemaNode(table, layoutByNodeId.get(table.name) ?? buildDefaultNodePosition(index)),
-  );
-}
-
-function mergeSchemaNodesWithSavedLayout(
-  currentNodes: SchemaTableNode[],
-  tables: ConvexSchemaGraphTable[],
-  layout: ConvexSchemaGraphLayout[],
-): SchemaTableNode[] {
-  const currentNodesById = new Map(currentNodes.map((node) => [node.id, node]));
-  const layoutByNodeId = buildLayoutMap(layout);
-  return tables.map((table, index) =>
-    buildSchemaNode(
-      table,
-      layoutByNodeId.get(table.name) ??
-        currentNodesById.get(table.name)?.position ??
-        buildDefaultNodePosition(index),
-    ),
-  );
-}
-
-function buildElkEdges(
+function buildAutomaticSchemaTablePositions(
   tables: ConvexSchemaGraphTable[],
   relationships: ConvexSchemaGraphRelationship[],
-): ElkExtendedEdge[] {
-  const tableNames = new Set(tables.map((table) => table.name));
-  const edges: ElkExtendedEdge[] = [];
-  for (const relationship of relationships) {
-    if (!tableNames.has(relationship.fromTable) || !tableNames.has(relationship.toTable)) {
-      continue;
-    }
-    edges.push({
-      id: relationship.id,
-      sources: [relationship.fromTable],
-      targets: [relationship.toTable],
-    });
-  }
-  return edges;
-}
-
-function normalizeSchemaLayoutPositions(
-  positions: Map<string, { x: number; y: number }>,
 ): Map<string, { x: number; y: number }> {
-  if (positions.size === 0) {
-    return positions;
+  const tableDegrees = buildTableDegreeMap(tables, relationships);
+  const tablesByZoneId = new Map<SamebaseSchemaGraphZoneId, ConvexSchemaGraphTable[]>();
+  for (const table of tables) {
+    const zoneId = readSamebaseSchemaGraphZoneId(table.name);
+    const zoneTables = tablesByZoneId.get(zoneId) ?? [];
+    zoneTables.push(table);
+    tablesByZoneId.set(zoneId, zoneTables);
   }
 
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  for (const position of positions.values()) {
-    minX = Math.min(minX, position.x);
-    minY = Math.min(minY, position.y);
+  const zoneLayouts = SAMEBASE_SCHEMA_GRAPH_ZONES.map((zone) => {
+    const zoneTables = [...(tablesByZoneId.get(zone.id) ?? [])].sort((left, right) =>
+      compareSchemaTablesByGraphRole(tableDegrees, left, right),
+    );
+    const columnCount = zoneTables.length > 1 ? SCHEMA_ZONE_TABLE_COLUMN_LIMIT : 1;
+    const rowsPerColumn = Math.max(1, Math.ceil(zoneTables.length / columnCount));
+    const columnWidths = Array.from({ length: columnCount }, () => 0);
+    const rowHeights = Array.from({ length: rowsPerColumn }, () => 0);
+    const tableSlots = zoneTables.map((table, index) => {
+      const columnIndex = Math.floor(index / rowsPerColumn);
+      const rowIndex = index % rowsPerColumn;
+      const width = getSchemaNodeWidth(table);
+      const height = getSchemaNodeHeight(table);
+      columnWidths[columnIndex] = Math.max(columnWidths[columnIndex] ?? 0, width);
+      rowHeights[rowIndex] = Math.max(rowHeights[rowIndex] ?? 0, height);
+      return { columnIndex, rowIndex, table };
+    });
+    const contentWidth =
+      columnWidths.reduce((total, width) => total + width, 0) +
+      Math.max(0, columnWidths.length - 1) * SCHEMA_ZONE_TABLE_X_GAP;
+    const contentHeight =
+      rowHeights.reduce((total, height) => total + height, 0) +
+      Math.max(0, rowHeights.length - 1) * SCHEMA_ZONE_TABLE_Y_GAP;
+
+    return {
+      zone,
+      columnWidths,
+      contentHeight,
+      contentWidth,
+      height: SCHEMA_ZONE_HEADER_HEIGHT + contentHeight + SCHEMA_ZONE_PADDING_BOTTOM,
+      rowHeights,
+      tableSlots,
+      width: SCHEMA_ZONE_PADDING_X * 2 + contentWidth,
+    };
+  }).filter((zoneLayout) => zoneLayout.tableSlots.length > 0);
+
+  const columnWidths = new Map<number, number>();
+  for (const zoneLayout of zoneLayouts) {
+    columnWidths.set(
+      zoneLayout.zone.column,
+      Math.max(columnWidths.get(zoneLayout.zone.column) ?? 0, zoneLayout.width),
+    );
   }
 
-  return new Map(
-    Array.from(positions.entries()).map(([nodeId, position]) => [
-      nodeId,
-      {
-        x: position.x - minX,
-        y: position.y - minY,
-      },
-    ]),
-  );
-}
+  const columnX = new Map<number, number>();
+  let nextColumnX = 0;
+  for (const column of [...columnWidths.keys()].sort((left, right) => left - right)) {
+    columnX.set(column, nextColumnX);
+    nextColumnX += (columnWidths.get(column) ?? 0) + SCHEMA_ZONE_X_GAP;
+  }
 
-function getSchemaGraphElk(): Promise<ELK> {
-  schemaGraphElkPromise ??= import("elkjs/lib/elk.bundled.js").then(
-    ({ default: ElkConstructor }) =>
-      new ElkConstructor({
-        defaultLayoutOptions: SCHEMA_GRAPH_ELK_OPTIONS,
-      }),
-  );
-  return schemaGraphElkPromise;
-}
-
-async function buildAutomaticSchemaLayoutMap(
-  tables: ConvexSchemaGraphTable[],
-  relationships: ConvexSchemaGraphRelationship[],
-): Promise<Map<string, { x: number; y: number }>> {
-  const graph = {
-    id: "convex-schema",
-    layoutOptions: SCHEMA_GRAPH_ELK_OPTIONS,
-    children: tables.map((table) => ({
-      id: table.name,
-      width: getSchemaNodeWidth(table),
-      height: getSchemaNodeHeight(table),
-    })),
-    edges: buildElkEdges(tables, relationships),
-  } satisfies ElkNode;
-  const schemaGraphElk = await getSchemaGraphElk();
-  const layout = await schemaGraphElk.layout(graph);
+  const columnY = new Map<number, number>();
   const positions = new Map<string, { x: number; y: number }>();
-
-  for (const child of layout.children ?? []) {
-    if (child.x === undefined || child.y === undefined) {
-      continue;
+  for (const zoneLayout of zoneLayouts.sort((left, right) => {
+    const columnOrder = left.zone.column - right.zone.column;
+    if (columnOrder !== 0) {
+      return columnOrder;
     }
-    positions.set(child.id, { x: child.x, y: child.y });
+    return left.zone.order - right.zone.order;
+  })) {
+    const zoneX = columnX.get(zoneLayout.zone.column) ?? 0;
+    const zoneY = columnY.get(zoneLayout.zone.column) ?? 0;
+    const columnOffsets = zoneLayout.columnWidths.map((_, index) => {
+      const previousWidths = zoneLayout.columnWidths
+        .slice(0, index)
+        .reduce((total, width) => total + width, 0);
+      return previousWidths + index * SCHEMA_ZONE_TABLE_X_GAP;
+    });
+    const rowOffsets = zoneLayout.rowHeights.map((_, index) => {
+      const previousHeights = zoneLayout.rowHeights
+        .slice(0, index)
+        .reduce((total, height) => total + height, 0);
+      return previousHeights + index * SCHEMA_ZONE_TABLE_Y_GAP;
+    });
+
+    for (const tableSlot of zoneLayout.tableSlots) {
+      positions.set(tableSlot.table.name, {
+        x: zoneX + SCHEMA_ZONE_PADDING_X + (columnOffsets[tableSlot.columnIndex] ?? 0),
+        y: zoneY + SCHEMA_ZONE_HEADER_HEIGHT + (rowOffsets[tableSlot.rowIndex] ?? 0),
+      });
+    }
+
+    columnY.set(zoneLayout.zone.column, zoneY + zoneLayout.height + SCHEMA_ZONE_Y_GAP);
   }
 
-  return normalizeSchemaLayoutPositions(positions);
+  return positions;
 }
 
-async function buildSchemaNodes(
+function buildSchemaTableNodes(
   tables: ConvexSchemaGraphTable[],
   relationships: ConvexSchemaGraphRelationship[],
   layout: ConvexSchemaGraphLayout[],
-): Promise<SchemaTableNode[]> {
+  currentPositions: Map<string, { x: number; y: number }>,
+): SchemaTableNode[] {
   const layoutByNodeId = buildLayoutMap(layout);
-  const automaticLayoutByNodeId = await buildAutomaticSchemaLayoutMap(tables, relationships);
-  return tables.map((table, index) =>
-    buildSchemaNode(
+  const automaticLayoutByNodeId = buildAutomaticSchemaTablePositions(tables, relationships);
+  return tables.map((table) =>
+    buildSchemaTableNode(
       table,
       layoutByNodeId.get(table.name) ??
-        automaticLayoutByNodeId.get(table.name) ??
-        buildDefaultNodePosition(index),
+        currentPositions.get(table.name) ??
+        automaticLayoutByNodeId.get(table.name) ?? { x: 0, y: 0 },
     ),
   );
 }
 
-function buildSchemaEdges(relationships: ConvexSchemaGraphRelationship[]): SchemaGraphEdge[] {
+function buildSchemaZoneNodes(
+  tables: ConvexSchemaGraphTable[],
+  relationships: ConvexSchemaGraphRelationship[],
+  tableNodes: SchemaTableNode[],
+): SchemaZoneNode[] {
+  const summaries = buildSchemaZoneSummaries(tables, relationships);
+  return summaries.map((summary) => {
+    const zoneTableNodes = tableNodes.filter(
+      (node) => readSamebaseSchemaGraphZoneId(node.data.table.name) === summary.zone.id,
+    );
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const node of zoneTableNodes) {
+      minX = Math.min(minX, node.position.x);
+      minY = Math.min(minY, node.position.y);
+      maxX = Math.max(maxX, node.position.x + getSchemaNodeWidth(node.data.table));
+      maxY = Math.max(maxY, node.position.y + getSchemaNodeHeight(node.data.table));
+    }
+
+    const position = {
+      x: minX - SCHEMA_ZONE_PADDING_X,
+      y: minY - SCHEMA_ZONE_HEADER_HEIGHT,
+    };
+    return {
+      id: `schema-zone-${summary.zone.id}`,
+      type: "schemaZone",
+      data: { summary },
+      position,
+      draggable: false,
+      selectable: false,
+      zIndex: 0,
+      style: {
+        height: maxY - position.y + SCHEMA_ZONE_PADDING_BOTTOM,
+        pointerEvents: "none",
+        width: maxX - position.x + SCHEMA_ZONE_PADDING_X,
+      },
+    } satisfies SchemaZoneNode;
+  });
+}
+
+function buildSchemaNodes(
+  tables: ConvexSchemaGraphTable[],
+  relationships: ConvexSchemaGraphRelationship[],
+  layout: ConvexSchemaGraphLayout[],
+  currentPositions: Map<string, { x: number; y: number }>,
+): SchemaGraphNode[] {
+  const tableNodes = buildSchemaTableNodes(tables, relationships, layout, currentPositions);
+  return [...buildSchemaZoneNodes(tables, relationships, tableNodes), ...tableNodes];
+}
+
+function buildCurrentSchemaTablePositions(
+  nodes: SchemaGraphNode[],
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const node of nodes) {
+    if (node.type === "schemaTable") {
+      positions.set(node.id, node.position);
+    }
+  }
+  return positions;
+}
+
+function buildSchemaEdges(
+  relationships: ConvexSchemaGraphRelationship[],
+  activeTableId: string | null,
+): SchemaGraphEdge[] {
   return relationships.map((relationship) => ({
     id: relationship.id,
     source: relationship.fromTable,
     target: relationship.toTable,
-    label: relationship.fromField,
+    label:
+      activeTableId === relationship.fromTable || activeTableId === relationship.toTable
+        ? relationship.fromField
+        : undefined,
+    labelBgPadding: [4, 3],
+    labelBgStyle: { fill: "hsl(var(--background))", fillOpacity: 0.92 },
+    labelStyle: { fill: "hsl(var(--muted-foreground))", fontSize: 10 },
     type: "smoothstep",
     markerEnd: { type: MarkerType.ArrowClosed },
     style: {
-      strokeWidth: 1.5,
+      strokeOpacity:
+        activeTableId === null
+          ? SCHEMA_INACTIVE_EDGE_OPACITY
+          : activeTableId === relationship.fromTable || activeTableId === relationship.toTable
+            ? SCHEMA_ACTIVE_EDGE_OPACITY
+            : 0.06,
+      strokeWidth:
+        activeTableId === relationship.fromTable || activeTableId === relationship.toTable ? 2 : 1,
     },
   }));
 }
@@ -346,10 +562,35 @@ function VaultConvexSchemaGraphCanvasStatus({ children }: { children: ReactNode 
   );
 }
 
+function SchemaZoneNode({ data }: NodeProps<SchemaZoneNode>) {
+  const summary = data.summary;
+  return (
+    <div
+      className="h-full w-full border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground"
+      data-schema-graph-zone={summary.zone.id}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-foreground">{summary.zone.label}</div>
+          <div className="mt-1 leading-snug">{summary.zone.description}</div>
+        </div>
+        <div className="shrink-0 text-right font-mono text-[11px] text-foreground">
+          {formatCount(summary.tableCount)} tables
+        </div>
+      </div>
+      <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-wide">
+        <span>{formatCount(summary.relationshipCount)} internal</span>
+        <span>{formatCount(summary.crossZoneRelationshipCount)} cross-zone</span>
+      </div>
+    </div>
+  );
+}
+
 function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
   const table = data.table;
-  const visibleFields = table.fields.slice(0, SCHEMA_NODE_VISIBLE_FIELD_LIMIT);
+  const visibleFields = readSchemaNodeVisibleFields(table);
   const hiddenFieldCount = table.fields.length - visibleFields.length;
+  const relationshipFieldCount = countSchemaRelationshipFields(table);
   return (
     <div
       className="relative overflow-hidden border border-border bg-background text-xs text-foreground"
@@ -367,6 +608,7 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
         </div>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
           <span>{table.fields.length} fields</span>
+          {relationshipFieldCount > 0 ? <span>{relationshipFieldCount} links</span> : null}
           <span>{table.indexes.length} indexes</span>
           {table.documentCount !== undefined ? (
             <span>{formatCount(table.documentCount)} docs</span>
@@ -416,36 +658,68 @@ function VaultConvexSchemaGraphCanvas({
   onSaveLayout?: (nodeId: string, x: number, y: number) => void;
 }) {
   const snapshot = state.snapshot;
+  const [hoveredTableId, setHoveredTableId] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const activeTableId = hoveredTableId ?? selectedTableId;
   const fallbackNodesFromSnapshot = useMemo(
-    () => (snapshot ? buildFallbackSchemaNodes(snapshot.graph.tables, state.layout) : []),
+    () =>
+      snapshot
+        ? buildSchemaNodes(
+            snapshot.graph.tables,
+            snapshot.graph.relationships,
+            state.layout,
+            new Map<string, { x: number; y: number }>(),
+          )
+        : [],
     [snapshot, state.layout],
   );
   const edges = useMemo(
-    () => (snapshot ? buildSchemaEdges(snapshot.graph.relationships) : []),
-    [snapshot],
+    () => (snapshot ? buildSchemaEdges(snapshot.graph.relationships, activeTableId) : []),
+    [activeTableId, snapshot],
   );
   const layoutKey = useMemo(
     () => (snapshot ? buildSchemaLayoutKey(snapshot, state.layout) : "empty"),
     [snapshot, state.layout],
   );
+  const structureLayoutKey = useMemo(
+    () => (snapshot ? buildSchemaStructureLayoutKey(snapshot) : "empty"),
+    [snapshot],
+  );
   const fitViewOptions = useMemo(() => ({ padding: variant === "route" ? 0.08 : 0.18 }), [variant]);
   const [nodes, setNodes, onNodesChange] =
-    useNodesState<SchemaTableNode>(fallbackNodesFromSnapshot);
+    useNodesState<SchemaGraphNode>(fallbackNodesFromSnapshot);
   const [readyLayoutKey, setReadyLayoutKey] = useState<string | null>(null);
-  const reactFlowInstanceRef = useRef<ReactFlowInstance<SchemaTableNode, SchemaGraphEdge> | null>(
+  const reactFlowInstanceRef = useRef<ReactFlowInstance<SchemaGraphNode, SchemaGraphEdge> | null>(
     null,
   );
   const lastAppliedSchemaKeyRef = useRef<string | null>(null);
-  const nodeTypes = useMemo(() => ({ schemaTable: SchemaTableNode }), []);
+  const nodeTypes = useMemo(
+    () => ({ schemaTable: SchemaTableNode, schemaZone: SchemaZoneNode }),
+    [],
+  );
   const layoutReady = readyLayoutKey === layoutKey;
   const fitSchemaGraphView = useCallback(() => {
     if (!reactFlowInstanceRef.current) {
       return;
     }
     window.requestAnimationFrame(() => {
-      void reactFlowInstanceRef.current?.fitView(fitViewOptions);
+      window.requestAnimationFrame(() => {
+        if (
+          variant === "route" &&
+          (snapshot?.graph.tables.length ?? 0) > SCHEMA_ROUTE_READABLE_TABLE_LIMIT
+        ) {
+          void reactFlowInstanceRef.current?.setViewport({
+            x: 24,
+            y: 24,
+            zoom: SCHEMA_ROUTE_READABLE_ZOOM,
+          });
+          return;
+        }
+
+        void reactFlowInstanceRef.current?.fitView(fitViewOptions);
+      });
     });
-  }, [fitViewOptions]);
+  }, [fitViewOptions, snapshot?.graph.tables.length, variant]);
 
   // React Flow owns transient drag state; only schema changes should rebuild and refit the canvas.
   useEffect(() => {
@@ -456,48 +730,33 @@ function VaultConvexSchemaGraphCanvas({
       return;
     }
 
-    if (lastAppliedSchemaKeyRef.current === snapshot.schemaHash) {
+    if (lastAppliedSchemaKeyRef.current === structureLayoutKey) {
       setNodes((currentNodes) =>
-        mergeSchemaNodesWithSavedLayout(currentNodes, snapshot.graph.tables, state.layout),
+        buildSchemaNodes(
+          snapshot.graph.tables,
+          snapshot.graph.relationships,
+          state.layout,
+          buildCurrentSchemaTablePositions(currentNodes),
+        ),
       );
       setReadyLayoutKey(layoutKey);
       return;
     }
 
-    let shouldApplyLayout = true;
     setReadyLayoutKey(null);
     setNodes(fallbackNodesFromSnapshot);
-
-    if (hasSavedLayoutForEveryTable(snapshot.graph.tables, state.layout)) {
-      lastAppliedSchemaKeyRef.current = snapshot.schemaHash;
-      setReadyLayoutKey(layoutKey);
-      fitSchemaGraphView();
-      return;
-    }
-
-    void buildSchemaNodes(snapshot.graph.tables, snapshot.graph.relationships, state.layout)
-      .then((layoutedNodes) => {
-        if (!shouldApplyLayout) {
-          return;
-        }
-        setNodes(layoutedNodes);
-        lastAppliedSchemaKeyRef.current = snapshot.schemaHash;
-        setReadyLayoutKey(layoutKey);
-        fitSchemaGraphView();
-      })
-      .catch(() => {
-        if (!shouldApplyLayout) {
-          return;
-        }
-        lastAppliedSchemaKeyRef.current = snapshot.schemaHash;
-        setReadyLayoutKey(layoutKey);
-        fitSchemaGraphView();
-      });
-
-    return () => {
-      shouldApplyLayout = false;
-    };
-  }, [fallbackNodesFromSnapshot, fitSchemaGraphView, layoutKey, setNodes, snapshot, state.layout]);
+    lastAppliedSchemaKeyRef.current = structureLayoutKey;
+    setReadyLayoutKey(layoutKey);
+    fitSchemaGraphView();
+  }, [
+    fallbackNodesFromSnapshot,
+    fitSchemaGraphView,
+    layoutKey,
+    setNodes,
+    snapshot,
+    state.layout,
+    structureLayoutKey,
+  ]);
 
   if (!snapshot) {
     if (variant === "route") {
@@ -523,14 +782,33 @@ function VaultConvexSchemaGraphCanvas({
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         nodesConnectable={false}
-        fitView
         fitViewOptions={fitViewOptions}
-        minZoom={variant === "route" ? 0.1 : 0.5}
+        minZoom={0.1}
         onInit={(instance) => {
           reactFlowInstanceRef.current = instance;
+          fitSchemaGraphView();
+        }}
+        onNodeClick={(_event, node) => {
+          if (node.type === "schemaTable") {
+            setSelectedTableId(node.id);
+          }
         }}
         onNodeDragStop={(_event, node) => {
-          onSaveLayout?.(node.id, node.position.x, node.position.y);
+          if (node.type !== "schemaTable") {
+            return;
+          }
+          onSaveLayout?.(buildSchemaLayoutNodeId(node.id), node.position.x, node.position.y);
+        }}
+        onNodeMouseEnter={(_event, node) => {
+          if (node.type === "schemaTable") {
+            setHoveredTableId(node.id);
+          }
+        }}
+        onNodeMouseLeave={() => {
+          setHoveredTableId(null);
+        }}
+        onPaneClick={() => {
+          setSelectedTableId(null);
         }}
       >
         <Background gap={18} size={1} />
@@ -650,6 +928,11 @@ function VaultConvexSchemaGraphRouteSidebar({
   const selectedDeployment = state?.deployments.find(
     (deployment) => deployment._id === state.selectedDeploymentId,
   );
+  const zoneSummaries = useMemo(
+    () =>
+      snapshot ? buildSchemaZoneSummaries(snapshot.graph.tables, snapshot.graph.relationships) : [],
+    [snapshot],
+  );
 
   const handleDeploymentValueChange = useCallback(
     (value: string) => {
@@ -749,6 +1032,28 @@ function VaultConvexSchemaGraphRouteSidebar({
               </span>
             </div>
           </div>
+
+          {zoneSummaries.length > 0 ? (
+            <div className="grid gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+              <span>Zones</span>
+              <div className="grid gap-2">
+                {zoneSummaries.map((summary) => (
+                  <div key={summary.zone.id} className="grid gap-0.5">
+                    <div className="flex min-w-0 justify-between gap-2">
+                      <span className="min-w-0 text-foreground">{summary.zone.label}</span>
+                      <span className="shrink-0 font-mono text-foreground">
+                        {formatCount(summary.tableCount)}
+                      </span>
+                    </div>
+                    <div className="font-mono text-[11px]">
+                      {formatCount(summary.relationshipCount)} internal /{" "}
+                      {formatCount(summary.crossZoneRelationshipCount)} cross-zone
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {refreshError ? <div className="text-xs text-destructive">{refreshError}</div> : null}
 

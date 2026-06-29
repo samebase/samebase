@@ -1,0 +1,185 @@
+export type SamebaseSchemaGraphZoneId =
+  | "identity"
+  | "machines"
+  | "workspace"
+  | "vault"
+  | "repository"
+  | "files"
+  | "infrastructure"
+  | "agent"
+  | "mcp"
+  | "other";
+
+export type SamebaseSchemaGraphZone = {
+  id: SamebaseSchemaGraphZoneId;
+  label: string;
+  description: string;
+  column: number;
+  order: number;
+};
+
+export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v2";
+
+export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
+  {
+    id: "identity",
+    label: "Identity",
+    description: "Users, provider connections, and sign-in state.",
+    column: 0,
+    order: 0,
+  },
+  {
+    id: "machines",
+    label: "Machines",
+    description: "Local machine registration, credentials, and live control.",
+    column: 0,
+    order: 1,
+  },
+  {
+    id: "workspace",
+    label: "Workspace UI",
+    description: "Per-user dashboard, sidebar, branch, and navigation preferences.",
+    column: 0,
+    order: 2,
+  },
+  {
+    id: "vault",
+    label: "Vault core",
+    description: "Durable app containers, app roots, and domains.",
+    column: 1,
+    order: 0,
+  },
+  {
+    id: "repository",
+    label: "Repository state",
+    description: "GitHub branches, trees, checks, and refresh work.",
+    column: 1,
+    order: 1,
+  },
+  {
+    id: "files",
+    label: "Files and editor",
+    description: "Staged files, blobs, folder state, and collaborative updates.",
+    column: 1,
+    order: 2,
+  },
+  {
+    id: "infrastructure",
+    label: "Infrastructure",
+    description: "Cloudflare, Convex, provisioning, deletion, and schema snapshots.",
+    column: 2,
+    order: 0,
+  },
+  {
+    id: "agent",
+    label: "Agent and AI",
+    description: "Agent graph layout, chat metadata, and production access approvals.",
+    column: 2,
+    order: 1,
+  },
+  {
+    id: "mcp",
+    label: "MCP OAuth",
+    description: "MCP clients, grants, token rotation, and audit events.",
+    column: 2,
+    order: 2,
+  },
+  {
+    id: "other",
+    label: "Other",
+    description: "Tables that do not match a Samebase product zone yet.",
+    column: 2,
+    order: 3,
+  },
+] satisfies SamebaseSchemaGraphZone[];
+
+export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
+  Partial<Record<string, SamebaseSchemaGraphZoneId>>
+> = {
+  users: "identity",
+  providerConnections: "identity",
+  oauthStates: "identity",
+
+  connectedMachines: "machines",
+  machineRegistrationRequests: "machines",
+  machineRegistrationBootstrapRateLimits: "machines",
+  machineCredentials: "machines",
+  machineControlTokens: "machines",
+  codespaces: "machines",
+
+  dashboardSettings: "workspace",
+  workspaceSidebarState: "workspace",
+  vaultBranchFilters: "workspace",
+  vaultResourceLinksState: "workspace",
+  folderExpansionState: "workspace",
+
+  vaults: "vault",
+  vaultApps: "vault",
+  vaultDomains: "vault",
+
+  vaultRemoteBranches: "repository",
+  githubCommitCheckSnapshots: "repository",
+  githubCommitCheckItems: "repository",
+  vaultBranchTrees: "repository",
+  repositoryRefreshRequests: "repository",
+
+  vaultCloudflareWorkers: "infrastructure",
+  vaultConvexDeployments: "infrastructure",
+  vaultConvexSchemaSnapshots: "infrastructure",
+  vaultConvexSchemaGraphLayouts: "infrastructure",
+  vaultInfrastructureTargets: "infrastructure",
+  vaultInfrastructureOwnership: "infrastructure",
+  appProvisioningRuns: "infrastructure",
+  appProvisioningEvents: "infrastructure",
+  vaultDeletionRuns: "infrastructure",
+  vaultDeletionEvents: "infrastructure",
+
+  fileStaging: "files",
+  blobs: "files",
+  collaborativeUpdates: "files",
+
+  agentGraphNodeLayout: "agent",
+  agentThreadContext: "agent",
+  chatMessageMetadata: "agent",
+  aiProdAccessRequests: "agent",
+  aiProdAccessAudit: "agent",
+
+  mcpOauthClients: "mcp",
+  mcpAuthRequests: "mcp",
+  mcpAuthorizationCodes: "mcp",
+  mcpGrants: "mcp",
+  mcpAccessTokens: "mcp",
+  mcpRefreshTokens: "mcp",
+  mcpAccessAudit: "mcp",
+};
+
+export function readSamebaseSchemaGraphZoneId(tableName: string): SamebaseSchemaGraphZoneId {
+  const configuredZoneId = SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES[tableName];
+  if (configuredZoneId) {
+    return configuredZoneId;
+  }
+
+  if (tableName.startsWith("auth")) {
+    return "identity";
+  }
+  if (tableName.startsWith("mcp")) {
+    return "mcp";
+  }
+  if (tableName.startsWith("machine")) {
+    return "machines";
+  }
+  if (tableName.startsWith("vaultConvex") || tableName.startsWith("vaultCloudflare")) {
+    return "infrastructure";
+  }
+  if (tableName.startsWith("vault")) {
+    return "vault";
+  }
+  if (tableName.startsWith("github") || tableName.startsWith("repository")) {
+    return "repository";
+  }
+  if (tableName.startsWith("agent") || tableName.startsWith("ai")) {
+    return "agent";
+  }
+
+  return "other";
+}

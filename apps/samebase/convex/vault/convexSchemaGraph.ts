@@ -142,6 +142,16 @@ function compareGraphRelationship(
   );
 }
 
+function readSchemaGraphLayoutTableName(nodeId: string): string {
+  const separatorIndex = nodeId.lastIndexOf(":");
+  if (separatorIndex === -1) {
+    return nodeId;
+  }
+
+  const tableName = nodeId.slice(separatorIndex + 1);
+  return tableName.length > 0 ? tableName : nodeId;
+}
+
 function readDeploymentOption(deployment: Doc<"vaultConvexDeployments">) {
   return {
     _id: deployment._id,
@@ -986,7 +996,8 @@ export const saveLayout = mutation({
       .withIndex("by_deployment_and_fetched_at", (q) => q.eq("deploymentId", args.deploymentId))
       .order("desc")
       .first();
-    if (!snapshot?.graph.tables.some((table) => table.name === args.nodeId)) {
+    const tableName = readSchemaGraphLayoutTableName(args.nodeId);
+    if (!snapshot?.graph.tables.some((table) => table.name === tableName)) {
       throw new Error("Convex schema table not found.");
     }
 

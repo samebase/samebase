@@ -282,18 +282,29 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
     fixture.getByTestId("rf__node-fileStaging").getByText("fileStaging", { exact: true }),
   ).toBeVisible();
   const longTableName = fixture
-    .getByTestId("rf__node-vaultInfrastructureOwnershipRecords")
-    .getByText("vaultInfrastructureOwnershipRecords", { exact: true });
+    .getByTestId("rf__node-vaultInfrastructureOwnership")
+    .getByText("vaultInfrastructureOwnership", { exact: true });
   await expect(longTableName).toBeVisible();
   await expect(longTableName).not.toHaveCSS("text-overflow", "ellipsis");
-  await expect(fixture.locator(".react-flow__edge")).toHaveCount(4);
-  const [fileStagingBox, vaultsBox, usersBox] = await Promise.all([
-    readRequiredBounds(fixture.getByTestId("rf__node-fileStaging"), "fileStaging node"),
-    readRequiredBounds(fixture.getByTestId("rf__node-vaults"), "vaults node"),
-    readRequiredBounds(fixture.getByTestId("rf__node-users"), "users node"),
+  await expect(fixture.locator(".react-flow__edge")).toHaveCount(10);
+  await expect(fixture.locator('[data-schema-graph-zone="identity"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="machines"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="repository"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="infrastructure"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="files"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="agent"]')).toBeVisible();
+  await expect(fixture.locator('[data-schema-graph-zone="mcp"]')).toBeVisible();
+  const [identityZoneBox, vaultZoneBox, infrastructureZoneBox] = await Promise.all([
+    readRequiredBounds(fixture.locator('[data-schema-graph-zone="identity"]'), "identity zone"),
+    readRequiredBounds(fixture.locator('[data-schema-graph-zone="vault"]'), "vault zone"),
+    readRequiredBounds(
+      fixture.locator('[data-schema-graph-zone="infrastructure"]'),
+      "infrastructure zone",
+    ),
   ]);
-  expect(fileStagingBox.x).toBeLessThan(vaultsBox.x);
-  expect(vaultsBox.x).toBeLessThan(usersBox.x);
+  expect(identityZoneBox.x).toBeLessThan(vaultZoneBox.x);
+  expect(vaultZoneBox.x).toBeLessThan(infrastructureZoneBox.x);
   await expect(fixture).toHaveScreenshot("vault-convex-schema-graph.png", {
     animations: "disabled",
     caret: "hide",
@@ -349,7 +360,8 @@ test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) =>
   await expect(
     routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),
   ).toBeVisible();
-  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(4);
+  await expect(routeMain.locator('[data-schema-graph-zone="vault"]')).toBeVisible();
+  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(10);
   await expect(routeMain).toHaveScreenshot("vault-convex-schema-route-mobile.png", {
     animations: "disabled",
     caret: "hide",

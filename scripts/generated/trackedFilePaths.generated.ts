@@ -445,6 +445,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-convex-schema-graph.png",
+  "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-convex-schema-route-mobile.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-app-root-dialog.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-first-app-root-dialog.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-bottom-target-scroll.png",
