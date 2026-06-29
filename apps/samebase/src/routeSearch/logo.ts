@@ -65,10 +65,10 @@ import {
   DEFAULT_LOGO_GRID_SIZE,
   DEFAULT_ROTATION_DEGREES,
   MAX_ELEVATION_DEGREES,
+  MAX_LOGO_GRID_SIZE,
   MIN_ELEVATION_DEGREES,
+  MIN_LOGO_GRID_SIZE,
   MIN_LOGO_FRACTAL_DEPTH,
-  LOGO_GRID_SIZE_2,
-  LOGO_GRID_SIZE_3,
   createDefaultVoxelState,
   readLogoGridSize,
   normalizeLogoGridSize,
@@ -110,7 +110,6 @@ const LOGO_ISOMETRIC_STYLE_VALUES = [
   "cap-4",
 ] as const satisfies readonly LogoIsometricStyleId[];
 
-const LOGO_GRID_SIZE_VALUE_SUGGESTIONS = [`${LOGO_GRID_SIZE_2}`, `${LOGO_GRID_SIZE_3}`] as const;
 const LOGO_SHUFFLE_PARALLEL_MOVES_VALUE_SUGGESTIONS = [
   "1",
   "2",
@@ -269,11 +268,17 @@ const RouteSearchSchema_logo = defineRouteSearchParams({
   }),
   gridSize: routeSearchValueParam(logoGridSizeSearchValue, {
     numericDefaultValue: DEFAULT_LOGO_GRID_SIZE,
+    numericRange: {
+      maxValue: MAX_LOGO_GRID_SIZE,
+      minValue: MIN_LOGO_GRID_SIZE,
+      rangeType: "closed",
+    },
+    numericStepValue: 1,
     access: "access_public",
-    sampleValue: `${LOGO_GRID_SIZE_2}`,
+    sampleValue: `${MIN_LOGO_GRID_SIZE}`,
     suggestion: "route",
-    valueSuggestions: LOGO_GRID_SIZE_VALUE_SUGGESTIONS,
-    valueType: "numeric-options",
+    valueSuggestions: null,
+    valueType: "numeric",
   }),
   leftFace: routeSearchValueParam(logoLeftFaceStyleSearchValue, {
     access: "access_public",

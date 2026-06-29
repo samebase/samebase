@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import { MAX_LOGO_FRACTAL_DEPTH } from "@/components/logo/logoDepthLimits";
-import { DEFAULT_VOXEL_STATE, LOGO_GRID_SIZE_2 } from "@/components/logo/logoVoxelState";
+import {
+  DEFAULT_VOXEL_STATE,
+  LOGO_GRID_SIZE_2,
+  LOGO_GRID_SIZE_4,
+  MAX_LOGO_GRID_SIZE,
+} from "@/components/logo/logoVoxelState";
 import {
   readCanonicalRouteAddressForRootSearch,
   readRootRouteSearch,
@@ -195,7 +200,13 @@ describe("rootRouteSearch", () => {
       gridSize: LOGO_GRID_SIZE_2,
     });
     expect(readRootRouteSearch("?gridSize=3")).toEqual({});
-    expect(readRootRouteSearch("?gridSize=4")).toEqual({});
+    expect(readRootRouteSearch("?gridSize=4")).toEqual({
+      gridSize: LOGO_GRID_SIZE_4,
+    });
+    expect(readRootRouteSearch("?gridSize=10")).toEqual({
+      gridSize: MAX_LOGO_GRID_SIZE,
+    });
+    expect(readRootRouteSearch("?gridSize=11")).toEqual({});
   });
 
   it("accepts logo route params on root surfaces", () => {
