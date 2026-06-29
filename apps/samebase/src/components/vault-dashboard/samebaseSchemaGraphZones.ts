@@ -1,5 +1,6 @@
 export type SamebaseSchemaGraphZoneId =
   | "identity"
+  | "providers"
   | "machines"
   | "workspace"
   | "vault"
@@ -18,29 +19,36 @@ export type SamebaseSchemaGraphZone = {
   order: number;
 };
 
-export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v2";
+export const SAMEBASE_SCHEMA_GRAPH_ZONE_LAYOUT_VERSION = "samebase-zones-v3";
 
 export const SAMEBASE_SCHEMA_GRAPH_ZONES = [
   {
     id: "identity",
-    label: "Identity",
-    description: "Users, provider connections, and sign-in state.",
+    label: "Authentication",
+    description: "Users, Convex Auth accounts, sessions, and sign-in state.",
     column: 0,
     order: 0,
+  },
+  {
+    id: "providers",
+    label: "Provider integrations",
+    description: "Connected GitHub, Convex, and Cloudflare accounts used by app workflows.",
+    column: 0,
+    order: 1,
   },
   {
     id: "machines",
     label: "Machines",
     description: "Local machine registration, credentials, and live control.",
     column: 0,
-    order: 1,
+    order: 2,
   },
   {
     id: "workspace",
     label: "Workspace UI",
     description: "Per-user dashboard, sidebar, branch, and navigation preferences.",
     column: 0,
-    order: 2,
+    order: 3,
   },
   {
     id: "vault",
@@ -97,8 +105,8 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   Partial<Record<string, SamebaseSchemaGraphZoneId>>
 > = {
   users: "identity",
-  providerConnections: "identity",
-  oauthStates: "identity",
+  providerConnections: "providers",
+  oauthStates: "providers",
 
   connectedMachines: "machines",
   machineRegistrationRequests: "machines",
@@ -161,6 +169,9 @@ export function readSamebaseSchemaGraphZoneId(tableName: string): SamebaseSchema
 
   if (tableName.startsWith("auth")) {
     return "identity";
+  }
+  if (tableName.startsWith("provider")) {
+    return "providers";
   }
   if (tableName.startsWith("mcp")) {
     return "mcp";
