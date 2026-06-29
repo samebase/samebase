@@ -1,8 +1,8 @@
-# samebase-events Workers Builds
+# samebase-posthog-proxy Workers Builds
 
-`samebase-events` is the Cloudflare Worker defined by `apps/posthog-proxy/wrangler.jsonc`. It is the
-first-party PostHog proxy for `https://e.samebase.com`, and its Workers Builds trigger settings live
-in Cloudflare, not in Wrangler config.
+`samebase-posthog-proxy` is the Cloudflare Worker defined by `apps/posthog-proxy/wrangler.jsonc`. It
+is the first-party PostHog proxy for `https://e.samebase.com`, and its Workers Builds trigger
+settings live in Cloudflare, not in Wrangler config.
 
 The Worker source is based on PostHog's Cloudflare Worker reverse-proxy implementation:
 https://posthog.com/docs/advanced/proxy/cloudflare. Keep the `/static/*` and `/array/*` asset-host
@@ -10,6 +10,7 @@ split aligned with that guide unless Samebase intentionally diverges.
 
 Use these settings for the production trigger:
 
+- Project name: `samebase-posthog-proxy`
 - Root directory: `apps/posthog-proxy`
 - Build command: `pnpm run build`
 - Deploy command: `pnpm run deploy`
