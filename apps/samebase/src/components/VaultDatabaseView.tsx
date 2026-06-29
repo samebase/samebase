@@ -32,8 +32,6 @@ function formatVaultDatabaseNotice(
       return "No Convex deployment is connected for this app root.";
     case "missing_connection":
       return "Connect Convex to view deployment data.";
-    case "unsupported_connection":
-      return "Connect Convex with an API key to view deployment data.";
   }
   result satisfies never;
   return "Data is unavailable.";

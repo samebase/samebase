@@ -40,9 +40,6 @@ const embeddedDashboardCredentialsResult = union(
   object({
     kind: literal("missing_connection"),
   }),
-  object({
-    kind: literal("unsupported_connection"),
-  }),
 );
 type EmbeddedDashboardCredentialsResult = Infer<typeof embeddedDashboardCredentialsResult>;
 type VaultDatabaseLookup = {
@@ -160,26 +157,32 @@ export const createEmbeddedDashboardCredentials = action({
     if (context.kind !== "ready") {
       return context;
     }
-    if (context.convexConnection.auth.method !== "api_key") {
-      return { kind: "unsupported_connection" };
-    }
 
     const expiresAt = Date.now() + EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS;
     const deployKeyName = buildEmbeddedDashboardDeployKeyName({
       deploymentName: context.deployment.deploymentName,
       expiresAt,
     });
+    // Convex OAuth deploy keys reuse the OAuth grant, so request-scoped
+    // allowedActions are only valid for API-key backed deploy keys.
+    const body =
+      context.convexConnection.auth.method === "api_key"
+        ? {
+            allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
+            expiresAt,
+            name: deployKeyName,
+          }
+        : {
+            expiresAt,
+            name: deployKeyName,
+          };
     const { deployKey } = await requestConvexManagementApi(
       context.convexConnection.auth.credential,
       "POST",
       "/deployments/{deployment_name}/create_deploy_key",
       {
         params: { path: { deployment_name: context.deployment.deploymentName } },
-        body: {
-          allowedActions: EMBEDDED_DASHBOARD_ALLOWED_ACTIONS,
-          expiresAt,
-          name: deployKeyName,
-        },
+        body,
       },
     );
 
@@ -207,7 +210,6 @@ export const revokeEmbeddedDashboardCredentials = action({
     const context = await readVaultDatabaseDeploymentContext(ctx, args);
     if (
       context.kind !== "ready" ||
-      context.convexConnection.auth.method !== "api_key" ||
       !isEmbeddedDashboardDeployKeyName({
         deploymentName: context.deployment.deploymentName,
         deployKeyName: args.deployKeyName,

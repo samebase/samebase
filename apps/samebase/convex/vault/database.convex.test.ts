@@ -115,19 +115,69 @@ afterEach(() => {
 });
 
 describe("createEmbeddedDashboardCredentials", () => {
-  it("does not mint deploy keys from OAuth Convex connections", async () => {
+  it("mints and revokes OAuth-backed deploy keys without request-scoped actions", async () => {
     const t = makeConvexTest();
     const user = await seedDatabaseViewerVault(t, {
       method: "oauth",
       credential: "convex-oauth-token",
     });
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
+    vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push(input);
 
-    await expect(
-      user.action(api.vault.database.createEmbeddedDashboardCredentials, databaseRouteArgs),
-    ).resolves.toEqual({ kind: "unsupported_connection" });
-    expect(fetch).not.toHaveBeenCalled();
+        if (input.url.endsWith("/create_deploy_key")) {
+          return jsonResponse(`{"deployKey":"prod:demo-prod|oauth-embedded-secret"}`);
+        }
+        if (input.url.endsWith("/delete_deploy_key")) {
+          return new Response(null, { status: 200 });
+        }
+
+        throw new Error(`Unexpected Convex request: ${input.url}`);
+      }),
+    );
+
+    const result = await user.action(
+      api.vault.database.createEmbeddedDashboardCredentials,
+      databaseRouteArgs,
+    );
+
+    expect(result).toEqual({
+      kind: "ready",
+      deploymentUrl: "https://demo.convex.cloud",
+      deploymentName: "demo-prod",
+      deployKeyName: "samebase-embedded-data-demo-prod-1710003600000",
+      adminKey: "prod:demo-prod|oauth-embedded-secret",
+    });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe(
+      "https://api.convex.dev/v1/deployments/demo-prod/create_deploy_key",
+    );
+    expect(requests[0]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
+    await expect(requests[0]?.json()).resolves.toEqual({
+      expiresAt: 1_710_003_600_000,
+      name: "samebase-embedded-data-demo-prod-1710003600000",
+    });
+
+    if (result.kind !== "ready") {
+      throw new Error("Expected ready embedded dashboard credentials.");
+    }
+
+    await user.action(api.vault.database.revokeEmbeddedDashboardCredentials, {
+      ...databaseRouteArgs,
+      deployKeyName: result.deployKeyName,
+    });
+
+    expect(requests).toHaveLength(2);
+    expect(requests[1]?.url).toBe(
+      "https://api.convex.dev/v1/deployments/demo-prod/delete_deploy_key",
+    );
+    expect(requests[1]?.headers.get("Authorization")).toBe("Bearer convex-oauth-token");
+    await expect(requests[1]?.json()).resolves.toEqual({
+      id: "samebase-embedded-data-demo-prod-1710003600000",
+    });
   });
 
   it("mints and revokes read-only deploy keys from API-key Convex connections", async () => {
