@@ -366,11 +366,45 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/samebase/samebase/-/main"');
+    expect(markup).toContain('href="/vault/samebase/samebase/fs/main"');
     expect(markup).toContain('title="Open branch in Samebase"');
     expect(markup).toContain(">Edit<");
     expect(markup).not.toContain(">View changes<");
     expect(markup).not.toContain("?compare");
+  });
+
+  it("links default branch Convex data to the database route", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider>
+        <VaultBranchLinkContent
+          repositoryFullName="samebase/samebase"
+          branch={{
+            name: "main",
+            headCommitSha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123",
+            commits: [{ sha: "5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123" }],
+            isDefault: true,
+            isProtected: false,
+            lastSyncedAt: 0,
+            remoteState: "active",
+          }}
+          convexDeployments={[
+            {
+              appRoot: ".",
+              projectId: "project-1",
+              projectSlug: "samebase",
+              teamSlug: "samebase",
+              deploymentName: "samebase-production",
+              cloudUrl: "https://samebase-production.convex.cloud",
+              siteUrl: "https://samebase-production.convex.site",
+            },
+          ]}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="/vault/samebase/samebase/db/main/root"');
+    expect(markup).toContain('title="View production data for samebase-production"');
+    expect(markup).toContain(">View data<");
   });
 
   it("links non-default branch Samebase actions to changed files", () => {
@@ -391,10 +425,11 @@ describe("VaultBranchLinkContent", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('href="/vault/samebase/samebase/-/codex%2Fview%20changes?compare"');
+    expect(markup).toContain('href="/vault/samebase/samebase/fs/codex%2Fview%20changes?compare"');
     expect(markup).toContain('title="View changes in Samebase"');
     expect(markup).toContain(">View changes<");
     expect(markup).not.toContain(">Edit<");
+    expect(markup).not.toContain(">View data<");
   });
 
   it("links the default branch to the production app URL", () => {

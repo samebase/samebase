@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildVaultDatabaseRoute,
   buildVaultFileRoute,
   buildVaultCodespaceChatRoute,
   isChatOnlyCodespaceRoute,
+  parseVaultDatabasePathContext,
   parseVaultPathContext,
 } from "./vaultRoutes";
 
@@ -27,7 +29,7 @@ describe("buildVaultFileRoute", () => {
         branch: "feature/login-flow",
         filePath: "src/App.tsx",
       }),
-    ).toBe("/vault/octo/repo/-/feature%2Flogin-flow/src/App.tsx");
+    ).toBe("/vault/octo/repo/fs/feature%2Flogin-flow/src/App.tsx");
   });
 
   it("encodes file path segments without changing slash separators", () => {
@@ -38,7 +40,31 @@ describe("buildVaultFileRoute", () => {
         branch: "main",
         filePath: "docs/hello world.md",
       }),
-    ).toBe("/vault/octo/repo/-/main/docs/hello%20world.md");
+    ).toBe("/vault/octo/repo/fs/main/docs/hello%20world.md");
+  });
+});
+
+describe("buildVaultDatabaseRoute", () => {
+  it("builds root app database routes", () => {
+    expect(
+      buildVaultDatabaseRoute({
+        owner: "octo",
+        repoName: "repo",
+        branch: "feature/login-flow",
+        appRoot: ".",
+      }),
+    ).toBe("/vault/octo/repo/db/feature%2Flogin-flow/root");
+  });
+
+  it("builds monorepo app database routes", () => {
+    expect(
+      buildVaultDatabaseRoute({
+        owner: "octo",
+        repoName: "repo",
+        branch: "main",
+        appRoot: "apps/web app",
+      }),
+    ).toBe("/vault/octo/repo/db/main/mono/apps/web%20app");
   });
 });
 
@@ -66,7 +92,7 @@ describe("parseVaultPathContext", () => {
   });
 
   it("parses branch editor routes and preserves file paths named chat", () => {
-    expect(parseVaultPathContext("/vault/octo/repo/-/main/chat")).toEqual({
+    expect(parseVaultPathContext("/vault/octo/repo/fs/main/chat")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
@@ -77,13 +103,22 @@ describe("parseVaultPathContext", () => {
   });
 
   it("parses encoded branch names", () => {
-    expect(parseVaultPathContext("/vault/octo/repo/-/feature%2Flogin-flow/src/App.tsx")).toEqual({
+    expect(parseVaultPathContext("/vault/octo/repo/fs/feature%2Flogin-flow/src/App.tsx")).toEqual({
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
       branch: "feature/login-flow",
       filePath: "src/App.tsx",
       isCodespaceChatRoute: false,
+    });
+  });
+
+  it("marks delimiter file routes invalid", () => {
+    expect(parseVaultPathContext("/vault/octo/repo/-/main/src/index.ts")).toEqual({
+      owner: "octo",
+      repositoryFullName: "octo/repo",
+      repoName: "repo",
+      isInvalidVaultRoute: true,
     });
   });
 
@@ -111,6 +146,38 @@ describe("parseVaultPathContext", () => {
       owner: "octo",
       repositoryFullName: "octo/repo",
       repoName: "repo",
+      isInvalidVaultRoute: true,
+    });
+  });
+});
+
+describe("parseVaultDatabasePathContext", () => {
+  it("parses root app database routes", () => {
+    expect(parseVaultDatabasePathContext("/vault/octo/repo/db/feature%2Flogin/root")).toEqual({
+      owner: "octo",
+      repositoryFullName: "octo/repo",
+      repoName: "repo",
+      branch: "feature/login",
+      appRoot: ".",
+    });
+  });
+
+  it("parses monorepo app database routes", () => {
+    expect(parseVaultDatabasePathContext("/vault/octo/repo/db/main/mono/apps/web%20app")).toEqual({
+      owner: "octo",
+      repositoryFullName: "octo/repo",
+      repoName: "repo",
+      branch: "main",
+      appRoot: "apps/web app",
+    });
+  });
+
+  it("marks invalid database app targets invalid", () => {
+    expect(parseVaultDatabasePathContext("/vault/octo/repo/db/main/app/apps/web")).toEqual({
+      owner: "octo",
+      repositoryFullName: "octo/repo",
+      repoName: "repo",
+      branch: "main",
       isInvalidVaultRoute: true,
     });
   });

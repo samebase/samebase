@@ -86,12 +86,12 @@ describe("fileViewRouteSearch", () => {
   it("builds file-view hrefs without decoding encoded branch slashes", () => {
     expect(
       buildFileViewSearchHref({
-        pathname: "/vault/samebase/samebase/-/codex%2Fintegrate-new-skill-files/README.md",
+        pathname: "/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md",
         search: parseTanStackSearch("?dev"),
         fileViewSearch: {
           compare: true,
         },
       }),
-    ).toBe("/vault/samebase/samebase/-/codex%2Fintegrate-new-skill-files/README.md?dev&compare");
+    ).toBe("/vault/samebase/samebase/fs/codex%2Fintegrate-new-skill-files/README.md?dev&compare");
   });
 });

@@ -178,7 +178,7 @@ describe("filterRouteUrlPathSuggestions", () => {
     expect(
       filterRouteUrlPathSuggestions({
         currentHref: "/",
-        draftHref: "/vault/octo/repo/-/main/src/App.tsx",
+        draftHref: "/vault/octo/repo/fs/main/src/App.tsx",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,

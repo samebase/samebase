@@ -97,6 +97,7 @@ import type * as vault_convex from "../vault/convex.js";
 import type * as vault_convexMutations from "../vault/convexMutations.js";
 import type * as vault_createRepositoryContract from "../vault/createRepositoryContract.js";
 import type * as vault_dashboard from "../vault/dashboard.js";
+import type * as vault_database from "../vault/database.js";
 import type * as vault_deletion_cleanup from "../vault/deletion/cleanup.js";
 import type * as vault_deletion_eligibility from "../vault/deletion/eligibility.js";
 import type * as vault_deletion_events from "../vault/deletion/events.js";
@@ -209,6 +210,7 @@ declare const fullApi: ApiFromModules<{
   "vault/convexMutations": typeof vault_convexMutations;
   "vault/createRepositoryContract": typeof vault_createRepositoryContract;
   "vault/dashboard": typeof vault_dashboard;
+  "vault/database": typeof vault_database;
   "vault/deletion/cleanup": typeof vault_deletion_cleanup;
   "vault/deletion/eligibility": typeof vault_deletion_eligibility;
   "vault/deletion/events": typeof vault_deletion_events;
