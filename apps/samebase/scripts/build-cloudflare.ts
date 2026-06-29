@@ -17,7 +17,6 @@ type ConvexDeployPlan =
       kind: "deploy";
       deployKey: string;
       deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY;
-      postHogHost: string | null;
       postHogProjectToken: string | null;
       routeEnvironment: BuildRouteEnvironment;
       args: readonly string[];
@@ -167,7 +166,6 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       branch,
       deployKeyName: PROD_CONVEX_DEPLOY_KEY,
     }),
-    postHogHost: env[PROD_POSTHOG_PROJECT_TOKEN] ? PRODUCTION_POSTHOG_PROXY_HOST : null,
     postHogProjectToken: env[PROD_POSTHOG_PROJECT_TOKEN] ?? null,
     routeEnvironment: "production",
     args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
@@ -195,9 +193,9 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     // Cloudflare Workers build variables are shared across branch types. Keep
     // the app-facing Vite env out of previews by deriving it only after the
     // script has selected the production deploy plan.
-    ...(plan.kind === "deploy" && plan.postHogProjectToken && plan.postHogHost
+    ...(plan.kind === "deploy" && plan.postHogProjectToken
       ? {
-          [VITE_PUBLIC_POSTHOG_HOST]: plan.postHogHost,
+          [VITE_PUBLIC_POSTHOG_HOST]: PRODUCTION_POSTHOG_PROXY_HOST,
           [VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]: plan.postHogProjectToken,
         }
       : {}),

@@ -66,7 +66,6 @@ describe("build-cloudflare", () => {
       kind: "deploy",
       deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
       deployKey: "prod-key",
-      postHogHost: "https://e.samebase.com",
       postHogProjectToken: "phc_prod",
       routeEnvironment: "production",
       args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
@@ -83,7 +82,6 @@ describe("build-cloudflare", () => {
       }),
     ).toMatchObject({
       kind: "deploy",
-      postHogHost: null,
       postHogProjectToken: null,
     });
   });
