@@ -253,6 +253,7 @@ test("vault dashboard fixture (Convex schema graph)", async ({ page }) => {
   await expect(
     fixture.getByTestId("rf__node-fileStaging").getByText("fileStaging", { exact: true }),
   ).toBeVisible();
+  await expect(fixture.locator(".react-flow__edge")).toHaveCount(4);
   await expect(fixture).toHaveScreenshot("vault-convex-schema-graph.png", {
     animations: "disabled",
     caret: "hide",
@@ -272,6 +273,7 @@ test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) =>
   await expect(
     routeMain.getByTestId("rf__node-users").getByText("users", { exact: true }),
   ).toBeVisible();
+  await expect(routeMain.locator(".react-flow__edge")).toHaveCount(4);
   await expect(routeMain).toHaveScreenshot("vault-convex-schema-route-mobile.png", {
     animations: "disabled",
     caret: "hide",

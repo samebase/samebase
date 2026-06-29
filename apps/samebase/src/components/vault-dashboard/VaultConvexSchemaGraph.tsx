@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import {
   Background,
   Controls,
+  Handle,
   MarkerType,
   Position,
   ReactFlow,
@@ -162,7 +163,12 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
   const visibleFields = table.fields.slice(0, 9);
   const hiddenFieldCount = table.fields.length - visibleFields.length;
   return (
-    <div className="w-[300px] overflow-hidden border border-border bg-background text-xs text-foreground">
+    <div className="relative w-[300px] overflow-hidden border border-border bg-background text-xs text-foreground">
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!h-2 !w-2 !border-border !bg-background"
+      />
       <div className="border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center justify-between gap-2">
           <div className="min-w-0 truncate font-mono text-sm font-semibold">{table.name}</div>
@@ -202,6 +208,11 @@ function SchemaTableNode({ data }: NodeProps<SchemaTableNode>) {
           </div>
         ) : null}
       </div>
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!h-2 !w-2 !border-border !bg-background"
+      />
     </div>
   );
 }
