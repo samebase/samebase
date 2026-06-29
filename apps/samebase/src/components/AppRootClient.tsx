@@ -48,6 +48,9 @@ function usePostHogViewerIdentity() {
   }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
+    // Wait for the server-resolved viewer instead of reading JWT/localStorage
+    // fields. `api.users.viewer` is the same user document backend attribution
+    // code will use, and the ref prevents re-identifying on unrelated re-renders.
     if (viewer === undefined || viewer === null) {
       return;
     }
