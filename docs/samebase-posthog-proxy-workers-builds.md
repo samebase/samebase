@@ -8,6 +8,9 @@ The Worker source is based on PostHog's Cloudflare Worker reverse-proxy implemen
 https://posthog.com/docs/advanced/proxy/cloudflare. Keep the `/static/*` and `/array/*` asset-host
 split aligned with that guide unless Samebase intentionally diverges.
 
+The Worker adds browser-facing CORS headers for `https://samebase.com` because Samebase loads
+PostHog remote config from the `https://e.samebase.com` subdomain.
+
 Use these settings for the production trigger:
 
 - Project name: `samebase-posthog-proxy`

@@ -6,6 +6,7 @@
  */
 const POSTHOG_API_HOST = "eu.i.posthog.com";
 const POSTHOG_ASSET_HOST = "eu-assets.i.posthog.com";
+const SAMEBASE_APP_ORIGIN = "https://samebase.com";
 
 export default {
   fetch(request: Request, _env: unknown, ctx: ExecutionContext) {
@@ -14,6 +15,10 @@ export default {
 };
 
 export function handleRequest(request: Request, ctx: ExecutionContext) {
+  if (request.method === "OPTIONS") {
+    return createPostHogProxyPreflightResponse(request);
+  }
+
   const requestUrl = new URL(request.url);
   const pathWithSearch = requestUrl.pathname + requestUrl.search;
 
@@ -49,16 +54,17 @@ async function retrievePostHogAsset(
 ) {
   const cachedResponse = await caches.default.match(request);
   if (cachedResponse) {
-    return cachedResponse;
+    return withPostHogProxyCorsHeaders(cachedResponse, request);
   }
 
   const response = await fetch(`https://${POSTHOG_ASSET_HOST}${pathWithSearch}`);
   ctx.waitUntil(caches.default.put(request, response.clone()));
-  return response;
+  return withPostHogProxyCorsHeaders(response, request);
 }
 
 export async function forwardPostHogRequest(request: Request, pathWithSearch: string) {
-  return await fetch(await createPostHogOriginRequest(request, pathWithSearch));
+  const response = await fetch(await createPostHogOriginRequest(request, pathWithSearch));
+  return withPostHogProxyCorsHeaders(response, request);
 }
 
 /**
@@ -86,4 +92,66 @@ export async function createPostHogOriginRequest(request: Request, pathWithSearc
     method: request.method,
     redirect: request.redirect,
   });
+}
+
+/**
+ * The browser sees Samebase's app and the first-party PostHog proxy as
+ * different origins (`samebase.com` vs `e.samebase.com`). PostHog's remote
+ * config endpoint is loaded through CORS, so the proxy owns the browser-facing
+ * CORS response even when the upstream PostHog response omits those headers.
+ */
+export function createPostHogProxyPreflightResponse(request: Request) {
+  const origin = readAllowedPostHogProxyOrigin(request);
+  if (!origin) {
+    return new Response(null, { status: 403 });
+  }
+
+  const requestedHeaders = request.headers.get("Access-Control-Request-Headers");
+  const headers = new Headers({
+    "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS",
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Max-Age": "86400",
+  });
+  if (requestedHeaders) {
+    headers.set("Access-Control-Allow-Headers", requestedHeaders);
+  }
+  setVaryHeader(headers, "Origin");
+  setVaryHeader(headers, "Access-Control-Request-Headers");
+
+  return new Response(null, { headers, status: 204 });
+}
+
+export function withPostHogProxyCorsHeaders(response: Response, request: Request) {
+  const origin = readAllowedPostHogProxyOrigin(request);
+  if (!origin) {
+    return response;
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", origin);
+  setVaryHeader(headers, "Origin");
+
+  return new Response(response.body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
+
+function readAllowedPostHogProxyOrigin(request: Request) {
+  const origin = request.headers.get("Origin");
+  return origin === SAMEBASE_APP_ORIGIN ? origin : null;
+}
+
+function setVaryHeader(headers: Headers, headerName: string) {
+  const vary = headers.get("Vary");
+  if (!vary) {
+    headers.set("Vary", headerName);
+    return;
+  }
+
+  const existingNames = vary.split(",").map((name) => name.trim().toLowerCase());
+  if (!existingNames.includes(headerName.toLowerCase())) {
+    headers.set("Vary", `${vary}, ${headerName}`);
+  }
 }
