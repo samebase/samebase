@@ -403,8 +403,8 @@ describe("VaultBranchLinkContent", () => {
     );
 
     expect(markup).toContain('href="/vault/samebase/samebase/db/main/root"');
-    expect(markup).toContain('title="View production data for samebase-production"');
-    expect(markup).toContain(">View data<");
+    expect(markup).toContain('title="Open production data for samebase-production"');
+    expect(markup).toContain(">Data<");
   });
 
   it("links non-default branch Samebase actions to changed files", () => {
@@ -429,7 +429,7 @@ describe("VaultBranchLinkContent", () => {
     expect(markup).toContain('title="View changes in Samebase"');
     expect(markup).toContain(">View changes<");
     expect(markup).not.toContain(">Edit<");
-    expect(markup).not.toContain(">View data<");
+    expect(markup).not.toContain(">Data<");
   });
 
   it("links the default branch to the production app URL", () => {

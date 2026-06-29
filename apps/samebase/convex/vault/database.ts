@@ -17,6 +17,7 @@ type ConvexDeployKeyAllowedAction = NonNullable<
 const EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS = 60 * 60 * 1000;
 const EMBEDDED_DASHBOARD_ALLOWED_ACTIONS = [
   "deployment:data:view",
+  "deployment:data:write",
 ] satisfies ConvexDeployKeyAllowedAction[];
 
 const embeddedDashboardCredentialsResult = union(

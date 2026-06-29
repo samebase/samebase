@@ -1695,11 +1695,11 @@ function buildVaultDashboardBranchDatabaseLinks(args: {
         branch: args.branchName,
         appRoot: deployment.appRoot,
       }),
-      label: deployment.appRoot === "." ? "View data" : `View data: ${deployment.appRoot}`,
+      label: deployment.appRoot === "." ? "Data" : `Data: ${deployment.appRoot}`,
       title:
         deployment.appRoot === "."
-          ? `View production data for ${deployment.deploymentName}`
-          : `View production data for ${deployment.deploymentName} at ${deployment.appRoot}`,
+          ? `Open production data for ${deployment.deploymentName}`
+          : `Open production data for ${deployment.deploymentName} at ${deployment.appRoot}`,
     }));
 }
 

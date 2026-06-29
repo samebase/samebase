@@ -35,7 +35,7 @@ function jsonResponse(body: string): Response {
   });
 }
 
-async function seedDatabaseViewerVault(
+async function seedDatabaseEditorVault(
   t: ReturnType<typeof makeConvexTest>,
   convexAuth: ConvexAuth,
 ) {
@@ -117,7 +117,7 @@ afterEach(() => {
 describe("createEmbeddedDashboardCredentials", () => {
   it("mints and revokes OAuth-backed deploy keys without request-scoped actions", async () => {
     const t = makeConvexTest();
-    const user = await seedDatabaseViewerVault(t, {
+    const user = await seedDatabaseEditorVault(t, {
       method: "oauth",
       credential: "convex-oauth-token",
     });
@@ -180,9 +180,9 @@ describe("createEmbeddedDashboardCredentials", () => {
     });
   });
 
-  it("mints and revokes read-only deploy keys from API-key Convex connections", async () => {
+  it("mints and revokes data editor deploy keys from API-key Convex connections", async () => {
     const t = makeConvexTest();
-    const user = await seedDatabaseViewerVault(t, {
+    const user = await seedDatabaseEditorVault(t, {
       method: "api_key",
       credential: "convex-api-key",
     });
@@ -222,7 +222,7 @@ describe("createEmbeddedDashboardCredentials", () => {
     );
     expect(requests[0]?.headers.get("Authorization")).toBe("Bearer convex-api-key");
     await expect(requests[0]?.json()).resolves.toEqual({
-      allowedActions: ["deployment:data:view"],
+      allowedActions: ["deployment:data:view", "deployment:data:write"],
       expiresAt: 1_710_003_600_000,
       name: "samebase-embedded-data-demo-prod-1710003600000",
     });
@@ -250,7 +250,7 @@ describe("createEmbeddedDashboardCredentials", () => {
 describe("revokeEmbeddedDashboardCredentials", () => {
   it("does not delete arbitrary deployment keys", async () => {
     const t = makeConvexTest();
-    const user = await seedDatabaseViewerVault(t, {
+    const user = await seedDatabaseEditorVault(t, {
       method: "api_key",
       credential: "convex-api-key",
     });
