@@ -63,26 +63,12 @@ export function buildVaultCodespaceChatRoute(args: VaultCodespaceChatRouteArgs):
   return `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
 }
 
-export function isChatOnlyCodespaceRoute(pathname: string): boolean {
-  return /^\/vault\/[^/]+\/[^/]+\/codespace\/[^/]+\/chat\/?$/.test(pathname);
-}
-
 export interface ParsedVaultPathContext {
   owner?: string;
   repositoryFullName?: string;
   repoName?: string;
   branch?: string;
   filePath?: string;
-  isCodespaceChatRoute?: boolean;
-  isInvalidVaultRoute?: boolean;
-}
-
-export interface ParsedVaultDatabasePathContext {
-  owner?: string;
-  repositoryFullName?: string;
-  repoName?: string;
-  branch?: string;
-  appRoot?: string;
   isInvalidVaultRoute?: boolean;
 }
 
@@ -103,21 +89,6 @@ export function parseVaultPathContext(pathname: string): ParsedVaultPathContext 
 
   if (!routeKind) {
     return { owner, repositoryFullName, repoName };
-  }
-
-  if (routeKind === "codespace" && segments.length === 6 && segments[5] === "chat") {
-    const encodedBranch = segments[4];
-    const branch =
-      typeof encodedBranch === "string" && encodedBranch.length > 0
-        ? decodeRouteSegmentSafe(encodedBranch)
-        : undefined;
-    return {
-      owner,
-      repositoryFullName,
-      repoName,
-      branch,
-      isCodespaceChatRoute: true,
-    };
   }
 
   if (routeKind !== "fs") {
@@ -154,64 +125,5 @@ export function parseVaultPathContext(pathname: string): ParsedVaultPathContext 
     repoName,
     branch,
     filePath,
-    isCodespaceChatRoute: false,
-  };
-}
-
-export function parseVaultDatabasePathContext(pathname: string): ParsedVaultDatabasePathContext {
-  const segments = pathname.split("/").filter((segment) => segment.length > 0);
-  if (segments.length < 6 || segments[0] !== "vault") {
-    return {};
-  }
-
-  const owner = decodeRouteSegmentSafe(segments[1]);
-  const repoName = decodeRouteSegmentSafe(segments[2]);
-  if (owner.length === 0 || repoName.length === 0 || segments[3] !== "db") {
-    return {};
-  }
-
-  const repositoryFullName = `${owner}/${repoName}`;
-  const encodedBranch = segments[4];
-  if (!encodedBranch || encodedBranch.length === 0) {
-    return {
-      owner,
-      repositoryFullName,
-      repoName,
-      isInvalidVaultRoute: true,
-    };
-  }
-
-  const branch = decodeRouteSegmentSafe(encodedBranch);
-  const appRootKind = segments[5];
-
-  if (appRootKind === "root" && segments.length === 6) {
-    return {
-      owner,
-      repositoryFullName,
-      repoName,
-      branch,
-      appRoot: ".",
-    };
-  }
-
-  if (appRootKind === "mono" && segments.length > 6) {
-    return {
-      owner,
-      repositoryFullName,
-      repoName,
-      branch,
-      appRoot: segments
-        .slice(6)
-        .map((segment) => decodeRouteSegmentSafe(segment))
-        .join("/"),
-    };
-  }
-
-  return {
-    owner,
-    repositoryFullName,
-    repoName,
-    branch,
-    isInvalidVaultRoute: true,
   };
 }
