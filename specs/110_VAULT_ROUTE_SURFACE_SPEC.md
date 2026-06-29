@@ -69,8 +69,10 @@ matching Convex preview deployment for a branch. Until that resolver exists, non
 database links should not silently show production data.
 
 The embedded database surface is an editor, not a read-only viewer. OAuth-backed embedded dashboard
-credentials use the connected user's normal Convex grant. API-key fallback credentials must request
-the deployment data actions needed for editing, including both data view and data write access.
+credentials use the connected user's normal Convex grant, and must not send request-scoped
+`allowedActions` or `expiresAt` options because Convex reuses the OAuth token grant for those deploy
+keys. API-key fallback credentials must request the deployment data actions needed for editing,
+including both data view and data write access.
 
 On mobile, the database editor route must expose explicit left and right workspace sidebar toggles.
 The embedded dashboard runs in a cross-origin iframe, so iframe-owned touch gestures cannot be the
