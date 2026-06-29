@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: May 4, 2026
+Last updated: June 29, 2026
 
-Reviewed and updated by Codex (GPT-5) on May 4, 2026, based on the current Samebase source code.
+Reviewed and updated by Codex (GPT-5) on June 29, 2026, based on the current Samebase source code.
 
 This Privacy Policy describes how Samebase handles information in the current app code. It is
 intentionally narrow: it covers the data flows, integrations, browser storage, and retention
