@@ -7,11 +7,14 @@ import {
   LOGO_GRID_SIZE_3,
   LOGO_GRID_SIZE_4,
   LOGO_GRID_SIZE_5,
+  MAX_LOGO_GRID_SIZE,
   createDefaultFilledVoxelSet,
   createDefaultVoxelState,
   createLogoFractalVoxelGrid,
+  normalizeLogoGridSize,
   normalizeLogoFractalDepth,
   parseVoxelKey,
+  readLogoGridSize,
   voxelKey,
 } from "@/components/logo/logoVoxelState";
 
@@ -54,13 +57,16 @@ describe("logoVoxelState", () => {
   it("extends the checker lattice across only exterior faces for larger grids", () => {
     const grid4 = createLogoFractalVoxelGrid({ depth: 1, gridSize: LOGO_GRID_SIZE_4 });
     const grid5 = createLogoFractalVoxelGrid({ depth: 1, gridSize: LOGO_GRID_SIZE_5 });
+    const grid10 = createLogoFractalVoxelGrid({ depth: 1, gridSize: MAX_LOGO_GRID_SIZE });
 
     expect(grid4.gridSize).toBe(4);
     expect(grid4.filledVoxels.size).toBe(27);
     expect(grid5.gridSize).toBe(5);
     expect(grid5.filledVoxels.size).toBe(48);
+    expect(grid10.gridSize).toBe(10);
+    expect(grid10.filledVoxels.size).toBe(243);
 
-    for (const voxelGrid of [grid4, grid5]) {
+    for (const voxelGrid of [grid4, grid5, grid10]) {
       for (const key of voxelGrid.filledVoxels) {
         const [x, y, z] = readTestVoxelKey(key);
         const isExterior =
@@ -80,6 +86,20 @@ describe("logoVoxelState", () => {
     expect(grid4.filledVoxels.has(voxelKey(3, 3, 3))).toBe(false);
     expect(grid5.filledVoxels.has(voxelKey(1, 2, 3))).toBe(false);
     expect(grid5.filledVoxels.has(voxelKey(4, 4, 4))).toBe(false);
+    expect(grid10.filledVoxels.has(voxelKey(1, 2, 3))).toBe(false);
+    expect(grid10.filledVoxels.has(voxelKey(9, 9, 9))).toBe(false);
+  });
+
+  it("accepts whole-number logo grid sizes from 2 through 10", () => {
+    expect(readLogoGridSize(LOGO_GRID_SIZE_2)).toBe(LOGO_GRID_SIZE_2);
+    expect(readLogoGridSize(MAX_LOGO_GRID_SIZE)).toBe(MAX_LOGO_GRID_SIZE);
+    expect(readLogoGridSize(1)).toBeNull();
+    expect(readLogoGridSize(11)).toBeNull();
+    expect(readLogoGridSize(3.5)).toBeNull();
+
+    expect(normalizeLogoGridSize(1)).toBe(LOGO_GRID_SIZE_2);
+    expect(normalizeLogoGridSize(10.4)).toBe(MAX_LOGO_GRID_SIZE);
+    expect(normalizeLogoGridSize(undefined)).toBe(DEFAULT_LOGO_GRID_SIZE);
   });
 
   it("keeps recursive 3D corners empty while preserving the 3x3 side carpet", () => {

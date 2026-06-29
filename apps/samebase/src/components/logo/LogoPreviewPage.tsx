@@ -98,15 +98,16 @@ import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_LOGO_FRACTAL_DEPTH,
   DEFAULT_ROTATION_DEGREES,
-  LOGO_GRID_SIZE_OPTIONS,
+  MAX_LOGO_GRID_SIZE,
   MAX_ELEVATION_DEGREES,
+  MIN_LOGO_GRID_SIZE,
   MIN_LOGO_FRACTAL_DEPTH,
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
   createDefaultVoxelState,
   normalizeElevationDegrees,
+  normalizeLogoGridSize,
   normalizeRotationDegrees,
-  type LogoGridSize,
   type VoxelEdit,
 } from "@/components/logo/logoVoxelState";
 import { resolveLogoViewState, type LogoViewState } from "@/components/logo/logoViewDrag";
@@ -815,14 +816,15 @@ function useLogoPreviewController({
           fractalDepth: nextFractalDepth,
         }));
       },
-      setGridSize: (gridSize: LogoGridSize) => {
-        const voxelState = createDefaultVoxelState(gridSize);
+      setGridSize: (gridSize: number) => {
+        const normalizedGridSize = normalizeLogoGridSize(gridSize);
+        const voxelState = createDefaultVoxelState(normalizedGridSize);
         commitRouteState((currentState) => ({
           ...currentState,
           autoRotateEnabled: false,
           autoShuffleEnabled: false,
-          gridSize,
-          selectedPresetId: getLogoPresetSelection(voxelState, gridSize),
+          gridSize: normalizedGridSize,
+          selectedPresetId: getLogoPresetSelection(voxelState, normalizedGridSize),
           voxelState,
         }));
       },
@@ -1500,22 +1502,25 @@ export function LogoPreviewPage({
           valueText={`${state.fractalDepth}`}
         />
 
-        <div className={LOGO_CONTROL_BUTTON_ROW_CLASS_NAME}>
-          {LOGO_GRID_SIZE_OPTIONS.map((gridSize) => (
-            <Button
-              key={gridSize}
-              type="button"
-              size="sm"
-              variant={state.gridSize === gridSize ? "default" : "outline"}
-              className={LOGO_CONTROL_BUTTON_CLASS_NAME}
-              aria-pressed={state.gridSize === gridSize}
-              onClick={() => {
-                controls.setGridSize(gridSize);
-              }}
-            >
-              {gridSize}x{gridSize}
-            </Button>
-          ))}
+        <div className={LOGO_CONTROL_STACK_CLASS_NAME}>
+          <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <span>Grid</span>
+            <span>
+              {state.gridSize}x{state.gridSize}
+            </span>
+          </div>
+          <LogoNumberInput
+            ariaLabel="Grid size"
+            formatValue={(value) => Math.round(value).toString()}
+            inputMode="numeric"
+            min={MIN_LOGO_GRID_SIZE}
+            max={MAX_LOGO_GRID_SIZE}
+            normalizeValue={normalizeLogoGridSize}
+            onValueChange={controls.setGridSize}
+            step="1"
+            value={state.gridSize}
+            variant="preview"
+          />
         </div>
 
         <Select

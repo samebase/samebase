@@ -1,12 +1,21 @@
+import { includes } from "@samebase/dependent";
+
 export const LOGO_GRID_SIZE_2 = 2;
 export const LOGO_GRID_SIZE_3 = 3;
 export const LOGO_GRID_SIZE_4 = 4;
 export const LOGO_GRID_SIZE_5 = 5;
+export const MIN_LOGO_GRID_SIZE = LOGO_GRID_SIZE_2;
+export const MAX_LOGO_GRID_SIZE = 10;
 export const LOGO_GRID_SIZE_OPTIONS = [
   LOGO_GRID_SIZE_2,
   LOGO_GRID_SIZE_3,
   LOGO_GRID_SIZE_4,
   LOGO_GRID_SIZE_5,
+  6,
+  7,
+  8,
+  9,
+  MAX_LOGO_GRID_SIZE,
 ] as const;
 export type LogoGridSize = (typeof LOGO_GRID_SIZE_OPTIONS)[number];
 export const DEFAULT_LOGO_GRID_SIZE: LogoGridSize = LOGO_GRID_SIZE_3;
@@ -77,23 +86,21 @@ export function isWithinVoxelGrid(gridSize: number, x: number, y: number, z: num
 }
 
 export function readLogoGridSize(value: number): LogoGridSize | null {
-  switch (value) {
-    case LOGO_GRID_SIZE_2:
-      return LOGO_GRID_SIZE_2;
-    case LOGO_GRID_SIZE_3:
-      return LOGO_GRID_SIZE_3;
-    case LOGO_GRID_SIZE_4:
-      return LOGO_GRID_SIZE_4;
-    case LOGO_GRID_SIZE_5:
-      return LOGO_GRID_SIZE_5;
+  if (Number.isInteger(value) && includes(LOGO_GRID_SIZE_OPTIONS, value)) {
+    return value;
   }
 
   return null;
 }
 
 export function normalizeLogoGridSize(value: number | undefined): LogoGridSize {
-  const gridSize = typeof value === "number" ? readLogoGridSize(value) : null;
-  return gridSize ?? DEFAULT_LOGO_GRID_SIZE;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_LOGO_GRID_SIZE;
+  }
+
+  const roundedValue = Math.round(value);
+  const clampedValue = Math.min(Math.max(roundedValue, MIN_LOGO_GRID_SIZE), MAX_LOGO_GRID_SIZE);
+  return readLogoGridSize(clampedValue) ?? DEFAULT_LOGO_GRID_SIZE;
 }
 
 export function normalizeRotationDegrees(value: number): number {
@@ -118,6 +125,21 @@ function isExteriorVoxel(gridSize: LogoGridSize, x: number, y: number, z: number
   );
 }
 
+function isEvenGridDefaultViewNearCorner(
+  gridSize: LogoGridSize,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
+  return (
+    gridSize !== LOGO_GRID_SIZE_2 &&
+    gridSize % 2 === 0 &&
+    x === gridSize - 1 &&
+    y === gridSize - 1 &&
+    z === gridSize - 1
+  );
+}
+
 export function createDefaultVoxelCoordinates(gridSize: LogoGridSize): VoxelCoordinate[] {
   if (gridSize === LOGO_GRID_SIZE_2) {
     return DEFAULT_LOGO_GRID_SIZE_2_COORDINATES.map(([x, y, z]): VoxelCoordinate => [x, y, z]);
@@ -129,16 +151,11 @@ export function createDefaultVoxelCoordinates(gridSize: LogoGridSize): VoxelCoor
     for (let y = 0; y < gridSize; y += 1) {
       for (let z = 0; z < gridSize; z += 1) {
         const isOddCheckerCell = (x + y + z) % 2 === 1;
-        const isGrid4DefaultViewNearCorner =
-          gridSize === LOGO_GRID_SIZE_4 &&
-          x === LOGO_GRID_SIZE_4 - 1 &&
-          y === LOGO_GRID_SIZE_4 - 1 &&
-          z === LOGO_GRID_SIZE_4 - 1;
 
         if (
           isOddCheckerCell &&
           isExteriorVoxel(gridSize, x, y, z) &&
-          !isGrid4DefaultViewNearCorner
+          !isEvenGridDefaultViewNearCorner(gridSize, x, y, z)
         ) {
           coordinates.push([x, y, z]);
         }
