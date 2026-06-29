@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url";
 
 const PROD_CONVEX_DEPLOY_KEY = "PROD_CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
+const PROD_POSTHOG_PROJECT_TOKEN = "PROD_POSTHOG_PROJECT_TOKEN";
+const VITE_PUBLIC_POSTHOG_PROJECT_TOKEN = "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN";
 const VITE_SAMEBASE_ROUTE_ENVIRONMENT = "VITE_SAMEBASE_ROUTE_ENVIRONMENT";
 
 type BuildRouteEnvironment = "local" | "preview" | "production";
@@ -13,6 +15,7 @@ type ConvexDeployPlan =
       kind: "deploy";
       deployKey: string;
       deployKeyName: typeof PROD_CONVEX_DEPLOY_KEY;
+      postHogProjectToken: string | null;
       routeEnvironment: BuildRouteEnvironment;
       args: readonly string[];
     }
@@ -100,6 +103,12 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
     );
   }
 
+  if (isWorkersBuild(env) && env[VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]) {
+    throw new Error(
+      `Do not set ${VITE_PUBLIC_POSTHOG_PROJECT_TOKEN} in Cloudflare Workers build variables. Set ${PROD_POSTHOG_PROJECT_TOKEN}; this script exposes it to Vite only for main.`,
+    );
+  }
+
   const branch = env.WORKERS_CI_BRANCH;
   if (!branch) {
     if (isWorkersBuild(env)) {
@@ -149,6 +158,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
       branch,
       deployKeyName: PROD_CONVEX_DEPLOY_KEY,
     }),
+    postHogProjectToken: env[PROD_POSTHOG_PROJECT_TOKEN] ?? null,
     routeEnvironment: "production",
     args: ["exec", "convex", "deploy", "--cmd", "pnpm run build:ci"],
   };
@@ -172,6 +182,12 @@ export async function main(env: NodeJS.ProcessEnv = process.env) {
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
+    // Cloudflare Workers build variables are shared across branch types. Keep
+    // the app-facing Vite env out of previews by deriving it only after the
+    // script has selected the production deploy plan.
+    ...(plan.kind === "deploy" && plan.postHogProjectToken
+      ? { [VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]: plan.postHogProjectToken }
+      : {}),
     ...(plan.kind === "deploy" ? { SAMEBASE_PRERENDER_ORIGIN: "https://samebase.com" } : {}),
   });
 }
