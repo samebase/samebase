@@ -11,9 +11,11 @@ const VaultDatabaseView = lazy(async () => {
 });
 
 function VaultDatabaseRouteComponent() {
+  const { branch, owner, repo } = Route.useParams();
+
   return (
     <AuthenticatedAppRoutePage>
-      <VaultDatabaseView />
+      <VaultDatabaseView owner={owner} repoName={repo} branch={branch} appRoot="." />
     </AuthenticatedAppRoutePage>
   );
 }

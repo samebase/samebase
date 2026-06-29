@@ -3,8 +3,6 @@ import { useAction } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
-import { parseVaultDatabasePathContext } from "@/lib/vaultRoutes";
-import { useLocation } from "@tanstack/react-router";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 
 const EMBEDDED_DASHBOARD_ORIGIN = "https://dashboard-embedded.convex.dev";
@@ -50,10 +48,14 @@ function VaultDatabaseStatus({ children }: { children: ReactNode }) {
   );
 }
 
-export function VaultDatabaseView() {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
-  });
+type VaultDatabaseViewProps = {
+  owner: string;
+  repoName: string;
+  branch: string;
+  appRoot: string;
+};
+
+export function VaultDatabaseView({ owner, repoName, branch, appRoot }: VaultDatabaseViewProps) {
   const createEmbeddedDashboardCredentials = useAction(
     api.vault.database.createEmbeddedDashboardCredentials,
   );
@@ -65,7 +67,6 @@ export function VaultDatabaseView() {
   const [credentialsResult, setCredentialsResult] =
     useState<EmbeddedDashboardCredentialsResult | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const context = parseVaultDatabasePathContext(pathname);
   const readyCredentials = credentialsResult?.kind === "ready" ? credentialsResult : null;
   credentialsRef.current = readyCredentials;
 
@@ -105,27 +106,15 @@ export function VaultDatabaseView() {
   }, []);
 
   useEffect(() => {
-    if (
-      !context.owner ||
-      !context.repoName ||
-      !context.branch ||
-      !context.appRoot ||
-      context.isInvalidVaultRoute
-    ) {
-      setCredentialsResult(null);
-      setLoadError("Database route not found.");
-      return;
-    }
-
     let cancelled = false;
     let mintedCredentials: ReadyEmbeddedDashboardCredentials | null = null;
     setCredentialsResult(null);
     setLoadError(null);
     const requestArgs = {
-      owner: context.owner,
-      repoName: context.repoName,
-      branch: context.branch,
-      appRoot: context.appRoot,
+      owner,
+      repoName,
+      branch,
+      appRoot,
     };
     const revokeCredentials = (credentials: ReadyEmbeddedDashboardCredentials) => {
       void revokeEmbeddedDashboardCredentials({
@@ -164,20 +153,15 @@ export function VaultDatabaseView() {
       }
     };
   }, [
-    context.appRoot,
-    context.branch,
-    context.isInvalidVaultRoute,
-    context.owner,
-    context.repoName,
+    appRoot,
+    branch,
     createEmbeddedDashboardCredentials,
+    owner,
+    repoName,
     revokeEmbeddedDashboardCredentials,
   ]);
 
-  const titleParts = [
-    context.repositoryFullName,
-    context.branch,
-    context.appRoot ? formatAppRoot(context.appRoot) : undefined,
-  ].filter((part) => typeof part === "string" && part.length > 0);
+  const titleParts = [`${owner}/${repoName}`, branch, formatAppRoot(appRoot)];
 
   return (
     <AppWorkspaceRouteChrome leftToggleVisibility="all" rightToggleVisibility="all">

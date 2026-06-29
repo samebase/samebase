@@ -28,10 +28,12 @@ function DisabledCodespaceChatRedirect() {
 }
 
 function CodespaceChatRouteComponent() {
+  const { branch, owner, repo } = Route.useParams();
+
   return (
     <AuthenticatedAppRoutePage>
       {CHAT_ENABLED && CODESPACES_ENABLED ? (
-        <CodespaceChatOnlyView />
+        <CodespaceChatOnlyView owner={owner} repoName={repo} branch={branch} />
       ) : (
         <DisabledCodespaceChatRedirect />
       )}
