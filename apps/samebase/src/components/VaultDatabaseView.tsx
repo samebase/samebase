@@ -155,12 +155,6 @@ export function VaultDatabaseView() {
 
   return (
     <div data-testid="vault-database-page" className="flex h-full min-h-0 flex-col bg-background">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-4 text-sm">
-        <span className="font-medium">Data</span>
-        {titleParts.length > 0 ? (
-          <span className="truncate text-muted-foreground">{titleParts.join(" / ")}</span>
-        ) : null}
-      </div>
       {loadError ? (
         <VaultDatabaseStatus>{loadError}</VaultDatabaseStatus>
       ) : readyCredentials ? (
