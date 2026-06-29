@@ -52,6 +52,8 @@ const CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS = [
   "deployment:env:write",
   "deployment:data:view",
 ] satisfies ConvexDeployKeyAllowedAction[];
+const CONVEX_CLOUDFLARE_BUILDS_REQUIRE_API_KEY_MESSAGE =
+  "Samebase-managed builds need a Convex API key connection. Convex OAuth-backed deploy keys reuse the OAuth grant and can fail in later builds. Reconnect Convex with an API key, then retry.";
 
 const activeProvisioningRunResult = v.object({ active: v.boolean() });
 const infrastructurePatchResult = v.object({ applied: v.boolean() });
@@ -811,6 +813,20 @@ export function resolveConnectionFailureProvider(message: string): ProviderFailu
   return null;
 }
 
+function requireConvexApiKeyForCloudflareBuilds(args: {
+  convexAuthMethod: ConvexProvisioningAuthMethod;
+}): void {
+  switch (args.convexAuthMethod) {
+    case "api_key":
+      return;
+    case "oauth":
+      throw new Error(CONVEX_CLOUDFLARE_BUILDS_REQUIRE_API_KEY_MESSAGE);
+    default:
+      args.convexAuthMethod satisfies never;
+      return;
+  }
+}
+
 export async function resolveConvexProvisioningConnection(
   ctx: Pick<ActionCtx, "runQuery">,
   userId: Id<"users">,
@@ -1394,9 +1410,11 @@ export const validateProvisioningConnections = internalAction({
       state: "running",
     });
 
+    const { convexAuthMethod } = await resolveConvexProvisioningConnection(ctx, vault.userId);
+    requireConvexApiKeyForCloudflareBuilds({ convexAuthMethod });
+
     await Promise.all([
       resolveGitHubProvisioningConnection(ctx, vault.userId),
-      resolveConvexProvisioningConnection(ctx, vault.userId),
       resolveCloudflareProvisioningConnection(ctx, vault.userId),
     ]);
 
@@ -1613,6 +1631,10 @@ export const ensureCloudflareInfrastructure = internalAction({
       throw new Error("Vault not found for infrastructure provisioning.");
     }
 
+    const { convexToken, convexAuthMethod, convexTeamId } =
+      await resolveConvexProvisioningConnection(ctx, vault.userId);
+    requireConvexApiKeyForCloudflareBuilds({ convexAuthMethod });
+
     await appendProvisioningRunEvent(ctx, {
       runId: args.runId,
       step: "ensure_cloudflare",
@@ -1644,8 +1666,6 @@ export const ensureCloudflareInfrastructure = internalAction({
     });
     const defaultBranch = vault.defaultBranch;
     const { githubAccessToken } = await resolveGitHubProvisioningConnection(ctx, vault.userId);
-    const { convexToken, convexAuthMethod, convexTeamId } =
-      await resolveConvexProvisioningConnection(ctx, vault.userId);
     const { cloudflareToken, cloudflareAuthMethod, cloudflareAccountId } =
       await resolveCloudflareProvisioningConnection(ctx, vault.userId);
     const recordApiCall = createProviderApiCallRecorder(ctx, {
