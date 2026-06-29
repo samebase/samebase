@@ -234,7 +234,7 @@ function FileViewWrapper() {
 
   /**
    * Old routes could omit the branch segment. Once we know the real branch,
-   * rewrite `/vault/:owner/:repo` into `/vault/:owner/:repo/-/:branch`.
+   * rewrite `/vault/:owner/:repo` into `/vault/:owner/:repo/fs/:branch`.
    */
   useEffect(() => {
     if (!owner || !repoName || !branch || branchParam) {
@@ -251,7 +251,7 @@ function FileViewWrapper() {
 
   /**
    * If we recovered a file path from an old branchless URL, rewrite the URL to
-   * the canonical `/vault/:owner/:repo/-/:branch/:file` form.
+   * the canonical `/vault/:owner/:repo/fs/:branch/:file` form.
    */
   useEffect(() => {
     if (!owner || !repoName || !branch || !branchParam || !legacyBranchlessFilePath) {

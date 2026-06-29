@@ -70,7 +70,11 @@ import {
   type CloudflareAccountOption,
 } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { buildVaultCodespaceChatRoute, buildVaultFileRoute } from "@/lib/vaultRoutes";
+import {
+  buildVaultCodespaceChatRoute,
+  buildVaultDatabaseRoute,
+  buildVaultFileRoute,
+} from "@/lib/vaultRoutes";
 import {
   formatVaultSourceSetupStep,
   type VaultDashboardSourceSetup,
@@ -126,6 +130,7 @@ export type VaultDashboardVault = NonNullable<
 type VaultDashboardStagedBranchSummary = NonNullable<
   (typeof api.fileStaging.listStagedFilesBranchSummaries)["_returnType"]
 >[number];
+type VaultDashboardConvexDeployment = VaultDashboardVault["convexDeployments"][number];
 type VaultDashboardStagedBranchSummariesByVaultId = Map<
   string,
   readonly VaultDashboardStagedBranchSummary[]
@@ -1452,6 +1457,7 @@ interface VaultBranchLinkRowProps {
   vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
+  convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
   stagedSummary?: StagedSummary;
 }
@@ -1468,6 +1474,12 @@ type VaultBranchProductionLink = {
 type VaultBranchProductionApp = {
   appRoot: string;
   links: readonly VaultBranchProductionLink[];
+};
+
+type VaultBranchDatabaseLink = {
+  href: string;
+  label: string;
+  title: string;
 };
 
 const BRANCH_PRODUCTION_LINK_ICONS = {
@@ -1651,6 +1663,44 @@ function buildVaultDashboardBranchRoute(args: {
     search: {},
     fileViewSearch: buildFileViewRouteSearch({ compare: true }),
   });
+}
+
+function buildVaultDashboardBranchDatabaseLinks(args: {
+  repositoryFullName: string;
+  branchName: string;
+  convexDeployments: readonly VaultDashboardConvexDeployment[];
+}): VaultBranchDatabaseLink[] {
+  const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
+
+  if (
+    !owner ||
+    !repoName ||
+    typeof extraSegment === "string" ||
+    owner.length === 0 ||
+    repoName.length === 0
+  ) {
+    return [];
+  }
+
+  return [...args.convexDeployments]
+    .sort(
+      (left, right) =>
+        left.appRoot.localeCompare(right.appRoot) ||
+        left.deploymentName.localeCompare(right.deploymentName),
+    )
+    .map((deployment) => ({
+      href: buildVaultDatabaseRoute({
+        owner,
+        repoName,
+        branch: args.branchName,
+        appRoot: deployment.appRoot,
+      }),
+      label: deployment.appRoot === "." ? "Data" : `Data: ${deployment.appRoot}`,
+      title:
+        deployment.appRoot === "."
+          ? `Open production data for ${deployment.deploymentName}`
+          : `Open production data for ${deployment.deploymentName} at ${deployment.appRoot}`,
+    }));
 }
 
 function CommitChecksSummaryLink({ commit }: { commit: VaultBranchCommitViewModel }) {
@@ -1839,10 +1889,12 @@ export function VaultDashboardRepositoryExternalLinks({
 export function VaultBranchLinkContent({
   repositoryFullName,
   branch,
+  convexDeployments = [],
   productionApps = [],
 }: {
   repositoryFullName: string;
   branch: VaultRemoteBranchListItem;
+  convexDeployments?: readonly VaultDashboardConvexDeployment[];
   productionApps?: readonly VaultBranchProductionApp[];
 }) {
   const branchRow = buildVaultBranchRowViewModel({
@@ -1875,6 +1927,13 @@ export function VaultBranchLinkContent({
     ? "Open branch in Samebase"
     : "View changes in Samebase";
   const activeProductionApps = branchRow.isDefault ? productionApps : [];
+  const activeDatabaseLinks = branchRow.isDefault
+    ? buildVaultDashboardBranchDatabaseLinks({
+        repositoryFullName,
+        branchName: branchRow.name,
+        convexDeployments,
+      })
+    : [];
 
   return (
     <>
@@ -1973,6 +2032,19 @@ export function VaultBranchLinkContent({
                   </DashboardLinkIconSlot>
                   <span>{branchSamebaseLinkLabel}</span>
                 </Link>
+                {activeDatabaseLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className={clsx(metadataLinkClassName, "gap-1.5")}
+                    title={link.title}
+                  >
+                    <DashboardLinkIconSlot>
+                      <ConvexProviderLogo />
+                    </DashboardLinkIconSlot>
+                    <span>{link.label}</span>
+                  </Link>
+                ))}
               </div>
             ) : null}
           </div>
@@ -1986,6 +2058,7 @@ export function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branch,
+  convexDeployments,
   productionApps,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
@@ -2002,6 +2075,7 @@ export function VaultBranchLinkRow({
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branch={branch}
+        convexDeployments={convexDeployments}
         productionApps={productionApps}
       />
       {showRowActions ? (
@@ -2025,6 +2099,7 @@ export function VaultBranchLinkRow({
 interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
+  convexDeployments?: readonly VaultDashboardConvexDeployment[];
   remoteBranches: VaultRemoteBranchListItem[];
   productionApps?: readonly VaultBranchProductionApp[];
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
@@ -2068,6 +2143,7 @@ export function VaultBranchListExpansionControl({
 function VaultBranchList({
   vaultId,
   repositoryFullName,
+  convexDeployments,
   remoteBranches,
   productionApps,
   stagedSummaries,
@@ -2088,6 +2164,7 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           stagedSummary={summaryByBranch.get(branch.name)}
+          convexDeployments={branch.isDefault ? convexDeployments : undefined}
           productionApps={branch.isDefault ? productionApps : undefined}
         />
       ))}
@@ -2133,6 +2210,7 @@ export function VaultBranchHeaderControls({
 }
 
 function VaultBranchSection({
+  convexDeployments,
   filteredBranchCount,
   productionApps,
   repositoryFullName,
@@ -2140,6 +2218,7 @@ function VaultBranchSection({
   vaultId,
   visibleRemoteBranches,
 }: {
+  convexDeployments?: readonly VaultDashboardConvexDeployment[];
   filteredBranchCount: number;
   productionApps?: readonly VaultBranchProductionApp[];
   repositoryFullName: string;
@@ -2154,6 +2233,7 @@ function VaultBranchSection({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           remoteBranches={visibleRemoteBranches}
+          convexDeployments={convexDeployments}
           productionApps={productionApps}
           stagedSummaries={stagedSummaries}
         />
@@ -3233,6 +3313,7 @@ export function VaultDashboardView({
               branchSection={
                 isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
                   <VaultBranchSection
+                    convexDeployments={vault.convexDeployments}
                     filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
                     vaultId={vault._id}
                     repositoryFullName={vault.repositoryFullName}

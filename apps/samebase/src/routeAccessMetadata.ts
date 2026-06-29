@@ -44,6 +44,8 @@ const routeAccessMetadataByPath = {
   "/test": { availableEnvironments: ["local"], access: "access_admin" },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo/codespace/$branch/chat": { access: "access_machines" },
+  "/vault/$owner/$repo/db/$branch/root": { access: "access_files_read" },
+  "/vault/$owner/$repo/db/$branch/mono/$": { access: "access_files_read" },
   "/visual-fixture": { availableEnvironments: ["local"], access: "access_public" },
 } as const satisfies Record<keyof FileRoutesByFullPath, RouteMetadata>;
 

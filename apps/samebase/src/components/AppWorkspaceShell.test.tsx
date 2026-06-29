@@ -134,6 +134,14 @@ describe("AppWorkspaceShell", () => {
     );
   }
 
+  function MobileSidebarToggleRouteChromeProbe() {
+    return (
+      <AppWorkspaceRouteChrome leftToggleVisibility="all" rightToggleVisibility="all">
+        <div data-testid="route-chrome-mobile-toggle-probe">Route content</div>
+      </AppWorkspaceRouteChrome>
+    );
+  }
+
   function renderClientShell() {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -428,6 +436,28 @@ describe("AppWorkspaceShell", () => {
     expect(getRequiredElement('[data-testid="route-chrome-accessory"]').textContent).toBe(
       "Updated route chrome",
     );
+  });
+
+  it("lets route chrome expose both sidebar toggles on mobile", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    act(() => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/machines"]}>
+          <AppWorkspaceShell>
+            <MobileSidebarToggleRouteChromeProbe />
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+    });
+
+    const leftToggle = getRequiredElement('button[aria-label="Toggle sidebar"]');
+    const rightToggle = getRequiredElement('button[aria-label="Toggle Right Sidebar"]');
+
+    expect(leftToggle.classList.contains("hidden")).toBe(false);
+    expect(rightToggle.classList.contains("hidden")).toBe(false);
   });
 
   it("mirrors hydrated Convex sidebar state into localStorage", () => {

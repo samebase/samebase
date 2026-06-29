@@ -16,7 +16,7 @@ function fakeVaultId(): Id<"vaults"> {
 function MediaUploadProbe() {
   const mediaUpload = useFileViewMediaUpload({
     branch: "main",
-    buildVaultFileUrl: (path) => `/vault/octo/repo/-/main/${path}`,
+    buildVaultFileUrl: (path) => `/vault/octo/repo/fs/main/${path}`,
     deletePendingUploadBlob: vi.fn(async () => null),
     generateUploadUrl: vi.fn(async () => "/upload"),
     navigateByHref: vi.fn(),

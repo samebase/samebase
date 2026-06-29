@@ -149,6 +149,10 @@ vi.mock("@/components/FileView/FileView", () => ({
   FileView: () => <div data-testid="file-view-page">File view page</div>,
 }));
 
+vi.mock("@/components/VaultDatabaseView", () => ({
+  VaultDatabaseView: () => <div data-testid="vault-database-page">Vault database page</div>,
+}));
+
 vi.mock("@/components/PitchDeckPage", () => ({
   PitchDeckPage: ({ mode }: { mode: string }) => <div data-testid="pitch-deck-page">{mode}</div>,
 }));
@@ -811,17 +815,27 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/-/main");
+    expect(router.state.location.pathname).toBe("/vault/samebase/samebase/fs/main");
     expect(rootElement?.querySelector('[data-testid="codespace-chat-page"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).not.toBeNull();
   });
 
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/vault/samebase/samebase/-/main/README.md");
+    await renderRoute("/vault/samebase/samebase/fs/main/README.md");
 
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent).toBe(
       "File view page",
     );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders the vault database route through the database route", async () => {
+    await renderRoute("/vault/samebase/samebase/db/main/root");
+
+    expect(rootElement?.querySelector('[data-testid="vault-database-page"]')?.textContent).toBe(
+      "Vault database page",
+    );
+    expect(rootElement?.querySelector('[data-testid="file-view-page"]')).toBeNull();
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

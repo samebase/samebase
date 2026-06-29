@@ -197,7 +197,7 @@ describe("SignInWithGoogle", () => {
     vi.stubGlobal("window", {
       location: {
         origin: "https://samebase.com",
-        pathname: "/vault/samebase/samebase/-/main/README.md",
+        pathname: "/vault/samebase/samebase/fs/main/README.md",
         search: "",
         hash: "",
       },
@@ -209,7 +209,7 @@ describe("SignInWithGoogle", () => {
     element.props.onClick();
 
     expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
-      popupPath: "/vault/samebase/samebase/-/main/README.md?auth=google",
+      popupPath: "/vault/samebase/samebase/fs/main/README.md?auth=google",
     });
     expect(signInWithGoogleMock).not.toHaveBeenCalled();
   });

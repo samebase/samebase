@@ -11,6 +11,7 @@
   - `rfcs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
   - `rfcs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
 
 ## Summary
 
@@ -49,6 +50,8 @@ Current workflow direction for Samebase:
 3. Tree refresh writes branch-scoped cache for any refreshed branch (`vaultBranchTrees`)
 4. Default-branch tree reads come from `vaultBranchTrees`; missing branch tree data is treated as
    unavailable tree cache, not as GitHub disconnection
+5. The accepted target route surface for vault, filesystem, and database pages is defined in
+   `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
 
 ## Vault Dashboard Delete Surface
 

@@ -1,13 +1,13 @@
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useAction, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, Loader2, RefreshCcw } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { CodespaceIframe } from "./CodespaceIframe";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
-import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
+import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set(["stopped", "failed", "deleted"]);
 
@@ -15,28 +15,19 @@ function formatCodespaceState(state: string): string {
   return `${state.charAt(0).toUpperCase()}${state.slice(1)}`;
 }
 
-export function CodespaceChatOnlyView() {
-  const pathname = useLocation({
-    select: (location) => location.pathname,
-  });
-  const { owner, repoName, branch } = useMemo(() => parseVaultPathContext(pathname), [pathname]);
-  const targetBranch = branch;
-  const repositoryFullName = useMemo(() => {
-    if (!owner || !repoName) {
-      return null;
-    }
-    return `${owner}/${repoName}`;
-  }, [owner, repoName]);
+type CodespaceChatOnlyViewProps = {
+  owner: string;
+  repoName: string;
+  branch: string;
+};
 
-  const vault = useVaultQuery(
-    api.vault.records.getVaultByRepository,
-    repositoryFullName
-      ? {
-          repositoryFullName,
-          branch: targetBranch,
-        }
-      : "skip",
-  );
+export function CodespaceChatOnlyView({ owner, repoName, branch }: CodespaceChatOnlyViewProps) {
+  const repositoryFullName = `${owner}/${repoName}`;
+
+  const vault = useVaultQuery(api.vault.records.getVaultByRepository, {
+    repositoryFullName,
+    branch,
+  });
   const vaultId = vault?._id;
   const codespace = useQuery(
     api.codespaces.mutations.getActiveCodespace,
@@ -93,24 +84,11 @@ export function CodespaceChatOnlyView() {
     void handleEnsureCodespace();
   }, [vaultId, codespace, autoEnsureDoneForVaultId, isEnsuringCodespace, handleEnsureCodespace]);
 
-  if (!owner || !repoName) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Invalid vault route.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const resolvedBranch = targetBranch ?? vault?.resolvedBranch;
-  const fileViewPath = resolvedBranch
-    ? buildVaultFileRoute({
-        owner,
-        repoName,
-        branch: resolvedBranch,
-      })
-    : `/vault/${owner}/${repoName}`;
+  const fileViewPath = buildVaultFileRoute({
+    owner,
+    repoName,
+    branch,
+  });
 
   if (vault === undefined) {
     return null;
