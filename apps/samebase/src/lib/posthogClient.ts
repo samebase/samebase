@@ -1,13 +1,6 @@
 type SamebasePostHogClient = (typeof import("posthog-js"))["default"];
 type SamebasePostHogInitConfig = NonNullable<Parameters<SamebasePostHogClient["init"]>[1]>;
 
-export type SamebasePostHogViewer = {
-  _id: string;
-  hasCloudflareConnection: boolean;
-  hasConvexConnection: boolean;
-  hasGithubConnection: boolean;
-};
-
 type SamebasePostHogSettings = {
   apiHost: string;
   projectToken: string;
@@ -53,23 +46,6 @@ export function buildSamebasePostHogInitConfig(args: {
   };
 }
 
-export function buildSamebasePostHogPersonProperties(
-  viewer: SamebasePostHogViewer,
-): Record<string, boolean | string> {
-  return {
-    has_cloudflare_connection: viewer.hasCloudflareConnection,
-    has_convex_connection: viewer.hasConvexConnection,
-    has_github_connection: viewer.hasGithubConnection,
-    samebase_user_id: viewer._id,
-  };
-}
-
-export function buildSamebasePostHogIdentityFingerprint(viewer: SamebasePostHogViewer): string {
-  return `${viewer._id}:${viewer.hasCloudflareConnection ? "cloudflare" : "no-cloudflare"}:${
-    viewer.hasConvexConnection ? "convex" : "no-convex"
-  }:${viewer.hasGithubConnection ? "github" : "no-github"}`;
-}
-
 export async function loadSamebasePostHogClient(): Promise<SamebasePostHogClient | null> {
   const settings = readSamebasePostHogSettings(import.meta.env);
   if (settings === null) {
@@ -94,9 +70,9 @@ export async function loadSamebasePostHogClient(): Promise<SamebasePostHogClient
   return await postHogClientPromise;
 }
 
-export async function identifySamebasePostHogViewer(viewer: SamebasePostHogViewer) {
+export async function identifySamebasePostHogUser(userId: string) {
   const posthog = await loadSamebasePostHogClient();
-  posthog?.identify(viewer._id, buildSamebasePostHogPersonProperties(viewer));
+  posthog?.identify(userId);
 }
 
 export function resetSamebasePostHogClient() {

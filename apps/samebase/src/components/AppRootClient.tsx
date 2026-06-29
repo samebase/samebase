@@ -14,11 +14,7 @@ import { useRootRouteSearch } from "@/routeSearch/root";
 import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
-import {
-  buildSamebasePostHogIdentityFingerprint,
-  identifySamebasePostHogViewer,
-  loadSamebasePostHogClient,
-} from "@/lib/posthogClient";
+import { identifySamebasePostHogUser, loadSamebasePostHogClient } from "@/lib/posthogClient";
 
 const POSTHOG_INIT_DELAY_MS = 10_000;
 
@@ -43,25 +39,24 @@ function useDeferredPostHogInit() {
 function usePostHogViewerIdentity() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.users.viewer, isAuthenticated && !isLoading ? {} : "skip");
-  const identifiedFingerprintRef = useRef<string | null>(null);
-  const fingerprint = viewer ? buildSamebasePostHogIdentityFingerprint(viewer) : null;
+  const identifiedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      identifiedFingerprintRef.current = null;
+      identifiedUserIdRef.current = null;
     }
   }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
-    if (viewer === undefined || viewer === null || fingerprint === null) {
+    if (viewer === undefined || viewer === null) {
       return;
     }
-    if (identifiedFingerprintRef.current === fingerprint) {
+    if (identifiedUserIdRef.current === viewer._id) {
       return;
     }
-    identifiedFingerprintRef.current = fingerprint;
-    void identifySamebasePostHogViewer(viewer);
-  }, [fingerprint, viewer]);
+    identifiedUserIdRef.current = viewer._id;
+    void identifySamebasePostHogUser(viewer._id);
+  }, [viewer]);
 }
 
 function AppRouterRoot() {
