@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { makeConvexTest } from "../test.setup";
-import { buildMcpToolInvocationArgs, listMcpToolsForAccess } from "./http";
+import {
+  buildMcpToolInvocationArgs,
+  listMcpToolsForAccess,
+  readMcpMethodForUsage,
+  readMcpToolNameForUsage,
+} from "./http";
 
 describe("MCP HTTP tool invocation args", () => {
   it("uses trusted user and scope values instead of raw tool arguments", async () => {
@@ -94,5 +99,24 @@ describe("MCP tool listing access", () => {
     for (const tool of tools) {
       expect(tool.name).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
     }
+  });
+});
+
+describe("MCP usage attribution dimensions", () => {
+  it("maps request methods to closed usage values", () => {
+    expect(readMcpMethodForUsage("initialize")).toBe("initialize");
+    expect(readMcpMethodForUsage("tools/list")).toBe("tools/list");
+    expect(readMcpMethodForUsage("tools/call")).toBe("tools/call");
+    expect(readMcpMethodForUsage("notifications/initialized")).toBe("notifications/initialized");
+    expect(readMcpMethodForUsage("caller controlled text")).toBe("other");
+  });
+
+  it("maps tool call params to catalog names or unknown", () => {
+    expect(readMcpToolNameForUsage({ name: "vault_actions_createRepository" })).toBe(
+      "vault_actions_createRepository",
+    );
+    expect(readMcpToolNameForUsage({ name: "caller controlled text" })).toBe("unknown");
+    expect(readMcpToolNameForUsage({ name: "" })).toBe("unknown");
+    expect(readMcpToolNameForUsage(null)).toBe("unknown");
   });
 });

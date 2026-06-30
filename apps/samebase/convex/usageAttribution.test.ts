@@ -29,7 +29,7 @@ describe("usage attribution logs", () => {
     const log = buildMcpHttpUsageContextLog({
       samebaseUserId: "users_123",
       mcpMethod: "tools/call",
-      mcpToolName: "create_repository",
+      mcpToolName: "vault_actions_createRepository",
       mcpIsNotification: false,
     });
 
@@ -42,7 +42,7 @@ describe("usage attribution logs", () => {
       viewer_role: null,
       required_access: "access_mcp",
       mcp_method: "tools/call",
-      mcp_tool_name: "create_repository",
+      mcp_tool_name: "vault_actions_createRepository",
       mcp_is_notification: false,
     });
   });

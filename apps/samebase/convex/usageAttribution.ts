@@ -4,6 +4,16 @@ const SAMEBASE_USAGE_CONTEXT_LOG_TOPIC = "samebase_usage_context";
 const SAMEBASE_USAGE_CONTEXT_LOG_VERSION = 1;
 
 export type SamebaseUsageFunctionKind = "query" | "mutation" | "action" | "http_action";
+export type SamebaseUsageMcpMethod =
+  | "initialize"
+  | "notifications/initialized"
+  | "tools/list"
+  | "tools/call"
+  | "other";
+export type SamebaseUsageMcpToolName =
+  | "vault_actions_createRepository"
+  | "vault_dashboard_getUserVaults"
+  | "unknown";
 
 type SamebaseUsageContextLog = {
   topic: typeof SAMEBASE_USAGE_CONTEXT_LOG_TOPIC;
@@ -13,8 +23,8 @@ type SamebaseUsageContextLog = {
   samebase_user_id: string | null;
   viewer_role: ViewerRole | null;
   required_access: AccessKey | null;
-  mcp_method: string | null;
-  mcp_tool_name: string | null;
+  mcp_method: SamebaseUsageMcpMethod | null;
+  mcp_tool_name: SamebaseUsageMcpToolName | null;
   mcp_is_notification: boolean | null;
 };
 
@@ -60,8 +70,8 @@ export function logAppFunctionUsageContext(args: {
 
 export function buildMcpHttpUsageContextLog(args: {
   samebaseUserId: string;
-  mcpMethod: string;
-  mcpToolName: string | null;
+  mcpMethod: SamebaseUsageMcpMethod;
+  mcpToolName: SamebaseUsageMcpToolName | null;
   mcpIsNotification: boolean;
 }): SamebaseUsageContextLog {
   return {
@@ -80,8 +90,8 @@ export function buildMcpHttpUsageContextLog(args: {
 
 export function logMcpHttpUsageContext(args: {
   samebaseUserId: string;
-  mcpMethod: string;
-  mcpToolName: string | null;
+  mcpMethod: SamebaseUsageMcpMethod;
+  mcpToolName: SamebaseUsageMcpToolName | null;
   mcpIsNotification: boolean;
 }) {
   writeSamebaseUsageContextLog(buildMcpHttpUsageContextLog(args));
