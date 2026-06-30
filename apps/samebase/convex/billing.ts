@@ -172,7 +172,7 @@ async function fetchPolarJson(args: {
 }
 
 export const getViewerBillingStatus = query({
-  access: "access_admin",
+  access: "access_dashboard",
   args: {},
   returns: union(vViewerBillingStatus, nullValue()),
   handler: async (ctx): Promise<ViewerBillingStatus | null> => {
@@ -247,7 +247,7 @@ export const applyPolarCustomerState = internalMutation({
 });
 
 export const createPolarCheckoutSession = action({
-  access: "access_admin",
+  access: "access_dashboard",
   args: object({
     interval: vBillingCycle,
     successUrl: string(),
@@ -315,7 +315,7 @@ export const createPolarCheckoutSession = action({
 });
 
 export const createPolarCustomerPortalSession = action({
-  access: "access_admin",
+  access: "access_dashboard",
   args: object({
     returnUrl: string(),
   }),

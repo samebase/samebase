@@ -212,6 +212,19 @@ describe("readRouteAddressReadiness", () => {
     });
   });
 
+  it("drops stale route-owned params before navigating to pricing", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/machines?machineId=sample-machine",
+        draftRouteAddress: "/pricing?machineId=sample-machine",
+        viewer: memberViewer,
+      }),
+    ).toEqual({
+      kind: "readyNormalized",
+      routeAddress: "/pricing",
+    });
+  });
+
   it("keeps route-owned params the destination route accepts", () => {
     expect(
       readRouteAddressReadinessForTest({
