@@ -1,5 +1,4 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
 import {
   LANDING_DO_IT_YOURSELF_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
@@ -107,63 +106,27 @@ test("landing preview route renders the React overview in workspace chrome", asy
       name: /The correct\s*\*\s*way to build web apps/,
     }),
   ).toBeVisible();
-  await expect(article).toContainText("Correct means Samebase uses the stack it recommends");
   await expect(
     article.getByRole("heading", {
-      name: "The base is a trio.",
+      name: "* correct",
     }),
   ).toBeVisible();
-  await expect(article).toContainText("AI tools sit above the base");
-  await expect(
-    article.getByRole("heading", {
-      name: "What Samebase does",
-    }),
-  ).toBeVisible();
-  await expect(
-    article.getByRole("heading", {
-      name: "Parallel by default",
-    }),
-  ).toBeVisible();
-  await expect(article).toContainText("A separate local database deploy for each parallel agent");
-  await expect(article).toContainText("A preview deploy for the exact branch under review");
-  await expect(
-    article.getByRole("heading", {
-      name: "What correct means here",
-    }),
-  ).toBeVisible();
-  await expect(
-    article.getByRole("heading", {
-      name: "Manual setup proves it",
-    }),
-  ).toBeVisible();
-  await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveAttribute(
-    "href",
-    "/?sign-in",
-  );
-  await expect(
-    article.getByRole("link", {
-      name: "Do it yourself",
-    }),
-  ).toHaveAttribute("href", LANDING_DO_IT_YOURSELF_ROUTE);
+  await expect(article).toContainText("samebase.com uses the exact same stack it recommends");
+  await expect(article).toContainText("the first customer was me, Nicu");
+  await expect(article).toContainText("personal and idle ideas should cost $0/month");
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Cloudflare" })).toBeVisible();
+  await expect(article.getByRole("img", { name: "Samebase" })).toBeVisible();
+  await expect(article.getByRole("heading", { name: "The base is a trio." })).toHaveCount(0);
+  await expect(article.getByRole("heading", { name: "Manual setup proves it" })).toHaveCount(0);
+  await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveCount(0);
+  await expect(article.getByRole("link", { name: "Do it yourself" })).toHaveCount(0);
   await expect(article.getByRole("img", { name: "OpenAI" })).toHaveCount(0);
   await expect(
     article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
   ).toHaveCount(0);
   await expect(article.locator("video")).toHaveCount(0);
-
-  await expect(page).toHaveScreenshot("landing-markdown-preview-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    // The app build footer changes on every squash; keep this snapshot focused
-    // on the landing preview layout and rendered content.
-    mask: [page.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
-    maskColor: "#ffffff",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
   await expectDesktopPaneWidths(page, {

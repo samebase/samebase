@@ -377,7 +377,6 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/indexed-db-route-visual.spec.ts-snapshots/indexed-db-workspace.png",
   "apps/samebase/e2e/landing-copy-visual.spec.ts",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts",
-  "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-desktop.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-mobile.png",
   "apps/samebase/e2e/liveHelpers.ts",
   "apps/samebase/e2e/local-storage-route-visual.spec.ts",

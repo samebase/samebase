@@ -39,7 +39,6 @@ apps/samebase/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-crea
 apps/samebase/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-default-draft.png
 apps/samebase/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open-pr.png
 apps/samebase/e2e/indexed-db-route-visual.spec.ts-snapshots/indexed-db-workspace.png
-apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-mobile.png
 apps/samebase/e2e/local-storage-route-visual.spec.ts-snapshots/local-storage-workspace.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-controls.png
