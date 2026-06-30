@@ -20,6 +20,16 @@ import { useLayoutEffect, type MouseEvent as ReactMouseEvent } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself";
 
+const LANDING_CORRECT_DEFINITION = [
+  "samebase.com uses the exact same stack it recommends.",
+  "the first customer was me, Nicu.",
+  "the next customers were my close friends.",
+  "there was no upselling, no funnels, no VCs.",
+  "if we figured out the best way to build apps, why would we use anything else?",
+  "is your current app builder giving you the same stack they use?",
+  "personal and idle ideas should cost $0/month.",
+] as const;
+
 type LandingPreviewHelpCenter = {
   items: FileTreeItem[];
   selectedFile: string;
@@ -208,13 +218,27 @@ function LandingPreviewOverview() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
         <section>
           <div className="max-w-5xl">
-            <h1 className="max-w-4xl text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl">
+            <h1
+              aria-describedby="landing-correct-definition"
+              className="max-w-4xl text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl"
+            >
               The correct<sup>*</sup> way to build web apps
             </h1>
           </div>
         </section>
 
         <LandingPreviewProviderTriangle />
+
+        <section className="border-t pt-6" id="landing-correct-definition">
+          <h2 className="text-lg font-semibold leading-7">* correct</h2>
+          <ul className="mt-4 grid gap-2 text-base leading-7 text-muted-foreground">
+            {LANDING_CORRECT_DEFINITION.map((definition) => (
+              <li className="list-inside list-disc" key={definition}>
+                {definition}
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </article>
   );
