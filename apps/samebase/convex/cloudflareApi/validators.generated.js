@@ -38473,6 +38473,7 @@ const schema424 = {
                 "email",
                 "tail",
                 "rpc",
+                "jsrpc",
                 "websocket",
                 "workflow",
                 "unknown",
@@ -38535,6 +38536,7 @@ const schema424 = {
                 "email",
                 "tail",
                 "rpc",
+                "jsrpc",
                 "websocket",
                 "workflow",
                 "unknown",
@@ -43174,6 +43176,7 @@ function validate455(
                           data110 === "email" ||
                           data110 === "tail" ||
                           data110 === "rpc" ||
+                          data110 === "jsrpc" ||
                           data110 === "websocket" ||
                           data110 === "workflow" ||
                           data110 === "unknown"
@@ -43959,6 +43962,7 @@ function validate455(
                           data136 === "email" ||
                           data136 === "tail" ||
                           data136 === "rpc" ||
+                          data136 === "jsrpc" ||
                           data136 === "websocket" ||
                           data136 === "workflow" ||
                           data136 === "unknown"
@@ -46620,6 +46624,7 @@ function validate455(
                           data217 === "email" ||
                           data217 === "tail" ||
                           data217 === "rpc" ||
+                          data217 === "jsrpc" ||
                           data217 === "websocket" ||
                           data217 === "workflow" ||
                           data217 === "unknown"
@@ -47571,6 +47576,7 @@ function validate455(
                           data243 === "email" ||
                           data243 === "tail" ||
                           data243 === "rpc" ||
+                          data243 === "jsrpc" ||
                           data243 === "websocket" ||
                           data243 === "workflow" ||
                           data243 === "unknown"
