@@ -81,10 +81,9 @@ Create `apps/samebase/convex/billing.ts`:
 
 Access status:
 
-- The target billing API is member-facing after approval, but the access-wrapper rollout keeps these
-  public billing functions under `access_admin` until the Polar checkout/portal flow is ready for
-  members. Enabling billing for members is an explicit follow-up: lower the public billing functions
-  to `access_dashboard` and verify `/pricing` end to end.
+- The target billing API is member-facing after approval. Keep viewer billing status plus checkout
+  and portal session actions at `access_dashboard` so the authenticated `/pricing` route can load
+  for approved members.
 
 Queries
 
