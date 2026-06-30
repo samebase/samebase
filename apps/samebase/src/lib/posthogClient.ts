@@ -44,6 +44,10 @@ export function buildSamebasePostHogInitConfig(args: {
     // Samebase captures route pageviews from TanStack Router so the first
     // pageview is tied to app mount, not to PostHog's SDK boot heuristics.
     capture_pageview: false,
+    // PostHog's default pageleave capture only runs when SDK pageview capture
+    // is enabled. Keep pageviews router-owned while still sending pageleave on
+    // browser unload so Web Analytics can compute bounce rate and duration.
+    capture_pageleave: true,
     defaults: "2026-01-30",
     // Replays still require "Record user sessions" in PostHog project settings.
     // This keeps Samebase app code from disabling the recorder once the project

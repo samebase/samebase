@@ -38,6 +38,7 @@ describe("posthog client setup", () => {
     ).toMatchObject({
       api_host: "https://posthog.samebase.com",
       capture_exceptions: true,
+      capture_pageleave: true,
       capture_pageview: false,
       defaults: "2026-01-30",
       disable_session_recording: false,
