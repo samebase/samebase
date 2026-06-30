@@ -1,6 +1,6 @@
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 
 const EditableLandingCopy = lazy(async () => {
   const module = await import("@/components/ProsemarkReadOnly");
@@ -116,6 +116,57 @@ function StaticLandingCopy({ className, markdown }: { className?: string; markdo
   );
 }
 
+/**
+ * Returns true only after React has attached to the server-rendered landing
+ * markup. `typeof window` is not enough here: it is already true during the
+ * first client render, so branching on it would make hydration compare the
+ * server's static HTML against the editable ProseMark tree.
+ */
+function useHasHydrated() {
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  return hasHydrated;
+}
+
+/**
+ * Renders the same static copy during SSR and the first client render, then
+ * mounts editable ProseMark after hydration. This keeps `/?dev` editable while
+ * avoiding React hydration recovery for two different markup trees.
+ */
+function EditableLandingCopyAfterHydration({
+  className,
+  markdown,
+  onChange,
+  staticCopy,
+}: {
+  className?: string;
+  markdown: string;
+  onChange?: (value: string) => void;
+  staticCopy: ReactNode;
+}) {
+  const hasHydrated = useHasHydrated();
+
+  if (!hasHydrated) {
+    return staticCopy;
+  }
+
+  return (
+    <Suspense fallback={staticCopy}>
+      <EditableLandingCopy
+        value={markdown}
+        // The static renderer uses native blocks; keep the editable ProseMark baseline aligned.
+        className={cn(className, "pt-px")}
+        editable={true}
+        onChange={onChange}
+      />
+    </Suspense>
+  );
+}
+
 export function LandingCopy({
   className,
   editable = false,
@@ -129,19 +180,16 @@ export function LandingCopy({
 }) {
   const staticCopy = <StaticLandingCopy className={className} markdown={markdown} />;
 
-  if (!editable || typeof window === "undefined") {
+  if (!editable) {
     return staticCopy;
   }
 
   return (
-    <Suspense fallback={staticCopy}>
-      <EditableLandingCopy
-        value={markdown}
-        // The static renderer uses native blocks; keep the editable ProseMark baseline aligned.
-        className={cn(className, "pt-px")}
-        editable={editable}
-        onChange={onChange}
-      />
-    </Suspense>
+    <EditableLandingCopyAfterHydration
+      className={className}
+      markdown={markdown}
+      onChange={onChange}
+      staticCopy={staticCopy}
+    />
   );
 }

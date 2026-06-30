@@ -100,11 +100,6 @@ test("app workspace route URL editor stays compact for long URLs", async ({ page
 });
 
 test("landing ProseMark copy survives full selection deletion", async ({ page }) => {
-  await page.goto("/?dev", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
   const errorMessages: string[] = [];
   page.on("console", (message) => {
     const text = message.text();
@@ -115,6 +110,11 @@ test("landing ProseMark copy survives full selection deletion", async ({ page })
   page.on("pageerror", (error) => {
     errorMessages.push(error.message);
   });
+
+  await page.goto("/?dev", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
 
   await page.getByTestId("public-landing-copy").getByRole("textbox").focus();
   await page.keyboard.press(selectAllShortcut);

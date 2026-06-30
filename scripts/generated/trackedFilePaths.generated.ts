@@ -790,6 +790,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/fileViewPushActionsVisualModes.ts",
   "apps/samebase/src/components/installIconSvgAsset.test.ts",
   "apps/samebase/src/components/installIconSvgAsset.ts",
+  "apps/samebase/src/components/logo/LogoNumberInput.test.tsx",
   "apps/samebase/src/components/logo/LogoNumberInput.tsx",
   "apps/samebase/src/components/logo/LogoPreviewPage.test.tsx",
   "apps/samebase/src/components/logo/LogoPreviewPage.tsx",
