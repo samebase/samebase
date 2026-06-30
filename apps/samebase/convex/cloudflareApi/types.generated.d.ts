@@ -4702,6 +4702,7 @@ export interface components {
               | "email"
               | "tail"
               | "rpc"
+              | "jsrpc"
               | "websocket"
               | "workflow"
               | "unknown";
@@ -4747,6 +4748,7 @@ export interface components {
               | "email"
               | "tail"
               | "rpc"
+              | "jsrpc"
               | "websocket"
               | "workflow"
               | "unknown";
