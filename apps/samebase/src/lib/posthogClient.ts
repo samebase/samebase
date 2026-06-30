@@ -64,6 +64,16 @@ export function buildSamebasePostHogInitConfig(args: {
       // Form controls often contain credentials, prompts, or provider IDs; keep
       // those masked before they leave the browser.
       maskAllInputs: true,
+      // Inputs stay masked by default. Add data-posthog-unmask only when the
+      // control is explicitly reviewed as safe for replay, such as the route
+      // URL editor. Docs: https://posthog.com/docs/session-replay/privacy
+      maskInputFn: (text, element) => {
+        if (element?.hasAttribute("data-posthog-unmask")) {
+          return text;
+        }
+
+        return "*".repeat(text.length);
+      },
       // Editor DOM is not always an <input>. CodeMirror/ProseMark and Monaco can
       // render repository files, prompts, assistant output, and provider data as
       // normal text nodes, so mask those surfaces by default.

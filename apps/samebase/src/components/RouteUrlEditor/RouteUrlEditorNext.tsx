@@ -152,6 +152,7 @@ export function RouteUrlEditorNext() {
         className={
           inputFocused ? routeUrlEditorNextInputClassName : routeUrlEditorNextBlurredInputClassName
         }
+        data-posthog-unmask="route-url-editor"
         data-testid={inputFocused ? "route-url-editor-input" : "route-url-editor-display"}
         inputMode="url"
         spellCheck={false}

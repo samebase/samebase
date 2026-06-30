@@ -46,6 +46,7 @@ describe("posthog client setup", () => {
       session_recording: {
         blockSelector: "[data-posthog-block]",
         maskAllInputs: true,
+        maskInputFn: expect.any(Function),
         maskTextSelector: ".cm-editor, .monaco-editor, [data-posthog-mask]",
       },
     });
