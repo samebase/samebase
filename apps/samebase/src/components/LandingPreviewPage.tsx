@@ -15,78 +15,10 @@ import {
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingDoItYourselfMarkdown from "@/content/landing-do-it-yourself.md?raw";
-import { ArrowRight } from "lucide-react";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, type MouseEvent as ReactMouseEvent } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself";
-
-const LANDING_STACK_PROVIDERS = [
-  {
-    description: "source control and pull requests",
-    name: "GitHub",
-    src: "/landing-preview/logos/github.svg",
-  },
-  {
-    description: "database, backend, realtime functions",
-    name: "Convex",
-    src: "/landing-preview/logos/convex.svg",
-  },
-  {
-    description: "deployment, domains, front door",
-    name: "Cloudflare",
-    src: "/landing-preview/logos/cloudflare.jpg",
-  },
-] as const;
-
-const LANDING_WORK_LANES = [
-  {
-    body: "A persistent local deploy for day-to-day development.",
-    label: "Local folder",
-  },
-  {
-    body: "A separate local database deploy for each parallel agent.",
-    label: "Worktree",
-  },
-  {
-    body: "A preview deploy for the exact branch under review.",
-    label: "Pull request",
-  },
-] as const;
-
-const LANDING_CORRECT_PRINCIPLES = [
-  {
-    body: "Samebase runs on GitHub, Convex, and Cloudflare too.",
-    title: "Same stack",
-  },
-  {
-    body: "A forgotten idea should not become a monthly tax.",
-    title: "Idle stays cheap",
-  },
-  {
-    body: "Convex keeps data, backend, and realtime behavior in one model.",
-    title: "Simple core",
-  },
-  {
-    body: "Normal repo. Normal infrastructure. Replaceable tools.",
-    title: "Transparent output",
-  },
-] as const;
-
-const LANDING_APP_STEPS = [
-  {
-    body: "Connect GitHub, Convex, and Cloudflare.",
-    label: "Connect",
-  },
-  {
-    body: "Samebase creates the repo and deploy path.",
-    label: "Create",
-  },
-  {
-    body: "You keep normal code on normal infrastructure.",
-    label: "Own",
-  },
-] as const;
 
 type LandingPreviewHelpCenter = {
   items: FileTreeItem[];
@@ -210,80 +142,59 @@ function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDoc
   );
 }
 
-function LandingPreviewProviderGrid() {
+function LandingPreviewProviderTriangle() {
   return (
-    <div className="grid gap-5 sm:grid-cols-3">
-      {LANDING_STACK_PROVIDERS.map((provider) => (
-        <div className="flex min-h-28 flex-col justify-between border-t pt-4" key={provider.name}>
+    <section aria-label="Samebase provider base" className="pt-4">
+      <div className="relative mx-auto aspect-[16/8] w-full max-w-4xl">
+        <svg
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full text-border"
+          fill="none"
+          viewBox="0 0 100 50"
+        >
+          <path d="M50 7L18 41H82L50 7Z" stroke="currentColor" strokeWidth="0.45" />
+        </svg>
+
+        <div className="absolute left-1/2 top-[14%] flex w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-3 py-3">
           <img
-            alt={provider.name}
-            className="h-8 w-fit max-w-32 bg-white object-contain px-1 py-1"
+            alt="GitHub"
+            className="h-auto w-32 bg-white object-contain"
             height="32"
-            src={provider.src}
+            src="/landing-preview/logos/github.svg"
             width="128"
           />
-          <div>
-            <div className="text-sm font-medium">{provider.name}</div>
-            <div className="mt-1 text-sm leading-5 text-muted-foreground">
-              {provider.description}
-            </div>
-          </div>
         </div>
-      ))}
-    </div>
-  );
-}
 
-function LandingWorkLanes() {
-  return (
-    <section className="grid gap-6 border-b pb-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <div>
-        <h2 className="text-2xl font-semibold leading-8">Parallel by default</h2>
-      </div>
-      <div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {LANDING_WORK_LANES.map((lane) => (
-            <section className="border-t pt-4" key={lane.label}>
-              <h3 className="text-lg font-semibold leading-6">{lane.label}</h3>
-              <p className="mt-3 text-sm leading-5 text-muted-foreground">{lane.body}</p>
-            </section>
-          ))}
+        <div className="absolute left-[18%] top-[82%] flex w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-3 py-3">
+          <img
+            alt="Convex"
+            className="h-auto w-28 bg-white object-contain"
+            height="28"
+            src="/landing-preview/logos/convex.svg"
+            width="112"
+          />
+        </div>
+
+        <div className="absolute left-[82%] top-[82%] flex w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-3 py-3">
+          <img
+            alt="Cloudflare"
+            className="h-auto w-28 bg-white object-contain"
+            height="38"
+            src="/landing-preview/logos/cloudflare.jpg"
+            width="112"
+          />
+        </div>
+
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-5 py-4">
+          <img
+            alt="Samebase"
+            className="h-24 w-24 object-contain sm:h-28 sm:w-28"
+            height="112"
+            src="/icon-512.png"
+            width="112"
+          />
         </div>
       </div>
-    </section>
-  );
-}
-
-function LandingCorrectPrinciples() {
-  return (
-    <section className="grid gap-6 border-b pb-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <div>
-        <h2 className="text-2xl font-semibold leading-8">What correct means here</h2>
-      </div>
-      <div className="grid gap-5 sm:grid-cols-2">
-        {LANDING_CORRECT_PRINCIPLES.map((principle) => (
-          <section className="border-t pt-4" key={principle.title}>
-            <h3 className="text-lg font-semibold leading-6">{principle.title}</h3>
-            <p className="mt-3 text-sm leading-5 text-muted-foreground">{principle.body}</p>
-          </section>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function LandingAppSteps() {
-  return (
-    <section className="grid gap-6 border-b pb-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <h2 className="text-2xl font-semibold leading-8">What Samebase does</h2>
-      <ol className="grid gap-5 md:grid-cols-3">
-        {LANDING_APP_STEPS.map((step) => (
-          <li className="border-t pt-4" key={step.label}>
-            <h3 className="text-xl font-semibold leading-7">{step.label}</h3>
-            <p className="mt-3 text-sm leading-5 text-muted-foreground">{step.body}</p>
-          </li>
-        ))}
-      </ol>
     </section>
   );
 }
@@ -294,77 +205,16 @@ function LandingPreviewOverview() {
       className="min-h-full shrink-0 bg-background pb-[calc(100svh-4rem)] text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
-        <section className="border-b pb-12">
-          <div className="max-w-4xl">
-            <h1
-              aria-describedby="landing-correct-footnote"
-              className="max-w-3xl text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl"
-            >
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+        <section>
+          <div className="max-w-5xl">
+            <h1 className="max-w-4xl text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl">
               The correct<sup>*</sup> way to build web apps
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-7 text-muted-foreground">
-              Samebase turns GitHub, Convex, and Cloudflare into a normal app you own. Use Codex,
-              Claude Code, or any editor on top.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                className="inline-flex h-10 items-center gap-2 border border-foreground bg-foreground px-4 text-sm font-medium text-background no-underline hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                search={{ "sign-in": true }}
-                to="/"
-              >
-                Start with Samebase
-                <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
-              </Link>
-              <Link
-                className="inline-flex h-10 items-center border px-4 text-sm font-medium text-foreground no-underline hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                to={LANDING_DO_IT_YOURSELF_ROUTE}
-              >
-                Do it yourself
-              </Link>
-            </div>
-            <p
-              className="mt-6 max-w-2xl text-sm leading-6 text-muted-foreground"
-              id="landing-correct-footnote"
-            >
-              <sup>*</sup> Correct means Samebase uses the stack it recommends, stays cheap when
-              idle, keeps the backend simple, and leaves transparent output.
-            </p>
           </div>
         </section>
 
-        <section className="grid gap-6 border-b pb-10 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start">
-          <div>
-            <h2 className="max-w-2xl text-3xl font-semibold leading-10">The base is a trio.</h2>
-            <p className="mt-4 max-w-xl text-base leading-6 text-muted-foreground">
-              Samebase recommends the same services it uses for itself. AI tools sit above the base;
-              they are not the lock-in.
-            </p>
-          </div>
-          <LandingPreviewProviderGrid />
-        </section>
-
-        <LandingAppSteps />
-
-        <LandingWorkLanes />
-
-        <LandingCorrectPrinciples />
-
-        <section className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-          <h2 className="text-2xl font-semibold leading-8">Manual setup proves it</h2>
-          <div>
-            <p className="max-w-xl text-base leading-6 text-muted-foreground">
-              If the stack is correct, you should be able to build it without Samebase.
-            </p>
-            <Link
-              className="mt-6 inline-flex h-10 items-center gap-2 border px-4 text-sm font-medium text-foreground no-underline hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              to={LANDING_DO_IT_YOURSELF_ROUTE}
-            >
-              Read the manual setup
-              <ArrowRight aria-hidden="true" size={16} strokeWidth={1.8} />
-            </Link>
-          </div>
-        </section>
+        <LandingPreviewProviderTriangle />
       </div>
     </article>
   );
