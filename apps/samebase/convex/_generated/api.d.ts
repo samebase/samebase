@@ -86,6 +86,7 @@ import type * as stagingRebase from "../stagingRebase.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
+import type * as usageAttribution from "../usageAttribution.js";
 import type * as userAccess from "../userAccess.js";
 import type * as users from "../users.js";
 import type * as vault_actions from "../vault/actions.js";
@@ -202,6 +203,7 @@ declare const fullApi: ApiFromModules<{
   starterSeed: typeof starterSeed;
   "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
   "toolRuntime/runtime": typeof toolRuntime_runtime;
+  usageAttribution: typeof usageAttribution;
   userAccess: typeof userAccess;
   users: typeof users;
   "vault/actions": typeof vault_actions;

@@ -21,6 +21,7 @@ import {
 } from "./_generated/server";
 import { vAccessKey, vViewerRole } from "./accessModelValidators";
 import schema from "./schema";
+import { logAppFunctionUsageContext } from "./usageAttribution";
 import { isAdminUser } from "./userAccess";
 import {
   canAccess,
@@ -177,6 +178,12 @@ function assertAuthenticatedViewerAccess(
 async function applyPublicQueryPolicy(ctx: QueryCtx) {
   const viewer = await resolveViewerFromDb(ctx);
   const appViewer = assertPublicViewerAccess(viewer);
+  logAppFunctionUsageContext({
+    functionKind: "query",
+    samebaseUserId: appViewer.userId,
+    viewerRole: appViewer.role,
+    requiredAccess: appViewer.requiredAccess,
+  });
 
   return { viewer: appViewer };
 }
@@ -184,6 +191,12 @@ async function applyPublicQueryPolicy(ctx: QueryCtx) {
 async function applyAuthenticatedQueryPolicy(ctx: QueryCtx, policy: AppAuthenticatedPolicy) {
   const viewer = await resolveViewerFromDb(ctx);
   const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
+  logAppFunctionUsageContext({
+    functionKind: "query",
+    samebaseUserId: appViewer.userId,
+    viewerRole: appViewer.role,
+    requiredAccess: appViewer.requiredAccess,
+  });
 
   return { viewer: appViewer };
 }
@@ -198,6 +211,12 @@ async function applyQueryPolicy(ctx: QueryCtx, policy: AppFunctionPolicy) {
 async function applyPublicMutationPolicy(ctx: MutationCtx) {
   const viewer = await resolveViewerFromDb(ctx);
   const appViewer = assertPublicViewerAccess(viewer);
+  logAppFunctionUsageContext({
+    functionKind: "mutation",
+    samebaseUserId: appViewer.userId,
+    viewerRole: appViewer.role,
+    requiredAccess: appViewer.requiredAccess,
+  });
 
   return { viewer: appViewer };
 }
@@ -205,6 +224,12 @@ async function applyPublicMutationPolicy(ctx: MutationCtx) {
 async function applyAuthenticatedMutationPolicy(ctx: MutationCtx, policy: AppAuthenticatedPolicy) {
   const viewer = await resolveViewerFromDb(ctx);
   const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
+  logAppFunctionUsageContext({
+    functionKind: "mutation",
+    samebaseUserId: appViewer.userId,
+    viewerRole: appViewer.role,
+    requiredAccess: appViewer.requiredAccess,
+  });
 
   return { viewer: appViewer };
 }
@@ -263,10 +288,22 @@ const actionBuilder = customAction(
 
     if (policy.access === "access_public") {
       const appViewer = assertPublicViewerAccess(viewer);
+      logAppFunctionUsageContext({
+        functionKind: "action",
+        samebaseUserId: appViewer.userId,
+        viewerRole: appViewer.role,
+        requiredAccess: appViewer.requiredAccess,
+      });
       return { viewer: appViewer };
     }
 
     const appViewer = assertAuthenticatedViewerAccess(policy.access, viewer);
+    logAppFunctionUsageContext({
+      functionKind: "action",
+      samebaseUserId: appViewer.userId,
+      viewerRole: appViewer.role,
+      requiredAccess: appViewer.requiredAccess,
+    });
     return { viewer: appViewer };
   }),
 );

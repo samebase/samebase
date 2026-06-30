@@ -6,6 +6,11 @@ import type { Id } from "../_generated/dataModel";
 import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import { convexArgsToToolInputSchema } from "../toolRuntime/convexSchemas";
+import {
+  logMcpHttpUsageContext,
+  type SamebaseUsageMcpMethod,
+  type SamebaseUsageMcpToolName,
+} from "../usageAttribution";
 import { createRepositoryContract } from "../vault/createRepositoryContract";
 import { getUserVaultsContract } from "../vault/getUserVaultsContract";
 import {
@@ -259,6 +264,35 @@ function parseScopeTokens(grantedScope: string): string[] {
     .split(" ")
     .map((scope) => scope.trim())
     .filter((scope) => scope.length > 0);
+}
+
+export function readMcpMethodForUsage(method: string): SamebaseUsageMcpMethod {
+  if (
+    method === "initialize" ||
+    method === "notifications/initialized" ||
+    method === "tools/list" ||
+    method === "tools/call"
+  ) {
+    return method;
+  }
+
+  return "other";
+}
+
+export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolName {
+  const [hasParams, toolCallParams] = mcpToolCallParams(params);
+  if (!hasParams) {
+    return "unknown";
+  }
+
+  const toolName = toolCallParams.name.trim();
+  if (toolName === createRepositoryContract.mcp.name) {
+    return "vault_actions_createRepository";
+  }
+  if (toolName === getUserVaultsContract.mcp.name) {
+    return "vault_dashboard_getUserVaults";
+  }
+  return "unknown";
 }
 
 export const getMcpOauthProtectedResourceMetadata = httpAction(async (_ctx, request) => {
@@ -692,6 +726,16 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
 
   const rpcRequest = jsonRpcValidation.value;
   const isNotification = rpcRequest.id === undefined;
+  const mcpMethod = readMcpMethodForUsage(rpcRequest.method);
+  logMcpHttpUsageContext({
+    samebaseUserId: tokenValidation.userId,
+    mcpMethod,
+    mcpToolName:
+      mcpMethod === "tools/call" && !isNotification
+        ? readMcpToolNameForUsage(rpcRequest.params)
+        : null,
+    mcpIsNotification: isNotification,
+  });
 
   if (rpcRequest.method === "notifications/initialized") {
     return new Response(null, { status: 202 });
