@@ -117,9 +117,10 @@ function StaticLandingCopy({ className, markdown }: { className?: string; markdo
 }
 
 /**
- * The static landing HTML is server-rendered, while editable ProseMark is a
- * browser-only editor. Keep the first client render identical to SSR and swap
- * the editor in only after hydration has attached.
+ * Returns true only after React has attached to the server-rendered landing
+ * markup. `typeof window` is not enough here: it is already true during the
+ * first client render, so branching on it would make hydration compare the
+ * server's static HTML against the editable ProseMark tree.
  */
 function useHasHydrated() {
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -131,6 +132,11 @@ function useHasHydrated() {
   return hasHydrated;
 }
 
+/**
+ * Renders the same static copy during SSR and the first client render, then
+ * mounts editable ProseMark after hydration. This keeps `/?dev` editable while
+ * avoiding React hydration recovery for two different markup trees.
+ */
 function EditableLandingCopyAfterHydration({
   className,
   markdown,
