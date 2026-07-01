@@ -606,7 +606,6 @@ export function VaultDashboardRepositoryCard({
     <h3 className="min-w-0 text-base font-semibold leading-6">
       <span className="flex min-w-0 items-start gap-2">
         <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-          <span className="font-normal text-muted-foreground">#</span>
           {titleRepositoryOwnerVisible ? (
             <span className="font-normal text-muted-foreground">{repositoryOwner}/</span>
           ) : null}

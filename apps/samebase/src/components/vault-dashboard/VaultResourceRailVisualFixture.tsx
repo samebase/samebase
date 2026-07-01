@@ -284,7 +284,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
                 {
                   kind: "add",
                   label: "?add-convex",
-                  href: "/vault?add-convex&app-root=apps%2Fsamebase#samebase",
+                  href: "/vault/samebase/samebase?add-convex&app-root=apps%2Fsamebase",
                 },
               ],
             },
@@ -319,7 +319,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
             {
               kind: "add",
               label: "?add-convex",
-              href: "/vault?add-convex#weight_tsx",
+              href: "/vault/nicu-chiciuc/weight_tsx?add-convex",
             },
           ],
         },
@@ -330,7 +330,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
             {
               kind: "add",
               label: "?add-cloudflare",
-              href: "/vault?add-cloudflare#weight_tsx",
+              href: "/vault/nicu-chiciuc/weight_tsx?add-cloudflare",
             },
           ],
         },

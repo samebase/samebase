@@ -179,6 +179,11 @@ export const DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM_
   (suggestion) => suggestion.access !== "access_public",
 );
 
+export const DASHBOARD_ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS =
+  DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS.filter(
+    (suggestion) => !DASHBOARD_MODAL_SEARCH_KEYS.some((key) => key === suggestion.key),
+  );
+
 export const ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS = ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS.filter(
   (suggestion) => suggestion.access === "access_public",
 );

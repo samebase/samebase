@@ -117,7 +117,7 @@ entries unchanged; a pre-existing dirty entry canonicalizes on traversal exactly
 
 ## User Stories
 
-1. **Machines to home (implemented).** On `/machines?machineId=x&threadId=y`, editing the path to
+1. **Machines to vault (implemented).** On `/machines?machineId=x&threadId=y`, editing the path to
    `/vault` navigates to `/vault` with both keys dropped. Typing `/machines?machineId=x` from
    `/vault` keeps the keys, because `/machines` accepts them.
 2. **Fun params are app-wide.** The interactive logo ships on `/` and `/vault`, not only `/logo`, so

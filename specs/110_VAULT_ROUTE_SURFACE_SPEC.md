@@ -12,19 +12,21 @@
 
 ## Current Contract
 
-Vault URLs identify the repository first. Repo-level pages live directly under that repository
-identity. Branch-scoped product surfaces are named before the encoded branch segment.
+Vault URLs start at the vault directory. Repository-specific pages live directly under that
+repository identity. Branch-scoped product surfaces are named before the encoded branch segment.
 
 Accepted target routes:
 
-1. Vault home:
+1. Vault directory:
+   - `/vault`
+2. Vault home:
    - `/vault/:owner/:repo`
-2. Vault settings:
+3. Vault settings:
    - `/vault/:owner/:repo/settings`
-3. Repository filesystem:
+4. Repository filesystem:
    - `/vault/:owner/:repo/fs/:branch`
    - `/vault/:owner/:repo/fs/:branch/:filePath...`
-4. Deployment database editor:
+5. Deployment database editor:
    - `/vault/:owner/:repo/db/:branch/root`
    - `/vault/:owner/:repo/db/:branch/mono/:appRoot...`
 

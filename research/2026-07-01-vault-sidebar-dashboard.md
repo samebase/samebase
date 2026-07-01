@@ -2,7 +2,7 @@
 
 ## Prompt
 
-The current `/home` dashboard renders almost every vault and can feel overwhelming. The proposed
+The current `/vault` dashboard renders almost every vault and can feel overwhelming. The proposed
 direction is to use the existing left sidebar for the user's vault list and let the main pane show
 one selected vault plus its branches. Later, the URL can more directly represent panes:
 
@@ -12,12 +12,13 @@ one selected vault plus its branches. Later, the URL can more directly represent
 - `/vault/<org>/<repo>/fs/<branch>/<file>` could eventually extend that model with tree and file
   panes.
 
-This pass is intentionally narrower: move the vault list into the left sidebar and render the
-selected vault dashboard in the main pane.
+This pass is intentionally narrower: make `/vault` the dashboard root, move the vault list into the
+left sidebar, and render the selected vault dashboard in the main pane.
 
 ## Source Map
 
-- `/home` is `apps/samebase/src/routes/dashboard-home.tsx`, which mounts `DashboardRoutePage`.
+- `/vault` is `apps/samebase/src/routes/vault-dashboard-root.tsx`, which mounts
+  `DashboardRoutePage`.
 - `DashboardRoutePage` lazy-loads `VaultDashboard` inside `AuthenticatedAppRoutePage`.
 - `VaultDashboard` uses `api.vault.dashboard.getUserVaults`, then renders `VaultDashboardView`
   inside `AppWorkspaceRouteChrome`.
@@ -27,16 +28,26 @@ selected vault dashboard in the main pane.
   `VaultDashboardRepositoryCard`, including the current branch list.
 - Bare `/vault/<org>/<repo>` previously fell through to the `/vault/$` FileView route, which
   resolved a default branch and then selected an initial README-like file.
+- `/home` was the old dashboard route. The final route model deliberately removes it instead of
+  redirecting or aliasing it, because the product route contract should have one canonical dashboard
+  root.
+- The dashboard card hash/scroll model made `/vault#repo` act like selection. That conflicts with
+  the route-owned vault model, so this pass removes vault-card fragment ids and dashboard-specific
+  hash suggestions.
 
 ## Decision
 
 Keep the existing dashboard query and card/branch components. Add a route-specific selected vault:
 
-- `/home` selects the first vault after the dashboard query resolves.
+- `/vault` shows the vault list and an unselected main pane prompt: select a vault from the left
+  sidebar or add one from the right sidebar.
 - `/vault/<org>/<repo>` selects the matching vault and renders the same dashboard card/branch UI for
   that one vault.
 - `/vault/<org>/<repo>/fs/...` stays on the existing FileView splat route.
 - The left pane lists all vaults as route links to `/vault/<org>/<repo>`.
+- `/home` is removed. There is no redirect, alias, or compatibility fallback.
+- Vault dashboard add/delete actions stay on the selected vault route as query params, for example
+  `/vault/<org>/<repo>?delete`, not `/vault?delete#repo`.
 
 This is still a data-loading compromise: `getUserVaults` remains broad. The UI boundary now matches
 the desired pagination model, so a later backend pass can narrow the main-pane query without
@@ -44,7 +55,7 @@ rewriting the layout again.
 
 ## Delegation
 
-- Explorer lane 1 mapped `/home`, the dashboard query, and FileView's bare-vault redirect behavior.
+- Explorer lane 1 mapped `/vault`, the dashboard query, and FileView's bare-vault redirect behavior.
 - Explorer lane 2 mapped `AppWorkspaceRouteChrome`, WorkspaceLayoutV2 pane APIs, and likely
   dashboard visual/test coverage.
 

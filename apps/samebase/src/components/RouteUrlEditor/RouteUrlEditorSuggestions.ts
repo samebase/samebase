@@ -1,4 +1,5 @@
 import { entries } from "@samebase/dependent/object";
+import { readMatchingRouteSearchParamSuggestions } from "@/routing/address";
 import {
   canAccessRouteAccess,
   canAccessRouteStaticData,
@@ -682,11 +683,16 @@ export function readSuggestions(args: {
     });
   }
 
-  const routeByPathEntry = entries(args.routesByPath).find(
-    ([path]) => path === routeAddressParts.path,
-  );
-  const routeSearchParamSuggestions =
-    routeByPathEntry?.[1].options.staticData.searchParamSuggestions ?? [];
+  const routeSearchParamSuggestions = readMatchingRouteSearchParamSuggestions({
+    path: routeAddressParts.path,
+    routeEnvironment: readRouteUrlPathSuggestionEnvironment({
+      currentHref: args.currentRouteAddress,
+      draftHref: args.routeAddress,
+      origin: args.prefix,
+    }),
+    routesByPath: args.routesByPath,
+    viewer: args.viewer,
+  });
 
   if (cursorContext.kind === "searchKey") {
     return readSearchRows({

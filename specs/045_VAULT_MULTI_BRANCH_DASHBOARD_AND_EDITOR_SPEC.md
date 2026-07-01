@@ -55,21 +55,18 @@ Current workflow direction for Samebase:
 
 ## Vault Dashboard Delete Surface
 
-Each dashboard vault card exposes a single remove-vault link that writes a key-only `?delete` search
-flag plus the vault hash target, such as `/?delete#tmp-flow`. The root search contract treats
-`delete` as a presence flag. The dashboard resolves the hash against visible vaults, using the repo
-name when unique and `owner/repo` only when duplicate repo names make the hash ambiguous.
+Each selected dashboard vault card exposes a single remove-vault link that writes a key-only
+`?delete` search flag on the selected vault route, such as `/vault/samebase/samebase?delete`. The
+root search contract treats `delete` as a presence flag, and the selected `/vault/<org>/<repo>`
+route owns the target vault.
 
-The `delete` search flag owns the confirmation modal, and the hash owns the target vault. Clicking
-the card's remove-vault link writes `?delete#<vault>` and immediately opens the existing
-confirmation dialog for that vault; there is no intermediate dropdown, popover, or sheet. Closing
-the dialog or completing deletion clears the `delete` search flag through TanStack Router while
-leaving normal vault hash navigation intact.
+Clicking the card's remove-vault link immediately opens the existing confirmation dialog for that
+selected vault; there is no intermediate dropdown, popover, or sheet. Closing the dialog or
+completing deletion clears the `delete` search flag through TanStack Router.
 
-When the dashboard loads with `?delete` and a matching hash, the matching vault card scrolls into
-view after vault data arrives, then the confirmation dialog opens for that vault. If `?delete` has
-no valid vault hash target, the dashboard clears delete mode. Destructive cleanup options stay
-centralized in the dialog.
+When the selected vault route loads with `?delete`, the confirmation dialog opens after vault data
+arrives. If `?delete` is present without a selected vault route, the dashboard clears delete mode.
+Destructive cleanup options stay centralized in the dialog.
 
 ## Pre-Implementation Baseline (Historical)
 
@@ -263,12 +260,17 @@ Update commit path to pass explicit branch to tree refresh:
 
 ### Canonical routes
 
-Use explicit branch param routes:
+Use explicit vault and branch route segments:
 
-1. `/vault/:owner/:repoName/:branch`
-2. `/vault/:owner/:repoName/:branch/*`
-3. `/vault/:owner/:repoName/codespace/:branch/chat`
-4. `/vault/:owner/:repoName` redirects to default branch route
+1. `/vault` shows the vault dashboard shell with no selected vault.
+2. `/vault/:owner/:repoName` shows the selected-vault dashboard.
+3. `/vault/:owner/:repoName/fs/:branch`
+4. `/vault/:owner/:repoName/fs/:branch/*`
+5. `/vault/:owner/:repoName/codespace/:branch/chat`
+6. `/vault/:owner/:repoName/db/:branch/root`
+7. `/vault/:owner/:repoName/db/:branch/mono/*`
+8. `/vault/:owner/:repoName/schema/:branch/root`
+9. `/vault/:owner/:repoName/schema/:branch/mono/*`
 
 ### Encoding contract
 

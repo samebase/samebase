@@ -101,8 +101,8 @@ became structural via access-key function wrappers.
   `devAuth.ts:210-211` seeds `isApproved: true` for local/preview accounts.
 - `waitlist.joinWaitlist` (`apps/noter/convex/waitlist.ts:18-39`) exists but has zero frontend
   callers; `ApprovalGate` renders static copy.
-- `/vault/$` (`apps/noter/src/routes/vault-file.tsx:29-36`) always renders `FileView` (file
-  surface); the vault dashboard is `/vault` → `DashboardRoutePage` → `VaultDashboard`. Route-level
+- `/vault/$` (`apps/noter/src/routes/vault-file.tsx:29-36`) renders `FileView` (file surface), while
+  `/vault` and `/vault/$owner/$repo` render `DashboardRoutePage` → `VaultDashboard`. Route-level
   keys can therefore separate dashboard from files; real file authorization stays in Convex
   functions.
 - MCP already has a requirement vocabulary:
@@ -400,7 +400,7 @@ they are.
 | Access key            | Routes                                                                                                                                                                                                                                                                                                                |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `access_public`       | `/`, `/logo`, `/oauth/mcp/consent` (hidden from route path suggestions), `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                                                                                         |
-| `access_dashboard`    | `/vault`, `/pricing`                                                                                                                                                                                                                                                                                                  |
+| `access_dashboard`    | `/vault`, `/vault/$owner/$repo`, `/pricing`                                                                                                                                                                                                                                                                           |
 | `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                                                                                            |
 | `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                                                                                      |
 | `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                                                                                                 |

@@ -120,7 +120,7 @@ Reasoning:
 
 ### Presentation Plane (Noter UI)
 
-1. `/vault/:owner/:repoName/:branch/chat` renders native chat interface.
+1. `/vault/:owner/:repoName/codespace/:branch/chat` renders native chat interface.
 2. UI streams events/tokens/tool status via SSE from bridge (proxied through Convex actions where
    needed).
 3. Optional controls: open full Codespace tab, retry runtime, reconnect session.
@@ -150,7 +150,7 @@ sequenceDiagram
 
 ## Current Implementation Snapshot (Already Done)
 
-1. Chat route exists: `/vault/:owner/:repoName/:branch/chat`.
+1. Chat route exists: `/vault/:owner/:repoName/codespace/:branch/chat`.
 2. Dashboard has Chat entrypoint.
 3. `ChatFab` hidden on chat route.
 4. Iframe component has improved failure detection and retry/open-tab fallback.

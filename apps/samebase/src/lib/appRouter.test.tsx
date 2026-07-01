@@ -377,15 +377,6 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("does not keep the removed /home dashboard route", async () => {
-    await renderRoute("/home?delete");
-
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
-      "Not found route",
-    );
-    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')).toBeNull();
-  });
-
   it("does not redirect old root dashboard query URLs to /vault", async () => {
     const router = await renderRoute("/?delete");
 
@@ -418,6 +409,15 @@ describe("appRouter", () => {
 
   it("does not keep the removed /dashboard route", async () => {
     await renderRoute("/dashboard?delete");
+
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
+      "Not found route",
+    );
+    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')).toBeNull();
+  });
+
+  it("does not keep the removed /home route", async () => {
+    await renderRoute("/home?delete");
 
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
       "Not found route",

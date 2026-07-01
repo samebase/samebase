@@ -684,8 +684,8 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/vault?delete#samebase");
-  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
+  await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
+  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
@@ -805,8 +805,8 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/vault?delete#samebase");
-  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
+  await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
+  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-card]").first();
   await expect(repositoryCard).toBeVisible();
   const resourceLinksTrigger = fixture.getByRole("button", {
     name: "Show resource links",
@@ -854,106 +854,6 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("vault dashboard fixture (bottom target can align at top)", async ({ page }) => {
-  await page.setViewportSize({ width: 960, height: 520 });
-  await openVaultDashboardVisualFixture(page, "vault-dashboard-bottom-target-scroll");
-
-  const scrollport = page
-    .getByTestId("workspace-layout-v2-main-viewport")
-    .locator("section > div")
-    .nth(1);
-  const target = page.getByTestId("vault-dashboard-bottom-target-card");
-  const targetHeader = target.locator("[data-vault-dashboard-repository-header]");
-  const targetRepositoryLink = page.getByRole("link", {
-    name: "#samebase-bottom-target",
-    exact: true,
-  });
-  const targetLastBranchLink = page.getByRole("link", {
-    name: "Open codex/bottom-target-last-branch branch on GitHub",
-  });
-
-  await target.evaluate((element) => {
-    element.scrollIntoView({ block: "start", inline: "nearest" });
-  });
-
-  await expect
-    .poll(async () => {
-      const [targetBox, scrollportBox] = await Promise.all([
-        target.boundingBox(),
-        scrollport.boundingBox(),
-      ]);
-      if (targetBox === null || scrollportBox === null) {
-        return Number.POSITIVE_INFINITY;
-      }
-
-      return Math.abs(targetBox.y - scrollportBox.y);
-    })
-    .toBeLessThanOrEqual(1);
-  await scrollport.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  await expect
-    .poll(async () => {
-      const [headerBox, scrollportBox] = await Promise.all([
-        targetHeader.boundingBox(),
-        scrollport.boundingBox(),
-      ]);
-      if (headerBox === null || scrollportBox === null) {
-        return Number.POSITIVE_INFINITY;
-      }
-
-      return Math.abs(headerBox.y - scrollportBox.y);
-    })
-    .toBeLessThanOrEqual(1);
-  // Rows covered by the sticky repository header do not count as visible at
-  // max scroll; only the final branch should remain below it.
-  await expect
-    .poll(() =>
-      target.evaluate((targetElement) => {
-        if (!(targetElement instanceof HTMLElement)) {
-          return [];
-        }
-
-        const header = targetElement.querySelector("[data-vault-dashboard-repository-header]");
-        const scrollportElement = targetElement
-          .closest('[data-testid="workspace-layout-v2-main-viewport"]')
-          ?.querySelector("section > div:nth-of-type(2)");
-        if (!(header instanceof HTMLElement) || !(scrollportElement instanceof HTMLElement)) {
-          return [];
-        }
-
-        const headerBox = header.getBoundingClientRect();
-        const scrollportBox = scrollportElement.getBoundingClientRect();
-        return Array.from(targetElement.querySelectorAll("[data-vault-dashboard-branch-row]"))
-          .filter((rowElement) => {
-            if (!(rowElement instanceof HTMLElement)) {
-              return false;
-            }
-
-            const rowBox = rowElement.getBoundingClientRect();
-            const visibleTop = Math.max(rowBox.top, headerBox.bottom, scrollportBox.top);
-            const visibleBottom = Math.min(rowBox.bottom, scrollportBox.bottom);
-            return visibleBottom - visibleTop > 1;
-          })
-          .map((rowElement) => {
-            const branchLink = rowElement.querySelector(
-              'a[aria-label^="Open "][aria-label$=" branch on GitHub"]',
-            );
-            return branchLink instanceof HTMLElement ? branchLink.textContent.trim() : "";
-          });
-      }),
-    )
-    .toEqual(["codex/bottom-target-last-branch"]);
-  await expect(targetRepositoryLink).toBeVisible();
-  await expect(targetLastBranchLink).toBeVisible();
-  await expect(page).toHaveScreenshot("vault-dashboard-bottom-target-scroll.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-});
-
 test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 520 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-sticky-header");
@@ -982,7 +882,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
       return Math.abs(headerBox.y - scrollportBox.y);
     })
     .toBeLessThanOrEqual(1);
-  await expect(page.getByRole("link", { name: "#samebase", exact: true })).toBeVisible();
+  await expect(header.getByText("samebase", { exact: true })).toBeVisible();
   const branchExpansionButton = header.getByRole("button", {
     name: "Show less branches",
     exact: true,
@@ -1077,7 +977,7 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/vault?delete#samebase");
+  await expect(deleteLink).toHaveAttribute("href", "/vault/samebase/samebase?delete");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

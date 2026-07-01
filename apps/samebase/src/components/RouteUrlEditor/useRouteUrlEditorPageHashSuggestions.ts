@@ -57,8 +57,8 @@ function shouldRefreshPageHashKeys(mutations: readonly MutationRecord[]): boolea
 Reads page-owned hash targets for the URL editor.
 
 Pages own their anchor IDs. This hook is the DOM bridge for page content that cannot hand those
-IDs to app chrome directly, such as markdown headings or data-loaded dashboard cards. Keep the DOM
-observer here so `useRouteEditorVm` only consumes `pageHashKeys`.
+IDs to app chrome directly, such as markdown headings. Keep the DOM observer here so
+`useRouteEditorVm` only consumes `pageHashKeys`.
 */
 export function useRouteUrlEditorPageHashSuggestions(): readonly string[] {
   const [pageHashKeys, setPageHashKeys] = useState<readonly string[]>([]);

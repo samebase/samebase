@@ -162,10 +162,10 @@ for hidden state cleanup.
 
 ## Route Semantics
 
-`?add-convex#vault-name` opens the Convex project connection dialog for the vault matched by the
-dashboard hash.
+`/vault/<org>/<repo>?add-convex` opens the Convex project connection dialog for the selected vault
+route.
 
-The dialog closes by clearing `add-convex` while preserving the hash.
+The dialog closes by clearing `add-convex` while preserving the selected vault route.
 
 ## Deployment Wiring
 

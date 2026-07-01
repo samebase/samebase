@@ -23,18 +23,32 @@ function removeVaultControl(page: Page, repoName: string): Locator {
 
 function vaultCard(page: Page, repoName: string): Locator {
   return page
-    .getByRole("link", {
-      name: new RegExp(`^#${escapeRegExp(repoName)}(?: \\(deleting\\.\\.\\.\\))?$`),
-    })
-    .locator("xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]");
+    .locator("[data-vault-dashboard-repository-card]")
+    .filter({ hasText: new RegExp(`\\b${escapeRegExp(repoName)}\\b`) })
+    .first();
 }
 
 function setupFailedVaultCard(page: Page, repoName: string): Locator {
   return page
+    .locator("[data-vault-dashboard-repository-card]")
+    .filter({ hasText: new RegExp(`\\b${escapeRegExp(repoName)}\\b[\\s\\S]*\\(setup failed\\)`) })
+    .first();
+}
+
+function vaultListLink(page: Page, repoName: string): Locator {
+  return page
+    .getByRole("navigation", { name: "Vaults" })
     .getByRole("link", {
-      name: new RegExp(`^#${escapeRegExp(repoName)} \\(setup failed\\)$`),
+      name: new RegExp(`^[^/]+/${escapeRegExp(repoName)}$`),
     })
-    .locator("xpath=ancestor::div[.//button[normalize-space(.)='Developer tools']][1]");
+    .first();
+}
+
+async function selectTemporaryVault(page: Page, repoName: string): Promise<void> {
+  const link = vaultListLink(page, repoName);
+  await expect(link).toBeVisible({ timeout: 120_000 });
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/vault/[^/]+/${escapeRegExp(repoName)}(?:[?#]|$)`));
 }
 
 async function createAppIfAvailable(page: Page, repoName: string): Promise<void> {
@@ -58,7 +72,7 @@ async function createAppIfAvailable(page: Page, repoName: string): Promise<void>
   // cleanly when vaultActions.ts reports an environment-only starter seeding
   // failure instead of treating that provider setup issue as a product bug.
   try {
-    await expect(page).toHaveURL(/\/vault(?:[?#]|$)/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/vault(?:\/|[?#]|$)/, { timeout: 30_000 });
     return;
   } catch (error) {
     const createErrorMessage = (await createError.textContent())?.trim() ?? "";
@@ -157,6 +171,7 @@ test.describe("vault create app live flow", () => {
       await signInIfNeeded(page, "/vault?dev");
       await createAppIfAvailable(page, repositoryName);
       createdRepository = true;
+      await selectTemporaryVault(page, repositoryName);
 
       const createdVaultCard = vaultCard(page, repositoryName);
       const failedVaultCard = setupFailedVaultCard(page, repositoryName);
@@ -188,6 +203,7 @@ test.describe("vault create app live flow", () => {
       if (createdRepository) {
         await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
         await signInIfNeeded(page, "/vault?dev");
+        await selectTemporaryVault(page, repositoryName);
         await removeTemporaryVault(page, repositoryName);
       }
     }
