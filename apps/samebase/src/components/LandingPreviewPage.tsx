@@ -156,10 +156,10 @@ function LandingPreviewBaseStack() {
   return (
     <section aria-label="Samebase provider base" className="grid gap-10">
       <div className="max-w-3xl text-2xl font-medium leading-9 text-foreground/85">
-        <p>Most app-builders try to keep you in their golden cage by re-selling AI tokens.</p>
+        <p>Most app builders resell LLM tokens.</p>
         <p>
-          But you already know that Codex, Claude Code, Cursor, etc. are cheaper and more powerful
-          than any app-builder on the market.
+          But Codex, Claude, etc. are cheaper and more powerful than anything an app-builder can
+          provide.
         </p>
         <p>So why would you pay more for less?</p>
       </div>
