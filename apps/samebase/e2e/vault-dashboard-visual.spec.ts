@@ -703,13 +703,6 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
-  await expect(secondRepositoryCard).toHaveScreenshot("vault-dashboard-list-delimiter.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.03,
-  });
-
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
@@ -803,16 +796,6 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
-  await expect(secondRepositoryCard).toHaveScreenshot(
-    "vault-dashboard-list-delimiter-desktop.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
-
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open GitHub: samebase/samebase" })).toBeVisible();
@@ -998,6 +981,44 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+});
+
+test("vault dashboard fixture (mobile two-vault delimiter)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 720 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-delimiter");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByRole("link", { name: "#samebase" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "#archive" })).toBeVisible();
+  await expect(fixture.locator("[data-vault-dashboard-repository-hash-id]")).toHaveCount(2);
+  await expect(fixture.locator("[data-vault-dashboard-repository-list]")).toHaveScreenshot(
+    "vault-dashboard-list-delimiter.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
+});
+
+test("vault dashboard fixture (desktop two-vault delimiter)", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 720 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-delimiter");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture.getByRole("link", { name: "#samebase" })).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "#archive" })).toBeVisible();
+  await expect(fixture.locator("[data-vault-dashboard-repository-hash-id]")).toHaveCount(2);
+  await expect(fixture.locator("[data-vault-dashboard-repository-list]")).toHaveScreenshot(
+    "vault-dashboard-list-delimiter-desktop.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
 });
 
 test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {

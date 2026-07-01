@@ -397,7 +397,9 @@ export function VaultDashboardEmptyState({
 export function VaultDashboardRepositoryList({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[1000px]">
-      <div className="space-y-2">{children}</div>
+      <div data-vault-dashboard-repository-list="" className="space-y-2">
+        {children}
+      </div>
     </div>
   );
 }

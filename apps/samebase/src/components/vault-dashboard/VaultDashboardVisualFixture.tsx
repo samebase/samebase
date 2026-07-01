@@ -55,6 +55,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
+  | "vault-dashboard-delimiter"
   | "vault-dashboard-list-spacing"
   | "vault-convex-schema-graph"
   | "vault-convex-schema-route-mobile"
@@ -599,6 +600,55 @@ const LIST_SPACING_SECOND_VAULT = {
   ],
 } satisfies VaultDashboardVault;
 
+const DELIMITER_FIRST_VAULT_ID = fakeVaultId("nt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a");
+const DELIMITER_FIRST_VAULT = {
+  ...LIST_SPACING_VAULT,
+  _id: DELIMITER_FIRST_VAULT_ID,
+  _creationTime: FIXTURE_NOW - 600_000,
+  ghRepoOwner: "samebase",
+  ghRepoName: "samebase",
+  repositoryFullName: "samebase/samebase",
+  fileCount: 18,
+  lastTreeRefreshAt: FIXTURE_NOW - 12_000,
+  isSamebaseManaged: false,
+  hasConvexProvision: false,
+  hasCloudflareProvision: false,
+  canRemoveConvexProvision: false,
+  canRemoveCloudflareProvision: false,
+  appRoots: [],
+  cloudflareWorkers: [],
+  convexDeployments: [],
+  remoteBranches: [
+    fixtureVaultBranch({
+      name: "main",
+      headCommitSha: "1234567890abcdef1234567890abcdef12345678",
+      isDefault: true,
+      aheadBy: 0,
+      behindBy: 0,
+    }),
+  ],
+} satisfies VaultDashboardVault;
+
+const DELIMITER_SECOND_VAULT_ID = fakeVaultId("pt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a");
+const DELIMITER_SECOND_VAULT = {
+  ...DELIMITER_FIRST_VAULT,
+  _id: DELIMITER_SECOND_VAULT_ID,
+  _creationTime: FIXTURE_NOW - 1_200_000,
+  ghRepoName: "archive",
+  repositoryFullName: "samebase/archive",
+  fileCount: 7,
+  lastTreeRefreshAt: FIXTURE_NOW - 240_000,
+  remoteBranches: [
+    fixtureVaultBranch({
+      name: "main",
+      headCommitSha: "9abcdef1234567890abcdef1234567890abcdef1",
+      isDefault: true,
+      aheadBy: 0,
+      behindBy: 0,
+    }),
+  ],
+} satisfies VaultDashboardVault;
+
 const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
   branch: fixtureVaultBranch({
     name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
@@ -662,6 +712,44 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
               setResourceLinksOpen(nextOpen);
             }
           }}
+        />
+      </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardDelimiterFixture({ mode }: { mode: VaultDashboardVisualMode }) {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode={mode}
+      className="w-full bg-background text-foreground"
+    >
+      <TestRouterProvider>
+        <VaultDashboardView
+          developerToolsVisible={false}
+          isRemovingVault={false}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          now={FIXTURE_NOW}
+          viewModel={{
+            vaults: [DELIMITER_FIRST_VAULT, DELIMITER_SECOND_VAULT],
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
+          logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultBranchFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={new Map()}
+          schemaGraphAccessEnabled={false}
+          locationHash=""
+          rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+          onOpenDeveloperToolsChange={() => {}}
+          onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultBranchFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
         />
       </TestRouterProvider>
     </div>
@@ -1839,6 +1927,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
+  }
+
+  if (mode === "vault-dashboard-delimiter") {
+    return <VaultDashboardDelimiterFixture mode={mode} />;
   }
 
   if (mode === "vault-convex-schema-graph") {
