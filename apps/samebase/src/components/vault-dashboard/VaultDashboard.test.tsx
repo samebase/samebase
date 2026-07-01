@@ -10,10 +10,12 @@ import {
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
-  VaultDashboardSelectionEmptyState,
+  VaultDashboardPaneMessage,
+  VaultDashboardView,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
+import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
@@ -570,8 +572,50 @@ describe("VaultBranchLinkContent", () => {
 });
 
 describe("VaultDashboardRepositoryCard", () => {
+  it("renders the onboarding empty state when the loaded vault list is empty", () => {
+    const rootRouteSearch = validateRootRouteSearch({});
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault"]}>
+        <VaultDashboardView
+          deleteModeActive={false}
+          developerToolsVisible={false}
+          isRemovingVault={false}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          now={0}
+          viewModel={{
+            vaults: [],
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
+          logoRouteSearch={rootRouteSearch}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultBranchFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={new Map()}
+          schemaGraphAccessEnabled={false}
+          rootRouteSearch={rootRouteSearch}
+          onOpenDeveloperToolsChange={() => {}}
+          onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultBranchFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-testid="vault-dashboard-empty-state"');
+    expect(markup).not.toContain(
+      "Select a vault from the left sidebar or add one from the right sidebar.",
+    );
+  });
+
   it("prompts root dashboard users to pick a vault", () => {
-    const markup = renderToStaticMarkup(<VaultDashboardSelectionEmptyState />);
+    const markup = renderToStaticMarkup(
+      <VaultDashboardPaneMessage>
+        Select a vault from the left sidebar or add one from the right sidebar.
+      </VaultDashboardPaneMessage>,
+    );
 
     expect(markup).toContain(
       "Select a vault from the left sidebar or add one from the right sidebar.",
@@ -582,7 +626,6 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={false}
-        repositoryOwner="samebase"
         repositoryName="samebase"
         repositoryLinksOpen={false}
         onRepositoryLinksOpenChange={() => {}}
@@ -598,42 +641,10 @@ describe("VaultDashboardRepositoryCard", () => {
     expect(markup).not.toContain("<a");
   });
 
-  it("shows the owner in the title only when the repo name is ambiguous", () => {
-    const simpleMarkup = renderToStaticMarkup(
-      <VaultDashboardRepositoryCard
-        isReady={true}
-        repositoryOwner="nicu-chiciuc"
-        repositoryName="tmp-flow"
-        repositoryLinksOpen={false}
-        onRepositoryLinksOpenChange={() => {}}
-        titleHref="#tmp-flow"
-      />,
-    );
-    const ownerQualifiedMarkup = renderToStaticMarkup(
-      <VaultDashboardRepositoryCard
-        isReady={true}
-        repositoryOwner="nicu-chiciuc"
-        repositoryName="tmp-flow"
-        repositoryLinksOpen={false}
-        onRepositoryLinksOpenChange={() => {}}
-        titleHref="#nicu-chiciuc/tmp-flow"
-        titleRepositoryOwnerVisible
-      />,
-    );
-
-    expect(simpleMarkup).toContain("#");
-    expect(simpleMarkup).toContain("tmp-flow");
-    expect(simpleMarkup).not.toContain("nicu-chiciuc/");
-    expect(ownerQualifiedMarkup).toContain("#");
-    expect(ownerQualifiedMarkup).toContain("nicu-chiciuc/");
-    expect(ownerQualifiedMarkup).toContain("tmp-flow");
-  });
-
   it("keeps resource links collapsed behind a header trigger", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={true}
-        repositoryOwner="samebase"
         repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">
@@ -657,7 +668,6 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={true}
-        repositoryOwner="samebase"
         repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">

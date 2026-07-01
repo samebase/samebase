@@ -10,13 +10,13 @@ import {
 } from "./vaultRoutes";
 
 describe("buildVaultDashboardRoute", () => {
-  it("encodes owner and repository route segments", () => {
+  it("builds repository dashboard routes", () => {
     expect(
       buildVaultDashboardRoute({
-        owner: "octo org",
-        repoName: "web/app",
+        owner: "octo",
+        repoName: "web",
       }),
-    ).toBe("/vault/octo%20org/web%2Fapp");
+    ).toBe("/vault/octo/web");
   });
 });
 

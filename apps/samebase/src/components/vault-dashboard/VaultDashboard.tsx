@@ -2554,6 +2554,7 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
 }
 
 type VaultDashboardViewProps = {
+  deleteModeActive: boolean;
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
@@ -2566,7 +2567,6 @@ type VaultDashboardViewProps = {
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   persistedVaultResourceLinksOpenByVaultId: Map<string, boolean>;
   schemaGraphAccessEnabled: boolean;
-  deleteRepositoryFullName?: string;
   rootRouteSearch: RootRouteSearch;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
@@ -2578,18 +2578,6 @@ type VaultDashboardViewProps = {
   ) => void;
   onResourceLinksOpenChange: (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => void;
 };
-
-function buildVaultDashboardRepositoryNameCounts(vaults: VaultDashboardVault[]) {
-  const repositoryNameCounts = new Map<string, number>();
-  for (const vault of vaults) {
-    repositoryNameCounts.set(
-      vault.ghRepoName,
-      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) + 1,
-    );
-  }
-
-  return repositoryNameCounts;
-}
 
 function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
   const cloudflareLinks: VaultBranchProductionLinkInput[] = vault.cloudflareWorkers.flatMap(
@@ -2631,20 +2619,6 @@ function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProduc
   );
 
   return buildVaultBranchProductionApps([...cloudflareLinks, ...convexLinks]);
-}
-
-function resolveVaultDashboardActionRepositoryFullName({
-  isActive,
-  selectedRepositoryFullName,
-}: {
-  isActive: boolean | undefined;
-  selectedRepositoryFullName: string | null;
-}) {
-  if (!isActive) {
-    return undefined;
-  }
-
-  return selectedRepositoryFullName ?? undefined;
 }
 
 function applyVaultDashboardProviderAddSearch({
@@ -2770,23 +2744,14 @@ export function VaultDashboardVaultList({
   );
 }
 
-function VaultDashboardMissingVaultState({ repositoryFullName }: { repositoryFullName: string }) {
+export function VaultDashboardPaneMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-full items-start p-4 text-sm text-muted-foreground">
-      Vault not found: {repositoryFullName}
-    </div>
-  );
-}
-
-export function VaultDashboardSelectionEmptyState() {
-  return (
-    <div className="flex min-h-full items-start p-4 text-sm text-muted-foreground">
-      Select a vault from the left sidebar or add one from the right sidebar.
-    </div>
+    <div className="flex min-h-full items-start p-4 text-sm text-muted-foreground">{children}</div>
   );
 }
 
 export function VaultDashboardView({
+  deleteModeActive,
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
@@ -2799,7 +2764,6 @@ export function VaultDashboardView({
   persistedVaultBranchFiltersByVaultId,
   persistedVaultResourceLinksOpenByVaultId,
   schemaGraphAccessEnabled,
-  deleteRepositoryFullName,
   rootRouteSearch,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
@@ -2845,7 +2809,6 @@ export function VaultDashboardView({
     );
   }
 
-  const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
   const isInfrastructureRetryInFlight = retryingInfrastructureVaultId !== null;
 
   return (
@@ -2952,9 +2915,7 @@ export function VaultDashboardView({
             />
           ) : undefined;
         const deleteBlockedSection =
-          !isDeletingVault &&
-          deleteRepositoryFullName === vault.repositoryFullName &&
-          deletion.deleteAction.state === "disabled" ? (
+          !isDeletingVault && deleteModeActive && deletion.deleteAction.state === "disabled" ? (
             <VaultDeleteBlockedSection reason={deletion.deleteAction.reason} />
           ) : undefined;
         const deletionSection =
@@ -2967,7 +2928,6 @@ export function VaultDashboardView({
           ) : undefined;
         const setupSection =
           deletionSection ?? deleteBlockedSection ?? sourceSetupSection ?? providerSetupSection;
-        const titleRepositoryOwnerVisible = (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
         const branchSection =
           isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
             <VaultBranchSection
@@ -2985,13 +2945,7 @@ export function VaultDashboardView({
           <div key={vault._id} data-vault-dashboard-repository-card="">
             <VaultDashboardRepositoryCard
               isReady={isReady}
-              repositoryOwner={vault.ghRepoOwner}
               repositoryName={vault.ghRepoName}
-              titleRepositoryOwnerVisible={titleRepositoryOwnerVisible}
-              titleHref={undefined}
-              titleTarget={undefined}
-              titleTitle={undefined}
-              titleClassName={undefined}
               repositoryLinks={
                 isDeletingVault ? undefined : <VaultResourceRail state={resourceRailState} />
               }
@@ -3160,12 +3114,15 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       ),
     [stagedBranchSummariesByVault],
   );
-  const dashboardViewModel = useMemo(
+  const dashboardData = useMemo(
     () =>
       vaults
         ? {
-            vaults: selectedVault ? [selectedVault] : [],
-            stagedBranchSummariesByVaultId,
+            allVaults: vaults,
+            viewModel: {
+              vaults: selectedVault ? [selectedVault] : [],
+              stagedBranchSummariesByVaultId,
+            },
           }
         : null,
     [selectedVault, stagedBranchSummariesByVaultId, vaults],
@@ -3221,27 +3178,10 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const addAppRootModeActive = rootRouteSearch[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM] === true;
-  const deleteModeActive = rootRouteSearch.delete;
-  const addConvexModeActive = rootRouteSearch["add-convex"];
-  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"];
+  const deleteModeActive = rootRouteSearch.delete === true;
+  const addConvexModeActive = rootRouteSearch["add-convex"] === true;
+  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"] === true;
   const providerAddAppRoot = rootRouteSearch[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM] ?? null;
-  const selectedActionRepositoryFullName = selectedVault?.repositoryFullName ?? null;
-  const deleteRepositoryFullName = resolveVaultDashboardActionRepositoryFullName({
-    isActive: deleteModeActive,
-    selectedRepositoryFullName: selectedActionRepositoryFullName,
-  });
-  const addAppRootRepositoryFullName = resolveVaultDashboardActionRepositoryFullName({
-    isActive: addAppRootModeActive,
-    selectedRepositoryFullName: selectedActionRepositoryFullName,
-  });
-  const addCloudflareWorkerRepositoryFullName = resolveVaultDashboardActionRepositoryFullName({
-    isActive: addCloudflareWorkerModeActive,
-    selectedRepositoryFullName: selectedActionRepositoryFullName,
-  });
-  const addConvexRepositoryFullName = resolveVaultDashboardActionRepositoryFullName({
-    isActive: addConvexModeActive,
-    selectedRepositoryFullName: selectedActionRepositoryFullName,
-  });
   const setVaultBranchFilters = useMutation(
     api.vault.dashboard.setVaultBranchFilters,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3401,10 +3341,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
 
   const { enqueueManualRepositoryRefresh } = useDashboardRepositoryRefreshDemand();
 
-  const addAppRootDialogVault =
-    addAppRootRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === addAppRootRepositoryFullName) ?? null)
-      : null;
+  const addAppRootDialogVault = addAppRootModeActive ? selectedVault : null;
   const vaultToAddAppRoot = useMemo(
     () =>
       addAppRootDialogVault?.state === "ready"
@@ -3419,19 +3356,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         : null,
     [addAppRootDialogVault],
   );
-  const deleteDialogVault =
-    deleteRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === deleteRepositoryFullName) ?? null)
-      : null;
+  const deleteDialogVault = deleteModeActive ? selectedVault : null;
   const canOpenDeleteDialog =
     deleteDialogVault?.deletion.state === "not_deleting" &&
     deleteDialogVault.deletion.deleteAction.state === "available";
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
-  const addConvexDialogVault =
-    addConvexRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === addConvexRepositoryFullName) ?? null)
-      : null;
+  const addConvexDialogVault = addConvexModeActive ? selectedVault : null;
   const canOpenConnectConvexDialog =
     addConvexDialogVault?.state === "ready" && providerAddAppRoot !== null;
   const vaultToConnectConvex = useMemo(() => {
@@ -3446,12 +3377,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       repositoryName: addConvexDialogVault.ghRepoName,
     };
   }, [addConvexDialogVault, canOpenConnectConvexDialog, providerAddAppRoot]);
-  const addCloudflareWorkerDialogVault =
-    addCloudflareWorkerRepositoryFullName && vaults
-      ? (vaults.find(
-          (vault) => vault.repositoryFullName === addCloudflareWorkerRepositoryFullName,
-        ) ?? null)
-      : null;
+  const addCloudflareWorkerDialogVault = addCloudflareWorkerModeActive ? selectedVault : null;
   const canOpenConnectCloudflareDialog = addCloudflareWorkerDialogVault?.state === "ready";
   const canOpenScopedCloudflareDialog =
     canOpenConnectCloudflareDialog && providerAddAppRoot !== null;
@@ -3521,6 +3447,23 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     },
     [deleteModeActive, navigate, router],
   );
+
+  const closeDeletedVaultRoute = useCallback(() => {
+    shouldPopDeleteHistoryRef.current = false;
+    void navigate({
+      replace: true,
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, {
+          [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
+          [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+          "add-cloudflare": null,
+          "add-convex": null,
+          delete: null,
+        }),
+      state: true,
+      to: "/vault",
+    });
+  }, [navigate]);
 
   const clearAddConvexSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
@@ -3770,7 +3713,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   }, [
     clearDeleteSearchParam,
     deleteModeActive,
-    deleteRepositoryFullName,
     prepareDeleteDialog,
     resetDeleteDialogState,
     deleteDialogVault,
@@ -4021,7 +3963,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
           : false,
       });
       resetDeleteDialogState();
-      clearDeleteSearchParam({ preferHistoryBack: true });
+      closeDeletedVaultRoute();
     } catch (error) {
       console.error("Failed to remove vault:", error);
       setDeleteError(error instanceof Error ? error.message : "Failed to remove vault");
@@ -4096,9 +4038,11 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     });
   };
 
-  if (!dashboardViewModel || !vaults) {
+  if (!dashboardData) {
     return null;
   }
+
+  const { allVaults, viewModel: dashboardViewModel } = dashboardData;
 
   const persistedVaultBranchFiltersByVaultId = new Map<string, VaultBranchFiltersState>(
     (userVaultBranchFilters ?? []).map((vaultBranchFilter) => [
@@ -4171,8 +4115,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     clearDeleteSearchParam({ preferHistoryBack: true });
   };
 
-  const selectedVaultMissing =
-    Boolean(selectedRepositoryFullName) && vaults.length > 0 && selectedVault === null;
+  const selectedVaultMissing = Boolean(selectedRepositoryFullName) && selectedVault === null;
   const leftPane = {
     header: (
       <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
@@ -4180,16 +4123,21 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
       </div>
     ),
     content: (
-      <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={vaults} />
+      <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={allVaults} />
     ),
   };
   const dashboardBody =
     selectedVaultMissing && selectedRepositoryFullName ? (
-      <VaultDashboardMissingVaultState repositoryFullName={selectedRepositoryFullName} />
-    ) : selectedVault === null ? (
-      <VaultDashboardSelectionEmptyState />
+      <VaultDashboardPaneMessage>
+        Vault not found: {selectedRepositoryFullName}
+      </VaultDashboardPaneMessage>
+    ) : selectedVault === null && allVaults.length > 0 ? (
+      <VaultDashboardPaneMessage>
+        Select a vault from the left sidebar or add one from the right sidebar.
+      </VaultDashboardPaneMessage>
     ) : (
       <VaultDashboardView
+        deleteModeActive={deleteModeActive}
         developerToolsVisible={developerToolsVisible}
         isRemovingVault={isDeleting || isCommitting}
         retryingDeletionRunId={retryingDeletionRunId}
@@ -4209,7 +4157,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
         persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
         schemaGraphAccessEnabled={schemaGraphAccessEnabled}
-        deleteRepositoryFullName={deleteRepositoryFullName}
         rootRouteSearch={rootRouteSearch}
         onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
         onManualRepositoryRefresh={enqueueManualRepositoryRefresh}

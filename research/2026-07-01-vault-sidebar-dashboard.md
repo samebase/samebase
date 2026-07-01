@@ -48,6 +48,15 @@ Keep the existing dashboard query and card/branch components. Add a route-specif
 - `/home` is removed. There is no redirect, alias, or compatibility fallback.
 - Vault dashboard add/delete actions stay on the selected vault route as query params, for example
   `/vault/<org>/<repo>?delete`, not `/vault?delete#repo`.
+- `/vault` with no vaults still renders the existing onboarding/logo empty state; the unselected
+  prompt is only for loaded users who have at least one vault to pick from.
+- After deleting the selected vault, the dashboard replaces the selected-vault URL with `/vault` so
+  the user is not stranded on a stale `/vault/<org>/<repo>` route.
+- The selected-vault main pane now receives at most one vault, so the old repository-name
+  disambiguation map, dashboard card title-link props, and action-target repository re-lookups were
+  removed.
+- `buildVaultDashboardRoute` matches the other vault route builders by interpolating real GitHub
+  owner/repo names directly; branch and path tails remain the encoded segments.
 
 This is still a data-loading compromise: `getUserVaults` remains broad. The UI boundary now matches
 the desired pagination model, so a later backend pass can narrow the main-pane query without

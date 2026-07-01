@@ -626,6 +626,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
     >
       <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
         <VaultDashboardView
+          deleteModeActive={false}
           developerToolsVisible={false}
           isRemovingVault={false}
           retryingDeletionRunId={null}
@@ -682,6 +683,7 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
         }
         mainContent={
           <VaultDashboardView
+            deleteModeActive={false}
             developerToolsVisible={false}
             isRemovingVault={false}
             retryingDeletionRunId={null}
@@ -723,9 +725,7 @@ function VaultDashboardDeveloperToolsFixture({ visible }: { visible: boolean }) 
           <div data-testid="vault-dashboard-dev-tools-card">
             <VaultDashboardRepositoryCard
               isReady={true}
-              repositoryOwner="samebase"
               repositoryName="samebase"
-              titleHref="https://github.com/samebase/samebase"
               repositoryLinks={<FixtureRepositoryLinks />}
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
@@ -1215,9 +1215,7 @@ function VaultDashboardDeleteOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="samebase"
             repositoryName="samebase"
-            titleHref="https://github.com/samebase/samebase"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -1297,9 +1295,7 @@ function VaultDashboardConnectCloudflareOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="samebase"
             repositoryName="atelier"
-            titleHref="https://github.com/samebase/atelier"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -1324,9 +1320,7 @@ function VaultDashboardAddAppRootConvertOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="samebase"
             repositoryName="samebase"
-            titleHref="https://github.com/samebase/samebase"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -1367,9 +1361,7 @@ function VaultDashboardAddFirstAppRootOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="samebase"
             repositoryName="atelier"
-            titleHref="https://github.com/samebase/atelier"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -1407,9 +1399,7 @@ function VaultDashboardConnectCloudflareMobileShellOpenFixture() {
           <VaultDashboardRepositoryList>
             <VaultDashboardRepositoryCard
               isReady={true}
-              repositoryOwner="samebase"
               repositoryName="atelier"
-              titleHref="https://github.com/samebase/atelier"
               repositoryLinks={<FixtureRepositoryLinks />}
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
@@ -1436,9 +1426,7 @@ function VaultDashboardConnectConvexOpenFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="samebase"
             repositoryName="samebase-app"
-            titleHref="https://github.com/samebase/app"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -1493,9 +1481,7 @@ function VaultDashboardProvisioningLogFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="samebase"
             repositoryName="samebase-app"
-            titleHref="https://github.com/samebase/app"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -1560,9 +1546,7 @@ function VaultDashboardInfrastructureSetupFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="samebase"
             repositoryName="samebase-app"
-            titleHref="https://github.com/samebase/app"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={false}
             onRepositoryLinksOpenChange={() => {}}
@@ -1611,9 +1595,7 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
         <VaultDashboardRepositoryList>
           <VaultDashboardRepositoryCard
             isReady={true}
-            repositoryOwner="noter-guest"
             repositoryName="tmp-manual-test"
-            titleHref="https://github.com/noter-guest/tmp-manual-test"
             repositoryLinks={<FixtureRepositoryLinks />}
             repositoryLinksOpen={true}
             onRepositoryLinksOpenChange={() => {}}
@@ -1669,9 +1651,7 @@ function VaultDashboardStickyHeaderFixture() {
           <VaultDashboardRepositoryList>
             <VaultDashboardRepositoryCard
               isReady={true}
-              repositoryOwner="samebase"
               repositoryName="samebase"
-              titleHref="https://github.com/samebase/samebase"
               repositoryLinks={<FixtureRepositoryLinks />}
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
@@ -1838,9 +1818,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
           <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
             <VaultDashboardRepositoryCard
               isReady={true}
-              repositoryOwner="samebase"
               repositoryName="samebase"
-              titleHref="https://github.com/samebase/samebase"
               repositoryLinksOpen={false}
               onRepositoryLinksOpenChange={() => {}}
               topRightAction={<FixtureDeleteControl />}

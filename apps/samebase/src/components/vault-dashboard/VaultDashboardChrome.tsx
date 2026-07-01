@@ -378,7 +378,7 @@ export function VaultDashboardEmptyState({
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
 }) {
   return (
-    <div className="container mx-auto max-w-2xl py-6">
+    <div data-testid="vault-dashboard-empty-state" className="container mx-auto max-w-2xl py-6">
       <div className="text-center">
         <div className="mx-auto w-full max-w-[8rem]">
           <PublicLandingLogo
@@ -556,16 +556,10 @@ export function VaultDashboardRepositoryCard({
   repositoryName,
   repositoryLinks,
   repositoryLinksOpen,
-  repositoryOwner,
   repositoryStatus,
   onRepositoryLinksOpenChange,
   setupSection,
-  titleClassName,
-  titleHref,
-  titleRepositoryOwnerVisible = false,
   titleSuffix,
-  titleTarget,
-  titleTitle,
   topRightAction,
 }: {
   branchSection?: ReactNode;
@@ -581,16 +575,10 @@ export function VaultDashboardRepositoryCard({
   repositoryName: string;
   repositoryLinks?: ReactNode;
   repositoryLinksOpen: boolean;
-  repositoryOwner: string;
   repositoryStatus?: ReactNode;
   onRepositoryLinksOpenChange: (isOpen: boolean) => void;
   setupSection?: ReactNode;
-  titleClassName?: string;
-  titleHref?: string;
-  titleRepositoryOwnerVisible?: boolean;
   titleSuffix?: ReactNode;
-  titleTarget?: string;
-  titleTitle?: string;
   topRightAction?: ReactNode;
 }) {
   const hasBodyContent = Boolean(
@@ -606,9 +594,6 @@ export function VaultDashboardRepositoryCard({
     <h3 className="min-w-0 text-base font-semibold leading-6">
       <span className="flex min-w-0 items-start gap-2">
         <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
-          {titleRepositoryOwnerVisible ? (
-            <span className="font-normal text-muted-foreground">{repositoryOwner}/</span>
-          ) : null}
           <span>{repositoryName}</span>
         </span>
         {titleSuffix}
@@ -622,24 +607,9 @@ export function VaultDashboardRepositoryCard({
         hasRepositoryLinks && hasTopRightAction ? "pr-24" : "pr-10",
       )}
     >
-      {titleHref ? (
-        <a
-          href={titleHref}
-          target={titleTarget}
-          rel={titleTarget === "_blank" ? "noopener noreferrer" : undefined}
-          className={clsx(
-            "-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6 touch-manipulation underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-current",
-            titleClassName,
-          )}
-          title={titleTitle}
-        >
-          {titleContent}
-        </a>
-      ) : (
-        <div className="-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6">
-          {titleContent}
-        </div>
-      )}
+      <div className="-mx-2 -my-1 inline-flex min-h-9 max-w-full items-start px-2 py-1 text-base leading-6">
+        {titleContent}
+      </div>
       {hasRepositoryLinks ? (
         <CollapsibleContent className="w-full min-w-0">{repositoryLinks}</CollapsibleContent>
       ) : null}

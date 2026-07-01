@@ -18,7 +18,7 @@ function encodeVaultPathTail(path: string): string {
 }
 
 export function buildVaultDashboardRoute(args: { owner: string; repoName: string }): string {
-  return `/vault/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repoName)}`;
+  return `/vault/${args.owner}/${args.repoName}`;
 }
 
 /**
