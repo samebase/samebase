@@ -158,8 +158,9 @@ function LandingPreviewBaseStack() {
       <div className="grid max-w-3xl gap-3 text-xl leading-8 text-foreground/80">
         <p>Most app builders resell LLM tokens.</p>
         <p>
-          But Codex, Claude, etc. are cheaper and more powerful than anything an app-builder can
-          provide.
+          But Codex, Claude, etc. are{" "}
+          <span className="font-semibold text-foreground">cheaper and more powerful</span> than
+          anything an app-builder can provide.
         </p>
         <p>So why would you pay more for less?</p>
       </div>
