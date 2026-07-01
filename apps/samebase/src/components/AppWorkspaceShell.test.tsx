@@ -527,11 +527,15 @@ describe("AppWorkspaceShell", () => {
 
     const viewport = getRequiredElement('[data-testid="workspace-layout-v2-pane-main"]');
     expect(viewport.getAttribute("style")).toContain(
-      "--workspace-layout-v2-left-desktop-width: 360px",
+      "--workspace-layout-v2-left-desktop-width: 0px",
     );
     expect(viewport.getAttribute("style")).toContain(
       "--workspace-layout-v2-right-desktop-width: 420px",
     );
+    expect(readStoredAppWorkspaceSidebarState()).toMatchObject({
+      state: localWidthState,
+      version: 2,
+    });
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
     expect(recoverableErrors).toEqual([]);
   });
@@ -732,7 +736,7 @@ describe("AppWorkspaceShell", () => {
     ).toBe(true);
   });
 
-  it("uses default sidebar width fallbacks in server markup", () => {
+  it("uses the default right sidebar width fallback in server markup", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/"]}>
         <AppWorkspaceShell>
@@ -741,7 +745,20 @@ describe("AppWorkspaceShell", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("--workspace-layout-v2-left-desktop-width:240px");
+    expect(markup).toContain("--workspace-layout-v2-left-desktop-width:0px");
     expect(markup).toContain("--workspace-layout-v2-right-desktop-width:288px");
+  });
+
+  it("server-renders home without an empty left pane", () => {
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/home"]}>
+        <AppWorkspaceShell>
+          <div data-testid="workspace-route-content">workspace route content</div>
+        </AppWorkspaceShell>
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
   });
 });

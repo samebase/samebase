@@ -28,6 +28,7 @@ import {
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
@@ -71,6 +72,7 @@ type AppWorkspaceRouteChromeContextValue = {
 const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
+const ROOT_INDEX_PATHNAME = "/";
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
 const VISUAL_FIXTURE_ROUTE_CHROME = {
   dataTestId: "visual-fixture-shell",
@@ -177,16 +179,23 @@ function useAppWorkspaceDefaultRouteChrome() {
     select: (location) => location.pathname,
   });
 
-  if (pathname !== VISUAL_FIXTURE_PATHNAME) {
-    return null;
+  if (pathname === ROOT_INDEX_PATHNAME || pathname === DASHBOARD_ROUTE) {
+    return {
+      left: null,
+      pathname,
+    } satisfies AppWorkspaceRouteChromeSnapshot;
   }
 
-  // Visual fixtures hide pane chrome before route chrome registration effects can
-  // run, but the address editor remains part of the global workspace frame.
-  return {
-    ...VISUAL_FIXTURE_ROUTE_CHROME,
-    pathname,
-  } satisfies AppWorkspaceRouteChromeSnapshot;
+  if (pathname === VISUAL_FIXTURE_PATHNAME) {
+    // Visual fixtures hide pane chrome before route chrome registration effects can
+    // run, but the address editor remains part of the global workspace frame.
+    return {
+      ...VISUAL_FIXTURE_ROUTE_CHROME,
+      pathname,
+    } satisfies AppWorkspaceRouteChromeSnapshot;
+  }
+
+  return null;
 }
 
 const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
