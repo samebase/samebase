@@ -91,7 +91,6 @@ apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-a
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-app-root-dialog.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-first-app-root-dialog.png
-apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-bottom-target-scroll.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-connect-cloudflare-dialog.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-connect-cloudflare-worker-select-mobile.png
 apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-connect-convex-dialog.png

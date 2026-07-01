@@ -54,8 +54,8 @@ Intentional remaining router-level boundary:
 1. `apps/samebase/src/lib/tanstackSearchParams.ts` still defines the router-wide query
    parser/stringifier because Samebase intentionally preserves key-only URLs such as `/?dev` instead
    of adopting TanStack Router's default JSON-style search semantics.
-2. `/` remains the public landing route, and `/vault` remains the canonical signed-in dashboard
-   route. Public Google sign-in from `/` asks the provider to return directly to `/vault`, while
+2. `/` remains the public landing route, and `/vault` is the canonical signed-in dashboard route.
+   Public Google sign-in from `/` asks the provider to return directly to `/vault`, while
    `apps/samebase/src/lib/useAppAuthRuntimeEffects.ts` preserves failed unauthenticated
    `/vault?signup=google` returns by sending them back to `/?signup=google`. Authenticated users can
    still open `/` directly because the runtime no longer redirects authenticated root renders.

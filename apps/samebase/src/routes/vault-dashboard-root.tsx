@@ -1,5 +1,5 @@
 import { DashboardRoutePage } from "@/components/DashboardRoutePage";
-import { DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
+import { DASHBOARD_ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -8,7 +8,7 @@ const pathname = "/vault/";
 export const Route = createFileRoute("/vault/")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    searchParamSuggestions: DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,
+    searchParamSuggestions: DASHBOARD_ROOT_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: DashboardRoutePage,
 });

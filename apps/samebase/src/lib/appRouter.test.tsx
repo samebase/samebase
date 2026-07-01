@@ -17,7 +17,9 @@ vi.mock("@/components/RootIndexRoutePage", () => ({
 }));
 
 vi.mock("@/components/DashboardRoutePage", () => ({
-  DashboardRoutePage: () => <div data-testid="dashboard-route">Dashboard route</div>,
+  DashboardRoutePage: ({ selectedRepositoryFullName }: { selectedRepositoryFullName?: string }) => (
+    <div data-testid="dashboard-route">{selectedRepositoryFullName ?? "Dashboard route"}</div>
+  ),
 }));
 
 vi.mock("@/components/NotFoundRoutePage", () => ({
@@ -375,15 +377,6 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("does not keep the removed /home dashboard route", async () => {
-    await renderRoute("/home?delete");
-
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
-      "Not found route",
-    );
-    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')).toBeNull();
-  });
-
   it("does not redirect old root dashboard query URLs to /vault", async () => {
     const router = await renderRoute("/?delete");
 
@@ -416,6 +409,15 @@ describe("appRouter", () => {
 
   it("does not keep the removed /dashboard route", async () => {
     await renderRoute("/dashboard?delete");
+
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
+      "Not found route",
+    );
+    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')).toBeNull();
+  });
+
+  it("does not keep the removed /home route", async () => {
+    await renderRoute("/home?delete");
 
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
       "Not found route",
@@ -838,6 +840,20 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
+  it("renders the bare vault route through the dashboard route", async () => {
+    await renderRoute("/vault/samebase/samebase");
+
+    await act(async () => {
+      await settleRouterRender();
+    });
+
+    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
+      "samebase/samebase",
+    );
+    expect(rootElement?.querySelector('[data-testid="file-view-page"]')).toBeNull();
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
   it("renders the vault database route through the database route", async () => {
     await renderRoute("/vault/samebase/samebase/db/main/root");
 
@@ -845,15 +861,6 @@ describe("appRouter", () => {
       "Vault database page",
     );
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')).toBeNull();
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("renders the vault repository root through the generic vault route", async () => {
-    await renderRoute("/vault/samebase/samebase");
-
-    expect(rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent).toBe(
-      "File view page",
-    );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

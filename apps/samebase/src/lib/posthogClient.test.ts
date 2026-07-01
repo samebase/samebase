@@ -102,10 +102,10 @@ describe("posthog client setup", () => {
       },
     });
 
-    await captureSamebasePostHogPageview("/vault#samebase");
+    await captureSamebasePostHogPageview("/docs#samebase");
 
     expect(postHogCaptureMock).toHaveBeenCalledWith("$pageview", {
-      $current_url: "https://samebase.com/vault#samebase",
+      $current_url: "https://samebase.com/docs#samebase",
     });
   });
 });

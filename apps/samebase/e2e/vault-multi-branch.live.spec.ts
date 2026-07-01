@@ -4,6 +4,7 @@ import { signInIfNeeded } from "./liveHelpers";
 const REPO_OWNER = "nicu-chiciuc";
 const REPO_NAME = "tmp-main-branch-stress-20260309";
 const REPOSITORY_FULL_NAME = `${REPO_OWNER}/${REPO_NAME}`;
+const VAULT_DASHBOARD_ROUTE = `/vault/${REPOSITORY_FULL_NAME}`;
 
 const BRANCHES = {
   main: "main",
@@ -99,8 +100,8 @@ test.describe("vault multi-branch live flows", () => {
   test("dashboard branch list includes ahead/behind labels and encoded slash routes", async ({
     page,
   }) => {
-    await page.goto("/vault");
-    await signInIfNeeded(page, "/vault");
+    await page.goto(VAULT_DASHBOARD_ROUTE);
+    await signInIfNeeded(page, VAULT_DASHBOARD_ROUTE);
     await requireVaultOrSkip(page);
     await expect(branchLinkLocator(page, BRANCHES.main)).toBeVisible({
       timeout: 15_000,
@@ -136,8 +137,8 @@ test.describe("vault multi-branch live flows", () => {
   test("branch edits remain isolated and branch switching stays responsive", async ({
     page,
   }, testInfo) => {
-    await page.goto("/vault");
-    await signInIfNeeded(page, "/vault");
+    await page.goto(VAULT_DASHBOARD_ROUTE);
+    await signInIfNeeded(page, VAULT_DASHBOARD_ROUTE);
     await requireVaultOrSkip(page);
 
     let beforeUnloadDialogCount = 0;

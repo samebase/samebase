@@ -10,17 +10,15 @@ import {
   VaultDashboardCloudflareDialog,
   VaultDashboardConvexDialog,
   VaultDashboardDeleteDialog,
+  VaultDashboardPaneMessage,
+  VaultDashboardView,
   VaultBranchLinkContent,
   VaultProviderSetupSection,
 } from "./VaultDashboard";
+import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
-import {
-  buildVaultDashboardRepositoryHashHref,
-  buildVaultDashboardRepositoryHashId,
-  normalizeVaultDashboardRepositoryHash,
-} from "./vaultDashboardRepositoryHash";
 import { buildVaultBranchRowViewModel } from "./vaultDashboardBranchRowViewModel";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
 import {
@@ -574,29 +572,53 @@ describe("VaultBranchLinkContent", () => {
 });
 
 describe("VaultDashboardRepositoryCard", () => {
-  it("uses the repo name hash until the dashboard has duplicates", () => {
-    expect(
-      buildVaultDashboardRepositoryHashId({
-        hasDuplicateRepositoryName: false,
-        repositoryFullName: "nicu-chiciuc/tmp-flow",
-        repositoryName: "tmp-flow",
-      }),
-    ).toBe("tmp-flow");
-    expect(
-      buildVaultDashboardRepositoryHashId({
-        hasDuplicateRepositoryName: true,
-        repositoryFullName: "nicu-chiciuc/tmp-flow",
-        repositoryName: "tmp-flow",
-      }),
-    ).toBe("nicu-chiciuc/tmp-flow");
+  it("renders the onboarding empty state when the loaded vault list is empty", () => {
+    const rootRouteSearch = validateRootRouteSearch({});
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault"]}>
+        <VaultDashboardView
+          deleteModeActive={false}
+          developerToolsVisible={false}
+          isRemovingVault={false}
+          retryingDeletionRunId={null}
+          retryingInfrastructureVaultId={null}
+          now={0}
+          viewModel={{
+            vaults: [],
+            stagedBranchSummariesByVaultId: new Map(),
+          }}
+          logoRouteSearch={rootRouteSearch}
+          replaceLogoRouteSearch={() => {}}
+          openDeveloperToolsByVaultId={{}}
+          persistedVaultBranchFiltersByVaultId={new Map()}
+          persistedVaultResourceLinksOpenByVaultId={new Map()}
+          schemaGraphAccessEnabled={false}
+          rootRouteSearch={rootRouteSearch}
+          onOpenDeveloperToolsChange={() => {}}
+          onManualRepositoryRefresh={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          onSaveVaultBranchFilters={() => {}}
+          onResourceLinksOpenChange={() => {}}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('data-testid="vault-dashboard-empty-state"');
+    expect(markup).not.toContain(
+      "Select a vault from the left sidebar or add one from the right sidebar.",
+    );
   });
 
-  it("normalizes owner-qualified repository hashes", () => {
-    expect(buildVaultDashboardRepositoryHashHref("nicu-chiciuc/tmp-flow")).toBe(
-      "#nicu-chiciuc/tmp-flow",
+  it("prompts root dashboard users to pick a vault", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardPaneMessage>
+        Select a vault from the left sidebar or add one from the right sidebar.
+      </VaultDashboardPaneMessage>,
     );
-    expect(normalizeVaultDashboardRepositoryHash("#nicu-chiciuc/tmp-flow")).toBe(
-      "nicu-chiciuc/tmp-flow",
+
+    expect(markup).toContain(
+      "Select a vault from the left sidebar or add one from the right sidebar.",
     );
   });
 
@@ -604,7 +626,6 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={false}
-        repositoryOwner="samebase"
         repositoryName="samebase"
         repositoryLinksOpen={false}
         onRepositoryLinksOpenChange={() => {}}
@@ -614,49 +635,16 @@ describe("VaultDashboardRepositoryCard", () => {
       />,
     );
 
-    expect(markup).toContain("#");
     expect(markup).toContain("samebase");
     expect(markup).not.toContain("samebase/");
     expect(markup).toContain("(deleting...)");
     expect(markup).not.toContain("<a");
   });
 
-  it("shows the owner in the title only when the repo name is ambiguous", () => {
-    const simpleMarkup = renderToStaticMarkup(
-      <VaultDashboardRepositoryCard
-        isReady={true}
-        repositoryOwner="nicu-chiciuc"
-        repositoryName="tmp-flow"
-        repositoryLinksOpen={false}
-        onRepositoryLinksOpenChange={() => {}}
-        titleHref="#tmp-flow"
-      />,
-    );
-    const ownerQualifiedMarkup = renderToStaticMarkup(
-      <VaultDashboardRepositoryCard
-        isReady={true}
-        repositoryOwner="nicu-chiciuc"
-        repositoryName="tmp-flow"
-        repositoryLinksOpen={false}
-        onRepositoryLinksOpenChange={() => {}}
-        titleHref="#nicu-chiciuc/tmp-flow"
-        titleRepositoryOwnerVisible
-      />,
-    );
-
-    expect(simpleMarkup).toContain("#");
-    expect(simpleMarkup).toContain("tmp-flow");
-    expect(simpleMarkup).not.toContain("nicu-chiciuc/");
-    expect(ownerQualifiedMarkup).toContain("#");
-    expect(ownerQualifiedMarkup).toContain("nicu-chiciuc/");
-    expect(ownerQualifiedMarkup).toContain("tmp-flow");
-  });
-
   it("keeps resource links collapsed behind a header trigger", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={true}
-        repositoryOwner="samebase"
         repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">
@@ -680,7 +668,6 @@ describe("VaultDashboardRepositoryCard", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardRepositoryCard
         isReady={true}
-        repositoryOwner="samebase"
         repositoryName="samebase"
         repositoryLinks={
           <nav aria-label="Repository resources">
@@ -1179,7 +1166,7 @@ describe("buildVaultDashboardResourceRailState", () => {
   it("puts the add-app-root action on the GitHub row", () => {
     const addAppRoot = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      buildAddAppRootHref: () => "/vault?add-app-root#demo",
+      buildAddAppRootHref: () => "/vault/ada/demo?add-app-root",
       addAppRootOnClick: addAppRoot,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({}),
@@ -1193,7 +1180,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           kind: "add",
           label: "?add-app-root",
           ariaLabel: "Add app root",
-          href: "/vault?add-app-root#demo",
+          href: "/vault/ada/demo?add-app-root",
         },
       ],
     });
@@ -1273,7 +1260,7 @@ describe("buildVaultDashboardResourceRailState", () => {
 
   it("lets failed manual Cloudflare setup reopen the connection dialog", () => {
     const state = buildVaultDashboardResourceRailState({
-      buildAddCloudflareWorkerHref: () => "/vault?add-cloudflare#demo",
+      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
@@ -1303,18 +1290,18 @@ describe("buildVaultDashboardResourceRailState", () => {
       kind: "add",
       label: "?add-cloudflare",
       disabled: false,
-      href: "/vault?add-cloudflare#demo",
+      href: "/vault/ada/demo?add-cloudflare",
     });
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("?add-cloudflare");
-    expect(markup).toContain('href="/vault?add-cloudflare#demo"');
+    expect(markup).toContain('href="/vault/ada/demo?add-cloudflare"');
   });
 
   it("lets failed managed Cloudflare setup retry infrastructure", () => {
     const retryInfrastructure = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      buildAddCloudflareWorkerHref: () => "/vault?add-cloudflare#demo",
+      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
       githubRepositoryUrl: "https://github.com/ada/demo",
       retryInfrastructureOnClick: retryInfrastructure,
       vault: makeResourceRailBuilderVault({
@@ -1358,7 +1345,7 @@ describe("buildVaultDashboardResourceRailState", () => {
   it("lets failed managed Convex setup retry infrastructure", () => {
     const retryInfrastructure = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      buildAddConvexHref: () => "/vault?add-convex#demo",
+      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
       githubRepositoryUrl: "https://github.com/ada/demo",
       retryInfrastructureOnClick: retryInfrastructure,
       vault: makeResourceRailBuilderVault({
@@ -1436,7 +1423,7 @@ describe("buildVaultDashboardResourceRailState", () => {
 
   it("lets failed manual Convex setup reopen the deployment dialog", () => {
     const state = buildVaultDashboardResourceRailState({
-      buildAddConvexHref: () => "/vault?add-convex#demo",
+      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
         appRoots: [{ appRoot: "." }],
@@ -1466,21 +1453,21 @@ describe("buildVaultDashboardResourceRailState", () => {
       kind: "add",
       label: "?add-convex",
       disabled: false,
-      href: "/vault?add-convex#demo",
+      href: "/vault/ada/demo?add-convex",
     });
 
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
     expect(markup).toContain("?add-convex");
-    expect(markup).toContain('href="/vault?add-convex#demo"');
+    expect(markup).toContain('href="/vault/ada/demo?add-convex"');
   });
 
   it("shows missing provider actions after setup is idle", () => {
     const addCloudflareWorker = vi.fn();
     const addConvex = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      buildAddCloudflareWorkerHref: () => "/vault?add-cloudflare#demo",
+      buildAddCloudflareWorkerHref: () => "/vault/ada/demo?add-cloudflare",
       addCloudflareWorkerOnClick: addCloudflareWorker,
-      buildAddConvexHref: () => "/vault?add-convex#demo",
+      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
       addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
@@ -1492,7 +1479,7 @@ describe("buildVaultDashboardResourceRailState", () => {
       provider: "convex",
       status: "action_required",
       actions: [
-        { kind: "add", label: "?add-convex", disabled: false, href: "/vault?add-convex#demo" },
+        { kind: "add", label: "?add-convex", disabled: false, href: "/vault/ada/demo?add-convex" },
       ],
     });
     expect(getResourceRailAppRow(state, ".", "cloudflare")).toMatchObject({
@@ -1503,7 +1490,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           kind: "add",
           label: "?add-cloudflare",
           disabled: false,
-          href: "/vault?add-cloudflare#demo",
+          href: "/vault/ada/demo?add-cloudflare",
         },
       ],
     });
@@ -1614,8 +1601,8 @@ describe("buildVaultDashboardResourceRailState", () => {
     const addCloudflareWorker = vi.fn();
     const buildAddCloudflareWorkerHref = vi.fn((appRoot: string) =>
       appRoot === "."
-        ? "/vault?add-cloudflare#demo"
-        : `/vault?add-cloudflare&app-root=${appRoot}#demo`,
+        ? "/vault/ada/demo?add-cloudflare"
+        : `/vault/ada/demo?add-cloudflare&app-root=${appRoot}`,
     );
     const state = buildVaultDashboardResourceRailState({
       buildAddCloudflareWorkerHref,
@@ -1651,8 +1638,8 @@ describe("buildVaultDashboardResourceRailState", () => {
     const addCloudflareWorker = vi.fn();
     const buildAddCloudflareWorkerHref = vi.fn((appRoot: string) =>
       appRoot === "."
-        ? "/vault?add-cloudflare#demo"
-        : `/vault?add-cloudflare&app-root=${appRoot}#demo`,
+        ? "/vault/ada/demo?add-cloudflare"
+        : `/vault/ada/demo?add-cloudflare&app-root=${appRoot}`,
     );
     const state = buildVaultDashboardResourceRailState({
       buildAddCloudflareWorkerHref,
@@ -1701,7 +1688,7 @@ describe("buildVaultDashboardResourceRailState", () => {
   it("uses the Convex deployment row as the ready resource", () => {
     const addConvex = vi.fn();
     const state = buildVaultDashboardResourceRailState({
-      buildAddConvexHref: () => "/vault?add-convex#demo",
+      buildAddConvexHref: () => "/vault/ada/demo?add-convex",
       addConvexOnClick: addConvex,
       githubRepositoryUrl: "https://github.com/ada/demo",
       vault: makeResourceRailBuilderVault({
@@ -1741,7 +1728,9 @@ describe("buildVaultDashboardResourceRailState", () => {
   it("scopes missing provider add actions to their app root", () => {
     const addConvex = vi.fn();
     const buildAddConvexHref = vi.fn((appRoot: string) =>
-      appRoot === "." ? "/vault?add-convex#demo" : `/vault?add-convex&app-root=${appRoot}#demo`,
+      appRoot === "."
+        ? "/vault/ada/demo?add-convex"
+        : `/vault/ada/demo?add-convex&app-root=${appRoot}`,
     );
     const state = buildVaultDashboardResourceRailState({
       buildAddConvexHref,
@@ -1767,7 +1756,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         {
           kind: "add",
           label: "?add-convex",
-          href: "/vault?add-convex&app-root=apps/samebase#demo",
+          href: "/vault/ada/demo?add-convex&app-root=apps/samebase",
         },
       ],
     });

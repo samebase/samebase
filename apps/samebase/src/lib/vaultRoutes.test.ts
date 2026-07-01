@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildVaultDashboardRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
   buildVaultSchemaRoute,
   buildVaultCodespaceChatRoute,
   parseVaultPathContext,
 } from "./vaultRoutes";
+
+describe("buildVaultDashboardRoute", () => {
+  it("builds repository dashboard routes", () => {
+    expect(
+      buildVaultDashboardRoute({
+        owner: "octo",
+        repoName: "web",
+      }),
+    ).toBe("/vault/octo/web");
+  });
+});
 
 describe("buildVaultCodespaceChatRoute", () => {
   it("encodes branch names with slashes", () => {

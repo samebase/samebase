@@ -10,11 +10,6 @@ import { VaultLastUpdatedStatus } from "@/components/vault-dashboard/VaultLastUp
 import { VaultProvisioningLog } from "@/components/vault-dashboard/VaultProvisioningLogViewer";
 import { VaultResourceRail } from "@/components/vault-dashboard/VaultResourceRail";
 import { buildVaultDashboardResourceRailState } from "@/components/vault-dashboard/vaultResourceRailState";
-import {
-  buildVaultDashboardRepositoryHashHref,
-  buildVaultDashboardRepositoryHashId,
-  normalizeVaultDashboardRepositoryHash,
-} from "@/components/vault-dashboard/vaultDashboardRepositoryHash";
 import { ChevronDownIcon, TrashIcon, UpdateIcon } from "@/lib/radixIcons";
 import {
   CircleAlert,
@@ -45,7 +40,6 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { buildFileViewRouteSearch, buildFileViewSearchHref } from "@/routeSearch/fileView";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
@@ -63,6 +57,7 @@ import {
   VaultDashboardEmptyState,
   VaultDashboardRepositoryCard,
   VaultDashboardRepositoryList,
+  VaultDashboardSidebarContent,
   VaultDashboardScrollTargetEndPadding,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
 import {
@@ -71,6 +66,7 @@ import {
 } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
+  buildVaultDashboardRoute,
   buildVaultCodespaceChatRoute,
   buildVaultDatabaseRoute,
   buildVaultFileRoute,
@@ -139,6 +135,9 @@ type VaultDashboardStagedBranchSummariesByVaultId = Map<
 export type VaultDashboardViewModel = {
   vaults: VaultDashboardVault[];
   stagedBranchSummariesByVaultId: VaultDashboardStagedBranchSummariesByVaultId;
+};
+export type VaultDashboardProps = {
+  selectedRepositoryFullName?: string;
 };
 
 type VaultDashboardLogoComponent = () => ReactNode;
@@ -754,12 +753,10 @@ export function VaultDashboardDeleteControl({
   deleteAction,
   isRemovingVault = false,
   repositoryFullName,
-  repositoryHashId,
 }: {
   deleteAction: VaultDashboardDeleteAction;
   isRemovingVault?: boolean;
   repositoryFullName: string;
-  repositoryHashId: string;
 }) {
   const navigate = useNavigate();
   const deleteTriggerDisabled = isRemovingVault || deleteAction.state === "disabled";
@@ -768,8 +765,7 @@ export function VaultDashboardDeleteControl({
   return (
     <span className="absolute right-4 top-4">
       <Link
-        to={DASHBOARD_ROUTE}
-        hash={repositoryHashId}
+        to="."
         search={(currentSearch) => ({
           ...currentSearch,
           delete: true,
@@ -794,9 +790,8 @@ export function VaultDashboardDeleteControl({
           }
           event.preventDefault();
           void navigate({
-            hash: repositoryHashId,
             search: (currentSearch) => applySearchPatch(currentSearch, { delete: true }),
-            to: DASHBOARD_ROUTE,
+            to: ".",
           });
         }}
         className={clsx(
@@ -1137,8 +1132,6 @@ export function VaultDashboardAppRootDialog({
     </Dialog>
   );
 }
-
-const VAULT_DASHBOARD_SCROLLABLE_OVERFLOW_VALUES = new Set(["auto", "overlay", "scroll"]);
 
 export function VaultDashboardConvexDialog({
   appRoot,
@@ -2561,6 +2554,7 @@ export function VaultDeleteBlockedSection({ reason }: { reason: string }) {
 }
 
 type VaultDashboardViewProps = {
+  deleteModeActive: boolean;
   developerToolsVisible: boolean;
   isRemovingVault: boolean;
   retryingDeletionRunId: Id<"vaultDeletionRuns"> | null;
@@ -2573,10 +2567,6 @@ type VaultDashboardViewProps = {
   persistedVaultBranchFiltersByVaultId: Map<string, VaultBranchFiltersState>;
   persistedVaultResourceLinksOpenByVaultId: Map<string, boolean>;
   schemaGraphAccessEnabled: boolean;
-  deleteRepositoryFullName?: string;
-  addConvexRepositoryFullName?: string;
-  addCloudflareWorkerRepositoryFullName?: string;
-  locationHash: string;
   rootRouteSearch: RootRouteSearch;
   onOpenDeveloperToolsChange: (vaultId: Id<"vaults">, isOpen: boolean) => void;
   onManualRepositoryRefresh: (vaultId: Id<"vaults">) => void;
@@ -2588,47 +2578,6 @@ type VaultDashboardViewProps = {
   ) => void;
   onResourceLinksOpenChange: (vaultId: Id<"vaults">, resourceLinksOpen: boolean) => void;
 };
-
-function findVaultDashboardCardScrollport(element: HTMLElement): HTMLElement | null {
-  let currentElement = element.parentElement;
-  while (currentElement) {
-    if (
-      VAULT_DASHBOARD_SCROLLABLE_OVERFLOW_VALUES.has(
-        window.getComputedStyle(currentElement).overflowY,
-      )
-    ) {
-      return currentElement;
-    }
-    currentElement = currentElement.parentElement;
-  }
-  return null;
-}
-
-function buildVaultDashboardRepositoryNameCounts(vaults: VaultDashboardVault[]) {
-  const repositoryNameCounts = new Map<string, number>();
-  for (const vault of vaults) {
-    repositoryNameCounts.set(
-      vault.ghRepoName,
-      (repositoryNameCounts.get(vault.ghRepoName) ?? 0) + 1,
-    );
-  }
-
-  return repositoryNameCounts;
-}
-
-function buildVaultDashboardHashIdForVault({
-  repositoryNameCounts,
-  vault,
-}: {
-  repositoryNameCounts: ReadonlyMap<string, number>;
-  vault: VaultDashboardVault;
-}) {
-  return buildVaultDashboardRepositoryHashId({
-    hasDuplicateRepositoryName: (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1,
-    repositoryFullName: vault.repositoryFullName,
-    repositoryName: vault.ghRepoName,
-  });
-}
 
 function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProductionApp[] {
   const cloudflareLinks: VaultBranchProductionLinkInput[] = vault.cloudflareWorkers.flatMap(
@@ -2670,28 +2619,6 @@ function buildVaultProductionApps(vault: VaultDashboardVault): VaultBranchProduc
   );
 
   return buildVaultBranchProductionApps([...cloudflareLinks, ...convexLinks]);
-}
-
-function resolveVaultDashboardRepositoryFullNameForHash({
-  hash,
-  vaults,
-}: {
-  hash: string;
-  vaults: VaultDashboardVault[];
-}) {
-  const repositoryHash = normalizeVaultDashboardRepositoryHash(hash);
-  if (!repositoryHash) {
-    return undefined;
-  }
-
-  const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
-  for (const vault of vaults) {
-    if (buildVaultDashboardHashIdForVault({ repositoryNameCounts, vault }) === repositoryHash) {
-      return vault.repositoryFullName;
-    }
-  }
-
-  return undefined;
 }
 
 function applyVaultDashboardProviderAddSearch({
@@ -2736,116 +2663,95 @@ function applyVaultDashboardAddAppRootSearch(currentSearch: RootRouteSearch): Ro
 
 function buildVaultDashboardProviderAddHref({
   appRoot,
+  dashboardRoutePathname,
   provider,
-  repositoryHashId,
   rootRouteSearch,
 }: {
   appRoot: string;
+  dashboardRoutePathname: string;
   provider: "cloudflare" | "convex";
-  repositoryHashId: string;
   rootRouteSearch: RootRouteSearch;
 }): string {
   return buildPathWithTanStackSearch({
-    pathname: DASHBOARD_ROUTE,
+    pathname: dashboardRoutePathname,
     search: applyVaultDashboardProviderAddSearch({
       appRoot,
       currentSearch: rootRouteSearch,
       provider,
     }),
-    hash: repositoryHashId,
   });
 }
 
 function buildVaultDashboardAddAppRootHref({
-  repositoryHashId,
+  dashboardRoutePathname,
   rootRouteSearch,
 }: {
-  repositoryHashId: string;
+  dashboardRoutePathname: string;
   rootRouteSearch: RootRouteSearch;
 }): string {
   return buildPathWithTanStackSearch({
-    pathname: DASHBOARD_ROUTE,
+    pathname: dashboardRoutePathname,
     search: applyVaultDashboardAddAppRootSearch(rootRouteSearch),
-    hash: repositoryHashId,
   });
 }
 
-function scrollVaultDashboardCardIntoView(element: HTMLElement): boolean {
-  const scrollport = findVaultDashboardCardScrollport(element);
-  if (!scrollport) {
-    element.scrollIntoView({
-      block: "start",
-      inline: "nearest",
-    });
-    return Math.abs(element.getBoundingClientRect().top) <= 2;
-  }
-
-  const elementRect = element.getBoundingClientRect();
-  const scrollportRect = scrollport.getBoundingClientRect();
-  scrollport.scrollTop += elementRect.top - scrollportRect.top;
-  return Math.abs(element.getBoundingClientRect().top - scrollportRect.top) <= 2;
-}
-
-// Keep vault hashes app-owned instead of DOM ids, so scrollspy URL updates
-// cannot trigger native anchor scrolling.
-function readVaultDashboardCardHashId(element: HTMLElement): string | null {
-  const hashId = element.dataset.vaultDashboardRepositoryHashId;
-  return hashId && hashId.length > 0 ? hashId : null;
-}
-
-function findVaultDashboardCardHeader(element: HTMLElement): HTMLElement | null {
-  const header = element.querySelector("[data-vault-dashboard-repository-header]");
-  return header instanceof HTMLElement ? header : null;
-}
-
-function resolveActiveVaultDashboardCardHashId({
-  cardElements,
-  scrollport,
+export function VaultDashboardVaultList({
+  selectedVaultId,
+  vaults,
 }: {
-  cardElements: Iterable<HTMLElement>;
-  scrollport: HTMLElement;
-}): string | null {
-  const scrollportRect = scrollport.getBoundingClientRect();
-  let closestVisibleHeader: {
-    distancePx: number;
-    hashId: string;
-  } | null = null;
+  selectedVaultId: Id<"vaults"> | null;
+  vaults: VaultDashboardVault[];
+}) {
+  return (
+    <VaultDashboardSidebarContent>
+      <nav aria-label="Vaults" className="p-2">
+        <ul className="space-y-1">
+          {vaults.map((vault) => {
+            const isSelected = vault._id === selectedVaultId;
 
-  for (const cardElement of cardElements) {
-    const hashId = readVaultDashboardCardHashId(cardElement);
-    if (!hashId) {
-      continue;
-    }
+            return (
+              <li key={vault._id}>
+                <Link
+                  to={buildVaultDashboardRoute({
+                    owner: vault.ghRepoOwner,
+                    repoName: vault.ghRepoName,
+                  })}
+                  search={(currentSearch) =>
+                    applySearchPatch(currentSearch, {
+                      [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
+                      [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+                      "add-cloudflare": null,
+                      "add-convex": null,
+                      delete: null,
+                    })
+                  }
+                  title={vault.repositoryFullName}
+                  className={clsx(
+                    "flex min-h-8 min-w-0 items-center px-2 py-1.5 text-sm leading-5 no-underline transition-colors hover:no-underline",
+                    isSelected
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  )}
+                >
+                  <span className="truncate">{vault.repositoryFullName}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </VaultDashboardSidebarContent>
+  );
+}
 
-    const headerElement = findVaultDashboardCardHeader(cardElement);
-    if (!headerElement) {
-      continue;
-    }
-
-    const headerRect = headerElement.getBoundingClientRect();
-    if (headerRect.height <= 0) {
-      continue;
-    }
-
-    const isHeaderFullyVisible =
-      headerRect.top >= scrollportRect.top && headerRect.bottom <= scrollportRect.bottom;
-    if (!isHeaderFullyVisible) {
-      continue;
-    }
-
-    const distancePx = Math.abs(headerRect.top - scrollportRect.top);
-    if (!closestVisibleHeader || distancePx < closestVisibleHeader.distancePx) {
-      closestVisibleHeader = {
-        distancePx,
-        hashId,
-      };
-    }
-  }
-
-  return closestVisibleHeader?.hashId ?? null;
+export function VaultDashboardPaneMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-full items-start p-4 text-sm text-muted-foreground">{children}</div>
+  );
 }
 
 export function VaultDashboardView({
+  deleteModeActive,
   developerToolsVisible,
   isRemovingVault,
   retryingDeletionRunId,
@@ -2858,10 +2764,6 @@ export function VaultDashboardView({
   persistedVaultBranchFiltersByVaultId,
   persistedVaultResourceLinksOpenByVaultId,
   schemaGraphAccessEnabled,
-  deleteRepositoryFullName,
-  addConvexRepositoryFullName,
-  addCloudflareWorkerRepositoryFullName,
-  locationHash,
   rootRouteSearch,
   onOpenDeveloperToolsChange,
   onManualRepositoryRefresh,
@@ -2871,43 +2773,14 @@ export function VaultDashboardView({
   onResourceLinksOpenChange,
 }: VaultDashboardViewProps) {
   const navigate = useNavigate();
+  const dashboardRoutePathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const { stagedBranchSummariesByVaultId, vaults } = viewModel;
-  const [repositoryLocationHash, setRepositoryLocationHash] = useState(() => locationHash);
-  const vaultCardElementsRef = useRef(new Map<string, HTMLDivElement>());
-  const lastScrolledDeleteRepositoryRef = useRef<string | null>(null);
-  const lastScrolledAddConvexRepositoryRef = useRef<string | null>(null);
-  const lastScrolledAddCloudflareWorkerRepositoryRef = useRef<string | null>(null);
-  const lastExplicitRepositoryHashScrollRef = useRef<string | null>(null);
-  const lastScrollTrackedRepositoryHashRef = useRef<string | null>(null);
-  const replaceRepositoryLocationHash = useCallback((hashId: string) => {
-    const nextHash = buildVaultDashboardRepositoryHashHref(hashId);
-    if (window.location.hash === nextHash) {
-      return;
-    }
-
-    lastScrollTrackedRepositoryHashRef.current = hashId;
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${window.location.pathname}${window.location.search}${nextHash}`,
-    );
-    // Scroll tracking is address-bar state only. Hashchange handles explicit
-    // navigation; updating repositoryLocationHash here would feed scrollspy
-    // changes back into the "scroll to hash" path.
-  }, []);
   const openProviderAddDialog = useCallback(
-    ({
-      appRoot,
-      provider,
-      repositoryHashId,
-    }: {
-      appRoot: string;
-      provider: "cloudflare" | "convex";
-      repositoryHashId: string;
-    }) => {
+    ({ appRoot, provider }: { appRoot: string; provider: "cloudflare" | "convex" }) => {
       void navigate({
-        to: DASHBOARD_ROUTE,
-        hash: repositoryHashId,
+        to: ".",
         search: (currentSearch) =>
           applyVaultDashboardProviderAddSearch({
             appRoot,
@@ -2919,193 +2792,13 @@ export function VaultDashboardView({
     },
     [navigate],
   );
-  const openAppRootAddDialog = useCallback(
-    ({ repositoryHashId }: { repositoryHashId: string }) => {
-      void navigate({
-        to: DASHBOARD_ROUTE,
-        hash: repositoryHashId,
-        search: applyVaultDashboardAddAppRootSearch,
-        state: true,
-      });
-    },
-    [navigate],
-  );
-
-  useEffect(() => {
-    // URL editor commits go through TanStack history, so they do not fire the
-    // browser hashchange event that native anchor clicks use.
-    const locationRepositoryHash = normalizeVaultDashboardRepositoryHash(locationHash);
-    const locationHashCameFromScrollTracking =
-      locationRepositoryHash !== null &&
-      locationRepositoryHash === lastScrollTrackedRepositoryHashRef.current;
-    if (!locationHashCameFromScrollTracking) {
-      setRepositoryLocationHash(locationHash);
-    }
-    lastScrollTrackedRepositoryHashRef.current = null;
-
-    const syncRepositoryLocationHash = () => {
-      setRepositoryLocationHash(window.location.hash);
-    };
-    window.addEventListener("hashchange", syncRepositoryLocationHash);
-
-    return () => {
-      window.removeEventListener("hashchange", syncRepositoryLocationHash);
-    };
-  }, [locationHash]);
-
-  const syncActiveRepositoryHash = useCallback(
-    (scrollport: HTMLElement) => {
-      const activeHashId = resolveActiveVaultDashboardCardHashId({
-        cardElements: vaultCardElementsRef.current.values(),
-        scrollport,
-      });
-      if (!activeHashId) {
-        return;
-      }
-
-      replaceRepositoryLocationHash(activeHashId);
-    },
-    [replaceRepositoryLocationHash],
-  );
-
-  const scrollVaultCardElementForHash = useCallback(
-    (vaultCardElement: HTMLDivElement) => {
-      const repositoryHash = normalizeVaultDashboardRepositoryHash(repositoryLocationHash);
-      if (!repositoryHash) {
-        return false;
-      }
-
-      if (lastExplicitRepositoryHashScrollRef.current === repositoryHash) {
-        return false;
-      }
-
-      if (readVaultDashboardCardHashId(vaultCardElement) !== repositoryHash) {
-        return false;
-      }
-
-      // Direct hash loads resolve after vault data arrives, so anchor the
-      // selected card once the target element exists.
-      if (scrollVaultDashboardCardIntoView(vaultCardElement)) {
-        lastExplicitRepositoryHashScrollRef.current = repositoryHash;
-      }
-      return true;
-    },
-    [repositoryLocationHash],
-  );
-
-  useEffect(() => {
-    // The dashboard scrollport can be replaced while vault data settles; bind
-    // after each render so scroll tracking follows the current element.
-    const firstVaultCardElement = vaultCardElementsRef.current.values().next().value;
-    if (!firstVaultCardElement) {
-      return;
-    }
-
-    const scrollport = findVaultDashboardCardScrollport(firstVaultCardElement);
-    if (!scrollport) {
-      return;
-    }
-
-    let pendingAnimationFrameId: number | null = null;
-    const handleScroll = () => {
-      if (pendingAnimationFrameId) {
-        return;
-      }
-
-      pendingAnimationFrameId = window.requestAnimationFrame(() => {
-        pendingAnimationFrameId = null;
-        syncActiveRepositoryHash(scrollport);
-      });
-    };
-
-    scrollport.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => {
-      scrollport.removeEventListener("scroll", handleScroll);
-      if (pendingAnimationFrameId) {
-        window.cancelAnimationFrame(pendingAnimationFrameId);
-      }
-    };
-  });
-
-  useEffect(() => {
-    if (!deleteRepositoryFullName) {
-      lastScrolledDeleteRepositoryRef.current = null;
-      return;
-    }
-
-    if (lastScrolledDeleteRepositoryRef.current === deleteRepositoryFullName) {
-      return;
-    }
-
-    const deleteCardElement = vaultCardElementsRef.current.get(deleteRepositoryFullName);
-    if (!deleteCardElement) {
-      return;
-    }
-
-    // Direct ?delete#vault loads resolve after vault data arrives, so anchor
-    // the selected card once the target element exists.
-    scrollVaultDashboardCardIntoView(deleteCardElement);
-    lastScrolledDeleteRepositoryRef.current = deleteRepositoryFullName;
-  }, [deleteRepositoryFullName, vaults]);
-
-  useEffect(() => {
-    if (!addConvexRepositoryFullName) {
-      lastScrolledAddConvexRepositoryRef.current = null;
-      return;
-    }
-
-    if (lastScrolledAddConvexRepositoryRef.current === addConvexRepositoryFullName) {
-      return;
-    }
-
-    const addCardElement = vaultCardElementsRef.current.get(addConvexRepositoryFullName);
-    if (!addCardElement) {
-      return;
-    }
-
-    scrollVaultDashboardCardIntoView(addCardElement);
-    lastScrolledAddConvexRepositoryRef.current = addConvexRepositoryFullName;
-  }, [addConvexRepositoryFullName, vaults]);
-
-  useEffect(() => {
-    if (!addCloudflareWorkerRepositoryFullName) {
-      lastScrolledAddCloudflareWorkerRepositoryRef.current = null;
-      return;
-    }
-
-    if (
-      lastScrolledAddCloudflareWorkerRepositoryRef.current === addCloudflareWorkerRepositoryFullName
-    ) {
-      return;
-    }
-
-    const addCardElement = vaultCardElementsRef.current.get(addCloudflareWorkerRepositoryFullName);
-    if (!addCardElement) {
-      return;
-    }
-
-    scrollVaultDashboardCardIntoView(addCardElement);
-    lastScrolledAddCloudflareWorkerRepositoryRef.current = addCloudflareWorkerRepositoryFullName;
-  }, [addCloudflareWorkerRepositoryFullName, vaults]);
-
-  useEffect(() => {
-    const repositoryHash = normalizeVaultDashboardRepositoryHash(repositoryLocationHash);
-    if (!repositoryHash) {
-      lastExplicitRepositoryHashScrollRef.current = null;
-      return;
-    }
-
-    if (lastExplicitRepositoryHashScrollRef.current === repositoryHash) {
-      return;
-    }
-
-    for (const vaultCardElement of vaultCardElementsRef.current.values()) {
-      if (scrollVaultCardElementForHash(vaultCardElement)) {
-        return;
-      }
-    }
-  }, [repositoryLocationHash, scrollVaultCardElementForHash, vaults]);
+  const openAppRootAddDialog = useCallback(() => {
+    void navigate({
+      to: ".",
+      search: applyVaultDashboardAddAppRootSearch,
+      state: true,
+    });
+  }, [navigate]);
 
   if (vaults.length === 0) {
     return (
@@ -3116,7 +2809,6 @@ export function VaultDashboardView({
     );
   }
 
-  const repositoryNameCounts = buildVaultDashboardRepositoryNameCounts(vaults);
   const isInfrastructureRetryInFlight = retryingInfrastructureVaultId !== null;
 
   return (
@@ -3143,40 +2835,36 @@ export function VaultDashboardView({
               })
             : null;
         const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
-        const repositoryHashId = buildVaultDashboardHashIdForVault({
-          repositoryNameCounts,
-          vault,
-        });
         const developerToolsOpen =
           developerToolsVisible && (openDeveloperToolsByVaultId[vault._id] ?? false);
         const resourceRailState = buildVaultDashboardResourceRailState({
           buildAddAppRootHref: () =>
             buildVaultDashboardAddAppRootHref({
-              repositoryHashId,
+              dashboardRoutePathname,
               rootRouteSearch,
             }),
           addAppRootOnClick: () => {
-            openAppRootAddDialog({ repositoryHashId });
+            openAppRootAddDialog();
           },
           buildAddCloudflareWorkerHref: (appRoot) =>
             buildVaultDashboardProviderAddHref({
               appRoot,
+              dashboardRoutePathname,
               provider: "cloudflare",
-              repositoryHashId,
               rootRouteSearch,
             }),
           addCloudflareWorkerOnClick: (appRoot) => {
-            openProviderAddDialog({ appRoot, provider: "cloudflare", repositoryHashId });
+            openProviderAddDialog({ appRoot, provider: "cloudflare" });
           },
           buildAddConvexHref: (appRoot) =>
             buildVaultDashboardProviderAddHref({
               appRoot,
+              dashboardRoutePathname,
               provider: "convex",
-              repositoryHashId,
               rootRouteSearch,
             }),
           addConvexOnClick: (appRoot) => {
-            openProviderAddDialog({ appRoot, provider: "convex", repositoryHashId });
+            openProviderAddDialog({ appRoot, provider: "convex" });
           },
           githubRepositoryUrl,
           isRetryingInfrastructure: retryingInfrastructureVaultId === vault._id,
@@ -3227,9 +2915,7 @@ export function VaultDashboardView({
             />
           ) : undefined;
         const deleteBlockedSection =
-          !isDeletingVault &&
-          deleteRepositoryFullName === vault.repositoryFullName &&
-          deletion.deleteAction.state === "disabled" ? (
+          !isDeletingVault && deleteModeActive && deletion.deleteAction.state === "disabled" ? (
             <VaultDeleteBlockedSection reason={deletion.deleteAction.reason} />
           ) : undefined;
         const deletionSection =
@@ -3242,7 +2928,6 @@ export function VaultDashboardView({
           ) : undefined;
         const setupSection =
           deletionSection ?? deleteBlockedSection ?? sourceSetupSection ?? providerSetupSection;
-        const titleRepositoryOwnerVisible = (repositoryNameCounts.get(vault.ghRepoName) ?? 0) > 1;
         const branchSection =
           isReady && branchSectionState.filteredRemoteBranches.length > 0 ? (
             <VaultBranchSection
@@ -3257,28 +2942,10 @@ export function VaultDashboardView({
             />
           ) : undefined;
         return (
-          <div
-            key={vault._id}
-            data-vault-dashboard-repository-hash-id={repositoryHashId}
-            ref={(element) => {
-              if (element) {
-                vaultCardElementsRef.current.set(vault.repositoryFullName, element);
-                scrollVaultCardElementForHash(element);
-                return;
-              }
-
-              vaultCardElementsRef.current.delete(vault.repositoryFullName);
-            }}
-          >
+          <div key={vault._id} data-vault-dashboard-repository-card="">
             <VaultDashboardRepositoryCard
               isReady={isReady}
-              repositoryOwner={vault.ghRepoOwner}
               repositoryName={vault.ghRepoName}
-              titleRepositoryOwnerVisible={titleRepositoryOwnerVisible}
-              titleHref={buildVaultDashboardRepositoryHashHref(repositoryHashId)}
-              titleTarget={undefined}
-              titleTitle="Link to vault"
-              titleClassName={undefined}
               repositoryLinks={
                 isDeletingVault ? undefined : <VaultResourceRail state={resourceRailState} />
               }
@@ -3315,7 +2982,6 @@ export function VaultDashboardView({
                 deletion.state === "not_deleting" ? (
                   <VaultDashboardDeleteControl
                     repositoryFullName={vault.repositoryFullName}
-                    repositoryHashId={repositoryHashId}
                     deleteAction={deletion.deleteAction}
                     isRemovingVault={isRemovingVault}
                   />
@@ -3418,14 +3084,22 @@ export function VaultDashboardView({
   );
 }
 
-export function VaultDashboard() {
-  const location = useLocation();
+export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardProps) {
   const navigate = useNavigate();
   const router = useRouter();
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
   const vaults = useQuery(api.vault.dashboard.getUserVaults);
-  const vaultIds = useMemo(() => vaults?.map((vault) => vault._id) ?? null, [vaults]);
+  const selectedVault = useMemo(() => {
+    if (!vaults || vaults.length === 0) {
+      return null;
+    }
+    if (!selectedRepositoryFullName) {
+      return null;
+    }
+    return vaults.find((vault) => vault.repositoryFullName === selectedRepositoryFullName) ?? null;
+  }, [selectedRepositoryFullName, vaults]);
+  const vaultIds = useMemo(() => (selectedVault ? [selectedVault._id] : null), [selectedVault]);
   const stagedBranchSummariesByVault = useQuery(
     api.fileStaging.listStagedFilesBranchSummariesByVault,
     vaultIds ? { vaultIds } : "skip",
@@ -3440,15 +3114,18 @@ export function VaultDashboard() {
       ),
     [stagedBranchSummariesByVault],
   );
-  const dashboardViewModel = useMemo(
+  const dashboardData = useMemo(
     () =>
       vaults
         ? {
-            vaults,
-            stagedBranchSummariesByVaultId,
+            allVaults: vaults,
+            viewModel: {
+              vaults: selectedVault ? [selectedVault] : [],
+              stagedBranchSummariesByVaultId,
+            },
           }
         : null,
-    [stagedBranchSummariesByVaultId, vaults],
+    [selectedVault, stagedBranchSummariesByVaultId, vaults],
   );
   const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
@@ -3501,38 +3178,10 @@ export function VaultDashboard() {
   const dashboardSettings = useConvexQuery(api.dashboardSettings.getDashboardSettings);
   const dashboardGlobalChatOpen = dashboardSettings?.globalChatOpen;
   const addAppRootModeActive = rootRouteSearch[DASHBOARD_ADD_APP_ROOT_QUERY_PARAM] === true;
-  const deleteModeActive = rootRouteSearch.delete;
-  const addConvexModeActive = rootRouteSearch["add-convex"];
-  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"];
+  const deleteModeActive = rootRouteSearch.delete === true;
+  const addConvexModeActive = rootRouteSearch["add-convex"] === true;
+  const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"] === true;
   const providerAddAppRoot = rootRouteSearch[DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM] ?? null;
-  const deleteRepositoryFullName =
-    deleteModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
-          hash: location.hash,
-          vaults,
-        })
-      : undefined;
-  const addAppRootRepositoryFullName =
-    addAppRootModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
-          hash: location.hash,
-          vaults,
-        })
-      : undefined;
-  const addCloudflareWorkerRepositoryFullName =
-    addCloudflareWorkerModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
-          hash: location.hash,
-          vaults,
-        })
-      : undefined;
-  const addConvexRepositoryFullName =
-    addConvexModeActive && vaults
-      ? resolveVaultDashboardRepositoryFullNameForHash({
-          hash: location.hash,
-          vaults,
-        })
-      : undefined;
   const setVaultBranchFilters = useMutation(
     api.vault.dashboard.setVaultBranchFilters,
   ).withOptimisticUpdate((localStore, args) => {
@@ -3692,10 +3341,7 @@ export function VaultDashboard() {
 
   const { enqueueManualRepositoryRefresh } = useDashboardRepositoryRefreshDemand();
 
-  const addAppRootDialogVault =
-    addAppRootRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === addAppRootRepositoryFullName) ?? null)
-      : null;
+  const addAppRootDialogVault = addAppRootModeActive ? selectedVault : null;
   const vaultToAddAppRoot = useMemo(
     () =>
       addAppRootDialogVault?.state === "ready"
@@ -3710,19 +3356,13 @@ export function VaultDashboard() {
         : null,
     [addAppRootDialogVault],
   );
-  const deleteDialogVault =
-    deleteRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === deleteRepositoryFullName) ?? null)
-      : null;
+  const deleteDialogVault = deleteModeActive ? selectedVault : null;
   const canOpenDeleteDialog =
     deleteDialogVault?.deletion.state === "not_deleting" &&
     deleteDialogVault.deletion.deleteAction.state === "available";
   const vaultToDelete =
     deleteDialogVault && canOpenDeleteDialog ? buildVaultDeleteIntent(deleteDialogVault) : null;
-  const addConvexDialogVault =
-    addConvexRepositoryFullName && vaults
-      ? (vaults.find((vault) => vault.repositoryFullName === addConvexRepositoryFullName) ?? null)
-      : null;
+  const addConvexDialogVault = addConvexModeActive ? selectedVault : null;
   const canOpenConnectConvexDialog =
     addConvexDialogVault?.state === "ready" && providerAddAppRoot !== null;
   const vaultToConnectConvex = useMemo(() => {
@@ -3737,12 +3377,7 @@ export function VaultDashboard() {
       repositoryName: addConvexDialogVault.ghRepoName,
     };
   }, [addConvexDialogVault, canOpenConnectConvexDialog, providerAddAppRoot]);
-  const addCloudflareWorkerDialogVault =
-    addCloudflareWorkerRepositoryFullName && vaults
-      ? (vaults.find(
-          (vault) => vault.repositoryFullName === addCloudflareWorkerRepositoryFullName,
-        ) ?? null)
-      : null;
+  const addCloudflareWorkerDialogVault = addCloudflareWorkerModeActive ? selectedVault : null;
   const canOpenConnectCloudflareDialog = addCloudflareWorkerDialogVault?.state === "ready";
   const canOpenScopedCloudflareDialog =
     canOpenConnectCloudflareDialog && providerAddAppRoot !== null;
@@ -3779,7 +3414,6 @@ export function VaultDashboard() {
       }
 
       void navigate({
-        hash: true,
         replace: true,
         search: (currentSearch) =>
           applySearchPatch(currentSearch, { [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null }),
@@ -3805,7 +3439,6 @@ export function VaultDashboard() {
       }
 
       void navigate({
-        hash: true,
         replace: true,
         search: (currentSearch) => applySearchPatch(currentSearch, { delete: null }),
         state: true,
@@ -3814,6 +3447,23 @@ export function VaultDashboard() {
     },
     [deleteModeActive, navigate, router],
   );
+
+  const closeDeletedVaultRoute = useCallback(() => {
+    shouldPopDeleteHistoryRef.current = false;
+    void navigate({
+      replace: true,
+      search: (currentSearch) =>
+        applySearchPatch(currentSearch, {
+          [DASHBOARD_ADD_APP_ROOT_QUERY_PARAM]: null,
+          [DASHBOARD_PROVIDER_APP_ROOT_QUERY_PARAM]: null,
+          "add-cloudflare": null,
+          "add-convex": null,
+          delete: null,
+        }),
+      state: true,
+      to: "/vault",
+    });
+  }, [navigate]);
 
   const clearAddConvexSearchParam = useCallback(
     ({ preferHistoryBack }: { preferHistoryBack: boolean }) => {
@@ -3830,7 +3480,6 @@ export function VaultDashboard() {
       }
 
       void navigate({
-        hash: true,
         replace: true,
         search: (currentSearch) =>
           applySearchPatch(currentSearch, {
@@ -3859,7 +3508,6 @@ export function VaultDashboard() {
       }
 
       void navigate({
-        hash: true,
         replace: true,
         search: (currentSearch) =>
           applySearchPatch(currentSearch, {
@@ -4065,7 +3713,6 @@ export function VaultDashboard() {
   }, [
     clearDeleteSearchParam,
     deleteModeActive,
-    deleteRepositoryFullName,
     prepareDeleteDialog,
     resetDeleteDialogState,
     deleteDialogVault,
@@ -4316,7 +3963,7 @@ export function VaultDashboard() {
           : false,
       });
       resetDeleteDialogState();
-      clearDeleteSearchParam({ preferHistoryBack: true });
+      closeDeletedVaultRoute();
     } catch (error) {
       console.error("Failed to remove vault:", error);
       setDeleteError(error instanceof Error ? error.message : "Failed to remove vault");
@@ -4391,9 +4038,11 @@ export function VaultDashboard() {
     });
   };
 
-  if (!dashboardViewModel) {
+  if (!dashboardData) {
     return null;
   }
+
+  const { allVaults, viewModel: dashboardViewModel } = dashboardData;
 
   const persistedVaultBranchFiltersByVaultId = new Map<string, VaultBranchFiltersState>(
     (userVaultBranchFilters ?? []).map((vaultBranchFilter) => [
@@ -4466,48 +4115,65 @@ export function VaultDashboard() {
     clearDeleteSearchParam({ preferHistoryBack: true });
   };
 
-  const dashboardBody = (
-    <VaultDashboardView
-      developerToolsVisible={developerToolsVisible}
-      isRemovingVault={isDeleting || isCommitting}
-      retryingDeletionRunId={retryingDeletionRunId}
-      retryingInfrastructureVaultId={retryingInfrastructureVaultId}
-      now={now}
-      viewModel={dashboardViewModel}
-      logoRouteSearch={rootRouteSearch}
-      replaceLogoRouteSearch={(nextSearch) => {
-        void navigate({
-          hash: true,
-          replace: true,
-          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
-          state: true,
-          to: ".",
-        });
-      }}
-      openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
-      persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
-      persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
-      schemaGraphAccessEnabled={schemaGraphAccessEnabled}
-      deleteRepositoryFullName={deleteRepositoryFullName}
-      addConvexRepositoryFullName={addConvexRepositoryFullName}
-      addCloudflareWorkerRepositoryFullName={addCloudflareWorkerRepositoryFullName}
-      locationHash={location.hash}
-      rootRouteSearch={rootRouteSearch}
-      onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
-      onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
-      onRetryInfrastructureProvisioning={(vaultId) => {
-        void handleRetryInfrastructureProvisioning(vaultId);
-      }}
-      onRetryVaultDeletion={(runId) => {
-        void handleRetryVaultDeletion(runId);
-      }}
-      onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
-      onResourceLinksOpenChange={handleVaultResourceLinksOpenChange}
-    />
-  );
+  const selectedVaultMissing = Boolean(selectedRepositoryFullName) && selectedVault === null;
+  const leftPane = {
+    header: (
+      <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
+        Vaults
+      </div>
+    ),
+    content: (
+      <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={allVaults} />
+    ),
+  };
+  const dashboardBody =
+    selectedVaultMissing && selectedRepositoryFullName ? (
+      <VaultDashboardPaneMessage>
+        Vault not found: {selectedRepositoryFullName}
+      </VaultDashboardPaneMessage>
+    ) : selectedVault === null && allVaults.length > 0 ? (
+      <VaultDashboardPaneMessage>
+        Select a vault from the left sidebar or add one from the right sidebar.
+      </VaultDashboardPaneMessage>
+    ) : (
+      <VaultDashboardView
+        deleteModeActive={deleteModeActive}
+        developerToolsVisible={developerToolsVisible}
+        isRemovingVault={isDeleting || isCommitting}
+        retryingDeletionRunId={retryingDeletionRunId}
+        retryingInfrastructureVaultId={retryingInfrastructureVaultId}
+        now={now}
+        viewModel={dashboardViewModel}
+        logoRouteSearch={rootRouteSearch}
+        replaceLogoRouteSearch={(nextSearch) => {
+          void navigate({
+            replace: true,
+            search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+            state: true,
+            to: ".",
+          });
+        }}
+        openDeveloperToolsByVaultId={openDeveloperToolsByVaultId}
+        persistedVaultBranchFiltersByVaultId={persistedVaultBranchFiltersByVaultId}
+        persistedVaultResourceLinksOpenByVaultId={persistedVaultResourceLinksOpenByVaultId}
+        schemaGraphAccessEnabled={schemaGraphAccessEnabled}
+        rootRouteSearch={rootRouteSearch}
+        onOpenDeveloperToolsChange={handleVaultDeveloperToolsOpenChange}
+        onManualRepositoryRefresh={enqueueManualRepositoryRefresh}
+        onRetryInfrastructureProvisioning={(vaultId) => {
+          void handleRetryInfrastructureProvisioning(vaultId);
+        }}
+        onRetryVaultDeletion={(runId) => {
+          void handleRetryVaultDeletion(runId);
+        }}
+        onSaveVaultBranchFilters={handleVaultBranchFiltersChange}
+        onResourceLinksOpenChange={handleVaultResourceLinksOpenChange}
+      />
+    );
 
   return (
     <AppWorkspaceRouteChrome
+      left={leftPane}
       panel={
         CHAT_ENABLED
           ? {

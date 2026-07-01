@@ -139,10 +139,10 @@ existing Worker or create a new one without waiting for hidden state cleanup.
 
 ## Route Semantics
 
-`?add-cloudflare#vault-name` opens the Cloudflare Worker connection dialog for the vault matched by
-the dashboard hash.
+`/vault/<org>/<repo>?add-cloudflare` opens the Cloudflare Worker connection dialog for the selected
+vault route.
 
-The dialog closes by clearing `add-cloudflare` while preserving the hash.
+The dialog closes by clearing `add-cloudflare` while preserving the selected vault route.
 
 ## Deployment Wiring
 

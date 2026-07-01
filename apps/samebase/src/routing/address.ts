@@ -244,7 +244,7 @@ route address is `/vault/acme/demo/fs/main/README.md?d`, the path matches the
 `/vault/$` route, so an admin viewer can see file-view suggestions such as
 `diff`.
 */
-function readMatchingRouteSearchParamSuggestions(args: {
+export function readMatchingRouteSearchParamSuggestions(args: {
   path: string;
   routeEnvironment: RouteEnvironment;
   routesByPath: AppRouter["routesByPath"];

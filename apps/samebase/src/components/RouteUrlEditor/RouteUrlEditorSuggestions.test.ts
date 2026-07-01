@@ -291,13 +291,18 @@ describe("readSuggestions", () => {
 
   it("uses member access for route and query suggestions", () => {
     const pathValues = readValues({
-      routeAddress: "/h",
-      routeTextBeforeCursor: "/h",
+      routeAddress: "/v",
+      routeTextBeforeCursor: "/v",
       viewer: memberViewer,
     });
-    const dashboardValues = readValues({
+    const rootDashboardValues = readValues({
       routeAddress: "/vault?",
       routeTextBeforeCursor: "/vault?",
+      viewer: memberViewer,
+    });
+    const selectedDashboardValues = readValues({
+      routeAddress: "/vault/samebase/samebase?",
+      routeTextBeforeCursor: "/vault/samebase/samebase?",
       viewer: memberViewer,
     });
     const memberMachineValues = readValues({
@@ -313,7 +318,8 @@ describe("readSuggestions", () => {
 
     expect(pathValues).toContain("/vault");
     expect(pathValues).not.toContain("/machines");
-    expect(dashboardValues).toContain("?delete");
+    expect(rootDashboardValues).not.toContain("?delete");
+    expect(selectedDashboardValues).toContain("?delete");
     expect(memberMachineValues).not.toContain("?machineId=sample-machine");
     expect(staffMachineValues).toContain("?machineId=sample-machine");
   });

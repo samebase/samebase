@@ -13,7 +13,6 @@ export type VaultResourceRailVisualMode = "vault-resource-rail";
 
 type VaultResourceRailFixtureScenario = {
   repositoryName: string;
-  repositoryOwner: string;
   title: string;
   state: VaultResourceRailState;
 };
@@ -60,7 +59,6 @@ function buildRootFixtureState({
 const ADD_VAULT_FLOW_SCENARIOS = [
   {
     title: "Creating repository",
-    repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
     state: buildRootFixtureState({
       githubRow: {
@@ -84,7 +82,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Provisioning Convex",
-    repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
     state: buildRootFixtureState({
       githubRow: {
@@ -109,7 +106,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Provisioning Cloudflare",
-    repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
     state: buildRootFixtureState({
       githubRow: {
@@ -136,7 +132,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Ready",
-    repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
     state: buildRootFixtureState({
       githubRow: {
@@ -165,7 +160,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Cloudflare failed",
-    repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
     state: buildRootFixtureState({
       githubRow: {
@@ -199,7 +193,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Cloudflare retrying",
-    repositoryOwner: "nicu-chiciuc",
     repositoryName: "tmp-my-new-app",
     state: buildRootFixtureState({
       githubRow: {
@@ -233,7 +226,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Monorepo apps",
-    repositoryOwner: "samebase",
     repositoryName: "samebase",
     state: {
       githubRow: {
@@ -284,7 +276,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
                 {
                   kind: "add",
                   label: "?add-convex",
-                  href: "/vault?add-convex&app-root=apps%2Fsamebase#samebase",
+                  href: "/vault/samebase/samebase?add-convex&app-root=apps%2Fsamebase",
                 },
               ],
             },
@@ -302,7 +294,6 @@ const ADD_VAULT_FLOW_SCENARIOS = [
   },
   {
     title: "Existing repository",
-    repositoryOwner: "nicu-chiciuc",
     repositoryName: "weight_tsx",
     state: buildRootFixtureState({
       githubRow: {
@@ -319,7 +310,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
             {
               kind: "add",
               label: "?add-convex",
-              href: "/vault?add-convex#weight_tsx",
+              href: "/vault/nicu-chiciuc/weight_tsx?add-convex",
             },
           ],
         },
@@ -330,7 +321,7 @@ const ADD_VAULT_FLOW_SCENARIOS = [
             {
               kind: "add",
               label: "?add-cloudflare",
-              href: "/vault?add-cloudflare#weight_tsx",
+              href: "/vault/nicu-chiciuc/weight_tsx?add-cloudflare",
             },
           ],
         },
@@ -347,7 +338,6 @@ function VaultResourceRailFixtureCard({
   return (
     <VaultDashboardRepositoryCard
       isReady={true}
-      repositoryOwner={scenario.repositoryOwner}
       repositoryName={scenario.repositoryName}
       repositoryLinks={<VaultResourceRail state={scenario.state} />}
       repositoryLinksOpen={true}
