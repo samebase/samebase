@@ -17,10 +17,25 @@ import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
   createCloudflareWorker,
   deleteCloudflareResources,
+  ensureCloudflareResources,
   listCloudflareWorkers,
   readOptionalWorkersDevUrl,
 } from "../cloudflareResources";
-import { vVaultCloudflareOrigin, type VaultCloudflareOrigin } from "./model";
+import {
+  buildVaultCloudflareBuildConfigForAppRoot,
+  vVaultCloudflareOrigin,
+  type VaultCloudflareOrigin,
+} from "./model";
+import {
+  createConvexDeployKey,
+  createConvexPreviewDeployKey,
+  ensureConvexPreviewResources,
+  fetchGitHubRepoIdentity,
+  resolveConvexProvisioningConnection,
+  resolveGitHubProvisioningConnection,
+  toCloudflareBuildConfig,
+} from "../infraProvisioning";
+import { vaultSuffix } from "../slugUtils";
 
 const { array, id, null: nullValue, object, string } = v;
 
@@ -205,6 +220,28 @@ async function isCloudflareWorkerConnectionRunActive(
     },
   );
   return result.active;
+}
+
+async function recordConvexDeployKeyForCloudflareWorkerConnectionOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appRoot: string;
+    deployment: "production" | "preview";
+    convexDeployKeyId: string;
+  },
+): Promise<void> {
+  const record = await ctx.runMutation(
+    internal.vault.cloudflareMutations.recordConvexDeployKeyForCloudflareWorkerConnection,
+    args,
+  );
+  if (!record.applied) {
+    throw new Error(
+      "Could not record Convex deploy key identity for Cloudflare Worker connection.",
+    );
+  }
 }
 
 export const listAccounts = action({
@@ -407,6 +444,7 @@ export const ensureCloudflareWorkerConnection = internalAction({
             workerTag: worker.workerTag,
             workersDevUrl: worker.workersDevUrl,
             origin: args.origin,
+            deployment: { state: "not_configured" },
           },
         );
         if (!attached) {
@@ -423,6 +461,24 @@ export const ensureCloudflareWorkerConnection = internalAction({
           return null;
         }
 
+        const [buildContext, githubConnection, convexConnection] = await Promise.all([
+          ctx.runQuery(internal.vault.cloudflareMutations.readCloudflareWorkerBuildContext, {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            appRoot: args.appRoot,
+          }),
+          resolveGitHubProvisioningConnection(ctx, args.userId),
+          resolveConvexProvisioningConnection(ctx, args.userId),
+        ]);
+
+        const repoIdentity = await fetchGitHubRepoIdentity({
+          githubAccessToken: githubConnection.githubAccessToken,
+          owner: buildContext.owner,
+          repo: buildContext.repo,
+          expectedRepoId: buildContext.ghRepoId,
+        });
+
         let worker: Awaited<ReturnType<typeof createCloudflareWorker>>;
         try {
           worker = await createCloudflareWorker({
@@ -436,6 +492,71 @@ export const ensureCloudflareWorkerConnection = internalAction({
         }
 
         try {
+          const previewConvex = await ensureConvexPreviewResources({
+            convexToken: convexConnection.convexToken,
+            teamId: convexConnection.convexTeamId,
+            projectId: buildContext.convex.projectId,
+          });
+          const productionDeployKey = await createConvexDeployKey({
+            convexToken: convexConnection.convexToken,
+            convexAuthMethod: convexConnection.convexAuthMethod,
+            deploymentName: buildContext.convex.deploymentName,
+            name: `samebase-${vaultSuffix(args.vaultId)}`,
+          });
+          await recordConvexDeployKeyForCloudflareWorkerConnectionOrFail(ctx, {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            appRoot: args.appRoot,
+            deployment: "production",
+            convexDeployKeyId: productionDeployKey.convexDeployKeyId,
+          });
+          const previewDeployKey = await createConvexPreviewDeployKey({
+            convexToken: convexConnection.convexToken,
+            projectId: buildContext.convex.projectId,
+            name: `samebase-preview-${vaultSuffix(args.vaultId)}`,
+          });
+          await recordConvexDeployKeyForCloudflareWorkerConnectionOrFail(ctx, {
+            vaultId: args.vaultId,
+            runId: args.runId,
+            userId: args.userId,
+            appRoot: args.appRoot,
+            deployment: "preview",
+            convexDeployKeyId: previewDeployKey.convexDeployKeyId,
+          });
+
+          const vaultBuildConfig = buildVaultCloudflareBuildConfigForAppRoot({
+            appRoot: args.appRoot,
+          });
+          const provisionedCloudflare = await ensureCloudflareResources({
+            owner: buildContext.owner,
+            repo: buildContext.repo,
+            ghRepoId: buildContext.ghRepoId,
+            ghRepoOwnerId: repoIdentity.ownerId,
+            defaultBranch: buildContext.defaultBranch,
+            vaultId: args.vaultId,
+            workerName: worker.workerName,
+            cloudflareToken: connection.token,
+            cloudflareAuthMethod: connection.auth.method,
+            accountId: account.accountId,
+            buildConfig: toCloudflareBuildConfig(vaultBuildConfig),
+            existingWorker: {
+              state: "created",
+              workerTag: worker.workerTag,
+            },
+            convex: {
+              production: {
+                cloudUrl: buildContext.convex.cloudUrl,
+                deployKey: productionDeployKey.deployKey,
+              },
+              preview: {
+                cloudUrl: previewConvex.previewCloudUrl,
+                deployKey: previewDeployKey.deployKey,
+              },
+            },
+            onWorkerResolved: async () => {},
+          });
+
           await rememberDefaultAccount(ctx, {
             userId: args.userId,
             auth: connection.auth,
@@ -450,10 +571,14 @@ export const ensureCloudflareWorkerConnection = internalAction({
               userId: args.userId,
               appRoot: args.appRoot,
               accountId: account.accountId,
-              workerName: worker.workerName,
-              workerTag: worker.workerTag,
-              workersDevUrl: worker.workersDevUrl,
+              workerName: provisionedCloudflare.workerName,
+              workerTag: provisionedCloudflare.workerTag,
+              workersDevUrl: provisionedCloudflare.workersDevUrl,
               origin: args.origin,
+              deployment: {
+                state: "workers_builds_connected",
+                ...provisionedCloudflare.build,
+              },
             },
           );
           if (!attached) {

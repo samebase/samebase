@@ -144,6 +144,7 @@ describe("vault Cloudflare attachment mutations", () => {
         workerName: "manual-cloudflare-worker",
         workerTag: "manual-cloudflare-worker-tag",
         origin: "selected_existing",
+        deployment: { state: "not_configured" },
       }),
     ).resolves.toEqual({ attached: true });
     await expect(
@@ -186,6 +187,7 @@ describe("vault Cloudflare attachment mutations", () => {
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
       origin: "selected_existing",
+      deployment: { state: "not_configured" },
     });
     expect(result.events.map((event) => event.step)).toEqual([
       "claim_infra",
@@ -333,6 +335,99 @@ describe("vault Cloudflare attachment mutations", () => {
     });
   });
 
+  it("records Convex deploy key identities for a Worker build connection", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "ada-team",
+        projectSlug: "manual-cloudflare",
+        deploymentName: "manual-cloudflare-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://manual-cloudflare.convex.cloud",
+        siteUrl: "https://manual-cloudflare.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+        origin: "selected_existing",
+        connectedAt: 40,
+        lastObservedAt: 40,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareWorkerConnection, {
+        ...ids,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        origin: "provisioned",
+      }),
+    ).resolves.toEqual({ claimed: true });
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readCloudflareWorkerBuildContext, {
+        ...ids,
+        appRoot,
+      }),
+    ).resolves.toEqual({
+      owner: "ada",
+      repo: "manual-cloudflare",
+      ghRepoId: "123",
+      defaultBranch: "main",
+      convex: {
+        projectId: "convex-project",
+        deploymentName: "manual-cloudflare-prod",
+        cloudUrl: "https://manual-cloudflare.convex.cloud",
+      },
+    });
+    await expect(
+      t.mutation(
+        internal.vault.cloudflareMutations.recordConvexDeployKeyForCloudflareWorkerConnection,
+        {
+          ...ids,
+          appRoot,
+          deployment: "production",
+          convexDeployKeyId: "production-deploy-key",
+        },
+      ),
+    ).resolves.toEqual({ applied: true });
+    await expect(
+      t.mutation(
+        internal.vault.cloudflareMutations.recordConvexDeployKeyForCloudflareWorkerConnection,
+        {
+          ...ids,
+          appRoot,
+          deployment: "preview",
+          convexDeployKeyId: "preview-deploy-key",
+        },
+      ),
+    ).resolves.toEqual({ applied: true });
+
+    const convex = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("vaultConvexDeployments")
+        .withIndex("by_vault_and_appRoot", (q) =>
+          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
+        )
+        .first();
+    });
+
+    expect(convex?.deployKeys).toEqual({
+      production: {
+        state: "created",
+        id: "production-deploy-key",
+      },
+      preview: {
+        state: "created",
+        id: "preview-deploy-key",
+      },
+    });
+  });
+
   it("reports an unattached run so created Workers can be rolled back", async () => {
     const { ids, t } = await createCloudflareConnectionVault();
 
@@ -375,6 +470,7 @@ describe("vault Cloudflare attachment mutations", () => {
         workerName: "manual-cloudflare-worker",
         workerTag: "manual-cloudflare-worker-tag",
         origin: "provisioned",
+        deployment: { state: "not_configured" },
       }),
     ).resolves.toEqual({ attached: false });
 

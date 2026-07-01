@@ -9,10 +9,10 @@ import {
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-import { vVaultCloudflareOrigin } from "./model";
+import { vVaultCloudflareDeployment, vVaultCloudflareOrigin } from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, null: nullValue, object, optional, string } = v;
+const { boolean, id, literal, null: nullValue, object, optional, string, union } = v;
 const CLOUDFLARE_CONNECTION_STALE_MS = 10 * 60 * 1000;
 
 type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
@@ -86,6 +86,21 @@ async function readCloudflareWorkerByProviderIdentity(
         .eq("vaultId", args.vaultId)
         .eq("accountId", args.accountId)
         .eq("workerName", args.workerName),
+    )
+    .first();
+}
+
+async function readConvexDeploymentForAppRoot(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<Doc<"vaultConvexDeployments"> | null> {
+  return await ctx.db
+    .query("vaultConvexDeployments")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
     )
     .first();
 }
@@ -228,6 +243,57 @@ export const requireCloudflareWorkerConnectionVault = internalQuery({
     });
 
     return null;
+  },
+});
+
+export const readCloudflareWorkerBuildContext = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: object({
+    owner: string(),
+    repo: string(),
+    ghRepoId: string(),
+    defaultBranch: string(),
+    convex: object({
+      projectId: string(),
+      deploymentName: string(),
+      cloudUrl: string(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    const convex = await readConvexDeploymentForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    if (!convex) {
+      throw new Error("Connect a Convex deployment before creating a Cloudflare Worker.");
+    }
+
+    return {
+      owner: vault.owner,
+      repo: vault.name,
+      ghRepoId: vault.ghRepoId,
+      defaultBranch: vault.defaultBranch,
+      convex: {
+        projectId: convex.projectId,
+        deploymentName: convex.deploymentName,
+        cloudUrl: convex.cloudUrl,
+      },
+    };
   },
 });
 
@@ -408,6 +474,66 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
   },
 });
 
+export const recordConvexDeployKeyForCloudflareWorkerConnection = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+    deployment: union(literal("production"), literal("preview")),
+    convexDeployKeyId: string(),
+  },
+  returns: object({ applied: boolean() }),
+  handler: async (ctx, args) => {
+    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveCloudflareWorkerConnectionOwner(ownership, { runId: args.runId })) {
+      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+        runId: args.runId,
+      });
+      return { applied: false };
+    }
+    const convex = await readConvexDeploymentForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    if (!convex) {
+      throw new Error("Convex deployment is required before recording deploy key identity.");
+    }
+
+    const deployKey = {
+      state: "created",
+      id: args.convexDeployKeyId,
+    } as const;
+    const deployKeys =
+      args.deployment === "production"
+        ? {
+            production: deployKey,
+            preview: convex.deployKeys.preview,
+          }
+        : {
+            production: convex.deployKeys.production,
+            preview: deployKey,
+          };
+
+    await ctx.db.patch(convex._id, {
+      deployKeys,
+      lastObservedAt: Date.now(),
+    });
+
+    return { applied: true };
+  },
+});
+
 export const attachWorkerForRun = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -419,6 +545,7 @@ export const attachWorkerForRun = internalMutation({
     workerTag: string(),
     workersDevUrl: optional(string()),
     origin: vVaultCloudflareOrigin,
+    deployment: vVaultCloudflareDeployment,
   },
   returns: object({ attached: boolean() }),
   handler: async (ctx, args) => {
@@ -468,7 +595,7 @@ export const attachWorkerForRun = internalMutation({
       workerTag: args.workerTag,
       workersDevUrl: args.workersDevUrl,
       origin: args.origin,
-      deployment: { state: "not_configured" },
+      deployment: args.deployment,
       connectedAt: now,
       lastObservedAt: now,
     });

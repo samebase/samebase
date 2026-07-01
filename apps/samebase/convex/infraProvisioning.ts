@@ -204,7 +204,7 @@ async function requestGitHubRepoApi(args: {
   return await parseResponseJsonSafe(response);
 }
 
-async function fetchGitHubRepoIdentity(args: {
+export async function fetchGitHubRepoIdentity(args: {
   githubAccessToken: string;
   owner: string;
   repo: string;
@@ -500,7 +500,7 @@ type ConvexPreviewProvisionResult = {
   previewCloudUrl: string;
 };
 
-async function ensureConvexPreviewResources(args: {
+export async function ensureConvexPreviewResources(args: {
   convexToken: string;
   teamId: string;
   projectId: string;
@@ -545,7 +545,7 @@ async function ensureConvexPreviewResources(args: {
  *
  * @see https://docs.convex.dev/management-api/create-deploy-key
  */
-async function createConvexDeployKey(args: {
+export async function createConvexDeployKey(args: {
   convexToken: string;
   convexAuthMethod: ConvexProvisioningAuthMethod;
   deploymentName: string;
@@ -580,7 +580,7 @@ async function createConvexDeployKey(args: {
   };
 }
 
-async function createConvexPreviewDeployKey(args: {
+export async function createConvexPreviewDeployKey(args: {
   convexToken: string;
   projectId: string;
   name: string;
@@ -607,7 +607,7 @@ async function createConvexPreviewDeployKey(args: {
   };
 }
 
-function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareBuildConfig {
+export function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareBuildConfig {
   return {
     rootDir: build.rootDirectory,
     buildCommand: build.buildCommand,
@@ -841,7 +841,7 @@ export async function resolveConvexProvisioningConnection(
   return { convexToken, convexAuthMethod: convexConnection.auth.method, convexTeamId };
 }
 
-async function resolveGitHubProvisioningConnection(
+export async function resolveGitHubProvisioningConnection(
   ctx: ActionCtx,
   userId: Id<"users">,
 ): Promise<{ githubAccessToken: string }> {
