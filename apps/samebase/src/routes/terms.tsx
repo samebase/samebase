@@ -14,6 +14,9 @@ function TermsRouteComponent() {
 }
 
 export const Route = createFileRoute("/terms")({
-  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: {
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    appWorkspaceRouteChrome: { left: "none" },
+  },
   component: TermsRouteComponent,
 });

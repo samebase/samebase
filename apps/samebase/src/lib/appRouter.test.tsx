@@ -26,10 +26,23 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
 
 vi.mock("@/components/AppWorkspaceShell", async () => {
   const ReactModule = await import("react");
+  const { useMatches } = await import("@tanstack/react-router");
   type MockPaneProps = Pick<WorkspaceLayoutV2PaneFrameProps, "content" | "footer" | "header">;
 
   return {
     AppWorkspaceShell: ({ children }: { children?: React.ReactNode }) => {
+      const leftPaneMode = useMatches({
+        select: (matches) => {
+          for (let index = matches.length - 1; index >= 0; index -= 1) {
+            const routeChrome = matches[index]?.staticData.appWorkspaceRouteChrome;
+            if (routeChrome?.left === "none") {
+              return "none";
+            }
+          }
+
+          return "default";
+        },
+      });
       ReactModule.useEffect(() => {
         appWorkspaceMountMock();
         return () => {
@@ -38,7 +51,7 @@ vi.mock("@/components/AppWorkspaceShell", async () => {
       }, []);
 
       return (
-        <div data-testid="app-workspace">
+        <div data-left-pane={leftPaneMode} data-testid="app-workspace">
           <div data-testid="app-workspace-left-pane" />
           {children}
         </div>
@@ -51,10 +64,13 @@ vi.mock("@/components/AppWorkspaceShell", async () => {
     }: {
       children?: React.ReactNode;
       headerAccessory?: React.ReactNode;
-      left?: MockPaneProps;
+      left?: MockPaneProps | null;
     }) => {
       return (
-        <div data-testid="app-workspace-route-chrome">
+        <div
+          data-left-pane={left === null ? "none" : left ? "provided" : "default"}
+          data-testid="app-workspace-route-chrome"
+        >
           <div data-testid="app-workspace-route-header-accessory">{headerAccessory}</div>
           <div data-testid="app-workspace-route-left-pane">
             {left?.header}
@@ -282,10 +298,16 @@ describe("appRouter", () => {
     return router;
   }
 
+  function expectAppWorkspaceLeftPane(mode: "default" | "none" | "provided") {
+    const appWorkspace = rootElement?.querySelector('[data-testid="app-workspace"]');
+    expect(appWorkspace?.getAttribute("data-left-pane")).toBe(mode);
+  }
+
   it("renders terms through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/terms");
 
     expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
+    expectAppWorkspaceLeftPane("none");
     expect(rootElement?.querySelector('[data-testid="terms-page"]')?.textContent).toBe(
       "Terms page",
     );
@@ -304,6 +326,7 @@ describe("appRouter", () => {
 
     expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
     expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
+    expectAppWorkspaceLeftPane("none");
     expect(rootElement?.querySelector('[data-testid="privacy-page"]')?.textContent).toBe(
       "Privacy policy page",
     );
@@ -345,6 +368,7 @@ describe("appRouter", () => {
   it("renders / through the explicit routed root index page", async () => {
     await renderRoute("/");
 
+    expectAppWorkspaceLeftPane("none");
     expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
       "Root index route",
     );
@@ -368,6 +392,7 @@ describe("appRouter", () => {
   it("renders /home through the explicit dashboard route", async () => {
     await renderRoute("/home");
 
+    expectAppWorkspaceLeftPane("none");
     expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
       "Dashboard route",
     );

@@ -86,6 +86,9 @@ export type RouteStaticData = {
   access: RouteAccess;
   pathSuggestion?: "hidden";
   prerender?: false;
+  appWorkspaceRouteChrome?: {
+    left?: "none";
+  };
 
   /**
   Query keys this route's own search schema accepts, beyond the root-owned keys

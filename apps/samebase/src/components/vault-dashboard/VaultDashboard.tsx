@@ -4508,7 +4508,6 @@ export function VaultDashboard() {
 
   return (
     <AppWorkspaceRouteChrome
-      left={null}
       panel={
         CHAT_ENABLED
           ? {

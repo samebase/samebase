@@ -9,8 +9,9 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { entries } from "@samebase/dependent/object";
 import { useConvexAuth } from "convex/react";
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, useMatches, useRouter } from "@tanstack/react-router";
 import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
@@ -28,7 +29,6 @@ import {
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
@@ -72,7 +72,6 @@ type AppWorkspaceRouteChromeContextValue = {
 const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
-const ROOT_INDEX_PATHNAME = "/";
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
 const VISUAL_FIXTURE_ROUTE_CHROME = {
   dataTestId: "visual-fixture-shell",
@@ -175,16 +174,29 @@ function useAppWorkspaceRouteChrome(store: AppWorkspaceRouteChromeStore) {
 }
 
 function useAppWorkspaceDefaultRouteChrome() {
+  const router = useRouter();
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
+  const matchedStaticRouteChrome = useMatches({
+    select: (matches) => {
+      for (let index = matches.length - 1; index >= 0; index -= 1) {
+        const routeChrome = matches[index]?.staticData.appWorkspaceRouteChrome;
+        if (routeChrome !== undefined) {
+          return routeChrome;
+        }
+      }
 
-  if (pathname === ROOT_INDEX_PATHNAME || pathname === DASHBOARD_ROUTE) {
-    return {
-      left: null,
-      pathname,
-    } satisfies AppWorkspaceRouteChromeSnapshot;
-  }
+      return null;
+    },
+  });
+  const routeTableStaticRouteChrome = useMemo(
+    () =>
+      entries(router.routesByPath).find(([routePath]) => routePath === pathname)?.[1].options
+        .staticData.appWorkspaceRouteChrome ?? null,
+    [pathname, router.routesByPath],
+  );
+  const staticRouteChrome = matchedStaticRouteChrome ?? routeTableStaticRouteChrome;
 
   if (pathname === VISUAL_FIXTURE_PATHNAME) {
     // Visual fixtures hide pane chrome before route chrome registration effects can
@@ -195,7 +207,44 @@ function useAppWorkspaceDefaultRouteChrome() {
     } satisfies AppWorkspaceRouteChromeSnapshot;
   }
 
+  if (staticRouteChrome !== null) {
+    return {
+      left: staticRouteChrome.left === "none" ? null : undefined,
+      pathname,
+    } satisfies AppWorkspaceRouteChromeSnapshot;
+  }
+
   return null;
+}
+
+function mergeAppWorkspaceRouteChrome({
+  defaultChrome,
+  routeChrome,
+}: {
+  defaultChrome: AppWorkspaceRouteChromeSnapshot | null;
+  routeChrome: AppWorkspaceRouteChromeSnapshot | null;
+}) {
+  if (routeChrome === null) {
+    return defaultChrome;
+  }
+
+  if (defaultChrome === null) {
+    return routeChrome;
+  }
+
+  return {
+    dataTestId: routeChrome.dataTestId ?? defaultChrome.dataTestId,
+    headerAccessory: routeChrome.headerAccessory ?? defaultChrome.headerAccessory,
+    left: routeChrome.left === undefined ? defaultChrome.left : routeChrome.left,
+    leftToggleVisibility: routeChrome.leftToggleVisibility ?? defaultChrome.leftToggleVisibility,
+    mobileMinResizeBehavior:
+      routeChrome.mobileMinResizeBehavior ?? defaultChrome.mobileMinResizeBehavior,
+    panel: routeChrome.panel ?? defaultChrome.panel,
+    pathname: routeChrome.pathname,
+    right: routeChrome.right === undefined ? defaultChrome.right : routeChrome.right,
+    rightToggleVisibility: routeChrome.rightToggleVisibility ?? defaultChrome.rightToggleVisibility,
+    shortcutPaneSide: routeChrome.shortcutPaneSide ?? defaultChrome.shortcutPaneSide,
+  } satisfies AppWorkspaceRouteChromeSnapshot;
 }
 
 const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
@@ -300,6 +349,10 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   );
   const chrome = useAppWorkspaceRouteChrome(chromeStore);
   const defaultChrome = useAppWorkspaceDefaultRouteChrome();
+  const resolvedChrome = mergeAppWorkspaceRouteChrome({
+    defaultChrome,
+    routeChrome: chrome,
+  });
   const shellClassName =
     defaultChrome?.pathname === VISUAL_FIXTURE_PATHNAME
       ? "flex min-h-dvh flex-col bg-background text-foreground"
@@ -308,7 +361,7 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className={shellClassName}>
-        <AppWorkspaceShellFrame chrome={chrome ?? defaultChrome}>{children}</AppWorkspaceShellFrame>
+        <AppWorkspaceShellFrame chrome={resolvedChrome}>{children}</AppWorkspaceShellFrame>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
   );

@@ -14,6 +14,9 @@ function PrivacyRouteComponent() {
 }
 
 export const Route = createFileRoute("/privacy")({
-  staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+  staticData: {
+    ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    appWorkspaceRouteChrome: { left: "none" },
+  },
   component: PrivacyRouteComponent,
 });

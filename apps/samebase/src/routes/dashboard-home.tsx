@@ -9,6 +9,7 @@ const pathname = DASHBOARD_ROUTE;
 export const Route = createFileRoute("/home")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    appWorkspaceRouteChrome: { left: "none" },
     searchParamSuggestions: DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: DashboardRoutePage,

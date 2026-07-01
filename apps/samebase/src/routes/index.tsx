@@ -8,6 +8,7 @@ const pathname = "/";
 export const Route = createFileRoute("/")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
+    appWorkspaceRouteChrome: { left: "none" },
     searchParamSuggestions: ROOT_INDEX_ROUTE_SEARCH_PARAM_SUGGESTIONS,
   },
   component: RootIndexRoutePage,

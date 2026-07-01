@@ -736,29 +736,32 @@ describe("AppWorkspaceShell", () => {
     ).toBe(true);
   });
 
-  it("uses the default right sidebar width fallback in server markup", () => {
+  it("uses the default sidebar width fallbacks in server markup", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/"]}>
+      <TestRouterProvider initialEntries={["/machines"]}>
         <AppWorkspaceShell>
           <div data-testid="workspace-route-content">workspace route content</div>
         </AppWorkspaceShell>
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("--workspace-layout-v2-left-desktop-width:0px");
+    expect(markup).toContain("--workspace-layout-v2-left-desktop-width:240px");
     expect(markup).toContain("--workspace-layout-v2-right-desktop-width:288px");
   });
 
-  it("server-renders home without an empty left pane", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/home"]}>
-        <AppWorkspaceShell>
-          <div data-testid="workspace-route-content">workspace route content</div>
-        </AppWorkspaceShell>
-      </TestRouterProvider>,
-    );
+  it("server-renders static no-left route chrome without an empty left pane", () => {
+    for (const initialEntry of ["/", "/home", "/terms", "/privacy"]) {
+      const markup = renderToStaticMarkup(
+        <TestRouterProvider initialEntries={[initialEntry]}>
+          <AppWorkspaceShell>
+            <div data-testid="workspace-route-content">workspace route content</div>
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
 
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+      expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+      expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+      expect(markup).toContain("--workspace-layout-v2-right-desktop-width:288px");
+    }
   });
 });
