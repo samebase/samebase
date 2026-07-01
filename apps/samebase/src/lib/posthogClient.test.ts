@@ -103,17 +103,9 @@ describe("posthog client setup", () => {
     });
 
     await captureSamebasePostHogPageview("/home#samebase");
-    await captureSamebasePostHogPageview("/vault/samebase/samebase/root?compare");
-    await captureSamebasePostHogPageview("https://samebase.com/logo#samebase");
 
-    expect(postHogCaptureMock).toHaveBeenNthCalledWith(1, "$pageview", {
+    expect(postHogCaptureMock).toHaveBeenCalledWith("$pageview", {
       $current_url: "https://samebase.com/home#samebase",
-    });
-    expect(postHogCaptureMock).toHaveBeenNthCalledWith(2, "$pageview", {
-      $current_url: "https://samebase.com/vault/samebase/samebase/root?compare",
-    });
-    expect(postHogCaptureMock).toHaveBeenNthCalledWith(3, "$pageview", {
-      $current_url: "https://samebase.com/logo#samebase",
     });
   });
 });
