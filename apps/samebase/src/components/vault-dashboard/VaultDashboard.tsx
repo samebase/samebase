@@ -2835,14 +2835,13 @@ export function VaultDashboardVaultList({
                   }
                   title={vault.repositoryFullName}
                   className={clsx(
-                    "flex min-h-10 min-w-0 flex-col justify-center px-2 py-1 text-sm leading-5 transition-colors",
+                    "flex min-h-8 min-w-0 items-center px-2 py-1.5 text-sm leading-5 no-underline transition-colors hover:no-underline",
                     isSelected
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   )}
                 >
-                  <span className="truncate font-medium">{vault.ghRepoName}</span>
-                  <span className="truncate text-xs">{vault.ghRepoOwner}</span>
+                  <span className="truncate">{vault.repositoryFullName}</span>
                 </Link>
               </li>
             );

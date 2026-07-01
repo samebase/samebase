@@ -748,9 +748,9 @@ test("vault dashboard fixture (sidebar list)", async ({ page }) => {
   await expect(vaultNavigation).toBeVisible();
   await expect(page.getByTestId("vault-dashboard-visual-fixture-shell")).toContainText("Vaults");
   await expect(
-    vaultNavigation.getByRole("link", { name: "marketing-site samebase" }),
+    vaultNavigation.getByRole("link", { name: "samebase/marketing-site" }),
   ).toBeVisible();
-  await expect(vaultNavigation.getByRole("link", { name: "guestbook noter" })).toHaveAttribute(
+  await expect(vaultNavigation.getByRole("link", { name: "noter/guestbook" })).toHaveAttribute(
     "href",
     "/vault/noter/guestbook?mode=vault-dashboard-sidebar-list",
   );
