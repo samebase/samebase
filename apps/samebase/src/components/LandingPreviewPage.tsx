@@ -164,7 +164,7 @@ function LandingPreviewBaseStack() {
             src="/landing-preview/logos/github.svg"
             width="128"
           />
-          <p className="mt-3 text-base leading-6 text-muted-foreground">repo + pull requests</p>
+          <p className="mt-3 text-base leading-6 text-muted-foreground">your code</p>
         </div>
         <div>
           <img
@@ -175,7 +175,7 @@ function LandingPreviewBaseStack() {
             width="128"
           />
           <p className="mt-3 text-base leading-6 text-muted-foreground">
-            data + backend + realtime
+            realtime database + backend
           </p>
         </div>
         <div>
@@ -186,7 +186,7 @@ function LandingPreviewBaseStack() {
             src="/landing-preview/logos/cloudflare.jpg"
             width="128"
           />
-          <p className="mt-3 text-base leading-6 text-muted-foreground">deploys + domains + edge</p>
+          <p className="mt-3 text-base leading-6 text-muted-foreground">keeps your app safe</p>
         </div>
       </div>
 
