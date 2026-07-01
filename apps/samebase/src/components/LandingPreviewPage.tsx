@@ -152,57 +152,39 @@ function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDoc
   );
 }
 
-function LandingPreviewProviderTriangle() {
+function LandingPreviewBaseStack() {
   return (
-    <section aria-label="Samebase provider base" className="pt-4">
-      <div className="relative mx-auto aspect-[16/8] w-full max-w-4xl">
-        <svg
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full text-border"
-          fill="none"
-          viewBox="0 0 100 50"
-        >
-          <path d="M50 7L18 41H82L50 7Z" stroke="currentColor" strokeWidth="0.45" />
-        </svg>
-
-        <div className="absolute left-1/2 top-[14%] flex w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-3 py-3">
-          <img
-            alt="GitHub"
-            className="h-auto w-32 bg-white object-contain"
-            height="32"
-            src="/landing-preview/logos/github.svg"
-            width="128"
-          />
+    <section aria-label="Samebase provider base" className="grid gap-10">
+      <div className="grid gap-6 border-y py-8 sm:grid-cols-3">
+        <div>
+          <h2 className="text-2xl font-semibold leading-none">GitHub</h2>
+          <p className="mt-3 text-base leading-6 text-muted-foreground">repo + pull requests</p>
         </div>
-
-        <div className="absolute left-[18%] top-[82%] flex w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-3 py-3">
-          <img
-            alt="Convex"
-            className="h-auto w-28 bg-white object-contain"
-            height="28"
-            src="/landing-preview/logos/convex.svg"
-            width="112"
-          />
+        <div>
+          <h2 className="text-2xl font-semibold leading-none">Convex</h2>
+          <p className="mt-3 text-base leading-6 text-muted-foreground">
+            data + backend + realtime
+          </p>
         </div>
-
-        <div className="absolute left-[82%] top-[82%] flex w-36 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-3 py-3">
-          <img
-            alt="Cloudflare"
-            className="h-auto w-28 bg-white object-contain"
-            height="38"
-            src="/landing-preview/logos/cloudflare.jpg"
-            width="112"
-          />
+        <div>
+          <h2 className="text-2xl font-semibold leading-none">Cloudflare</h2>
+          <p className="mt-3 text-base leading-6 text-muted-foreground">deploys + domains + edge</p>
         </div>
+      </div>
 
-        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-background px-5 py-4">
-          <img
-            alt="Samebase"
-            className="h-24 w-24 object-contain sm:h-28 sm:w-28"
-            height="112"
-            src="/icon-512.png"
-            width="112"
-          />
+      <div className="flex max-w-2xl items-center gap-5">
+        <img
+          alt="Samebase"
+          className="h-14 w-14 shrink-0"
+          height="56"
+          src="/icon-512.png"
+          width="56"
+        />
+        <div>
+          <h2 className="text-2xl font-semibold leading-none">Samebase</h2>
+          <p className="mt-3 text-lg leading-7 text-foreground/80">
+            uses the same base it recommends.
+          </p>
         </div>
       </div>
     </section>
@@ -215,19 +197,19 @@ function LandingPreviewOverview() {
       className="min-h-full shrink-0 bg-background pb-[calc(100svh-4rem)] text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
         <section>
           <div className="max-w-5xl">
             <h1
               aria-describedby="landing-correct-definition"
-              className="max-w-4xl text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl"
+              className="max-w-5xl text-5xl font-semibold leading-[1.05] sm:text-6xl lg:text-6xl"
             >
               The correct<sup>*</sup> way to build web apps
             </h1>
           </div>
         </section>
 
-        <LandingPreviewProviderTriangle />
+        <LandingPreviewBaseStack />
 
         <section className="border-t pt-6" id="landing-correct-definition">
           <h2 className="text-lg font-semibold leading-7">* correct</h2>
