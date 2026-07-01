@@ -155,7 +155,7 @@ function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDoc
 function LandingPreviewBaseStack() {
   return (
     <section aria-label="Samebase provider base" className="grid gap-10">
-      <div className="grid gap-6 border-y py-8 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-3">
         <div>
           <img
             alt="GitHub"
@@ -229,7 +229,7 @@ function LandingPreviewOverview() {
 
         <LandingPreviewBaseStack />
 
-        <section className="border-t pt-6" id="landing-correct-definition">
+        <section id="landing-correct-definition">
           <h2 className="text-lg font-semibold leading-7">* correct</h2>
           <ul className="mt-4 grid gap-2 text-base leading-7 text-muted-foreground">
             {LANDING_CORRECT_DEFINITION.map((definition) => (
