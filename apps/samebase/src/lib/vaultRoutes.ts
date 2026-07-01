@@ -17,6 +17,10 @@ function encodeVaultPathTail(path: string): string {
     .join("/");
 }
 
+export function buildVaultDashboardRoute(args: { owner: string; repoName: string }): string {
+  return `/vault/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repoName)}`;
+}
+
 /**
  * Build the shipped `/vault/.../fs/...` file route shape.
  *

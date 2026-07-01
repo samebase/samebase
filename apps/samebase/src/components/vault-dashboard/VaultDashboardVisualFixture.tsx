@@ -28,6 +28,7 @@ import {
   VaultDashboardDeleteControl,
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
+  VaultDashboardVaultList,
   type VaultDeleteDialogTarget,
   type VaultDashboardVault,
   VaultProviderSetupSection,
@@ -55,6 +56,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-bottom-target-scroll"
   | "vault-dashboard-sticky-header"
+  | "vault-dashboard-sidebar-list"
   | "vault-dashboard-list-spacing"
   | "vault-convex-schema-graph"
   | "vault-convex-schema-route-mobile"
@@ -102,10 +104,10 @@ function useFixtureBranchExpansionStore() {
   }));
 }
 
-function fakeVaultId(): Id<"vaults"> {
+function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
-  return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+  return value;
 }
 
 function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
@@ -570,6 +572,31 @@ const LIST_SPACING_VAULT = {
   remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
 } satisfies VaultDashboardVault;
 
+const SIDEBAR_LIST_SELECTED_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8c");
+const SIDEBAR_LIST_VAULTS = [
+  {
+    ...LIST_SPACING_VAULT,
+    _id: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8b"),
+    ghRepoOwner: "samebase",
+    ghRepoName: "samebase",
+    repositoryFullName: "samebase/samebase",
+  },
+  {
+    ...LIST_SPACING_VAULT,
+    _id: SIDEBAR_LIST_SELECTED_VAULT_ID,
+    ghRepoOwner: "samebase",
+    ghRepoName: "marketing-site",
+    repositoryFullName: "samebase/marketing-site",
+  },
+  {
+    ...LIST_SPACING_VAULT,
+    _id: fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8d"),
+    ghRepoOwner: "noter",
+    ghRepoName: "guestbook",
+    repositoryFullName: "noter/guestbook",
+  },
+] satisfies VaultDashboardVault[];
+
 const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
   branch: fixtureVaultBranch({
     name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
@@ -600,7 +627,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
       data-mode={mode}
       className="w-full bg-background text-foreground"
     >
-      <TestRouterProvider>
+      <TestRouterProvider initialEntries={["/home"]}>
         <VaultDashboardView
           developerToolsVisible={false}
           isRemovingVault={false}
@@ -635,6 +662,56 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           }}
         />
       </TestRouterProvider>
+    </div>
+  );
+}
+
+function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisualMode }) {
+  const selectedVaults = SIDEBAR_LIST_VAULTS.filter(
+    (vault) => vault._id === SIDEBAR_LIST_SELECTED_VAULT_ID,
+  );
+
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode={mode}
+      className="h-dvh w-full bg-background text-foreground"
+    >
+      <FixtureDashboardShell
+        leftContent={
+          <VaultDashboardVaultList
+            selectedVaultId={SIDEBAR_LIST_SELECTED_VAULT_ID}
+            vaults={SIDEBAR_LIST_VAULTS}
+          />
+        }
+        mainContent={
+          <VaultDashboardView
+            developerToolsVisible={false}
+            isRemovingVault={false}
+            retryingDeletionRunId={null}
+            retryingInfrastructureVaultId={null}
+            now={FIXTURE_NOW}
+            viewModel={{
+              vaults: selectedVaults,
+              stagedBranchSummariesByVaultId: new Map(),
+            }}
+            logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+            replaceLogoRouteSearch={() => {}}
+            openDeveloperToolsByVaultId={{}}
+            persistedVaultBranchFiltersByVaultId={new Map()}
+            persistedVaultResourceLinksOpenByVaultId={new Map()}
+            schemaGraphAccessEnabled
+            locationHash=""
+            rootRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
+            onOpenDeveloperToolsChange={() => {}}
+            onManualRepositoryRefresh={() => {}}
+            onRetryInfrastructureProvisioning={() => {}}
+            onRetryVaultDeletion={() => {}}
+            onSaveVaultBranchFilters={() => {}}
+            onResourceLinksOpenChange={() => {}}
+          />
+        }
+      />
     </div>
   );
 }
@@ -1729,9 +1806,11 @@ function VaultDashboardStickyHeaderFixture() {
 }
 
 function FixtureDashboardShell({
+  leftContent,
   mainContent,
   rightContent,
 }: {
+  leftContent?: ReactNode;
   mainContent?: ReactNode;
   rightContent?: ReactNode;
 }) {
@@ -1740,6 +1819,18 @@ function FixtureDashboardShell({
       <WorkspaceLayoutV2FixtureFrame
         dataTestId="vault-dashboard-visual-fixture-shell"
         shortcutPaneSide="right"
+        left={
+          leftContent
+            ? {
+                header: (
+                  <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
+                    Vaults
+                  </div>
+                ),
+                content: leftContent,
+              }
+            : undefined
+        }
         right={{
           content: rightContent,
         }}
@@ -1812,6 +1903,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
     return <VaultDashboardListSpacingFixture mode={mode} />;
   }
 
+  if (mode === "vault-dashboard-sidebar-list") {
+    return <VaultDashboardSidebarListFixture mode={mode} />;
+  }
+
   if (mode === "vault-convex-schema-graph") {
     return <VaultConvexSchemaGraphFixture />;
   }
@@ -1832,7 +1927,7 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
         className="flex w-full justify-center bg-stone-100 p-4 text-foreground"
       >
         <div className="mx-auto w-full max-w-[390px] corner-notch-1 border border-border bg-background">
-          <TestRouterProvider>
+          <TestRouterProvider initialEntries={["/home"]}>
             <VaultDashboardRepositoryCard
               isReady={true}
               repositoryOwner="samebase"
