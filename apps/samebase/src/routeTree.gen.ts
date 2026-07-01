@@ -36,6 +36,7 @@ import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
 import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
+import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
@@ -181,6 +182,11 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
+const vaultDashboardRoute = vaultDashboardRouteImport.update({
+  id: "/vault/$owner/$repo",
+  path: "/vault/$owner/$repo",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const codexThreadBrowserResearchRoute =
   codexThreadBrowserResearchRouteImport.update({
     id: "/research/codex-app-server/browser",
@@ -261,6 +267,7 @@ export interface FileRoutesByFullPath {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
+  "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
   "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
@@ -299,6 +306,7 @@ export interface FileRoutesByTo {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
+  "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
   "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
@@ -338,6 +346,7 @@ export interface FileRoutesById {
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/research/codex-app-server/browser": typeof codexThreadBrowserResearchRoute;
+  "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/codespace/$branch/chat": typeof codespaceChatRoute;
   "/vault/$owner/$repo/db/$branch/root": typeof vaultDatabaseRootRoute;
   "/vault/$owner/$repo/schema/$branch/root": typeof vaultSchemaRootRoute;
@@ -378,6 +387,7 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
+    | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/root"
     | "/vault/$owner/$repo/schema/$branch/root"
@@ -416,6 +426,7 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
+    | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/root"
     | "/vault/$owner/$repo/schema/$branch/root"
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
     | "/research/codex-app-server/browser"
+    | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/codespace/$branch/chat"
     | "/vault/$owner/$repo/db/$branch/root"
     | "/vault/$owner/$repo/schema/$branch/root"
@@ -493,6 +505,7 @@ export interface RootRouteChildren {
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   codexThreadBrowserResearchRoute: typeof codexThreadBrowserResearchRoute;
+  vaultDashboardRoute: typeof vaultDashboardRoute;
   codespaceChatRoute: typeof codespaceChatRoute;
   vaultDatabaseRootRoute: typeof vaultDatabaseRootRoute;
   vaultSchemaRootRoute: typeof vaultSchemaRootRoute;
@@ -691,6 +704,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoIsoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/vault/$owner/$repo": {
+      id: "/vault/$owner/$repo";
+      path: "/vault/$owner/$repo";
+      fullPath: "/vault/$owner/$repo";
+      preLoaderRoute: typeof vaultDashboardRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/research/codex-app-server/browser": {
       id: "/research/codex-app-server/browser";
       path: "/research/codex-app-server/browser";
@@ -789,6 +809,7 @@ const rootRouteChildren: RootRouteChildren = {
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   codexThreadBrowserResearchRoute: codexThreadBrowserResearchRoute,
+  vaultDashboardRoute: vaultDashboardRoute,
   codespaceChatRoute: codespaceChatRoute,
   vaultDatabaseRootRoute: vaultDatabaseRootRoute,
   vaultSchemaRootRoute: vaultSchemaRootRoute,

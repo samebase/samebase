@@ -6,14 +6,18 @@ const VaultDashboard = lazy(async () => {
   return { default: module.VaultDashboard };
 });
 
+export type DashboardRoutePageProps = {
+  selectedRepositoryFullName?: string;
+};
+
 /**
  * Keep the dashboard behind the existing authenticated app shell on its
  * canonical route.
  */
-export function DashboardRoutePage() {
+export function DashboardRoutePage({ selectedRepositoryFullName }: DashboardRoutePageProps) {
   return (
     <AuthenticatedAppRoutePage>
-      <VaultDashboard />
+      <VaultDashboard selectedRepositoryFullName={selectedRepositoryFullName} />
     </AuthenticatedAppRoutePage>
   );
 }

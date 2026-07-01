@@ -187,6 +187,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-provisioning-log",
   "vault-dashboard-bottom-target-scroll",
   "vault-dashboard-sticky-header",
+  "vault-dashboard-sidebar-list",
   "vault-dashboard-list-spacing",
   "vault-convex-schema-graph",
   "vault-convex-schema-route-mobile",
@@ -377,6 +378,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-bottom-target-scroll" ||
     mode === "vault-dashboard-sticky-header" ||
+    mode === "vault-dashboard-sidebar-list" ||
     mode === "vault-dashboard-list-spacing" ||
     mode === "vault-convex-schema-graph" ||
     mode === "vault-convex-schema-route-mobile" ||
