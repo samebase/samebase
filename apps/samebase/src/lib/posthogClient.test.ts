@@ -1,7 +1,38 @@
-import { describe, expect, it } from "vite-plus/test";
-import { buildSamebasePostHogInitConfig, readSamebasePostHogSettings } from "./posthogClient";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import {
+  buildSamebasePostHogInitConfig,
+  captureSamebasePostHogPageview,
+  readSamebasePostHogSettings,
+} from "./posthogClient";
+
+const { postHogCaptureMock, postHogIdentifyMock, postHogInitMock, postHogResetMock } = vi.hoisted(
+  () => ({
+    postHogCaptureMock: vi.fn(),
+    postHogIdentifyMock: vi.fn(),
+    postHogInitMock: vi.fn(),
+    postHogResetMock: vi.fn(),
+  }),
+);
+
+vi.mock("posthog-js", () => ({
+  default: {
+    capture: postHogCaptureMock,
+    identify: postHogIdentifyMock,
+    init: postHogInitMock,
+    reset: postHogResetMock,
+  },
+}));
 
 describe("posthog client setup", () => {
+  afterEach(() => {
+    postHogCaptureMock.mockReset();
+    postHogIdentifyMock.mockReset();
+    postHogInitMock.mockReset();
+    postHogResetMock.mockReset();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
   it("does not initialize without a project token", () => {
     expect(readSamebasePostHogSettings({})).toBeNull();
   });
@@ -60,6 +91,21 @@ describe("posthog client setup", () => {
       }),
     ).toMatchObject({
       internal_or_test_user_hostname: null,
+    });
+  });
+
+  it("reports absolute pageview URLs to PostHog for heatmap ingestion", async () => {
+    vi.stubEnv("VITE_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_test");
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://samebase.com",
+      },
+    });
+
+    await captureSamebasePostHogPageview("/home#samebase");
+
+    expect(postHogCaptureMock).toHaveBeenCalledWith("$pageview", {
+      $current_url: "https://samebase.com/home#samebase",
     });
   });
 });
