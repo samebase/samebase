@@ -1,11 +1,38 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
-  buildSamebasePostHogCurrentUrl,
   buildSamebasePostHogInitConfig,
+  captureSamebasePostHogPageview,
   readSamebasePostHogSettings,
 } from "./posthogClient";
 
+const { postHogCaptureMock, postHogIdentifyMock, postHogInitMock, postHogResetMock } = vi.hoisted(
+  () => ({
+    postHogCaptureMock: vi.fn(),
+    postHogIdentifyMock: vi.fn(),
+    postHogInitMock: vi.fn(),
+    postHogResetMock: vi.fn(),
+  }),
+);
+
+vi.mock("posthog-js", () => ({
+  default: {
+    capture: postHogCaptureMock,
+    identify: postHogIdentifyMock,
+    init: postHogInitMock,
+    reset: postHogResetMock,
+  },
+}));
+
 describe("posthog client setup", () => {
+  afterEach(() => {
+    postHogCaptureMock.mockReset();
+    postHogIdentifyMock.mockReset();
+    postHogInitMock.mockReset();
+    postHogResetMock.mockReset();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
   it("does not initialize without a project token", () => {
     expect(readSamebasePostHogSettings({})).toBeNull();
   });
@@ -67,24 +94,26 @@ describe("posthog client setup", () => {
     });
   });
 
-  it("reports absolute pageview URLs for heatmap ingestion", () => {
-    expect(
-      buildSamebasePostHogCurrentUrl({
-        href: "/home#samebase",
+  it("reports absolute pageview URLs to PostHog for heatmap ingestion", async () => {
+    vi.stubEnv("VITE_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_test");
+    vi.stubGlobal("window", {
+      location: {
         origin: "https://samebase.com",
-      }),
-    ).toBe("https://samebase.com/home#samebase");
-    expect(
-      buildSamebasePostHogCurrentUrl({
-        href: "/vault/samebase/samebase/root?compare",
-        origin: "https://samebase.com",
-      }),
-    ).toBe("https://samebase.com/vault/samebase/samebase/root?compare");
-    expect(
-      buildSamebasePostHogCurrentUrl({
-        href: "https://samebase.com/logo#samebase",
-        origin: "https://samebase.com",
-      }),
-    ).toBe("https://samebase.com/logo#samebase");
+      },
+    });
+
+    await captureSamebasePostHogPageview("/home#samebase");
+    await captureSamebasePostHogPageview("/vault/samebase/samebase/root?compare");
+    await captureSamebasePostHogPageview("https://samebase.com/logo#samebase");
+
+    expect(postHogCaptureMock).toHaveBeenNthCalledWith(1, "$pageview", {
+      $current_url: "https://samebase.com/home#samebase",
+    });
+    expect(postHogCaptureMock).toHaveBeenNthCalledWith(2, "$pageview", {
+      $current_url: "https://samebase.com/vault/samebase/samebase/root?compare",
+    });
+    expect(postHogCaptureMock).toHaveBeenNthCalledWith(3, "$pageview", {
+      $current_url: "https://samebase.com/logo#samebase",
+    });
   });
 });
