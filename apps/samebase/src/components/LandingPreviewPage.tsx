@@ -155,6 +155,15 @@ function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDoc
 function LandingPreviewBaseStack() {
   return (
     <section aria-label="Samebase provider base" className="grid gap-10">
+      <div className="max-w-3xl text-2xl font-medium leading-9 text-foreground/85">
+        <p>Most app-builders try to keep you in their golden cage by re-selling AI tokens.</p>
+        <p>
+          But you already know that Codex, Claude Code, Cursor, etc. are cheaper and more powerful
+          than any app-builder on the market.
+        </p>
+        <p>So why would you pay more for less?</p>
+      </div>
+
       <div className="grid gap-6 sm:grid-cols-3">
         <div>
           <img
