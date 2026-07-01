@@ -155,7 +155,7 @@ function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDoc
 function LandingPreviewBaseStack() {
   return (
     <section aria-label="Samebase provider base" className="grid gap-10">
-      <div className="max-w-3xl text-2xl font-medium leading-9 text-foreground/85">
+      <div className="grid max-w-2xl gap-3 text-lg leading-7 text-muted-foreground">
         <p>Most app builders resell LLM tokens.</p>
         <p>
           But Codex, Claude, etc. are cheaper and more powerful than anything an app-builder can
