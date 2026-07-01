@@ -42,7 +42,7 @@ export const routes = rootRoute("root.tsx", [
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/landing", "landing.tsx"),
   route(LANDING_MARKDOWN_PREVIEW_ROUTE, "landing-preview.tsx"),
-  route(DASHBOARD_ROUTE, "dashboard-home.tsx"),
+  route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),
   route("/pricing", "pricing.tsx"),
   route(CONNECT_REPO_ROUTE, "connect-repo.tsx"),
   route(NEW_APP_ROUTE, "new-app.tsx"),
@@ -54,5 +54,4 @@ export const routes = rootRoute("root.tsx", [
   route("/vault/$owner/$repo/db/$branch/mono/$", "vault-database-mono.tsx"),
   route("/vault/$owner/$repo/schema/$branch/root", "vault-schema-root.tsx"),
   route("/vault/$owner/$repo/schema/$branch/mono/$", "vault-schema-mono.tsx"),
-  route("/vault/$", "vault-file.tsx"),
 ]);

@@ -168,9 +168,9 @@ test("signed-in app right sidebar renders a static account section", async ({ pa
   await expect(accountSection.getByTestId("dashboard-sidebar-account-icon")).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "Sign out" })).toBeVisible();
   await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
-  await expect(rightSidebar.getByRole("link", { name: "Home", exact: true })).toHaveAttribute(
+  await expect(rightSidebar.getByRole("link", { name: "Vaults", exact: true })).toHaveAttribute(
     "href",
-    "/home",
+    "/vault",
   );
   await expect(rightSidebar.getByRole("link", { name: "Providers", exact: true })).toHaveAttribute(
     "href",

@@ -149,7 +149,7 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
   const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "not logged in" })).toBeVisible();
-  await expect(publicLinks.getByRole("link", { name: "/home", exact: true })).toHaveCount(0);
+  await expect(publicLinks.getByRole("link", { name: "/vault", exact: true })).toHaveCount(0);
   await expect(
     publicLinks.getByRole("link", { name: LOCAL_STORAGE_ROUTE, exact: true }),
   ).toHaveCount(0);

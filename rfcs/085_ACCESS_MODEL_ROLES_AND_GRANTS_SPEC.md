@@ -102,7 +102,7 @@ became structural via access-key function wrappers.
 - `waitlist.joinWaitlist` (`apps/noter/convex/waitlist.ts:18-39`) exists but has zero frontend
   callers; `ApprovalGate` renders static copy.
 - `/vault/$` (`apps/noter/src/routes/vault-file.tsx:29-36`) always renders `FileView` (file
-  surface); the vault dashboard is `/home` → `DashboardRoutePage` → `VaultDashboard`. Route-level
+  surface); the vault dashboard is `/vault` → `DashboardRoutePage` → `VaultDashboard`. Route-level
   keys can therefore separate dashboard from files; real file authorization stays in Convex
   functions.
 - MCP already has a requirement vocabulary:
@@ -400,7 +400,7 @@ they are.
 | Access key            | Routes                                                                                                                                                                                                                                                                                                                |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `access_public`       | `/`, `/logo`, `/oauth/mcp/consent` (hidden from route path suggestions), `/privacy`, `/terms`, `/visual-fixture` (local-only)                                                                                                                                                                                         |
-| `access_dashboard`    | `/home`, `/pricing`                                                                                                                                                                                                                                                                                                   |
+| `access_dashboard`    | `/vault`, `/pricing`                                                                                                                                                                                                                                                                                                  |
 | `access_repo_connect` | `/connect-repo` shell for importing/linking an existing repository; specific provider buttons also depend on `access_provider_connections`                                                                                                                                                                            |
 | `access_app_create`   | `/new-app` managed app creation shell; managed provisioning actions also keep backend `access_app_create` checks                                                                                                                                                                                                      |
 | `access_files_read`   | `/vault/$` read shell                                                                                                                                                                                                                                                                                                 |
@@ -495,9 +495,9 @@ where shipped UI changes (waitlist/404 paths).
 has zero callers — required for real onboarding). The accepted signup boundary is authenticated
 waitlist accounts: unapproved sign-ins may create or reuse a user row, resolve to `role_waitlisted`,
 and stay limited to public access until `users.isApproved` becomes true. Verify the member journey
-end to end after approval (sign in → `/home` → connect provider → connect/import repo → `/new-app` →
-create or monitor the app). No code beyond the join form and chosen signup boundary — membership is
-data.
+end to end after approval (sign in → `/vault` → connect provider → connect/import repo → `/new-app`
+→ create or monitor the app). No code beyond the join form and chosen signup boundary — membership
+is data.
 
 **Phase 4 — MCP scoped consent (separate spec).** Checkbox consent with partial access-key grants,
 live intersection on every request, step-up via `insufficient_scope`, grant management/editing on a

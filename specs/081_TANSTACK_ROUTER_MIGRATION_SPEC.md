@@ -65,7 +65,7 @@ problems, attempted fixes, and outcomes.
   authenticated app routes (MCP consent, pricing, add-repository, machines, machine connect,
   codespace chat, and the vault/file surfaces), plus the explicit root routes for `/` and `/test`.
 - `apps/samebase/src/components/RootIndexRoutePage.tsx` now owns public `/` rendering, and public
-  Google sign-in entrypoints now pass `/home` as the provider return route when the user starts
+  Google sign-in entrypoints now pass `/vault` as the provider return route when the user starts
   sign-in from `/`. Authenticated users can still browse the public landing route because
   `apps/samebase/src/lib/useAppAuthRuntimeEffects.ts` no longer redirects authenticated `/` renders.
   Unresolved paths now go through a deliberate root-level not-found route instead of a leftover

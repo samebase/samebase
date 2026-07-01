@@ -1,12 +1,11 @@
 import { DashboardRoutePage } from "@/components/DashboardRoutePage";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS } from "@/routeSearch/root";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { createFileRoute } from "@tanstack/react-router";
 
-const pathname = DASHBOARD_ROUTE;
+const pathname = "/vault/";
 
-export const Route = createFileRoute("/home")({
+export const Route = createFileRoute("/vault/")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     searchParamSuggestions: DASHBOARD_ROUTE_SEARCH_PARAM_SUGGESTIONS,

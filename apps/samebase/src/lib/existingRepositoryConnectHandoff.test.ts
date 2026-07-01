@@ -21,8 +21,8 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     expect(connectRepository).toHaveBeenCalledWith({
       repositoryFullName: "samebase/samebase",
     });
-    expect(navigateByHref).toHaveBeenCalledWith("/home?prod-ui", undefined);
-    expect(calls).toEqual(["connect:samebase/samebase", "navigate:/home?prod-ui:push"]);
+    expect(navigateByHref).toHaveBeenCalledWith("/vault?prod-ui", undefined);
+    expect(calls).toEqual(["connect:samebase/samebase", "navigate:/vault?prod-ui:push"]);
   });
 
   it("replaces the direct file route with the dashboard after queueing", async () => {
@@ -40,7 +40,7 @@ describe("queueExistingRepositoryAndNavigateToDashboard", () => {
     expect(connectRepository).toHaveBeenCalledWith({
       repositoryFullName: "samebase/samebase",
     });
-    expect(navigateByHref).toHaveBeenCalledWith("/home?review&mobileLineNumbers=1", {
+    expect(navigateByHref).toHaveBeenCalledWith("/vault?review&mobileLineNumbers=1", {
       replace: true,
     });
   });

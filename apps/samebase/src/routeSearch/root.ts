@@ -279,7 +279,7 @@ Example: pathname `/logo` plus search `{ reset: true }` canonicalizes to `/logo`
 
 Example: pathname `/logo` plus search `{ dark: true, light: true }` canonicalizes to `/logo`.
 
-Example: pathname `/home` plus raw search `?machineId=x` canonicalizes to `/home`, because no
+Example: pathname `/vault` plus raw search `?machineId=x` canonicalizes to `/vault`, because no
 matched route schema accepts `machineId` there. `acceptedSearchKeys` is the union of the matched route
 chain's `staticData.acceptedSearchKeys`; root-owned keys are always kept.
 */

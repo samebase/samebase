@@ -185,7 +185,7 @@ describe("useAutoSignIn", () => {
       signup: "google",
     });
     const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/home",
+      pathname: "/vault",
       search: {
         signup: "google",
       },
@@ -335,7 +335,7 @@ describe("useAutoSignIn", () => {
     messageHandler(
       new MessageEvent("message", {
         data: {
-          redirectTo: "/home?prod-ui",
+          redirectTo: "/vault?prod-ui",
           tokens: {
             __convexAuthAccessToken: "token",
           },
@@ -348,7 +348,7 @@ describe("useAutoSignIn", () => {
 
     expect(localStorageSetItemMock).toHaveBeenCalledWith("samebase_auth_provider", "google");
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
-    expect(locationState.href).toBe("/home?prod-ui");
+    expect(locationState.href).toBe("/vault?prod-ui");
     expect(locationReloadMock).not.toHaveBeenCalled();
   });
 
@@ -388,7 +388,7 @@ describe("useAutoSignIn", () => {
     messageHandler(
       new MessageEvent("message", {
         data: {
-          redirectTo: "https://evil.test/home",
+          redirectTo: "https://evil.test/vault",
           tokens: {
             __convexAuthAccessToken: "token",
           },
@@ -445,7 +445,7 @@ describe("useAutoSignIn", () => {
     messageHandler(
       new MessageEvent("message", {
         data: {
-          redirectTo: "/home?prod-ui",
+          redirectTo: "/vault?prod-ui",
           tokens: {
             __convexAuthRefreshToken: "refresh",
             __convexAuthAccessToken: "token",

@@ -52,7 +52,7 @@ describe("useCloseOAuthPopup", () => {
       location: {
         hash: "#ready",
         origin: "https://samebase.com",
-        pathname: "/home",
+        pathname: "/vault",
         search: "?prod-ui",
       },
       opener: {
@@ -67,10 +67,10 @@ describe("useCloseOAuthPopup", () => {
       getItem: vi.fn(() => "token"),
     });
 
-    useCloseOAuthPopup("/home", true);
+    useCloseOAuthPopup("/vault", true);
 
     expect(openerLocalStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
-    expect(openerLocation.href).toBe("/home?prod-ui#ready");
+    expect(openerLocation.href).toBe("/vault?prod-ui#ready");
     expect(openerReloadMock).not.toHaveBeenCalled();
     expect(closeMock).toHaveBeenCalledTimes(1);
   });
@@ -96,7 +96,7 @@ describe("useCloseOAuthPopup", () => {
       location: {
         hash: "",
         origin: "https://samebase.com",
-        pathname: "/home",
+        pathname: "/vault",
         search: "?prod-ui",
       },
       opener,
@@ -106,11 +106,11 @@ describe("useCloseOAuthPopup", () => {
       getItem: vi.fn(() => "token"),
     });
 
-    useCloseOAuthPopup("/home", true);
+    useCloseOAuthPopup("/vault", true);
 
     expect(openerPostMessageMock).toHaveBeenCalledWith(
       {
-        redirectTo: "/home?prod-ui",
+        redirectTo: "/vault?prod-ui",
         type: "convex-auth-tokens",
         tokens: {
           __convexAuthAccessToken: "token",
@@ -129,7 +129,7 @@ describe("useCloseOAuthPopup", () => {
       location: {
         hash: "",
         origin: "https://samebase.com",
-        pathname: "/home",
+        pathname: "/vault",
         search: "",
       },
       opener: {
@@ -149,7 +149,7 @@ describe("useCloseOAuthPopup", () => {
       getItem: vi.fn(() => "token"),
     });
 
-    useCloseOAuthPopup("/home", true);
+    useCloseOAuthPopup("/vault", true);
 
     expect(openerLocalStorageSetItemMock).not.toHaveBeenCalled();
     expect(openerPostMessageMock).not.toHaveBeenCalled();

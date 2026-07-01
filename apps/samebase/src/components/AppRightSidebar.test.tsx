@@ -151,8 +151,8 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       </a>
     ),
     useLocation: () => ({
-      href: "/home",
-      pathname: "/home",
+      href: "/vault",
+      pathname: "/vault",
       searchStr: "",
     }),
   };
@@ -254,7 +254,7 @@ describe("AppRightSidebarContent", () => {
       configurable: true,
       value: createTestStorage(),
     });
-    window.history.replaceState({}, "", "/home");
+    window.history.replaceState({}, "", "/vault");
     queryState.index = 0;
     queryState.results = [];
     queryState.resultsByQueryName = new Map();
@@ -286,7 +286,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("not logged in");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("Providers");
-    expect(markup).not.toContain(">Home<");
+    expect(markup).not.toContain(">Vaults<");
   });
 
   it("uses the public signed-out account row after hydration when loading without local auth material", async () => {
@@ -464,8 +464,8 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("nicu@samebase.md");
     expect(hydratedMarkup).not.toContain("Nicu");
-    expect(hydratedMarkup).toContain('href="/home"');
-    expect(hydratedMarkup.indexOf(">Home<")).toBeLessThan(hydratedMarkup.indexOf(">Providers<"));
+    expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup.indexOf(">Vaults<")).toBeLessThan(hydratedMarkup.indexOf(">Providers<"));
     expect(hydratedMarkup).toContain("Providers");
     expect(hydratedMarkup).toContain("New App");
     expect(hydratedMarkup).toContain("Connect existing app");

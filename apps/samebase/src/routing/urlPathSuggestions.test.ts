@@ -29,7 +29,7 @@ describe("readRouteUrlPathSuggestions", () => {
     const suggestions = readRouteUrlPathSuggestions(routesByPath, staffViewer, localEnvironment);
 
     expect(suggestions).toContain("/");
-    expect(suggestions).toContain("/home");
+    expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
     expect(suggestions).toContain("/landing-preview");
     expect(suggestions).toContain("/logo/transition/transforms");
@@ -37,7 +37,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
     expect(suggestions).not.toContain("/_public");
-    expect(suggestions).not.toContain("/_public/home");
+    expect(suggestions).not.toContain("/_public/vault");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
     expect(suggestions).toEqual(
@@ -69,7 +69,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/connect-repo");
-    expect(suggestions).not.toContain("/home");
+    expect(suggestions).not.toContain("/vault");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
@@ -88,7 +88,7 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/connect-repo");
-    expect(suggestions).toContain("/home");
+    expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/new-app");
     expect(suggestions).toContain("/pricing");
     expect(suggestions).toContain("/providers");
@@ -318,7 +318,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         routesByPath,
         viewer: staffViewer,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("accepts every visible route path for instant app-shell previews", () => {
@@ -385,7 +385,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/home",
+        draftHref: "/vault",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,
@@ -405,7 +405,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/home",
+        draftHref: "/vault",
         origin: ORIGIN,
         routesByPath,
         viewer: anonymousViewer,
@@ -434,7 +434,7 @@ describe("isRouteUrlPathReadyForNavigation", () => {
 
     expect(
       isRouteUrlPathReadyForNavigation({
-        currentHref: "/home",
+        currentHref: "/vault",
         draftHref: "/logo",
         origin: ORIGIN,
         routesByPath,

@@ -130,7 +130,7 @@ function isRouteAddressSearchTokenReady(
 ): boolean {
   // A destination route accepts only root-owned keys plus its own schema keys.
   // Keys the destination does not accept never ride along into the route
-  // update: editing `/machines?machineId=x` to `/home` must drop `machineId`.
+  // update: editing `/machines?machineId=x` to `/vault` must drop `machineId`.
   if (!isRootRouteOwnedSearchKey(token.key) && !acceptedSearchKeys.includes(token.key)) {
     return false;
   }
@@ -210,8 +210,8 @@ function readRouteAddressSearchParamSuggestions(
 Returns the destination path's route-owned search keys for route URL editor
 draft cleanup.
 
-Example: editing `/machines?machineId=x` into `/home?machineId=x` should drop
-`machineId`, because `/home` does not declare that key in
+Example: editing `/machines?machineId=x` into `/vault?machineId=x` should drop
+`machineId`, because `/vault` does not declare that key in
 `staticData.acceptedSearchKeys`. The caller handles root-owned keys separately;
 this helper only answers which keys belong to the destination route itself.
 

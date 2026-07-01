@@ -213,10 +213,10 @@ test.describe("vault dashboard hash scrolling", () => {
   }) => {
     test.slow();
 
-    await page.goto(`/home#${TARGET_REPOSITORY_HASH}`, {
+    await page.goto(`/vault#${TARGET_REPOSITORY_HASH}`, {
       waitUntil: "domcontentloaded",
     });
-    await signInIfNeeded(page, `/home#${TARGET_REPOSITORY_HASH}`);
+    await signInIfNeeded(page, `/vault#${TARGET_REPOSITORY_HASH}`);
 
     const previousVault = vaultHashTarget(page, PREVIOUS_REPOSITORY_HASH);
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
@@ -288,10 +288,10 @@ test.describe("vault dashboard hash scrolling", () => {
   test("uses the active vault hash as the delete target", async ({ page }) => {
     test.slow();
 
-    await page.goto(`/home#${TARGET_REPOSITORY_HASH}`, {
+    await page.goto(`/vault#${TARGET_REPOSITORY_HASH}`, {
       waitUntil: "domcontentloaded",
     });
-    await signInIfNeeded(page, `/home#${TARGET_REPOSITORY_HASH}`);
+    await signInIfNeeded(page, `/vault#${TARGET_REPOSITORY_HASH}`);
 
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
     test.skip(
@@ -303,10 +303,10 @@ test.describe("vault dashboard hash scrolling", () => {
       name: `Remove vault ${TARGET_REPOSITORY_FULL_NAME}`,
     });
 
-    await expect(deleteLink).toHaveAttribute("href", `/home?delete#${TARGET_REPOSITORY_HASH}`);
+    await expect(deleteLink).toHaveAttribute("href", `/vault?delete#${TARGET_REPOSITORY_HASH}`);
 
     await deleteLink.click();
-    await expect(page).toHaveURL(new RegExp(`/home\\?delete#${TARGET_REPOSITORY_HASH}$`));
+    await expect(page).toHaveURL(new RegExp(`/vault\\?delete#${TARGET_REPOSITORY_HASH}$`));
     await expect(
       page.getByRole("heading", {
         name: `Remove Vault ${TARGET_REPOSITORY_FULL_NAME}`,
@@ -323,8 +323,8 @@ test.describe("vault dashboard hash scrolling", () => {
       "route URL editor hash click path is covered on the desktop address chrome",
     );
 
-    await page.goto("/home", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/home");
+    await page.goto("/vault", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/vault");
 
     const previousVault = vaultHashTarget(page, PREVIOUS_REPOSITORY_HASH);
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
@@ -379,8 +379,8 @@ test.describe("vault dashboard hash scrolling", () => {
   test("clears delete mode when the current hash does not target a vault", async ({ page }) => {
     test.slow();
 
-    await page.goto("/home?delete", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/home?delete");
+    await page.goto("/vault?delete", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/vault?delete");
 
     const targetVault = vaultHashTarget(page, TARGET_REPOSITORY_HASH);
     test.skip(

@@ -209,13 +209,13 @@ Implemented validation, 2026-03-19:
   - `SignInWithGoogle` now passes the current relative route as `redirectTo`
   - `useAutoSignIn()` now passes the current relative route as `redirectTo`
   - the helper strips `auth` from the return URL so future callback loops are avoided
-  - public-root sign-in now uses `/home` as the provider return route instead of returning to `/`
+  - public-root sign-in now uses `/vault` as the provider return route instead of returning to `/`
     and relying on an authenticated-root redirect effect
   - failed unauthenticated public signup returns preserve `signup=google` by bouncing
-    `/home?signup=google` back to `/?signup=google`
+    `/vault?signup=google` back to `/?signup=google`
   - authenticated users can still browse the public landing route because authenticated `/` renders
     are not redirected
-  - popup launch still starts from `/`, and successful popup completion moves the opener to `/home`
+  - popup launch still starts from `/`, and successful popup completion moves the opener to `/vault`
     when the popup authenticated on the dashboard route
 - Validation in this patch:
   - `pnpm exec vp test run apps/noter/src/SignInForm.test.tsx apps/noter/src/authClient.test.ts apps/noter/src/lib/useAppAuthRuntimeEffects.test.ts apps/noter/src/lib/tanstackSearchParams.test.ts`

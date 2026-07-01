@@ -177,7 +177,7 @@ describe("VaultResourceRail", () => {
             {
               kind: "add",
               label: "?add-convex",
-              href: "/home?add-convex#weight_tsx",
+              href: "/vault?add-convex#weight_tsx",
             },
           ],
         },
@@ -188,7 +188,7 @@ describe("VaultResourceRail", () => {
             {
               kind: "add",
               label: "?add-cloudflare",
-              href: "/home?add-cloudflare#weight_tsx",
+              href: "/vault?add-cloudflare#weight_tsx",
             },
           ],
         },
@@ -229,7 +229,7 @@ describe("VaultResourceRail", () => {
             {
               kind: "add",
               label: "?add-cloudflare",
-              href: "/home?add-cloudflare#weight_tsx",
+              href: "/vault?add-cloudflare#weight_tsx",
             },
           ],
         },
@@ -239,7 +239,7 @@ describe("VaultResourceRail", () => {
     const markup = renderToStaticMarkup(<VaultResourceRail state={state} />);
 
     expect(markup).toContain("Open Cloudflare: nicuchiciuc/weight-tsx");
-    expect(markup).toContain('href="/home?add-cloudflare#weight_tsx"');
+    expect(markup).toContain('href="/vault?add-cloudflare#weight_tsx"');
     expect(markup).toContain('aria-label="Add Cloudflare"');
     expect(markup).not.toContain('target="_blank"');
   });
@@ -261,7 +261,7 @@ describe("VaultResourceRail", () => {
             {
               kind: "add",
               label: "?add-convex",
-              href: "/home?add-convex&app-root=apps%2Fnoter#weight_tsx",
+              href: "/vault?add-convex&app-root=apps%2Fnoter#weight_tsx",
               onClick,
             },
           ],
@@ -274,7 +274,7 @@ describe("VaultResourceRail", () => {
     if (!(link instanceof HTMLAnchorElement)) {
       throw new Error("Expected add action link");
     }
-    expect(link.getAttribute("href")).toBe("/home?add-convex&app-root=apps%2Fnoter#weight_tsx");
+    expect(link.getAttribute("href")).toBe("/vault?add-convex&app-root=apps%2Fnoter#weight_tsx");
 
     const click = new MouseEvent("click", {
       bubbles: true,
@@ -318,7 +318,7 @@ describe("VaultResourceRail", () => {
                 {
                   kind: "add",
                   label: "?add-convex",
-                  href: "/home?add-convex#weight_tsx",
+                  href: "/vault?add-convex#weight_tsx",
                 },
               ],
             },

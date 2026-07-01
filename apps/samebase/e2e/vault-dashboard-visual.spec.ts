@@ -684,7 +684,7 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
+  await expect(deleteLink).toHaveAttribute("href", "/vault?delete#samebase");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
   await expect(repositoryCard).toBeVisible();
   const resourceLinksTrigger = fixture.getByRole("button", {
@@ -773,7 +773,7 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
+  await expect(deleteLink).toHaveAttribute("href", "/vault?delete#samebase");
   const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
   await expect(repositoryCard).toBeVisible();
   const resourceLinksTrigger = fixture.getByRole("button", {
@@ -1045,7 +1045,7 @@ test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
     name: "Remove vault samebase/samebase",
   });
   await expect(deleteLink).toBeVisible();
-  await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
+  await expect(deleteLink).toHaveAttribute("href", "/vault?delete#samebase");
   await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
     animations: "disabled",
     caret: "hide",

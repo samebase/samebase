@@ -99,8 +99,8 @@ test.describe("vault multi-branch live flows", () => {
   test("dashboard branch list includes ahead/behind labels and encoded slash routes", async ({
     page,
   }) => {
-    await page.goto("/home");
-    await signInIfNeeded(page, "/home");
+    await page.goto("/vault");
+    await signInIfNeeded(page, "/vault");
     await requireVaultOrSkip(page);
     await expect(branchLinkLocator(page, BRANCHES.main)).toBeVisible({
       timeout: 15_000,
@@ -136,8 +136,8 @@ test.describe("vault multi-branch live flows", () => {
   test("branch edits remain isolated and branch switching stays responsive", async ({
     page,
   }, testInfo) => {
-    await page.goto("/home");
-    await signInIfNeeded(page, "/home");
+    await page.goto("/vault");
+    await signInIfNeeded(page, "/vault");
     await requireVaultOrSkip(page);
 
     let beforeUnloadDialogCount = 0;

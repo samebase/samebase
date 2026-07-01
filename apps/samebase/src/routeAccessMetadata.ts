@@ -15,7 +15,6 @@ type RouteMetadata = Pick<
 const routeAccessMetadataByPath = {
   "/": { access: "access_public" },
   "/connect-repo": { access: "access_repo_connect" },
-  "/home": { access: "access_dashboard" },
   "/indexDB": { access: "access_admin" },
   "/landing": { access: "access_public", pathSuggestion: "hidden", prerender: false },
   "/landing-preview": { access: "access_admin" },
@@ -42,6 +41,7 @@ const routeAccessMetadataByPath = {
   "/research/codex-app-server/browser": { access: "access_admin" },
   "/terms": { access: "access_public" },
   "/test": { availableEnvironments: ["local"], access: "access_admin" },
+  "/vault/": { access: "access_dashboard" },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo/codespace/$branch/chat": { access: "access_machines" },
   "/vault/$owner/$repo/db/$branch/root": { access: "access_files_read" },

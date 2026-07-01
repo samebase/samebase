@@ -1236,7 +1236,7 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
 
   await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
   await expectStatusBarInRightSidebar(page, statusBar);
-  await expect(statusBar.getByRole("link", { name: "/home" })).toHaveCount(0);
+  await expect(statusBar.getByRole("link", { name: "/vault" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Sign in to continue" })).toBeVisible();
   await expect(page.getByText("Use the account sidebar to sign in")).toBeVisible();
   await expect(
