@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { buildSamebasePostHogInitConfig, readSamebasePostHogSettings } from "./posthogClient";
+import {
+  buildSamebasePostHogCurrentUrl,
+  buildSamebasePostHogInitConfig,
+  readSamebasePostHogSettings,
+} from "./posthogClient";
 
 describe("posthog client setup", () => {
   it("does not initialize without a project token", () => {
@@ -61,5 +65,26 @@ describe("posthog client setup", () => {
     ).toMatchObject({
       internal_or_test_user_hostname: null,
     });
+  });
+
+  it("reports absolute pageview URLs for heatmap ingestion", () => {
+    expect(
+      buildSamebasePostHogCurrentUrl({
+        href: "/home#samebase",
+        origin: "https://samebase.com",
+      }),
+    ).toBe("https://samebase.com/home#samebase");
+    expect(
+      buildSamebasePostHogCurrentUrl({
+        href: "/vault/samebase/samebase/root?compare",
+        origin: "https://samebase.com",
+      }),
+    ).toBe("https://samebase.com/vault/samebase/samebase/root?compare");
+    expect(
+      buildSamebasePostHogCurrentUrl({
+        href: "https://samebase.com/logo#samebase",
+        origin: "https://samebase.com",
+      }),
+    ).toBe("https://samebase.com/logo#samebase");
   });
 });

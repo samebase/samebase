@@ -110,8 +110,15 @@ export async function loadSamebasePostHogClient(): Promise<SamebasePostHogClient
 export async function captureSamebasePostHogPageview(href: string) {
   const posthog = await loadSamebasePostHogClient();
   posthog?.capture("$pageview", {
-    $current_url: href,
+    $current_url: buildSamebasePostHogCurrentUrl({
+      href,
+      origin: window.location.origin,
+    }),
   });
+}
+
+export function buildSamebasePostHogCurrentUrl(args: { href: string; origin: string }) {
+  return new URL(args.href, args.origin).href;
 }
 
 /**
