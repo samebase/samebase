@@ -1923,6 +1923,9 @@
         "security": [
           {
             "PAT": []
+          },
+          {
+            "Team Token": []
           }
         ]
       }
