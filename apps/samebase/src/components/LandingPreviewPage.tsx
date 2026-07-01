@@ -157,17 +157,35 @@ function LandingPreviewBaseStack() {
     <section aria-label="Samebase provider base" className="grid gap-10">
       <div className="grid gap-6 border-y py-8 sm:grid-cols-3">
         <div>
-          <h2 className="text-2xl font-semibold leading-none">GitHub</h2>
+          <img
+            alt="GitHub"
+            className="h-8 w-auto bg-white"
+            height="32"
+            src="/landing-preview/logos/github.svg"
+            width="128"
+          />
           <p className="mt-3 text-base leading-6 text-muted-foreground">repo + pull requests</p>
         </div>
         <div>
-          <h2 className="text-2xl font-semibold leading-none">Convex</h2>
+          <img
+            alt="Convex"
+            className="h-8 w-auto bg-white"
+            height="32"
+            src="/landing-preview/logos/convex.svg"
+            width="128"
+          />
           <p className="mt-3 text-base leading-6 text-muted-foreground">
             data + backend + realtime
           </p>
         </div>
         <div>
-          <h2 className="text-2xl font-semibold leading-none">Cloudflare</h2>
+          <img
+            alt="Cloudflare"
+            className="h-8 w-auto bg-white object-contain"
+            height="32"
+            src="/landing-preview/logos/cloudflare.jpg"
+            width="128"
+          />
           <p className="mt-3 text-base leading-6 text-muted-foreground">deploys + domains + edge</p>
         </div>
       </div>
