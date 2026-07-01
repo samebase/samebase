@@ -466,6 +466,8 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-delete-dialog.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-dev-tools-hidden.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-infra-setup.png",
+  "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-delimiter-desktop.png",
+  "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-delimiter.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-spacing-desktop.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-list-spacing.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-provisioning-log.png",

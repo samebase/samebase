@@ -102,10 +102,10 @@ function useFixtureBranchExpansionStore() {
   }));
 }
 
-function fakeVaultId(): Id<"vaults"> {
+function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
-  return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+  return value;
 }
 
 function fakeProvisioningRunId(): Id<"appProvisioningRuns"> {
@@ -570,6 +570,35 @@ const LIST_SPACING_VAULT = {
   remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
 } satisfies VaultDashboardVault;
 
+const LIST_SPACING_SECOND_VAULT_ID = fakeVaultId("mt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a");
+const LIST_SPACING_SECOND_VAULT = {
+  ...LIST_SPACING_VAULT,
+  _id: LIST_SPACING_SECOND_VAULT_ID,
+  _creationTime: FIXTURE_NOW - 1_800_000,
+  ghRepoOwner: "samebase",
+  ghRepoName: "archive",
+  repositoryFullName: "samebase/archive",
+  fileCount: 7,
+  lastTreeRefreshAt: FIXTURE_NOW - 240_000,
+  isSamebaseManaged: false,
+  hasConvexProvision: false,
+  hasCloudflareProvision: false,
+  canRemoveConvexProvision: false,
+  canRemoveCloudflareProvision: false,
+  appRoots: [],
+  cloudflareWorkers: [],
+  convexDeployments: [],
+  remoteBranches: [
+    fixtureVaultBranch({
+      name: "main",
+      headCommitSha: "9abcdef1234567890abcdef1234567890abcdef1",
+      isDefault: true,
+      aheadBy: 0,
+      behindBy: 0,
+    }),
+  ],
+} satisfies VaultDashboardVault;
+
 const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 }, (_, index) => ({
   branch: fixtureVaultBranch({
     name: index === 0 ? "main" : `codex/sticky-dashboard-branch-${String(index).padStart(2, "0")}`,
@@ -608,7 +637,7 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           retryingInfrastructureVaultId={null}
           now={FIXTURE_NOW}
           viewModel={{
-            vaults: [LIST_SPACING_VAULT],
+            vaults: [LIST_SPACING_VAULT, LIST_SPACING_SECOND_VAULT],
             stagedBranchSummariesByVaultId: new Map(),
           }}
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}

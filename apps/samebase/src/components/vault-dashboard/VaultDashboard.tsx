@@ -3121,7 +3121,7 @@ export function VaultDashboardView({
 
   return (
     <VaultDashboardRepositoryList>
-      {vaults.map((vault) => {
+      {vaults.map((vault, index) => {
         const deletion = vault.deletion;
         const isDeletingVault = deletion.state !== "not_deleting";
         const isReady = vault.state === "ready" && !isDeletingVault;
@@ -3259,6 +3259,7 @@ export function VaultDashboardView({
         return (
           <div
             key={vault._id}
+            className={clsx(index > 0 && "border-t border-border/80 pt-3")}
             data-vault-dashboard-repository-hash-id={repositoryHashId}
             ref={(element) => {
               if (element) {

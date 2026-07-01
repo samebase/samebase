@@ -685,14 +685,25 @@ test("vault dashboard fixture (mobile list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
-  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
+  const repositoryCards = fixture.locator("[data-vault-dashboard-repository-hash-id]");
+  const repositoryCard = repositoryCards.first();
   await expect(repositoryCard).toBeVisible();
-  const resourceLinksTrigger = fixture.getByRole("button", {
-    name: "Show resource links",
-  });
+  const secondRepositoryCard = repositoryCards.nth(1);
+  await expect(secondRepositoryCard).toBeVisible();
+  const resourceLinksTrigger = fixture
+    .getByRole("button", {
+      name: "Show resource links",
+    })
+    .first();
   await expect(resourceLinksTrigger).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
   await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+  await expect(secondRepositoryCard).toHaveScreenshot("vault-dashboard-list-delimiter.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
@@ -774,11 +785,16 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   });
   await expect(deleteLink).toBeVisible();
   await expect(deleteLink).toHaveAttribute("href", "/home?delete#samebase");
-  const repositoryCard = fixture.locator("[data-vault-dashboard-repository-hash-id]").first();
+  const repositoryCards = fixture.locator("[data-vault-dashboard-repository-hash-id]");
+  const repositoryCard = repositoryCards.first();
   await expect(repositoryCard).toBeVisible();
-  const resourceLinksTrigger = fixture.getByRole("button", {
-    name: "Show resource links",
-  });
+  const secondRepositoryCard = repositoryCards.nth(1);
+  await expect(secondRepositoryCard).toBeVisible();
+  const resourceLinksTrigger = fixture
+    .getByRole("button", {
+      name: "Show resource links",
+    })
+    .first();
   await expect(resourceLinksTrigger).toBeVisible();
   await expect(fixture.getByRole("link", { name: "Open Convex: nicu/samebase" })).toHaveCount(0);
   await expect(repositoryCard).toHaveScreenshot("vault-dashboard-list-spacing-desktop.png", {
@@ -787,6 +803,15 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+  await expect(secondRepositoryCard).toHaveScreenshot(
+    "vault-dashboard-list-delimiter-desktop.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      scale: "css",
+      maxDiffPixelRatio: 0.03,
+    },
+  );
 
   await resourceLinksTrigger.click();
   await expect(fixture.getByRole("button", { name: "Hide resource links" })).toBeVisible();
