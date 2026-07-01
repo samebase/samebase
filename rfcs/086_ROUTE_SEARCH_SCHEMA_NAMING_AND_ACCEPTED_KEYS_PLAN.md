@@ -24,10 +24,10 @@ route accepts, how values parse, which keys are presence flags, and what metadat
 editor can use. This plan makes each route's schema the source of truth for one more output: the set
 of query keys that may appear on a destination path at all.
 
-The user-visible bug this fixes first: editing the route URL from `/machines?machineId=x` to `/home`
-kept `?machineId=x` on `/home` even though no `/home` surface reads it. Query params now need to
-become more durable objects, because the access-model rollout (`rfcs/085`) will attach permission
-metadata to each of them.
+The user-visible bug this fixes first: editing the route URL from `/machines?machineId=x` to
+`/vault` kept `?machineId=x` on `/vault` even though no `/vault` surface reads it. Query params now
+need to become more durable objects, because the access-model rollout (`rfcs/085`) will attach
+permission metadata to each of them.
 
 ## Vocabulary: accepted keys, not availability
 
@@ -118,9 +118,9 @@ entries unchanged; a pre-existing dirty entry canonicalizes on traversal exactly
 ## User Stories
 
 1. **Machines to home (implemented).** On `/machines?machineId=x&threadId=y`, editing the path to
-   `/home` navigates to `/home` with both keys dropped. Typing `/machines?machineId=x` from `/home`
-   keeps the keys, because `/machines` accepts them.
-2. **Fun params are app-wide.** The interactive logo ships on `/` and `/home`, not only `/logo`, so
+   `/vault` navigates to `/vault` with both keys dropped. Typing `/machines?machineId=x` from
+   `/vault` keeps the keys, because `/machines` accepts them.
+2. **Fun params are app-wide.** The interactive logo ships on `/` and `/vault`, not only `/logo`, so
    its appearance controls (theme colors, `dark`/`light`, `zoom`, `depth`, ...) are app-level state:
    set them anywhere, keep them everywhere, including across `/machines` and `/pricing`. Slice 2
    formalizes this by moving them into the root schema, which is what "root-owned" already means
@@ -176,7 +176,7 @@ them while route-owned params inherit their owning route's key.
 
 Implemented in `routeAddress.test.ts`:
 
-1. `/machines?machineId=...` draft to `/home` drops the machine keys
+1. `/machines?machineId=...` draft to `/vault` drops the machine keys
 2. drafts to `/machines` keep `machineId`/`threadId`
 3. root-owned params (`prod-ui`, `dark`) survive on schema-less destinations
 4. hidden root-owned params (`devtools`) survive on every destination

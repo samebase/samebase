@@ -324,24 +324,24 @@ describe("rootRouteSearch", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
-        pathname: "/home",
+        pathname: "/vault",
         searchStr: "?machineId=sample-machine",
         hash: "",
         stripProdUi: false,
       }),
-    ).toBe("/home");
+    ).toBe("/vault");
   });
 
   it("preserves the Convex Auth callback code for the auth provider", () => {
     expect(
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: [],
-        pathname: "/home",
+        pathname: "/vault",
         searchStr: "?code=oauth-code&unknownKey=1",
         hash: "",
         stripProdUi: false,
       }),
-    ).toBe("/home?code=oauth-code");
+    ).toBe("/vault?code=oauth-code");
   });
 
   it("keeps accepted route keys and root-owned keys when predicting the redirect", () => {

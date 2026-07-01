@@ -209,7 +209,7 @@ describe("VaultDashboardView", () => {
     }
 
     root.render(
-      <TestRouterProvider initialEntries={["/home"]}>
+      <TestRouterProvider initialEntries={["/vault"]}>
         <VaultDashboardView
           developerToolsVisible={false}
           isRemovingVault={false}
@@ -269,7 +269,7 @@ describe("VaultDashboardView", () => {
       }
 
       root.render(
-        <TestRouterProvider initialEntries={["/home"]}>
+        <TestRouterProvider initialEntries={["/vault"]}>
           <RouteUrlEditorNext />
           <LocationHashProbe />
           <VaultDashboardViewHarness />

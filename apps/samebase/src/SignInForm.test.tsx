@@ -156,7 +156,7 @@ describe("SignInWithGoogle", () => {
       markPublicSignupReturn: true,
     });
     const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/home",
+      pathname: "/vault",
       search: {
         signup: "google",
       },

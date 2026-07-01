@@ -1,1 +1,1 @@
-export const DASHBOARD_ROUTE = "/home";
+export const DASHBOARD_ROUTE = "/vault";

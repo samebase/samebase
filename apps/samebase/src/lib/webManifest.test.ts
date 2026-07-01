@@ -13,7 +13,7 @@ describe("web manifest", () => {
       id: "/",
       name: "samebase",
       short_name: "samebase",
-      start_url: "/home",
+      start_url: "/vault",
       scope: "/",
       display: "standalone",
       theme_color: "#ffffff",

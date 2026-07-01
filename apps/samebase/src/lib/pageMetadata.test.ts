@@ -201,8 +201,8 @@ describe("page metadata", () => {
   });
 
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
-    expect(APP_PAGE_METADATA.canonicalPath).toBe("/home");
-    expect(resolveAppPageTitle("/home")).toBe("Vaults | Samebase");
+    expect(APP_PAGE_METADATA.canonicalPath).toBe("/vault");
+    expect(resolveAppPageTitle("/vault")).toBe("Vaults | Samebase");
     expect(
       resolvePageMetadata({
         pathname: "/",

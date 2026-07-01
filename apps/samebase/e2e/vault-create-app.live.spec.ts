@@ -58,7 +58,7 @@ async function createAppIfAvailable(page: Page, repoName: string): Promise<void>
   // cleanly when vaultActions.ts reports an environment-only starter seeding
   // failure instead of treating that provider setup issue as a product bug.
   try {
-    await expect(page).toHaveURL(/\/home(?:[?#]|$)/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/vault(?:[?#]|$)/, { timeout: 30_000 });
     return;
   } catch (error) {
     const createErrorMessage = (await createError.textContent())?.trim() ?? "";
@@ -153,8 +153,8 @@ test.describe("vault create app live flow", () => {
     });
 
     try {
-      await page.goto("/home?dev", { waitUntil: "domcontentloaded" });
-      await signInIfNeeded(page, "/home?dev");
+      await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
+      await signInIfNeeded(page, "/vault?dev");
       await createAppIfAvailable(page, repositoryName);
       createdRepository = true;
 
@@ -186,8 +186,8 @@ test.describe("vault create app live flow", () => {
       // Exercise the same dashboard removal path operators use so the temporary
       // repo does not linger after the live test completes.
       if (createdRepository) {
-        await page.goto("/home?dev", { waitUntil: "domcontentloaded" });
-        await signInIfNeeded(page, "/home?dev");
+        await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
+        await signInIfNeeded(page, "/vault?dev");
         await removeTemporaryVault(page, repositoryName);
       }
     }

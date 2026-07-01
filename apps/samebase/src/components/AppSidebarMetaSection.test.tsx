@@ -244,7 +244,7 @@ describe("AppSidebarMetaSection", () => {
     expect(landingLink.getAttribute("href")).toBe("/");
     expect(
       [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
-        (link) => link.textContent === "/home",
+        (link) => link.textContent === "/vault",
       ),
     ).toBeUndefined();
 

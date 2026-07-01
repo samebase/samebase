@@ -34,7 +34,7 @@ vi.mock("convex/react", async (importOriginal) => {
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
-  const location = { pathname: "/home" };
+  const location = { pathname: "/vault" };
 
   return {
     ...actual,
@@ -139,7 +139,7 @@ describe("AuthenticatedAppRoutePage", () => {
       configurable: true,
       value: createTestStorage(),
     });
-    window.history.replaceState({}, "", "/home");
+    window.history.replaceState({}, "", "/vault");
     routeChildState.renders = 0;
   });
 

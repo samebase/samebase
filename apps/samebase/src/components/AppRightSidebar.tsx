@@ -167,7 +167,7 @@ function AppRightSidebarPrimaryLinks() {
         aria-label="App"
         className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3 text-sm"
       >
-        <Link to={DASHBOARD_ROUTE}>Home</Link>
+        <Link to={DASHBOARD_ROUTE}>Vaults</Link>
         <Link to={PROVIDERS_ROUTE}>Providers</Link>
       </nav>
       <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">

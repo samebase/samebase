@@ -296,8 +296,8 @@ describe("readSuggestions", () => {
       viewer: memberViewer,
     });
     const dashboardValues = readValues({
-      routeAddress: "/home?",
-      routeTextBeforeCursor: "/home?",
+      routeAddress: "/vault?",
+      routeTextBeforeCursor: "/vault?",
       viewer: memberViewer,
     });
     const memberMachineValues = readValues({
@@ -311,7 +311,7 @@ describe("readSuggestions", () => {
       viewer: staffViewer,
     });
 
-    expect(pathValues).toContain("/home");
+    expect(pathValues).toContain("/vault");
     expect(pathValues).not.toContain("/machines");
     expect(dashboardValues).toContain("?delete");
     expect(memberMachineValues).not.toContain("?machineId=sample-machine");

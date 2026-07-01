@@ -365,8 +365,8 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders /home through the explicit dashboard route", async () => {
-    await renderRoute("/home");
+  it("renders /vault through the explicit dashboard route", async () => {
+    await renderRoute("/vault");
 
     expect(rootElement?.querySelector('[data-testid="dashboard-route"]')?.textContent).toBe(
       "Dashboard route",
@@ -375,7 +375,16 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("does not redirect old root dashboard query URLs to /home", async () => {
+  it("does not keep the removed /home dashboard route", async () => {
+    await renderRoute("/home?delete");
+
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')?.textContent).toBe(
+      "Not found route",
+    );
+    expect(rootElement?.querySelector('[data-testid="dashboard-route"]')).toBeNull();
+  });
+
+  it("does not redirect old root dashboard query URLs to /vault", async () => {
     const router = await renderRoute("/?delete");
 
     expect(router.state.location.pathname).toBe("/");
@@ -559,14 +568,14 @@ describe("appRouter", () => {
 
     await act(async () => {
       await router.navigate({
-        to: "/home",
+        to: "/vault",
       });
       await settleRouterRender();
     });
 
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
-    expect(router.state.location.pathname).toBe("/home");
+    expect(router.state.location.pathname).toBe("/vault");
     expect(searchParams.get("leftFace")).toBe("striped");
     expect(searchParams.get("secondary")).toBe("amber-500");
   });
@@ -588,12 +597,12 @@ describe("appRouter", () => {
     expect(searchParams.get("isoSide")).toBe("40");
   });
 
-  it("redirects machine params away from /home on load", async () => {
-    const router = await renderRoute("/home?machineId=sample-machine&prod-ui");
+  it("redirects machine params away from /vault on load", async () => {
+    const router = await renderRoute("/vault?machineId=sample-machine&prod-ui");
 
     const searchParams = new URLSearchParams(router.state.location.searchStr);
 
-    expect(router.state.location.pathname).toBe("/home");
+    expect(router.state.location.pathname).toBe("/vault");
     expect(searchParams.has("machineId")).toBe(false);
     expect(searchParams.has("prod-ui")).toBe(true);
   });

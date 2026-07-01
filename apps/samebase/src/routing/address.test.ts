@@ -112,12 +112,12 @@ describe("readRouteAddressReadiness", () => {
   it("applies member route grants to path readiness", () => {
     expect(
       readRouteAddressReadinessForTest({
-        draftRouteAddress: "/home",
+        draftRouteAddress: "/vault",
         viewer: memberViewer,
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/home",
+      routeAddress: "/vault",
     });
 
     expect(
@@ -204,11 +204,11 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/machines?machineId=sample-machine",
-        draftRouteAddress: "/home?machineId=sample-machine",
+        draftRouteAddress: "/vault?machineId=sample-machine",
       }),
     ).toEqual({
       kind: "readyNormalized",
-      routeAddress: "/home",
+      routeAddress: "/vault",
     });
   });
 
@@ -228,7 +228,7 @@ describe("readRouteAddressReadiness", () => {
   it("keeps route-owned params the destination route accepts", () => {
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/home",
+        currentRouteAddress: "/vault",
         draftRouteAddress: "/machines?machineId=sample-machine&threadId=sample-thread",
       }),
     ).toEqual({
@@ -241,11 +241,11 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/machines?machineId=sample-machine",
-        draftRouteAddress: "/home?prod-ui&dark",
+        draftRouteAddress: "/vault?prod-ui&dark",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/home?prod-ui&dark",
+      routeAddress: "/vault?prod-ui&dark",
     });
   });
 
@@ -253,22 +253,22 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         currentRouteAddress: "/machines",
-        draftRouteAddress: "/home?devtools",
+        draftRouteAddress: "/vault?devtools",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/home?devtools",
+      routeAddress: "/vault?devtools",
     });
   });
 
   it("drops query keys no route schema accepts", () => {
     expect(
       readRouteAddressReadinessForTest({
-        draftRouteAddress: "/home?unknownKey=1",
+        draftRouteAddress: "/vault?unknownKey=1",
       }),
     ).toEqual({
       kind: "readyNormalized",
-      routeAddress: "/home",
+      routeAddress: "/vault",
     });
   });
 

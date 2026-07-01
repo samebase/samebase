@@ -35,9 +35,9 @@ back onto the default landing page.
 3. The signup-closed state must hide Google and password auth controls and keep only the minimal
    notice plus the waitlist form.
 4. Successful authentication must clear the signup-return flag so it does not survive into later
-   signed-out sessions. Public Google sign-in from `/` must use `/home` as the provider return route
-   and clear `signup=google` after a successful authenticated return. Direct authenticated visits to
-   `/` must continue rendering the public landing route.
+   signed-out sessions. Public Google sign-in from `/` must use `/vault` as the provider return
+   route and clear `signup=google` after a successful authenticated return. Direct authenticated
+   visits to `/` must continue rendering the public landing route.
 5. The first version must not put the raw email address into the URL.
 
 ## Acceptance Criteria
@@ -47,7 +47,7 @@ back onto the default landing page.
 - [x] The signup-closed state keeps the waitlist form available.
 - [x] The signup-closed state does not expose auth controls.
 - [x] Successful Google sign-in clears the signup-return marker.
-- [x] Successful public Google sign-in completion returns to `/home` instead of leaving the
+- [x] Successful public Google sign-in completion returns to `/vault` instead of leaving the
       signed-in user on the public landing route.
 - [x] Direct authenticated visits to `/` still render the public landing route.
 - [x] Iframe-based Google auth preserves the signup-return marker through the popup bootstrap flow.

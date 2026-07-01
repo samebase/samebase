@@ -510,7 +510,7 @@ const routeEditorTransition: RouteEditorTransitionTable = {
       }
 
       // Example: while editing, Back/Forward or another app link changes the
-      // route to `/home`. That matches neither `expectedRouteAddress` nor
+      // route to `/vault`. That matches neither `expectedRouteAddress` nor
       // `previewRoute.expectedRouteAddress`, so close the editor and show
       // `committedRouteAddress`.
       return {
@@ -1071,7 +1071,7 @@ Effect part: `committedRouteAddress` comes from TanStack `useLocation()`. The FS
 to that external source by itself, and React cannot call `sendEvent` during render.
 
 Example: typing `/logo` pushes `/logo`; TanStack reports `/logo`; the event matches
-`expectedRouteAddress`, so focus stays. If Back/Forward reports `/home` while
+`expectedRouteAddress`, so focus stays. If Back/Forward reports `/vault` while
 `expectedRouteAddress` is `/logo`, the event is external and the FSM blurs.
 */
   useEffect(() => {

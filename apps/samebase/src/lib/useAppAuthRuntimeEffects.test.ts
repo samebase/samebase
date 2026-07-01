@@ -140,7 +140,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/home",
+        pathname: "/vault",
         search: "?delete",
         hash: "#vaults",
       },
@@ -149,7 +149,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/home", {
+    useAppAuthRuntimeEffects("/vault", {
       delete: true,
     });
 
@@ -165,7 +165,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/home",
+        pathname: "/vault",
         search: "?signup=google",
         hash: "",
       },
@@ -174,7 +174,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/home", {
+    useAppAuthRuntimeEffects("/vault", {
       signup: "google",
     });
 
@@ -249,7 +249,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: true });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/home",
+        pathname: "/vault",
         search: "",
         hash: "",
       },
@@ -258,7 +258,7 @@ describe("useAppAuthRuntimeEffects", () => {
       },
     });
 
-    useAppAuthRuntimeEffects("/home", {});
+    useAppAuthRuntimeEffects("/vault", {});
 
     expect(navigateMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
@@ -268,7 +268,7 @@ describe("useAppAuthRuntimeEffects", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     vi.stubGlobal("window", {
       location: {
-        pathname: "/home",
+        pathname: "/vault",
         search: "?signup=google",
         hash: "",
       },
@@ -279,14 +279,14 @@ describe("useAppAuthRuntimeEffects", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    useAppAuthRuntimeEffects("/home", {
+    useAppAuthRuntimeEffects("/vault", {
       signup: "google",
     });
 
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 9, __TSR_key: "dashboard-return" },
       "",
-      "/home",
+      "/vault",
     );
     expect(navigateMock).not.toHaveBeenCalled();
   });

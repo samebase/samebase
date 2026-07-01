@@ -316,7 +316,7 @@ describe("PasswordAuthForm", () => {
 
     expect(navigateMock).toHaveBeenCalledWith({
       search: expect.any(Function),
-      to: "/home",
+      to: "/vault",
     });
     const navigateOptions = navigateMock.mock.calls[0]?.[0];
     if (

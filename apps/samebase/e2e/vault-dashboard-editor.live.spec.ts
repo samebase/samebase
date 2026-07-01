@@ -5,8 +5,8 @@ test.describe("vault dashboard editor live flow", () => {
   test.setTimeout(90_000);
 
   test("dashboard Edit link opens the editor route", async ({ page }) => {
-    await page.goto("/home");
-    await signInIfNeeded(page, "/home");
+    await page.goto("/vault");
+    await signInIfNeeded(page, "/vault");
 
     const editLink = page.getByRole("link", { name: "Edit" }).first();
     await expect(editLink).toBeVisible({ timeout: 20_000 });
