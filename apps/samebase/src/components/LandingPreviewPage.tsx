@@ -294,6 +294,15 @@ function LandingPreviewOverview() {
           </p>
         </section>
 
+        {/* Placeholder for the planned provisioning capture: connecting the three
+            providers and creating the first app, in real time. Swap for the YouTube
+            embed once recorded. */}
+        <div className="mt-20 flex aspect-video w-full items-center justify-center bg-muted md:mt-24">
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            video — connect the providers, create the first app
+          </p>
+        </div>
+
         <div className="mt-24 md:mt-32">
           <LandingZone label="01 · cheaper">
             <p className="text-[22px] leading-snug tracking-[-0.015em] text-primary md:text-[26px]">
