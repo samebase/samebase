@@ -228,7 +228,7 @@ function LandingCtaRow() {
         className="border-b border-border pb-0.5 text-base text-primary no-underline hover:border-foreground hover:text-foreground"
         to={DOCS_DO_IT_YOURSELF_ROUTE}
       >
-        Do it yourself — no Samebase account needed
+        Do it yourself (no Samebase account needed)
       </Link>
     </div>
   );
@@ -289,11 +289,11 @@ function LandingPreviewOverview() {
             web apps
           </h1>
           <p className="mt-9 max-w-[52ch] text-lg leading-relaxed text-primary sm:text-xl">
-            Samebase is a button that turns an idea into a running app — a{" "}
+            Samebase is a button that turns an idea into a running app: a{" "}
             <strong className="font-semibold text-foreground">GitHub</strong> repo, a{" "}
             <strong className="font-semibold text-foreground">Convex</strong> backend, a{" "}
-            <strong className="font-semibold text-foreground">Cloudflare</strong> deploy — in about
-            a minute, on accounts you own. One place to watch them all. You bring the agent: Codex,
+            <strong className="font-semibold text-foreground">Cloudflare</strong> deploy, in about a
+            minute, on accounts you own. One place to watch them all. You bring the agent: Codex,
             Claude Code, Cursor, anything.
           </p>
           <div className="mt-10">
@@ -310,14 +310,14 @@ function LandingPreviewOverview() {
             embed once recorded. */}
         <div className="mt-20 flex aspect-video w-full items-center justify-center bg-muted md:mt-24">
           <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            video — connect the providers, create the first app
+            video: connect the providers, create the first app
           </p>
         </div>
 
         <div className="mt-24 md:mt-32">
           <LandingZone label="01 · yours">
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
-              Standard, inspectable infrastructure — three real accounts, in your name.
+              Standard, inspectable infrastructure: three real accounts, in your name.
             </p>
             <p className="mt-5 text-base text-primary">
               Every service keeps its own dashboard. Nothing is hidden behind Samebase.
@@ -374,7 +374,7 @@ function LandingPreviewOverview() {
                 the leaving test
               </p>
               <p className="mt-3 max-w-[58ch] text-base text-primary">
-                Create an app, then delete your Samebase account. The app keeps running — it was
+                Create an app, then delete your Samebase account. The app keeps running. It was
                 always on your GitHub, your Convex, your Cloudflare. Samebase can die tomorrow and
                 your app will not notice. You can even skip the account:{" "}
                 <Link
@@ -395,7 +395,7 @@ function LandingPreviewOverview() {
                 width="30"
               />
               <p className="max-w-[44ch] text-[19px] leading-normal tracking-[-0.01em] sm:text-[21px]">
-                Samebase uses <span className="font-semibold">the same base</span> it recommends —
+                Samebase uses <span className="font-semibold">the same base</span> it recommends.
                 samebase.com runs on its own Convex deployment and Cloudflare Workers.
               </p>
             </div>
@@ -405,7 +405,7 @@ function LandingPreviewOverview() {
         <div className="mt-24 md:mt-32">
           <LandingZone label="02 · safer">
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
-              A web app is three boxes — database, server, frontend — and two connections. Everyone
+              A web app is three boxes (database, server, frontend) and two connections. Everyone
               stares at the boxes.{" "}
               <span className="font-semibold">The connections carry the security budget.</span>
             </p>
@@ -413,7 +413,7 @@ function LandingPreviewOverview() {
               <p>
                 Firebase wires the frontend straight to the database and patches the missing server
                 with a rules language that looks like JavaScript but isn't. Supabase does it with
-                SQL policies bolted onto every table — off by default. Misconfigured rules keep
+                SQL policies bolted onto every table, off by default. Misconfigured rules keep
                 leaving whole databases public. That is not hypothetical.
                 <LandingFootnoteMark
                   fragment="landing-note-risk"
@@ -444,13 +444,13 @@ function LandingPreviewOverview() {
         <div className="mt-24 md:mt-32">
           <LandingZone label="03 · lanes">
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
-              Every pull request gets its own preview deploy —{" "}
+              Every pull request gets its own preview deploy,{" "}
               <span className="font-semibold">with its own database.</span>
             </p>
             <p className="mt-5 max-w-[58ch] text-base text-primary">
               Most stacks never pull this off: previews point at one shared database, so branches
-              step on each other's data. Here isolation comes provisioned — for pull requests,
-              worktrees, and your local folder alike.
+              step on each other's data. Here isolation comes provisioned: pull requests, worktrees,
+              and your local folder alike.
             </p>
             <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
               {LANDING_LANES.map((lane) => (
@@ -508,8 +508,8 @@ function LandingPreviewOverview() {
                   fragment="landing-note-tokens"
                   label="footnote: the Netlify math"
                   marker="†"
-                />{" "}
-                — I didn't want a hobby optimizing deploy credits. Samebase had working Netlify
+                />
+                , and I didn't want a hobby optimizing deploy credits. Samebase had working Netlify
                 provisioning:{" "}
                 <span className="font-semibold text-foreground">
                   I built it, then I deleted it.
@@ -588,15 +588,16 @@ function LandingPreviewOverview() {
           </LandingFootnote>
           <LandingFootnote fragment="landing-note-zero" heading="$0/month" marker="‡">
             <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-              As of mid-2026: GitHub Free — unlimited private repos, 2,000 Actions minutes a month.{" "}
+              As of mid-2026: GitHub Free, unlimited private repos and 2,000 Actions minutes a
+              month.{" "}
               <LandingReceiptLink href="https://www.convex.dev/pricing">
                 Convex Free
-              </LandingReceiptLink>{" "}
-              — 40 deployments per team, a million function calls a month.{" "}
+              </LandingReceiptLink>
+              , 40 deployments per team and a million function calls a month.{" "}
               <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
                 Cloudflare Workers Free
-              </LandingReceiptLink>{" "}
-              — 100,000 requests a day, 3,000 build minutes a month, static assets free and
+              </LandingReceiptLink>
+              , 100,000 requests a day, 3,000 build minutes a month, static assets free and
               unlimited. An idle app sits inside all three indefinitely. Samebase adds no floor of
               its own.
             </p>
@@ -611,7 +612,7 @@ function LandingPreviewOverview() {
               <LandingReceiptLink href="https://www.bleepingcomputer.com/news/security/misconfigured-firebase-instances-leaked-19-million-plaintext-passwords/">
                 125 million user records
               </LandingReceiptLink>{" "}
-              — roughly 20 million passwords, mostly plaintext — through misconfigured Firebase. In
+              (roughly 20 million passwords, mostly plaintext) through misconfigured Firebase. In
               July 2025, the Tea app{" "}
               <LandingReceiptLink href="https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html">
                 leaked 72,000 images
@@ -644,7 +645,7 @@ function LandingPreviewOverview() {
             <div className="mt-2 grid max-w-[58ch] gap-3 text-[15px] leading-relaxed text-primary">
               <p>
                 You already pay OpenAI or Anthropic directly. A builder reselling their tokens adds
-                margin, not capability — its in-app agent is a worse version of the tool you already
+                margin, not capability: its in-app agent is a worse version of the tool you already
                 have open. Samebase ships no chatbot; it is a tool your AI tool uses.
               </p>
               <p>
@@ -652,8 +653,8 @@ function LandingPreviewOverview() {
                 <LandingReceiptLink href="https://www.netlify.com/pricing/">
                   Netlify Pro
                 </LandingReceiptLink>{" "}
-                is $20/month for 3,000 credits at 15 per successful production deploy — exactly 200
-                a month before bandwidth and compute draw from the same pool, roughly $0.10 a deploy
+                is $20/month for 3,000 credits at 15 per successful production deploy: exactly 200 a
+                month before bandwidth and compute draw from the same pool, roughly $0.10 a deploy
                 at the recharge rate. Previews and failed deploys are free; run the pool dry and
                 Netlify pauses the team's projects until the next cycle or the next payment. On
                 Cloudflare, the{" "}
