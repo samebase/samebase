@@ -4,7 +4,11 @@ import {
 } from "@/codex/appServerResearch";
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
-import { DOCS_DO_IT_YOURSELF_ROUTE, LANDING_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";
+import {
+  DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_THE_STACK_ROUTE,
+  LANDING_PREVIEW_ROUTE,
+} from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./samebaseSync";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
@@ -134,6 +138,14 @@ export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
+  title: "The stack | Samebase",
+  description: "What the Samebase template ships and why each piece was chosen.",
+  canonicalPath: DOCS_THE_STACK_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE) {
     return "Vaults | Samebase";
@@ -185,6 +197,10 @@ export function resolveAppPageTitle(pathname: string): string {
 
   if (pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
     return DOCS_DO_IT_YOURSELF_PAGE_METADATA.title;
+  }
+
+  if (pathname === DOCS_THE_STACK_ROUTE) {
+    return DOCS_THE_STACK_PAGE_METADATA.title;
   }
 
   if (pathname === LOCAL_STORAGE_ROUTE) {
@@ -240,6 +256,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
     return DOCS_DO_IT_YOURSELF_PAGE_METADATA;
+  }
+
+  if (args.pathname === DOCS_THE_STACK_ROUTE) {
+    return DOCS_THE_STACK_PAGE_METADATA;
   }
 
   if (args.pathname === LOCAL_STORAGE_ROUTE) {

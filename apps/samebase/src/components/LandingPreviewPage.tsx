@@ -9,16 +9,18 @@ import {
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
+  DOCS_THE_STACK_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
+import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useLayoutEffect, type ReactNode } from "react";
 
-type LandingPreviewDocumentKey = "overview" | "doItYourself";
+type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack";
 
 const LANDING_CORRECT_DEFINITION = [
   "samebase.com uses the exact same stack it recommends.",
@@ -42,6 +44,7 @@ const DOCS_SIDEBAR_DEFAULT_STATE = {
 
 const DOCS_SIDEBAR_LINKS = [
   { label: "Overview", to: LANDING_PREVIEW_ROUTE },
+  { label: "The stack", to: DOCS_THE_STACK_ROUTE },
   { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
 ] as const;
 
@@ -497,6 +500,10 @@ function LandingPreviewOverview() {
                   work.
                 </span>
               </p>
+              <p>
+                Type safety used to be taste. With agents it's leverage: the template is typed end
+                to end, so the compiler catches an agent's mistakes before your users do.
+              </p>
               <p>Samebase also speaks MCP: your agent can create and list your apps itself.</p>
             </div>
           </LandingZone>
@@ -705,6 +712,16 @@ function LandingPreviewOverview() {
   );
 }
 
+function DocsTheStackDocument() {
+  return (
+    <MarkdownLandingDocument
+      className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
+      dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
+      markdown={docsTheStackMarkdown}
+    />
+  );
+}
+
 function DocsDoItYourselfDocument() {
   return (
     <MarkdownLandingDocument
@@ -720,11 +737,15 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
     return <LandingPreviewOverview />;
   }
 
+  if (documentKey === "theStack") {
+    return <DocsTheStackDocument />;
+  }
+
   return <DocsDoItYourselfDocument />;
 }
 
 function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
-  const hasLeftPaneSurface = documentKey === "doItYourself";
+  const hasLeftPaneSurface = documentKey !== "overview";
 
   return (
     <AppWorkspaceRouteChrome
@@ -748,4 +769,8 @@ export function LandingPreviewPage() {
 
 export function DocsDoItYourselfPage() {
   return <LandingPreviewChromePage documentKey="doItYourself" />;
+}
+
+export function DocsTheStackPage() {
+  return <LandingPreviewChromePage documentKey="theStack" />;
 }

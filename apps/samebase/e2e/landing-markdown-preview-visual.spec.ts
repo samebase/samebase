@@ -7,7 +7,7 @@ import {
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 
-const expectedLandingPreviewSidebarFiles = ["Overview", "Do it yourself"] as const;
+const expectedLandingPreviewSidebarFiles = ["Overview", "The stack", "Do it yourself"] as const;
 const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-1-create-accounts.mp4",
   "/landing-preview/step-2-use-template.mp4",

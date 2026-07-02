@@ -109,13 +109,15 @@ describe("LandingPreviewPage", () => {
     expect(sidebarMarkup).not.toContain('href="/docs/do-it-yourself"');
   });
 
-  it("keeps the docs sidebar as two flat links instead of linking every heading", () => {
+  it("keeps the docs sidebar as flat links instead of linking every heading", () => {
     const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
     expect(sidebarMarkup).toContain("Overview");
+    expect(sidebarMarkup).toContain("The stack");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain('href="/landing-preview"');
+    expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
     expect(sidebarMarkup).not.toContain("Start here");
     expect(sidebarMarkup).not.toContain("samebase.com");

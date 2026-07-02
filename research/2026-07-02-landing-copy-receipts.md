@@ -410,3 +410,24 @@ bucket_, not Firestore security rules — still a Firebase config-based access-c
 phrase it as "exposed Firebase storage" to stay precise. (5) The Comparitech study is May 2020
 (headlines saying '24,000 apps' overstate; the body figure is 4,282 leaking apps out of 155,066
 Firebase apps, 4.22B installs). The YouTube video is real: Robin Ebers, Jan 7 2026, ~46.5K views.
+
+## Toolchain Facts (added 2026-07-02, second sweep)
+
+- **[confirmed]** Cloudflare acquired VoidZero (Evan You's company behind Vite, Vitest, Rolldown,
+  Oxc, Vite+), announced June 4, 2026; a true acquisition, terms undisclosed; all tools stay
+  MIT-licensed; Cloudflare committed $1M to an independent Vite ecosystem fund.
+  - Source:
+    [Cloudflare press release](https://www.cloudflare.com/press/press-releases/2026/cloudflare-acquires-voidzero-to-build-the-future-of-the-ai-native-web/)
+    and [Evan You, "VoidZero is Joining Cloudflare"](https://voidzero.dev/posts/voidzero-cloudflare)
+    (2026-06-04).
+- **[confirmed]** Vite+ (`vp`) bundles Vite, Vitest, Oxlint, Oxfmt, Rolldown, tsdown, and Vite Task
+  behind one CLI; announced as alpha March 13, 2026; MIT-licensed. Node is the only JS runtime (vp
+  itself is a native binary that manages Node); official installers for macOS/Linux/Windows.
+  - Source: [voidzero-dev/vite-plus README](https://github.com/voidzero-dev/vite-plus) and
+    [viteplus.dev guide](https://viteplus.dev/guide) (2026-07-02).
+- **[corrected]** TanStack Start is a v1 Release Candidate, not stable v1 (RC announced 2025-09-23;
+  docs still say RC as of 2026-06-01). React-first with Solid 2.0 beta support; Router/Query cores
+  are framework-agnostic.
+  - Source:
+    [TanStack Start overview docs](https://tanstack.com/start/latest/docs/framework/react/overview)
+    and [v1 RC announcement](https://tanstack.com/blog/announcing-tanstack-start-v1) (2026-07-02).
