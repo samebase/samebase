@@ -174,3 +174,25 @@ stays small on purpose; important stuff only.
 - Public strength of the Convex security claim.
 - Whether dated concrete pricing numbers go on the page.
 - Whether the MCP create-app tool is landing-page material yet.
+
+## Addendum: The Template Stack (2026-07-02, second interview)
+
+Raw operator material on the template's internals, for the /docs stack article and the landing's
+type-safety beat.
+
+- One toolchain: the template relies on Vite Plus, so Node only. Even the scripts are all
+  TypeScript. It starts the same on macOS, Windows, Linux; you need nothing except Vite Plus. The
+  operator notes VoidZero was recently acquired by Cloudflare (verify before publishing).
+- Framework: TanStack Start by default ("tanstack/start is the goat"), but using React does not mean
+  you cannot change it. The stack imposes nothing it is not 100% sure of: you can write index.html
+  files with vanilla JS and it still deploys fine. Switching UI frameworks is possible, though not
+  recommended.
+- Proof artifact: the samebase/app template repo (latest branch around v5-tanstack-start-workers).
+  Initially each separate commit was manually crafted to prove the template is as simple as
+  possible. Repo private today, public at release.
+- Defaults: Tailwind + shadcn/ui.
+- Priorities, in the operator's words: the most important parts are preview deploys and Vite Plus;
+  framework choice is swappable if you insist.
+- Type safety is paramount: the operator always cared deeply about maximal type safety, and it pays
+  off now because LLM agents work very well when there are type-safety guardrails. This is the
+  landing-worthy claim: an old taste that became leverage.
