@@ -103,25 +103,32 @@ test("landing preview route renders the React overview in workspace chrome", asy
   });
   await expect(
     article.getByRole("heading", {
-      name: /The correct\s*\*\s*way to build web apps/,
+      name: /The correct\s*\*\s*way to build\s*web apps/,
     }),
   ).toBeVisible();
   await expect(
     article.getByRole("heading", {
-      name: "* correct",
+      exact: true,
+      name: "correct",
     }),
   ).toBeVisible();
+  await expect(article).toContainText("cheaper and more powerful");
+  await expect(article).toContainText("cost follows real usage");
+  await expect(article).toContainText("hidden by samebase");
+  await expect(article).toContainText(
+    "If your app builder is so good, why is it not building itself?",
+  );
   await expect(article).toContainText("samebase.com uses the exact same stack it recommends");
   await expect(article).toContainText("the first customer was me, Nicu");
   await expect(article).toContainText("personal and idle ideas should cost $0/month");
   await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
-  await expect(article.getByRole("img", { name: "Cloudflare" })).toBeVisible();
+  await expect(article).toContainText("Cloudflare");
   await expect(article.getByRole("img", { name: "Samebase" })).toBeVisible();
   await expect(article.getByRole("heading", { name: "The base is a trio." })).toHaveCount(0);
   await expect(article.getByRole("heading", { name: "Manual setup proves it" })).toHaveCount(0);
   await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveCount(0);
-  await expect(article.getByRole("link", { name: "Do it yourself" })).toHaveCount(0);
+  await expect(article.getByRole("link", { name: "Do it yourself" })).toHaveCount(2);
   await expect(article.getByRole("img", { name: "OpenAI" })).toHaveCount(0);
   await expect(
     article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),

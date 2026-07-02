@@ -70,11 +70,19 @@ describe("LandingPreviewPage", () => {
 
     expect(markup).toContain("The");
     expect(markup).toContain("correct");
-    expect(markup).toContain("way to build web apps");
-    expect(markup).toContain("* correct");
+    expect(markup).toContain("way to build");
+    expect(markup).toContain("web apps");
+    expect(markup).toContain("cheaper and more powerful");
+    expect(markup).toContain("cost follows real usage");
+    expect(markup).toContain("an idle idea");
+    expect(markup).toContain("account owner");
+    expect(markup).toContain("hidden by samebase");
     expect(markup).toContain("samebase.com uses the exact same stack it recommends.");
     expect(markup).toContain("the first customer was me, Nicu.");
     expect(markup).toContain("personal and idle ideas should cost $0/month.");
+    expect(markup).toContain("If your app builder is so good, why is it not building itself?");
+    expect(markup).toContain("adds margin, not capability.");
+    expect(markup).toContain("Samebase adds no floor of its own.");
     expect(markup).toContain("GitHub");
     expect(markup).toContain("Convex");
     expect(markup).toContain("Cloudflare");
