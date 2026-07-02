@@ -2,6 +2,8 @@ import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
+import { createLogoRouteVoxelGrid } from "@/components/logo/logoRouteRenderState";
+import { createFilledVoxelSet, type VoxelCoordinate } from "@/components/logo/logoVoxelState";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,23 +117,59 @@ function LandingInteractiveLogo({ autoRotate = false }: { autoRotate?: boolean }
 }
 
 /**
-The identity pattern recursed one level deeper per zone; precomputed because
-the inputs are constants. Index 0 is the plain 12-cube mark.
+Three parallel pillars from the same voxel system: lanes that never touch.
 */
-const LANDING_ZONE_DEPTH_MARK_SRCS = [1, 2, 3].map((depth) =>
-  createStaticLogoSvgDataUrl({ depth }),
-);
+function createLanePillarVoxels(): ReadonlySet<string> {
+  const coordinates: VoxelCoordinate[] = [];
+  for (const x of [0, 2, 4]) {
+    for (let y = 0; y < 5; y += 1) {
+      coordinates.push([x, y, 2]);
+    }
+  }
+  return createFilledVoxelSet(coordinates);
+}
 
-function LandingZoneDepthMark({ index }: { index: 0 | 1 | 2 }) {
-  return (
-    <img
-      alt=""
-      className="mt-7 hidden h-28 w-28 md:block"
-      height="112"
-      src={LANDING_ZONE_DEPTH_MARK_SRCS[index]}
-      width="112"
-    />
-  );
+/**
+The zone rails vary the same voxel base along one dimension each: the plain
+mark as-is (yours), its closed flat face (safer), the cubes rearranged into
+parallel lanes, and the pattern recursed into a Menger sponge (cheaper).
+Precomputed because the inputs are constants.
+*/
+const LANDING_ZONE_MARKS = [
+  {
+    className: "mt-7 hidden h-28 w-28 md:block",
+    src: createStaticLogoSvgDataUrl({}),
+  },
+  {
+    // brightness-0 + invert renders the duotone asset as a white silhouette;
+    // plain invert would turn its cyan faces pink.
+    className: "mt-7 hidden h-28 w-28 md:block dark:brightness-0 dark:invert",
+    src: "/brand/logo/v1-side-primary-duotone.svg",
+  },
+  {
+    className: "mt-7 hidden h-28 w-28 md:block",
+    src: createStaticLogoSvgDataUrl({ filledVoxels: createLanePillarVoxels(), gridSize: 5 }),
+  },
+  {
+    className: "mt-7 hidden h-28 w-28 md:block",
+    src: (() => {
+      const spongeGrid = createLogoRouteVoxelGrid({
+        fractalDepth: 2,
+        gridSize: 3,
+        voxelState: "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx",
+      });
+      return createStaticLogoSvgDataUrl({
+        filledVoxels: spongeGrid.filledVoxels,
+        gridSize: spongeGrid.gridSize,
+      });
+    })(),
+  },
+] as const;
+
+function LandingZoneMark({ index }: { index: 0 | 1 | 2 | 3 }) {
+  const mark = LANDING_ZONE_MARKS[index];
+
+  return <img alt="" className={mark.className} height="112" src={mark.src} width="112" />;
 }
 
 function DocsSidebar() {
@@ -398,7 +436,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="01 · yours">
+          <LandingZone label="01 · yours" mark={<LandingZoneMark index={0} />}>
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               Standard, inspectable infrastructure: three real accounts, in your name.
             </p>
@@ -489,7 +527,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="02 · safer" mark={<LandingZoneDepthMark index={0} />}>
+          <LandingZone label="02 · safer" mark={<LandingZoneMark index={1} />}>
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               A web app is three boxes (database, server, frontend) and two connections. Everyone
               stares at the boxes.{" "}
@@ -532,7 +570,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="03 · lanes" mark={<LandingZoneDepthMark index={1} />}>
+          <LandingZone label="03 · lanes" mark={<LandingZoneMark index={2} />}>
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               Every pull request gets its own preview deploy,{" "}
               <span className="font-semibold">with its own database.</span>
@@ -577,7 +615,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="04 · cheaper" mark={<LandingZoneDepthMark index={2} />}>
+          <LandingZone label="04 · cheaper" mark={<LandingZoneMark index={3} />}>
             <p className="text-[22px] leading-snug tracking-[-0.015em] text-primary md:text-[26px]">
               Most app builders resell LLM tokens.
             </p>
