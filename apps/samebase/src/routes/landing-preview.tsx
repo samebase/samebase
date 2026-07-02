@@ -1,28 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LandingMarkdownPreviewPage } from "@/components/LandingMarkdownPreviewPage";
+import { LandingPreviewPage } from "@/components/LandingPreviewPage";
 import {
-  LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
-  resolveLandingMarkdownPreviewLanguage,
-  validateLandingMarkdownPreviewRouteSearch,
+  LANDING_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
+  validateLandingPreviewRouteSearch,
 } from "@/routeSearch/landingPreview";
-import { LANDING_MARKDOWN_PREVIEW_PAGE_METADATA } from "@/lib/pageMetadata";
+import { LANDING_PREVIEW_PAGE_METADATA } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/landing-preview";
 
 function LandingPreviewRouteComponent() {
-  usePageMetadata(LANDING_MARKDOWN_PREVIEW_PAGE_METADATA);
-  const language = resolveLandingMarkdownPreviewLanguage(Route.useSearch());
+  usePageMetadata(LANDING_PREVIEW_PAGE_METADATA);
 
-  return <LandingMarkdownPreviewPage language={language} />;
+  return <LandingPreviewPage />;
 }
 
 export const Route = createFileRoute("/landing-preview")({
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
-    ...LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
+    ...LANDING_PREVIEW_ROUTE_SEARCH_STATIC_DATA,
   },
   component: LandingPreviewRouteComponent,
-  validateSearch: validateLandingMarkdownPreviewRouteSearch,
+  validateSearch: validateLandingPreviewRouteSearch,
 });

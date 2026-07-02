@@ -65,10 +65,11 @@ export function filterRouteUrlPathSuggestions({
 }
 
 /**
- * True when the current draft path maps to a route suggestion that can load as
- * written. The current URL, draft text, origin, route table, and viewer decide
- * which suggestions are visible; null or partial drafts stay local until no
- * router segment needs to be invented.
+ * True when the current draft path maps to a navigable route that can load as
+ * written. Navigability is access plus environment: `pathSuggestion: "hidden"`
+ * only keeps a path out of the suggestion dropdown, it never blocks committing
+ * a route the viewer can already load by direct URL. Null or partial drafts
+ * stay local until no router segment needs to be invented.
  */
 export function isRouteUrlPathReadyForNavigation({
   currentHref,
@@ -77,15 +78,16 @@ export function isRouteUrlPathReadyForNavigation({
   routesByPath,
   viewer,
 }: RouteUrlPathSuggestionsInput): boolean {
-  const suggestions = readRouteUrlPathSuggestions(
-    routesByPath,
-    viewer,
-    readRouteUrlPathSuggestionEnvironment({
-      currentHref,
-      draftHref,
-      origin,
-    }),
-  );
+  const routeEnvironment = readRouteUrlPathSuggestionEnvironment({
+    currentHref,
+    draftHref,
+    origin,
+  });
+  const navigablePaths = entries(routesByPath)
+    .filter(([path, route]) =>
+      isRouteUrlNavigablePath(path, route.options.staticData, viewer, routeEnvironment),
+    )
+    .map(([path]) => path);
   const draftPath = readRouteUrlPathSuggestionDraftPath({
     currentHref,
     draftHref,
@@ -95,8 +97,24 @@ export function isRouteUrlPathReadyForNavigation({
     return false;
   }
 
-  return suggestions.some((pathSuggestion) =>
-    routePathSuggestionCanLoadDraft(pathSuggestion, draftPath),
+  return navigablePaths.some((navigablePath) =>
+    routePathSuggestionCanLoadDraft(navigablePath, draftPath),
+  );
+}
+
+function isRouteUrlNavigablePath(
+  path: string,
+  staticData: RouteStaticData,
+  viewer: RouteAccessViewer,
+  routeEnvironment: RouteEnvironment,
+): boolean {
+  return (
+    (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
+    // Redirect-only paths never commit: typing toward /landing-preview passes
+    // exactly through /landing, and committing that mid-edit draft would
+    // bounce the visitor to the redirect target while they are still typing.
+    staticData.pathSuggestion !== "redirect" &&
+    canAccessRouteStaticData(staticData, viewer, routeEnvironment)
   );
 }
 
@@ -107,9 +125,8 @@ function isRouteUrlPathSuggestion(
   routeEnvironment: RouteEnvironment,
 ): boolean {
   return (
-    (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    staticData.pathSuggestion !== "hidden" &&
-    canAccessRouteStaticData(staticData, viewer, routeEnvironment)
+    staticData.pathSuggestion === undefined &&
+    isRouteUrlNavigablePath(path, staticData, viewer, routeEnvironment)
   );
 }
 

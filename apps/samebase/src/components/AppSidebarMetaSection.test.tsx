@@ -174,7 +174,7 @@ describe("AppSidebarMetaSection", () => {
     expect(rootElement?.querySelector("#public-landing-search-reset")).not.toBeNull();
   });
 
-  it("omits the landing preview path link while keeping preview query shortcuts", async () => {
+  it("omits the landing preview path link and language shortcut", async () => {
     const element = await renderSidebarMetaSection("/landing-preview");
     const landingPreviewPathLink = [...element.querySelectorAll<HTMLAnchorElement>("a")].find(
       (link) => link.textContent === "/landing-preview",
@@ -184,7 +184,7 @@ describe("AppSidebarMetaSection", () => {
     );
 
     expect(landingPreviewPathLink).toBeUndefined();
-    expect(romanianQueryLink?.textContent).toBe("?lang=ro");
+    expect(romanianQueryLink).toBeNull();
   });
 
   it("keeps active suffixes outside the toggle hit target", async () => {

@@ -137,10 +137,11 @@ vi.mock("@/components/MachineConnectPage", () => ({
   MachineConnectPage: () => <div data-testid="machine-connect-page">Machine connect page</div>,
 }));
 
-vi.mock("@/components/LandingMarkdownPreviewPage", () => ({
-  LandingMarkdownPreviewPage: () => (
-    <div data-testid="landing-markdown-preview-page">Landing markdown preview page</div>
+vi.mock("@/components/LandingPreviewPage", () => ({
+  DocsDoItYourselfPage: () => (
+    <div data-testid="docs-do-it-yourself-page">Docs do it yourself page</div>
   ),
+  LandingPreviewPage: () => <div data-testid="landing-preview-page">Landing preview page</div>,
 }));
 
 vi.mock("@/components/CodespaceChatOnlyView", () => ({
@@ -719,8 +720,17 @@ describe("appRouter", () => {
     await renderRoute("/landing-preview");
 
     expect(
-      rootElement?.querySelector('[data-testid="landing-markdown-preview-page"]')?.textContent,
-    ).toContain("Landing markdown preview page");
+      rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
+    ).toContain("Landing preview page");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders the do-it-yourself landing guide through an explicit route", async () => {
+    await renderRoute("/docs/do-it-yourself");
+
+    expect(
+      rootElement?.querySelector('[data-testid="docs-do-it-yourself-page"]')?.textContent,
+    ).toContain("Docs do it yourself page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
@@ -792,12 +802,12 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="app-workspace-left-pane"]')).not.toBeNull();
   });
 
-  it("accepts the Romanian landing preview query on the explicit route", async () => {
+  it("ignores the obsolete language query on the landing preview route", async () => {
     await renderRoute("/landing-preview?lang=ro");
 
     expect(
-      rootElement?.querySelector('[data-testid="landing-markdown-preview-page"]')?.textContent,
-    ).toContain("Landing markdown preview page");
+      rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
+    ).toContain("Landing preview page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

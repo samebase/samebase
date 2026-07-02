@@ -1,29 +1,13 @@
-import { readFileSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { APP_BUILD_VERSION_TEST_ID } from "../src/lib/appBuild";
-import { LANDING_DEV_MODE_QUERY_PARAM } from "../src/lib/landingDevMode";
-import { getLandingMarkdownHeadings } from "../src/lib/landingMarkdownHeadings";
 import {
-  LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
-  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
-  LANDING_MARKDOWN_PREVIEW_ROUTE,
-  LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID,
-  LANDING_MARKDOWN_PREVIEW_TEST_ID,
+  DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_SIDEBAR_TEST_ID,
+  LANDING_PREVIEW_ARTICLE_TEST_ID,
+  LANDING_PREVIEW_ROUTE,
+  LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
-import { buildPathWithTanStackSearch } from "../src/lib/tanstackSearchParams";
-import { signInIfNeeded } from "./liveHelpers";
 
-const landingPreviewMarkdown = readFileSync(
-  new URL("../src/content/landing-preview.md", import.meta.url),
-  "utf8",
-);
-const expectedLandingPreviewSidebarLinks = getLandingMarkdownHeadings(landingPreviewMarkdown).map(
-  (heading) => ({
-    href: heading.href,
-    text: heading.text,
-  }),
-);
+const expectedLandingPreviewSidebarFiles = ["Overview", "The stack", "Do it yourself"] as const;
 const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-1-create-accounts.mp4",
   "/landing-preview/step-2-use-template.mp4",
@@ -31,23 +15,61 @@ const expectedLandingPreviewVideoSrcs = [
   "/landing-preview/step-4-create-convex-project.mp4",
   "/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
 ] as const;
-const expectedRomanianPreviewHref = buildPathWithTanStackSearch({
-  pathname: LANDING_MARKDOWN_PREVIEW_ROUTE,
-  search: {
-    [LANDING_DEV_MODE_QUERY_PARAM]: true,
-    [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
-  },
-});
 
-async function expectSidebarLinksToMatchMarkdown(sidebar: Locator) {
+async function expectDesktopPaneWidths(
+  page: Page,
+  expectedWidths: {
+    left: string;
+    right: string;
+  },
+) {
+  const viewport = page.locator(".workspace-layout-v2-responsive-viewport").first();
+  await expect
+    .poll(() =>
+      viewport.evaluate((element) => {
+        const leftPane = document.querySelector('[data-testid="workspace-layout-v2-pane-left"]');
+        const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
+        if (!(leftPane instanceof HTMLElement) || !(rightPane instanceof HTMLElement)) {
+          // The panes can mount a beat after first paint (the landing logo
+          // scene competes for the main thread); returning null keeps the
+          // poll retrying instead of failing on the mount race.
+          return null;
+        }
+
+        return {
+          left: element.style.getPropertyValue("--workspace-layout-v2-left-desktop-width"),
+          leftPane: getComputedStyle(leftPane).width,
+          right: element.style.getPropertyValue("--workspace-layout-v2-right-desktop-width"),
+          rightPane: getComputedStyle(rightPane).width,
+        };
+      }),
+    )
+    .toEqual({
+      left: expectedWidths.left,
+      leftPane: expectedWidths.left,
+      right: expectedWidths.right,
+      rightPane: expectedWidths.right,
+    });
+}
+
+async function expectSidebarFiles(sidebar: Locator) {
   const sidebarLinks = sidebar.getByRole("link");
-  await expect(sidebarLinks).toHaveCount(expectedLandingPreviewSidebarLinks.length);
-  await expect(sidebarLinks).toHaveText(
-    expectedLandingPreviewSidebarLinks.map((link) => link.text),
-  );
-  for (const [index, link] of expectedLandingPreviewSidebarLinks.entries()) {
-    await expect(sidebarLinks.nth(index)).toHaveAttribute("href", link.href);
+  await expect(sidebarLinks).toHaveCount(expectedLandingPreviewSidebarFiles.length);
+  for (const fileLabel of expectedLandingPreviewSidebarFiles) {
+    await expect(sidebar.getByText(fileLabel, { exact: true })).toBeVisible();
   }
+  // Sidebar links retain unrelated query params such as ?dark, so hrefs match
+  // the route with an optional search suffix.
+  await expect(sidebar.getByRole("link", { name: "Overview" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${LANDING_PREVIEW_ROUTE}(\\?|$)`),
+  );
+  await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
+    "href",
+    new RegExp(`^${DOCS_DO_IT_YOURSELF_ROUTE}(\\?|$)`),
+  );
+  await expect(sidebar).not.toContainText("Start here");
+  await expect(sidebar).not.toContainText("samebase.com");
 }
 
 async function hideLandingPreviewVideosForScreenshot(page: Page) {
@@ -62,16 +84,10 @@ async function hideLandingPreviewVideosForScreenshot(page: Page) {
   });
 }
 
-async function signInForLandingPreviewRoute(page: Page): Promise<void> {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page);
-}
-
-test("landing markdown preview route renders markdown in workspace chrome", async ({ page }) => {
+test("landing preview route renders the React overview in workspace chrome", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInForLandingPreviewRoute(page);
 
-  await page.goto("/landing-preview?dev", {
+  await page.goto(LANDING_PREVIEW_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -80,38 +96,93 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     await document.fonts.ready;
   });
 
-  const preview = page.getByTestId(LANDING_MARKDOWN_PREVIEW_TEST_ID);
-  const article = page.getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID);
-  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+  const preview = page.getByTestId(LANDING_PREVIEW_TEST_ID);
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
-  await expect(sidebar).toBeVisible();
-  await expectSidebarLinksToMatchMarkdown(sidebar);
-  await expect(rightSidebar).toBeVisible();
+  // The landing uses the standard app-shell defaults (both sidebars open)
+  // until pane-less prehydration lands in a later PR.
+  await expectDesktopPaneWidths(page, {
+    left: "240px",
+    right: "288px",
+  });
+  // The hero footnote link labels itself "footnote: correct", so the h1
+  // accessible name reads "The correct footnote: correct way to build web apps".
   await expect(
     article.getByRole("heading", {
-      name: /Deploy a production-ready, real-time web-app/,
+      name: /The correct.*way to build web apps/,
     }),
   ).toBeVisible();
   await expect(
-    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
-  ).toContainText("1: Create Github, Convex, Cloudflare & OpenAI accounts");
-  await expect(
-    page.getByRole("link", {
-      name: LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
+    article.getByRole("heading", {
+      exact: true,
+      name: "correct",
     }),
-  ).toHaveAttribute("href", expectedRomanianPreviewHref);
-  const markdownRomanianHref = await article
-    .getByRole("link", {
-      name: "Română",
-    })
-    .getAttribute("href");
-  expect(markdownRomanianHref?.startsWith(LANDING_MARKDOWN_PREVIEW_ROUTE)).toBe(true);
-  const markdownRomanianSearch = new URLSearchParams(markdownRomanianHref?.split("?").at(1) ?? "");
-  expect(markdownRomanianSearch.get(LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM)).toBe("ro");
-  expect(markdownRomanianSearch.has(LANDING_DEV_MODE_QUERY_PARAM)).toBe(true);
-  await expect(article.locator("details")).toHaveCount(4);
+  ).toBeVisible();
+  await expect(article).toContainText("cheaper and more powerful");
+  await expect(article).toContainText("cost follows real usage");
+  await expect(article).toContainText("dash.cloudflare.com");
+  await expect(article).not.toContainText("samebase hides");
+  await expect(article).toContainText(
+    "If your app builder is so good, why is it not building itself?",
+  );
+  await expect(article).toContainText("samebase.com uses the exact same stack it recommends");
+  await expect(article).toContainText("the first customer was me, Nicu");
+  await expect(article).toContainText("personal and idle ideas should cost $0/month");
+  await expect(article.getByRole("img", { name: "GitHub" })).toBeVisible();
+  await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
+  await expect(article).toContainText("Cloudflare");
+  await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
+  // One interactive logo beside the hero, four zone rail marks, one closing band.
+  await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(6);
+  await expect(article).toContainText("drag it");
+  await expect(article.getByRole("link", { name: "open the logo lab" })).toBeVisible();
+  await expect(article.getByRole("heading", { name: "The base is a trio." })).toHaveCount(0);
+  await expect(article.getByRole("heading", { name: "Manual setup proves it" })).toHaveCount(0);
+  await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveCount(0);
+  await expect(article.getByRole("link", { name: "Do it yourself" })).toHaveCount(3);
+  await expect(article.getByRole("img", { name: "OpenAI" })).toHaveCount(0);
+  await expect(
+    article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),
+  ).toHaveCount(0);
+  await expect(article.locator("video")).toHaveCount(0);
+
+  // The landing keeps the standard left pane surface until prehydration
+  // supports pane-less routes.
+  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toBeVisible();
+
+  // The interactive logo canvases render nondeterministically across GPUs, so
+  // the overview baseline masks their stages and covers layout and typography.
+  await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    mask: [page.getByTestId("public-landing-logo-stage")],
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+  await page
+    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+    .getByRole("link", { name: "Do it yourself", exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  await expectDesktopPaneWidths(page, {
+    left: "240px",
+    right: "288px",
+  });
+  await expect(sidebar).toBeVisible();
+  await expectSidebarFiles(sidebar);
+  await expect(rightSidebar).toHaveCSS("width", "288px");
+  await expect(
+    article.getByRole("heading", {
+      name: "Do it yourself: Deploy a production-ready, real-time web app for $0/month",
+    }),
+  ).toBeVisible();
+  await expect(
+    article.locator('[id="1-create-github-convex-and-cloudflare-accounts"]'),
+  ).toContainText("1: Create Github, Convex, and Cloudflare accounts");
+  await expect(article.locator("details")).toHaveCount(3);
   await expect(article.locator("details video")).toHaveCount(0);
   const videos = article.locator("video");
   await expect(videos).toHaveCount(expectedLandingPreviewVideoSrcs.length);
@@ -120,48 +191,26 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     await expect(video).toBeVisible();
     await expect(video).toHaveAttribute("src", expectedVideoSrc);
   }
-  await hideLandingPreviewVideosForScreenshot(page);
-
-  await expect(page).toHaveScreenshot("landing-markdown-preview-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    // The app build footer changes on every squash; keep this snapshot focused
-    // on the markdown preview layout and rendered content.
-    mask: [page.getByTestId(APP_BUILD_VERSION_TEST_ID).locator("xpath=..")],
-    maskColor: "#ffffff",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
-
-  await sidebar
-    .getByRole("link", {
-      name: "4: Create a Convex project and a CONVEX_DEPLOY_KEY",
-    })
-    .click();
-  await expect(page).toHaveURL(/#4-create-a-convex-project-and-a-convex-deploy-key$/);
-  await expect(
-    article.locator('[id="4-create-a-convex-project-and-a-convex-deploy-key"]'),
-  ).toBeInViewport();
 
   const firstTaskCheckbox = article.locator('input[type="checkbox"]').first();
   await expect(firstTaskCheckbox).toBeEnabled();
   await firstTaskCheckbox.check();
   await expect(firstTaskCheckbox).toBeChecked();
 
-  await page.goto("/landing-preview?dev#6-connect-codex-to-github", {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#6-connect-your-dev-tool-to-github`, {
     waitUntil: "domcontentloaded",
   });
   await expect(
     page
-      .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
-      .locator('[id="6-connect-codex-to-github"]'),
+      .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+      .locator('[id="6-connect-your-dev-tool-to-github"]'),
   ).toBeInViewport();
 
-  await page.goto("/landing-preview?dev#why-is-samebase-com-free", {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#why-is-samebase-com-free`, {
     waitUntil: "domcontentloaded",
   });
   const finalHeading = page
-    .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
+    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .locator('[id="why-is-samebase-com-free"]');
   await expect(finalHeading).toBeInViewport();
   await expect
@@ -169,83 +218,38 @@ test("landing markdown preview route renders markdown in workspace chrome", asyn
     .toBeLessThan(81);
 });
 
-test("landing markdown preview sidebar hash links keep the mobile sidebar open", async ({
-  page,
-}) => {
+test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
-  await signInForLandingPreviewRoute(page);
-  await page.goto(
-    "/landing-preview?dev&left&dark#9-create-an-app-in-a-single-step-using-samebase-com",
-    {
-      waitUntil: "domcontentloaded",
-    },
-  );
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?left&dark`, {
+    waitUntil: "domcontentloaded",
+  });
 
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
 
-  const sidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
+  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
-  const screenshotHeading = page
-    .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
-    .locator('[id="9-create-an-app-in-a-single-step-using-samebase-com"]');
   await expect(sidebar).toBeVisible();
-  await expectSidebarLinksToMatchMarkdown(sidebar);
+  await expectSidebarFiles(sidebar);
   await expect(firstVideo).toBeVisible();
-  await expect(screenshotHeading).toBeInViewport();
   await hideLandingPreviewVideosForScreenshot(page);
-  await expect(screenshotHeading).toBeInViewport();
   await expect
-    .poll(() => screenshotHeading.evaluate((element) => element.getBoundingClientRect().top))
-    .toBeLessThan(80);
+    .poll(() => {
+      const url = new URL(page.url());
+      return {
+        dark: url.searchParams.has("dark"),
+        left: url.searchParams.has("left"),
+      };
+    })
+    .toEqual({
+      dark: true,
+      left: true,
+    });
   await expect(page).toHaveScreenshot("landing-markdown-preview-mobile.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-
-  await page.goto("/landing-preview?dev&left&dark", {
-    waitUntil: "domcontentloaded",
-  });
-
-  const carousel = page.getByTestId("workspace-layout-v2-pane-main");
-  const mobileSidebar = page.getByTestId(LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID);
-
-  await expect(mobileSidebar).toBeVisible();
-  await expectSidebarLinksToMatchMarkdown(mobileSidebar);
-
-  await mobileSidebar
-    .getByRole("link", {
-      name: "6: Connect Codex to GitHub",
-    })
-    .click();
-
-  await expect
-    .poll(() => {
-      const url = new URL(page.url());
-      return {
-        dark: url.searchParams.has("dark"),
-        dev: url.searchParams.has("dev"),
-        hash: url.hash,
-        left: url.searchParams.has("left"),
-      };
-    })
-    .toEqual({
-      dark: true,
-      dev: true,
-      hash: "#6-connect-codex-to-github",
-      left: true,
-    });
-  await expect.poll(() => carousel.evaluate((element) => element.scrollLeft)).toBeLessThan(80);
-
-  const articleHeading = page
-    .getByTestId(LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID)
-    .locator('[id="6-connect-codex-to-github"]');
-  await expect(articleHeading).toHaveCount(1);
-
-  const targetTop = await articleHeading.evaluate((element) => element.getBoundingClientRect().top);
-  expect(targetTop).toBeGreaterThan(0);
-  expect(targetTop).toBeLessThan(80);
 });

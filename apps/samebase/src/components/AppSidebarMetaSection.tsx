@@ -7,11 +7,6 @@ import {
   hasSelectedAppBuildVersion,
 } from "@/lib/appBuild";
 import { LANDING_DEV_MODE_QUERY_PARAM, isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import {
-  LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM,
-  LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL,
-  LANDING_MARKDOWN_PREVIEW_ROUTE,
-} from "@/routeSearch/landingPreview";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildToggledRootThemeModeSearch, readRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { applySearchPatch, formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
@@ -114,8 +109,6 @@ export function AppSidebarMetaSection({
   const themeMode = readRootThemeMode(rootRouteSearch);
   const showSearchResetLink = hasHydrated && location.searchStr.length > 0;
 
-  const showLandingPreviewLanguageLink = location.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE;
-
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitLabel = formatAppBuildCommitLabel(appCommit);
   const normalizedRepoUrl = normalizeRepoUrl(appRepoUrl);
@@ -206,20 +199,6 @@ export function AppSidebarMetaSection({
           {formatRouteSearchPresenceFlagLinkLabel(LANDING_DEV_MODE_QUERY_PARAM, true)}
         </Link>
       </AppSidebarMetaQueryLinkRow>
-      {showLandingPreviewLanguageLink ? (
-        <Link
-          id="landing-preview-romanian-toggle"
-          to={location.pathname}
-          hash={location.hash}
-          search={(currentSearch) => ({
-            ...currentSearch,
-            [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: "ro",
-          })}
-        >
-          {LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL}
-        </Link>
-      ) : null}
-
       {/* Keep query-param shortcuts visually separate from path links. */}
       <div aria-hidden="true" className="h-3" />
 

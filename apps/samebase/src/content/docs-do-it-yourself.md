@@ -1,11 +1,6 @@
-# Deploy a production-ready, real-time web-app for 0$/month & no account
+# Do it yourself: Deploy a production-ready, real-time web app for $0/month
 
-Language: English | [Română](?lang=ro)
-
-<details>
-<summary>
-## TLDR
-</summary>
+## Manual setup TLDR
 
 The web-app is deployed Cloudflare Pages and uses Convex as database. Stack: Vite+, Tanstack Router,
 Tailwind, ShadCN (BaseUI)
@@ -16,22 +11,20 @@ For the fastest Codex Cloud startup, add this environment setup script:
 curl -fsSL https://vite.plus | bash
 ```
 
-"samebase" organization name was choose with "-" because default Android keyboard makes it hard
-typing a "-".
+The "samebase" organization name was chosen without a "-" because the default Android keyboard makes
+it hard to type a "-".
 
 We need just 1 `CONVEX_DEPLOY_KEY` for **Production** and one for **Preview**, That way each PR has
 it's own link and database different from a Production/Dev databases.
 
-Then we use OpenAI Codex Cloud to make some changes; But you can use anything you want, there are
-instructions for running it locally and in git worktrees since Codex supports that from the start.
-Since you already have Cloudflare you can use Cloudflare Tunnels instead of grok so you can share
-even server running on personal machine. This implies that it's easily extendable to support
-external server that can be accessed by exposing a single port (we can expose Convex through Vite so
-no need for 2 ports).
+Then use the dev tool you already know. Codex Cloud is one option, but Codex local or another editor
+also works. There are instructions for running it locally and in git worktrees since Codex supports
+that from the start. Since you already have Cloudflare you can use Cloudflare Tunnels instead of
+grok so you can share even server running on personal machine. This implies that it's easily
+extendable to support external server that can be accessed by exposing a single port (we can expose
+Convex through Vite so no need for 2 ports).
 
-</details>
-
-## 1: Create Github, Convex, Cloudflare & OpenAI accounts
+## 1: Create Github, Convex, and Cloudflare accounts
 
 Start with **a Google or an Apple** account on a **phone or desktop**
 
@@ -45,12 +38,9 @@ Start with **a Google or an Apple** account on a **phone or desktop**
 - [ ] **3: Create CloudFlare using Github :** https://www.cloudflare.com/<br>
       <img src="/landing-preview/logos/cloudflare.jpg" alt="Cloudflare" height="32"><br> Your
       frontend code is deployed as static files. Ensures the safety of your app and users
-- [ ] **4: Create an OpenAI using Google/Apple :** https://openai.com/<br>
-      <img src="/landing-preview/logos/openai.svg" alt="OpenAI" height="32"><br> We'll rely on Codex
-      Cloud to make changes to the code. But i usually use Codex locally (there are later
-      instructions for that)
 
-It's fine if you signed up differently, as long as you have these 4 accounts you can deploy an app.
+It's fine if you signed up differently, as long as you have these 3 service accounts you can deploy
+an app.
 
 <video controls preload="metadata" width="540" height="1194" src="/landing-preview/step-1-create-accounts.mp4"></video>
 
@@ -119,7 +109,7 @@ and create a new deploy key.
 <video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-4-create-convex-project.mp4"></video>
 
 <details>
-<summary>### What are CONVEX_DEPLOY_KEY?</summary>
+<summary>What are CONVEX_DEPLOY_KEY?</summary>
 
 They are a sort of password used between servers. In our case it is used by Cloudflare to update the
 database on each change.
@@ -144,18 +134,17 @@ database on each change.
 
 Any change that you make to the `main` branch in your github repo, will be deployed automatically.
 
-## 6: Connect Codex to GitHub
+## 6: Connect your dev tool to GitHub
 
-OpenAI Codex uses the same connection method as Cloudflare so you might encounter some issues, but
-need to do it just once.
+If you use Codex Cloud, connect it to GitHub once. OpenAI Codex uses the same connection method as
+Cloudflare so you might encounter some issues, but need to do it just once. If you use local Codex
+or another editor, connect it to the repository the way that tool expects.
 
 ## 7: Get a separate deployment for each change
 
 You were seeing errors in the Pull Requests because the cloudflare deploys a preview and it cannot
 connect to your production database. To solve this, you can create a "Preview Deploy Key" from
 Convex and set it to Cloudflare, that way each Pull Requests will have it's own database.
-
-- [ ]
 
 ## 8: Deleting the app
 
@@ -168,14 +157,15 @@ To delete an app you deployed you'll have to
 ## 9: Create an app in a single step using samebase.com
 
 samebase.com connects with Github, Cloudflare & Convex once, then allows you to create an app with a
-single click of a button It also allows you to completely removed as easily.
+single click of a button. It also allows you to remove it just as easily.
 
 So apps become disposable, you can create an app and to create a game and use it for night-out with
 your friends
 
 - OR -
 
-you can decide to continue maintaining it and based your business on it since it's
+you can decide to continue maintaining it and base your business on it, since it's standard
+infrastructure in your own accounts.
 
 ### Why is samebase.com free?
 

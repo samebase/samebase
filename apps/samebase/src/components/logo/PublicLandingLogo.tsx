@@ -14,8 +14,9 @@ import {
 } from "@/components/logo/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
-  PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
+  PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE,
   PUBLIC_LANDING_LOGO_HEIGHT,
+  type PublicLandingLogoStage,
   PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
@@ -98,6 +99,8 @@ export function PublicLandingLogo({
   loadInteractiveScene = true,
   replaceRouteSearch,
   routeSearch = EMPTY_LOGO_ROUTE_SEARCH,
+  routeSearchSource = "url",
+  stage = "compact",
   viewStatePersistence = "visit",
   viewStateKey = PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
 }: {
@@ -107,6 +110,14 @@ export function PublicLandingLogo({
   loadInteractiveScene?: boolean;
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
   routeSearch?: LogoRouteSearch;
+  /**
+  "url" search can differ from the prerendered document, so the stale static
+  fallback hides until the scene is ready. "static" search is a constant the
+  caller renders identically on server and client, so the fallback is always
+  correct and stays visible while the scene loads.
+  */
+  routeSearchSource?: "url" | "static";
+  stage?: PublicLandingLogoStage;
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
@@ -162,12 +173,17 @@ export function PublicLandingLogo({
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
   const shouldHideQuerySvgFallbackUntilSceneReady =
-    loadInteractiveScene && hasPublicLandingLogoStaticFallbackUnsafeSearch(routeSearch);
+    loadInteractiveScene &&
+    routeSearchSource === "url" &&
+    hasPublicLandingLogoStaticFallbackUnsafeSearch(routeSearch);
   const isSvgFallbackVisible =
     !isHydratedFallbackVisibilityReady ||
     (isSvgVisible && (!shouldHideQuerySvgFallbackUntilSceneReady || didSceneFail));
   const isSceneInteractive = isSceneReady && !isSvgFallbackVisible;
-  const isAutoRotateRequested = autoRotate || routeState.autoRotateEnabled;
+  // Continuous rotation is decorative motion, so it follows the same OS
+  // preference as the color and stripe animations.
+  const isAutoRotateRequested =
+    (autoRotate || routeState.autoRotateEnabled) && !prefersReducedMotion;
   const shouldAnimateFaceColors = routeState.faceColorAnimationEnabled && !prefersReducedMotion;
   const shouldAnimateLeftFaceStripes =
     (animateLeftFaceStripes || routeState.leftFaceStripeAnimationEnabled) && !prefersReducedMotion;
@@ -382,7 +398,7 @@ export function PublicLandingLogo({
   }, [isAutoRotating]);
 
   return (
-    <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}>
+    <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE[stage]}>
       <div
         data-testid={PUBLIC_LANDING_LOGO_STAGE_TEST_ID}
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}

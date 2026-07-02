@@ -31,13 +31,14 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
-    expect(suggestions).toContain("/landing-preview");
     expect(suggestions).toContain("/logo/transition/transforms");
     expect(suggestions).toContain("/visual-fixture");
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).toContain("/vault/$owner/$repo/codespace/$branch/chat");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
+    expect(suggestions).not.toContain("/docs/do-it-yourself");
+    expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
     expect(suggestions).toEqual(
@@ -71,6 +72,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/connect-repo");
     expect(suggestions).not.toContain("/vault");
     expect(suggestions).not.toContain("/indexDB");
+    expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/logo/iso");
@@ -441,5 +443,53 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         viewer: staffViewer,
       }),
     ).toBe(true);
+  });
+
+  it("accepts hidden route paths the viewer can load", () => {
+    // pathSuggestion: "hidden" keeps a route out of the dropdown, but direct
+    // URL entry loads it, so the editor must commit it too.
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/landing-preview",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: anonymousViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/landing-preview",
+        draftHref: "/landing-preview?dark",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: anonymousViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/docs/the-stack",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: anonymousViewer,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps redirect-only route paths local", () => {
+    // /landing only forwards to /; committing it while someone types toward
+    // /landing-preview would tear the editor away mid-draft.
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/landing",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: staffViewer,
+      }),
+    ).toBe(false);
   });
 });

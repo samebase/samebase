@@ -4,7 +4,11 @@ import {
 } from "@/codex/appServerResearch";
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
-import { LANDING_MARKDOWN_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";
+import {
+  DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_THE_STACK_ROUTE,
+  LANDING_PREVIEW_ROUTE,
+} from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./samebaseSync";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
@@ -118,10 +122,26 @@ export const INDEXED_DB_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
-export const LANDING_MARKDOWN_PREVIEW_PAGE_METADATA: PageMetadata = {
+export const LANDING_PREVIEW_PAGE_METADATA: PageMetadata = {
   title: "Landing Preview | Samebase",
-  description: "Markdown landing preview for Samebase.",
-  canonicalPath: LANDING_MARKDOWN_PREVIEW_ROUTE,
+  description: "Landing page preview for Samebase.",
+  canonicalPath: LANDING_PREVIEW_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
+export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
+  title: "Do it yourself | Samebase",
+  description: "Manual setup guide for building a Samebase-style app yourself.",
+  canonicalPath: DOCS_DO_IT_YOURSELF_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
+export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
+  title: "The stack | Samebase",
+  description: "What the Samebase template ships and why each piece was chosen.",
+  canonicalPath: DOCS_THE_STACK_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
@@ -171,8 +191,16 @@ export function resolveAppPageTitle(pathname: string): string {
     return MACHINES_PAGE_METADATA.title;
   }
 
-  if (pathname === LANDING_MARKDOWN_PREVIEW_ROUTE) {
-    return LANDING_MARKDOWN_PREVIEW_PAGE_METADATA.title;
+  if (pathname === LANDING_PREVIEW_ROUTE) {
+    return LANDING_PREVIEW_PAGE_METADATA.title;
+  }
+
+  if (pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
+    return DOCS_DO_IT_YOURSELF_PAGE_METADATA.title;
+  }
+
+  if (pathname === DOCS_THE_STACK_ROUTE) {
+    return DOCS_THE_STACK_PAGE_METADATA.title;
   }
 
   if (pathname === LOCAL_STORAGE_ROUTE) {
@@ -222,8 +250,16 @@ export function resolvePageMetadata(args: {
     return MACHINES_PAGE_METADATA;
   }
 
-  if (args.pathname === LANDING_MARKDOWN_PREVIEW_ROUTE) {
-    return LANDING_MARKDOWN_PREVIEW_PAGE_METADATA;
+  if (args.pathname === LANDING_PREVIEW_ROUTE) {
+    return LANDING_PREVIEW_PAGE_METADATA;
+  }
+
+  if (args.pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
+    return DOCS_DO_IT_YOURSELF_PAGE_METADATA;
+  }
+
+  if (args.pathname === DOCS_THE_STACK_ROUTE) {
+    return DOCS_THE_STACK_PAGE_METADATA;
   }
 
   if (args.pathname === LOCAL_STORAGE_ROUTE) {

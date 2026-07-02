@@ -5,72 +5,72 @@ import {
   readRouteSearchPresenceKeys,
   readRouteSearchStaticData,
   routeSearchPresenceParam,
-  routeSearchStringValue,
-  routeSearchValueParam,
 } from "@/routing/searchParamMetadata";
 import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 
-export const LANDING_MARKDOWN_PREVIEW_ROUTE = "/landing-preview";
+export const LANDING_PREVIEW_ROUTE = "/landing-preview";
+export const DOCS_DO_IT_YOURSELF_ROUTE = "/docs/do-it-yourself";
+export const DOCS_THE_STACK_ROUTE = "/docs/the-stack";
 
-export const LANDING_MARKDOWN_PREVIEW_TEST_ID = "landing-markdown-preview";
-export const LANDING_MARKDOWN_PREVIEW_ARTICLE_TEST_ID = "landing-markdown-preview-article";
-export const LANDING_MARKDOWN_PREVIEW_SIDEBAR_TEST_ID = "landing-markdown-preview-sidebar";
-export const LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM = "lang";
+export const LANDING_PREVIEW_TEST_ID = "landing-preview";
+export const LANDING_PREVIEW_ARTICLE_TEST_ID = "landing-preview-article";
+export const DOCS_SIDEBAR_TEST_ID = "docs-sidebar";
 
-const LANDING_MARKDOWN_PREVIEW_LANGUAGES = ["en", "ro"] as const;
-
-export type LandingMarkdownPreviewLanguage = (typeof LANDING_MARKDOWN_PREVIEW_LANGUAGES)[number];
-
-export const LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE = "en";
-export const LANDING_MARKDOWN_PREVIEW_ROMANIAN_QUERY_LINK_LABEL = `?${LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM}=ro`;
-
-const RouteSearchSchema_landingMarkdownPreview = defineRouteSearchParams({
+// The landing keeps its left pane surface for now: the workspace prehydration
+// script expects the pane element to exist. A later PR makes the landing
+// sidebar-less together with prehydration support for pane-less routes.
+const RouteSearchSchema_landingPreview = defineRouteSearchParams({
   left: routeSearchPresenceParam({
-    access: "access_admin",
+    access: "access_public",
     suggestion: "hidden",
   }),
-  [LANDING_MARKDOWN_PREVIEW_LANGUAGE_QUERY_PARAM]: routeSearchValueParam(
-    routeSearchStringValue(LANDING_MARKDOWN_PREVIEW_LANGUAGES),
-    {
-      access: "access_admin",
-      sampleValue: "ro",
-      suggestion: "route",
-      valueSuggestions: LANDING_MARKDOWN_PREVIEW_LANGUAGES,
-      valueType: "options",
-    },
-  ),
   right: routeSearchPresenceParam({
-    access: "access_admin",
+    access: "access_public",
     suggestion: "hidden",
   }),
 });
 
-export type LandingMarkdownPreviewRouteSearch = InferRouteSearch<
-  typeof RouteSearchSchema_landingMarkdownPreview
->;
+const RouteSearchSchema_docs = defineRouteSearchParams({
+  left: routeSearchPresenceParam({
+    access: "access_public",
+    suggestion: "hidden",
+  }),
+  right: routeSearchPresenceParam({
+    access: "access_public",
+    suggestion: "hidden",
+  }),
+});
 
-const landingMarkdownPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
-  RouteSearchSchema_landingMarkdownPreview,
+export type LandingPreviewRouteSearch = InferRouteSearch<typeof RouteSearchSchema_landingPreview>;
+export type DocsRouteSearch = InferRouteSearch<typeof RouteSearchSchema_docs>;
+
+const landingPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  RouteSearchSchema_landingPreview,
+);
+const docsRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_docs);
+
+const LANDING_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  landingPreviewRouteSearchParamMetadata,
+);
+const DOCS_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(docsRouteSearchParamMetadata);
+
+export const LANDING_PREVIEW_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  landingPreviewRouteSearchParamMetadata,
+);
+export const DOCS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  docsRouteSearchParamMetadata,
 );
 
-const LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
-  landingMarkdownPreviewRouteSearchParamMetadata,
-);
-
-export const LANDING_MARKDOWN_PREVIEW_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
-  landingMarkdownPreviewRouteSearchParamMetadata,
-);
-
-export function validateLandingMarkdownPreviewRouteSearch(
+export function validateLandingPreviewRouteSearch(
   search: Record<string, unknown>,
-): LandingMarkdownPreviewRouteSearch {
-  return RouteSearchSchema_landingMarkdownPreview.parse(
-    normalizeRouteSearchPresenceFlags(search, LANDING_MARKDOWN_PREVIEW_PRESENCE_SEARCH_KEYS),
+): LandingPreviewRouteSearch {
+  return RouteSearchSchema_landingPreview.parse(
+    normalizeRouteSearchPresenceFlags(search, LANDING_PREVIEW_PRESENCE_SEARCH_KEYS),
   );
 }
 
-export function resolveLandingMarkdownPreviewLanguage(
-  search: LandingMarkdownPreviewRouteSearch,
-): LandingMarkdownPreviewLanguage {
-  return search.lang ?? LANDING_MARKDOWN_PREVIEW_DEFAULT_LANGUAGE;
+export function validateDocsRouteSearch(search: Record<string, unknown>): DocsRouteSearch {
+  return RouteSearchSchema_docs.parse(
+    normalizeRouteSearchPresenceFlags(search, DOCS_PRESENCE_SEARCH_KEYS),
+  );
 }

@@ -84,7 +84,13 @@ export type RouteSearchParamValueSuggestion<Key extends string = string> = Extra
 export type RouteStaticData = {
   availableEnvironments?: RouteAvailability;
   access: RouteAccess;
-  pathSuggestion?: "hidden";
+  /**
+  "hidden" keeps the path out of the URL editor's suggestion dropdown while
+  direct entry still commits it. "redirect" additionally blocks editor commits:
+  the route only forwards elsewhere, so committing it mid-edit would tear the
+  editor out from under the draft.
+  */
+  pathSuggestion?: "hidden" | "redirect";
   prerender?: false;
 
   /**

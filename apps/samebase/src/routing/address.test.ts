@@ -109,6 +109,50 @@ describe("readRouteAddressReadiness", () => {
     });
   });
 
+  it("applies hidden route paths and their query params", () => {
+    // pathSuggestion: "hidden" hides the dropdown entry without blocking the
+    // route: typing /landing-preview or editing its params must still commit.
+    expect(
+      readRouteAddressReadinessForTest({
+        draftRouteAddress: "/landing-preview",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/landing-preview",
+    });
+
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/landing-preview",
+        draftRouteAddress: "/landing-preview?dark",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/landing-preview?dark",
+    });
+
+    expect(
+      readRouteAddressReadinessForTest({
+        currentRouteAddress: "/landing-preview",
+        draftRouteAddress: "/landing-preview?right",
+      }),
+    ).toEqual({
+      kind: "readyExact",
+      routeAddress: "/landing-preview?right",
+    });
+  });
+
+  it("keeps redirect-only paths local while typing through them", () => {
+    expect(
+      readRouteAddressReadinessForTest({
+        draftRouteAddress: "/landing",
+      }),
+    ).toEqual({
+      kind: "local",
+      reason: "pathNotReady",
+    });
+  });
+
   it("applies member route grants to path readiness", () => {
     expect(
       readRouteAddressReadinessForTest({
