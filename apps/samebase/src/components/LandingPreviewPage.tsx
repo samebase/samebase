@@ -183,19 +183,30 @@ function LandingZone({ children, label }: { children: ReactNode; label: string }
 }
 
 function LandingTrioCell({
-  console: consoleHost,
+  dashboardUrl,
   detail,
+  homepageUrl,
   logo,
   role,
 }: {
-  console: string;
+  dashboardUrl: string;
   detail: string | null;
+  homepageUrl: string;
   logo: ReactNode;
   role: string;
 }) {
+  const dashboardHost = new URL(dashboardUrl).host;
+
   return (
     <div className="border-t border-border pt-6">
-      <div className="flex h-[34px] items-center gap-2.5">{logo}</div>
+      <a
+        className="flex h-[34px] w-fit items-center gap-2.5 no-underline"
+        href={homepageUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
+        {logo}
+      </a>
       <p className="mt-3.5 text-[15px] leading-relaxed text-muted-foreground">
         <b className="block font-semibold text-foreground">{role}</b>
         {detail}
@@ -206,11 +217,13 @@ function LandingTrioCell({
           <dd className="font-semibold text-secondary">you</dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">console</dt>
-          <dd>{consoleHost}</dd>
+          <dt className="text-muted-foreground">dashboard</dt>
+          <dd>
+            <LandingReceiptLink href={dashboardUrl}>{dashboardHost}</LandingReceiptLink>
+          </dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">hidden by samebase</dt>
+          <dt className="text-muted-foreground">samebase hides</dt>
           <dd>nothing</dd>
         </div>
       </dl>
@@ -324,8 +337,9 @@ function LandingPreviewOverview() {
             </p>
             <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-9 sm:grid-cols-3">
               <LandingTrioCell
-                console="github.com"
+                dashboardUrl="https://github.com"
                 detail="repo + pull requests"
+                homepageUrl="https://github.com"
                 logo={
                   <img
                     alt="GitHub"
@@ -338,8 +352,9 @@ function LandingPreviewOverview() {
                 role="your code"
               />
               <LandingTrioCell
-                console="dashboard.convex.dev"
+                dashboardUrl="https://dashboard.convex.dev"
                 detail={null}
+                homepageUrl="https://convex.dev"
                 logo={
                   <img
                     alt="Convex"
@@ -352,8 +367,9 @@ function LandingPreviewOverview() {
                 role="realtime database + backend"
               />
               <LandingTrioCell
-                console="dash.cloudflare.com"
+                dashboardUrl="https://dash.cloudflare.com"
                 detail="deploys + domains + edge"
+                homepageUrl="https://www.cloudflare.com"
                 logo={
                   <>
                     <img

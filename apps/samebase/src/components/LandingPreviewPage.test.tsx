@@ -76,7 +76,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
     expect(markup).toContain("account owner");
-    expect(markup).toContain("hidden by samebase");
+    expect(markup).toContain("samebase hides");
     expect(markup).toContain("samebase.com uses the exact same stack it recommends.");
     expect(markup).toContain("the first customer was me, Nicu.");
     expect(markup).toContain("personal and idle ideas should cost $0/month.");
