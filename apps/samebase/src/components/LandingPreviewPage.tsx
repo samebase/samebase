@@ -443,7 +443,16 @@ function LandingPreviewOverview() {
 
         <div className="mt-24 md:mt-32">
           <LandingZone label="03 · lanes">
-            <div className="grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+              Every pull request gets its own preview deploy —{" "}
+              <span className="font-semibold">with its own database.</span>
+            </p>
+            <p className="mt-5 max-w-[58ch] text-base text-primary">
+              Most stacks never pull this off: previews point at one shared database, so branches
+              step on each other's data. Here isolation comes provisioned — for pull requests,
+              worktrees, and your local folder alike.
+            </p>
+            <div className="mt-12 grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
               {LANDING_LANES.map((lane) => (
                 <div className="border-t border-border pt-6" key={lane.name}>
                   <p className="font-mono text-[15px]">
@@ -461,8 +470,8 @@ function LandingPreviewOverview() {
             <div className="mt-8 grid max-w-[58ch] gap-4 text-base text-primary">
               <p>
                 I run several agents at once. Codex and Claude Code already understand git
-                worktrees; here the stack keeps up with them — every lane gets its own everything.
-                If you are not an engineer, the translation is simple:{" "}
+                worktrees; the stack keeps up with them. If you are not an engineer, the translation
+                is simple:{" "}
                 <span className="font-semibold text-foreground">
                   run as many agents in parallel as you want. They will not overwrite each other's
                   work.
