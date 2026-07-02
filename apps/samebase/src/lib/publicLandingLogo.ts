@@ -3,6 +3,15 @@ import { type LogoViewDragConfig } from "@/components/logo/logoViewDrag";
 
 export const PUBLIC_LANDING_LOGO_ALT = "Samebase logo";
 export const PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME = "mx-auto max-w-[11rem]";
+/**
+The compact stage is the original sign-in-card size; the wide stage carries the
+landing-page showcase placements where the logo is the section's main content.
+*/
+export const PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE = {
+  compact: PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
+  wide: "mx-auto w-full max-w-[540px]",
+} as const;
+export type PublicLandingLogoStage = keyof typeof PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE;
 export const PUBLIC_LANDING_LOGO_HEIGHT = 360;
 export const PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME = "block h-auto w-full";
 export const PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE =
