@@ -133,8 +133,8 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("img", { name: "Convex" })).toBeVisible();
   await expect(article).toContainText("Cloudflare");
   await expect(article.getByRole("img", { name: "Samebase", exact: true })).toBeVisible();
-  // One interactive logo beside the hero, one in the closing band.
-  await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(2);
+  // One interactive logo beside the hero, four zone rail marks, one closing band.
+  await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(6);
   await expect(article).toContainText("drag it");
   await expect(article.getByRole("link", { name: "open the logo lab" })).toBeVisible();
   await expect(article.getByRole("heading", { name: "The base is a trio." })).toHaveCount(0);

@@ -1,9 +1,13 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
-import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
-import { createLogoRouteVoxelGrid } from "@/components/logo/logoRouteRenderState";
-import { createFilledVoxelSet, type VoxelCoordinate } from "@/components/logo/logoVoxelState";
+import {
+  createFilledVoxelSet,
+  serializeVoxelState,
+  type VoxelCoordinate,
+} from "@/components/logo/logoVoxelState";
+import { LANDING_ZONE_MARK_VIEW_STATE_KEYS } from "@/lib/rotatedLogoViewState";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +27,7 @@ import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useLayoutEffect, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack";
 
@@ -131,45 +135,89 @@ function createLanePillarVoxels(): ReadonlySet<string> {
 
 /**
 The zone rails vary the same voxel base along one dimension each: the plain
-mark as-is (yours), its closed flat face (safer), the cubes rearranged into
-parallel lanes, and the pattern recursed into a Menger sponge (cheaper).
-Precomputed because the inputs are constants.
+mark as-is (yours), the same object seen flat-on (safer), the cubes rearranged
+into parallel lanes, and the pattern recursed into a Menger sponge (cheaper).
+Each mark is a live draggable scene with its own remembered orientation; the
+shapes are curated, so drags stay local instead of writing the URL.
 */
 const LANDING_ZONE_MARKS = [
+  { routeSearch: {}, viewStateKey: LANDING_ZONE_MARK_VIEW_STATE_KEYS[0] },
+  { routeSearch: { elev: 0, rot: 0 }, viewStateKey: LANDING_ZONE_MARK_VIEW_STATE_KEYS[1] },
   {
-    className: "mt-7 hidden h-28 w-28 md:block",
-    src: createStaticLogoSvgDataUrl({}),
+    routeSearch: { gridSize: 5, vox: serializeVoxelState(createLanePillarVoxels(), 5) },
+    viewStateKey: LANDING_ZONE_MARK_VIEW_STATE_KEYS[2],
   },
   {
-    // brightness-0 + invert renders the duotone asset as a white silhouette;
-    // plain invert would turn its cyan faces pink.
-    className: "mt-7 hidden h-28 w-28 md:block dark:brightness-0 dark:invert",
-    src: "/brand/logo/v1-side-primary-duotone.svg",
+    routeSearch: { depth: 2, vox: "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx" },
+    viewStateKey: LANDING_ZONE_MARK_VIEW_STATE_KEYS[3],
   },
-  {
-    className: "mt-7 hidden h-28 w-28 md:block",
-    src: createStaticLogoSvgDataUrl({ filledVoxels: createLanePillarVoxels(), gridSize: 5 }),
-  },
-  {
-    className: "mt-7 hidden h-28 w-28 md:block",
-    src: (() => {
-      const spongeGrid = createLogoRouteVoxelGrid({
-        fractalDepth: 2,
-        gridSize: 3,
-        voxelState: "xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx",
-      });
-      return createStaticLogoSvgDataUrl({
-        filledVoxels: spongeGrid.filledVoxels,
-        gridSize: spongeGrid.gridSize,
-      });
-    })(),
-  },
-] as const;
+] as const satisfies readonly { routeSearch: LogoRouteSearch; viewStateKey: string }[];
+
+/**
+The rail column is display-none below md, where a mounted scene would still
+create an invisible WebGL context; CSS cannot gate the scene load, so the
+media query does.
+*/
+function useCanLoadZoneMarkScene() {
+  const [canLoadScene, setCanLoadScene] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const syncCanLoadScene = () => {
+      setCanLoadScene(mediaQuery.matches);
+    };
+
+    syncCanLoadScene();
+    mediaQuery.addEventListener("change", syncCanLoadScene);
+    return () => {
+      mediaQuery.removeEventListener("change", syncCanLoadScene);
+    };
+  }, []);
+
+  return canLoadScene;
+}
 
 function LandingZoneMark({ index }: { index: 0 | 1 | 2 | 3 }) {
+  const canLoadScene = useCanLoadZoneMarkScene();
+  const rootRouteSearch = useRootRouteSearch();
   const mark = LANDING_ZONE_MARKS[index];
+  // Theme and color params follow the visitor's mark; the structural params
+  // (shape, depth, view) stay curated per zone.
+  const {
+    "animate-colors": animateColors,
+    background,
+    border,
+    dark,
+    light,
+    primary,
+    secondary,
+    top,
+  } = rootRouteSearch;
 
-  return <img alt="" className={mark.className} height="112" src={mark.src} width="112" />;
+  return (
+    <div className="mt-7 hidden md:block">
+      <PublicLandingLogo
+        loadInteractiveScene={canLoadScene}
+        routeSearch={{
+          "animate-colors": animateColors,
+          background,
+          border,
+          dark,
+          light,
+          primary,
+          secondary,
+          top,
+          ...mark.routeSearch,
+        }}
+        stage="rail"
+        viewStateKey={mark.viewStateKey}
+      />
+    </div>
+  );
 }
 
 function DocsSidebar() {
