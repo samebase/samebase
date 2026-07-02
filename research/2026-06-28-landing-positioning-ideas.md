@@ -206,3 +206,18 @@ Use this note as source material while iterating. When the direction stabilizes:
    plan.
 3. Move accepted durable behavior into a spec only when future agents must obey it.
 4. Delete or archive this research note once it stops being useful.
+
+## Direction Chosen (2026-07-02)
+
+Four HTML mockup directions (footnote manifesto, spec sheet, isometric base, quiet document) were
+generated against the locked copy and judged from screenshots across three lenses: typographic
+craft, brand fit, and first-impression clarity. The footnote manifesto won all three votes and is
+now implemented in `LandingPreviewPage.tsx`, with two grafts from the spec-sheet direction:
+
+- the cost table (idle idea → $0.00 in cyan, down to "follows usage")
+- the provider ownership rows (account owner: you / console / hidden by samebase: nothing)
+
+The footnote system is the organizing idea: `*` correct, `†` cheaper and more powerful, and `‡`
+$0/month all resolve in a book-style notes block with short receipts. Remaining open items: whether
+the hero CTA should stay "Sign in" (auth is Google + password today, so "Sign in with GitHub" would
+be dishonest), and whether the isometric trio diagram idea returns once it can be crafted well.
