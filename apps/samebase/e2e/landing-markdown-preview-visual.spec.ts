@@ -128,7 +128,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(article.getByRole("heading", { name: "The base is a trio." })).toHaveCount(0);
   await expect(article.getByRole("heading", { name: "Manual setup proves it" })).toHaveCount(0);
   await expect(article.getByRole("link", { name: "Start with Samebase" })).toHaveCount(0);
-  await expect(article.getByRole("link", { name: "Do it yourself" })).toHaveCount(2);
+  await expect(article.getByRole("link", { name: "Do it yourself" })).toHaveCount(3);
   await expect(article.getByRole("img", { name: "OpenAI" })).toHaveCount(0);
   await expect(
     article.locator('[id="1-create-github-convex-cloudflare-openai-accounts"]'),

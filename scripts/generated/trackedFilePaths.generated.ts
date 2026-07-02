@@ -1404,6 +1404,7 @@ export const trackedFilePaths = [
   "research/2026-06-28-landing-positioning-ideas.md",
   "research/2026-07-01-vault-route-rename.md",
   "research/2026-07-01-vault-sidebar-dashboard.md",
+  "research/2026-07-02-landing-copy-interview.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",

@@ -81,7 +81,10 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("the first customer was me, Nicu.");
     expect(markup).toContain("personal and idle ideas should cost $0/month.");
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
-    expect(markup).toContain("adds margin, not capability.");
+    expect(markup).toContain("adds margin, not capability");
+    expect(markup).toContain("I built it, then I deleted it.");
+    expect(markup).toContain("your app is a security risk.");
+    expect(markup).toContain("the leaving test");
     expect(markup).toContain("Samebase adds no floor of its own.");
     expect(markup).toContain("GitHub");
     expect(markup).toContain("Convex");

@@ -202,6 +202,20 @@ function LandingFootnoteMark({
   );
 }
 
+/** External receipt sources open in a new tab; internal navigation stays on Link. */
+function LandingReceiptLink({ children, href }: { children: ReactNode; href: string }) {
+  return (
+    <a
+      className="border-b border-border pb-px no-underline hover:border-foreground hover:text-foreground"
+      href={href}
+      rel="noreferrer"
+      target="_blank"
+    >
+      {children}
+    </a>
+  );
+}
+
 function LandingZone({ children, label }: { children: ReactNode; label: string }) {
   return (
     <section className="grid grid-cols-1 gap-y-5 md:grid-cols-[168px_minmax(0,1fr)] md:gap-x-14">
@@ -315,13 +329,13 @@ function LandingPreviewOverview() {
             <br />
             web apps
           </h1>
-          <p className="mt-9 max-w-[46ch] text-lg leading-relaxed text-primary sm:text-xl">
-            A full stack —{" "}
-            <strong className="font-semibold text-foreground">
-              GitHub, Convex, Cloudflare
-            </strong> —
-            provisioned around accounts you own. Bring your own AI tool: Codex, Claude Code, Cursor,
-            anything.
+          <p className="mt-9 max-w-[52ch] text-lg leading-relaxed text-primary sm:text-xl">
+            Samebase is a button that turns an idea into a running app — a{" "}
+            <strong className="font-semibold text-foreground">GitHub</strong> repo, a{" "}
+            <strong className="font-semibold text-foreground">Convex</strong> backend, a{" "}
+            <strong className="font-semibold text-foreground">Cloudflare</strong> deploy — in about
+            a minute, on accounts you own. One place to watch them all. You bring the agent: Codex,
+            Claude Code, Cursor, anything.
           </p>
           <div className="mt-10">
             <LandingCtaRow />
@@ -334,7 +348,7 @@ function LandingPreviewOverview() {
               Most app builders resell LLM tokens.
             </p>
             <p className="mt-5 text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
-              But Codex, Claude, etc. are{" "}
+              But the agent you already run is{" "}
               <span className="border-b-[3px] border-secondary pb-px font-semibold">
                 cheaper and more powerful
               </span>
@@ -343,11 +357,29 @@ function LandingPreviewOverview() {
                 label="footnote: tokens"
                 marker="†"
               />{" "}
-              than anything an app-builder can provide.
+              than the chat box a builder wraps around the same models.
             </p>
-            <p className="mt-5 text-[22px] leading-snug tracking-[-0.015em] text-primary md:text-[26px]">
-              So why would you pay more for less?
-            </p>
+
+            <div className="mt-10 grid max-w-[58ch] gap-4 text-base text-primary">
+              <p>
+                I moved my apps three times before landing here. Netlify was one of the stops: $20 a
+                month buys 3,000 credits, and every production deploy costs 15 of them
+                <LandingFootnoteMark
+                  fragment="landing-note-tokens"
+                  label="footnote: the Netlify math"
+                  marker="†"
+                />{" "}
+                — an agent shipping to production fifty times a day empties the month in four days.
+                There are ways to optimize it. I didn't want a hobby optimizing deploy credits.
+              </p>
+              <p>
+                Samebase had working Netlify provisioning.{" "}
+                <span className="font-semibold text-foreground">
+                  I built it, then I deleted it.
+                </span>{" "}
+                If I know something is better, why would I sell you anything else?
+              </p>
+            </div>
 
             <div className="mt-14">
               <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -387,7 +419,44 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="02 · the stack">
+          <LandingZone label="02 · safer">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+              A web app is three boxes — database, server, frontend — and two connections. Everyone
+              stares at the boxes.{" "}
+              <span className="font-semibold">The connections carry the security budget.</span>
+            </p>
+            <div className="mt-8 grid max-w-[58ch] gap-4 text-base text-primary">
+              <p>
+                Firebase and Supabase wire the frontend straight to the database, then patch the
+                missing server with a rules language that looks like JavaScript but isn't.
+                Misconfigured rules keep leaving whole databases public. That is not hypothetical.
+                <LandingFootnoteMark
+                  fragment="landing-note-risk"
+                  label="footnote: security risk"
+                  marker="§"
+                />
+              </p>
+              <p>
+                Convex is just a backend: the database is only reachable through TypeScript
+                functions you wrote, so access control is code you already know how to review.
+              </p>
+            </div>
+            <p className="mt-10 text-sm text-muted-foreground">
+              The version I tell my engineer friends:
+            </p>
+            <p className="mt-2 max-w-[30ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] md:text-[26px]">
+              At this point, if you're not using Convex, your app is a security risk.
+              <LandingFootnoteMark
+                fragment="landing-note-risk"
+                label="footnote: security risk"
+                marker="§"
+              />
+            </p>
+          </LandingZone>
+        </div>
+
+        <div className="mt-24 md:mt-32">
+          <LandingZone label="03 · yours">
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               Standard, inspectable infrastructure — three real accounts, in your name.
             </p>
@@ -441,7 +510,24 @@ function LandingPreviewOverview() {
                 role="keeps your app safe"
               />
             </div>
-            <div className="mt-14 flex items-start gap-3.5">
+            <div className="mt-12">
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                the leaving test
+              </p>
+              <p className="mt-3 max-w-[58ch] text-base text-primary">
+                Create an app, then delete your Samebase account. The app keeps running — it was
+                always on your GitHub, your Convex, your Cloudflare. Samebase can die tomorrow and
+                your app will not notice. You can even skip the account:{" "}
+                <Link
+                  className="border-b border-border pb-px text-primary no-underline hover:border-foreground hover:text-foreground"
+                  to={LANDING_DO_IT_YOURSELF_ROUTE}
+                >
+                  Do it yourself
+                </Link>{" "}
+                is the whole setup, by hand.
+              </p>
+            </div>
+            <div className="mt-12 flex items-start gap-3.5">
               <img
                 alt="Samebase"
                 className="mt-1 h-[30px] w-[30px]"
@@ -449,15 +535,16 @@ function LandingPreviewOverview() {
                 src="/icon-512.png"
                 width="30"
               />
-              <p className="text-[19px] leading-normal tracking-[-0.01em] sm:text-[21px]">
-                Samebase uses <span className="font-semibold">the same base</span> it recommends.
+              <p className="max-w-[44ch] text-[19px] leading-normal tracking-[-0.01em] sm:text-[21px]">
+                Samebase uses <span className="font-semibold">the same base</span> it recommends —
+                samebase.com runs on its own Convex deployment and Cloudflare Workers.
               </p>
             </div>
           </LandingZone>
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="03 · lanes">
+          <LandingZone label="04 · lanes">
             <div className="grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
               {LANDING_LANES.map((lane) => (
                 <div className="border-t border-border pt-6" key={lane.name}>
@@ -473,9 +560,18 @@ function LandingPreviewOverview() {
                 </div>
               ))}
             </div>
-            <p className="mt-8 max-w-[58ch] text-base text-primary">
-              Multiple agents can work in parallel without stepping on each other.
-            </p>
+            <div className="mt-8 grid max-w-[58ch] gap-4 text-base text-primary">
+              <p>
+                I run several agents at once. Codex and Claude Code already understand git
+                worktrees; here the stack keeps up with them — every lane gets its own everything.
+                If you are not an engineer, the translation is simple:{" "}
+                <span className="font-semibold text-foreground">
+                  run as many agents in parallel as you want. They will not overwrite each other's
+                  work.
+                </span>
+              </p>
+              <p>Samebase also speaks MCP: your agent can create and list your apps itself.</p>
+            </div>
           </LandingZone>
         </div>
 
@@ -506,15 +602,66 @@ function LandingPreviewOverview() {
             heading="cheaper and more powerful"
             marker="†"
           >
-            <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-              You already pay OpenAI or Anthropic directly. A builder that resells their tokens adds
-              margin, not capability.
-            </p>
+            <div className="mt-2 grid max-w-[58ch] gap-3 text-[15px] leading-relaxed text-primary">
+              <p>
+                You already pay OpenAI or Anthropic directly. A builder reselling their tokens adds
+                margin, not capability — its in-app agent is a worse version of the tool you already
+                have open. Samebase ships no chatbot; it is a tool your AI tool uses.
+              </p>
+              <p>
+                The hosting math, as of mid-2026:{" "}
+                <LandingReceiptLink href="https://www.netlify.com/pricing/">
+                  Netlify Pro
+                </LandingReceiptLink>{" "}
+                is $20/month for 3,000 credits at 15 per successful production deploy — exactly 200
+                a month before bandwidth and compute draw from the same pool. Previews and failed
+                deploys are free, so the honest version is: fifty production deploys a day is 750
+                credits, and the month is gone in four days. On Cloudflare, the{" "}
+                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
+                  $5 Workers plan
+                </LandingReceiptLink>{" "}
+                includes six concurrent builds, and Cloudflare itself says to start new projects on
+                Workers.
+              </p>
+            </div>
           </LandingFootnote>
           <LandingFootnote fragment="landing-note-zero" heading="$0/month" marker="‡">
             <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
-              GitHub, Convex, and Cloudflare each hold an idle app on their free tiers. Samebase
-              adds no floor of its own.
+              As of mid-2026: GitHub Free — unlimited private repos, 2,000 Actions minutes a month.{" "}
+              <LandingReceiptLink href="https://www.convex.dev/pricing">
+                Convex Free
+              </LandingReceiptLink>{" "}
+              — 40 deployments per team, a million function calls a month.{" "}
+              <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
+                Cloudflare Workers Free
+              </LandingReceiptLink>{" "}
+              — 100,000 requests a day, 3,000 build minutes a month, static assets free and
+              unlimited. An idle app sits inside all three indefinitely. Samebase adds no floor of
+              its own.
+            </p>
+          </LandingFootnote>
+          <LandingFootnote fragment="landing-note-risk" heading="security risk" marker="§">
+            <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
+              In 2024,{" "}
+              <LandingReceiptLink href="https://env.fail/posts/firewreck-1/">
+                researchers found 916 sites
+              </LandingReceiptLink>{" "}
+              exposing about 125 million user records — roughly 20 million passwords, mostly
+              plaintext — through misconfigured Firebase. In July 2025, the Tea app{" "}
+              <LandingReceiptLink href="https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html">
+                leaked 72,000 images
+              </LandingReceiptLink>
+              , photo IDs included, from an unauthenticated Firebase storage bucket. In 2025, 170 of
+              1,645 scanned Lovable-built apps had missing or broken Supabase row-level security (
+              <LandingReceiptLink href="https://nvd.nist.gov/vuln/detail/CVE-2025-48757">
+                CVE-2025-48757
+              </LandingReceiptLink>
+              , disputed by the vendor). Convex,{" "}
+              <LandingReceiptLink href="https://stack.convex.dev/row-level-security">
+                officially
+              </LandingReceiptLink>
+              : "your Convex database is only accessible via server functions." Rules you can
+              misconfigure will be misconfigured.
             </p>
           </LandingFootnote>
         </section>
@@ -527,8 +674,8 @@ function LandingPreviewOverview() {
             <LandingCtaRow />
           </div>
           <p className="mt-4 max-w-[52ch] text-[15px] text-muted-foreground">
-            The manual-setup article walks through every step Samebase automates — proof there is no
-            magic.
+            The manual-setup article walks through every step Samebase automates, by hand. It
+            doubles as the exit door.
           </p>
         </section>
       </div>
