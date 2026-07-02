@@ -121,7 +121,8 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toBeVisible();
   await expect(article).toContainText("cheaper and more powerful");
   await expect(article).toContainText("cost follows real usage");
-  await expect(article).toContainText("samebase hides");
+  await expect(article).toContainText("dash.cloudflare.com");
+  await expect(article).not.toContainText("samebase hides");
   await expect(article).toContainText(
     "If your app builder is so good, why is it not building itself?",
   );

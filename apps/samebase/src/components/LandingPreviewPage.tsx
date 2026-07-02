@@ -315,13 +315,7 @@ function LandingTrioCell({
         </div>
         <div className="flex items-baseline justify-between gap-3">
           <dt className="text-muted-foreground">dashboard</dt>
-          <dd>
-            <LandingReceiptLink href={dashboardUrl}>{dashboardHost}</LandingReceiptLink>
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-muted-foreground">samebase hides</dt>
-          <dd>nothing</dd>
+          <dd>{dashboardHost}</dd>
         </div>
       </dl>
     </div>
