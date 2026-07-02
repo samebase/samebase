@@ -26,6 +26,7 @@ import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
+import { Route as v3RouteImport } from "./routes/v3";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as machineConnectRouteImport } from "./routes/machine-connect";
@@ -36,6 +37,7 @@ import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams"
 import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
+import { Route as v3RootRouteImport } from "./routes/v3-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
@@ -132,6 +134,11 @@ const vaultFileRoute = vaultFileRouteImport.update({
   path: "/vault/$",
   getParentRoute: () => rootRouteImport,
 } as any);
+const v3Route = v3RouteImport.update({
+  id: "/v3/$",
+  path: "/v3/$",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const codexResearchRoute = codexResearchRouteImport.update({
   id: "/research/codex-app-server",
   path: "/research/codex-app-server",
@@ -180,6 +187,11 @@ const logoIsoRoute = logoIsoRouteImport.update({
 const vaultDashboardRootRoute = vaultDashboardRootRouteImport.update({
   id: "/vault/",
   path: "/vault/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const v3RootRoute = v3RootRouteImport.update({
+  id: "/v3/",
+  path: "/v3/",
   getParentRoute: () => rootRouteImport,
 } as any);
 const vaultDashboardRoute = vaultDashboardRouteImport.update({
@@ -252,6 +264,7 @@ export interface FileRoutesByFullPath {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/v3/": typeof v3RootRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
@@ -262,6 +275,7 @@ export interface FileRoutesByFullPath {
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
+  "/v3/$": typeof v3Route;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -291,6 +305,7 @@ export interface FileRoutesByTo {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/v3": typeof v3RootRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
@@ -301,6 +316,7 @@ export interface FileRoutesByTo {
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
+  "/v3/$": typeof v3Route;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -331,6 +347,7 @@ export interface FileRoutesById {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/v3/": typeof v3RootRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
@@ -341,6 +358,7 @@ export interface FileRoutesById {
   "/machines/connect": typeof machineConnectRoute;
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
+  "/v3/$": typeof v3Route;
   "/vault/$": typeof vaultFileRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
@@ -372,6 +390,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/v3/"
     | "/vault/"
     | "/logo/iso"
     | "/logo/raster"
@@ -382,6 +401,7 @@ export interface FileRouteTypes {
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
+    | "/v3/$"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -411,6 +431,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/v3"
     | "/vault"
     | "/logo/iso"
     | "/logo/raster"
@@ -421,6 +442,7 @@ export interface FileRouteTypes {
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
+    | "/v3/$"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -450,6 +472,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/v3/"
     | "/vault/"
     | "/logo/iso"
     | "/logo/raster"
@@ -460,6 +483,7 @@ export interface FileRouteTypes {
     | "/machines/connect"
     | "/pitch/print"
     | "/research/codex-app-server"
+    | "/v3/$"
     | "/vault/$"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
@@ -490,6 +514,7 @@ export interface RootRouteChildren {
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
+  v3RootRoute: typeof v3RootRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoRasterRoute: typeof logoRasterRoute;
@@ -500,6 +525,7 @@ export interface RootRouteChildren {
   machineConnectRoute: typeof machineConnectRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
+  v3Route: typeof v3Route;
   vaultFileRoute: typeof vaultFileRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
@@ -634,6 +660,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultFileRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/v3/$": {
+      id: "/v3/$";
+      path: "/v3/$";
+      fullPath: "/v3/$";
+      preLoaderRoute: typeof v3RouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/research/codex-app-server": {
       id: "/research/codex-app-server";
       path: "/research/codex-app-server";
@@ -702,6 +735,13 @@ declare module "@tanstack/react-router" {
       path: "/vault";
       fullPath: "/vault/";
       preLoaderRoute: typeof vaultDashboardRootRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/v3/": {
+      id: "/v3/";
+      path: "/v3";
+      fullPath: "/v3/";
+      preLoaderRoute: typeof v3RootRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/$owner/$repo": {
@@ -794,6 +834,7 @@ const rootRouteChildren: RootRouteChildren = {
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
+  v3RootRoute: v3RootRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   logoIsoRoute: logoIsoRoute,
   logoRasterRoute: logoRasterRoute,
@@ -804,6 +845,7 @@ const rootRouteChildren: RootRouteChildren = {
   machineConnectRoute: machineConnectRoute,
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
+  v3Route: v3Route,
   vaultFileRoute: vaultFileRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,

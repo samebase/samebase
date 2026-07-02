@@ -48,6 +48,7 @@ export const routes = rootRoute("root.tsx", [
   route(PROVIDERS_ROUTE, "providers.tsx"),
   route(MACHINES_ROUTE, "machines.tsx"),
   route(MACHINE_CONNECT_ROUTE, "machine-connect.tsx"),
+  route("/v3", [index("v3-root.tsx"), route("$", "v3.tsx")]),
   route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),
   route(`${DASHBOARD_ROUTE}/$owner/$repo`, "vault-dashboard.tsx"),
   route(`${DASHBOARD_ROUTE}/$owner/$repo/codespace/$branch/chat`, "codespace-chat.tsx"),

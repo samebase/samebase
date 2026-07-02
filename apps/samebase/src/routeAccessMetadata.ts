@@ -41,6 +41,8 @@ const routeAccessMetadataByPath = {
   "/research/codex-app-server/browser": { access: "access_admin" },
   "/terms": { access: "access_public" },
   "/test": { availableEnvironments: ["local"], access: "access_admin" },
+  "/v3/": { availableEnvironments: ["local", "preview"], access: "access_files_read" },
+  "/v3/$": { availableEnvironments: ["local", "preview"], access: "access_files_read" },
   "/vault/": { access: "access_dashboard" },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo": { access: "access_dashboard" },
