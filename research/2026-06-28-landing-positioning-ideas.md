@@ -221,3 +221,9 @@ The footnote system is the organizing idea: `*` correct, `†` cheaper and more 
 $0/month all resolve in a book-style notes block with short receipts. Remaining open items: whether
 the hero CTA should stay "Sign in" (auth is Google + password today, so "Sign in with GitHub" would
 be dishonest), and whether the isometric trio diagram idea returns once it can be crafted well.
+
+## Interview Companion
+
+The 2026-07-02 copy interview with the operator (inversion thesis, provider war stories with
+numbers, the 3-boxes-2-connections security drawing, the leaving test) is distilled in
+`research/2026-07-02-landing-copy-interview.md`. Use it as the primary source for copy rewrites.
