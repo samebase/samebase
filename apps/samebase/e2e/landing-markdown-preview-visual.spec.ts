@@ -30,7 +30,10 @@ async function expectDesktopPaneWidths(
         const leftPane = document.querySelector('[data-testid="workspace-layout-v2-pane-left"]');
         const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
         if (!(leftPane instanceof HTMLElement) || !(rightPane instanceof HTMLElement)) {
-          throw new Error("Expected workspace side panes.");
+          // The panes can mount a beat after first paint (the landing logo
+          // scene competes for the main thread); returning null keeps the
+          // poll retrying instead of failing on the mount race.
+          return null;
         }
 
         return {
@@ -99,10 +102,10 @@ test("landing preview route renders the React overview in workspace chrome", asy
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
-  await expectDesktopPaneWidths(page, {
-    left: "0px",
-    right: "0px",
-  });
+  // The landing provides no left pane surface, so the pane element itself is
+  // omitted; only the right pane exists (closed).
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "0px");
   // The hero footnote link labels itself "footnote: correct", so the h1
   // accessible name reads "The correct footnote: correct way to build web apps".
   await expect(
