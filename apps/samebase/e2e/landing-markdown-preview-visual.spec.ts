@@ -102,10 +102,10 @@ test("landing preview route renders the React overview in workspace chrome", asy
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
-  // The landing provides no left pane surface, so the pane element itself is
-  // omitted; only the right pane exists (closed).
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
-  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCSS("width", "0px");
+  await expectDesktopPaneWidths(page, {
+    left: "0px",
+    right: "0px",
+  });
   // The hero footnote link labels itself "footnote: correct", so the h1
   // accessible name reads "The correct footnote: correct way to build web apps".
   await expect(
@@ -146,8 +146,9 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toHaveCount(0);
   await expect(article.locator("video")).toHaveCount(0);
 
-  // The landing has no left pane at all; the docs surface owns the sidebar.
-  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
+  // The landing keeps its left pane surface (closed by default) until the
+  // prehydration script supports pane-less routes.
+  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toBeVisible();
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("link", { name: "Do it yourself", exact: true })

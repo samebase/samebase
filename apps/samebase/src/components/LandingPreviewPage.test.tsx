@@ -105,13 +105,13 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("Create Github, Convex, Cloudflare");
   });
 
-  it("renders the landing without a left sidebar", () => {
+  it("keeps the landing left sidebar until prehydration supports pane-less routes", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
-    expect(sidebarMarkup).not.toContain("Overview");
-    expect(sidebarMarkup).not.toContain('href="/landing-preview"');
-    expect(sidebarMarkup).not.toContain('href="/docs/do-it-yourself"');
+    expect(sidebarMarkup).toContain("Overview");
+    expect(sidebarMarkup).toContain('href="/landing-preview"');
+    expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
   });
 
   it("keeps the docs sidebar as flat links instead of linking every heading", () => {

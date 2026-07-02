@@ -16,8 +16,14 @@ export const LANDING_PREVIEW_TEST_ID = "landing-preview";
 export const LANDING_PREVIEW_ARTICLE_TEST_ID = "landing-preview-article";
 export const DOCS_SIDEBAR_TEST_ID = "docs-sidebar";
 
-// The landing has no left pane; only the right pane state rides the URL.
+// The landing keeps its left pane surface for now: the workspace prehydration
+// script expects the pane element to exist. A later PR makes the landing
+// sidebar-less together with prehydration support for pane-less routes.
 const RouteSearchSchema_landingPreview = defineRouteSearchParams({
+  left: routeSearchPresenceParam({
+    access: "access_public",
+    suggestion: "hidden",
+  }),
   right: routeSearchPresenceParam({
     access: "access_public",
     suggestion: "hidden",

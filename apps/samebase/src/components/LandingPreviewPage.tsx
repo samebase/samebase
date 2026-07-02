@@ -51,12 +51,9 @@ const DOCS_SIDEBAR_LINKS = [
   { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
 ] as const;
 
-function getLandingPreviewUrlMobilePane(
-  search: string,
-  hasLeftPaneSurface: boolean,
-): WorkspaceMobilePane | null {
+function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
   const searchParams = parseTanStackSearch(search);
-  const hasLeftPane = hasLeftPaneSurface && "left" in searchParams;
+  const hasLeftPane = "left" in searchParams;
   const hasRightPane = "right" in searchParams;
 
   if (hasLeftPane === hasRightPane) {
@@ -70,7 +67,7 @@ function getLandingPreviewUrlMobilePane(
  * Landing preview pane query params preserve the open mobile pane across direct
  * loads and URL editor edits.
  */
-function LandingPreviewPaneUrlSync({ hasLeftPaneSurface }: { hasLeftPaneSurface: boolean }) {
+function LandingPreviewPaneUrlSync() {
   const routeSearch = useLocation({
     select: (location) => location.searchStr,
   });
@@ -78,16 +75,13 @@ function LandingPreviewPaneUrlSync({ hasLeftPaneSurface }: { hasLeftPaneSurface:
   const { mobilePane } = useWorkspacePaneState();
 
   useLayoutEffect(() => {
-    const nextMobilePane = getLandingPreviewUrlMobilePane(
-      window.location.search,
-      hasLeftPaneSurface,
-    );
+    const nextMobilePane = getLandingPreviewUrlMobilePane(window.location.search);
     if (nextMobilePane === null || mobilePane === nextMobilePane) {
       return;
     }
 
     setMobilePane(nextMobilePane);
-  }, [hasLeftPaneSurface, mobilePane, routeSearch, setMobilePane]);
+  }, [mobilePane, routeSearch, setMobilePane]);
 
   return null;
 }
@@ -827,17 +821,16 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 }
 
 function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
-  const hasLeftPaneSurface = documentKey !== "overview";
-
   return (
     <AppWorkspaceRouteChrome
-      left={hasLeftPaneSurface ? { content: <DocsSidebar /> } : null}
-      leftToggleVisibility={hasLeftPaneSurface ? "desktop" : "hidden"}
+      left={{ content: <DocsSidebar /> }}
       sidebarDefaultState={
-        hasLeftPaneSurface ? DOCS_SIDEBAR_DEFAULT_STATE : LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE
+        documentKey === "overview"
+          ? LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE
+          : DOCS_SIDEBAR_DEFAULT_STATE
       }
     >
-      <LandingPreviewPaneUrlSync hasLeftPaneSurface={hasLeftPaneSurface} />
+      <LandingPreviewPaneUrlSync />
       <div data-testid={LANDING_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingPreviewDocument documentKey={documentKey} />
       </div>
