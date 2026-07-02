@@ -444,4 +444,52 @@ describe("isRouteUrlPathReadyForNavigation", () => {
       }),
     ).toBe(true);
   });
+
+  it("accepts hidden route paths the viewer can load", () => {
+    // pathSuggestion: "hidden" keeps a route out of the dropdown, but direct
+    // URL entry loads it, so the editor must commit it too.
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/landing-preview",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: anonymousViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/landing-preview",
+        draftHref: "/landing-preview?dark",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: anonymousViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/docs/the-stack",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: anonymousViewer,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps redirect-only route paths local", () => {
+    // /landing only forwards to /; committing it while someone types toward
+    // /landing-preview would tear the editor away mid-draft.
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/landing",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: staffViewer,
+      }),
+    ).toBe(false);
+  });
 });
