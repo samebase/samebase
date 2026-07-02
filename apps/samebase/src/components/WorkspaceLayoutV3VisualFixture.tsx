@@ -1,84 +1,93 @@
+import { FileText, FolderTree, GitBranch, Home, Library } from "lucide-react";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { WorkspaceLayoutV3FullPage } from "@/components/workspace-layout-v3/WorkspaceLayoutV3FullPage";
-import { WorkspaceLayoutV3MemorySidebarProvider } from "@/components/workspace-layout-v3/WorkspaceLayoutV3MemorySidebarProvider";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import mobileSidebarSpecRaw from "../../../../specs/072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md?raw";
 export type WorkspaceLayoutV3VisualMode = "workspace-layout-v3";
 
 const FIXTURE_VAULT_KEY = "workspace-layout-v3-fixture-vault";
 
+function FixtureListPane({ label, rows }: { label: string; rows: readonly string[] }) {
+  return (
+    <div>
+      <div className="px-3 pb-1 pt-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      {rows.map((row) => (
+        <div key={row} className="border-b border-border px-3 py-1.5 text-[13px]">
+          {row}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Mounts the copied v3 layout directly, bypassing AppWorkspaceShell: the
- * production shell hard-mounts v2, and the v3 lab must stay independent of it.
- * Memory-backed sidebar state means fixture state resets on reload.
+ * Mounts the pane-trail layout with a fake five-pane drill-down so the shell
+ * can be screenshotted and driven without seeded vault data. The /v3 route is
+ * the real consumer; this fixture only exercises the layout mechanics.
  */
 export function WorkspaceLayoutV3VisualFixture() {
   return (
-    <WorkspaceLayoutV3MemorySidebarProvider
-      initialState={{
-        leftDesktopOpen: true,
-        leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-        leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-        mobilePane: "main",
-        mobileSurface: { kind: "unmerged" },
-        rightDesktopOpen: true,
-        rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-        rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-      }}
-    >
-      <WorkspaceLayoutV3FullPage
-        addressChrome={<div data-testid="workspace-layout-v3-address-chrome">/v3-lab</div>}
-        dataTestId="workspace-layout-v3-visual-fixture"
-        left={{
+    <WorkspaceLayoutV3FullPage
+      dataTestId="workspace-layout-v3-visual-fixture"
+      storageKey="workspace-layout-v3:fixture"
+      panes={[
+        {
+          id: "nav",
+          title: "Samebase",
+          icon: <Home className="h-4 w-4" />,
+          content: (
+            <FixtureListPane label="Navigation" rows={["Vaults", "Providers", "Machines"]} />
+          ),
+        },
+        {
+          id: "vaults",
+          title: "Vaults",
+          icon: <Library className="h-4 w-4" />,
+          content: (
+            <FixtureListPane
+              label="Vaults"
+              rows={["nicu/notes", "nicu/samebase", "nicu/recipes"]}
+            />
+          ),
+        },
+        {
+          id: "branches",
+          title: "nicu/notes",
+          icon: <GitBranch className="h-4 w-4" />,
+          content: <FixtureListPane label="Branches" rows={["main", "drafts"]} />,
+        },
+        {
+          id: "files",
+          title: "main",
+          icon: <FolderTree className="h-4 w-4" />,
           content: (
             <CodeMirrorFileSurface
-              dataTestId="workspace-layout-v3-prosemark-surface"
-              filePath="workspace-layout-v3-left-pane.md"
+              dataTestId="workspace-layout-v3-files-surface"
+              filePath="workspace-layout-v3-files-pane.md"
               initialValue={mobileSidebarSpecRaw}
             />
           ),
-        }}
-        leftToggleVisibility="all"
-        main={{
+        },
+        {
+          id: "editor",
+          title: "072_MOBILE_SIDEBAR_INTERACTIVE_DRAG_SPEC.md",
+          icon: <FileText className="h-4 w-4" />,
           content: (
             <MonacoEditorSurface
               branch="main"
-              dataTestId="workspace-layout-v3-main-editor-surface"
+              dataTestId="workspace-layout-v3-editor-surface"
               defaultValue={mobileSidebarSpecRaw}
-              filePath="specs/workspace-layout-v3-main-pane.md"
+              filePath="specs/workspace-layout-v3-editor-pane.md"
               onMount={() => {}}
               showMobileLineNumbers={false}
               syncError={null}
               vaultKey={FIXTURE_VAULT_KEY}
             />
           ),
-        }}
-        panel={{
-          content: (
-            <ProsemarkReadOnly
-              filePath="workspace-layout-v3-panel.md"
-              value={mobileSidebarSpecRaw}
-            />
-          ),
-        }}
-        right={{
-          content: (
-            <MonacoEditorSurface
-              branch="main"
-              dataTestId="workspace-layout-v3-right-editor-surface"
-              defaultValue={mobileSidebarSpecRaw}
-              filePath="specs/workspace-layout-v3-right-pane.md"
-              onMount={() => {}}
-              showMobileLineNumbers={false}
-              syncError={null}
-              vaultKey={FIXTURE_VAULT_KEY}
-            />
-          ),
-        }}
-        rightToggleVisibility="all"
-      />
-    </WorkspaceLayoutV3MemorySidebarProvider>
+        },
+      ]}
+    />
   );
 }

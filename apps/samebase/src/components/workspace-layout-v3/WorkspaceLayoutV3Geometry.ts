@@ -1,327 +1,150 @@
-import { clampNumber } from "@/lib/clampNumber";
-import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import type { WorkspaceMobileSurface } from "../../../convex/workspaceSidebarStateModel";
-
-export const WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
-const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
-export const WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
-export const WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
-export const WORKSPACE_LAYOUT_V3_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
-// Keep default merged fit valid at 320px: side min + main min must fit exactly.
-export const WORKSPACE_LAYOUT_V3_MOBILE_MAIN_MIN_WIDTH_PX =
-  WORKSPACE_LAYOUT_V3_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX -
-  WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX;
-export const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
-
-const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
-const MOBILE_PANE_ORDER_WITHOUT_MAIN = ["left", "right"] as const;
-const MOBILE_PANE_ORDER_WITHOUT_RIGHT = ["left", "main"] as const;
-const MOBILE_PANE_ORDER_WITHOUT_LEFT = ["main", "right"] as const;
-const MOBILE_PANE_ORDER_MAIN_ONLY = ["main"] as const;
-
-export type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
-export type WorkspaceLayoutV3MobileMinResizeBehavior =
-  | "min_resize_to_slide"
-  | "min_resize_to_merge";
-export type WorkspaceLayoutV3MobileMergedSide = "left" | "right";
-export type WorkspaceLayoutV3ActiveResizeSide = "left" | "right" | "top" | null;
-export type WorkspaceLayoutV3MobileSurface = WorkspaceMobileSurface;
-export type WorkspaceLayoutV3MobileGrip =
-  | { kind: "idle" }
-  | {
-      kind: "dragging";
-      mergeTargetSide: WorkspaceLayoutV3MobileMergedSide | null;
-      previewSurface: WorkspaceLayoutV3MobileSurface;
-      shouldSettleMergedOnEnd: boolean;
-      side: WorkspaceLayoutV3MobileMergedSide;
-      slideOffsetPx: number;
-      startMainWidthPx: number;
-      startSideWidthPx: number;
-    };
-
-export const WORKSPACE_LAYOUT_V3_UNMERGED_MOBILE_SURFACE: WorkspaceLayoutV3MobileSurface = {
-  kind: "unmerged",
-};
-export const WORKSPACE_LAYOUT_V3_IDLE_MOBILE_GRIP: WorkspaceLayoutV3MobileGrip = {
-  kind: "idle",
-};
-
-export function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
-  return Math.max(
-    WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-    Math.round(viewportWidthPx * DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
-  );
-}
-
-export function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
-  // The active sidebar cannot cover the whole viewport because the resize grip
-  // must stay visible and reachable.
-  return Math.max(1, Math.floor(viewportWidthPx - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX));
-}
-
-export function getMobileSidebarMinWidthPx(args: {
-  configuredMinWidthPx: number;
-  maxWidthPx: number;
-}) {
-  return clampNumber(Math.round(args.configuredMinWidthPx), 1, args.maxWidthPx);
-}
-
-export function getMergedMobileMainWidthPx(args: {
-  mainMaxWidthPx: number;
-  mainMinWidthPx: number;
-  sideMinWidthPx: number;
-  viewportWidthPx: number;
-}) {
-  if (args.viewportWidthPx < args.sideMinWidthPx + args.mainMinWidthPx) {
-    return null;
-  }
-
-  return clampNumber(
-    args.viewportWidthPx - args.sideMinWidthPx,
-    args.mainMinWidthPx,
-    args.mainMaxWidthPx,
-  );
-}
-
-export function getMobileMinResizeMergeWidthsPx(args: {
-  mainMaxWidthPx: number;
-  mainMinWidthPx: number;
-  rawSideWidthPx: number;
-  sideMaxWidthPx: number;
-  sideMinWidthPx: number;
-  startMainWidthPx: number;
-  startSideWidthPx: number;
-  viewportWidthPx: number;
-}) {
-  const mergedMainWidthPx = getMergedMobileMainWidthPx(args);
-  if (mergedMainWidthPx === null) {
-    return null;
-  }
-  const resizeDeltaPx = Math.round(args.rawSideWidthPx) - Math.round(args.startSideWidthPx);
-
-  return {
-    mainWidthPx: clampNumber(
-      Math.round(args.startMainWidthPx) + resizeDeltaPx,
-      mergedMainWidthPx,
-      args.mainMaxWidthPx,
-    ),
-    settledMainWidthPx: mergedMainWidthPx,
-    sideWidthPx: clampNumber(
-      Math.round(args.rawSideWidthPx),
-      args.sideMinWidthPx,
-      args.sideMaxWidthPx,
-    ),
-  };
-}
-
 /**
- * Chooses whether a released paired resize should become a merged carousel
- * surface or return to the ordinary separate-pane carousel.
+ * Pane-trail geometry: the workspace is an ordered list of panes where the
+ * last pane is the focus (flexes to fill) and every earlier pane is context.
+ * A context pane is either expanded (fixed width, resizable) or collapsed
+ * into a 32px icon rail; adjacent collapsed panes coalesce into one rail.
+ *
+ * There is no left/right/main vocabulary, no merge model, and no mobile
+ * resize: those are the v2 concepts this lab replaces.
  */
-export function shouldCommitMobileMergedSurface(args: {
-  mainDefaultWidthPx: number;
-  mainWidthPx: number;
-  settledMainWidthPx: number;
-}) {
-  return args.mainWidthPx <= (args.mainDefaultWidthPx + args.settledMainWidthPx) / 2;
-}
 
-function getOppositeMobileMergedSide(side: WorkspaceLayoutV3MobileMergedSide) {
-  return side === "left" ? "right" : "left";
-}
+export const WORKSPACE_PANE_RAIL_WIDTH_PX = 32;
+export const WORKSPACE_PANE_MIN_WIDTH_PX = 160;
+export const WORKSPACE_PANE_DEFAULT_WIDTH_PX = 240;
+export const WORKSPACE_FOCUS_PANE_MIN_WIDTH_PX = 420;
+/** Dragging a pane this far below its minimum and releasing collapses it. */
+export const WORKSPACE_PANE_COLLAPSE_SLACK_PX = 48;
+/** The mobile carousel settle check mirrors v2's scroll-quiet timing. */
+export const WORKSPACE_PANE_MOBILE_SETTLE_DELAY_MS = 80;
 
-/**
- * Keeps main owned by exactly one merged surface. If the current owner releases
- * main while the opposite sidebar is already minimum-sized, ownership transfers
- * across instead of briefly returning to the three-pane model.
- */
-export function getMobileMergeHandoffSide(args: {
-  currentMergedSide: WorkspaceLayoutV3MobileMergedSide | null;
-  hasLeftPane: boolean;
-  hasRightPane: boolean;
-  leftWidthPx: number;
-  resizeSide: WorkspaceLayoutV3MobileMergedSide;
-  rightWidthPx: number;
-  shouldKeepCurrentMerge: boolean;
-  sidebarMinWidthPx: number;
-}) {
-  if (args.shouldKeepCurrentMerge || args.currentMergedSide !== args.resizeSide) {
-    return null;
-  }
-
-  const oppositeSide = getOppositeMobileMergedSide(args.resizeSide);
-  const hasOppositePane =
-    (oppositeSide === "left" && args.hasLeftPane) ||
-    (oppositeSide === "right" && args.hasRightPane);
-  if (!hasOppositePane) {
-    return null;
-  }
-
-  const oppositeWidthPx = oppositeSide === "left" ? args.leftWidthPx : args.rightWidthPx;
-  return Math.abs(oppositeWidthPx - args.sidebarMinWidthPx) <= MOBILE_PANE_SETTLED_TOLERANCE_PX
-    ? oppositeSide
-    : null;
-}
-
-export function getMobileSidebarWidthPx(args: {
-  maxWidthPx: number;
+export type WorkspacePaneTrailPaneInput = {
+  id: string;
   minWidthPx: number;
-  storedWidthPx: number;
-}) {
-  return clampNumber(Math.round(args.storedWidthPx), args.minWidthPx, args.maxWidthPx);
+};
+
+export type WorkspacePaneTrailSolveArgs = {
+  /** Ordered trail; the last entry is the focus pane. */
+  panes: readonly WorkspacePaneTrailPaneInput[];
+  viewportWidthPx: number;
+  /** Persisted expanded widths per pane id; missing = default width. */
+  widths: Readonly<Record<string, number>>;
+  /** Pane ids the operator collapsed by dragging past minimum. */
+  userCollapsed: ReadonlySet<string>;
+  /**
+   * The pane most recently expanded from a rail. Auto-collapse skips it so
+   * expanding a rail icon can never be undone by the solver in the same
+   * breath; some other pane gives way instead.
+   */
+  lastExpandedId: string | null;
+};
+
+export type WorkspacePaneTrailEntry =
+  | { kind: "rail"; paneIds: readonly string[] }
+  | { kind: "pane"; id: string; widthPx: number }
+  | { kind: "focus"; id: string };
+
+export type WorkspacePaneTrailSolution = {
+  entries: readonly WorkspacePaneTrailEntry[];
+  /** Context panes collapsed by the solver for space, not by the operator. */
+  autoCollapsed: ReadonlySet<string>;
+};
+
+export function getWorkspacePaneWidthPx(
+  widths: Readonly<Record<string, number>>,
+  pane: WorkspacePaneTrailPaneInput,
+): number {
+  if (!(pane.id in widths)) {
+    return Math.max(pane.minWidthPx, WORKSPACE_PANE_DEFAULT_WIDTH_PX);
+  }
+  return Math.max(pane.minWidthPx, widths[pane.id]);
 }
 
-export function getDesktopSidebarWidthPx(args: {
-  isOpen: boolean;
-  storedWidthPx: number;
-  viewportWidthPx: number;
-}) {
-  if (!args.isOpen) {
+function getTrailCostPx(args: {
+  context: readonly WorkspacePaneTrailPaneInput[];
+  closed: ReadonlySet<string>;
+  widths: Readonly<Record<string, number>>;
+}): number {
+  let costPx = WORKSPACE_FOCUS_PANE_MIN_WIDTH_PX;
+  let previousWasCollapsed = false;
+  for (const pane of args.context) {
+    if (args.closed.has(pane.id)) {
+      if (!previousWasCollapsed) {
+        costPx += WORKSPACE_PANE_RAIL_WIDTH_PX;
+        previousWasCollapsed = true;
+      }
+      continue;
+    }
+    costPx += getWorkspacePaneWidthPx(args.widths, pane);
+    previousWasCollapsed = false;
+  }
+  return costPx;
+}
+
+/**
+ * Deterministic desktop layout: start from the operator's collapsed set, then
+ * collapse leftmost expanded context panes (oldest context first) until the
+ * trail fits the viewport. Auto-collapse is derived on every solve and never
+ * persisted, so growing the window back re-expands panes on its own.
+ */
+export function solveWorkspacePaneTrail(
+  args: WorkspacePaneTrailSolveArgs,
+): WorkspacePaneTrailSolution {
+  if (args.panes.length === 0) {
+    return { entries: [], autoCollapsed: new Set() };
+  }
+  const focusPane = args.panes[args.panes.length - 1];
+  const context = args.panes.slice(0, -1);
+
+  const closed = new Set(args.userCollapsed);
+  const autoCollapsed = new Set<string>();
+  while (getTrailCostPx({ context, closed, widths: args.widths }) > args.viewportWidthPx) {
+    const victim =
+      context.find((pane) => !closed.has(pane.id) && pane.id !== args.lastExpandedId) ??
+      context.find((pane) => !closed.has(pane.id));
+    if (victim === undefined) {
+      break;
+    }
+    closed.add(victim.id);
+    autoCollapsed.add(victim.id);
+  }
+
+  const entries: WorkspacePaneTrailEntry[] = [];
+  for (const pane of context) {
+    if (!closed.has(pane.id)) {
+      entries.push({
+        kind: "pane",
+        id: pane.id,
+        widthPx: getWorkspacePaneWidthPx(args.widths, pane),
+      });
+      continue;
+    }
+    const previousEntry = entries.length > 0 ? entries[entries.length - 1] : null;
+    if (previousEntry !== null && previousEntry.kind === "rail") {
+      entries[entries.length - 1] = {
+        kind: "rail",
+        paneIds: [...previousEntry.paneIds, pane.id],
+      };
+    } else {
+      entries.push({ kind: "rail", paneIds: [pane.id] });
+    }
+  }
+  entries.push({ kind: "focus", id: focusPane.id });
+
+  return { entries, autoCollapsed };
+}
+
+/**
+ * Mobile carousel: every pane is one full-viewport screen and the active
+ * index is derived from scroll position. There is no resize and no merge.
+ */
+export function getWorkspacePaneTrailNearestIndex(args: {
+  scrollLeftPx: number;
+  paneWidthPx: number;
+  paneCount: number;
+}): number {
+  if (args.paneWidthPx <= 0 || args.paneCount === 0) {
     return 0;
   }
-
-  if (args.viewportWidthPx <= 0) {
-    return Math.max(
-      WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-      Math.round(args.storedWidthPx),
-    );
-  }
-
-  return clampNumber(
-    Math.round(args.storedWidthPx),
-    WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-    getDesktopSidebarMaxWidthPx(args.viewportWidthPx),
-  );
-}
-
-function getMobilePaneOrder({
-  hasLeftPane,
-  hasRightPane,
-  mergedSurfaceSide,
-}: {
-  hasLeftPane: boolean;
-  hasRightPane: boolean;
-  mergedSurfaceSide: WorkspaceLayoutV3MobileMergedSide | null;
-}): readonly MobilePane[] {
-  if (mergedSurfaceSide === "left" && hasLeftPane) {
-    return hasRightPane ? MOBILE_PANE_ORDER_WITHOUT_MAIN : ["left"];
-  }
-
-  if (mergedSurfaceSide === "right" && hasRightPane) {
-    return hasLeftPane ? MOBILE_PANE_ORDER_WITHOUT_MAIN : ["right"];
-  }
-
-  if (hasLeftPane && hasRightPane) {
-    return MOBILE_PANE_ORDER;
-  }
-
-  if (hasLeftPane) {
-    return MOBILE_PANE_ORDER_WITHOUT_RIGHT;
-  }
-
-  if (hasRightPane) {
-    return MOBILE_PANE_ORDER_WITHOUT_LEFT;
-  }
-
-  return MOBILE_PANE_ORDER_MAIN_ONLY;
-}
-
-function getMobilePaneScrollOffsets(args: {
-  hasLeftPane: boolean;
-  hasRightPane: boolean;
-  leftWidthPx: number;
-  mainWidthPx: number;
-  mergedSurfaceSide: WorkspaceLayoutV3MobileMergedSide | null;
-  rightWidthPx: number;
-  viewportWidthPx: number;
-}) {
-  const paneOrder = getMobilePaneOrder({
-    hasLeftPane: args.hasLeftPane,
-    hasRightPane: args.hasRightPane,
-    mergedSurfaceSide: args.mergedSurfaceSide,
-  });
-
-  return paneOrder.map((pane) => {
-    if (pane === "left") {
-      return {
-        pane,
-        scrollLeftPx: 0,
-      };
-    }
-
-    if (pane === "main") {
-      return {
-        pane,
-        scrollLeftPx: args.hasLeftPane ? args.leftWidthPx : 0,
-      };
-    }
-
-    return {
-      pane,
-      // The right sidebar is end-anchored so narrowing it exposes more of the
-      // main pane instead of leaving blank track after the sidebar.
-      scrollLeftPx: Math.max(
-        0,
-        (args.hasLeftPane ? args.leftWidthPx : 0) +
-          args.mainWidthPx +
-          args.rightWidthPx -
-          args.viewportWidthPx,
-      ),
-    };
-  });
-}
-
-export function getMobilePaneScrollLeftPx(
-  pane: MobilePane,
-  args: Parameters<typeof getMobilePaneScrollOffsets>[0],
-) {
-  return (
-    getMobilePaneScrollOffsets(args).find((paneOffset) => paneOffset.pane === pane)?.scrollLeftPx ??
-    0
-  );
-}
-
-export function getMobilePaneFromScrollLeft(args: {
-  hasLeftPane: boolean;
-  hasRightPane: boolean;
-  leftWidthPx: number;
-  mainWidthPx: number;
-  mergedSurfaceSide: WorkspaceLayoutV3MobileMergedSide | null;
-  rightWidthPx: number;
-  scrollLeftPx: number;
-  viewportWidthPx: number;
-}) {
-  const paneOffsets = getMobilePaneScrollOffsets(args);
-  if (paneOffsets.length === 0) {
-    return "main" as const;
-  }
-
-  return paneOffsets.reduce((closestPane, candidatePane) =>
-    Math.abs(candidatePane.scrollLeftPx - args.scrollLeftPx) <
-    Math.abs(closestPane.scrollLeftPx - args.scrollLeftPx)
-      ? candidatePane
-      : closestPane,
-  ).pane;
-}
-
-export function isMobilePaneScrollSettled(
-  args: Parameters<typeof getMobilePaneScrollOffsets>[0] & {
-    pane: MobilePane;
-    scrollLeftPx: number;
-  },
-) {
-  return (
-    Math.abs(
-      args.scrollLeftPx -
-        getMobilePaneScrollLeftPx(args.pane, {
-          hasRightPane: args.hasRightPane,
-          hasLeftPane: args.hasLeftPane,
-          leftWidthPx: args.leftWidthPx,
-          mainWidthPx: args.mainWidthPx,
-          mergedSurfaceSide: args.mergedSurfaceSide,
-          rightWidthPx: args.rightWidthPx,
-          viewportWidthPx: args.viewportWidthPx,
-        }),
-    ) <= MOBILE_PANE_SETTLED_TOLERANCE_PX
-  );
+  const rawIndex = Math.round(args.scrollLeftPx / args.paneWidthPx);
+  return Math.min(Math.max(rawIndex, 0), args.paneCount - 1);
 }

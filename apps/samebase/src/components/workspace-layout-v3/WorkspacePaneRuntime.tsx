@@ -1,481 +1,225 @@
+import { guard, isRecord } from "@samebase/dependent";
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
-  type Dispatch,
+  useRef,
+  useState,
   type ReactNode,
-  type SetStateAction,
 } from "react";
-import { useCreateStore, useSelector } from "@tanstack/react-store";
-import { useIsMobile } from "@/hooks/use-mobile";
-import type { ElementSize } from "@/hooks/useElementSize";
-import type {
-  WorkspaceSidebarStateController,
-  WorkspaceSidebarStatePersistenceMode,
-} from "@/lib/workspaceSidebarStateController";
-import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
-import {
-  WORKSPACE_LAYOUT_V3_IDLE_MOBILE_GRIP,
-  WORKSPACE_LAYOUT_V3_UNMERGED_MOBILE_SURFACE,
-  type WorkspaceLayoutV3ActiveResizeSide,
-  type WorkspaceLayoutV3MobileGrip,
-} from "./WorkspaceLayoutV3Geometry";
-
-const WORKSPACE_PANE_KEYBOARD_SHORTCUT = "b";
-
-export type WorkspaceMobilePane = WorkspaceSidebarState["mobilePane"];
-export type WorkspacePaneSide = Exclude<WorkspaceMobilePane, "main">;
-
-export type WorkspacePaneState = WorkspaceSidebarState & {
-  isMobile: boolean;
-};
-
-export type WorkspacePaneActions = {
-  setLeftDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
-  setMobilePane: Dispatch<SetStateAction<WorkspaceMobilePane>>;
-  setMobileSurface: Dispatch<SetStateAction<WorkspaceSidebarState["mobileSurface"]>>;
-  setRightDesktopOpen: Dispatch<SetStateAction<boolean>>;
-  setRightDesktopWidthPx: Dispatch<SetStateAction<number>>;
-  setRightMobileWidthPx: Dispatch<SetStateAction<number>>;
-  settleMobileMergedSurface: (args: {
-    mainWidthPx: number;
-    side: WorkspacePaneSide;
-    sideWidthPx: number;
-  }) => void;
-  toggleLeftPane: () => void;
-  toggleRightPane: () => void;
-};
-
-export type WorkspaceLayoutV3LocalStoreState = {
-  activeResizeSide: WorkspaceLayoutV3ActiveResizeSide;
-  mobile: {
-    grip: WorkspaceLayoutV3MobileGrip;
-    isPaneSettled: boolean;
-  };
-  viewportSize: ElementSize;
-};
-
-const WORKSPACE_LAYOUT_V3_EMPTY_ELEMENT_SIZE: ElementSize = {
-  heightPx: 0,
-  widthPx: 0,
-};
-
-const WORKSPACE_LAYOUT_V3_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV3LocalStoreState = {
-  activeResizeSide: null,
-  mobile: {
-    grip: WORKSPACE_LAYOUT_V3_IDLE_MOBILE_GRIP,
-    isPaneSettled: true,
-  },
-  viewportSize: WORKSPACE_LAYOUT_V3_EMPTY_ELEMENT_SIZE,
-};
 
 /**
- * Owns transient layout interaction state for one mounted workspace runtime.
- * The store is carried by WorkspacePaneRuntimeContext so the folder has one
- * provider and one React context.
+ * Durable pane-trail state. Widths and collapses are keyed by pane id so the
+ * same store serves any trail the route derives; panes that are not in the
+ * current trail simply keep their entries until they reappear.
  */
-function useCreateWorkspaceLayoutV3Store() {
-  return useCreateStore(WORKSPACE_LAYOUT_V3_LOCAL_STORE_INITIAL_STATE, ({ setState }) => ({
-    setActiveResizeSide: (activeResizeSide: WorkspaceLayoutV3ActiveResizeSide) => {
-      setState((state) =>
-        state.activeResizeSide === activeResizeSide ? state : { ...state, activeResizeSide },
-      );
-    },
-    setIsMobilePaneSettled: (isPaneSettled: boolean) => {
-      setState((state) =>
-        state.mobile.isPaneSettled === isPaneSettled
-          ? state
-          : {
-              ...state,
-              mobile: { ...state.mobile, isPaneSettled },
-            },
-      );
-    },
-    setMobileGrip: (grip: WorkspaceLayoutV3MobileGrip) => {
-      setState((state) =>
-        state.mobile.grip === grip
-          ? state
-          : {
-              ...state,
-              mobile: { ...state.mobile, grip },
-            },
-      );
-    },
-    setViewportSize: (viewportSize: ElementSize) => {
-      setState((state) =>
-        state.viewportSize.heightPx === viewportSize.heightPx &&
-        state.viewportSize.widthPx === viewportSize.widthPx
-          ? state
-          : { ...state, viewportSize },
-      );
-    },
-  }));
-}
-
-type WorkspaceLayoutV3Store = ReturnType<typeof useCreateWorkspaceLayoutV3Store>;
-
-type WorkspacePaneRuntimeContextValue = {
-  actions: WorkspacePaneActions;
-  layoutStore: WorkspaceLayoutV3Store;
-  state: WorkspacePaneState;
+export type WorkspacePaneTrailState = {
+  widths: Record<string, number>;
+  collapsedPaneIds: readonly string[];
 };
 
-type WorkspacePaneRuntimeProviderProps = {
-  children: ReactNode;
-  controller: WorkspaceSidebarStateController;
-  shortcutPaneSide?: WorkspacePaneSide;
+export type WorkspacePaneTrailActions = {
+  setPaneWidthPx: (paneId: string, widthPx: number) => void;
+  collapsePane: (paneId: string) => void;
+  expandPane: (paneId: string) => void;
+  setAllContextCollapsed: (paneIds: readonly string[], collapsed: boolean) => void;
 };
 
-const WorkspacePaneRuntimeContext = createContext<WorkspacePaneRuntimeContextValue | null>(null);
+const WORKSPACE_PANE_TRAIL_STORAGE_VERSION = 1;
+const WIDTH_PERSIST_DELAY_MS = 160;
 
-/** Returns durable workspace pane actions from the runtime boundary. */
-export function useWorkspacePaneActions() {
-  return useWorkspacePaneRuntime().actions;
-}
+const EMPTY_TRAIL_STATE: WorkspacePaneTrailState = {
+  widths: {},
+  collapsedPaneIds: [],
+};
 
-/**
- * Returns durable workspace pane state. The persisted fields remain
- * sidebar-shaped for now, but app code should read them through this pane hook.
- */
-export function useWorkspacePaneState() {
-  return useWorkspacePaneRuntime().state;
-}
+const isFiniteNumber = guard<unknown, number>((value) =>
+  typeof value === "number" && Number.isFinite(value) ? value : null,
+);
 
-/**
- * Returns actions from the transient layout store inside the workspace runtime.
- * This must run under WorkspacePaneRuntimeProvider so each shell owns its own
- * resize, viewport, and mobile interaction state.
- */
-export function useWorkspaceLayoutV3Actions() {
-  return useWorkspacePaneRuntime().layoutStore.actions;
-}
-
-/**
- * Reads a selected slice from the transient layout store carried by the single
- * workspace runtime context.
- */
-export function useWorkspaceLayoutV3Selector<T>(
-  selector: (state: WorkspaceLayoutV3LocalStoreState) => T,
-) {
-  const { layoutStore } = useWorkspacePaneRuntime();
-
-  return useSelector(layoutStore, selector);
-}
-
-/**
- * Pane actions expose React dispatch setters so callers can update from the
- * current persisted value without learning the controller persistence contract.
- */
-function resolveNextPaneValue<T>(currentValue: T, nextValue: SetStateAction<T>) {
-  return nextValue instanceof Function ? nextValue(currentValue) : nextValue;
-}
-
-function areMobileSurfacesEqual(
-  left: WorkspaceSidebarState["mobileSurface"],
-  right: WorkspaceSidebarState["mobileSurface"],
-) {
-  if (left.kind !== right.kind) {
-    return false;
+function parseWorkspacePaneTrailState(value: unknown): WorkspacePaneTrailState | null {
+  if (!isRecord(value)) {
+    return null;
   }
-
-  if (left.kind === "unmerged") {
-    return true;
+  if (value.version !== WORKSPACE_PANE_TRAIL_STORAGE_VERSION) {
+    return null;
   }
-
-  return (
-    right.kind === "merged" && left.side === right.side && left.mainWidthPx === right.mainWidthPx
-  );
-}
-
-/**
- * Owns the single workspace pane runtime boundary. Storage adapters choose
- * persistence before this point; workspace layout internals read pane state,
- * pane actions, and transient layout interaction state from this provider.
- */
-export function WorkspacePaneRuntimeProvider({
-  children,
-  controller,
-  shortcutPaneSide = "left",
-}: WorkspacePaneRuntimeProviderProps) {
-  const isMobile = useIsMobile();
-
-  const workspaceLayoutStore = useCreateWorkspaceLayoutV3Store();
-
-  const updatePaneState = useCallback(
-    <Key extends keyof WorkspaceSidebarState>(
-      key: Key,
-      nextValue: SetStateAction<WorkspaceSidebarState[Key]>,
-      persistenceMode: WorkspaceSidebarStatePersistenceMode,
-    ) => {
-      controller.setState((state) => {
-        const nextFieldValue = resolveNextPaneValue(state[key], nextValue);
-        if (state[key] === nextFieldValue) {
-          return state;
-        }
-
-        const nextState = { ...state };
-        nextState[key] = nextFieldValue;
-        return nextState;
-      }, persistenceMode);
-    },
-    [controller],
-  );
-
-  const setLeftDesktopOpen = useCallback(
-    (nextOpen: SetStateAction<boolean>) => {
-      updatePaneState("leftDesktopOpen", nextOpen, "immediate");
-    },
-    [updatePaneState],
-  );
-
-  const setRightDesktopOpen = useCallback(
-    (nextOpen: SetStateAction<boolean>) => {
-      updatePaneState("rightDesktopOpen", nextOpen, "immediate");
-    },
-    [updatePaneState],
-  );
-
-  const setLeftDesktopWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
-      updatePaneState("leftDesktopWidthPx", nextWidthPx, "width_deferred");
-    },
-    [updatePaneState],
-  );
-
-  const setRightDesktopWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
-      updatePaneState("rightDesktopWidthPx", nextWidthPx, "width_deferred");
-    },
-    [updatePaneState],
-  );
-
-  const setLeftMobileWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
-      updatePaneState("leftMobileWidthPx", nextWidthPx, "width_deferred");
-    },
-    [updatePaneState],
-  );
-
-  const setRightMobileWidthPx = useCallback(
-    (nextWidthPx: SetStateAction<number>) => {
-      updatePaneState("rightMobileWidthPx", nextWidthPx, "width_deferred");
-    },
-    [updatePaneState],
-  );
-
-  const setMobilePane = useCallback(
-    (nextPane: SetStateAction<WorkspaceMobilePane>) => {
-      controller.setState((state) => {
-        const nextMobilePane = resolveNextPaneValue(state.mobilePane, nextPane);
-        if (
-          state.mobilePane === nextMobilePane &&
-          (nextMobilePane !== "main" || state.mobileSurface.kind === "unmerged")
-        ) {
-          return state;
-        }
-
-        return {
-          ...state,
-          mobilePane: nextMobilePane,
-          mobileSurface:
-            nextMobilePane === "main"
-              ? WORKSPACE_LAYOUT_V3_UNMERGED_MOBILE_SURFACE
-              : state.mobileSurface,
-        };
-      }, "immediate");
-    },
-    [controller],
-  );
-
-  const setMobileSurface = useCallback(
-    (nextSurface: SetStateAction<WorkspaceSidebarState["mobileSurface"]>) => {
-      controller.setState((state) => {
-        const nextMobileSurface = resolveNextPaneValue(state.mobileSurface, nextSurface);
-        if (areMobileSurfacesEqual(state.mobileSurface, nextMobileSurface)) {
-          return state;
-        }
-
-        return { ...state, mobileSurface: nextMobileSurface };
-      }, "immediate");
-    },
-    [controller],
-  );
-
-  const settleMobileMergedSurface = useCallback(
-    ({
-      mainWidthPx,
-      side,
-      sideWidthPx,
-    }: {
-      mainWidthPx: number;
-      side: WorkspacePaneSide;
-      sideWidthPx: number;
-    }) => {
-      controller.setState((state) => {
-        const nextMobileSurface = {
-          kind: "merged",
-          mainWidthPx,
-          side,
-        } satisfies WorkspaceSidebarState["mobileSurface"];
-        const nextState = {
-          ...state,
-          leftMobileWidthPx: side === "left" ? sideWidthPx : state.leftMobileWidthPx,
-          mobilePane: side,
-          mobileSurface: nextMobileSurface,
-          rightMobileWidthPx: side === "right" ? sideWidthPx : state.rightMobileWidthPx,
-        };
-
-        if (
-          state.mobilePane === nextState.mobilePane &&
-          state.leftMobileWidthPx === nextState.leftMobileWidthPx &&
-          state.rightMobileWidthPx === nextState.rightMobileWidthPx &&
-          areMobileSurfacesEqual(state.mobileSurface, nextMobileSurface)
-        ) {
-          return state;
-        }
-
-        return nextState;
-      }, "immediate");
-    },
-    [controller],
-  );
-
-  const {
-    leftDesktopOpen,
-    leftDesktopWidthPx,
-    leftMobileWidthPx,
-    mobilePane,
-    mobileSurface,
-    rightDesktopOpen,
-    rightDesktopWidthPx,
-    rightMobileWidthPx,
-  } = controller.state;
-
-  const toggleLeftPane = useCallback(() => {
-    if (isMobile) {
-      setMobilePane((currentPane) => (currentPane === "left" ? "main" : "left"));
-      return;
-    }
-
-    setLeftDesktopOpen((currentOpen) => !currentOpen);
-  }, [isMobile, setLeftDesktopOpen, setMobilePane]);
-
-  const toggleRightPane = useCallback(() => {
-    if (isMobile) {
-      setMobilePane((currentPane) => (currentPane === "right" ? "main" : "right"));
-      return;
-    }
-
-    setRightDesktopOpen((currentOpen) => !currentOpen);
-  }, [isMobile, setMobilePane, setRightDesktopOpen]);
-
-  const workspacePaneState = useMemo<WorkspacePaneState>(
-    () => ({
-      isMobile,
-      leftDesktopOpen,
-      leftDesktopWidthPx,
-      leftMobileWidthPx,
-      mobilePane,
-      mobileSurface,
-      rightDesktopOpen,
-      rightDesktopWidthPx,
-      rightMobileWidthPx,
-    }),
-    [
-      isMobile,
-      leftDesktopOpen,
-      leftDesktopWidthPx,
-      leftMobileWidthPx,
-      mobilePane,
-      mobileSurface,
-      rightDesktopOpen,
-      rightDesktopWidthPx,
-      rightMobileWidthPx,
-    ],
-  );
-
-  const workspacePaneActions = useMemo<WorkspacePaneActions>(
-    () => ({
-      setLeftDesktopOpen,
-      setLeftDesktopWidthPx,
-      setLeftMobileWidthPx,
-      setMobilePane,
-      setMobileSurface,
-      setRightDesktopOpen,
-      setRightDesktopWidthPx,
-      setRightMobileWidthPx,
-      settleMobileMergedSurface,
-      toggleLeftPane,
-      toggleRightPane,
-    }),
-    [
-      setLeftDesktopOpen,
-      setLeftDesktopWidthPx,
-      setLeftMobileWidthPx,
-      setMobilePane,
-      setMobileSurface,
-      setRightDesktopOpen,
-      setRightDesktopWidthPx,
-      setRightMobileWidthPx,
-      settleMobileMergedSurface,
-      toggleLeftPane,
-      toggleRightPane,
-    ],
-  );
-
-  const runtime = useMemo<WorkspacePaneRuntimeContextValue>(
-    () => ({
-      actions: workspacePaneActions,
-      layoutStore: workspaceLayoutStore,
-      state: workspacePaneState,
-    }),
-    [workspaceLayoutStore, workspacePaneActions, workspacePaneState],
-  );
-
-  /**
-   * Registers the global pane shortcut at the workspace runtime boundary so
-   * route content does not need to own pane keyboard listeners.
-   */
-  useEffect(() => {
-    if (!controller.isHydrated) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === WORKSPACE_PANE_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        if (shortcutPaneSide === "right") {
-          workspacePaneActions.toggleRightPane();
-          return;
-        }
-        workspacePaneActions.toggleLeftPane();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [controller.isHydrated, shortcutPaneSide, workspacePaneActions]);
-
-  if (!controller.isHydrated) {
+  if (!isRecord(value.widths) || !Array.isArray(value.collapsedPaneIds)) {
     return null;
   }
 
+  const widths: Record<string, number> = {};
+  for (const [paneId, widthPx] of Object.entries(value.widths)) {
+    if (!isFiniteNumber(widthPx)) {
+      return null;
+    }
+    widths[paneId] = widthPx;
+  }
+
+  const collapsedPaneIds: string[] = [];
+  for (const paneId of value.collapsedPaneIds) {
+    if (typeof paneId !== "string") {
+      return null;
+    }
+    collapsedPaneIds.push(paneId);
+  }
+
+  return { widths, collapsedPaneIds };
+}
+
+function readStoredTrailState(storageKey: string): WorkspacePaneTrailState | null {
+  try {
+    const storedValue = window.localStorage.getItem(storageKey);
+    if (storedValue === null) {
+      return null;
+    }
+    return parseWorkspacePaneTrailState(JSON.parse(storedValue));
+  } catch (error: unknown) {
+    console.warn("Failed to read workspace pane trail state:", error);
+    return null;
+  }
+}
+
+function writeStoredTrailState(storageKey: string, state: WorkspacePaneTrailState) {
+  try {
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({ ...state, version: WORKSPACE_PANE_TRAIL_STORAGE_VERSION }),
+    );
+  } catch (error: unknown) {
+    console.warn("Failed to write workspace pane trail state:", error);
+  }
+}
+
+type WorkspacePaneTrailRuntime = {
+  state: WorkspacePaneTrailState;
+  /** Set by expandPane; the solver never auto-collapses this pane. */
+  lastExpandedId: string | null;
+  actions: WorkspacePaneTrailActions;
+};
+
+const WorkspacePaneTrailContext = createContext<WorkspacePaneTrailRuntime | null>(null);
+
+/**
+ * Lab persistence is localStorage-only for now; the storage key scopes one
+ * durable trail per route family. Convex-backed persistence can replace this
+ * behind the same actions once the layout survives its trial.
+ */
+export function WorkspacePaneTrailProvider({
+  children,
+  storageKey,
+}: {
+  children: ReactNode;
+  storageKey: string;
+}) {
+  const [state, setState] = useState<WorkspacePaneTrailState>(EMPTY_TRAIL_STATE);
+  const [lastExpandedId, setLastExpandedId] = useState<string | null>(null);
+  const latestStateRef = useRef(state);
+  const widthPersistTimeoutRef = useRef<number | null>(null);
+
+  // Routes render on the server where localStorage does not exist; the first
+  // client paint uses defaults and this layout effect swaps in the stored
+  // trail before the browser paints.
+  useLayoutEffect(() => {
+    const storedState = readStoredTrailState(storageKey);
+    if (storedState !== null) {
+      latestStateRef.current = storedState;
+      setState(storedState);
+    }
+  }, [storageKey]);
+
+  const applyState = useCallback(
+    (
+      updateState: (currentState: WorkspacePaneTrailState) => WorkspacePaneTrailState,
+      persistence: "immediate" | "width_deferred",
+    ) => {
+      const nextState = updateState(latestStateRef.current);
+      latestStateRef.current = nextState;
+      setState(nextState);
+
+      if (widthPersistTimeoutRef.current !== null) {
+        window.clearTimeout(widthPersistTimeoutRef.current);
+        widthPersistTimeoutRef.current = null;
+      }
+      if (persistence === "immediate") {
+        writeStoredTrailState(storageKey, nextState);
+        return;
+      }
+      widthPersistTimeoutRef.current = window.setTimeout(() => {
+        widthPersistTimeoutRef.current = null;
+        writeStoredTrailState(storageKey, nextState);
+      }, WIDTH_PERSIST_DELAY_MS);
+    },
+    [storageKey],
+  );
+
+  const actions = useMemo<WorkspacePaneTrailActions>(
+    () => ({
+      setPaneWidthPx: (paneId, widthPx) => {
+        applyState(
+          (currentState) => ({
+            ...currentState,
+            widths: { ...currentState.widths, [paneId]: Math.round(widthPx) },
+          }),
+          "width_deferred",
+        );
+      },
+      collapsePane: (paneId) => {
+        setLastExpandedId((current) => (current === paneId ? null : current));
+        applyState(
+          (currentState) => ({
+            ...currentState,
+            collapsedPaneIds: currentState.collapsedPaneIds.includes(paneId)
+              ? currentState.collapsedPaneIds
+              : [...currentState.collapsedPaneIds, paneId],
+          }),
+          "immediate",
+        );
+      },
+      expandPane: (paneId) => {
+        setLastExpandedId(paneId);
+        applyState(
+          (currentState) => ({
+            ...currentState,
+            collapsedPaneIds: currentState.collapsedPaneIds.filter((id) => id !== paneId),
+          }),
+          "immediate",
+        );
+      },
+      setAllContextCollapsed: (paneIds, collapsed) => {
+        setLastExpandedId(null);
+        applyState(
+          (currentState) => ({
+            ...currentState,
+            collapsedPaneIds: collapsed
+              ? [...new Set([...currentState.collapsedPaneIds, ...paneIds])]
+              : currentState.collapsedPaneIds.filter((id) => !paneIds.includes(id)),
+          }),
+          "immediate",
+        );
+      },
+    }),
+    [applyState],
+  );
+
+  const runtime = useMemo<WorkspacePaneTrailRuntime>(
+    () => ({ state, lastExpandedId, actions }),
+    [state, lastExpandedId, actions],
+  );
+
   return (
-    <WorkspacePaneRuntimeContext.Provider value={runtime}>
+    <WorkspacePaneTrailContext.Provider value={runtime}>
       {children}
-    </WorkspacePaneRuntimeContext.Provider>
+    </WorkspacePaneTrailContext.Provider>
   );
 }
 
-function useWorkspacePaneRuntime() {
-  const runtime = useContext(WorkspacePaneRuntimeContext);
+export function useWorkspacePaneTrail(): WorkspacePaneTrailRuntime {
+  const runtime = useContext(WorkspacePaneTrailContext);
   if (runtime === null) {
-    throw new Error("Workspace pane runtime context is missing.");
+    throw new Error("useWorkspacePaneTrail requires a WorkspacePaneTrailProvider ancestor.");
   }
-
   return runtime;
 }
