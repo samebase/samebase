@@ -6,7 +6,11 @@ import {
   serializeVoxelState,
   type VoxelCoordinate,
 } from "@/components/logo/logoVoxelState";
-import { LANDING_ZONE_MARK_VIEW_STATE_KEYS } from "@/lib/rotatedLogoViewState";
+import {
+  LANDING_CLOSING_BAND_VIEW_STATE_KEY,
+  LANDING_ZONE_MARK_VIEW_STATE_KEYS,
+  type RotatedLogoViewStateKey,
+} from "@/lib/rotatedLogoViewState";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { Button } from "@/components/ui/button";
@@ -40,16 +44,6 @@ const LANDING_CORRECT_DEFINITION = [
   "is your current app builder giving you the same stack they use?",
   "personal and idle ideas should cost $0/month.",
 ] as const;
-
-const LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: false,
-  rightDesktopOpen: false,
-} as const;
-
-const DOCS_SIDEBAR_DEFAULT_STATE = {
-  leftDesktopOpen: true,
-  rightDesktopOpen: false,
-} as const;
 
 const DOCS_SIDEBAR_LINKS = [
   { label: "Overview", to: LANDING_PREVIEW_ROUTE },
@@ -97,7 +91,13 @@ Interactive showcase logo: reads the shared logo params from the URL (the root
 route retains them on every navigation) and writes drag results back, so a mark
 shaped here or in /logo follows the visitor into the app.
 */
-function LandingInteractiveLogo({ autoRotate = false }: { autoRotate?: boolean }) {
+function LandingInteractiveLogo({
+  autoRotate = false,
+  viewStateKey,
+}: {
+  autoRotate?: boolean;
+  viewStateKey?: RotatedLogoViewStateKey;
+}) {
   const navigate = useNavigate();
   const rootRouteSearch = useRootRouteSearch();
 
@@ -116,6 +116,7 @@ function LandingInteractiveLogo({ autoRotate = false }: { autoRotate?: boolean }
       }}
       routeSearch={rootRouteSearch}
       stage="wide"
+      viewStateKey={viewStateKey}
     />
   );
 }
@@ -213,6 +214,7 @@ function LandingZoneMark({ index }: { index: 0 | 1 | 2 | 3 }) {
           top,
           ...mark.routeSearch,
         }}
+        routeSearchSource="static"
         stage="rail"
         viewStateKey={mark.viewStateKey}
       />
@@ -771,9 +773,12 @@ function LandingPreviewOverview() {
               <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
                 Cloudflare Workers Free
               </LandingReceiptLink>
-              , 100,000 requests a day, 3,000 build minutes a month, static assets free and
-              unlimited. An idle app sits inside all three indefinitely. Samebase adds no floor of
-              its own.
+              , 100,000 requests a day,{" "}
+              <LandingReceiptLink href="https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/">
+                3,000 build minutes a month
+              </LandingReceiptLink>
+              , static assets free and unlimited. An idle app sits inside all three indefinitely.
+              Samebase adds no floor of its own.
             </p>
           </LandingFootnote>
           <LandingFootnote fragment="landing-note-risk" heading="security risk" marker="§">
@@ -792,7 +797,7 @@ function LandingPreviewOverview() {
                 leaked 72,000 images
               </LandingReceiptLink>
               , photo IDs included, from an unauthenticated Firebase storage bucket. In 2025,{" "}
-              <LandingReceiptLink href="https://mattpalmer.io/posts/CVE-2025-48757/">
+              <LandingReceiptLink href="https://www.superblocks.com/blog/lovable-vulnerabilities">
                 170 of 1,645 scanned Lovable-built apps
               </LandingReceiptLink>{" "}
               had missing or broken Supabase row-level security (
@@ -835,8 +840,11 @@ function LandingPreviewOverview() {
                 <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
                   $5 Workers plan
                 </LandingReceiptLink>{" "}
-                includes six concurrent builds, and Cloudflare itself says to start new projects on
-                Workers.
+                includes{" "}
+                <LandingReceiptLink href="https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/">
+                  six concurrent builds
+                </LandingReceiptLink>
+                , and Cloudflare itself says to start new projects on Workers.
               </p>
             </div>
           </LandingFootnote>
@@ -844,7 +852,7 @@ function LandingPreviewOverview() {
 
         <section className="mt-24 border-t border-border pt-20 md:mt-28">
           <div className="mb-16">
-            <LandingInteractiveLogo autoRotate />
+            <LandingInteractiveLogo autoRotate viewStateKey={LANDING_CLOSING_BAND_VIEW_STATE_KEY} />
             <p className="mt-6 text-center font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
               drag it ·{" "}
               <Link className="no-underline hover:text-foreground" to="/logo">
@@ -902,14 +910,7 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 
 function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
   return (
-    <AppWorkspaceRouteChrome
-      left={{ content: <DocsSidebar /> }}
-      sidebarDefaultState={
-        documentKey === "overview"
-          ? LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE
-          : DOCS_SIDEBAR_DEFAULT_STATE
-      }
-    >
+    <AppWorkspaceRouteChrome left={{ content: <DocsSidebar /> }}>
       <LandingPreviewPaneUrlSync />
       <div data-testid={LANDING_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingPreviewDocument documentKey={documentKey} />

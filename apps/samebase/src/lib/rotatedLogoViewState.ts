@@ -13,10 +13,17 @@ export const LANDING_ZONE_MARK_VIEW_STATE_KEYS = [
   "landing-zone-lanes",
   "landing-zone-cheaper",
 ] as const;
+/**
+The closing band auto-rotates, so it must not share the public-landing key:
+its spinning frames would overwrite the orientation the sign-in logo reads.
+Deliberate drags still follow the visitor through the URL rot/elev params.
+*/
+export const LANDING_CLOSING_BAND_VIEW_STATE_KEY = "landing-closing-band";
 
 export type RotatedLogoViewStateKey =
   | typeof PUBLIC_LANDING_LOGO_VIEW_STATE_KEY
   | typeof DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY
+  | typeof LANDING_CLOSING_BAND_VIEW_STATE_KEY
   | (typeof LANDING_ZONE_MARK_VIEW_STATE_KEYS)[number];
 
 export type RotatedLogoViewState = {
@@ -45,6 +52,7 @@ const STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY = {
   "landing-zone-safer": "samebase:logo-view:landing-zone-safer",
   "landing-zone-lanes": "samebase:logo-view:landing-zone-lanes",
   "landing-zone-cheaper": "samebase:logo-view:landing-zone-cheaper",
+  [LANDING_CLOSING_BAND_VIEW_STATE_KEY]: "samebase:logo-view:landing-closing-band",
 } as const satisfies Record<RotatedLogoViewStateKey, string>;
 
 let cachedRotatedLogoViewStateByKey: Partial<

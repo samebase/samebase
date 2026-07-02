@@ -27,14 +27,17 @@ import {
   appWorkspaceMobilePanePrehydrationScript,
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
-import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
+import {
+  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+  LANDING_WORKSPACE_SIDEBAR_STORAGE_KEY,
+} from "@/lib/appWorkspaceSidebarPreferences";
+import type {
+  WorkspaceSidebarState,
+  WorkspaceSidebarStateKey,
+} from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
 type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
-type AppWorkspaceSidebarDefaultState = Partial<
-  Pick<WorkspaceSidebarState, "leftDesktopOpen" | "rightDesktopOpen">
->;
 
 type AppWorkspaceRouteChromeConfig = {
   dataTestId?: string;
@@ -45,7 +48,6 @@ type AppWorkspaceRouteChromeConfig = {
   panel?: WorkspaceLayoutV2BottomPanelProps;
   right?: AppWorkspaceRouteChromePane;
   rightToggleVisibility?: AppWorkspaceShellToggleVisibility;
-  sidebarDefaultState?: AppWorkspaceSidebarDefaultState;
   shortcutPaneSide?: WorkspacePaneSide;
 };
 
@@ -95,19 +97,52 @@ const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
 } satisfies WorkspaceSidebarState;
 const DOCS_PATHNAME_PREFIX = "/docs/";
 const LANDING_PREVIEW_PATHNAME = "/landing-preview";
-const LANDING_PREVIEW_ROUTE_CHROME_DEFAULTS = {
-  sidebarDefaultState: {
-    leftDesktopOpen: false,
-    rightDesktopOpen: false,
-  },
-} satisfies AppWorkspaceRouteChromeConfig;
+const LANDING_SURFACE_SIDEBAR_DEFAULT_STATE = {
+  ...APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
+  leftDesktopOpen: false,
+  rightDesktopOpen: false,
+} satisfies WorkspaceSidebarState;
+const DOCS_SURFACE_SIDEBAR_DEFAULT_STATE = {
+  ...APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
+  leftDesktopOpen: true,
+  rightDesktopOpen: false,
+} satisfies WorkspaceSidebarState;
 
-const DOCS_ROUTE_CHROME_DEFAULTS = {
-  sidebarDefaultState: {
-    leftDesktopOpen: true,
-    rightDesktopOpen: false,
-  },
-} satisfies AppWorkspaceRouteChromeConfig;
+type AppWorkspaceSidebarSurface = {
+  defaults: WorkspaceSidebarState;
+  storageKey: string;
+  workspaceKey: WorkspaceSidebarStateKey;
+};
+
+/**
+The landing and docs routes form their own sidebar surface: their
+closed-by-default panes live under their own storage and workspace keys, so
+browsing the marketing pages can never rewrite the app-surface state that the
+sign-in page and dashboard read.
+*/
+function readAppWorkspaceSidebarSurface(pathname: string): AppWorkspaceSidebarSurface {
+  if (pathname === LANDING_PREVIEW_PATHNAME) {
+    return {
+      defaults: LANDING_SURFACE_SIDEBAR_DEFAULT_STATE,
+      storageKey: LANDING_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      workspaceKey: "landing",
+    };
+  }
+
+  if (pathname.startsWith(DOCS_PATHNAME_PREFIX)) {
+    return {
+      defaults: DOCS_SURFACE_SIDEBAR_DEFAULT_STATE,
+      storageKey: LANDING_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      workspaceKey: "landing",
+    };
+  }
+
+  return {
+    defaults: APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
+    storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+    workspaceKey: "app",
+  };
+}
 
 const AppWorkspaceRouteChromeContext = createContext<AppWorkspaceRouteChromeContextValue | null>(
   null,
@@ -196,20 +231,6 @@ function useAppWorkspaceDefaultRouteChrome() {
     select: (location) => location.pathname,
   });
 
-  if (pathname === LANDING_PREVIEW_PATHNAME) {
-    return {
-      ...LANDING_PREVIEW_ROUTE_CHROME_DEFAULTS,
-      pathname,
-    } satisfies AppWorkspaceRouteChromeSnapshot;
-  }
-
-  if (pathname.startsWith(DOCS_PATHNAME_PREFIX)) {
-    return {
-      ...DOCS_ROUTE_CHROME_DEFAULTS,
-      pathname,
-    } satisfies AppWorkspaceRouteChromeSnapshot;
-  }
-
   if (pathname === VISUAL_FIXTURE_PATHNAME) {
     // Visual fixtures hide pane chrome before route chrome registration effects can
     // run, but the address editor remains part of the global workspace frame.
@@ -233,22 +254,16 @@ const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 });
 
-function useAppWorkspaceSidebarState(sidebarDefaultState?: AppWorkspaceSidebarDefaultState) {
+function useAppWorkspaceSidebarState() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
   const { isAuthenticated } = useConvexAuth();
-  const sidebarDefaults = useMemo(
-    () => ({
-      ...APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
-      ...sidebarDefaultState,
-    }),
-    [sidebarDefaultState],
-  );
+  const surface = useMemo(() => readAppWorkspaceSidebarSurface(pathname), [pathname]);
   const localSidebarState = useLocalStorageWorkspaceSidebarState({
-    defaults: sidebarDefaults,
+    defaults: surface.defaults,
     reset: false,
-    storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+    storageKey: surface.storageKey,
   });
   const isVisualFixtureRoute = pathname === VISUAL_FIXTURE_PATHNAME;
   useLayoutEffect(() => {
@@ -269,7 +284,7 @@ function useAppWorkspaceSidebarState(sidebarDefaultState?: AppWorkspaceSidebarDe
     defaults: localSidebarState.state,
     onPersistedStateApplied:
       !isVisualFixtureRoute && isAuthenticated ? mirrorPersistedSidebarState : null,
-    workspaceKey: "app",
+    workspaceKey: surface.workspaceKey,
   });
 
   if (!isVisualFixtureRoute && isAuthenticated && persistedSidebarState.isHydrated) {
@@ -286,7 +301,7 @@ function AppWorkspaceShellFrame({
   children?: ReactNode;
   chrome: AppWorkspaceRouteChromeSnapshot | null;
 }) {
-  const sidebarState = useAppWorkspaceSidebarState(chrome?.sidebarDefaultState);
+  const sidebarState = useAppWorkspaceSidebarState();
   const appRightSidebarPane = useAppRightSidebarPane();
   const headerAccessory = chrome?.headerAccessory;
   const mainPane = {
@@ -355,7 +370,6 @@ export function AppWorkspaceRouteChrome({
   panel,
   right,
   rightToggleVisibility,
-  sidebarDefaultState,
   shortcutPaneSide,
 }: AppWorkspaceRouteChromeConfig & { children?: ReactNode }) {
   const context = useContext(AppWorkspaceRouteChromeContext);
@@ -391,7 +405,6 @@ export function AppWorkspaceRouteChrome({
       pathname,
       right,
       rightToggleVisibility,
-      sidebarDefaultState,
       shortcutPaneSide,
     }),
     [
@@ -404,7 +417,6 @@ export function AppWorkspaceRouteChrome({
       pathname,
       right,
       rightToggleVisibility,
-      sidebarDefaultState,
       shortcutPaneSide,
     ],
   );

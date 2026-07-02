@@ -48,15 +48,7 @@ const markdownSanitizeSchema = {
     poster: ["http", "https"],
     src: ["http", "https"],
   },
-  tagNames: [
-    ...(defaultSchema.tagNames ?? []),
-    "br",
-    "details",
-    "small",
-    "source",
-    "summary",
-    "video",
-  ],
+  tagNames: [...(defaultSchema.tagNames ?? []), "br", "details", "source", "summary", "video"],
 } satisfies RehypeSanitizeOptions;
 
 const markdownRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
@@ -462,25 +454,11 @@ function getMarkdownComponents(headingIdsByLine: ReadonlyMap<number, string>) {
 
       return <source src={src} type={type} />;
     },
-    small({ children }) {
-      return (
-        <small className="block max-w-2xl text-sm leading-6 text-muted-foreground">
-          {children}
-        </small>
-      );
-    },
     summary({ children }) {
       return (
         <summary className="cursor-pointer select-none text-sm font-medium leading-6">
           {children}
         </summary>
-      );
-    },
-    sup({ children }) {
-      const content = children === "\\*" ? "*" : children;
-
-      return (
-        <sup className="ml-0.5 align-super text-[0.625rem] font-medium leading-none">{content}</sup>
       );
     },
     table({ children }) {

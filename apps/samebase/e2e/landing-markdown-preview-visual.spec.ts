@@ -150,6 +150,16 @@ test("landing preview route renders the React overview in workspace chrome", asy
   // The landing keeps its left pane surface (closed by default) until the
   // prehydration script supports pane-less routes.
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toBeVisible();
+
+  // The interactive logo canvases render nondeterministically across GPUs, so
+  // the overview baseline masks their stages and covers layout and typography.
+  await expect(page).toHaveScreenshot("landing-preview-overview-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    mask: [page.getByTestId("public-landing-logo-stage")],
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
   await page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("link", { name: "Do it yourself", exact: true })

@@ -7,16 +7,11 @@ vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
     children,
     left,
-    sidebarDefaultState,
   }: {
     children: ReactNode;
     left?: { content: ReactNode };
-    sidebarDefaultState?: {
-      leftDesktopOpen?: boolean;
-      rightDesktopOpen?: boolean;
-    };
   }) => (
-    <div data-sidebar-default-state={JSON.stringify(sidebarDefaultState)}>
+    <div>
       <aside>{left?.content}</aside>
       <main>{children}</main>
     </div>
@@ -129,14 +124,6 @@ describe("LandingPreviewPage", () => {
     expect(sidebarMarkup).not.toContain("samebase.com");
     expect(sidebarMarkup).not.toContain('href="#');
     expect(sidebarMarkup).not.toContain("Same stack");
-  });
-
-  it("starts the landing preview with both desktop sidebars closed", () => {
-    const markup = renderToStaticMarkup(<LandingPreviewPage />);
-
-    expect(markup).toContain(
-      `data-sidebar-default-state="{&quot;leftDesktopOpen&quot;:false,&quot;rightDesktopOpen&quot;:false}"`,
-    );
   });
 
   it("renders the do-it-yourself guide separately", () => {

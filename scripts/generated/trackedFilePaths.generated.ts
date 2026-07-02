@@ -542,7 +542,6 @@ export const trackedFilePaths = [
   "apps/samebase/public/landing-preview/logos/cloudflare.svg",
   "apps/samebase/public/landing-preview/logos/convex.svg",
   "apps/samebase/public/landing-preview/logos/github.svg",
-  "apps/samebase/public/landing-preview/logos/openai.svg",
   "apps/samebase/public/landing-preview/step-1-create-accounts.mp4",
   "apps/samebase/public/landing-preview/step-2-use-template.mp4",
   "apps/samebase/public/landing-preview/step-3-connect-cloudflare-pages.mp4",

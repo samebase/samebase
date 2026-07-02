@@ -11,8 +11,8 @@ For the fastest Codex Cloud startup, add this environment setup script:
 curl -fsSL https://vite.plus | bash
 ```
 
-"samebase" organization name was choose with "-" because default Android keyboard makes it hard
-typing a "-".
+The "samebase" organization name was chosen without a "-" because the default Android keyboard makes
+it hard to type a "-".
 
 We need just 1 `CONVEX_DEPLOY_KEY` for **Production** and one for **Preview**, That way each PR has
 it's own link and database different from a Production/Dev databases.
@@ -109,7 +109,7 @@ and create a new deploy key.
 <video controls preload="metadata" width="720" height="1592" src="/landing-preview/step-4-create-convex-project.mp4"></video>
 
 <details>
-<summary>### What are CONVEX_DEPLOY_KEY?</summary>
+<summary>What are CONVEX_DEPLOY_KEY?</summary>
 
 They are a sort of password used between servers. In our case it is used by Cloudflare to update the
 database on each change.
@@ -146,8 +146,6 @@ You were seeing errors in the Pull Requests because the cloudflare deploys a pre
 connect to your production database. To solve this, you can create a "Preview Deploy Key" from
 Convex and set it to Cloudflare, that way each Pull Requests will have it's own database.
 
-- [ ]
-
 ## 8: Deleting the app
 
 To delete an app you deployed you'll have to
@@ -159,14 +157,15 @@ To delete an app you deployed you'll have to
 ## 9: Create an app in a single step using samebase.com
 
 samebase.com connects with Github, Cloudflare & Convex once, then allows you to create an app with a
-single click of a button It also allows you to completely removed as easily.
+single click of a button. It also allows you to remove it just as easily.
 
 So apps become disposable, you can create an app and to create a game and use it for night-out with
 your friends
 
 - OR -
 
-you can decide to continue maintaining it and based your business on it since it's
+you can decide to continue maintaining it and base your business on it, since it's standard
+infrastructure in your own accounts.
 
 ### Why is samebase.com free?
 
