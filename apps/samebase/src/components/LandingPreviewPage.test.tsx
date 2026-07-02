@@ -85,6 +85,11 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("I built it, then I deleted it.");
     expect(markup).toContain("your app is a security risk.");
     expect(markup).toContain("no Samebase account needed");
+    expect(markup).toContain("drag it");
+    expect(markup).toContain("open the logo lab");
+    expect(markup).toContain('href="/logo"');
+    // One interactive logo in the hero, one in the closing band.
+    expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(2);
     expect(markup).toContain("https://www.youtube.com/watch?v=h6ffyfabfa8");
     expect(markup).toContain("the leaving test");
     expect(markup).toContain("Samebase adds no floor of its own.");

@@ -1,5 +1,8 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
+import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
+import { replaceRootLogoRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { Button } from "@/components/ui/button";
 import {
   useWorkspacePaneActions,
@@ -17,7 +20,7 @@ import {
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import docsTheStackMarkdown from "@/content/docs-the-stack.md?raw";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useLayoutEffect, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself" | "theStack";
@@ -87,6 +90,54 @@ function LandingPreviewPaneUrlSync({ hasLeftPaneSurface }: { hasLeftPaneSurface:
   }, [hasLeftPaneSurface, mobilePane, routeSearch, setMobilePane]);
 
   return null;
+}
+
+/**
+Interactive showcase logo: reads the shared logo params from the URL (the root
+route retains them on every navigation) and writes drag results back, so a mark
+shaped here or in /logo follows the visitor into the app.
+*/
+function LandingInteractiveLogo({ autoRotate = false }: { autoRotate?: boolean }) {
+  const navigate = useNavigate();
+  const rootRouteSearch = useRootRouteSearch();
+
+  return (
+    <PublicLandingLogo
+      animateLeftFaceStripes
+      autoRotate={autoRotate}
+      replaceRouteSearch={(nextSearch) => {
+        void navigate({
+          hash: true,
+          replace: true,
+          search: (currentSearch) => replaceRootLogoRouteSearch(currentSearch, nextSearch),
+          state: true,
+          to: ".",
+        });
+      }}
+      routeSearch={rootRouteSearch}
+      stage="wide"
+    />
+  );
+}
+
+/**
+The identity pattern recursed one level deeper per zone; precomputed because
+the inputs are constants. Index 0 is the plain 12-cube mark.
+*/
+const LANDING_ZONE_DEPTH_MARK_SRCS = [1, 2, 3].map((depth) =>
+  createStaticLogoSvgDataUrl({ depth }),
+);
+
+function LandingZoneDepthMark({ index }: { index: 0 | 1 | 2 }) {
+  return (
+    <img
+      alt=""
+      className="mt-7 hidden h-28 w-28 md:block"
+      height="112"
+      src={LANDING_ZONE_DEPTH_MARK_SRCS[index]}
+      width="112"
+    />
+  );
 }
 
 function DocsSidebar() {
@@ -174,12 +225,23 @@ function LandingReceiptLink({ children, href }: { children: ReactNode; href: str
   );
 }
 
-function LandingZone({ children, label }: { children: ReactNode; label: string }) {
+function LandingZone({
+  children,
+  label,
+  mark,
+}: {
+  children: ReactNode;
+  label: string;
+  mark?: ReactNode;
+}) {
   return (
     <section className="grid grid-cols-1 gap-y-5 md:grid-cols-[168px_minmax(0,1fr)] md:gap-x-14">
-      <p className="whitespace-nowrap font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground md:pt-3">
-        {label}
-      </p>
+      <div>
+        <p className="whitespace-nowrap font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground md:pt-3">
+          {label}
+        </p>
+        {mark}
+      </div>
       <div className="max-w-[700px]">{children}</div>
     </section>
   );
@@ -284,47 +346,52 @@ function LandingPreviewOverview() {
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
       <div className="mx-auto w-full max-w-[1000px] px-6 pt-10 sm:px-10 md:pt-14">
-        <section>
-          <p className="flex items-center gap-2.5">
-            <img
-              alt=""
-              className="h-6 w-6 dark:invert"
-              height="24"
-              src="/brand/logo/v1-side-primary-duotone.svg"
-              width="24"
-            />
-            <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
-          </p>
-          <h1
-            aria-describedby="landing-correct-definition"
-            className="mt-12 text-[clamp(44px,8vw,104px)] font-bold leading-none tracking-[-0.038em] md:mt-16"
-          >
-            The correct
-            <LandingFootnoteMark
-              fragment="landing-correct-definition"
-              label="footnote: correct"
-              marker="*"
-            />
-            <br />
-            way to build
-            <br />
-            web apps
-          </h1>
-          <p className="mt-9 max-w-[52ch] text-lg leading-relaxed text-primary sm:text-xl">
-            Samebase is a button that turns an idea into a running app: a{" "}
-            <strong className="font-semibold text-foreground">GitHub</strong> repo, a{" "}
-            <strong className="font-semibold text-foreground">Convex</strong> backend, a{" "}
-            <strong className="font-semibold text-foreground">Cloudflare</strong> deploy, in about a
-            minute, on accounts you own. One place to watch them all. You bring the agent: Codex,
-            Claude Code, Cursor, anything.
-          </p>
-          <div className="mt-10">
-            <LandingCtaRow />
+        <section className="md:grid md:grid-cols-[minmax(0,1fr)_440px] md:items-center md:gap-x-14">
+          <div>
+            <p className="flex items-center gap-2.5">
+              <img
+                alt=""
+                className="h-6 w-6 dark:invert"
+                height="24"
+                src="/brand/logo/v1-side-primary-duotone.svg"
+                width="24"
+              />
+              <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
+            </p>
+            <h1
+              aria-describedby="landing-correct-definition"
+              className="mt-12 text-[clamp(44px,8vw,104px)] font-bold leading-none tracking-[-0.038em] md:mt-16 md:text-[clamp(40px,5.6vw,84px)]"
+            >
+              The correct
+              <LandingFootnoteMark
+                fragment="landing-correct-definition"
+                label="footnote: correct"
+                marker="*"
+              />
+              <br />
+              way to build
+              <br />
+              web apps
+            </h1>
+            <p className="mt-9 max-w-[52ch] text-lg leading-relaxed text-primary sm:text-xl">
+              Samebase is a button that turns an idea into a running app: a{" "}
+              <strong className="font-semibold text-foreground">GitHub</strong> repo, a{" "}
+              <strong className="font-semibold text-foreground">Convex</strong> backend, a{" "}
+              <strong className="font-semibold text-foreground">Cloudflare</strong> deploy, in about
+              a minute, on accounts you own. One place to watch them all. You bring the agent:
+              Codex, Claude Code, Cursor, anything.
+            </p>
+            <div className="mt-10">
+              <LandingCtaRow />
+            </div>
+            <p className="mt-3.5 text-sm text-muted-foreground">
+              Samebase is free today; an idle app costs $0/month.
+              <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
+            </p>
           </div>
-          <p className="mt-3.5 text-sm text-muted-foreground">
-            Samebase is free today; an idle app costs $0/month.
-            <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
-          </p>
+          <div className="mt-16 md:mt-0">
+            <LandingInteractiveLogo />
+          </div>
         </section>
 
         {/* Placeholder for the planned provisioning capture: connecting the three
@@ -428,7 +495,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="02 · safer">
+          <LandingZone label="02 · safer" mark={<LandingZoneDepthMark index={0} />}>
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               A web app is three boxes (database, server, frontend) and two connections. Everyone
               stares at the boxes.{" "}
@@ -471,7 +538,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="03 · lanes">
+          <LandingZone label="03 · lanes" mark={<LandingZoneDepthMark index={1} />}>
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               Every pull request gets its own preview deploy,{" "}
               <span className="font-semibold">with its own database.</span>
@@ -516,7 +583,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="04 · cheaper">
+          <LandingZone label="04 · cheaper" mark={<LandingZoneDepthMark index={2} />}>
             <p className="text-[22px] leading-snug tracking-[-0.015em] text-primary md:text-[26px]">
               Most app builders resell LLM tokens.
             </p>
@@ -702,13 +769,15 @@ function LandingPreviewOverview() {
         </section>
 
         <section className="mt-24 border-t border-border pt-20 md:mt-28">
-          <img
-            alt=""
-            className="h-16 w-16"
-            height="64"
-            src="/brand/logo/v3-spatial-duotone.svg"
-            width="64"
-          />
+          <div className="mb-16">
+            <LandingInteractiveLogo autoRotate />
+            <p className="mt-6 text-center font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              drag it ·{" "}
+              <Link className="no-underline hover:text-foreground" to="/logo">
+                open the logo lab
+              </Link>
+            </p>
+          </div>
           <h2 className="mt-8 max-w-[20ch] text-[clamp(28px,3.4vw,38px)] font-bold leading-tight tracking-[-0.025em]">
             Same stack. Your accounts. No magic.
           </h2>
