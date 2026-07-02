@@ -423,14 +423,16 @@ function LandingPreviewOverview() {
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               A web app is three boxes (database, server, frontend) and two connections. Everyone
               stares at the boxes.{" "}
-              <span className="font-semibold">The connections carry the security budget.</span>
+              <span className="font-semibold">The breaches happen on the connections.</span>
             </p>
             <div className="mt-8 grid max-w-[58ch] gap-4 text-base text-primary">
               <p>
-                Firebase wires the frontend straight to the database and patches the missing server
-                with a rules language that looks like JavaScript but isn't. Supabase does it with
-                SQL policies bolted onto every table, off by default. Misconfigured rules keep
-                leaving whole databases public. That is not hypothetical.
+                Firebase and Supabase erase the middle box: the app running in your visitor's
+                browser talks to the database directly. Anyone on the internet can send that
+                database a request, and the only thing deciding what comes back is access rules you
+                have to configure perfectly, forever. Firebase's rules are a language that looks
+                like JavaScript but isn't; Supabase's are SQL policies, off by default.
+                Misconfigured rules keep leaving whole databases public. That is not hypothetical.
                 <LandingFootnoteMark
                   fragment="landing-note-risk"
                   label="footnote: security risk"
@@ -438,8 +440,10 @@ function LandingPreviewOverview() {
                 />
               </p>
               <p>
-                Convex is just a backend: the database is only reachable through TypeScript
-                functions you wrote, so access control is code you already know how to review.
+                Convex never lets the browser near the database. The client can only call TypeScript
+                functions you wrote: every request runs through your code, and anything you didn't
+                expose isn't reachable. Access control stops being a second system to configure and
+                becomes ordinary code you review like any other.
               </p>
             </div>
             <p className="mt-10 text-sm text-muted-foreground">
