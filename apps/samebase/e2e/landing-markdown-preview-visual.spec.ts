@@ -102,9 +102,11 @@ test("landing preview route renders the React overview in workspace chrome", asy
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
+  // The landing uses the standard app-shell defaults (both sidebars open)
+  // until pane-less prehydration lands in a later PR.
   await expectDesktopPaneWidths(page, {
-    left: "0px",
-    right: "0px",
+    left: "240px",
+    right: "288px",
   });
   // The hero footnote link labels itself "footnote: correct", so the h1
   // accessible name reads "The correct footnote: correct way to build web apps".
@@ -147,8 +149,8 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toHaveCount(0);
   await expect(article.locator("video")).toHaveCount(0);
 
-  // The landing keeps its left pane surface (closed by default) until the
-  // prehydration script supports pane-less routes.
+  // The landing keeps the standard left pane surface until prehydration
+  // supports pane-less routes.
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toBeVisible();
 
   // The interactive logo canvases render nondeterministically across GPUs, so
@@ -167,11 +169,11 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
   await expectDesktopPaneWidths(page, {
     left: "240px",
-    right: "0px",
+    right: "288px",
   });
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
-  await expect(rightSidebar).toHaveCSS("width", "0px");
+  await expect(rightSidebar).toHaveCSS("width", "288px");
   await expect(
     article.getByRole("heading", {
       name: "Do it yourself: Deploy a production-ready, real-time web app for $0/month",

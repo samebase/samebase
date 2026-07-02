@@ -407,36 +407,6 @@ describe("AppWorkspaceShell", () => {
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
   });
 
-  it("server-renders the landing with closed desktop sidebars by default", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/landing-preview"]}>
-        <AppWorkspaceShell>
-          <div data-testid="workspace-route-content">landing content</div>
-        </AppWorkspaceShell>
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('data-testid="app-workspace"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
-    expect(markup).toContain("--workspace-layout-v2-left-desktop-width:0px");
-    expect(markup).toContain("--workspace-layout-v2-right-desktop-width:0px");
-  });
-
-  it("server-renders docs pages with the left sidebar open by default", () => {
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/docs/do-it-yourself"]}>
-        <AppWorkspaceShell>
-          <div data-testid="workspace-route-content">docs markdown content</div>
-        </AppWorkspaceShell>
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain('data-testid="app-workspace"');
-    expect(markup).not.toContain("--workspace-layout-v2-left-desktop-width:0px");
-    expect(markup).toContain("--workspace-layout-v2-right-desktop-width:0px");
-  });
-
   it("bounds the workspace shell to the root height instead of a viewport-unit height", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>

@@ -27,14 +27,8 @@ import {
   appWorkspaceMobilePanePrehydrationScript,
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
-import {
-  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-  LANDING_WORKSPACE_SIDEBAR_STORAGE_KEY,
-} from "@/lib/appWorkspaceSidebarPreferences";
-import type {
-  WorkspaceSidebarState,
-  WorkspaceSidebarStateKey,
-} from "../../convex/workspaceSidebarStateModel";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
 type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
@@ -95,54 +89,6 @@ const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   rightDesktopWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
   rightMobileWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
-const DOCS_PATHNAME_PREFIX = "/docs/";
-const LANDING_PREVIEW_PATHNAME = "/landing-preview";
-const LANDING_SURFACE_SIDEBAR_DEFAULT_STATE = {
-  ...APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
-  leftDesktopOpen: false,
-  rightDesktopOpen: false,
-} satisfies WorkspaceSidebarState;
-const DOCS_SURFACE_SIDEBAR_DEFAULT_STATE = {
-  ...APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
-  leftDesktopOpen: true,
-  rightDesktopOpen: false,
-} satisfies WorkspaceSidebarState;
-
-type AppWorkspaceSidebarSurface = {
-  defaults: WorkspaceSidebarState;
-  storageKey: string;
-  workspaceKey: WorkspaceSidebarStateKey;
-};
-
-/**
-The landing and docs routes form their own sidebar surface: their
-closed-by-default panes live under their own storage and workspace keys, so
-browsing the marketing pages can never rewrite the app-surface state that the
-sign-in page and dashboard read.
-*/
-function readAppWorkspaceSidebarSurface(pathname: string): AppWorkspaceSidebarSurface {
-  if (pathname === LANDING_PREVIEW_PATHNAME) {
-    return {
-      defaults: LANDING_SURFACE_SIDEBAR_DEFAULT_STATE,
-      storageKey: LANDING_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      workspaceKey: "landing",
-    };
-  }
-
-  if (pathname.startsWith(DOCS_PATHNAME_PREFIX)) {
-    return {
-      defaults: DOCS_SURFACE_SIDEBAR_DEFAULT_STATE,
-      storageKey: LANDING_WORKSPACE_SIDEBAR_STORAGE_KEY,
-      workspaceKey: "landing",
-    };
-  }
-
-  return {
-    defaults: APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
-    storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-    workspaceKey: "app",
-  };
-}
 
 const AppWorkspaceRouteChromeContext = createContext<AppWorkspaceRouteChromeContextValue | null>(
   null,
@@ -231,16 +177,16 @@ function useAppWorkspaceDefaultRouteChrome() {
     select: (location) => location.pathname,
   });
 
-  if (pathname === VISUAL_FIXTURE_PATHNAME) {
-    // Visual fixtures hide pane chrome before route chrome registration effects can
-    // run, but the address editor remains part of the global workspace frame.
-    return {
-      ...VISUAL_FIXTURE_ROUTE_CHROME,
-      pathname,
-    } satisfies AppWorkspaceRouteChromeSnapshot;
+  if (pathname !== VISUAL_FIXTURE_PATHNAME) {
+    return null;
   }
 
-  return null;
+  // Visual fixtures hide pane chrome before route chrome registration effects can
+  // run, but the address editor remains part of the global workspace frame.
+  return {
+    ...VISUAL_FIXTURE_ROUTE_CHROME,
+    pathname,
+  } satisfies AppWorkspaceRouteChromeSnapshot;
 }
 
 const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
@@ -259,11 +205,10 @@ function useAppWorkspaceSidebarState() {
     select: (location) => location.pathname,
   });
   const { isAuthenticated } = useConvexAuth();
-  const surface = useMemo(() => readAppWorkspaceSidebarSurface(pathname), [pathname]);
   const localSidebarState = useLocalStorageWorkspaceSidebarState({
-    defaults: surface.defaults,
+    defaults: APP_WORKSPACE_SIDEBAR_DEFAULT_STATE,
     reset: false,
-    storageKey: surface.storageKey,
+    storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
   });
   const isVisualFixtureRoute = pathname === VISUAL_FIXTURE_PATHNAME;
   useLayoutEffect(() => {
@@ -284,7 +229,7 @@ function useAppWorkspaceSidebarState() {
     defaults: localSidebarState.state,
     onPersistedStateApplied:
       !isVisualFixtureRoute && isAuthenticated ? mirrorPersistedSidebarState : null,
-    workspaceKey: surface.workspaceKey,
+    workspaceKey: "app",
   });
 
   if (!isVisualFixtureRoute && isAuthenticated && persistedSidebarState.isHydrated) {

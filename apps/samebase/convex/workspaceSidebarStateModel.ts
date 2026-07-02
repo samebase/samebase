@@ -5,7 +5,6 @@ const { boolean, id, literal, number, object, union } = v;
 export const vWorkspaceSidebarStateKey = union(
   literal("app"),
   literal("dashboard"),
-  literal("landing"),
   literal("machines"),
   literal("repository"),
 );
