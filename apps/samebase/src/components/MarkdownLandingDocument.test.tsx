@@ -179,10 +179,10 @@ describe("MarkdownLandingDocument", () => {
   });
 
   it("routes local markdown links through TanStack Router", async () => {
-    const element = await renderRouterMarkdown(`[Open manual](/landing/do-it-yourself)`);
+    const element = await renderRouterMarkdown(`[Open manual](/docs/do-it-yourself)`);
 
     const link = element.querySelector<HTMLAnchorElement>("a");
-    expect(link?.getAttribute("href")).toBe("/landing/do-it-yourself");
+    expect(link?.getAttribute("href")).toBe("/docs/do-it-yourself");
 
     await act(async () => {
       link?.dispatchEvent(
@@ -195,7 +195,7 @@ describe("MarkdownLandingDocument", () => {
     });
 
     expect(element.querySelector('[data-testid="router-location"]')?.textContent).toBe(
-      "/landing/do-it-yourself",
+      "/docs/do-it-yourself",
     );
   });
 

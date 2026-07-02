@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { LandingDoItYourselfPage, LandingPreviewPage } from "@/components/LandingPreviewPage";
+import { DocsDoItYourselfPage, LandingPreviewPage } from "@/components/LandingPreviewPage";
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -100,14 +100,23 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("Create Github, Convex, Cloudflare");
   });
 
-  it("keeps the help sidebar as two flat links instead of linking every heading", () => {
+  it("renders the landing without a left sidebar", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
+    const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
+
+    expect(sidebarMarkup).not.toContain("Overview");
+    expect(sidebarMarkup).not.toContain('href="/landing-preview"');
+    expect(sidebarMarkup).not.toContain('href="/docs/do-it-yourself"');
+  });
+
+  it("keeps the docs sidebar as two flat links instead of linking every heading", () => {
+    const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
     expect(sidebarMarkup).toContain("Overview");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain('href="/landing-preview"');
-    expect(sidebarMarkup).toContain('href="/landing/do-it-yourself"');
+    expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
     expect(sidebarMarkup).not.toContain("Start here");
     expect(sidebarMarkup).not.toContain("samebase.com");
     expect(sidebarMarkup).not.toContain('href="#');
@@ -123,7 +132,7 @@ describe("LandingPreviewPage", () => {
   });
 
   it("renders the do-it-yourself guide separately", () => {
-    const markup = renderToStaticMarkup(<LandingDoItYourselfPage />);
+    const markup = renderToStaticMarkup(<DocsDoItYourselfPage />);
 
     expect(markup).toContain("Do it yourself: Deploy a production-ready");
     expect(markup).toContain("/landing-preview/step-1-create-accounts.mp4");

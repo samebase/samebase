@@ -35,7 +35,7 @@ import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
 import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
-import { Route as landingDoItYourselfRouteImport } from "./routes/landing-do-it-yourself";
+import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
 import { Route as codexThreadBrowserResearchRouteImport } from "./routes/codex-thread-browser-research";
@@ -178,9 +178,9 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
-const landingDoItYourselfRoute = landingDoItYourselfRouteImport.update({
-  id: "/landing/do-it-yourself",
-  path: "/landing/do-it-yourself",
+const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
+  id: "/docs/do-it-yourself",
+  path: "/docs/do-it-yourself",
   getParentRoute: () => rootRouteImport,
 } as any);
 const vaultDashboardRootRoute = vaultDashboardRootRouteImport.update({
@@ -259,7 +259,7 @@ export interface FileRoutesByFullPath {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
-  "/landing/do-it-yourself": typeof landingDoItYourselfRoute;
+  "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -299,7 +299,7 @@ export interface FileRoutesByTo {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
-  "/landing/do-it-yourself": typeof landingDoItYourselfRoute;
+  "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -340,7 +340,7 @@ export interface FileRoutesById {
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
-  "/landing/do-it-yourself": typeof landingDoItYourselfRoute;
+  "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -382,7 +382,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
-    | "/landing/do-it-yourself"
+    | "/docs/do-it-yourself"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -422,7 +422,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault"
-    | "/landing/do-it-yourself"
+    | "/docs/do-it-yourself"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -462,7 +462,7 @@ export interface FileRouteTypes {
     | "/test"
     | "/visual-fixture"
     | "/vault/"
-    | "/landing/do-it-yourself"
+    | "/docs/do-it-yourself"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -503,7 +503,7 @@ export interface RootRouteChildren {
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
-  landingDoItYourselfRoute: typeof landingDoItYourselfRoute;
+  docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoRasterRoute: typeof logoRasterRoute;
   logoRasterSeamsRoute: typeof logoRasterSeamsRoute;
@@ -710,11 +710,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoIsoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/landing/do-it-yourself": {
-      id: "/landing/do-it-yourself";
-      path: "/landing/do-it-yourself";
-      fullPath: "/landing/do-it-yourself";
-      preLoaderRoute: typeof landingDoItYourselfRouteImport;
+    "/docs/do-it-yourself": {
+      id: "/docs/do-it-yourself";
+      path: "/docs/do-it-yourself";
+      fullPath: "/docs/do-it-yourself";
+      preLoaderRoute: typeof docsDoItYourselfRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/": {
@@ -815,7 +815,7 @@ const rootRouteChildren: RootRouteChildren = {
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
-  landingDoItYourselfRoute: landingDoItYourselfRoute,
+  docsDoItYourselfRoute: docsDoItYourselfRoute,
   logoIsoRoute: logoIsoRoute,
   logoRasterRoute: logoRasterRoute,
   logoRasterSeamsRoute: logoRasterSeamsRoute,

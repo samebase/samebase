@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
-  LANDING_DO_IT_YOURSELF_ROUTE,
+  DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_SIDEBAR_TEST_ID,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_ROUTE,
-  LANDING_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "../src/routeSearch/landingPreview";
 
@@ -63,7 +63,7 @@ async function expectSidebarFiles(sidebar: Locator) {
   );
   await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
     "href",
-    new RegExp(`^${LANDING_DO_IT_YOURSELF_ROUTE}(\\?|$)`),
+    new RegExp(`^${DOCS_DO_IT_YOURSELF_ROUTE}(\\?|$)`),
   );
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
@@ -95,7 +95,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
 
   const preview = page.getByTestId(LANDING_PREVIEW_TEST_ID);
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const sidebar = page.getByTestId(LANDING_PREVIEW_SIDEBAR_TEST_ID);
+  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
@@ -139,7 +139,13 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toHaveCount(0);
   await expect(article.locator("video")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
+  // The landing has no left pane at all; the docs surface owns the sidebar.
+  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
+  await page
+    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+    .getByRole("link", { name: "Do it yourself", exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
   await expectDesktopPaneWidths(page, {
     left: "240px",
     right: "0px",
@@ -147,12 +153,6 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
   await expect(rightSidebar).toHaveCSS("width", "0px");
-  await sidebar.getByRole("link", { name: "Do it yourself" }).click();
-  await expect(page).toHaveURL(new RegExp(`${LANDING_DO_IT_YOURSELF_ROUTE}$`));
-  await expectDesktopPaneWidths(page, {
-    left: "240px",
-    right: "0px",
-  });
   await expect(
     article.getByRole("heading", {
       name: "Do it yourself: Deploy a production-ready, real-time web app for $0/month",
@@ -176,7 +176,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await firstTaskCheckbox.check();
   await expect(firstTaskCheckbox).toBeChecked();
 
-  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#6-connect-your-dev-tool-to-github`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#6-connect-your-dev-tool-to-github`, {
     waitUntil: "domcontentloaded",
   });
   await expect(
@@ -185,7 +185,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
       .locator('[id="6-connect-your-dev-tool-to-github"]'),
   ).toBeInViewport();
 
-  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}#why-is-samebase-com-free`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#why-is-samebase-com-free`, {
     waitUntil: "domcontentloaded",
   });
   const finalHeading = page
@@ -199,7 +199,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
 
 test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 744, height: 1200 });
-  await page.goto(`${LANDING_DO_IT_YOURSELF_ROUTE}?left&dark`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}?left&dark`, {
     waitUntil: "domcontentloaded",
   });
 
@@ -207,7 +207,7 @@ test("landing do-it-yourself mobile pane query opens the flat sidebar", async ({
     await document.fonts.ready;
   });
 
-  const sidebar = page.getByTestId(LANDING_PREVIEW_SIDEBAR_TEST_ID);
+  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   const firstVideo = page.locator(`video[src="${expectedLandingPreviewVideoSrcs[0]}"]`);
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);

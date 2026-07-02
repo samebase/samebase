@@ -6,7 +6,7 @@ import {
 import { CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
-import { LANDING_DO_IT_YOURSELF_ROUTE, LANDING_PREVIEW_ROUTE } from "./routeSearch/landingPreview";
+import { DOCS_DO_IT_YOURSELF_ROUTE, LANDING_PREVIEW_ROUTE } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { NEW_APP_ROUTE } from "./lib/newAppRoute";
 import { MACHINE_CONNECT_ROUTE, MACHINES_ROUTE } from "./lib/samebaseSync";
@@ -41,7 +41,7 @@ export const routes = rootRoute("root.tsx", [
   route(CODEX_APP_SERVER_THREAD_BROWSER_ROUTE, "codex-thread-browser-research.tsx"),
   route(MCP_CONSENT_APP_PATH, "mcp-consent.tsx"),
   route("/landing", "landing.tsx"),
-  route(LANDING_DO_IT_YOURSELF_ROUTE, "landing-do-it-yourself.tsx"),
+  route(DOCS_DO_IT_YOURSELF_ROUTE, "docs-do-it-yourself.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),
   route(CONNECT_REPO_ROUTE, "connect-repo.tsx"),

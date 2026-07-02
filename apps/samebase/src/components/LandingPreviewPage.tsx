@@ -7,14 +7,14 @@ import {
   type WorkspaceMobilePane,
 } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import {
+  DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_SIDEBAR_TEST_ID,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
-  LANDING_DO_IT_YOURSELF_ROUTE,
   LANDING_PREVIEW_ROUTE,
-  LANDING_PREVIEW_SIDEBAR_TEST_ID,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
-import landingDoItYourselfMarkdown from "@/content/landing-do-it-yourself.md?raw";
+import docsDoItYourselfMarkdown from "@/content/docs-do-it-yourself.md?raw";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useLayoutEffect, type ReactNode } from "react";
 
@@ -35,14 +35,22 @@ const LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE = {
   rightDesktopOpen: false,
 } as const;
 
-const LANDING_SIDEBAR_LINKS = [
+const DOCS_SIDEBAR_DEFAULT_STATE = {
+  leftDesktopOpen: true,
+  rightDesktopOpen: false,
+} as const;
+
+const DOCS_SIDEBAR_LINKS = [
   { label: "Overview", to: LANDING_PREVIEW_ROUTE },
-  { label: "Do it yourself", to: LANDING_DO_IT_YOURSELF_ROUTE },
+  { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
 ] as const;
 
-function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
+function getLandingPreviewUrlMobilePane(
+  search: string,
+  hasLeftPaneSurface: boolean,
+): WorkspaceMobilePane | null {
   const searchParams = parseTanStackSearch(search);
-  const hasLeftPane = "left" in searchParams;
+  const hasLeftPane = hasLeftPaneSurface && "left" in searchParams;
   const hasRightPane = "right" in searchParams;
 
   if (hasLeftPane === hasRightPane) {
@@ -56,7 +64,7 @@ function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | n
  * Landing preview pane query params preserve the open mobile pane across direct
  * loads and URL editor edits.
  */
-function LandingPreviewPaneUrlSync() {
+function LandingPreviewPaneUrlSync({ hasLeftPaneSurface }: { hasLeftPaneSurface: boolean }) {
   const routeSearch = useLocation({
     select: (location) => location.searchStr,
   });
@@ -64,25 +72,28 @@ function LandingPreviewPaneUrlSync() {
   const { mobilePane } = useWorkspacePaneState();
 
   useLayoutEffect(() => {
-    const nextMobilePane = getLandingPreviewUrlMobilePane(window.location.search);
+    const nextMobilePane = getLandingPreviewUrlMobilePane(
+      window.location.search,
+      hasLeftPaneSurface,
+    );
     if (nextMobilePane === null || mobilePane === nextMobilePane) {
       return;
     }
 
     setMobilePane(nextMobilePane);
-  }, [mobilePane, routeSearch, setMobilePane]);
+  }, [hasLeftPaneSurface, mobilePane, routeSearch, setMobilePane]);
 
   return null;
 }
 
-function LandingPreviewSidebar() {
+function DocsSidebar() {
   return (
     <nav
-      aria-label="Landing preview sections"
-      data-testid={LANDING_PREVIEW_SIDEBAR_TEST_ID}
+      aria-label="Docs sections"
+      data-testid={DOCS_SIDEBAR_TEST_ID}
       className="flex min-h-full flex-col gap-1 px-4 py-4 text-sm"
     >
-      {LANDING_SIDEBAR_LINKS.map((link) => (
+      {DOCS_SIDEBAR_LINKS.map((link) => (
         <Link
           activeProps={{ className: "font-semibold text-foreground" }}
           className="py-1 no-underline"
@@ -215,7 +226,7 @@ function LandingCtaRow() {
       </Button>
       <Link
         className="border-b border-border pb-0.5 text-base text-primary no-underline hover:border-foreground hover:text-foreground"
-        to={LANDING_DO_IT_YOURSELF_ROUTE}
+        to={DOCS_DO_IT_YOURSELF_ROUTE}
       >
         Do it yourself — no Samebase account needed
       </Link>
@@ -484,7 +495,7 @@ function LandingPreviewOverview() {
                 your app will not notice. You can even skip the account:{" "}
                 <Link
                   className="border-b border-border pb-px text-primary no-underline hover:border-foreground hover:text-foreground"
-                  to={LANDING_DO_IT_YOURSELF_ROUTE}
+                  to={DOCS_DO_IT_YOURSELF_ROUTE}
                 >
                   Do it yourself
                 </Link>{" "}
@@ -659,12 +670,12 @@ function LandingPreviewOverview() {
   );
 }
 
-function LandingDoItYourselfDocument() {
+function DocsDoItYourselfDocument() {
   return (
     <MarkdownLandingDocument
       className="min-h-full shrink-0 pb-[calc(100svh-4rem)] lg:pb-[calc(100svh-4rem)]"
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
-      markdown={landingDoItYourselfMarkdown}
+      markdown={docsDoItYourselfMarkdown}
     />
   );
 }
@@ -674,16 +685,21 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
     return <LandingPreviewOverview />;
   }
 
-  return <LandingDoItYourselfDocument />;
+  return <DocsDoItYourselfDocument />;
 }
 
 function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
+  const hasLeftPaneSurface = documentKey === "doItYourself";
+
   return (
     <AppWorkspaceRouteChrome
-      left={{ content: <LandingPreviewSidebar /> }}
-      sidebarDefaultState={LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE}
+      left={hasLeftPaneSurface ? { content: <DocsSidebar /> } : null}
+      leftToggleVisibility={hasLeftPaneSurface ? "desktop" : "hidden"}
+      sidebarDefaultState={
+        hasLeftPaneSurface ? DOCS_SIDEBAR_DEFAULT_STATE : LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE
+      }
     >
-      <LandingPreviewPaneUrlSync />
+      <LandingPreviewPaneUrlSync hasLeftPaneSurface={hasLeftPaneSurface} />
       <div data-testid={LANDING_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingPreviewDocument documentKey={documentKey} />
       </div>
@@ -695,6 +711,6 @@ export function LandingPreviewPage() {
   return <LandingPreviewChromePage documentKey="overview" />;
 }
 
-export function LandingDoItYourselfPage() {
+export function DocsDoItYourselfPage() {
   return <LandingPreviewChromePage documentKey="doItYourself" />;
 }

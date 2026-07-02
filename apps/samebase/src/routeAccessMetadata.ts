@@ -17,7 +17,7 @@ const routeAccessMetadataByPath = {
   "/connect-repo": { access: "access_repo_connect" },
   "/indexDB": { access: "access_admin" },
   "/landing": { access: "access_public", pathSuggestion: "hidden", prerender: false },
-  "/landing/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
+  "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
   "/landing-preview": { access: "access_public", pathSuggestion: "hidden" },
   "/localStorage": { access: "access_admin" },
   "/logo": { access: "access_public" },

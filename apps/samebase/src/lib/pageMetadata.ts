@@ -4,7 +4,7 @@ import {
 } from "@/codex/appServerResearch";
 import { DASHBOARD_ROUTE } from "./dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
-import { LANDING_DO_IT_YOURSELF_ROUTE, LANDING_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";
+import { DOCS_DO_IT_YOURSELF_ROUTE, LANDING_PREVIEW_ROUTE } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { MACHINES_ROUTE, MACHINE_CONNECT_ROUTE } from "./samebaseSync";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
@@ -126,10 +126,10 @@ export const LANDING_PREVIEW_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
-export const LANDING_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
+export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   title: "Do it yourself | Samebase",
   description: "Manual setup guide for building a Samebase-style app yourself.",
-  canonicalPath: LANDING_DO_IT_YOURSELF_ROUTE,
+  canonicalPath: DOCS_DO_IT_YOURSELF_ROUTE,
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
@@ -183,8 +183,8 @@ export function resolveAppPageTitle(pathname: string): string {
     return LANDING_PREVIEW_PAGE_METADATA.title;
   }
 
-  if (pathname === LANDING_DO_IT_YOURSELF_ROUTE) {
-    return LANDING_DO_IT_YOURSELF_PAGE_METADATA.title;
+  if (pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
+    return DOCS_DO_IT_YOURSELF_PAGE_METADATA.title;
   }
 
   if (pathname === LOCAL_STORAGE_ROUTE) {
@@ -238,8 +238,8 @@ export function resolvePageMetadata(args: {
     return LANDING_PREVIEW_PAGE_METADATA;
   }
 
-  if (args.pathname === LANDING_DO_IT_YOURSELF_ROUTE) {
-    return LANDING_DO_IT_YOURSELF_PAGE_METADATA;
+  if (args.pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
+    return DOCS_DO_IT_YOURSELF_PAGE_METADATA;
   }
 
   if (args.pathname === LOCAL_STORAGE_ROUTE) {

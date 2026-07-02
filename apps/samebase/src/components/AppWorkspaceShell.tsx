@@ -93,11 +93,18 @@ const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   rightDesktopWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
   rightMobileWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
 } satisfies WorkspaceSidebarState;
-const LANDING_DO_IT_YOURSELF_PATHNAME = "/landing/do-it-yourself";
+const DOCS_DO_IT_YOURSELF_PATHNAME = "/docs/do-it-yourself";
 const LANDING_PREVIEW_PATHNAME = "/landing-preview";
 const LANDING_PREVIEW_ROUTE_CHROME_DEFAULTS = {
   sidebarDefaultState: {
     leftDesktopOpen: false,
+    rightDesktopOpen: false,
+  },
+} satisfies AppWorkspaceRouteChromeConfig;
+
+const DOCS_ROUTE_CHROME_DEFAULTS = {
+  sidebarDefaultState: {
+    leftDesktopOpen: true,
     rightDesktopOpen: false,
   },
 } satisfies AppWorkspaceRouteChromeConfig;
@@ -189,9 +196,16 @@ function useAppWorkspaceDefaultRouteChrome() {
     select: (location) => location.pathname,
   });
 
-  if (pathname === LANDING_PREVIEW_PATHNAME || pathname === LANDING_DO_IT_YOURSELF_PATHNAME) {
+  if (pathname === LANDING_PREVIEW_PATHNAME) {
     return {
       ...LANDING_PREVIEW_ROUTE_CHROME_DEFAULTS,
+      pathname,
+    } satisfies AppWorkspaceRouteChromeSnapshot;
+  }
+
+  if (pathname === DOCS_DO_IT_YOURSELF_PATHNAME) {
+    return {
+      ...DOCS_ROUTE_CHROME_DEFAULTS,
       pathname,
     } satisfies AppWorkspaceRouteChromeSnapshot;
   }
