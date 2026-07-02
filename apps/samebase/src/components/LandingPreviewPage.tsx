@@ -430,7 +430,7 @@ function LandingPreviewOverview() {
               The version I tell my engineer friends:
             </p>
             <p className="mt-2 max-w-[32ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] md:text-[26px]">
-              At this point, if your frontend talks straight to your database, your app is a
+              At this point, if you're on Supabase or Firebase instead of Convex, your app is a
               security risk.
               <LandingFootnoteMark
                 fragment="landing-note-risk"
@@ -493,23 +493,28 @@ function LandingPreviewOverview() {
 
             <div className="mt-10 grid max-w-[58ch] gap-4 text-base text-primary">
               <p>
-                I moved my apps three times before landing here. Netlify was one of the stops: $20 a
-                month buys 3,000 credits, and a production deploy costs 15 of them
+                I moved my apps three times before landing here. Netlify bills every production
+                deploy against a monthly credit pool
                 <LandingFootnoteMark
                   fragment="landing-note-tokens"
                   label="footnote: the Netlify math"
                   marker="†"
                 />{" "}
-                — about ten cents a merge, with bandwidth and compute draining the same pool. Run
-                the pool dry and your projects pause until you buy more. There are ways to optimize
-                it. I didn't want a hobby optimizing deploy credits.
-              </p>
-              <p>
-                Samebase had working Netlify provisioning.{" "}
+                — I didn't want a hobby optimizing deploy credits. Samebase had working Netlify
+                provisioning:{" "}
                 <span className="font-semibold text-foreground">
                   I built it, then I deleted it.
                 </span>{" "}
                 If I know something is better, why would I sell you anything else?
+              </p>
+              <p>
+                Convex's pricing is realistic in the same way: a free tier a real app fits inside,
+                <LandingFootnoteMark
+                  fragment="landing-note-zero"
+                  label="footnote: zero"
+                  marker="‡"
+                />{" "}
+                and when you grow, you pay Convex directly.
               </p>
             </div>
 
