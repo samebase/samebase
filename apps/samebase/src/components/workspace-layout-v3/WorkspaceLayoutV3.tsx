@@ -1,50 +1,50 @@
 import { useRef, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
 import {
-  useWorkspaceLayoutV2Actions,
-  useWorkspaceLayoutV2Selector,
+  useWorkspaceLayoutV3Actions,
+  useWorkspaceLayoutV3Selector,
   useWorkspacePaneActions,
   useWorkspacePaneState,
   type WorkspacePaneState,
 } from "./WorkspacePaneRuntime";
 import {
-  type WorkspaceLayoutV2BottomPanelProps,
-  WorkspaceLayoutV2MainViewportWithPanel,
-} from "./WorkspaceLayoutV2BottomPanel";
+  type WorkspaceLayoutV3BottomPanelProps,
+  WorkspaceLayoutV3MainViewportWithPanel,
+} from "./WorkspaceLayoutV3BottomPanel";
 import {
-  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   getDesktopSidebarMaxWidthPx,
   getDesktopSidebarWidthPx,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
-  type WorkspaceLayoutV2MobileMinResizeBehavior,
-} from "./WorkspaceLayoutV2Geometry";
-import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
-import { WorkspaceLayoutV2Viewport } from "./WorkspaceLayoutV2Viewports";
+  type WorkspaceLayoutV3MobileMinResizeBehavior,
+} from "./WorkspaceLayoutV3Geometry";
+import { WorkspaceLayoutV3ResizeHandle } from "./WorkspaceLayoutV3ResizeHandle";
+import { WorkspaceLayoutV3Viewport } from "./WorkspaceLayoutV3Viewports";
 import {
-  getWorkspaceLayoutV2DesktopResizeHandles,
-  getWorkspaceLayoutV2MobileResizeHandles,
-  type WorkspaceLayoutV2ResizeHandleConfig,
-} from "./WorkspaceLayoutV2ResizeHandleConfigs";
-import { useWorkspaceLayoutV2MobileCarouselController } from "./useWorkspaceLayoutV2MobileCarousel";
-import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLayoutV2MobileResize";
+  getWorkspaceLayoutV3DesktopResizeHandles,
+  getWorkspaceLayoutV3MobileResizeHandles,
+  type WorkspaceLayoutV3ResizeHandleConfig,
+} from "./WorkspaceLayoutV3ResizeHandleConfigs";
+import { useWorkspaceLayoutV3MobileCarouselController } from "./useWorkspaceLayoutV3MobileCarousel";
+import { useWorkspaceLayoutV3MobileGripResizeController } from "./useWorkspaceLayoutV3MobileResize";
 
-type WorkspaceLayoutV2Props = {
+type WorkspaceLayoutV3Props = {
   addressChrome: ReactNode;
   left?: ReactElement;
   main: ReactElement;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
+  mobileMinResizeBehavior?: WorkspaceLayoutV3MobileMinResizeBehavior;
+  panel?: WorkspaceLayoutV3BottomPanelProps;
   right?: ReactElement;
 
   dataTestId?: string;
 };
 
-type WorkspaceLayoutV2RootStyle = CSSProperties & {
-  "--workspace-layout-v2-left-mobile-width": string;
-  "--workspace-layout-v2-main-mobile-width": string;
-  "--workspace-layout-v2-right-mobile-width": string;
+type WorkspaceLayoutV3RootStyle = CSSProperties & {
+  "--workspace-layout-v3-left-mobile-width": string;
+  "--workspace-layout-v3-main-mobile-width": string;
+  "--workspace-layout-v3-right-mobile-width": string;
 };
 
 /**
@@ -72,7 +72,7 @@ function getAvailableMobilePane({
   return mobilePane;
 }
 
-export function WorkspaceLayoutV2({
+export function WorkspaceLayoutV3({
   addressChrome,
   left,
   main,
@@ -80,13 +80,13 @@ export function WorkspaceLayoutV2({
   panel,
   right,
   dataTestId,
-}: WorkspaceLayoutV2Props) {
+}: WorkspaceLayoutV3Props) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
-  const activeResizeSide = useWorkspaceLayoutV2Selector((state) => state.activeResizeSide);
-  const isMobilePaneSettled = useWorkspaceLayoutV2Selector((state) => state.mobile.isPaneSettled);
-  const viewportSize = useWorkspaceLayoutV2Selector((state) => state.viewportSize);
-  const { setActiveResizeSide, setViewportSize } = useWorkspaceLayoutV2Actions();
+  const activeResizeSide = useWorkspaceLayoutV3Selector((state) => state.activeResizeSide);
+  const isMobilePaneSettled = useWorkspaceLayoutV3Selector((state) => state.mobile.isPaneSettled);
+  const viewportSize = useWorkspaceLayoutV3Selector((state) => state.viewportSize);
+  const { setActiveResizeSide, setViewportSize } = useWorkspaceLayoutV3Actions();
   useElementSize(viewportRef, setViewportSize);
   const {
     isMobile,
@@ -131,7 +131,7 @@ export function WorkspaceLayoutV2({
   const desktopSidebarMaxWidthPx = getDesktopSidebarMaxWidthPx(viewportSize.widthPx);
   const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportSize.widthPx);
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
-    configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    configuredMinWidthPx: WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     maxWidthPx: mobileSidebarMaxWidthPx,
   });
   const mobileLeftWidthPx = hasLeftPane
@@ -149,7 +149,7 @@ export function WorkspaceLayoutV2({
       })
     : 0;
   const activeMobileGripResizeSideRef = useRef<"left" | "right" | null>(null);
-  const mobileGripResize = useWorkspaceLayoutV2MobileGripResizeController({
+  const mobileGripResize = useWorkspaceLayoutV3MobileGripResizeController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
     hasLeftPane,
@@ -172,14 +172,14 @@ export function WorkspaceLayoutV2({
   const mobileMainWidthPx = activeMobileSurface
     ? activeMobileSurface.mainWidthPx
     : mobileGripResize.mobileDefaultMainWidthPx;
-  const layoutRootStyle: WorkspaceLayoutV2RootStyle | undefined = hasMeasuredViewport
+  const layoutRootStyle: WorkspaceLayoutV3RootStyle | undefined = hasMeasuredViewport
     ? {
-        "--workspace-layout-v2-left-mobile-width": `${mobileLeftWidthPx}px`,
-        "--workspace-layout-v2-main-mobile-width": `${mobileMainWidthPx}px`,
-        "--workspace-layout-v2-right-mobile-width": `${mobileRightWidthPx}px`,
+        "--workspace-layout-v3-left-mobile-width": `${mobileLeftWidthPx}px`,
+        "--workspace-layout-v3-main-mobile-width": `${mobileMainWidthPx}px`,
+        "--workspace-layout-v3-right-mobile-width": `${mobileRightWidthPx}px`,
       }
     : undefined;
-  useWorkspaceLayoutV2MobileCarouselController({
+  useWorkspaceLayoutV3MobileCarouselController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
     hasLeftPane,
@@ -193,7 +193,7 @@ export function WorkspaceLayoutV2({
     setMobilePane,
     viewportWidthPx: viewportSize.widthPx,
   });
-  const desktopResizeHandles = getWorkspaceLayoutV2DesktopResizeHandles({
+  const desktopResizeHandles = getWorkspaceLayoutV3DesktopResizeHandles({
     desktopLeftWidthPx,
     desktopRightWidthPx,
     desktopSidebarMaxWidthPx,
@@ -205,7 +205,7 @@ export function WorkspaceLayoutV2({
     setRightDesktopWidthPx,
     viewportWidthPx: viewportSize.widthPx,
   });
-  const mobileResizeHandles = getWorkspaceLayoutV2MobileResizeHandles({
+  const mobileResizeHandles = getWorkspaceLayoutV3MobileResizeHandles({
     hasLeftPane,
     hasRightPane,
     isMobilePaneSettled,
@@ -220,7 +220,7 @@ export function WorkspaceLayoutV2({
   });
 
   function renderResizeHandle(
-    resizeHandle: WorkspaceLayoutV2ResizeHandleConfig,
+    resizeHandle: WorkspaceLayoutV3ResizeHandleConfig,
     pointerTarget: "edge" | "grip",
   ) {
     const gripSlidePositionPx =
@@ -229,7 +229,7 @@ export function WorkspaceLayoutV2({
         : resizeHandle.positionPx;
 
     return (
-      <WorkspaceLayoutV2ResizeHandle
+      <WorkspaceLayoutV3ResizeHandle
         key={resizeHandle.side}
         currentSizePx={resizeHandle.currentWidthPx}
         dataTestId={resizeHandle.dataTestId}
@@ -266,7 +266,7 @@ export function WorkspaceLayoutV2({
   }
 
   const mainViewportContent = (
-    <WorkspaceLayoutV2MainViewportWithPanel
+    <WorkspaceLayoutV3MainViewportWithPanel
       activeResizeSide={activeResizeSide}
       isMobile={isMobile}
       mainContent={main}
@@ -287,7 +287,7 @@ export function WorkspaceLayoutV2({
       className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
     >
       <div
-        data-testid="workspace-layout-v2-address-chrome"
+        data-testid="workspace-layout-v3-address-chrome"
         className="shrink-0 border-b border-border bg-background"
       >
         {addressChrome}
@@ -295,8 +295,8 @@ export function WorkspaceLayoutV2({
       <div
         ref={viewportRef}
         data-mobile-pane={mobilePane}
-        data-workspace-layout-v2="responsive"
-        data-workspace-layout-v2-mobile-merged-side={
+        data-workspace-layout-v3="responsive"
+        data-workspace-layout-v3-mobile-merged-side={
           isMobile && activeMobileMergedSurfaceSide !== null
             ? activeMobileMergedSurfaceSide
             : undefined
@@ -305,7 +305,7 @@ export function WorkspaceLayoutV2({
         style={layoutRootStyle}
         suppressHydrationWarning
       >
-        <WorkspaceLayoutV2Viewport
+        <WorkspaceLayoutV3Viewport
           activeResizeSide={activeResizeSide}
           carouselRef={mobileCarouselRef}
           desktopLeftWidthPx={desktopLeftWidthPx}

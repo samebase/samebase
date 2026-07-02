@@ -1,11 +1,11 @@
 import { clampNumber } from "@/lib/clampNumber";
 import { notEmpty } from "@samebase/dependent";
 import {
-  WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   type MobilePane,
-} from "./WorkspaceLayoutV2Geometry";
+} from "./WorkspaceLayoutV3Geometry";
 
-export type WorkspaceLayoutV2ResizeHandleConfig = {
+export type WorkspaceLayoutV3ResizeHandleConfig = {
   currentWidthPx: number;
   dataTestId: string;
   maxWidthPx: number;
@@ -15,7 +15,7 @@ export type WorkspaceLayoutV2ResizeHandleConfig = {
   side: "left" | "right";
 };
 
-export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
+export function getWorkspaceLayoutV3DesktopResizeHandles(args: {
   desktopLeftWidthPx: number;
   desktopRightWidthPx: number;
   desktopSidebarMaxWidthPx: number;
@@ -35,14 +35,14 @@ export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
     args.hasLeftPane && args.leftDesktopOpen
       ? {
           currentWidthPx: args.desktopLeftWidthPx,
-          dataTestId: "workspace-layout-v2-left-resize",
+          dataTestId: "workspace-layout-v3-left-resize",
           maxWidthPx: args.desktopSidebarMaxWidthPx,
-          minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+          minWidthPx: WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
           onWidthChange: (nextWidthPx: number) => {
             args.setLeftDesktopWidthPx(
               clampNumber(
                 Math.round(nextWidthPx),
-                WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                 args.desktopSidebarMaxWidthPx,
               ),
             );
@@ -54,14 +54,14 @@ export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
     args.hasRightPane && args.rightDesktopOpen
       ? {
           currentWidthPx: args.desktopRightWidthPx,
-          dataTestId: "workspace-layout-v2-right-resize",
+          dataTestId: "workspace-layout-v3-right-resize",
           maxWidthPx: args.desktopSidebarMaxWidthPx,
-          minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+          minWidthPx: WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
           onWidthChange: (nextWidthPx: number) => {
             args.setRightDesktopWidthPx(
               clampNumber(
                 Math.round(nextWidthPx),
-                WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+                WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
                 args.desktopSidebarMaxWidthPx,
               ),
             );
@@ -78,7 +78,7 @@ export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
  * sidebar's grip, but skip unsettled carousel states so the grip cannot steal
  * touch input from the pane content mid-scroll.
  */
-export function getWorkspaceLayoutV2MobileResizeHandles(args: {
+export function getWorkspaceLayoutV3MobileResizeHandles(args: {
   hasLeftPane: boolean;
   hasRightPane: boolean;
   isMobilePaneSettled: boolean;
@@ -99,7 +99,7 @@ export function getWorkspaceLayoutV2MobileResizeHandles(args: {
     args.hasLeftPane && args.mobilePane === "left"
       ? {
           currentWidthPx: args.mobileLeftWidthPx,
-          dataTestId: "workspace-layout-v2-left-resize",
+          dataTestId: "workspace-layout-v3-left-resize",
           maxWidthPx: args.mobileSidebarMaxWidthPx,
           minWidthPx: args.mobileSidebarMinWidthPx,
           onWidthChange: (nextWidthPx: number) => {
@@ -118,7 +118,7 @@ export function getWorkspaceLayoutV2MobileResizeHandles(args: {
     args.hasRightPane && args.mobilePane === "right"
       ? {
           currentWidthPx: args.mobileRightWidthPx,
-          dataTestId: "workspace-layout-v2-right-resize",
+          dataTestId: "workspace-layout-v3-right-resize",
           maxWidthPx: args.mobileSidebarMaxWidthPx,
           minWidthPx: args.mobileSidebarMinWidthPx,
           onWidthChange: (nextWidthPx: number) => {

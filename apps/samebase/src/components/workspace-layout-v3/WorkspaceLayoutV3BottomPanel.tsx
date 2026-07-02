@@ -3,36 +3,36 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import {
-  WorkspaceLayoutV2PaneFrame,
-  type WorkspaceLayoutV2PaneFrameProps,
-} from "./WorkspaceLayoutV2PaneFrame";
+  WorkspaceLayoutV3PaneFrame,
+  type WorkspaceLayoutV3PaneFrameProps,
+} from "./WorkspaceLayoutV3PaneFrame";
 import {
-  WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX,
-  WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX,
-  clampWorkspaceLayoutV2PanelHeight,
-  getDefaultWorkspaceLayoutV2PanelHeight,
-  getWorkspaceLayoutV2PanelMaxHeightPx,
-} from "./WorkspaceLayoutV2PanelGeometry";
-import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
+  WORKSPACE_LAYOUT_V3_PANEL_DEFAULT_HEIGHT_PX,
+  WORKSPACE_LAYOUT_V3_PANEL_MIN_HEIGHT_PX,
+  clampWorkspaceLayoutV3PanelHeight,
+  getDefaultWorkspaceLayoutV3PanelHeight,
+  getWorkspaceLayoutV3PanelMaxHeightPx,
+} from "./WorkspaceLayoutV3PanelGeometry";
+import { WorkspaceLayoutV3ResizeHandle } from "./WorkspaceLayoutV3ResizeHandle";
 
 /**
  * Optional route-owned bottom panel. The previous chat-FAB use of this panel is
  * deprecated, so new/default route chrome should omit chat panels unless a
  * route explicitly opts into reviving that surface.
  */
-export type WorkspaceLayoutV2BottomPanelProps = WorkspaceLayoutV2PaneFrameProps & {
+export type WorkspaceLayoutV3BottomPanelProps = WorkspaceLayoutV3PaneFrameProps & {
   closeDisabled?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   open?: boolean;
 };
 
-function WorkspaceLayoutV2PanelToggleButton({ onClick }: { onClick: () => void }) {
+function WorkspaceLayoutV3PanelToggleButton({ onClick }: { onClick: () => void }) {
   return (
     <Button
       type="button"
       size="icon"
       aria-label="Open bottom panel"
-      data-testid="workspace-layout-v2-panel-toggle"
+      data-testid="workspace-layout-v3-panel-toggle"
       className="absolute bottom-3 right-3 z-20 h-10 w-10"
       onClick={onClick}
     >
@@ -45,7 +45,7 @@ function WorkspaceLayoutV2PanelToggleButton({ onClick }: { onClick: () => void }
  * Keep the optional bottom panel isolated from the sidebar math so the main
  * workspace shell still only reasons about left/main/right pane geometry.
  */
-export function WorkspaceLayoutV2MainViewportWithPanel({
+export function WorkspaceLayoutV3MainViewportWithPanel({
   activeResizeSide,
   isMobile,
   mainContent,
@@ -59,13 +59,13 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   mainContent: ReactNode;
   onPanelResizeEnd: () => void;
   onPanelResizeStart: () => void;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
+  panel?: WorkspaceLayoutV3BottomPanelProps;
   viewportHeightPx: number;
 }) {
   const hasPanel = panel !== undefined;
   const isPanelOpenControlled = panel?.open !== undefined;
   const [uncontrolledPanelOpen, setUncontrolledPanelOpen] = useState(hasPanel);
-  const [panelHeightPx, setPanelHeightPx] = useState(WORKSPACE_LAYOUT_V2_PANEL_DEFAULT_HEIGHT_PX);
+  const [panelHeightPx, setPanelHeightPx] = useState(WORKSPACE_LAYOUT_V3_PANEL_DEFAULT_HEIGHT_PX);
   const panelHeightCustomizedRef = useRef(false);
   const panelOpen = panel?.open ?? uncontrolledPanelOpen;
   const closeDisabled = panel?.closeDisabled ?? false;
@@ -99,13 +99,13 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
 
     setPanelHeightPx((currentHeightPx) => {
       if (!panelHeightCustomizedRef.current) {
-        return getDefaultWorkspaceLayoutV2PanelHeight({
+        return getDefaultWorkspaceLayoutV3PanelHeight({
           isMobile,
           viewportHeightPx,
         });
       }
 
-      return clampWorkspaceLayoutV2PanelHeight({
+      return clampWorkspaceLayoutV3PanelHeight({
         heightPx: currentHeightPx,
         viewportHeightPx,
       });
@@ -115,7 +115,7 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   const renderedPanel =
     panel === undefined || !panelOpen ? null : (
       <div
-        data-testid="workspace-layout-v2-pane-panel"
+        data-testid="workspace-layout-v3-pane-panel"
         className={cn(
           "relative min-h-0 bg-background",
           panelHeightPx >= viewportHeightPx
@@ -129,12 +129,12 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
         )}
         style={{ height: `${panelHeightPx}px` }}
       >
-        <WorkspaceLayoutV2ResizeHandle
+        <WorkspaceLayoutV3ResizeHandle
           ariaLabel="Resize bottom panel"
           currentSizePx={panelHeightPx}
-          dataTestId="workspace-layout-v2-panel-resize"
-          maxSizePx={getWorkspaceLayoutV2PanelMaxHeightPx(viewportHeightPx)}
-          minSizePx={WORKSPACE_LAYOUT_V2_PANEL_MIN_HEIGHT_PX}
+          dataTestId="workspace-layout-v3-panel-resize"
+          maxSizePx={getWorkspaceLayoutV3PanelMaxHeightPx(viewportHeightPx)}
+          minSizePx={WORKSPACE_LAYOUT_V3_PANEL_MIN_HEIGHT_PX}
           onResizeStart={() => {
             panelHeightCustomizedRef.current = true;
             onPanelResizeStart();
@@ -146,7 +146,7 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
           resizeFrom="top"
         />
         <div className="min-h-0 flex-1">
-          <WorkspaceLayoutV2PaneFrame
+          <WorkspaceLayoutV3PaneFrame
             {...panelFrameProps}
             header={
               <div className="flex h-full min-w-0 items-center justify-between">
@@ -177,18 +177,18 @@ export function WorkspaceLayoutV2MainViewportWithPanel({
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <div
-        data-testid="workspace-layout-v2-main-viewport"
+        data-testid="workspace-layout-v3-main-viewport"
         className="min-h-0 flex-1 overflow-hidden bg-background"
       >
         {mainContent}
       </div>
       {renderedPanel}
       {hasPanel && !panelOpen ? (
-        <WorkspaceLayoutV2PanelToggleButton
+        <WorkspaceLayoutV3PanelToggleButton
           onClick={() => {
             if (!panelHeightCustomizedRef.current) {
               setPanelHeightPx(
-                getDefaultWorkspaceLayoutV2PanelHeight({
+                getDefaultWorkspaceLayoutV3PanelHeight({
                   isMobile,
                   viewportHeightPx,
                 }),

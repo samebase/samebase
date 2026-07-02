@@ -2,15 +2,15 @@ import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
-import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
-import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
-import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
+import { WorkspaceLayoutV3FullPage } from "./WorkspaceLayoutV3FullPage";
+import { WorkspaceLayoutV3MemorySidebarProvider } from "./WorkspaceLayoutV3MemorySidebarProvider";
+import { WorkspaceLayoutV3PaneFrame } from "./WorkspaceLayoutV3PaneFrame";
+import { WorkspaceLayoutV3ResizeHandle } from "./WorkspaceLayoutV3ResizeHandle";
 
 const OMIT_HEADER = Symbol("omit-header");
 const TEST_ADDRESS_CHROME = <div data-testid="test-address-chrome">/test</div>;
 
-function WorkspaceLayoutV2TestSidebarProvider({
+function WorkspaceLayoutV3TestSidebarProvider({
   children,
   rightOpen = false,
 }: {
@@ -18,7 +18,7 @@ function WorkspaceLayoutV2TestSidebarProvider({
   rightOpen?: boolean;
 }) {
   return (
-    <WorkspaceLayoutV2MemorySidebarProvider
+    <WorkspaceLayoutV3MemorySidebarProvider
       initialState={{
         leftDesktopOpen: true,
         leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
@@ -31,7 +31,7 @@ function WorkspaceLayoutV2TestSidebarProvider({
       }}
     >
       {children}
-    </WorkspaceLayoutV2MemorySidebarProvider>
+    </WorkspaceLayoutV3MemorySidebarProvider>
   );
 }
 
@@ -57,8 +57,8 @@ function renderFullPageMarkup({
         };
 
   return renderToStaticMarkup(
-    <WorkspaceLayoutV2TestSidebarProvider rightOpen>
-      <WorkspaceLayoutV2FullPage
+    <WorkspaceLayoutV3TestSidebarProvider rightOpen>
+      <WorkspaceLayoutV3FullPage
         addressChrome={TEST_ADDRESS_CHROME}
         left={
           includeLeftPane
@@ -76,33 +76,33 @@ function renderFullPageMarkup({
             : undefined
         }
       />
-    </WorkspaceLayoutV2TestSidebarProvider>,
+    </WorkspaceLayoutV3TestSidebarProvider>,
   );
 }
 
-describe("WorkspaceLayoutV2FullPage", () => {
+describe("WorkspaceLayoutV3FullPage", () => {
   it("server-renders one responsive pane tree instead of mobile and desktop branches", () => {
     const markup = renderFullPageMarkup({});
 
-    expect(markup).toContain('data-workspace-layout-v2="responsive"');
-    expect(markup).not.toContain('data-workspace-layout-v2="mobile"');
-    expect(markup).not.toContain('data-workspace-layout-v2="desktop"');
-    expect((markup.match(/data-testid="workspace-layout-v2-pane-left"/g) ?? []).length).toBe(1);
-    expect((markup.match(/data-testid="workspace-layout-v2-pane-main"/g) ?? []).length).toBe(1);
-    expect((markup.match(/data-testid="workspace-layout-v2-pane-right"/g) ?? []).length).toBe(1);
-    expect(markup).toContain("workspace-layout-v2-responsive-viewport");
-    expect(markup).toContain("workspace-layout-v2-responsive-left-pane");
-    expect(markup).toContain("workspace-layout-v2-responsive-main-pane");
-    expect(markup).toContain("workspace-layout-v2-responsive-right-pane");
-    expect(markup).toContain('style="width:var(--workspace-layout-v2-left-mobile-width, 0px)"');
-    expect(markup).toContain('style="width:var(--workspace-layout-v2-main-mobile-width, 100vw)"');
-    expect(markup).toContain('style="width:var(--workspace-layout-v2-right-mobile-width, 0px)"');
+    expect(markup).toContain('data-workspace-layout-v3="responsive"');
+    expect(markup).not.toContain('data-workspace-layout-v3="mobile"');
+    expect(markup).not.toContain('data-workspace-layout-v3="desktop"');
+    expect((markup.match(/data-testid="workspace-layout-v3-pane-left"/g) ?? []).length).toBe(1);
+    expect((markup.match(/data-testid="workspace-layout-v3-pane-main"/g) ?? []).length).toBe(1);
+    expect((markup.match(/data-testid="workspace-layout-v3-pane-right"/g) ?? []).length).toBe(1);
+    expect(markup).toContain("workspace-layout-v3-responsive-viewport");
+    expect(markup).toContain("workspace-layout-v3-responsive-left-pane");
+    expect(markup).toContain("workspace-layout-v3-responsive-main-pane");
+    expect(markup).toContain("workspace-layout-v3-responsive-right-pane");
+    expect(markup).toContain('style="width:var(--workspace-layout-v3-left-mobile-width, 0px)"');
+    expect(markup).toContain('style="width:var(--workspace-layout-v3-main-mobile-width, 100vw)"');
+    expect(markup).toContain('style="width:var(--workspace-layout-v3-right-mobile-width, 0px)"');
   });
 
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2TestSidebarProvider>
-        <WorkspaceLayoutV2FullPage
+      <WorkspaceLayoutV3TestSidebarProvider>
+        <WorkspaceLayoutV3FullPage
           addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
@@ -115,7 +115,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
             content: <div>right pane</div>,
           }}
         />
-      </WorkspaceLayoutV2TestSidebarProvider>,
+      </WorkspaceLayoutV3TestSidebarProvider>,
     );
 
     expect(markup).toContain('data-testid="main-header-actions"');
@@ -126,18 +126,18 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("renders address chrome above the pane viewport", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2TestSidebarProvider>
-        <WorkspaceLayoutV2FullPage
+      <WorkspaceLayoutV3TestSidebarProvider>
+        <WorkspaceLayoutV3FullPage
           addressChrome={<div data-testid="address-chrome-content">/logo</div>}
           main={{
             content: <div>main pane</div>,
           }}
         />
-      </WorkspaceLayoutV2TestSidebarProvider>,
+      </WorkspaceLayoutV3TestSidebarProvider>,
     );
 
-    const addressIndex = markup.indexOf('data-testid="workspace-layout-v2-address-chrome"');
-    const viewportIndex = markup.indexOf('data-workspace-layout-v2="responsive"');
+    const addressIndex = markup.indexOf('data-testid="workspace-layout-v3-address-chrome"');
+    const viewportIndex = markup.indexOf('data-workspace-layout-v3="responsive"');
 
     expect(addressIndex).toBeGreaterThanOrEqual(0);
     expect(markup).toContain('data-testid="address-chrome-content"');
@@ -146,8 +146,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("omits the right pane and right toggle when a route does not provide a right pane", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2TestSidebarProvider>
-        <WorkspaceLayoutV2FullPage
+      <WorkspaceLayoutV3TestSidebarProvider>
+        <WorkspaceLayoutV3FullPage
           addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
@@ -157,12 +157,12 @@ describe("WorkspaceLayoutV2FullPage", () => {
             content: <div>main pane</div>,
           }}
         />
-      </WorkspaceLayoutV2TestSidebarProvider>,
+      </WorkspaceLayoutV3TestSidebarProvider>,
     );
 
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).not.toContain("right pane");
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v3-pane-right"');
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
     expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(1);
   });
@@ -173,7 +173,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("main pane");
     expect(markup).toContain("right pane");
     expect(markup).not.toContain("left pane");
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).not.toContain('data-testid="workspace-layout-v3-pane-left"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
   });
@@ -189,8 +189,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("can hide the left toggle and collapse an otherwise empty header row", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2TestSidebarProvider>
-        <WorkspaceLayoutV2FullPage
+      <WorkspaceLayoutV3TestSidebarProvider>
+        <WorkspaceLayoutV3FullPage
           addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
@@ -200,7 +200,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
           }}
           leftToggleVisibility="hidden"
         />
-      </WorkspaceLayoutV2TestSidebarProvider>,
+      </WorkspaceLayoutV3TestSidebarProvider>,
     );
 
     expect(markup).toContain("main pane");
@@ -210,8 +210,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("can hide the right toggle and collapse an otherwise empty header row", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2TestSidebarProvider rightOpen>
-        <WorkspaceLayoutV2FullPage
+      <WorkspaceLayoutV3TestSidebarProvider rightOpen>
+        <WorkspaceLayoutV3FullPage
           addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
@@ -225,7 +225,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
           leftToggleVisibility="hidden"
           rightToggleVisibility="hidden"
         />
-      </WorkspaceLayoutV2TestSidebarProvider>,
+      </WorkspaceLayoutV3TestSidebarProvider>,
     );
 
     expect(markup).toContain("right pane");
@@ -243,8 +243,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("disables the shared bottom-panel close button when panel closure is blocked", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2TestSidebarProvider>
-        <WorkspaceLayoutV2FullPage
+      <WorkspaceLayoutV3TestSidebarProvider>
+        <WorkspaceLayoutV3FullPage
           addressChrome={TEST_ADDRESS_CHROME}
           left={{
             content: <div>left pane</div>,
@@ -262,7 +262,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
             content: <div>right pane</div>,
           }}
         />
-      </WorkspaceLayoutV2TestSidebarProvider>,
+      </WorkspaceLayoutV3TestSidebarProvider>,
     );
 
     expect(markup).toContain('aria-label="Close bottom panel"');
@@ -271,7 +271,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("can skip the reserved header row when a pane intentionally has no header", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2PaneFrame content={<div>public pane</div>} />,
+      <WorkspaceLayoutV3PaneFrame content={<div>public pane</div>} />,
     );
 
     expect(markup).toContain("public pane");
@@ -280,9 +280,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("keeps idle grip handles visually unobtrusive", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2ResizeHandle
+      <WorkspaceLayoutV3ResizeHandle
         currentSizePx={280}
-        dataTestId="workspace-layout-v2-left-resize"
+        dataTestId="workspace-layout-v3-left-resize"
         maxSizePx={480}
         minSizePx={160}
         onSizeChange={() => {}}
@@ -292,9 +292,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
       />,
     );
 
-    expect(markup).toContain('data-testid="workspace-layout-v2-left-resize"');
+    expect(markup).toContain('data-testid="workspace-layout-v3-left-resize"');
     expect(markup).toContain("h-16 w-8");
-    expect(markup).toContain("data-workspace-layout-v2-resize-grip-dots");
+    expect(markup).toContain("data-workspace-layout-v3-resize-grip-dots");
     expect(markup).toContain("text-foreground/70");
     expect(markup).toContain("h-[3px] w-[3px]");
     expect(markup).not.toContain("border-border");
@@ -303,9 +303,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
   it("keeps mobile sidebar grip tracks centered while offsetting dots", () => {
     const leftMarkup = renderToStaticMarkup(
-      <WorkspaceLayoutV2ResizeHandle
+      <WorkspaceLayoutV3ResizeHandle
         currentSizePx={280}
-        dataTestId="workspace-layout-v2-left-resize"
+        dataTestId="workspace-layout-v3-left-resize"
         maxSizePx={480}
         minSizePx={160}
         onSizeChange={() => {}}
@@ -315,9 +315,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
       />,
     );
     const rightMarkup = renderToStaticMarkup(
-      <WorkspaceLayoutV2ResizeHandle
+      <WorkspaceLayoutV3ResizeHandle
         currentSizePx={280}
-        dataTestId="workspace-layout-v2-right-resize"
+        dataTestId="workspace-layout-v3-right-resize"
         maxSizePx={480}
         minSizePx={160}
         onSizeChange={() => {}}

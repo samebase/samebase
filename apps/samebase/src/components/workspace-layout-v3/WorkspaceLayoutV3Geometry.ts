@@ -2,15 +2,15 @@ import { clampNumber } from "@/lib/clampNumber";
 import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import type { WorkspaceMobileSurface } from "../../../convex/workspaceSidebarStateModel";
 
-export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
+export const WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
-export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
-export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
-export const WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
+export const WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
+export const WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+export const WORKSPACE_LAYOUT_V3_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
 // Keep default merged fit valid at 320px: side min + main min must fit exactly.
-export const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX =
-  WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX -
-  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX;
+export const WORKSPACE_LAYOUT_V3_MOBILE_MAIN_MIN_WIDTH_PX =
+  WORKSPACE_LAYOUT_V3_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX -
+  WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX;
 export const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
@@ -20,35 +20,35 @@ const MOBILE_PANE_ORDER_WITHOUT_LEFT = ["main", "right"] as const;
 const MOBILE_PANE_ORDER_MAIN_ONLY = ["main"] as const;
 
 export type MobilePane = (typeof MOBILE_PANE_ORDER)[number];
-export type WorkspaceLayoutV2MobileMinResizeBehavior =
+export type WorkspaceLayoutV3MobileMinResizeBehavior =
   | "min_resize_to_slide"
   | "min_resize_to_merge";
-export type WorkspaceLayoutV2MobileMergedSide = "left" | "right";
-export type WorkspaceLayoutV2ActiveResizeSide = "left" | "right" | "top" | null;
-export type WorkspaceLayoutV2MobileSurface = WorkspaceMobileSurface;
-export type WorkspaceLayoutV2MobileGrip =
+export type WorkspaceLayoutV3MobileMergedSide = "left" | "right";
+export type WorkspaceLayoutV3ActiveResizeSide = "left" | "right" | "top" | null;
+export type WorkspaceLayoutV3MobileSurface = WorkspaceMobileSurface;
+export type WorkspaceLayoutV3MobileGrip =
   | { kind: "idle" }
   | {
       kind: "dragging";
-      mergeTargetSide: WorkspaceLayoutV2MobileMergedSide | null;
-      previewSurface: WorkspaceLayoutV2MobileSurface;
+      mergeTargetSide: WorkspaceLayoutV3MobileMergedSide | null;
+      previewSurface: WorkspaceLayoutV3MobileSurface;
       shouldSettleMergedOnEnd: boolean;
-      side: WorkspaceLayoutV2MobileMergedSide;
+      side: WorkspaceLayoutV3MobileMergedSide;
       slideOffsetPx: number;
       startMainWidthPx: number;
       startSideWidthPx: number;
     };
 
-export const WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE: WorkspaceLayoutV2MobileSurface = {
+export const WORKSPACE_LAYOUT_V3_UNMERGED_MOBILE_SURFACE: WorkspaceLayoutV3MobileSurface = {
   kind: "unmerged",
 };
-export const WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP: WorkspaceLayoutV2MobileGrip = {
+export const WORKSPACE_LAYOUT_V3_IDLE_MOBILE_GRIP: WorkspaceLayoutV3MobileGrip = {
   kind: "idle",
 };
 
 export function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
-    WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     Math.round(viewportWidthPx * DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
   );
 }
@@ -126,7 +126,7 @@ export function shouldCommitMobileMergedSurface(args: {
   return args.mainWidthPx <= (args.mainDefaultWidthPx + args.settledMainWidthPx) / 2;
 }
 
-function getOppositeMobileMergedSide(side: WorkspaceLayoutV2MobileMergedSide) {
+function getOppositeMobileMergedSide(side: WorkspaceLayoutV3MobileMergedSide) {
   return side === "left" ? "right" : "left";
 }
 
@@ -136,11 +136,11 @@ function getOppositeMobileMergedSide(side: WorkspaceLayoutV2MobileMergedSide) {
  * across instead of briefly returning to the three-pane model.
  */
 export function getMobileMergeHandoffSide(args: {
-  currentMergedSide: WorkspaceLayoutV2MobileMergedSide | null;
+  currentMergedSide: WorkspaceLayoutV3MobileMergedSide | null;
   hasLeftPane: boolean;
   hasRightPane: boolean;
   leftWidthPx: number;
-  resizeSide: WorkspaceLayoutV2MobileMergedSide;
+  resizeSide: WorkspaceLayoutV3MobileMergedSide;
   rightWidthPx: number;
   shouldKeepCurrentMerge: boolean;
   sidebarMinWidthPx: number;
@@ -182,14 +182,14 @@ export function getDesktopSidebarWidthPx(args: {
 
   if (args.viewportWidthPx <= 0) {
     return Math.max(
-      WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+      WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
       Math.round(args.storedWidthPx),
     );
   }
 
   return clampNumber(
     Math.round(args.storedWidthPx),
-    WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     getDesktopSidebarMaxWidthPx(args.viewportWidthPx),
   );
 }
@@ -201,7 +201,7 @@ function getMobilePaneOrder({
 }: {
   hasLeftPane: boolean;
   hasRightPane: boolean;
-  mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
+  mergedSurfaceSide: WorkspaceLayoutV3MobileMergedSide | null;
 }): readonly MobilePane[] {
   if (mergedSurfaceSide === "left" && hasLeftPane) {
     return hasRightPane ? MOBILE_PANE_ORDER_WITHOUT_MAIN : ["left"];
@@ -231,7 +231,7 @@ function getMobilePaneScrollOffsets(args: {
   hasRightPane: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
-  mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
+  mergedSurfaceSide: WorkspaceLayoutV3MobileMergedSide | null;
   rightWidthPx: number;
   viewportWidthPx: number;
 }) {
@@ -286,7 +286,7 @@ export function getMobilePaneFromScrollLeft(args: {
   hasRightPane: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
-  mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
+  mergedSurfaceSide: WorkspaceLayoutV3MobileMergedSide | null;
   rightWidthPx: number;
   scrollLeftPx: number;
   viewportWidthPx: number;

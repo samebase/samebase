@@ -7,7 +7,7 @@ import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStat
  * tests. It uses the same controller contract as Convex/localStorage adapters
  * so those surfaces still exercise the workspace-layout sidebar boundary.
  */
-export function useWorkspaceLayoutV2MemorySidebarController(
+export function useWorkspaceLayoutV3MemorySidebarController(
   initialState: WorkspaceSidebarState,
 ): WorkspaceSidebarStateController {
   const [state, setState] = useState(initialState);

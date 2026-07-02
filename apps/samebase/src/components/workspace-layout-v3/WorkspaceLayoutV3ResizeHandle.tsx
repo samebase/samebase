@@ -80,7 +80,7 @@ function getResizeHandleValueText(currentSizePx: number, resizeFrom: "left" | "r
     : `${Math.round(currentSizePx)} pixels wide`;
 }
 
-type WorkspaceLayoutV2ResizeHandleProps = {
+type WorkspaceLayoutV3ResizeHandleProps = {
   ariaLabel?: string;
   currentSizePx: number;
   dataTestId: string;
@@ -102,7 +102,7 @@ type WorkspaceLayoutV2ResizeHandleProps = {
  * while allowing each edge to decide whether desktop uses an invisible boundary
  * hit area or mobile uses a visible grip.
  */
-export function WorkspaceLayoutV2ResizeHandle({
+export function WorkspaceLayoutV3ResizeHandle({
   ariaLabel,
   currentSizePx,
   dataTestId,
@@ -117,7 +117,7 @@ export function WorkspaceLayoutV2ResizeHandle({
   pointerTarget = "edge",
   positionPx,
   resizeFrom,
-}: WorkspaceLayoutV2ResizeHandleProps) {
+}: WorkspaceLayoutV3ResizeHandleProps) {
   const dragStateRef = useRef<{
     startClientPx: number;
     startSizePx: number;
@@ -272,7 +272,7 @@ export function WorkspaceLayoutV2ResizeHandle({
     "aria-valuenow": Math.round(currentSizePx),
     "aria-valuetext": getResizeHandleValueText(currentSizePx, resizeFrom),
     "data-testid": dataTestId,
-    "data-workspace-layout-v2-resize-handle": resizeFrom,
+    "data-workspace-layout-v3-resize-handle": resizeFrom,
     onBlur,
     onFocus,
     onKeyDown: handleKeyDown,
@@ -313,7 +313,7 @@ export function WorkspaceLayoutV2ResizeHandle({
           >
             <div
               aria-hidden="true"
-              data-workspace-layout-v2-resize-grip-dots
+              data-workspace-layout-v3-resize-grip-dots
               className={cn(
                 "relative z-10 flex flex-col items-center gap-1 text-foreground/70",
                 gripDotsClassName,

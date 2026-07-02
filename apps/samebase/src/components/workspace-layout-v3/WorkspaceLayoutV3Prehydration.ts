@@ -2,12 +2,12 @@ import { MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX } from "@/lib/workspacePaneSize
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
   MOBILE_PANE_SETTLED_TOLERANCE_PX,
-  WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-  WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
-  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
-} from "./WorkspaceLayoutV2Geometry";
+  WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V3_MOBILE_MAIN_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+} from "./WorkspaceLayoutV3Geometry";
 
-export type WorkspaceLayoutV2PrehydrationState = Pick<
+export type WorkspaceLayoutV3PrehydrationState = Pick<
   WorkspaceSidebarState,
   | "leftDesktopOpen"
   | "leftDesktopWidthPx"
@@ -19,13 +19,13 @@ export type WorkspaceLayoutV2PrehydrationState = Pick<
   | "rightMobileWidthPx"
 >;
 
-export type WorkspaceLayoutV2PrehydrationArgs = {
+export type WorkspaceLayoutV3PrehydrationArgs = {
   desktopStyleElementId: string;
   storageKey: string;
   storageVersion: number;
 };
 
-type WorkspaceLayoutV2PrehydrationInlineArgs = WorkspaceLayoutV2PrehydrationArgs & {
+type WorkspaceLayoutV3PrehydrationInlineArgs = WorkspaceLayoutV3PrehydrationArgs & {
   desktopSidebarMinWidthPx: number;
   mobileMainReachableWidthPx: number;
   mobileMainMinWidthPx: number;
@@ -33,20 +33,20 @@ type WorkspaceLayoutV2PrehydrationInlineArgs = WorkspaceLayoutV2PrehydrationArgs
   mobileSidebarMinWidthPx: number;
 };
 
-type ReadWorkspaceLayoutV2PrehydrationState = (
+type ReadWorkspaceLayoutV3PrehydrationState = (
   value: unknown,
-) => WorkspaceLayoutV2PrehydrationState | null;
+) => WorkspaceLayoutV3PrehydrationState | null;
 
-function getWorkspaceLayoutV2PrehydrationInlineArgs(
-  args: WorkspaceLayoutV2PrehydrationArgs,
-): WorkspaceLayoutV2PrehydrationInlineArgs {
+function getWorkspaceLayoutV3PrehydrationInlineArgs(
+  args: WorkspaceLayoutV3PrehydrationArgs,
+): WorkspaceLayoutV3PrehydrationInlineArgs {
   return {
     ...args,
-    desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
+    desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V3_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     mobileMainReachableWidthPx: MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
-    mobileMainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
+    mobileMainMinWidthPx: WORKSPACE_LAYOUT_V3_MOBILE_MAIN_MIN_WIDTH_PX,
     mobilePaneSettledTolerancePx: MOBILE_PANE_SETTLED_TOLERANCE_PX,
-    mobileSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    mobileSidebarMinWidthPx: WORKSPACE_LAYOUT_V3_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   };
 }
 
@@ -75,14 +75,14 @@ important declaration loses to the layered app rule in Chrome, so it would not
 affect the first paint.
 
 The selector must include the measured-viewport guard. React adds
-data-workspace-layout-v2-measured after ResizeObserver reports the viewport
+data-workspace-layout-v3-measured after ResizeObserver reports the viewport
 size. Once that attribute is present, the temporary stylesheet no longer
 matches, and the panes use React's live inline widths for resizing and normal
 layout updates.
 */
-function InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar(
-  args: WorkspaceLayoutV2PrehydrationInlineArgs,
-  readWorkspaceSidebarState: ReadWorkspaceLayoutV2PrehydrationState,
+function InlineScript_prehydrateWorkspaceLayoutV3DesktopSidebar(
+  args: WorkspaceLayoutV3PrehydrationInlineArgs,
+  readWorkspaceSidebarState: ReadWorkspaceLayoutV3PrehydrationState,
 ) {
   function installPrehydrationStyle({
     left,
@@ -95,7 +95,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar(
     // script may correct the first paint; after measurement, React controls the
     // pane widths.
     const viewportSelector =
-      ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
+      ".workspace-layout-v3-responsive-viewport:not([data-workspace-layout-v3-measured])";
     // Server markup may still carry open-state desktop border classes. A
     // closed prehydrated pane must contribute zero layout geometry, including
     // its separator border.
@@ -104,12 +104,12 @@ function InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar(
     const cssText = `
 @layer utilities {
   @media (min-width: 768px) {
-    ${viewportSelector} .workspace-layout-v2-responsive-left-pane {
+    ${viewportSelector} .workspace-layout-v3-responsive-left-pane {
       width: ${left.width} !important;
       ${leftDesktopSeparatorRule}
     }
 
-    ${viewportSelector} .workspace-layout-v2-responsive-right-pane {
+    ${viewportSelector} .workspace-layout-v3-responsive-right-pane {
       width: ${right.width} !important;
       ${rightDesktopSeparatorRule}
     }
@@ -170,9 +170,9 @@ variables because React does not write those variables until ResizeObserver has
 measured the viewport. That lets this script seed first-paint geometry without a
 temporary stylesheet or cleanup observer.
 */
-function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
-  args: WorkspaceLayoutV2PrehydrationInlineArgs,
-  readWorkspaceSidebarState: ReadWorkspaceLayoutV2PrehydrationState,
+function InlineScript_prehydrateWorkspaceLayoutV3MobilePane(
+  args: WorkspaceLayoutV3PrehydrationInlineArgs,
+  readWorkspaceSidebarState: ReadWorkspaceLayoutV3PrehydrationState,
 ) {
   function getStoredWorkspaceSidebarState() {
     const storedValue = window.localStorage.getItem(args.storageKey);
@@ -211,7 +211,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
   }: {
     hasLeftPane: boolean;
     hasRightPane: boolean;
-    mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
+    mobilePane: WorkspaceLayoutV3PrehydrationState["mobilePane"];
   }) {
     if (mobilePane === "left" && !hasLeftPane) return "main";
     if (mobilePane === "right" && !hasRightPane) return "main";
@@ -230,7 +230,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     hasLeftPane: boolean;
     leftWidthPx: number;
     mainWidthPx: number;
-    mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
+    mobilePane: WorkspaceLayoutV3PrehydrationState["mobilePane"];
     rightWidthPx: number;
     viewportWidthPx: number;
   }) {
@@ -255,9 +255,9 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     hasLeftPane: boolean;
     hasRightPane: boolean;
     leftWidthPx: number;
-    mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
+    mobilePane: WorkspaceLayoutV3PrehydrationState["mobilePane"];
     rightWidthPx: number;
-    state: WorkspaceLayoutV2PrehydrationState;
+    state: WorkspaceLayoutV3PrehydrationState;
     viewportWidthPx: number;
   }) {
     if (state.mobileSurface.kind !== "merged" || mobilePane === "main") return null;
@@ -293,24 +293,24 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     layoutRoot: HTMLElement;
     mainWidthPx: number;
     mergedSurfaceSide: "left" | "right" | null;
-    mobilePane: WorkspaceLayoutV2PrehydrationState["mobilePane"];
+    mobilePane: WorkspaceLayoutV3PrehydrationState["mobilePane"];
     rightWidthPx: number;
   }) {
     layoutRoot.setAttribute("data-mobile-pane", mobilePane);
     if (mergedSurfaceSide === null) {
-      layoutRoot.removeAttribute("data-workspace-layout-v2-mobile-merged-side");
+      layoutRoot.removeAttribute("data-workspace-layout-v3-mobile-merged-side");
     } else {
-      layoutRoot.setAttribute("data-workspace-layout-v2-mobile-merged-side", mergedSurfaceSide);
+      layoutRoot.setAttribute("data-workspace-layout-v3-mobile-merged-side", mergedSurfaceSide);
     }
 
     const rootStyle = layoutRoot.style;
-    rootStyle.setProperty("--workspace-layout-v2-left-mobile-width", leftWidthPx + "px");
-    rootStyle.setProperty("--workspace-layout-v2-main-mobile-width", mainWidthPx + "px");
-    rootStyle.setProperty("--workspace-layout-v2-right-mobile-width", rightWidthPx + "px");
+    rootStyle.setProperty("--workspace-layout-v3-left-mobile-width", leftWidthPx + "px");
+    rootStyle.setProperty("--workspace-layout-v3-main-mobile-width", mainWidthPx + "px");
+    rootStyle.setProperty("--workspace-layout-v3-right-mobile-width", rightWidthPx + "px");
   }
 
   function getWorkspaceLayoutRoot(carouselNode: Element) {
-    const layoutRoot = carouselNode.closest('[data-workspace-layout-v2="responsive"]');
+    const layoutRoot = carouselNode.closest('[data-workspace-layout-v3="responsive"]');
 
     return layoutRoot instanceof window.HTMLElement ? layoutRoot : null;
   }
@@ -319,12 +319,12 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     let layoutElement = scriptElement.previousElementSibling;
     while (layoutElement !== null) {
       if (layoutElement instanceof window.HTMLElement) {
-        if (layoutElement.classList.contains("workspace-layout-v2-responsive-viewport")) {
+        if (layoutElement.classList.contains("workspace-layout-v3-responsive-viewport")) {
           return layoutElement;
         }
 
         const carouselNode = layoutElement.querySelector(
-          ".workspace-layout-v2-responsive-viewport",
+          ".workspace-layout-v3-responsive-viewport",
         );
         if (carouselNode instanceof window.HTMLElement) {
           return carouselNode;
@@ -352,9 +352,9 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     if (state === null) return;
 
     const hasLeftPane =
-      carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-left"]') !== null;
+      carouselNode.querySelector('[data-testid="workspace-layout-v3-pane-left"]') !== null;
     const hasRightPane =
-      carouselNode.querySelector('[data-testid="workspace-layout-v2-pane-right"]') !== null;
+      carouselNode.querySelector('[data-testid="workspace-layout-v3-pane-right"]') !== null;
     const mobilePane = getAvailableMobilePane({
       hasLeftPane,
       hasRightPane,
@@ -402,22 +402,22 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
   } catch {}
 }
 
-export function buildWorkspaceLayoutV2DesktopPrehydrationScript(
-  args: WorkspaceLayoutV2PrehydrationArgs,
-  readWorkspaceSidebarState: ReadWorkspaceLayoutV2PrehydrationState,
+export function buildWorkspaceLayoutV3DesktopPrehydrationScript(
+  args: WorkspaceLayoutV3PrehydrationArgs,
+  readWorkspaceSidebarState: ReadWorkspaceLayoutV3PrehydrationState,
 ) {
-  return `(${InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar.toString()})(${JSON.stringify(getWorkspaceLayoutV2PrehydrationInlineArgs(args))}, ${readWorkspaceSidebarState.toString()});`;
+  return `(${InlineScript_prehydrateWorkspaceLayoutV3DesktopSidebar.toString()})(${JSON.stringify(getWorkspaceLayoutV3PrehydrationInlineArgs(args))}, ${readWorkspaceSidebarState.toString()});`;
 }
 
-export function buildWorkspaceLayoutV2MobilePanePrehydrationScript(
-  args: WorkspaceLayoutV2PrehydrationArgs,
-  readWorkspaceSidebarState: ReadWorkspaceLayoutV2PrehydrationState,
+export function buildWorkspaceLayoutV3MobilePanePrehydrationScript(
+  args: WorkspaceLayoutV3PrehydrationArgs,
+  readWorkspaceSidebarState: ReadWorkspaceLayoutV3PrehydrationState,
 ) {
-  return `(${InlineScript_prehydrateWorkspaceLayoutV2MobilePane.toString()})(${JSON.stringify(getWorkspaceLayoutV2PrehydrationInlineArgs(args))}, ${readWorkspaceSidebarState.toString()});`;
+  return `(${InlineScript_prehydrateWorkspaceLayoutV3MobilePane.toString()})(${JSON.stringify(getWorkspaceLayoutV3PrehydrationInlineArgs(args))}, ${readWorkspaceSidebarState.toString()});`;
 }
 
-export function clearWorkspaceLayoutV2DesktopPrehydrationStyle(
-  args: WorkspaceLayoutV2PrehydrationArgs,
+export function clearWorkspaceLayoutV3DesktopPrehydrationStyle(
+  args: WorkspaceLayoutV3PrehydrationArgs,
 ) {
   document.getElementById(args.desktopStyleElementId)?.remove();
 }

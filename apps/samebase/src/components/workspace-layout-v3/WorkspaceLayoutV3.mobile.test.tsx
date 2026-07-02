@@ -8,11 +8,11 @@ import {
   MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
 } from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
-import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
+import { WorkspaceLayoutV3FullPage } from "./WorkspaceLayoutV3FullPage";
+import { type WorkspaceLayoutV3MobileMinResizeBehavior } from "./WorkspaceLayoutV3Geometry";
 import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
-import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
+import { WorkspaceLayoutV3MemorySidebarProvider } from "./WorkspaceLayoutV3MemorySidebarProvider";
+import { useWorkspaceLayoutV3MemorySidebarController } from "./useWorkspaceLayoutV3MemorySidebarController";
 
 const { act } = React;
 
@@ -69,7 +69,7 @@ type RenderMobileLayoutArgs = {
   leftMobileWidthPx?: number;
   leftToggleVisibility?: "all" | "desktop" | "hidden";
   mainHeader?: React.ReactNode | typeof OMIT_HEADER;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  mobileMinResizeBehavior?: WorkspaceLayoutV3MobileMinResizeBehavior;
   mobilePane?: WorkspaceSidebarState["mobilePane"];
   rightMobileWidthPx?: number;
   rightToggleVisibility?: "all" | "desktop" | "hidden";
@@ -106,17 +106,17 @@ function renderMobileLayoutContent({
   const mainProps =
     mainHeader === OMIT_HEADER
       ? {
-          headerTestId: "workspace-layout-v2-main-header-row",
+          headerTestId: "workspace-layout-v3-main-header-row",
           content: <div>main pane</div>,
         }
       : {
           header: mainHeader,
-          headerTestId: "workspace-layout-v2-main-header-row",
+          headerTestId: "workspace-layout-v3-main-header-row",
           content: <div>main pane</div>,
         };
 
   return (
-    <WorkspaceLayoutV2FullPage
+    <WorkspaceLayoutV3FullPage
       addressChrome={<div data-testid="test-address-chrome">/test</div>}
       left={
         includeLeftPane
@@ -154,14 +154,14 @@ function renderMobileLayout({
   const initialStateKey = `${initialState.leftMobileWidthPx}|${initialState.mobilePane}|${initialState.rightMobileWidthPx}`;
 
   return (
-    <WorkspaceLayoutV2MemorySidebarProvider key={initialStateKey} initialState={initialState}>
+    <WorkspaceLayoutV3MemorySidebarProvider key={initialStateKey} initialState={initialState}>
       {renderMobileLayoutContent(contentProps)}
-    </WorkspaceLayoutV2MemorySidebarProvider>
+    </WorkspaceLayoutV3MemorySidebarProvider>
   );
 }
 
 function ControlledMobileLayout() {
-  const controller = useWorkspaceLayoutV2MemorySidebarController(
+  const controller = useWorkspaceLayoutV3MemorySidebarController(
     createMobileSidebarState({ mobilePane: "main" }),
   );
   latestSetRenderedMobilePane = (nextPane) => {
@@ -176,7 +176,7 @@ function ControlledMobileLayout() {
 }
 
 function ControlledMergedLeftMobileLayout() {
-  const controller = useWorkspaceLayoutV2MemorySidebarController(
+  const controller = useWorkspaceLayoutV3MemorySidebarController(
     createMobileSidebarState({
       leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
       mobilePane: "left",
@@ -205,8 +205,8 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
 function expectWorkspaceMobileMergedSide(root: ParentNode, side: "left" | "right" | null) {
   expect(
     root
-      .querySelector("[data-workspace-layout-v2]")
-      ?.getAttribute("data-workspace-layout-v2-mobile-merged-side"),
+      .querySelector("[data-workspace-layout-v3]")
+      ?.getAttribute("data-workspace-layout-v3-mobile-merged-side"),
   ).toBe(side);
 }
 
@@ -214,12 +214,12 @@ function expectMobilePaneSeparatorOwnership(
   root: ParentNode,
   activePane: "left" | "main" | "right",
 ) {
-  expect(root.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane")).toBe(
+  expect(root.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane")).toBe(
     activePane,
   );
-  const leftPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-left"]');
-  const mainPane = getRequiredElement(root, "[data-workspace-layout-v2-mobile-main-pane] > div");
-  const rightPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-right"]');
+  const leftPane = getRequiredElement(root, '[data-testid="workspace-layout-v3-pane-left"]');
+  const mainPane = getRequiredElement(root, "[data-workspace-layout-v3-mobile-main-pane] > div");
+  const rightPane = getRequiredElement(root, '[data-testid="workspace-layout-v3-pane-right"]');
   const paneEntries = [
     ["left", leftPane],
     ["main", mainPane],
@@ -230,11 +230,11 @@ function expectMobilePaneSeparatorOwnership(
     expect(paneNode.classList.contains("border-x")).toBe(false);
     expect(paneNode.classList.contains("border-x-0")).toBe(false);
     expect(paneNode.classList.contains("border-border")).toBe(false);
-    expect(paneNode.getAttribute("data-workspace-layout-v2-mobile-separator-pane")).toBe(paneName);
+    expect(paneNode.getAttribute("data-workspace-layout-v3-mobile-separator-pane")).toBe(paneName);
   }
 }
 
-describe("WorkspaceLayoutV2 mobile boot alignment", () => {
+describe("WorkspaceLayoutV3 mobile boot alignment", () => {
   let rootElement: HTMLDivElement | null = null;
   let root: Root | null = null;
 
@@ -269,16 +269,16 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({}));
     });
 
-    const carouselNode = rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
+    const carouselNode = rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]');
 
     expect(carouselNode).not.toBeNull();
     expect(carouselNode?.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX);
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("main");
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v3-left-resize"]')).toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      rootElement.querySelector('[data-testid="workspace-layout-v3-right-resize"]'),
     ).toBeNull();
   });
 
@@ -292,12 +292,12 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
     });
 
-    const carouselNode = rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
+    const carouselNode = rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]');
 
     expect(carouselNode).not.toBeNull();
     expect(carouselNode?.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("right");
   });
 
@@ -324,7 +324,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const toggle = getRequiredElement(rootElement, 'button[aria-label="Toggle sidebar"]');
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("main");
 
     act(() => {
@@ -332,7 +332,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("left");
   });
 
@@ -348,7 +348,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const rightToggle = getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]');
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("main");
 
     act(() => {
@@ -356,7 +356,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("right");
   });
 
@@ -371,10 +371,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]'),
+      rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]'),
     ).not.toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
+      rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]')?.scrollLeft,
     ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX);
 
     act(() => {
@@ -382,10 +382,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("right");
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
+      rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]')?.scrollLeft,
     ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
 
     act(() => {
@@ -393,10 +393,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
+      rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]')?.scrollLeft,
     ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX);
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("main");
   });
 
@@ -418,16 +418,16 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     const maxReachableSidebarWidthPx = VIEWPORT_WIDTH_PX - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX;
     const carouselNode = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-main"]',
+      '[data-testid="workspace-layout-v3-pane-main"]',
     );
-    const mainPane = getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]");
+    const mainPane = getRequiredElement(rootElement, "[data-workspace-layout-v3-mobile-main-pane]");
     const rightPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-right"]',
+      '[data-testid="workspace-layout-v3-pane-right"]',
     );
     const rightHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-right-resize"]',
+      '[data-testid="workspace-layout-v3-right-resize"]',
     );
 
     expect(carouselNode.scrollLeft).toBe(
@@ -484,10 +484,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("left");
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
+      rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]')?.scrollLeft,
     ).toBe(0);
   });
 
@@ -507,15 +507,15 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("main");
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
+      rootElement.querySelector('[data-testid="workspace-layout-v3-pane-main"]')?.scrollLeft,
     ).toBe(0);
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-pane-left"]')).toBeNull();
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v3-pane-left"]')).toBeNull();
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v3-left-resize"]')).toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-right"]'),
+      rootElement.querySelector('[data-testid="workspace-layout-v3-pane-right"]'),
     ).not.toBeNull();
   });
 
@@ -546,9 +546,9 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       );
     });
 
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v3-left-resize"]')).toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      rootElement.querySelector('[data-testid="workspace-layout-v3-right-resize"]'),
     ).toBeNull();
   });
 
@@ -570,11 +570,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const leftPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-left"]',
+      '[data-testid="workspace-layout-v3-pane-left"]',
     );
     const leftHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-left-resize"]',
+      '[data-testid="workspace-layout-v3-left-resize"]',
     );
 
     expect(leftPane.style.width).toBe("220px");
@@ -583,7 +583,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      rootElement.querySelector('[data-testid="workspace-layout-v3-right-resize"]'),
     ).toBeNull();
   });
 
@@ -605,21 +605,21 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const leftPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-left"]',
+      '[data-testid="workspace-layout-v3-pane-left"]',
     );
     const leftHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-left-resize"]',
+      '[data-testid="workspace-layout-v3-left-resize"]',
     );
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
     ).toBe("left");
     expect(leftPane.style.width).toBe("220px");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      rootElement.querySelector('[data-testid="workspace-layout-v3-right-resize"]'),
     ).toBeNull();
   });
 
@@ -641,11 +641,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const rightPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-right"]',
+      '[data-testid="workspace-layout-v3-pane-right"]',
     );
     const rightHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-right-resize"]',
+      '[data-testid="workspace-layout-v3-right-resize"]',
     );
 
     expect(rightPane.style.width).toBe("300px");
@@ -653,7 +653,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(rightHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(rightHandle.getAttribute("aria-valuenow")).toBe("300");
     expect(rightHandle.parentElement?.style.left).toBe("90px");
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v3-left-resize"]')).toBeNull();
   });
 
   it("clamps mobile sidebar widths to the configured mobile minimum", () => {
@@ -674,11 +674,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const leftPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-left"]',
+      '[data-testid="workspace-layout-v3-pane-left"]',
     );
     const leftHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-left-resize"]',
+      '[data-testid="workspace-layout-v3-left-resize"]',
     );
 
     expect(leftPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
@@ -698,11 +698,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const rightPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-right"]',
+      '[data-testid="workspace-layout-v3-pane-right"]',
     );
     const rightHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-right-resize"]',
+      '[data-testid="workspace-layout-v3-right-resize"]',
     );
 
     expect(rightPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
@@ -731,10 +731,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       const leftHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-left-resize"]',
+        '[data-testid="workspace-layout-v3-left-resize"]',
       );
       const getMainPane = () =>
-        getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
+        getRequiredElement(rootElementNode, "[data-workspace-layout-v3-mobile-main-pane]");
 
       expect(getMainPane().style.width).toBe("390px");
 
@@ -759,7 +759,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("342px");
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
       ).toBe("left");
 
       act(() => {
@@ -769,7 +769,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expect(getMainPane().style.width).toBe("294px");
       expect(leftHandle.getAttribute("aria-valuenow")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
       ).toBe("left");
 
       act(() => {
@@ -783,7 +783,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("318px");
       expect(
-        getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style
+        getRequiredElement(rootElement, '[data-testid="workspace-layout-v3-pane-left"]').style
           .width,
       ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
       expect(leftHandle.parentElement?.style.left).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
@@ -794,7 +794,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("294px");
       expect(
-        getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style
+        getRequiredElement(rootElement, '[data-testid="workspace-layout-v3-pane-left"]').style
           .width,
       ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
     } finally {
@@ -822,10 +822,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       const rightHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-right-resize"]',
+        '[data-testid="workspace-layout-v3-right-resize"]',
       );
       const getMainPane = () =>
-        getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
+        getRequiredElement(rootElementNode, "[data-workspace-layout-v3-mobile-main-pane]");
 
       expect(getMainPane().style.width).toBe("320px");
 
@@ -857,11 +857,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expectWorkspaceMobileMergedSide(rootElement, "right");
       expect(getMainPane().style.width).toBe("224px");
       expect(
-        getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-right"]').style
+        getRequiredElement(rootElement, '[data-testid="workspace-layout-v3-pane-right"]').style
           .width,
       ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
       ).toBe("right");
     } finally {
       vi.useRealTimers();
@@ -883,14 +883,14 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       const carouselNode = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-pane-main"]',
+        '[data-testid="workspace-layout-v3-pane-main"]',
       );
       const leftHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-left-resize"]',
+        '[data-testid="workspace-layout-v3-left-resize"]',
       );
       const getMainPane = () =>
-        getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
+        getRequiredElement(rootElementNode, "[data-workspace-layout-v3-mobile-main-pane]");
 
       act(() => {
         leftHandle.dispatchEvent(
@@ -922,7 +922,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
       ).toBe("left");
       expectWorkspaceMobileMergedSide(rootElement, "left");
 
@@ -931,16 +931,16 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
       ).toBe("right");
       expect(getMainPane().style.width).toBe("294px");
       expectWorkspaceMobileMergedSide(rootElement, "left");
       expect(
-        rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+        rootElement.querySelector('[data-testid="workspace-layout-v3-right-resize"]'),
       ).not.toBeNull();
       const rightHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-right-resize"]',
+        '[data-testid="workspace-layout-v3-right-resize"]',
       );
 
       act(() => {
@@ -949,7 +949,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
       ).toBe("right");
       expect(getMainPane().style.width).toBe("294px");
 
@@ -973,14 +973,14 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement.querySelector("[data-workspace-layout-v3]")?.getAttribute("data-mobile-pane"),
       ).toBe("main");
       expect(getMainPane().style.width).toBe("390px");
       expect(
-        rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]'),
+        rootElement.querySelector('[data-testid="workspace-layout-v3-left-resize"]'),
       ).toBeNull();
       expect(
-        rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+        rootElement.querySelector('[data-testid="workspace-layout-v3-right-resize"]'),
       ).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -999,7 +999,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const headerRow = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-main-header-row"]',
+      '[data-testid="workspace-layout-v3-main-header-row"]',
     );
     expect(headerRow.classList.contains("hidden")).toBe(true);
     expect(headerRow.classList.contains("md:block")).toBe(true);
@@ -1027,7 +1027,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const headerRow = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-main-header-row"]',
+      '[data-testid="workspace-layout-v3-main-header-row"]',
     );
     expect(headerRow.classList.contains("hidden")).toBe(true);
     expect(headerRow.classList.contains("md:block")).toBe(true);
@@ -1058,7 +1058,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-main-header-row"]'),
+      rootElement.querySelector('[data-testid="workspace-layout-v3-main-header-row"]'),
     ).not.toBeNull();
     expect(rootElement.querySelector('[data-testid="main-header-actions"]')?.textContent).toBe(
       "/machines",

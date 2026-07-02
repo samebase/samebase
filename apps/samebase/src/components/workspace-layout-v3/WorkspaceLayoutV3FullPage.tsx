@@ -2,12 +2,12 @@ import { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { PanelLeft, PanelRight } from "lucide-react";
 import {
-  WorkspaceLayoutV2PaneFrame,
-  type WorkspaceLayoutV2PaneFrameProps,
-} from "./WorkspaceLayoutV2PaneFrame";
-import { type WorkspaceLayoutV2BottomPanelProps } from "./WorkspaceLayoutV2BottomPanel";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
-import { WorkspaceLayoutV2 } from "./WorkspaceLayoutV2";
+  WorkspaceLayoutV3PaneFrame,
+  type WorkspaceLayoutV3PaneFrameProps,
+} from "./WorkspaceLayoutV3PaneFrame";
+import { type WorkspaceLayoutV3BottomPanelProps } from "./WorkspaceLayoutV3BottomPanel";
+import { type WorkspaceLayoutV3MobileMinResizeBehavior } from "./WorkspaceLayoutV3Geometry";
+import { WorkspaceLayoutV3 } from "./WorkspaceLayoutV3";
 import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
 
 /**
@@ -17,22 +17,22 @@ import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
  *
  * hidden = hides sidebar toggle on both desktop and mobile
  */
-type WorkspaceLayoutV2ToggleVisibility = "all" | "desktop" | "hidden";
+type WorkspaceLayoutV3ToggleVisibility = "all" | "desktop" | "hidden";
 
 const TOGGLE_BUTTON_CLASS_NAMES = {
   all: "h-8 w-8 rounded-none",
   desktop: "hidden h-8 w-8 md:inline-flex",
-} as const satisfies Record<Exclude<WorkspaceLayoutV2ToggleVisibility, "hidden">, string>;
-const WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID = "workspace-layout-v2-main-pane-header";
+} as const satisfies Record<Exclude<WorkspaceLayoutV3ToggleVisibility, "hidden">, string>;
+const WORKSPACE_LAYOUT_V3_MAIN_PANE_HEADER_TEST_ID = "workspace-layout-v3-main-pane-header";
 
-function WorkspaceLayoutV2MainPaneHeader({
+function WorkspaceLayoutV3MainPaneHeader({
   children,
   leftToggleVisibility = "desktop",
   rightToggleVisibility = "desktop",
 }: {
   children: ReactNode;
-  leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
-  rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
+  leftToggleVisibility?: WorkspaceLayoutV3ToggleVisibility;
+  rightToggleVisibility?: WorkspaceLayoutV3ToggleVisibility;
 }) {
   const { toggleLeftPane, toggleRightPane } = useWorkspacePaneActions();
   const leftToggleButtonClassName =
@@ -56,7 +56,7 @@ function WorkspaceLayoutV2MainPaneHeader({
       ) : null}
 
       {/* Keep route-level header actions visible on mobile; only the sidebar
-          toggles stay desktop-only in the v2 main pane shell. */}
+          toggles stay desktop-only in the v3 main pane shell. */}
       <div className="flex h-full min-w-0 flex-1 items-center">{children}</div>
 
       {rightToggleButtonClassName !== null ? (
@@ -75,7 +75,7 @@ function WorkspaceLayoutV2MainPaneHeader({
   );
 }
 
-export function WorkspaceLayoutV2FullPage({
+export function WorkspaceLayoutV3FullPage({
   addressChrome,
   dataTestId,
   left,
@@ -88,13 +88,13 @@ export function WorkspaceLayoutV2FullPage({
 }: {
   addressChrome: ReactNode;
   dataTestId?: string;
-  left?: WorkspaceLayoutV2PaneFrameProps;
-  main: WorkspaceLayoutV2PaneFrameProps;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
-  panel?: WorkspaceLayoutV2BottomPanelProps;
-  right?: WorkspaceLayoutV2PaneFrameProps;
-  leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
-  rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
+  left?: WorkspaceLayoutV3PaneFrameProps;
+  main: WorkspaceLayoutV3PaneFrameProps;
+  mobileMinResizeBehavior?: WorkspaceLayoutV3MobileMinResizeBehavior;
+  panel?: WorkspaceLayoutV3BottomPanelProps;
+  right?: WorkspaceLayoutV3PaneFrameProps;
+  leftToggleVisibility?: WorkspaceLayoutV3ToggleVisibility;
+  rightToggleVisibility?: WorkspaceLayoutV3ToggleVisibility;
 }) {
   const hasDesktopHeaderToggle =
     (left && leftToggleVisibility !== "hidden") || (right && rightToggleVisibility !== "hidden");
@@ -105,29 +105,29 @@ export function WorkspaceLayoutV2FullPage({
     !main.header && !hasMobileHeaderToggle && hasDesktopHeaderToggle ? "desktop" : "all";
 
   return (
-    <WorkspaceLayoutV2
+    <WorkspaceLayoutV3
       addressChrome={addressChrome}
-      left={left ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined}
+      left={left ? <WorkspaceLayoutV3PaneFrame {...left} /> : undefined}
       main={
-        <WorkspaceLayoutV2PaneFrame
+        <WorkspaceLayoutV3PaneFrame
           {...main}
-          headerTestId={main.headerTestId ?? WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID}
+          headerTestId={main.headerTestId ?? WORKSPACE_LAYOUT_V3_MAIN_PANE_HEADER_TEST_ID}
           headerVisibility={main.headerVisibility ?? mainHeaderVisibility}
           header={
             shouldRenderMainHeader ? (
-              <WorkspaceLayoutV2MainPaneHeader
+              <WorkspaceLayoutV3MainPaneHeader
                 leftToggleVisibility={left ? leftToggleVisibility : "hidden"}
                 rightToggleVisibility={right ? rightToggleVisibility : "hidden"}
               >
                 {main.header}
-              </WorkspaceLayoutV2MainPaneHeader>
+              </WorkspaceLayoutV3MainPaneHeader>
             ) : undefined
           }
         />
       }
       mobileMinResizeBehavior={mobileMinResizeBehavior}
       panel={panel}
-      right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}
+      right={right ? <WorkspaceLayoutV3PaneFrame {...right} /> : undefined}
       dataTestId={dataTestId}
     />
   );

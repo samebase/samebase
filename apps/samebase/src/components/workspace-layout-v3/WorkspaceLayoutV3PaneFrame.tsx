@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 
-export type WorkspaceLayoutV2PaneFrameProps = {
+export type WorkspaceLayoutV3PaneFrameProps = {
   header?: ReactNode;
   content?: ReactNode;
   footer?: ReactNode;
@@ -8,13 +8,13 @@ export type WorkspaceLayoutV2PaneFrameProps = {
   headerVisibility?: "all" | "desktop";
 };
 
-export function WorkspaceLayoutV2PaneFrame({
+export function WorkspaceLayoutV3PaneFrame({
   header,
   content,
   footer,
   headerTestId,
   headerVisibility = "all",
-}: WorkspaceLayoutV2PaneFrameProps) {
+}: WorkspaceLayoutV3PaneFrameProps) {
   const headerClassName =
     headerVisibility === "desktop" ? "hidden h-8 shrink-0 md:block" : "h-8 shrink-0";
 

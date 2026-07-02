@@ -12,9 +12,9 @@ import {
   getMobilePaneScrollLeftPx,
   isMobilePaneScrollSettled,
   type MobilePane,
-  type WorkspaceLayoutV2MobileMergedSide,
-} from "./WorkspaceLayoutV2Geometry";
-import { useWorkspaceLayoutV2Actions } from "./WorkspacePaneRuntime";
+  type WorkspaceLayoutV3MobileMergedSide,
+} from "./WorkspaceLayoutV3Geometry";
+import { useWorkspaceLayoutV3Actions } from "./WorkspacePaneRuntime";
 
 /**
  * Owns the browser scroll lifecycle for the mobile pane carousel.
@@ -23,7 +23,7 @@ import { useWorkspaceLayoutV2Actions } from "./WorkspacePaneRuntime";
  * the same. `useEffectEvent` lets the scroll handler read the latest geometry
  * without resubscribing the browser listener on every width update.
  */
-export function useWorkspaceLayoutV2MobileCarouselController({
+export function useWorkspaceLayoutV3MobileCarouselController({
   activeGripResizeSideRef,
   carouselRef,
   hasLeftPane,
@@ -44,7 +44,7 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   isMobile: boolean;
   leftWidthPx: number;
   mainWidthPx: number;
-  mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
+  mergedSurfaceSide: WorkspaceLayoutV3MobileMergedSide | null;
   mobilePane: MobilePane;
   rightWidthPx: number;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
@@ -52,7 +52,7 @@ export function useWorkspaceLayoutV2MobileCarouselController({
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
-  const { setIsMobilePaneSettled } = useWorkspaceLayoutV2Actions();
+  const { setIsMobilePaneSettled } = useWorkspaceLayoutV3Actions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
   });

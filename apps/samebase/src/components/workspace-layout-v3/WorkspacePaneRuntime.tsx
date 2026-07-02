@@ -17,11 +17,11 @@ import type {
 } from "@/lib/workspaceSidebarStateController";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
 import {
-  WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
-  WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
-  type WorkspaceLayoutV2ActiveResizeSide,
-  type WorkspaceLayoutV2MobileGrip,
-} from "./WorkspaceLayoutV2Geometry";
+  WORKSPACE_LAYOUT_V3_IDLE_MOBILE_GRIP,
+  WORKSPACE_LAYOUT_V3_UNMERGED_MOBILE_SURFACE,
+  type WorkspaceLayoutV3ActiveResizeSide,
+  type WorkspaceLayoutV3MobileGrip,
+} from "./WorkspaceLayoutV3Geometry";
 
 const WORKSPACE_PANE_KEYBOARD_SHORTCUT = "b";
 
@@ -50,27 +50,27 @@ export type WorkspacePaneActions = {
   toggleRightPane: () => void;
 };
 
-export type WorkspaceLayoutV2LocalStoreState = {
-  activeResizeSide: WorkspaceLayoutV2ActiveResizeSide;
+export type WorkspaceLayoutV3LocalStoreState = {
+  activeResizeSide: WorkspaceLayoutV3ActiveResizeSide;
   mobile: {
-    grip: WorkspaceLayoutV2MobileGrip;
+    grip: WorkspaceLayoutV3MobileGrip;
     isPaneSettled: boolean;
   };
   viewportSize: ElementSize;
 };
 
-const WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE: ElementSize = {
+const WORKSPACE_LAYOUT_V3_EMPTY_ELEMENT_SIZE: ElementSize = {
   heightPx: 0,
   widthPx: 0,
 };
 
-const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStoreState = {
+const WORKSPACE_LAYOUT_V3_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV3LocalStoreState = {
   activeResizeSide: null,
   mobile: {
-    grip: WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
+    grip: WORKSPACE_LAYOUT_V3_IDLE_MOBILE_GRIP,
     isPaneSettled: true,
   },
-  viewportSize: WORKSPACE_LAYOUT_V2_EMPTY_ELEMENT_SIZE,
+  viewportSize: WORKSPACE_LAYOUT_V3_EMPTY_ELEMENT_SIZE,
 };
 
 /**
@@ -78,9 +78,9 @@ const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStore
  * The store is carried by WorkspacePaneRuntimeContext so the folder has one
  * provider and one React context.
  */
-function useCreateWorkspaceLayoutV2Store() {
-  return useCreateStore(WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE, ({ setState }) => ({
-    setActiveResizeSide: (activeResizeSide: WorkspaceLayoutV2ActiveResizeSide) => {
+function useCreateWorkspaceLayoutV3Store() {
+  return useCreateStore(WORKSPACE_LAYOUT_V3_LOCAL_STORE_INITIAL_STATE, ({ setState }) => ({
+    setActiveResizeSide: (activeResizeSide: WorkspaceLayoutV3ActiveResizeSide) => {
       setState((state) =>
         state.activeResizeSide === activeResizeSide ? state : { ...state, activeResizeSide },
       );
@@ -95,7 +95,7 @@ function useCreateWorkspaceLayoutV2Store() {
             },
       );
     },
-    setMobileGrip: (grip: WorkspaceLayoutV2MobileGrip) => {
+    setMobileGrip: (grip: WorkspaceLayoutV3MobileGrip) => {
       setState((state) =>
         state.mobile.grip === grip
           ? state
@@ -116,11 +116,11 @@ function useCreateWorkspaceLayoutV2Store() {
   }));
 }
 
-type WorkspaceLayoutV2Store = ReturnType<typeof useCreateWorkspaceLayoutV2Store>;
+type WorkspaceLayoutV3Store = ReturnType<typeof useCreateWorkspaceLayoutV3Store>;
 
 type WorkspacePaneRuntimeContextValue = {
   actions: WorkspacePaneActions;
-  layoutStore: WorkspaceLayoutV2Store;
+  layoutStore: WorkspaceLayoutV3Store;
   state: WorkspacePaneState;
 };
 
@@ -150,7 +150,7 @@ export function useWorkspacePaneState() {
  * This must run under WorkspacePaneRuntimeProvider so each shell owns its own
  * resize, viewport, and mobile interaction state.
  */
-export function useWorkspaceLayoutV2Actions() {
+export function useWorkspaceLayoutV3Actions() {
   return useWorkspacePaneRuntime().layoutStore.actions;
 }
 
@@ -158,8 +158,8 @@ export function useWorkspaceLayoutV2Actions() {
  * Reads a selected slice from the transient layout store carried by the single
  * workspace runtime context.
  */
-export function useWorkspaceLayoutV2Selector<T>(
-  selector: (state: WorkspaceLayoutV2LocalStoreState) => T,
+export function useWorkspaceLayoutV3Selector<T>(
+  selector: (state: WorkspaceLayoutV3LocalStoreState) => T,
 ) {
   const { layoutStore } = useWorkspacePaneRuntime();
 
@@ -203,7 +203,7 @@ export function WorkspacePaneRuntimeProvider({
 }: WorkspacePaneRuntimeProviderProps) {
   const isMobile = useIsMobile();
 
-  const workspaceLayoutStore = useCreateWorkspaceLayoutV2Store();
+  const workspaceLayoutStore = useCreateWorkspaceLayoutV3Store();
 
   const updatePaneState = useCallback(
     <Key extends keyof WorkspaceSidebarState>(
@@ -283,7 +283,7 @@ export function WorkspacePaneRuntimeProvider({
           mobilePane: nextMobilePane,
           mobileSurface:
             nextMobilePane === "main"
-              ? WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE
+              ? WORKSPACE_LAYOUT_V3_UNMERGED_MOBILE_SURFACE
               : state.mobileSurface,
         };
       }, "immediate");

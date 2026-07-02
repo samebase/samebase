@@ -6,13 +6,13 @@ import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
 import type { WorkspaceSidebarState } from "../../../convex/workspaceSidebarStateModel";
-import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
+import { WorkspaceLayoutV3FullPage } from "./WorkspaceLayoutV3FullPage";
+import { WorkspaceLayoutV3MemorySidebarProvider } from "./WorkspaceLayoutV3MemorySidebarProvider";
 
 const { act } = React;
 
 const VIEWPORT_HEIGHT_PX = 844;
-const WORKSPACE_LAYOUT_V2_HYDRATION_STATE = {
+const WORKSPACE_LAYOUT_V3_HYDRATION_STATE = {
   leftDesktopOpen: true,
   leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
   leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
@@ -30,23 +30,23 @@ const originalMatchMedia = window.matchMedia;
 let root: Root | null = null;
 let testViewportWidthPx = 390;
 
-function WorkspaceLayoutV2HydrationSubject() {
+function WorkspaceLayoutV3HydrationSubject() {
   return (
-    <WorkspaceLayoutV2MemorySidebarProvider initialState={WORKSPACE_LAYOUT_V2_HYDRATION_STATE}>
-      <WorkspaceLayoutV2FullPage
+    <WorkspaceLayoutV3MemorySidebarProvider initialState={WORKSPACE_LAYOUT_V3_HYDRATION_STATE}>
+      <WorkspaceLayoutV3FullPage
         addressChrome={<div data-testid="test-address-chrome">/test</div>}
         left={{
           content: <div>left pane</div>,
         }}
         main={{
-          headerTestId: "workspace-layout-v2-main-header-row",
+          headerTestId: "workspace-layout-v3-main-header-row",
           content: <div>main pane</div>,
         }}
         right={{
           content: <div>right pane</div>,
         }}
       />
-    </WorkspaceLayoutV2MemorySidebarProvider>
+    </WorkspaceLayoutV3MemorySidebarProvider>
   );
 }
 
@@ -71,12 +71,12 @@ function getRequiredElement(rootNode: ParentNode, selector: string) {
 
 function readPaneSignature(rootNode: ParentNode) {
   return [
-    getRequiredElement(rootNode, '[data-testid="workspace-layout-v2-pane-left"]'),
-    getRequiredElement(rootNode, "[data-workspace-layout-v2-mobile-main-pane]"),
-    getRequiredElement(rootNode, '[data-testid="workspace-layout-v2-pane-right"]'),
+    getRequiredElement(rootNode, '[data-testid="workspace-layout-v3-pane-left"]'),
+    getRequiredElement(rootNode, "[data-workspace-layout-v3-mobile-main-pane]"),
+    getRequiredElement(rootNode, '[data-testid="workspace-layout-v3-pane-right"]'),
   ].map((element) => ({
     className: element.className,
-    mobileMainPane: element.hasAttribute("data-workspace-layout-v2-mobile-main-pane"),
+    mobileMainPane: element.hasAttribute("data-workspace-layout-v3-mobile-main-pane"),
     style: element.getAttribute("style") ?? "",
     tagName: element.tagName,
     testId: element.getAttribute("data-testid"),
@@ -113,25 +113,25 @@ async function expectHydratesWithoutReplacingPaneTree(widthPx: number) {
   installViewport(widthPx);
   const container = document.createElement("div");
   document.body.append(container);
-  container.innerHTML = renderWithServerWindow(<WorkspaceLayoutV2HydrationSubject />);
+  container.innerHTML = renderWithServerWindow(<WorkspaceLayoutV3HydrationSubject />);
 
   const beforeSignature = readPaneSignature(container);
   const beforeLeftPane = getRequiredElement(
     container,
-    '[data-testid="workspace-layout-v2-pane-left"]',
+    '[data-testid="workspace-layout-v3-pane-left"]',
   );
   const beforeMainPane = getRequiredElement(
     container,
-    "[data-workspace-layout-v2-mobile-main-pane]",
+    "[data-workspace-layout-v3-mobile-main-pane]",
   );
   const beforeRightPane = getRequiredElement(
     container,
-    '[data-testid="workspace-layout-v2-pane-right"]',
+    '[data-testid="workspace-layout-v3-pane-right"]',
   );
   const hydrationErrors: Array<unknown> = [];
 
   await act(async () => {
-    root = hydrateRoot(container, <WorkspaceLayoutV2HydrationSubject />, {
+    root = hydrateRoot(container, <WorkspaceLayoutV3HydrationSubject />, {
       onRecoverableError(error: unknown) {
         hydrationErrors.push(error);
       },
@@ -140,18 +140,18 @@ async function expectHydratesWithoutReplacingPaneTree(widthPx: number) {
 
   expect(hydrationErrors).toEqual([]);
   expect(readPaneSignature(container)).toEqual(beforeSignature);
-  expect(getRequiredElement(container, '[data-testid="workspace-layout-v2-pane-left"]')).toBe(
+  expect(getRequiredElement(container, '[data-testid="workspace-layout-v3-pane-left"]')).toBe(
     beforeLeftPane,
   );
-  expect(getRequiredElement(container, "[data-workspace-layout-v2-mobile-main-pane]")).toBe(
+  expect(getRequiredElement(container, "[data-workspace-layout-v3-mobile-main-pane]")).toBe(
     beforeMainPane,
   );
-  expect(getRequiredElement(container, '[data-testid="workspace-layout-v2-pane-right"]')).toBe(
+  expect(getRequiredElement(container, '[data-testid="workspace-layout-v3-pane-right"]')).toBe(
     beforeRightPane,
   );
 }
 
-describe("WorkspaceLayoutV2 hydration", () => {
+describe("WorkspaceLayoutV3 hydration", () => {
   beforeEach(() => {
     root = null;
   });
