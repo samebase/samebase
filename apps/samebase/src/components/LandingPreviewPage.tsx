@@ -286,7 +286,13 @@ function LandingPreviewOverview() {
       <div className="mx-auto w-full max-w-[1000px] px-6 pt-10 sm:px-10 md:pt-14">
         <section>
           <p className="flex items-center gap-2.5">
-            <img alt="" className="h-6 w-6" height="24" src="/logo-static.svg" width="24" />
+            <img
+              alt=""
+              className="h-6 w-6 dark:invert"
+              height="24"
+              src="/brand/logo/v1-side-primary-duotone.svg"
+              width="24"
+            />
             <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
           </p>
           <h1
@@ -408,10 +414,10 @@ function LandingPreviewOverview() {
             <div className="mt-12 flex items-start gap-3.5">
               <img
                 alt="Samebase"
-                className="mt-1 h-[30px] w-[30px]"
-                height="30"
-                src="/logo-static.svg"
-                width="30"
+                className="mt-0.5 h-8 w-8"
+                height="32"
+                src="/brand/logo/v2-side-diagonal-duotone.svg"
+                width="32"
               />
               <p className="max-w-[44ch] text-[19px] leading-normal tracking-[-0.01em] sm:text-[21px]">
                 Samebase uses <span className="font-semibold">the same base</span> it recommends.
@@ -696,7 +702,14 @@ function LandingPreviewOverview() {
         </section>
 
         <section className="mt-24 border-t border-border pt-20 md:mt-28">
-          <h2 className="max-w-[20ch] text-[clamp(28px,3.4vw,38px)] font-bold leading-tight tracking-[-0.025em]">
+          <img
+            alt=""
+            className="h-16 w-16"
+            height="64"
+            src="/brand/logo/v3-spatial-duotone.svg"
+            width="64"
+          />
+          <h2 className="mt-8 max-w-[20ch] text-[clamp(28px,3.4vw,38px)] font-bold leading-tight tracking-[-0.025em]">
             Same stack. Your accounts. No magic.
           </h2>
           <div className="mt-9">
