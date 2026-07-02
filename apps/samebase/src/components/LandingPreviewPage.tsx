@@ -267,7 +267,7 @@ function LandingCtaRow() {
   return (
     <div className="flex flex-wrap items-center gap-x-7 gap-y-4">
       <Button asChild className="h-12 px-7 text-base font-semibold no-underline">
-        <Link to="/">Sign in</Link>
+        <Link to="/">Create your first app</Link>
       </Button>
       <Link
         className="border-b border-border pb-0.5 text-base text-primary no-underline hover:border-foreground hover:text-foreground"
@@ -309,14 +309,18 @@ function LandingFootnote({
 function LandingPreviewOverview() {
   return (
     <article
-      className="min-h-full shrink-0 bg-background pb-[calc(100svh-4rem)] text-foreground"
+      className="min-h-full shrink-0 bg-background pb-48 text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
-      <div className="mx-auto w-full max-w-[1000px] px-6 pt-16 sm:px-10 md:pt-24">
+      <div className="mx-auto w-full max-w-[1000px] px-6 pt-10 sm:px-10 md:pt-14">
         <section>
+          <p className="flex items-center gap-2.5">
+            <img alt="" className="h-6 w-6" height="24" src="/logo-static.svg" width="24" />
+            <span className="text-base font-semibold tracking-[-0.01em]">Samebase</span>
+          </p>
           <h1
             aria-describedby="landing-correct-definition"
-            className="text-[clamp(44px,8vw,104px)] font-bold leading-none tracking-[-0.038em]"
+            className="mt-12 text-[clamp(44px,8vw,104px)] font-bold leading-none tracking-[-0.038em] md:mt-16"
           >
             The correct
             <LandingFootnoteMark
@@ -340,6 +344,10 @@ function LandingPreviewOverview() {
           <div className="mt-10">
             <LandingCtaRow />
           </div>
+          <p className="mt-3.5 text-sm text-muted-foreground">
+            Samebase is free today; an idle app costs $0/month.
+            <LandingFootnoteMark fragment="landing-note-zero" label="footnote: zero" marker="‡" />
+          </p>
         </section>
 
         <div className="mt-24 md:mt-32">
@@ -363,14 +371,15 @@ function LandingPreviewOverview() {
             <div className="mt-10 grid max-w-[58ch] gap-4 text-base text-primary">
               <p>
                 I moved my apps three times before landing here. Netlify was one of the stops: $20 a
-                month buys 3,000 credits, and every production deploy costs 15 of them
+                month buys 3,000 credits, and a production deploy costs 15 of them
                 <LandingFootnoteMark
                   fragment="landing-note-tokens"
                   label="footnote: the Netlify math"
                   marker="†"
                 />{" "}
-                — an agent shipping to production fifty times a day empties the month in four days.
-                There are ways to optimize it. I didn't want a hobby optimizing deploy credits.
+                — about ten cents a merge, with bandwidth and compute draining the same pool. Run
+                the pool dry and your projects pause until you buy more. There are ways to optimize
+                it. I didn't want a hobby optimizing deploy credits.
               </p>
               <p>
                 Samebase had working Netlify provisioning.{" "}
@@ -427,9 +436,10 @@ function LandingPreviewOverview() {
             </p>
             <div className="mt-8 grid max-w-[58ch] gap-4 text-base text-primary">
               <p>
-                Firebase and Supabase wire the frontend straight to the database, then patch the
-                missing server with a rules language that looks like JavaScript but isn't.
-                Misconfigured rules keep leaving whole databases public. That is not hypothetical.
+                Firebase wires the frontend straight to the database and patches the missing server
+                with a rules language that looks like JavaScript but isn't. Supabase does it with
+                SQL policies bolted onto every table — off by default. Misconfigured rules keep
+                leaving whole databases public. That is not hypothetical.
                 <LandingFootnoteMark
                   fragment="landing-note-risk"
                   label="footnote: security risk"
@@ -444,8 +454,9 @@ function LandingPreviewOverview() {
             <p className="mt-10 text-sm text-muted-foreground">
               The version I tell my engineer friends:
             </p>
-            <p className="mt-2 max-w-[30ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] md:text-[26px]">
-              At this point, if you're not using Convex, your app is a security risk.
+            <p className="mt-2 max-w-[32ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] md:text-[26px]">
+              At this point, if your frontend talks straight to your database, your app is a
+              security risk.
               <LandingFootnoteMark
                 fragment="landing-note-risk"
                 label="footnote: security risk"
@@ -484,7 +495,7 @@ function LandingPreviewOverview() {
                 logo={
                   <img
                     alt="Convex"
-                    className="h-[26px] w-auto dark:bg-white dark:px-1"
+                    className="h-[26px] w-auto dark:brightness-0 dark:invert"
                     height="26"
                     src="/landing-preview/logos/convex.svg"
                     width="104"
@@ -532,7 +543,7 @@ function LandingPreviewOverview() {
                 alt="Samebase"
                 className="mt-1 h-[30px] w-[30px]"
                 height="30"
-                src="/icon-512.png"
+                src="/logo-static.svg"
                 width="30"
               />
               <p className="max-w-[44ch] text-[19px] leading-normal tracking-[-0.01em] sm:text-[21px]">
@@ -614,9 +625,10 @@ function LandingPreviewOverview() {
                   Netlify Pro
                 </LandingReceiptLink>{" "}
                 is $20/month for 3,000 credits at 15 per successful production deploy — exactly 200
-                a month before bandwidth and compute draw from the same pool. Previews and failed
-                deploys are free, so the honest version is: fifty production deploys a day is 750
-                credits, and the month is gone in four days. On Cloudflare, the{" "}
+                a month before bandwidth and compute draw from the same pool, roughly $0.10 a deploy
+                at the recharge rate. Previews and failed deploys are free; run the pool dry and
+                Netlify pauses the team's projects until the next cycle or the next payment. On
+                Cloudflare, the{" "}
                 <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
                   $5 Workers plan
                 </LandingReceiptLink>{" "}
@@ -646,13 +658,20 @@ function LandingPreviewOverview() {
               <LandingReceiptLink href="https://env.fail/posts/firewreck-1/">
                 researchers found 916 sites
               </LandingReceiptLink>{" "}
-              exposing about 125 million user records — roughly 20 million passwords, mostly
-              plaintext — through misconfigured Firebase. In July 2025, the Tea app{" "}
+              exposing about{" "}
+              <LandingReceiptLink href="https://www.bleepingcomputer.com/news/security/misconfigured-firebase-instances-leaked-19-million-plaintext-passwords/">
+                125 million user records
+              </LandingReceiptLink>{" "}
+              — roughly 20 million passwords, mostly plaintext — through misconfigured Firebase. In
+              July 2025, the Tea app{" "}
               <LandingReceiptLink href="https://www.engadget.com/cybersecurity/tea-app-suffers-breach-exposing-thousands-of-user-images-190731414.html">
                 leaked 72,000 images
               </LandingReceiptLink>
-              , photo IDs included, from an unauthenticated Firebase storage bucket. In 2025, 170 of
-              1,645 scanned Lovable-built apps had missing or broken Supabase row-level security (
+              , photo IDs included, from an unauthenticated Firebase storage bucket. In 2025,{" "}
+              <LandingReceiptLink href="https://mattpalmer.io/posts/CVE-2025-48757/">
+                170 of 1,645 scanned Lovable-built apps
+              </LandingReceiptLink>{" "}
+              had missing or broken Supabase row-level security (
               <LandingReceiptLink href="https://nvd.nist.gov/vuln/detail/CVE-2025-48757">
                 CVE-2025-48757
               </LandingReceiptLink>
