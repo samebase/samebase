@@ -55,13 +55,15 @@ async function expectSidebarFiles(sidebar: Locator) {
   for (const fileLabel of expectedLandingPreviewSidebarFiles) {
     await expect(sidebar.getByText(fileLabel, { exact: true })).toBeVisible();
   }
+  // Sidebar links retain unrelated query params such as ?dark, so hrefs match
+  // the route with an optional search suffix.
   await expect(sidebar.getByRole("link", { name: "Overview" })).toHaveAttribute(
     "href",
-    LANDING_PREVIEW_ROUTE,
+    new RegExp(`^${LANDING_PREVIEW_ROUTE}(\\?|$)`),
   );
   await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
     "href",
-    LANDING_DO_IT_YOURSELF_ROUTE,
+    new RegExp(`^${LANDING_DO_IT_YOURSELF_ROUTE}(\\?|$)`),
   );
   await expect(sidebar).not.toContainText("Start here");
   await expect(sidebar).not.toContainText("samebase.com");
@@ -101,9 +103,11 @@ test("landing preview route renders the React overview in workspace chrome", asy
     left: "0px",
     right: "0px",
   });
+  // The hero footnote link labels itself "footnote: correct", so the h1
+  // accessible name reads "The correct footnote: correct way to build web apps".
   await expect(
     article.getByRole("heading", {
-      name: /The correct\s*\*\s*way to build\s*web apps/,
+      name: /The correct.*way to build web apps/,
     }),
   ).toBeVisible();
   await expect(

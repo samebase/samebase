@@ -1,5 +1,4 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import { FileTree, type FileTreeItem } from "@/components/FileTree";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +15,8 @@ import {
 } from "@/routeSearch/landingPreview";
 import { parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import landingDoItYourselfMarkdown from "@/content/landing-do-it-yourself.md?raw";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useLayoutEffect, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useLayoutEffect, type ReactNode } from "react";
 
 type LandingPreviewDocumentKey = "overview" | "doItYourself";
 
@@ -31,64 +30,15 @@ const LANDING_CORRECT_DEFINITION = [
   "personal and idle ideas should cost $0/month.",
 ] as const;
 
-type LandingPreviewHelpCenter = {
-  items: FileTreeItem[];
-  selectedFile: string;
-};
-
-type LandingPreviewClickEvent = Pick<
-  ReactMouseEvent<HTMLElement>,
-  "altKey" | "button" | "ctrlKey" | "defaultPrevented" | "metaKey" | "shiftKey"
->;
-
-function shouldUseNativeLinkClick(event: LandingPreviewClickEvent) {
-  return (
-    event.defaultPrevented ||
-    event.button !== 0 ||
-    event.metaKey ||
-    event.altKey ||
-    event.ctrlKey ||
-    event.shiftKey
-  );
-}
-
-function createLandingPreviewHelpCenter({
-  documentKey,
-}: {
-  documentKey: LandingPreviewDocumentKey;
-}): LandingPreviewHelpCenter {
-  const overviewPath = "01 Overview.md";
-  const doItYourselfPath = "02 Do it yourself.md";
-
-  return {
-    items: [
-      {
-        href: LANDING_PREVIEW_ROUTE,
-        label: "Overview",
-        originalPath: overviewPath,
-        path: overviewPath,
-        type: "blob",
-      },
-      {
-        href: LANDING_DO_IT_YOURSELF_ROUTE,
-        label: "Do it yourself",
-        originalPath: doItYourselfPath,
-        path: doItYourselfPath,
-        type: "blob",
-      },
-    ],
-    selectedFile: documentKey === "overview" ? overviewPath : doItYourselfPath,
-  };
-}
-
 const LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: false,
   rightDesktopOpen: false,
 } as const;
-const LANDING_ROUTE_BY_HELP_CENTER_PATH = new Map([
-  ["01 Overview.md", LANDING_PREVIEW_ROUTE],
-  ["02 Do it yourself.md", LANDING_DO_IT_YOURSELF_ROUTE],
-]);
+
+const LANDING_SIDEBAR_LINKS = [
+  { label: "Overview", to: LANDING_PREVIEW_ROUTE },
+  { label: "Do it yourself", to: LANDING_DO_IT_YOURSELF_ROUTE },
+] as const;
 
 function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
   const searchParams = parseTanStackSearch(search);
@@ -125,30 +75,24 @@ function LandingPreviewPaneUrlSync() {
   return null;
 }
 
-function LandingPreviewSidebar({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
-  const landingPreviewHelpCenter = createLandingPreviewHelpCenter({ documentKey });
-  const navigate = useNavigate();
-
+function LandingPreviewSidebar() {
   return (
     <nav
       aria-label="Landing preview sections"
       data-testid={LANDING_PREVIEW_SIDEBAR_TEST_ID}
-      className="flex min-h-full flex-col px-1 py-2 text-sm"
+      className="flex min-h-full flex-col gap-1 px-4 py-4 text-sm"
     >
-      <FileTree
-        items={landingPreviewHelpCenter.items}
-        selectedFile={landingPreviewHelpCenter.selectedFile}
-        folderExpansionStates={[]}
-        onFileSelect={(path, _status, event) => {
-          const route = LANDING_ROUTE_BY_HELP_CENTER_PATH.get(path);
-          if (route === undefined || event === undefined || shouldUseNativeLinkClick(event)) {
-            return;
-          }
-
-          event.preventDefault();
-          void navigate({ to: route });
-        }}
-      />
+      {LANDING_SIDEBAR_LINKS.map((link) => (
+        <Link
+          activeProps={{ className: "font-semibold text-foreground" }}
+          className="py-1 no-underline"
+          inactiveProps={{ className: "text-muted-foreground hover:text-foreground" }}
+          key={link.to}
+          to={link.to}
+        >
+          {link.label}
+        </Link>
+      ))}
     </nav>
   );
 }
@@ -273,7 +217,7 @@ function LandingCtaRow() {
         className="border-b border-border pb-0.5 text-base text-primary no-underline hover:border-foreground hover:text-foreground"
         to={LANDING_DO_IT_YOURSELF_ROUTE}
       >
-        Do it yourself
+        Do it yourself — no Samebase account needed
       </Link>
     </div>
   );
@@ -680,7 +624,11 @@ function LandingPreviewOverview() {
                 officially
               </LandingReceiptLink>
               : "your Convex database is only accessible via server functions." Rules you can
-              misconfigure will be misconfigured.
+              misconfigure will be misconfigured. Prefer the argument as a video?{" "}
+              <LandingReceiptLink href="https://www.youtube.com/watch?v=h6ffyfabfa8">
+                Robin Ebers makes the same case
+              </LandingReceiptLink>
+              .
             </p>
           </LandingFootnote>
         </section>
@@ -723,7 +671,7 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
 function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
   return (
     <AppWorkspaceRouteChrome
-      left={{ content: <LandingPreviewSidebar documentKey={documentKey} /> }}
+      left={{ content: <LandingPreviewSidebar /> }}
       sidebarDefaultState={LANDING_PREVIEW_SIDEBAR_DEFAULT_STATE}
     >
       <LandingPreviewPaneUrlSync />

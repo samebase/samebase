@@ -84,6 +84,8 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("adds margin, not capability");
     expect(markup).toContain("I built it, then I deleted it.");
     expect(markup).toContain("your app is a security risk.");
+    expect(markup).toContain("no Samebase account needed");
+    expect(markup).toContain("https://www.youtube.com/watch?v=h6ffyfabfa8");
     expect(markup).toContain("the leaving test");
     expect(markup).toContain("Samebase adds no floor of its own.");
     expect(markup).toContain("GitHub");
@@ -98,7 +100,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).not.toContain("Create Github, Convex, Cloudflare");
   });
 
-  it("keeps the help sidebar as two flat files instead of linking every heading", () => {
+  it("keeps the help sidebar as two flat links instead of linking every heading", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
