@@ -315,123 +315,7 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="01 · cheaper">
-            <p className="text-[22px] leading-snug tracking-[-0.015em] text-primary md:text-[26px]">
-              Most app builders resell LLM tokens.
-            </p>
-            <p className="mt-5 text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
-              But the agent you already run is{" "}
-              <span className="border-b-[3px] border-secondary pb-px font-semibold">
-                cheaper and more powerful
-              </span>
-              <LandingFootnoteMark
-                fragment="landing-note-tokens"
-                label="footnote: tokens"
-                marker="†"
-              />{" "}
-              than the chat box a builder wraps around the same models.
-            </p>
-
-            <div className="mt-10 grid max-w-[58ch] gap-4 text-base text-primary">
-              <p>
-                I moved my apps three times before landing here. Netlify was one of the stops: $20 a
-                month buys 3,000 credits, and a production deploy costs 15 of them
-                <LandingFootnoteMark
-                  fragment="landing-note-tokens"
-                  label="footnote: the Netlify math"
-                  marker="†"
-                />{" "}
-                — about ten cents a merge, with bandwidth and compute draining the same pool. Run
-                the pool dry and your projects pause until you buy more. There are ways to optimize
-                it. I didn't want a hobby optimizing deploy credits.
-              </p>
-              <p>
-                Samebase had working Netlify provisioning.{" "}
-                <span className="font-semibold text-foreground">
-                  I built it, then I deleted it.
-                </span>{" "}
-                If I know something is better, why would I sell you anything else?
-              </p>
-            </div>
-
-            <div className="mt-14">
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                cost follows real usage
-              </p>
-              <div className="mt-4 grid">
-                {LANDING_COST_ROWS.map((row) => (
-                  <div
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-6 gap-y-1 border-t border-border py-3.5 md:grid-cols-[minmax(0,1fr)_13rem_auto]"
-                    key={row.profile}
-                  >
-                    <p className="text-base">{row.profile}</p>
-                    <p className="order-3 col-span-2 text-sm text-muted-foreground md:order-none md:col-span-1">
-                      {row.note}
-                    </p>
-                    <p
-                      className={
-                        row.zeroCost
-                          ? "text-right font-mono text-sm font-semibold text-secondary"
-                          : "text-right font-mono text-sm"
-                      }
-                    >
-                      {row.cost}
-                      {row.zeroCost ? (
-                        <LandingFootnoteMark
-                          fragment="landing-note-zero"
-                          label="footnote: zero"
-                          marker="‡"
-                        />
-                      ) : null}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </LandingZone>
-        </div>
-
-        <div className="mt-24 md:mt-32">
-          <LandingZone label="02 · safer">
-            <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
-              A web app is three boxes — database, server, frontend — and two connections. Everyone
-              stares at the boxes.{" "}
-              <span className="font-semibold">The connections carry the security budget.</span>
-            </p>
-            <div className="mt-8 grid max-w-[58ch] gap-4 text-base text-primary">
-              <p>
-                Firebase wires the frontend straight to the database and patches the missing server
-                with a rules language that looks like JavaScript but isn't. Supabase does it with
-                SQL policies bolted onto every table — off by default. Misconfigured rules keep
-                leaving whole databases public. That is not hypothetical.
-                <LandingFootnoteMark
-                  fragment="landing-note-risk"
-                  label="footnote: security risk"
-                  marker="§"
-                />
-              </p>
-              <p>
-                Convex is just a backend: the database is only reachable through TypeScript
-                functions you wrote, so access control is code you already know how to review.
-              </p>
-            </div>
-            <p className="mt-10 text-sm text-muted-foreground">
-              The version I tell my engineer friends:
-            </p>
-            <p className="mt-2 max-w-[32ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] md:text-[26px]">
-              At this point, if your frontend talks straight to your database, your app is a
-              security risk.
-              <LandingFootnoteMark
-                fragment="landing-note-risk"
-                label="footnote: security risk"
-                marker="§"
-              />
-            </p>
-          </LandingZone>
-        </div>
-
-        <div className="mt-24 md:mt-32">
-          <LandingZone label="03 · yours">
+          <LandingZone label="01 · yours">
             <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
               Standard, inspectable infrastructure — three real accounts, in your name.
             </p>
@@ -519,7 +403,46 @@ function LandingPreviewOverview() {
         </div>
 
         <div className="mt-24 md:mt-32">
-          <LandingZone label="04 · lanes">
+          <LandingZone label="02 · safer">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+              A web app is three boxes — database, server, frontend — and two connections. Everyone
+              stares at the boxes.{" "}
+              <span className="font-semibold">The connections carry the security budget.</span>
+            </p>
+            <div className="mt-8 grid max-w-[58ch] gap-4 text-base text-primary">
+              <p>
+                Firebase wires the frontend straight to the database and patches the missing server
+                with a rules language that looks like JavaScript but isn't. Supabase does it with
+                SQL policies bolted onto every table — off by default. Misconfigured rules keep
+                leaving whole databases public. That is not hypothetical.
+                <LandingFootnoteMark
+                  fragment="landing-note-risk"
+                  label="footnote: security risk"
+                  marker="§"
+                />
+              </p>
+              <p>
+                Convex is just a backend: the database is only reachable through TypeScript
+                functions you wrote, so access control is code you already know how to review.
+              </p>
+            </div>
+            <p className="mt-10 text-sm text-muted-foreground">
+              The version I tell my engineer friends:
+            </p>
+            <p className="mt-2 max-w-[32ch] text-[22px] font-semibold leading-snug tracking-[-0.015em] md:text-[26px]">
+              At this point, if your frontend talks straight to your database, your app is a
+              security risk.
+              <LandingFootnoteMark
+                fragment="landing-note-risk"
+                label="footnote: security risk"
+                marker="§"
+              />
+            </p>
+          </LandingZone>
+        </div>
+
+        <div className="mt-24 md:mt-32">
+          <LandingZone label="03 · lanes">
             <div className="grid grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-3">
               {LANDING_LANES.map((lane) => (
                 <div className="border-t border-border pt-6" key={lane.name}>
@@ -550,6 +473,83 @@ function LandingPreviewOverview() {
           </LandingZone>
         </div>
 
+        <div className="mt-24 md:mt-32">
+          <LandingZone label="04 · cheaper">
+            <p className="text-[22px] leading-snug tracking-[-0.015em] text-primary md:text-[26px]">
+              Most app builders resell LLM tokens.
+            </p>
+            <p className="mt-5 text-[22px] leading-snug tracking-[-0.015em] md:text-[26px]">
+              But the agent you already run is{" "}
+              <span className="border-b-[3px] border-secondary pb-px font-semibold">
+                cheaper and more powerful
+              </span>
+              <LandingFootnoteMark
+                fragment="landing-note-tokens"
+                label="footnote: tokens"
+                marker="†"
+              />{" "}
+              than the chat box a builder wraps around the same models.
+            </p>
+
+            <div className="mt-10 grid max-w-[58ch] gap-4 text-base text-primary">
+              <p>
+                I moved my apps three times before landing here. Netlify was one of the stops: $20 a
+                month buys 3,000 credits, and a production deploy costs 15 of them
+                <LandingFootnoteMark
+                  fragment="landing-note-tokens"
+                  label="footnote: the Netlify math"
+                  marker="†"
+                />{" "}
+                — about ten cents a merge, with bandwidth and compute draining the same pool. Run
+                the pool dry and your projects pause until you buy more. There are ways to optimize
+                it. I didn't want a hobby optimizing deploy credits.
+              </p>
+              <p>
+                Samebase had working Netlify provisioning.{" "}
+                <span className="font-semibold text-foreground">
+                  I built it, then I deleted it.
+                </span>{" "}
+                If I know something is better, why would I sell you anything else?
+              </p>
+            </div>
+
+            <div className="mt-14">
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                cost follows real usage
+              </p>
+              <div className="mt-4 grid">
+                {LANDING_COST_ROWS.map((row) => (
+                  <div
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-6 gap-y-1 border-t border-border py-3.5 md:grid-cols-[minmax(0,1fr)_13rem_auto]"
+                    key={row.profile}
+                  >
+                    <p className="text-base">{row.profile}</p>
+                    <p className="order-3 col-span-2 text-sm text-muted-foreground md:order-none md:col-span-1">
+                      {row.note}
+                    </p>
+                    <p
+                      className={
+                        row.zeroCost
+                          ? "text-right font-mono text-sm font-semibold text-secondary"
+                          : "text-right font-mono text-sm"
+                      }
+                    >
+                      {row.cost}
+                      {row.zeroCost ? (
+                        <LandingFootnoteMark
+                          fragment="landing-note-zero"
+                          label="footnote: zero"
+                          marker="‡"
+                        />
+                      ) : null}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </LandingZone>
+        </div>
+
         <section className="py-24 md:py-32">
           <blockquote className="max-w-[22ch] text-[clamp(30px,4vw,44px)] font-semibold leading-tight tracking-[-0.025em]">
             If your app builder is so good, why is it not building itself?
@@ -571,35 +571,6 @@ function LandingPreviewOverview() {
                 </li>
               ))}
             </ul>
-          </LandingFootnote>
-          <LandingFootnote
-            fragment="landing-note-tokens"
-            heading="cheaper and more powerful"
-            marker="†"
-          >
-            <div className="mt-2 grid max-w-[58ch] gap-3 text-[15px] leading-relaxed text-primary">
-              <p>
-                You already pay OpenAI or Anthropic directly. A builder reselling their tokens adds
-                margin, not capability — its in-app agent is a worse version of the tool you already
-                have open. Samebase ships no chatbot; it is a tool your AI tool uses.
-              </p>
-              <p>
-                The hosting math, as of mid-2026:{" "}
-                <LandingReceiptLink href="https://www.netlify.com/pricing/">
-                  Netlify Pro
-                </LandingReceiptLink>{" "}
-                is $20/month for 3,000 credits at 15 per successful production deploy — exactly 200
-                a month before bandwidth and compute draw from the same pool, roughly $0.10 a deploy
-                at the recharge rate. Previews and failed deploys are free; run the pool dry and
-                Netlify pauses the team's projects until the next cycle or the next payment. On
-                Cloudflare, the{" "}
-                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
-                  $5 Workers plan
-                </LandingReceiptLink>{" "}
-                includes six concurrent builds, and Cloudflare itself says to start new projects on
-                Workers.
-              </p>
-            </div>
           </LandingFootnote>
           <LandingFootnote fragment="landing-note-zero" heading="$0/month" marker="‡">
             <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
@@ -650,6 +621,35 @@ function LandingPreviewOverview() {
               </LandingReceiptLink>
               .
             </p>
+          </LandingFootnote>{" "}
+          <LandingFootnote
+            fragment="landing-note-tokens"
+            heading="cheaper and more powerful"
+            marker="†"
+          >
+            <div className="mt-2 grid max-w-[58ch] gap-3 text-[15px] leading-relaxed text-primary">
+              <p>
+                You already pay OpenAI or Anthropic directly. A builder reselling their tokens adds
+                margin, not capability — its in-app agent is a worse version of the tool you already
+                have open. Samebase ships no chatbot; it is a tool your AI tool uses.
+              </p>
+              <p>
+                The hosting math, as of mid-2026:{" "}
+                <LandingReceiptLink href="https://www.netlify.com/pricing/">
+                  Netlify Pro
+                </LandingReceiptLink>{" "}
+                is $20/month for 3,000 credits at 15 per successful production deploy — exactly 200
+                a month before bandwidth and compute draw from the same pool, roughly $0.10 a deploy
+                at the recharge rate. Previews and failed deploys are free; run the pool dry and
+                Netlify pauses the team's projects until the next cycle or the next payment. On
+                Cloudflare, the{" "}
+                <LandingReceiptLink href="https://developers.cloudflare.com/workers/platform/pricing/">
+                  $5 Workers plan
+                </LandingReceiptLink>{" "}
+                includes six concurrent builds, and Cloudflare itself says to start new projects on
+                Workers.
+              </p>
+            </div>
           </LandingFootnote>
         </section>
 
