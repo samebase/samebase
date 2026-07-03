@@ -765,6 +765,32 @@ test("vault dashboard fixture (sidebar list)", async ({ page }) => {
   );
 });
 
+test("vault dashboard fixture (root picker)", async ({ page }) => {
+  await page.setViewportSize({ width: 960, height: 720 });
+  await page.goto("/visual-fixture?mode=vault-dashboard-root-picker", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(vaultNavigation).toBeVisible();
+  await expect(
+    vaultNavigation.getByRole("link", { name: "samebase/marketing-site" }),
+  ).toBeVisible();
+  await expect(vaultNavigation.getByRole("link", { name: "noter/guestbook" })).toHaveAttribute(
+    "href",
+    /^\/vault\/noter\/guestbook(?:\?|$)/,
+  );
+  await expect(fixture).toHaveScreenshot("vault-dashboard-root-picker.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard mobile right sidebar keeps pane separator above sticky headers", async ({
   page,
 }) => {

@@ -3,7 +3,7 @@ import type { FileRoutesByFullPath } from "./routeTree.gen";
 
 type RouteMetadata = Pick<
   RouteStaticData,
-  "access" | "availableEnvironments" | "pathSuggestion" | "prerender"
+  "access" | "appWorkspaceRouteChrome" | "availableEnvironments" | "pathSuggestion" | "prerender"
 >;
 
 /**
@@ -13,13 +13,17 @@ type RouteMetadata = Pick<
  * should still stay on metadata-only modules instead of the full route tree.
  */
 const routeAccessMetadataByPath = {
-  "/": { access: "access_public" },
+  "/": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/connect-repo": { access: "access_repo_connect" },
   "/indexDB": { access: "access_admin" },
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
   "/docs/the-stack": { access: "access_public", pathSuggestion: "hidden" },
-  "/landing-preview": { access: "access_public", pathSuggestion: "hidden" },
+  "/landing-preview": {
+    access: "access_public",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    pathSuggestion: "hidden",
+  },
   "/localStorage": { access: "access_admin" },
   "/logo": { access: "access_public" },
   "/logo/iso": { access: "access_admin" },
@@ -37,13 +41,13 @@ const routeAccessMetadataByPath = {
   "/pitch/print": { access: "access_admin" },
   "/pitch/print/mobile": { access: "access_admin" },
   "/pricing": { access: "access_dashboard" },
-  "/privacy": { access: "access_public" },
+  "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/providers": { access: "access_provider_connections" },
   "/research/codex-app-server": { access: "access_admin" },
   "/research/codex-app-server/browser": { access: "access_admin" },
-  "/terms": { access: "access_public" },
+  "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/test": { availableEnvironments: ["local"], access: "access_admin" },
-  "/vault/": { access: "access_dashboard" },
+  "/vault/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo": { access: "access_dashboard" },
   "/vault/$owner/$repo/codespace/$branch/chat": { access: "access_machines" },
@@ -51,7 +55,13 @@ const routeAccessMetadataByPath = {
   "/vault/$owner/$repo/db/$branch/mono/$": { access: "access_files_read" },
   "/vault/$owner/$repo/schema/$branch/root": { access: "access_schema_graph" },
   "/vault/$owner/$repo/schema/$branch/mono/$": { access: "access_schema_graph" },
-  "/visual-fixture": { availableEnvironments: ["local"], access: "access_public" },
+  "/visual-fixture": {
+    access: "access_public",
+    appWorkspaceRouteChrome: {
+      dataTestId: "visual-fixture-shell",
+    },
+    availableEnvironments: ["local"],
+  },
 } as const satisfies Record<keyof FileRoutesByFullPath, RouteMetadata>;
 
 export const ROUTE_ACCESS_METADATA_BY_PATH: Record<keyof FileRoutesByFullPath, RouteMetadata> =

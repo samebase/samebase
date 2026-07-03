@@ -81,9 +81,16 @@ export type RouteSearchParamValueSuggestion<Key extends string = string> = Extra
   { searchParamKind: "value" }
 >;
 
+export type AppWorkspaceRouteChromeStaticData = {
+  dataTestId?: string;
+  leftPane?: "none";
+  rightPane?: "none";
+};
+
 export type RouteStaticData = {
   availableEnvironments?: RouteAvailability;
   access: RouteAccess;
+  appWorkspaceRouteChrome?: AppWorkspaceRouteChromeStaticData;
   /**
   "hidden" keeps the path out of the URL editor's suggestion dropdown while
   direct entry still commits it. "redirect" additionally blocks editor commits:

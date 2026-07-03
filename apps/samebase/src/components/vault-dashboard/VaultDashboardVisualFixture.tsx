@@ -28,6 +28,7 @@ import {
   VaultDashboardDeleteDialog,
   VaultDashboardRepositoryExternalLinks,
   VaultDashboardVaultList,
+  VaultDashboardVaultPickerPane,
   type VaultDeleteDialogTarget,
   type VaultDashboardVault,
   VaultProviderSetupSection,
@@ -54,6 +55,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-cloudflare-github-app-auth-failure"
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-sticky-header"
+  | "vault-dashboard-root-picker"
   | "vault-dashboard-sidebar-list"
   | "vault-dashboard-list-spacing"
   | "vault-convex-schema-graph"
@@ -709,6 +711,20 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
           />
         }
       />
+    </div>
+  );
+}
+
+function VaultDashboardRootPickerFixture({ mode }: { mode: VaultDashboardVisualMode }) {
+  return (
+    <div
+      data-testid="vault-dashboard-visual-fixture"
+      data-mode={mode}
+      className="h-dvh w-full bg-background text-foreground"
+    >
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultDashboardVaultPickerPane vaults={SIDEBAR_LIST_VAULTS} />
+      </TestRouterProvider>
     </div>
   );
 }
@@ -1789,6 +1805,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-list-spacing") {
     return <VaultDashboardListSpacingFixture mode={mode} />;
+  }
+
+  if (mode === "vault-dashboard-root-picker") {
+    return <VaultDashboardRootPickerFixture mode={mode} />;
   }
 
   if (mode === "vault-dashboard-sidebar-list") {

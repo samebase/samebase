@@ -98,16 +98,12 @@ test("landing preview route renders the React overview in workspace chrome", asy
 
   const preview = page.getByTestId(LANDING_PREVIEW_TEST_ID);
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const sidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
 
   await expect(preview).toBeVisible();
-  // The landing uses the standard app-shell defaults (both sidebars open)
-  // until pane-less prehydration lands in a later PR.
-  await expectDesktopPaneWidths(page, {
-    left: "240px",
-    right: "288px",
-  });
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(page.getByTestId(DOCS_SIDEBAR_TEST_ID)).toHaveCount(0);
+  await expect(rightSidebar).toHaveCSS("width", "288px");
   // The hero footnote link labels itself "footnote: correct", so the h1
   // accessible name reads "The correct footnote: correct way to build web apps".
   await expect(
@@ -149,9 +145,7 @@ test("landing preview route renders the React overview in workspace chrome", asy
   ).toHaveCount(0);
   await expect(article.locator("video")).toHaveCount(0);
 
-  // The landing keeps the standard left pane surface until prehydration
-  // supports pane-less routes.
-  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
 
   // The interactive logo canvases render nondeterministically across GPUs, so
   // the overview baseline masks their stages and covers layout and typography.
@@ -167,12 +161,13 @@ test("landing preview route renders the React overview in workspace chrome", asy
     .getByRole("link", { name: "Do it yourself", exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`${DOCS_DO_IT_YOURSELF_ROUTE}$`));
+  const docsSidebar = page.getByTestId(DOCS_SIDEBAR_TEST_ID);
   await expectDesktopPaneWidths(page, {
     left: "240px",
     right: "288px",
   });
-  await expect(sidebar).toBeVisible();
-  await expectSidebarFiles(sidebar);
+  await expect(docsSidebar).toBeVisible();
+  await expectSidebarFiles(docsSidebar);
   await expect(rightSidebar).toHaveCSS("width", "288px");
   await expect(
     article.getByRole("heading", {
