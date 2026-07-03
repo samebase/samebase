@@ -412,6 +412,8 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain('data-testid="route-url-editor"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
     expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).toContain("flex h-full min-h-0 flex-col");
+    expect(markup).not.toContain("min-h-dvh");
   });
 
   it("server-renders static no-left routes without the default left pane", () => {

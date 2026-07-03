@@ -59,7 +59,6 @@ const routeAccessMetadataByPath = {
     access: "access_public",
     appWorkspaceRouteChrome: {
       dataTestId: "visual-fixture-shell",
-      rootHeight: "viewport",
     },
     availableEnvironments: ["local"],
   },

@@ -85,7 +85,6 @@ export type AppWorkspaceRouteChromeStaticData = {
   dataTestId?: string;
   leftPane?: "none";
   rightPane?: "none";
-  rootHeight?: "viewport";
 };
 
 export type RouteStaticData = {
