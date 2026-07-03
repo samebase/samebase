@@ -1888,9 +1888,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare has multiple Workers build tokens",
   "Cannot connect Cloudflare Worker",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
-  "GitHub repository response did not include repo id.",
   "GitHub repository response did not match the vault repo.",
-  "GitHub repository response did not include owner id.",
 ];
 
 function extractUserFacingProvisioningError(args: {

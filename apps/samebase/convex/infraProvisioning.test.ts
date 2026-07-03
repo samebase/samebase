@@ -701,7 +701,7 @@ describe("infrastructure provisioning ownership", () => {
           vaultId: ids.vaultId,
           runId: ids.runId,
         }),
-      ).rejects.toThrow("GitHub API request failed");
+      ).rejects.toThrow("stop after Convex key creation");
 
       const convexKeyRequests = requests
         .filter((request) => request.url.startsWith("https://api.convex.dev/v1/"))
