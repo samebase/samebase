@@ -203,21 +203,10 @@ export const vVaultCloudflareConvexBuildAccess = union(
 );
 export type VaultCloudflareConvexBuildAccess = Infer<typeof vVaultCloudflareConvexBuildAccess>;
 
-export const vVaultCloudflareDeployment = union(
-  object({
-    state: literal("not_configured"),
-  }),
-  object({
-    state: literal("workers_builds_connected"),
-    ...vaultCloudflareBuildConfigFields,
-    production: vVaultCloudflareWorkersBuildTrigger,
-    preview: vVaultCloudflareWorkersBuildTrigger,
-  }),
-  object({
-    builds: vVaultCloudflareBuilds,
-    convexBuildAccess: vVaultCloudflareConvexBuildAccess,
-  }),
-);
+export const vVaultCloudflareDeployment = object({
+  builds: vVaultCloudflareBuilds,
+  convexBuildAccess: vVaultCloudflareConvexBuildAccess,
+});
 export type VaultCloudflareDeployment = Infer<typeof vVaultCloudflareDeployment>;
 
 export function buildVaultCloudflareDeploymentNotConfigured(): VaultCloudflareDeployment {
@@ -235,48 +224,6 @@ export function buildVaultCloudflareDeploymentWithConnectedBuilds(args: {
     builds: args.builds,
     convexBuildAccess: args.convexBuildAccess,
   };
-}
-
-export function readVaultCloudflareBuilds(
-  deployment: VaultCloudflareDeployment,
-): VaultCloudflareBuilds {
-  if ("builds" in deployment) {
-    return deployment.builds;
-  }
-  switch (deployment.state) {
-    case "not_configured":
-      return { state: "not_connected" };
-    case "workers_builds_connected":
-      return {
-        state: "connected",
-        rootDirectory: deployment.rootDirectory,
-        buildCommand: deployment.buildCommand,
-        deployCommand: deployment.deployCommand,
-        previewDeployCommand: deployment.previewDeployCommand,
-        pathIncludes: deployment.pathIncludes,
-        pathExcludes: deployment.pathExcludes,
-        production: deployment.production,
-        preview: deployment.preview,
-      };
-  }
-  deployment satisfies never;
-  return { state: "not_connected" };
-}
-
-export function readVaultCloudflareConvexBuildAccess(
-  deployment: VaultCloudflareDeployment,
-): VaultCloudflareConvexBuildAccess {
-  if ("convexBuildAccess" in deployment) {
-    return deployment.convexBuildAccess;
-  }
-  switch (deployment.state) {
-    case "not_configured":
-      return { state: "not_wired" };
-    case "workers_builds_connected":
-      return { state: "wired" };
-  }
-  deployment satisfies never;
-  return { state: "not_wired" };
 }
 
 export const vVaultCloudflareWorker = object({

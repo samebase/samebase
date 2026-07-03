@@ -1383,7 +1383,10 @@ describe("vault dashboard Convex contract", () => {
           workerTag: `provider-${testCase.label}-worker-tag`,
           workersDevUrl: `https://provider-${testCase.label}.example.workers.dev`,
           origin: "provisioned",
-          deployment: { state: "not_configured" },
+          deployment: {
+            builds: { state: "not_connected" },
+            convexBuildAccess: { state: "not_wired" },
+          },
           connectedAt: 26,
           lastObservedAt: 26,
         });
@@ -1719,7 +1722,10 @@ describe("vault dashboard Convex contract", () => {
         workerTag: "domain-order-worker-tag",
         workersDevUrl: "https://domain-order.example.workers.dev",
         origin: "provisioned",
-        deployment: { state: "not_configured" },
+        deployment: {
+          builds: { state: "not_connected" },
+          convexBuildAccess: { state: "not_wired" },
+        },
         connectedAt: 26,
         lastObservedAt: 26,
       });

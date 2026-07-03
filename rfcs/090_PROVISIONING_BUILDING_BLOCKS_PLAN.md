@@ -25,16 +25,15 @@
 
 Provisioning today is two disjoint systems that share plumbing but not composition:
 
-1. The full create-app workflow reaches `deployment: workers_builds_connected` through the
-   `ensure_cloudflare` mega-step, which spans three providers in one action: it re-runs Convex
-   preview provisioning (the `ensure_convex_preview` step result is discarded because the preview
-   URL is never persisted), mints both Convex deploy keys, fetches GitHub repo identity, and only
-   then does Cloudflare work. The Convex dependency is structural (`CloudflareProvisionConvexState`
-   inside `EnsureCloudflareResourcesArgs`).
+1. The previous full create-app workflow reached a single combined Cloudflare deployment state
+   through the `ensure_cloudflare` mega-step, which spans three providers in one action: it re-runs
+   Convex preview provisioning (the `ensure_convex_preview` step result is discarded because the
+   preview URL is never persisted), mints both Convex deploy keys, fetches GitHub repo identity, and
+   only then does Cloudflare work. The Convex dependency is structural
+   (`CloudflareProvisionConvexState` inside `EnsureCloudflareResourcesArgs`).
 2. The manual attach flows (specs 105/106) attach resources and stop. Nothing ever transitions a
-   manually attached Worker out of `deployment: { state: "not_configured" }` or fills manually
-   attached Convex deploy-key slots. Imported repositories therefore can never reach a built,
-   deployed state through Samebase.
+   manually attached Worker into connected builds or fills manually attached Convex deploy-key
+   slots. Imported repositories therefore can never reach a built, deployed state through Samebase.
 
 Both specs 105 and 106 defer "deployment wiring" as a later state model. This RFC is that state
 model, plus the block decomposition that lets the full flow and the partial flows share it.
@@ -95,18 +94,16 @@ Flow compositions:
 
 ## Worker Deployment State Model
 
-`vaultCloudflareWorkers.deployment` (today `not_configured | workers_builds_connected`) splits into
-two independent axes:
+`vaultCloudflareWorkers.deployment` is two independent axes:
 
 - `builds`: `{ state: "not_connected" }` |
   `{ state: "connected", rootDirectory, buildCommand, deployCommand, previewDeployCommand, pathIncludes, pathExcludes, production: { triggerUuid, buildTokenUuid }, preview: { triggerUuid, buildTokenUuid } }`
 - `convexBuildAccess`: `{ state: "not_wired" }` | `{ state: "wired" }` (deploy-key identifiers stay
   on the `vaultConvexDeployments.deployKeys` slots, which remain the single home for key ids)
 
-Migration: existing `workers_builds_connected` rows (only writable by the full flow, which always
-wired Convex) map to `builds: connected` + `convexBuildAccess: wired`; `not_configured` maps to both
-negative states. Phase 1 widens and normalizes reads/writes; a later backfill removes the legacy
-variants once deployed rows have been rewritten.
+No backwards-compatibility adapter is kept for the old Samebase row variants. If local or operator
+data still contains the previous shape, delete and recreate those rows instead of carrying that
+state through the model.
 
 ## Worker-Repo Discovery Contract
 
@@ -148,8 +145,8 @@ Verification probes required before implementation (one-time, live):
    repo name)?
 2. Does the per-Worker triggers list include soft-deleted triggers (`deleted_on` set)?
 3. Is `PUT /builds/repos/connections` a true upsert (same uuid for the same repo triple)?
-4. Does `GET /builds/workers/{script_tag}` return populated `git_repository` for legacy
-   triggers-only Workers (like Samebase's own), or 404?
+4. Does `GET /builds/workers/{script_tag}` return populated `git_repository` for trigger-only
+   Workers created before Samebase used the aggregate Builds read, or 404?
 5. `GET /workers/scripts` behavior past ~100 Workers (callers currently slice at 100; never-deployed
    Workers are absent from this listing).
 

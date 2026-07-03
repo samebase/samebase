@@ -92,7 +92,10 @@ describe("infra read app-root targeting", () => {
           workerTag: `${appRoot.replace("/", "-")}-tag`,
           workersDevUrl: `https://${appRoot.replace("/", "-")}.nicu.workers.dev`,
           origin: "selected_existing",
-          deployment: { state: "not_configured" },
+          deployment: {
+            builds: { state: "not_connected" },
+            convexBuildAccess: { state: "not_wired" },
+          },
           connectedAt: 30,
           lastObservedAt: 30,
         });

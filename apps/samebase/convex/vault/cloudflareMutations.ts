@@ -13,8 +13,6 @@ import {
   buildVaultCloudflareBuildConfigForAppRoot,
   buildVaultCloudflareDeploymentNotConfigured,
   buildVaultCloudflareDeploymentWithConnectedBuilds,
-  readVaultCloudflareBuilds,
-  readVaultCloudflareConvexBuildAccess,
   vVaultCloudflareBuildConfig,
   vVaultCloudflareConnectedBuilds,
   vVaultCloudflareOrigin,
@@ -649,7 +647,7 @@ export const claimCloudflareBuildsWiring = internalMutation({
     if (!worker) {
       throw new Error("Cloudflare Worker is required before wiring Workers Builds.");
     }
-    if (readVaultCloudflareBuilds(worker.deployment).state === "connected") {
+    if (worker.deployment.builds.state === "connected") {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
         step: "wire_builds",
@@ -748,7 +746,7 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
     ]);
     if (
       !worker ||
-      readVaultCloudflareBuilds(worker.deployment).state === "connected" ||
+      worker.deployment.builds.state === "connected" ||
       !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })
     ) {
       return { active: false as const };
@@ -806,7 +804,7 @@ export const recordCloudflareBuildsForRun = internalMutation({
     await ctx.db.patch(worker._id, {
       deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
         builds: args.builds,
-        convexBuildAccess: readVaultCloudflareConvexBuildAccess(worker.deployment),
+        convexBuildAccess: worker.deployment.convexBuildAccess,
       }),
       lastObservedAt: Date.now(),
     });
@@ -849,7 +847,7 @@ export const finishCloudflareBuildsWiring = internalMutation({
       vaultId: args.vaultId,
       appRoot,
     });
-    if (!worker || readVaultCloudflareBuilds(worker.deployment).state !== "connected") {
+    if (!worker || worker.deployment.builds.state !== "connected") {
       throw new Error("Cloudflare Workers Builds were not recorded.");
     }
 
