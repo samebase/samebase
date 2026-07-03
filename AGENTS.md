@@ -257,15 +257,11 @@ Types and validation:
 
 - Type-unsafety must be explicit, searchable, and quarantined — hiding a type gap is worse than
   declaring one; TypeScript serves the mental model, not the other way around.
-- Never use `any` or type assertions; `as const` is fine. A type assertion is never the right tool
-  for anything except hiding a type issue — where you would reach for `as`, use the narrowest
-  `@ts-expect-error` plus a comment stating the runtime fact that makes it safe (greppable, errors
-  once stale); assertions hide in plain sight. Rare exception for `any` only: type-level generics
-  where `unknown`/`never` cannot express a constraint use `any` under a next-line lint-disable
-  (`packages/sure` precedent). Lint exceptions are `eslint-disable-next-line` + reason on the exact
-  offending line; lift to one file-top header only when a rule saturates the file (a density
-  judgement, not a count). Never config-level exemptions; only generated files, which cannot carry
-  disables, get a config override.
+- Never use `any` or type assertions except `as const`; use the narrowest `@ts-expect-error` plus a
+  runtime fact for unavoidable gaps. Rare `any` is limited to type-level generics where
+  `unknown`/`never` cannot express a constraint and needs a next-line lint-disable. Lint exceptions
+  are `eslint-disable-next-line` + reason on the exact offending line; file-top only when a rule
+  saturates the file. Never config-level exemptions; only generated files get config overrides.
 - Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
   type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
   in `@samebase/dependent`), never costume types the code cannot earn.
@@ -286,6 +282,8 @@ Types and validation:
 - Write real runtime guards/validators when narrowing `unknown` or provider data; never recommend
   assertion-based examples.
 - Prefer inference; do not restate types the expression already proves.
+- For generic function members on object types, prefer `fn: <T>(...) => R` over `fn<T>(...): R`
+  unless method semantics are required; this avoids VS Code TextMate tokenization bugs.
 - Put the discriminant property first in union variant shapes.
 - Let `pure(...)`/`sure(...)` infer inline validator inputs; no redundant `unknown` annotations.
 - When a schema exists, derive the type from it; one source-of-truth schema per boundary — no

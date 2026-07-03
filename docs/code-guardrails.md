@@ -162,6 +162,24 @@ declaring one.
 - Prefer inference when it keeps the code clear. Do not restate local variable types when the
   expression is already strongly typed unless the annotation changes the contract, clarifies
   object-spread shape composition, or prevents a real widening problem.
+- For generic function members on object types, prefer function-valued property syntax when method
+  semantics are not part of the contract:
+
+  ```ts
+  type Runner = {
+    run: <Task extends FunctionReference<"mutation">>(
+      task: Task,
+      ...args: OptionalRestArgs<Task>
+    ) => Promise<FunctionReturnType<Task>>;
+  };
+  ```
+
+  Prefer that over `run<Task extends ...>(...): ...` for callback slots and context subsets. The two
+  shapes are often interchangeable for Samebase's small structural context types, but VS Code's
+  TextMate grammar can lose syntax-highlighting scope after complex generic method signatures. Keep
+  method syntax when the type intentionally models method-specific assignability, overloads, or
+  `this` behavior.
+
 - For discriminated union variants, put the discriminant property first in each object shape so the
   variant is immediately visible when reading the type.
 - When passing inline validators to `pure(...)` or `sure(...)`, omit redundant `unknown` parameter
