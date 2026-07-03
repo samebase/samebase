@@ -2,7 +2,9 @@
  * Pane-trail geometry: the workspace is an ordered list of panes where the
  * last pane is the focus (flexes to fill) and every earlier pane is context.
  * A context pane is either expanded (fixed width, resizable) or collapsed
- * into a 32px icon rail; adjacent collapsed panes coalesce into one rail.
+ * into its own 32px icon rail. Every pane keeps one continuous element in
+ * both states so collapse and expand render as width transitions the eye can
+ * follow — that causality is why collapsed neighbors do NOT coalesce.
  *
  * There is no left/right/main vocabulary, no merge model, and no mobile
  * resize: those are the v2 concepts this lab replaces.
@@ -39,7 +41,7 @@ export type WorkspacePaneTrailSolveArgs = {
 };
 
 export type WorkspacePaneTrailEntry =
-  | { kind: "rail"; paneIds: readonly string[] }
+  | { kind: "rail"; id: string }
   | { kind: "pane"; id: string; widthPx: number }
   | { kind: "focus"; id: string };
 
@@ -65,17 +67,10 @@ function getTrailCostPx(args: {
   widths: Readonly<Record<string, number>>;
 }): number {
   let costPx = WORKSPACE_FOCUS_PANE_MIN_WIDTH_PX;
-  let previousWasCollapsed = false;
   for (const pane of args.context) {
-    if (args.closed.has(pane.id)) {
-      if (!previousWasCollapsed) {
-        costPx += WORKSPACE_PANE_RAIL_WIDTH_PX;
-        previousWasCollapsed = true;
-      }
-      continue;
-    }
-    costPx += getWorkspacePaneWidthPx(args.widths, pane);
-    previousWasCollapsed = false;
+    costPx += args.closed.has(pane.id)
+      ? WORKSPACE_PANE_RAIL_WIDTH_PX
+      : getWorkspacePaneWidthPx(args.widths, pane);
   }
   return costPx;
 }
@@ -108,26 +103,11 @@ export function solveWorkspacePaneTrail(
     autoCollapsed.add(victim.id);
   }
 
-  const entries: WorkspacePaneTrailEntry[] = [];
-  for (const pane of context) {
-    if (!closed.has(pane.id)) {
-      entries.push({
-        kind: "pane",
-        id: pane.id,
-        widthPx: getWorkspacePaneWidthPx(args.widths, pane),
-      });
-      continue;
-    }
-    const previousEntry = entries.length > 0 ? entries[entries.length - 1] : null;
-    if (previousEntry !== null && previousEntry.kind === "rail") {
-      entries[entries.length - 1] = {
-        kind: "rail",
-        paneIds: [...previousEntry.paneIds, pane.id],
-      };
-    } else {
-      entries.push({ kind: "rail", paneIds: [pane.id] });
-    }
-  }
+  const entries: WorkspacePaneTrailEntry[] = context.map((pane) =>
+    closed.has(pane.id)
+      ? { kind: "rail" as const, id: pane.id }
+      : { kind: "pane" as const, id: pane.id, widthPx: getWorkspacePaneWidthPx(args.widths, pane) },
+  );
   entries.push({ kind: "focus", id: focusPane.id });
 
   return { entries, autoCollapsed };

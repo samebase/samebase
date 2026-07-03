@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/useElementSize";
 import { cn } from "@/lib/utils";
@@ -18,19 +17,21 @@ import { useWorkspacePaneTrail } from "./WorkspacePaneRuntime";
 export type WorkspaceLayoutV3Pane = {
   id: string;
   title: string;
-  /** Rendered at 16px inside the collapsed rail icon button. */
+  /** Rendered at 16px inside the collapsed rail button. */
   icon: ReactNode;
   content: ReactNode;
   minWidthPx?: number;
 };
 
 /**
- * The pane trail workspace. Desktop lays the trail out as columns where the
- * last pane flexes and earlier panes collapse into icon rails; mobile lays
- * the same trail out as a full-width scroll-snap carousel under a segment
- * strip. Panes are created and removed by navigation, never by chrome
- * buttons; the only pane controls are drag-past-min (collapse), rail icons
- * (expand), and strip segments (mobile navigation).
+ * The pane trail workspace. Desktop lays the trail out as titled columns
+ * where the last pane flexes; a context pane collapses into its own 32px
+ * icon rail and back as a width transition on one continuous element, so
+ * cause and effect stay visible when the solver trades space between panes.
+ * Mobile lays the same trail out as a full-width scroll-snap carousel under
+ * a segment strip. Panes are created and removed by navigation, never by
+ * chrome buttons; the only pane controls are drag-past-min (collapse), rail
+ * clicks (expand), and strip segments (mobile navigation).
  */
 export function WorkspaceLayoutV3({
   panes,
@@ -94,6 +95,14 @@ export function WorkspaceLayoutV3({
   );
 }
 
+function WorkspaceLayoutV3PaneHeader({ title }: { title: string }) {
+  return (
+    <div className="flex h-8 shrink-0 items-center border-b border-border px-3">
+      <span className="truncate text-xs text-muted-foreground">{title}</span>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Desktop projection                                                   */
 /* ------------------------------------------------------------------ */
@@ -144,42 +153,7 @@ function WorkspaceLayoutV3DesktopTrail({
       className="relative flex min-h-0 flex-1 overflow-hidden bg-background"
     >
       {solution.entries.map((entry) => {
-        if (entry.kind === "rail") {
-          return (
-            <div
-              key={`rail:${entry.paneIds.join("+")}`}
-              data-workspace-layout-v3-rail={entry.paneIds.join("+")}
-              className="flex h-full w-8 shrink-0 flex-col border-r border-border bg-background"
-            >
-              {entry.paneIds.map((paneId) => {
-                const pane = panesById.get(paneId);
-                if (pane === undefined) {
-                  return null;
-                }
-                const isAutoCollapsed = solution.autoCollapsed.has(paneId);
-                return (
-                  <Button
-                    key={paneId}
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Expand ${pane.title} pane`}
-                    title={isAutoCollapsed ? `${pane.title} (collapsed for space)` : pane.title}
-                    data-workspace-layout-v3-rail-pane={paneId}
-                    className={cn("h-8 w-8 rounded-none", isAutoCollapsed && "opacity-60")}
-                    onClick={() => {
-                      actions.expandPane(paneId);
-                    }}
-                  >
-                    {pane.icon}
-                  </Button>
-                );
-              })}
-            </div>
-          );
-        }
-
-        const pane = panesById.get(entry.kind === "pane" ? entry.id : entry.id);
+        const pane = panesById.get(entry.id);
         if (pane === undefined) {
           return null;
         }
@@ -192,6 +166,7 @@ function WorkspaceLayoutV3DesktopTrail({
               data-workspace-layout-v3-focus-pane
               className="flex h-full min-w-0 flex-1 flex-col bg-background"
             >
+              <WorkspaceLayoutV3PaneHeader title={pane.title} />
               <div className="min-h-0 flex-1 overflow-y-auto">{pane.content}</div>
             </div>
           );
@@ -201,13 +176,18 @@ function WorkspaceLayoutV3DesktopTrail({
           <WorkspaceLayoutV3DesktopContextPane
             key={pane.id}
             pane={pane}
-            widthPx={entry.widthPx}
+            collapsed={entry.kind === "rail"}
+            isAutoCollapsed={solution.autoCollapsed.has(pane.id)}
+            widthPx={entry.kind === "pane" ? entry.widthPx : WORKSPACE_PANE_RAIL_WIDTH_PX}
             maxWidthPx={contextMaxWidthPx}
             onCommitWidthPx={(widthPx) => {
               actions.setPaneWidthPx(pane.id, widthPx);
             }}
             onCollapse={() => {
               actions.collapsePane(pane.id);
+            }}
+            onExpand={() => {
+              actions.expandPane(pane.id);
             }}
           />
         );
@@ -217,22 +197,31 @@ function WorkspaceLayoutV3DesktopTrail({
 }
 
 /**
- * One expanded context pane. Width edits stay local while a drag is active so
- * pointermove never round-trips the persisted store; the width commits on
- * release, and releasing deep below the minimum collapses instead.
+ * One context pane, expanded or collapsed. Both states share this element so
+ * collapse/expand render as a width transition the eye can follow. Width
+ * edits stay local while a drag is active (pointermove never round-trips the
+ * persisted store, and the transition is suspended so the edge tracks the
+ * pointer); the width commits on release, and releasing deep below the
+ * minimum collapses instead.
  */
 function WorkspaceLayoutV3DesktopContextPane({
   pane,
+  collapsed,
+  isAutoCollapsed,
   widthPx,
   maxWidthPx,
   onCommitWidthPx,
   onCollapse,
+  onExpand,
 }: {
   pane: WorkspaceLayoutV3Pane;
+  collapsed: boolean;
+  isAutoCollapsed: boolean;
   widthPx: number;
   maxWidthPx: number;
   onCommitWidthPx: (widthPx: number) => void;
   onCollapse: () => void;
+  onExpand: () => void;
 }) {
   const [draftWidthPx, setDraftWidthPx] = useState<number | null>(null);
   const [hasCollapseIntent, setHasCollapseIntent] = useState(false);
@@ -240,54 +229,77 @@ function WorkspaceLayoutV3DesktopContextPane({
   const collapseIntentRef = useRef(false);
 
   const minWidthPx = pane.minWidthPx ?? WORKSPACE_PANE_MIN_WIDTH_PX;
-  const renderedWidthPx = draftWidthPx ?? widthPx;
+  const renderedWidthPx = collapsed ? WORKSPACE_PANE_RAIL_WIDTH_PX : (draftWidthPx ?? widthPx);
 
   return (
     <div
       data-workspace-layout-v3-pane={pane.id}
+      data-workspace-layout-v3-pane-state={collapsed ? "rail" : "open"}
       data-collapse-intent={hasCollapseIntent ? "true" : undefined}
       className={cn(
+        // overflow-hidden must NOT live on this wrapper: it would clip the
+        // outer half of the centered edge resize handle and halve its hit
+        // area. The content wrapper below clips instead.
         "relative flex h-full min-w-0 shrink-0 flex-col border-r border-border bg-background",
+        draftWidthPx === null && "transition-[width]",
         hasCollapseIntent && "opacity-60",
       )}
       style={{ width: `${renderedWidthPx}px` }}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto">{pane.content}</div>
-      <WorkspaceLayoutV3ResizeHandle
-        ariaLabel={`Resize ${pane.title} pane`}
-        currentSizePx={renderedWidthPx}
-        dataTestId={`workspace-layout-v3-resize-${pane.id}`}
-        maxSizePx={Math.max(minWidthPx, maxWidthPx)}
-        minSizePx={minWidthPx}
-        onSizeChange={(sizePx) => {
-          draftWidthRef.current = sizePx;
-          setDraftWidthPx(sizePx);
-        }}
-        onRawSizeChange={(rawSizePx) => {
-          const intent = rawSizePx < minWidthPx - WORKSPACE_PANE_COLLAPSE_SLACK_PX;
-          collapseIntentRef.current = intent;
-          setHasCollapseIntent(intent);
-        }}
-        onResizeEnd={() => {
-          const committedWidthPx = draftWidthRef.current;
-          const shouldCollapse = collapseIntentRef.current;
-          draftWidthRef.current = null;
-          collapseIntentRef.current = false;
-          setDraftWidthPx(null);
-          setHasCollapseIntent(false);
-          if (shouldCollapse) {
-            // Keep the pre-drag width so the pane reopens at a useful size.
-            onCollapse();
-            return;
-          }
-          if (committedWidthPx !== null) {
-            onCommitWidthPx(committedWidthPx);
-          }
-        }}
-        pointerTarget="edge"
-        positionPx={renderedWidthPx}
-        resizeFrom="left"
-      />
+      {collapsed ? (
+        <button
+          type="button"
+          data-workspace-layout-v3-rail-pane={pane.id}
+          aria-label={`Expand ${pane.title} pane`}
+          title={isAutoCollapsed ? `${pane.title} (collapsed for space)` : pane.title}
+          className="flex h-full w-full flex-col items-center pt-2 hover:bg-muted/50"
+          onClick={onExpand}
+        >
+          <span className={cn("text-muted-foreground", isAutoCollapsed && "opacity-60")}>
+            {pane.icon}
+          </span>
+        </button>
+      ) : (
+        <>
+          <WorkspaceLayoutV3PaneHeader title={pane.title} />
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">{pane.content}</div>
+          <WorkspaceLayoutV3ResizeHandle
+            ariaLabel={`Resize ${pane.title} pane`}
+            currentSizePx={renderedWidthPx}
+            dataTestId={`workspace-layout-v3-resize-${pane.id}`}
+            maxSizePx={Math.max(minWidthPx, maxWidthPx)}
+            minSizePx={minWidthPx}
+            onSizeChange={(sizePx) => {
+              draftWidthRef.current = sizePx;
+              setDraftWidthPx(sizePx);
+            }}
+            onRawSizeChange={(rawSizePx) => {
+              const intent = rawSizePx < minWidthPx - WORKSPACE_PANE_COLLAPSE_SLACK_PX;
+              collapseIntentRef.current = intent;
+              setHasCollapseIntent(intent);
+            }}
+            onResizeEnd={() => {
+              const committedWidthPx = draftWidthRef.current;
+              const shouldCollapse = collapseIntentRef.current;
+              draftWidthRef.current = null;
+              collapseIntentRef.current = false;
+              setDraftWidthPx(null);
+              setHasCollapseIntent(false);
+              if (shouldCollapse) {
+                // Keep the pre-drag width so the pane reopens at a useful size.
+                onCollapse();
+                return;
+              }
+              if (committedWidthPx !== null) {
+                onCommitWidthPx(committedWidthPx);
+              }
+            }}
+            pointerTarget="edge"
+            positionPx={renderedWidthPx}
+            resizeFrom="left"
+          />
+        </>
+      )}
     </div>
   );
 }

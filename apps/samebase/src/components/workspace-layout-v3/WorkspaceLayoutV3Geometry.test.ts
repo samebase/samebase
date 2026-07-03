@@ -43,7 +43,7 @@ describe("solveWorkspacePaneTrail", () => {
     // 1380px. At 1200px collapsing nav (960 - 240 + 32 rail = 1172) fits.
     const solution = solve({ viewportWidthPx: 1200 });
     expect(solution.autoCollapsed).toEqual(new Set(["nav"]));
-    expect(solution.entries[0]).toEqual({ kind: "rail", paneIds: ["nav"] });
+    expect(solution.entries[0]).toEqual({ kind: "rail", id: "nav" });
   });
 
   it("never auto-collapses the pane the operator just expanded", () => {
@@ -52,37 +52,37 @@ describe("solveWorkspacePaneTrail", () => {
     expect(solution.autoCollapsed).toEqual(new Set(["vaults"]));
   });
 
-  it("collapses additional panes when one collapse is not enough", () => {
-    // 720px fits only the coalesced rail (32) + one 240px pane + focus min.
+  it("collapses as many panes as the viewport demands, leftmost first", () => {
+    // 720px cannot fit any expanded context pane: 3 rails + 240 + 420 = 756.
     const solution = solve({ viewportWidthPx: 720 });
-    expect(solution.autoCollapsed).toEqual(new Set(["nav", "vaults", "branches"]));
-    expect(solution.entries[0]).toEqual({
-      kind: "rail",
-      paneIds: ["nav", "vaults", "branches"],
-    });
+    expect(solution.autoCollapsed).toEqual(new Set(["nav", "vaults", "branches", "files"]));
   });
 
-  it("coalesces adjacent collapsed panes into one rail and splits around expanded panes", () => {
+  it("keeps every collapsed pane as its own rail entry in trail order", () => {
     const solution = solve({
       userCollapsed: new Set(["nav", "vaults", "files"]),
     });
     expect(solution.entries).toEqual([
-      { kind: "rail", paneIds: ["nav", "vaults"] },
+      { kind: "rail", id: "nav" },
+      { kind: "rail", id: "vaults" },
       { kind: "pane", id: "branches", widthPx: 240 },
-      { kind: "rail", paneIds: ["files"] },
+      { kind: "rail", id: "files" },
       { kind: "focus", id: "editor" },
     ]);
   });
 
-  it("charges one rail width per coalesced group, not per collapsed pane", () => {
-    // All four context panes collapsed cost exactly one rail plus focus min.
+  it("charges one rail width per collapsed pane", () => {
+    // All four context panes collapsed cost 4 rails + focus min exactly.
     const solution = solve({
-      viewportWidthPx: WORKSPACE_FOCUS_PANE_MIN_WIDTH_PX + WORKSPACE_PANE_RAIL_WIDTH_PX,
+      viewportWidthPx: WORKSPACE_FOCUS_PANE_MIN_WIDTH_PX + 4 * WORKSPACE_PANE_RAIL_WIDTH_PX,
       userCollapsed: new Set(["nav", "vaults", "branches", "files"]),
     });
-    expect(solution.entries).toEqual([
-      { kind: "rail", paneIds: ["nav", "vaults", "branches", "files"] },
-      { kind: "focus", id: "editor" },
+    expect(solution.entries.map((entry) => entry.kind)).toEqual([
+      "rail",
+      "rail",
+      "rail",
+      "rail",
+      "focus",
     ]);
     expect(solution.autoCollapsed.size).toBe(0);
   });

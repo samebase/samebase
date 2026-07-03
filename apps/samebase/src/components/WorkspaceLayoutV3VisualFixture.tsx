@@ -7,12 +7,9 @@ export type WorkspaceLayoutV3VisualMode = "workspace-layout-v3";
 
 const FIXTURE_VAULT_KEY = "workspace-layout-v3-fixture-vault";
 
-function FixtureListPane({ label, rows }: { label: string; rows: readonly string[] }) {
+function FixtureListPane({ rows }: { rows: readonly string[] }) {
   return (
     <div>
-      <div className="px-3 pb-1 pt-2.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
       {rows.map((row) => (
         <div key={row} className="border-b border-border px-3 py-1.5 text-[13px]">
           {row}
@@ -37,26 +34,19 @@ export function WorkspaceLayoutV3VisualFixture() {
           id: "nav",
           title: "Samebase",
           icon: <Home className="h-4 w-4" />,
-          content: (
-            <FixtureListPane label="Navigation" rows={["Vaults", "Providers", "Machines"]} />
-          ),
+          content: <FixtureListPane rows={["Vaults", "Providers", "Machines"]} />,
         },
         {
           id: "vaults",
           title: "Vaults",
           icon: <Library className="h-4 w-4" />,
-          content: (
-            <FixtureListPane
-              label="Vaults"
-              rows={["nicu/notes", "nicu/samebase", "nicu/recipes"]}
-            />
-          ),
+          content: <FixtureListPane rows={["nicu/notes", "nicu/samebase", "nicu/recipes"]} />,
         },
         {
           id: "branches",
           title: "nicu/notes",
           icon: <GitBranch className="h-4 w-4" />,
-          content: <FixtureListPane label="Branches" rows={["main", "drafts"]} />,
+          content: <FixtureListPane rows={["main", "drafts"]} />,
         },
         {
           id: "files",
