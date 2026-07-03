@@ -83,8 +83,6 @@ export type RouteSearchParamValueSuggestion<Key extends string = string> = Extra
 
 export type AppWorkspaceRouteChromeStaticData = {
   dataTestId?: string;
-  defaultLeftPane?: "none";
-  defaultRightPane?: "none";
   leftPane?: "none";
   rightPane?: "none";
   rootHeight?: "viewport";

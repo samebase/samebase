@@ -350,8 +350,8 @@ test("vault dashboard fixture (Convex schema route mobile)", async ({ page }) =>
   const fixtureLayout = page.locator("[data-workspace-layout-v2]");
   const routeMain = page.getByTestId("vault-schema-page");
   await expect(fixtureLayout).toHaveAttribute("data-mobile-pane", "main");
-  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Toggle Right Sidebar" })).toHaveCount(0);
+  await expect(page.getByTestId("workspace-layout-v2-pane-right")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Toggle Right Sidebar" })).toBeVisible();
   await expect(routeMain.locator("[data-schema-graph-layout]")).toHaveAttribute(
     "data-schema-graph-layout",
     "ready",

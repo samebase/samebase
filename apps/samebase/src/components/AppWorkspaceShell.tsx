@@ -257,8 +257,6 @@ function AppWorkspaceShellFrame({
   const headerAccessory = chrome?.headerAccessory;
   const staticLeftPaneAbsent = staticRouteChrome?.leftPane === "none";
   const staticRightPaneAbsent = staticRouteChrome?.rightPane === "none";
-  const defaultLeftPaneAbsent = staticRouteChrome?.defaultLeftPane === "none";
-  const defaultRightPaneAbsent = staticRouteChrome?.defaultRightPane === "none";
   const mainPane = {
     header: headerAccessory,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
@@ -267,20 +265,18 @@ function AppWorkspaceShellFrame({
     ? undefined
     : chrome?.left === null
       ? undefined
-      : (chrome?.left ?? (defaultLeftPaneAbsent ? undefined : {}));
+      : (chrome?.left ?? {});
   const rightPane = staticRightPaneAbsent
     ? undefined
     : chrome?.right === null
       ? undefined
-      : (chrome?.right ?? (defaultRightPaneAbsent ? undefined : appRightSidebarPane));
-  const leftToggleVisibility =
-    staticLeftPaneAbsent || (chrome === null && defaultLeftPaneAbsent)
-      ? "hidden"
-      : (chrome?.leftToggleVisibility ?? "desktop");
-  const rightToggleVisibility =
-    staticRightPaneAbsent || (chrome === null && defaultRightPaneAbsent)
-      ? "hidden"
-      : (chrome?.rightToggleVisibility ?? "desktop");
+      : (chrome?.right ?? appRightSidebarPane);
+  const leftToggleVisibility = staticLeftPaneAbsent
+    ? "hidden"
+    : (chrome?.leftToggleVisibility ?? "desktop");
+  const rightToggleVisibility = staticRightPaneAbsent
+    ? "hidden"
+    : (chrome?.rightToggleVisibility ?? "desktop");
 
   return (
     <WorkspacePaneRuntimeProvider

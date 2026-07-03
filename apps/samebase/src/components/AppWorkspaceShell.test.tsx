@@ -397,7 +397,7 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain("workspace route content");
   });
 
-  it("server-renders visual fixtures with global address chrome and without pane chrome", () => {
+  it("server-renders visual fixtures with normal pane defaults before fixture chrome registers", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/visual-fixture"]}>
         <AppWorkspaceShell>
@@ -410,9 +410,8 @@ describe("AppWorkspaceShell", () => {
     expect(markup).toContain("visual fixture content");
     expect(markup).toContain('data-testid="workspace-layout-v2-address-chrome"');
     expect(markup).toContain('data-testid="route-url-editor"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-main-pane-header"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
   });
 
   it("server-renders static no-left routes without the default left pane", () => {

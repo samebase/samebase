@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import {
   defineRouteSearchParams,
   type InferRouteSearch,
@@ -53,7 +54,17 @@ function validateVisualFixtureRouteSearch(
 function VisualFixtureRouteComponent() {
   const { mode } = Route.useSearch();
 
-  return <VisualFixturePage mode={mode} />;
+  return (
+    <AppWorkspaceRouteChrome
+      dataTestId="visual-fixture-shell"
+      left={null}
+      leftToggleVisibility="hidden"
+      right={null}
+      rightToggleVisibility="hidden"
+    >
+      <VisualFixturePage mode={mode} />
+    </AppWorkspaceRouteChrome>
+  );
 }
 
 function VisualFixturePendingComponent() {
