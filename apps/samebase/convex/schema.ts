@@ -79,6 +79,7 @@ export const vAppProvisioningStep = union(
   literal("ensure_convex"),
   literal("ensure_convex_preview"),
   literal("ensure_cloudflare"),
+  literal("wire_builds"),
   literal("record_domains"),
   literal("finish"),
 );
@@ -98,6 +99,7 @@ export const vAppProvisioningRunStep = union(
   literal("ensure_convex"),
   literal("ensure_convex_preview"),
   literal("ensure_cloudflare"),
+  literal("wire_builds"),
   literal("record_domains"),
   literal("finish"),
 );
@@ -108,6 +110,7 @@ export const vAppProvisioningRunTrigger = union(
   literal("connect_existing_repository"),
   literal("connect_convex_deployment"),
   literal("connect_cloudflare_worker"),
+  literal("wire_builds"),
   literal("retry"),
 );
 export type AppProvisioningRunTrigger = Infer<typeof vAppProvisioningRunTrigger>;

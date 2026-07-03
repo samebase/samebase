@@ -17,6 +17,7 @@ import {
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
+  wireCloudflareWorkerBuilds,
 } from "./cloudflareResources";
 import {
   normalizeCloudflareAccounts,
@@ -100,6 +101,26 @@ function buildTestEnsureCloudflareResourcesArgs(): Parameters<typeof ensureCloud
       },
     },
     onWorkerResolved: async () => {},
+  };
+}
+
+function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
+  typeof wireCloudflareWorkerBuilds
+>[0] {
+  const args = buildTestEnsureCloudflareResourcesArgs();
+  return {
+    owner: args.owner,
+    repo: args.repo,
+    ghRepoId: args.ghRepoId,
+    ghRepoOwnerId: args.ghRepoOwnerId,
+    defaultBranch: args.defaultBranch,
+    vaultId: args.vaultId,
+    workerName: args.workerName,
+    workerTag: "worker-tag",
+    cloudflareToken: args.cloudflareToken,
+    cloudflareAuthMethod: args.cloudflareAuthMethod,
+    accountId: args.accountId,
+    buildConfig: args.buildConfig,
   };
 }
 
@@ -221,6 +242,36 @@ describe("cloudflare resources", () => {
         is_secret: false,
       },
     });
+  });
+
+  it("wires Workers Builds without patching Convex environment variables", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [],
+    });
+
+    const build = await wireCloudflareWorkerBuilds(buildTestWireCloudflareWorkerBuildsArgs());
+
+    expect(build).toMatchObject({
+      production: {
+        triggerUuid: "created-trigger-1",
+        buildTokenUuid: "reusable-build-token",
+      },
+      preview: {
+        triggerUuid: "created-trigger-2",
+        buildTokenUuid: "reusable-build-token",
+      },
+    });
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "POST" &&
+          request.path ===
+            "/client/v4/accounts/account-id/builds/triggers/created-trigger-1/builds",
+      ),
+    ).toBe(true);
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
   it("uses the Workers service id as the Workers Builds tag", () => {

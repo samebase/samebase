@@ -277,6 +277,8 @@ function assertSourceSetupRepositoryRefreshRun(run: Doc<"appProvisioningRuns">):
       throw new Error("Convex deployment connection run is not source setup refresh demand.");
     case "connect_cloudflare_worker":
       throw new Error("Cloudflare Worker connection run is not source setup refresh demand.");
+    case "wire_builds":
+      throw new Error("Cloudflare Workers Builds wiring run is not source setup refresh demand.");
     case "retry":
       throw new Error("Retry run is not source setup refresh demand.");
     default: {

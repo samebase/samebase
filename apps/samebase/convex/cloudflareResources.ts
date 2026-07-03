@@ -1024,27 +1024,29 @@ async function triggerInitialBuild(
   });
 }
 
+export type CloudflareWorkersBuilds = {
+  rootDirectory: string;
+  buildCommand: string;
+  deployCommand: string;
+  previewDeployCommand: string;
+  pathIncludes: string[];
+  pathExcludes: string[];
+  production: {
+    triggerUuid: string;
+    buildTokenUuid: string;
+  };
+  preview: {
+    triggerUuid: string;
+    buildTokenUuid: string;
+  };
+};
+
 export type ProvisionedCloudflareResources = {
   accountId: string;
   workerName: string;
   workerTag: string;
   workersDevUrl?: string;
-  build: {
-    rootDirectory: string;
-    buildCommand: string;
-    deployCommand: string;
-    previewDeployCommand: string;
-    pathIncludes: string[];
-    pathExcludes: string[];
-    production: {
-      triggerUuid: string;
-      buildTokenUuid: string;
-    };
-    preview: {
-      triggerUuid: string;
-      buildTokenUuid: string;
-    };
-  };
+  build: CloudflareWorkersBuilds;
 };
 
 type EnsureCloudflareResourcesArgs = {
@@ -1066,6 +1068,179 @@ type EnsureCloudflareResourcesArgs = {
 };
 
 type CloudflareAuthMethod = "api_key" | "oauth" | "mcp_oauth";
+
+type ConfigureCloudflareWorkerBuildsArgs = {
+  owner: string;
+  repo: string;
+  ghRepoId: string;
+  ghRepoOwnerId: string;
+  defaultBranch: string;
+  cloudflareToken: string;
+  cloudflareAuthMethod: CloudflareAuthMethod;
+  accountId: string;
+  workerTag: string;
+  buildConfig: CloudflareBuildConfig;
+  transport: CloudflareApiTransport;
+  recordApiCall?: ProviderApiCallRecorder;
+};
+
+type WireCloudflareWorkerBuildsArgs = {
+  owner: string;
+  repo: string;
+  ghRepoId: string;
+  ghRepoOwnerId: string;
+  defaultBranch: string;
+  vaultId: string;
+  workerName: string;
+  workerTag: string;
+  cloudflareToken: string;
+  cloudflareAuthMethod: CloudflareAuthMethod;
+  accountId: string;
+  buildConfig: CloudflareBuildConfig;
+  recordApiCall?: ProviderApiCallRecorder;
+};
+
+async function configureCloudflareWorkerBuilds(
+  args: ConfigureCloudflareWorkerBuildsArgs,
+): Promise<CloudflareWorkersBuilds> {
+  const repoConnectionUuid = await ensureRepositoryConnection({
+    token: args.cloudflareToken,
+    accountId: args.accountId,
+    ghRepoId: args.ghRepoId,
+    ghRepoOwnerId: args.ghRepoOwnerId,
+    owner: args.owner,
+    repo: args.repo,
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
+
+  const existingTriggers = await listBuildTriggers({
+    token: args.cloudflareToken,
+    accountId: args.accountId,
+    workerTag: args.workerTag,
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
+
+  const buildTokenUuid = await resolveBuildTokenUuid({
+    token: args.cloudflareToken,
+    accountId: args.accountId,
+    existingTriggers,
+    authMethod: args.cloudflareAuthMethod,
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
+
+  const productionTriggerUuid = await upsertBuildTrigger({
+    token: args.cloudflareToken,
+    accountId: args.accountId,
+    workerTag: args.workerTag,
+    repoConnectionUuid,
+    expectedRepoId: args.ghRepoId,
+    repositoryFullName: `${args.owner}/${args.repo}`,
+    buildTokenUuid,
+    buildConfig: args.buildConfig,
+    defaultBranch: args.defaultBranch,
+    existingTriggers,
+    kind: "production",
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
+  const previewTriggerUuid = await upsertBuildTrigger({
+    token: args.cloudflareToken,
+    accountId: args.accountId,
+    workerTag: args.workerTag,
+    repoConnectionUuid,
+    expectedRepoId: args.ghRepoId,
+    repositoryFullName: `${args.owner}/${args.repo}`,
+    buildTokenUuid,
+    buildConfig: args.buildConfig,
+    defaultBranch: args.defaultBranch,
+    existingTriggers,
+    kind: "preview",
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
+
+  return {
+    rootDirectory: args.buildConfig.rootDir,
+    buildCommand: args.buildConfig.buildCommand,
+    deployCommand: args.buildConfig.deployCommand,
+    previewDeployCommand: args.buildConfig.previewDeployCommand,
+    pathIncludes: args.buildConfig.pathIncludes,
+    pathExcludes: args.buildConfig.pathExcludes,
+    production: {
+      triggerUuid: productionTriggerUuid,
+      buildTokenUuid,
+    },
+    preview: {
+      triggerUuid: previewTriggerUuid,
+      buildTokenUuid,
+    },
+  };
+}
+
+export async function wireCloudflareWorkerBuilds(
+  args: WireCloudflareWorkerBuildsArgs,
+): Promise<CloudflareWorkersBuilds> {
+  console.log("infra:cloudflare:builds:wire:start", {
+    vaultId: args.vaultId,
+    accountId: args.accountId,
+    workerName: args.workerName,
+    workerTag: args.workerTag,
+    repo: `${args.owner}/${args.repo}`,
+    defaultBranch: args.defaultBranch,
+  });
+
+  const transport = resolveCloudflareApiTransport(args.cloudflareAuthMethod);
+  let step = "configure_builds";
+  try {
+    const build = await configureCloudflareWorkerBuilds({
+      owner: args.owner,
+      repo: args.repo,
+      ghRepoId: args.ghRepoId,
+      ghRepoOwnerId: args.ghRepoOwnerId,
+      defaultBranch: args.defaultBranch,
+      cloudflareToken: args.cloudflareToken,
+      cloudflareAuthMethod: args.cloudflareAuthMethod,
+      accountId: args.accountId,
+      workerTag: args.workerTag,
+      buildConfig: args.buildConfig,
+      transport,
+      recordApiCall: args.recordApiCall,
+    });
+
+    step = "trigger_initial_build";
+    await triggerInitialBuild({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      triggerUuid: build.production.triggerUuid,
+      branch: args.defaultBranch,
+      transport,
+      recordApiCall: args.recordApiCall,
+    });
+
+    console.log("infra:cloudflare:builds:wire:success", {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+    });
+
+    return build;
+  } catch (error) {
+    console.error("infra:cloudflare:builds:wire:failed", {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+      repo: `${args.owner}/${args.repo}`,
+      step,
+      message: toErrorMessage(error),
+    });
+    throw error;
+  }
+}
 
 export async function ensureCloudflareResources(
   args: EnsureCloudflareResourcesArgs,
@@ -1096,65 +1271,18 @@ export async function ensureCloudflareResources(
     step = "record_worker_identity";
     await args.onWorkerResolved(worker);
 
-    step = "connect_repository";
-    const repoConnectionUuid = await ensureRepositoryConnection({
-      token: args.cloudflareToken,
-      accountId: args.accountId,
-      ghRepoId: args.ghRepoId,
-      ghRepoOwnerId: args.ghRepoOwnerId,
+    step = "configure_builds";
+    const build = await configureCloudflareWorkerBuilds({
       owner: args.owner,
       repo: args.repo,
-      transport,
-      recordApiCall: args.recordApiCall,
-    });
-
-    step = "list_triggers";
-    const existingTriggers = await listBuildTriggers({
-      token: args.cloudflareToken,
-      accountId: args.accountId,
-      workerTag: worker.workerTag,
-      transport,
-      recordApiCall: args.recordApiCall,
-    });
-
-    step = "resolve_build_token";
-    const buildTokenUuid = await resolveBuildTokenUuid({
-      token: args.cloudflareToken,
-      accountId: args.accountId,
-      existingTriggers,
-      authMethod: args.cloudflareAuthMethod,
-      transport,
-      recordApiCall: args.recordApiCall,
-    });
-
-    step = "upsert_triggers";
-    const productionTriggerUuid = await upsertBuildTrigger({
-      token: args.cloudflareToken,
-      accountId: args.accountId,
-      workerTag: worker.workerTag,
-      repoConnectionUuid,
-      expectedRepoId: args.ghRepoId,
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      buildTokenUuid,
-      buildConfig: args.buildConfig,
+      ghRepoId: args.ghRepoId,
+      ghRepoOwnerId: args.ghRepoOwnerId,
       defaultBranch: args.defaultBranch,
-      existingTriggers,
-      kind: "production",
-      transport,
-      recordApiCall: args.recordApiCall,
-    });
-    const previewTriggerUuid = await upsertBuildTrigger({
-      token: args.cloudflareToken,
+      cloudflareToken: args.cloudflareToken,
+      cloudflareAuthMethod: args.cloudflareAuthMethod,
       accountId: args.accountId,
       workerTag: worker.workerTag,
-      repoConnectionUuid,
-      expectedRepoId: args.ghRepoId,
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      buildTokenUuid,
       buildConfig: args.buildConfig,
-      defaultBranch: args.defaultBranch,
-      existingTriggers,
-      kind: "preview",
       transport,
       recordApiCall: args.recordApiCall,
     });
@@ -1164,7 +1292,7 @@ export async function ensureCloudflareResources(
       setTriggerEnvironmentVariables({
         token: args.cloudflareToken,
         accountId: args.accountId,
-        triggerUuid: productionTriggerUuid,
+        triggerUuid: build.production.triggerUuid,
         envVars: buildCloudflareWorkersEnvVars({
           deployKeyName: PROD_CONVEX_DEPLOY_KEY,
           convexDeployKey: args.convex.production.deployKey,
@@ -1176,7 +1304,7 @@ export async function ensureCloudflareResources(
       setTriggerEnvironmentVariables({
         token: args.cloudflareToken,
         accountId: args.accountId,
-        triggerUuid: previewTriggerUuid,
+        triggerUuid: build.preview.triggerUuid,
         envVars: buildCloudflareWorkersEnvVars({
           deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
           convexDeployKey: args.convex.preview.deployKey,
@@ -1191,7 +1319,7 @@ export async function ensureCloudflareResources(
     await triggerInitialBuild({
       token: args.cloudflareToken,
       accountId: args.accountId,
-      triggerUuid: productionTriggerUuid,
+      triggerUuid: build.production.triggerUuid,
       branch: args.defaultBranch,
       transport,
       recordApiCall: args.recordApiCall,
@@ -1202,22 +1330,7 @@ export async function ensureCloudflareResources(
       workerName: worker.workerName,
       workerTag: worker.workerTag,
       workersDevUrl: worker.workersDevUrl,
-      build: {
-        rootDirectory: args.buildConfig.rootDir,
-        buildCommand: args.buildConfig.buildCommand,
-        deployCommand: args.buildConfig.deployCommand,
-        previewDeployCommand: args.buildConfig.previewDeployCommand,
-        pathIncludes: args.buildConfig.pathIncludes,
-        pathExcludes: args.buildConfig.pathExcludes,
-        production: {
-          triggerUuid: productionTriggerUuid,
-          buildTokenUuid,
-        },
-        preview: {
-          triggerUuid: previewTriggerUuid,
-          buildTokenUuid,
-        },
-      },
+      build,
     };
 
     console.log("infra:cloudflare:provision:success", {

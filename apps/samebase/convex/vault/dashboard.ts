@@ -284,6 +284,7 @@ function readManualProviderFromRun(
     case "connect_convex_deployment":
       return "convex";
     case "connect_cloudflare_worker":
+    case "wire_builds":
       return "cloudflare";
     default:
       return null;

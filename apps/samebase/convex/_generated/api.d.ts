@@ -62,6 +62,7 @@ import type * as gitOperationsActions from "../gitOperationsActions.js";
 import type * as github from "../github.js";
 import type * as githubChecks from "../githubChecks.js";
 import type * as githubOAuth from "../githubOAuth.js";
+import type * as githubRepoApi from "../githubRepoApi.js";
 import type * as http from "../http.js";
 import type * as infraProvisioning from "../infraProvisioning.js";
 import type * as infraRead from "../infraRead.js";
@@ -179,6 +180,7 @@ declare const fullApi: ApiFromModules<{
   github: typeof github;
   githubChecks: typeof githubChecks;
   githubOAuth: typeof githubOAuth;
+  githubRepoApi: typeof githubRepoApi;
   http: typeof http;
   infraProvisioning: typeof infraProvisioning;
   infraRead: typeof infraRead;

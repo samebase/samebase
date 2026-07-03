@@ -186,12 +186,194 @@ describe("vault Cloudflare attachment mutations", () => {
       workerName: "manual-cloudflare-worker",
       workerTag: "manual-cloudflare-worker-tag",
       origin: "selected_existing",
+      deployment: {
+        builds: { state: "not_connected" },
+        convexBuildAccess: { state: "not_wired" },
+      },
     });
     expect(result.events.map((event) => event.step)).toEqual([
       "claim_infra",
       "ensure_cloudflare",
       "finish",
     ]);
+  });
+
+  it("claims, records, and finishes Workers Builds wiring for an attached Worker", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      appRoot,
+      accountId: "cloudflare-account",
+      workerName: "manual-cloudflare-worker",
+      workerTag: "manual-cloudflare-worker-tag",
+      origin: "selected_existing",
+    });
+    const runId = await t.run(async (ctx) => {
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-cloudflare",
+        trigger: "wire_builds",
+        state: "queued",
+        currentStep: "run_created",
+        createdAt: 40,
+        updatedAt: 40,
+      });
+    });
+    const buildIds = { ...ids, runId };
+    const builds = {
+      state: "connected" as const,
+      rootDirectory: "/",
+      buildCommand: "pnpm run build",
+      deployCommand: "pnpm run deploy",
+      previewDeployCommand: "pnpm run deploy:preview",
+      pathIncludes: ["*"],
+      pathExcludes: [],
+      production: {
+        triggerUuid: "production-trigger",
+        buildTokenUuid: "build-token",
+      },
+      preview: {
+        triggerUuid: "preview-trigger",
+        buildTokenUuid: "build-token",
+      },
+    };
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, {
+        ...buildIds,
+        appRoot,
+      }),
+    ).resolves.toEqual({ claimed: true });
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring, {
+        ...buildIds,
+        appRoot,
+      }),
+    ).resolves.toMatchObject({
+      active: true,
+      owner: "ada",
+      repo: "manual-cloudflare",
+      ghRepoId: "123",
+      worker: {
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        workerTag: "manual-cloudflare-worker-tag",
+      },
+    });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.recordCloudflareBuildsForRun, {
+        ...buildIds,
+        appRoot,
+        builds,
+      }),
+    ).resolves.toEqual({ applied: true });
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.finishCloudflareBuildsWiring, {
+        ...buildIds,
+        appRoot,
+      }),
+    ).resolves.toBeNull();
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(runId);
+      const ownership = await ctx.db
+        .query("vaultInfrastructureOwnership")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+      const events = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", runId))
+        .collect();
+      const worker = await ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault_and_appRoot", (q) =>
+          q.eq("vaultId", ids.vaultId).eq("appRoot", appRoot),
+        )
+        .first();
+      return { events, ownership, run, worker };
+    });
+
+    expect(result.ownership).toMatchObject({
+      runId,
+      state: "succeeded",
+    });
+    expect(result.run).toMatchObject({
+      state: "succeeded",
+      currentStep: "finish",
+    });
+    expect(result.worker).toMatchObject({
+      deployment: {
+        builds,
+        convexBuildAccess: { state: "not_wired" },
+      },
+    });
+    expect(result.events.map((event) => event.step)).toEqual([
+      "claim_infra",
+      "wire_builds",
+      "finish",
+    ]);
+  });
+
+  it("treats legacy workers_builds_connected rows as already wired", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    const runId = await t.run(async (ctx) => {
+      await ctx.db.insert("vaultCloudflareWorkers", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        accountId: "cloudflare-account",
+        workerName: "manual-cloudflare-worker",
+        workerTag: "manual-cloudflare-worker-tag",
+        origin: "selected_existing",
+        deployment: {
+          state: "workers_builds_connected",
+          rootDirectory: "/",
+          buildCommand: "pnpm run build",
+          deployCommand: "pnpm run deploy",
+          previewDeployCommand: "pnpm run deploy:preview",
+          pathIncludes: ["*"],
+          pathExcludes: [],
+          production: {
+            triggerUuid: "production-trigger",
+            buildTokenUuid: "build-token",
+          },
+          preview: {
+            triggerUuid: "preview-trigger",
+            buildTokenUuid: "build-token",
+          },
+        },
+        connectedAt: 50,
+        lastObservedAt: 50,
+      });
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-cloudflare",
+        trigger: "wire_builds",
+        state: "queued",
+        currentStep: "run_created",
+        createdAt: 60,
+        updatedAt: 60,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, {
+        ...ids,
+        runId,
+        appRoot,
+      }),
+    ).resolves.toEqual({ claimed: false });
+
+    const run = await t.run(async (ctx) => {
+      return await ctx.db.get(runId);
+    });
+    expect(run).toMatchObject({
+      state: "succeeded",
+      currentStep: "wire_builds",
+    });
   });
 
   it("attaches multiple Cloudflare Workers to one vault by app root", async () => {
