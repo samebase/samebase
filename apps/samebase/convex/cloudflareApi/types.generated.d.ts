@@ -2892,6 +2892,7 @@ export interface components {
       script?: components["schemas"]["workers_script-response"];
     };
     "workers_script-response": {
+      cache_options?: components["schemas"]["workers_cache_options"];
       compatibility_date?: components["schemas"]["workers_compatibility_date"];
       compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
       created_on?: components["schemas"]["workers_created_on"];
@@ -2950,6 +2951,29 @@ export interface components {
       tags?: components["schemas"]["workers_tags"];
       tail_consumers?: components["schemas"]["workers_tail_consumers"];
       usage_model?: components["schemas"]["workers_usage_model"];
+    };
+    /**
+     * @description Global CacheW configuration for the Worker. When caching is on,
+     *     the platform provisions a `cloudflare.app` zone for the Worker.
+     *     A `type: worker` entry in the `exports` map can override this
+     *     value for a single entrypoint.
+     */
+    workers_cache_options: {
+      /**
+       * @description Whether cached responses are shared across Worker version
+       *     uploads. This is independent of `enabled`. It can stay true
+       *     while caching is off, so the preference survives turning
+       *     caching off and back on.
+       * @default false
+       * @example true
+       */
+      cross_version_cache: boolean;
+      /**
+       * @description Whether caching is enabled for this Worker.
+       * @default false
+       * @example true
+       */
+      enabled: boolean;
     };
     /**
      * @description Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.
@@ -3254,8 +3278,15 @@ export interface components {
          * @example worker.js
          */
         body_part?: string;
+        cache_options?: components["schemas"]["workers_cache_options"];
         compatibility_date?: components["schemas"]["workers_compatibility_date"];
         compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
+        /**
+         * @description Declarative exports for the Worker. Worker entrypoint
+         *     entries (`type: worker`) carry cache configuration for
+         *     that entrypoint.
+         */
+        exports?: $Write<components["schemas"]["workers_exports_config_map"]>;
         /**
          * @description Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token. An explicit `assets` upload takes precedence over `keep_assets`.
          * @example false
@@ -3979,6 +4010,62 @@ export interface components {
        */
       type: "vpc_network";
     };
+    /**
+     * @description Declarative exports for the Worker, keyed by export name. Worker
+     *     entrypoint entries carry cache configuration for that entrypoint.
+     *     Durable Object entries are also configured here.
+     * @example {
+     *       "Admin": {
+     *         "cache": {
+     *           "enabled": true
+     *         },
+     *         "type": "worker"
+     *       },
+     *       "default": {
+     *         "cache": {
+     *           "enabled": false
+     *         },
+     *         "type": "worker"
+     *       }
+     *     }
+     */
+    workers_exports_config_map: {
+      [key: string]: components["schemas"]["workers_export_config"];
+    };
+    /**
+     * @description A single entry in the `exports` map, keyed by export name (a
+     *     `WorkerEntrypoint` class name, a Durable Object class name, or
+     *     `default` for the Worker's default export). Worker entrypoint
+     *     entries set `type: worker` and may carry `cache` configuration
+     *     for that entrypoint. Durable Object entries set
+     *     `type: durable-object` and carry additional provisioning fields.
+     */
+    workers_export_config: {
+      /**
+       * @description Cache override for this entrypoint. It applies only to
+       *     `type: worker` entries and overrides the Worker's global
+       *     `cache_options.enabled` for that entrypoint.
+       */
+      cache?: components["schemas"]["workers_entrypoint_cache_options"];
+      /**
+       * @description The kind of export.
+       * @enum {string}
+       */
+      type: "worker" | "durable-object";
+    };
+    /**
+     * @description CacheW configuration for a single `type: worker` entrypoint.
+     *     When present it overrides the Worker's global
+     *     `cache_options.enabled` for that entrypoint, so a Worker can turn
+     *     caching on globally and opt one entrypoint out, or the reverse.
+     */
+    workers_entrypoint_cache_options: {
+      /**
+       * @description Whether caching is enabled for this entrypoint.
+       * @example true
+       */
+      enabled: boolean;
+    };
     /** @description Limits to apply for this Worker. */
     workers_limits: {
       /**
@@ -4107,8 +4194,14 @@ export interface components {
     /** @description Script and version settings for Workers for Platforms namespace scripts. Same as script-and-version-settings-item but without annotations, which are not supported for namespace scripts. */
     "workers_namespace-script-and-version-settings-item": {
       bindings?: components["schemas"]["workers_bindings"];
+      cache_options?: components["schemas"]["workers_cache_options"];
       compatibility_date?: components["schemas"]["workers_compatibility_date"];
       compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
+      /**
+       * @description Declarative exports for the Worker. Worker entrypoint entries
+       *     (`type: worker`) carry cache configuration for that entrypoint.
+       */
+      exports?: $Write<components["schemas"]["workers_exports_config_map"]>;
       limits?: components["schemas"]["workers_limits"];
       logpush?: components["schemas"]["workers_logpush"];
       /** @description Migrations to apply for Durable Objects associated with this Worker. */
@@ -4948,8 +5041,14 @@ export interface components {
         "workers/triggered_by"?: $Read<string>;
       };
       bindings?: components["schemas"]["workers_bindings"];
+      cache_options?: components["schemas"]["workers_cache_options"];
       compatibility_date?: components["schemas"]["workers_compatibility_date"];
       compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
+      /**
+       * @description Declarative exports for the Worker. Worker entrypoint entries
+       *     (`type: worker`) carry cache configuration for that entrypoint.
+       */
+      exports?: $Write<components["schemas"]["workers_exports_config_map"]>;
       limits?: components["schemas"]["workers_limits"];
       logpush?: components["schemas"]["workers_logpush"];
       /** @description Migrations to apply for Durable Objects associated with this Worker. */
@@ -5642,6 +5741,7 @@ export interface components {
         jwt?: string;
       };
       bindings?: components["schemas"]["workers_bindings"];
+      cache_options?: components["schemas"]["workers_cache_options"];
       compatibility_date?: components["schemas"]["workers_compatibility_date"];
       compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
       containers?: components["schemas"]["workers_containers"];
@@ -6035,8 +6135,15 @@ export interface components {
               "workers/tag"?: string;
             };
             bindings?: components["schemas"]["workers_bindings"];
+            cache_options?: components["schemas"]["workers_cache_options"];
             compatibility_date?: components["schemas"]["workers_compatibility_date"];
             compatibility_flags?: components["schemas"]["workers_compatibility_flags"];
+            /**
+             * @description Declarative exports for this version. Worker
+             *     entrypoint entries (`type: worker`) carry cache
+             *     configuration for that entrypoint.
+             */
+            exports?: $Write<components["schemas"]["workers_exports_config_map"]>;
             /** @description List of binding types to keep from previous_upload. */
             keep_bindings?: string[];
             /**
@@ -6205,6 +6312,7 @@ export type WorkersNamespaceScriptDeleteBulkResponse =
 export type WorkersNamespaceScriptResponse =
   components["schemas"]["workers_namespace-script-response"];
 export type WorkersScriptResponse = components["schemas"]["workers_script-response"];
+export type WorkersCacheOptions = components["schemas"]["workers_cache_options"];
 export type WorkersCompatibilityDate = components["schemas"]["workers_compatibility_date"];
 export type WorkersCompatibilityFlags = components["schemas"]["workers_compatibility_flags"];
 export type WorkersCompatibilityFlag = components["schemas"]["workers_compatibility_flag"];
@@ -6278,6 +6386,10 @@ export type WorkersBindingKindVpcService =
   components["schemas"]["workers_binding_kind_vpc_service"];
 export type WorkersBindingKindVpcNetwork =
   components["schemas"]["workers_binding_kind_vpc_network"];
+export type WorkersExportsConfigMap = components["schemas"]["workers_exports_config_map"];
+export type WorkersExportConfig = components["schemas"]["workers_export_config"];
+export type WorkersEntrypointCacheOptions =
+  components["schemas"]["workers_entrypoint_cache_options"];
 export type WorkersLimits = components["schemas"]["workers_limits"];
 export type WorkersSingleStepMigrations = components["schemas"]["workers_single_step_migrations"];
 export type WorkersMigrationTagConditions =

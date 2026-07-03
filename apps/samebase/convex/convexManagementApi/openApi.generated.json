@@ -3116,7 +3116,9 @@
                 "deployment:functions:runInternalMutations",
                 "deployment:functions:runInternalActions",
                 "deployment:functions:runTestQuery",
-                "deployment:auditLog:view"
+                "deployment:auditLog:view",
+                "deployment:usageLimits:view",
+                "deployment:usageLimits:write"
               ]
             }
           },
@@ -3372,7 +3374,9 @@
                 "deployment:functions:runInternalMutations",
                 "deployment:functions:runInternalActions",
                 "deployment:functions:runTestQuery",
-                "deployment:auditLog:view"
+                "deployment:auditLog:view",
+                "deployment:usageLimits:view",
+                "deployment:usageLimits:write"
               ]
             }
           },
@@ -3930,7 +3934,9 @@
           "deployment:functions:runInternalMutations",
           "deployment:functions:runInternalActions",
           "deployment:functions:runTestQuery",
-          "deployment:auditLog:view"
+          "deployment:auditLog:view",
+          "deployment:usageLimits:view",
+          "deployment:usageLimits:write"
         ]
       },
       "RoleStatementActions": {

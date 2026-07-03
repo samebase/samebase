@@ -8838,6 +8838,8 @@ const schema122 = {
           "deployment:functions:runInternalActions",
           "deployment:functions:runTestQuery",
           "deployment:auditLog:view",
+          "deployment:usageLimits:view",
+          "deployment:usageLimits:write",
         ],
       },
     },
@@ -9006,7 +9008,9 @@ function validate55(
               data1 === "deployment:functions:runInternalMutations" ||
               data1 === "deployment:functions:runInternalActions" ||
               data1 === "deployment:functions:runTestQuery" ||
-              data1 === "deployment:auditLog:view"
+              data1 === "deployment:auditLog:view" ||
+              data1 === "deployment:usageLimits:view" ||
+              data1 === "deployment:usageLimits:write"
             )
           ) {
             const err5 = {
@@ -15374,6 +15378,8 @@ const schema203 = {
     "deployment:functions:runInternalActions",
     "deployment:functions:runTestQuery",
     "deployment:auditLog:view",
+    "deployment:usageLimits:view",
+    "deployment:usageLimits:write",
   ],
 };
 function validate116(
@@ -15542,7 +15548,9 @@ function validate116(
           data0 === "deployment:functions:runInternalMutations" ||
           data0 === "deployment:functions:runInternalActions" ||
           data0 === "deployment:functions:runTestQuery" ||
-          data0 === "deployment:auditLog:view"
+          data0 === "deployment:auditLog:view" ||
+          data0 === "deployment:usageLimits:view" ||
+          data0 === "deployment:usageLimits:write"
         )
       ) {
         const err3 = {
