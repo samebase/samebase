@@ -847,6 +847,11 @@ function selectPatchableBuildTrigger(args: {
   }
 
   const triggerName = args.kind === "production" ? "production" : "preview";
+  if (existingTrigger.repo_connection?.deleted_on) {
+    throw new Error(
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: its existing ${triggerName} Workers Builds trigger references a deleted Cloudflare GitHub repository connection. Disconnect Builds in Cloudflare or choose another Worker.`,
+    );
+  }
   const triggerRepoId = readTriggerRepositoryId(existingTrigger);
   if (!triggerRepoId) {
     throw new Error(
@@ -1090,6 +1095,7 @@ type WireCloudflareWorkerBuildsArgs = {
   ghRepoId: string;
   ghRepoOwnerId: string;
   defaultBranch: string;
+  triggerInitialBuild: boolean;
   vaultId: string;
   workerName: string;
   workerTag: string;
@@ -1210,21 +1216,24 @@ export async function wireCloudflareWorkerBuilds(
       recordApiCall: args.recordApiCall,
     });
 
-    step = "trigger_initial_build";
-    await triggerInitialBuild({
-      token: args.cloudflareToken,
-      accountId: args.accountId,
-      triggerUuid: build.production.triggerUuid,
-      branch: args.defaultBranch,
-      transport,
-      recordApiCall: args.recordApiCall,
-    });
+    if (args.triggerInitialBuild) {
+      step = "trigger_initial_build";
+      await triggerInitialBuild({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: build.production.triggerUuid,
+        branch: args.defaultBranch,
+        transport,
+        recordApiCall: args.recordApiCall,
+      });
+    }
 
     console.log("infra:cloudflare:builds:wire:success", {
       vaultId: args.vaultId,
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
+      initialBuildTriggered: args.triggerInitialBuild,
     });
 
     return build;

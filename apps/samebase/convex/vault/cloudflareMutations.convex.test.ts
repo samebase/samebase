@@ -256,6 +256,7 @@ describe("vault Cloudflare attachment mutations", () => {
       owner: "ada",
       repo: "manual-cloudflare",
       ghRepoId: "123",
+      hasConvexDeployment: false,
       worker: {
         accountId: "cloudflare-account",
         workerName: "manual-cloudflare-worker",
@@ -314,6 +315,68 @@ describe("vault Cloudflare attachment mutations", () => {
       "wire_builds",
       "finish",
     ]);
+  });
+
+  it("reports an attached Convex deployment before wiring Workers Builds", async () => {
+    const { ids, t } = await createCloudflareConnectionVault();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("vaultConvexDeployments", {
+        vaultId: ids.vaultId,
+        userId: ids.userId,
+        appRoot,
+        projectId: "convex-project",
+        teamSlug: "ada-team",
+        projectSlug: "manual-cloudflare",
+        deploymentName: "manual-cloudflare-prod",
+        deploymentType: "prod",
+        cloudUrl: "https://manual-cloudflare.convex.cloud",
+        siteUrl: "https://manual-cloudflare.convex.site",
+        deployKeys: {
+          production: { state: "not_created" },
+          preview: { state: "not_created" },
+        },
+        origin: "selected_existing",
+        connectedAt: 35,
+        lastObservedAt: 35,
+      });
+    });
+    await t.mutation(internal.vault.cloudflareMutations.attachWorker, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      appRoot,
+      accountId: "cloudflare-account",
+      workerName: "manual-cloudflare-worker",
+      workerTag: "manual-cloudflare-worker-tag",
+      origin: "selected_existing",
+    });
+    const runId = await t.run(async (ctx) => {
+      return await ctx.db.insert("appProvisioningRuns", {
+        userId: ids.userId,
+        vaultId: ids.vaultId,
+        repositoryFullName: "ada/manual-cloudflare",
+        trigger: "wire_builds",
+        state: "queued",
+        currentStep: "run_created",
+        createdAt: 40,
+        updatedAt: 40,
+      });
+    });
+    const buildIds = { ...ids, runId };
+
+    await t.mutation(internal.vault.cloudflareMutations.claimCloudflareBuildsWiring, {
+      ...buildIds,
+      appRoot,
+    });
+
+    await expect(
+      t.query(internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring, {
+        ...buildIds,
+        appRoot,
+      }),
+    ).resolves.toMatchObject({
+      active: true,
+      hasConvexDeployment: true,
+    });
   });
 
   it("treats legacy workers_builds_connected rows as already wired", async () => {

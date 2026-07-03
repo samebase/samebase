@@ -114,6 +114,7 @@ function buildTestWireCloudflareWorkerBuildsArgs(): Parameters<
     ghRepoId: args.ghRepoId,
     ghRepoOwnerId: args.ghRepoOwnerId,
     defaultBranch: args.defaultBranch,
+    triggerInitialBuild: true,
     vaultId: args.vaultId,
     workerName: args.workerName,
     workerTag: "worker-tag",
@@ -271,6 +272,29 @@ describe("cloudflare resources", () => {
             "/client/v4/accounts/account-id/builds/triggers/created-trigger-1/builds",
       ),
     ).toBe(true);
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("wires Workers Builds without starting a build when initial builds are deferred", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [],
+    });
+
+    await wireCloudflareWorkerBuilds({
+      ...buildTestWireCloudflareWorkerBuildsArgs(),
+      triggerInitialBuild: false,
+    });
+
+    expect(
+      requests.filter(
+        (request) =>
+          request.method === "POST" &&
+          request.path === "/client/v4/accounts/account-id/builds/triggers",
+      ),
+    ).toHaveLength(2);
+    expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
   });
 
@@ -690,6 +714,48 @@ describe("cloudflare resources", () => {
       ensureCloudflareResources(buildTestEnsureCloudflareResourcesArgs()),
     ).rejects.toThrow(
       "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: Cloudflare did not return a GitHub repository id for the existing production Workers Builds trigger. Disconnect Builds in Cloudflare or choose another Worker.",
+    );
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "PATCH" &&
+          request.path ===
+            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+      ),
+    ).toBe(false);
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "POST" &&
+          request.path === "/client/v4/accounts/account-id/builds/triggers",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not patch an existing Workers Builds trigger connected through a deleted repository connection", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "existing-production-trigger",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          build_token_uuid: "reusable-build-token",
+          repo_connection: {
+            repo_connection_uuid: "deleted-repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+            deleted_on: "2026-07-01T00:00:00Z",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      ensureCloudflareResources(buildTestEnsureCloudflareResourcesArgs()),
+    ).rejects.toThrow(
+      "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: its existing production Workers Builds trigger references a deleted Cloudflare GitHub repository connection. Disconnect Builds in Cloudflare or choose another Worker.",
     );
     expect(
       requests.some(

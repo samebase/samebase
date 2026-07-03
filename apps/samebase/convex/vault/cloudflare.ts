@@ -629,6 +629,7 @@ export const ensureCloudflareBuildsWiring = internalAction({
       ghRepoId: active.ghRepoId,
       ghRepoOwnerId: repoIdentity.ownerId,
       defaultBranch: active.defaultBranch,
+      triggerInitialBuild: !active.hasConvexDeployment,
       vaultId: args.vaultId,
       workerName: active.worker.workerName,
       workerTag: active.worker.workerTag,

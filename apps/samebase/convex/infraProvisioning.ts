@@ -1886,6 +1886,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers needs a configured workers.dev subdomain",
   "Cloudflare Workers Builds has no build API token",
   "Cloudflare has multiple Workers build tokens",
+  "Cannot connect Cloudflare Worker",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not include repo id.",
   "GitHub repository response did not match the vault repo.",
@@ -2038,7 +2039,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (run.trigger === "connect_cloudflare_worker") {
+    if (run.trigger === "connect_cloudflare_worker" || run.trigger === "wire_builds") {
       const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
       if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
         await ctx.db.patch(ownership._id, {
@@ -2052,12 +2053,17 @@ export const markWorkflowProvisioningFailed = internalMutation({
         run,
         safeRunError,
       });
-      console.error("cloudflare:worker_connection:failed", {
-        vaultId,
-        repo: run.repositoryFullName,
-        step: run.currentStep,
-        message: args.message,
-      });
+      console.error(
+        run.trigger === "wire_builds"
+          ? "cloudflare:builds_wiring:failed"
+          : "cloudflare:worker_connection:failed",
+        {
+          vaultId,
+          repo: run.repositoryFullName,
+          step: run.currentStep,
+          message: args.message,
+        },
+      );
       return null;
     }
 

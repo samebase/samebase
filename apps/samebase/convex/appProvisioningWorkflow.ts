@@ -325,19 +325,8 @@ export const connectCloudflareWorker = workflow.define({
       name: "ensure_cloudflare",
       retry: false,
     });
-    await step.runMutation(
-      internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        appRoot: args.appRoot,
-      },
-      { name: "finish" },
-    );
-
     let buildRunId: typeof args.runId | null = null;
-    try {
+    if (args.origin === "provisioned") {
       buildRunId = await step.runMutation(
         internal.appProvisioningRuns.createForVault,
         {
@@ -347,6 +336,36 @@ export const connectCloudflareWorker = workflow.define({
         },
         { name: "create_wire_builds_run" },
       );
+    }
+    try {
+      await step.runMutation(
+        internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
+        {
+          vaultId: args.vaultId,
+          runId: args.runId,
+          userId: args.userId,
+          appRoot: args.appRoot,
+        },
+        { name: "finish" },
+      );
+    } catch (error) {
+      if (buildRunId) {
+        await step.runMutation(
+          internal.infraProvisioning.markWorkflowStartupFailed,
+          {
+            runId: buildRunId,
+            message: "Cloudflare Worker connection did not finish.",
+          },
+          { name: "mark_wire_builds_blocked" },
+        );
+      }
+      throw error;
+    }
+
+    if (!buildRunId) {
+      return null;
+    }
+    try {
       await step.runMutation(
         internal.appProvisioningWorkflow.startCloudflareBuildsWiring,
         {

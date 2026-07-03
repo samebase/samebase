@@ -34,6 +34,7 @@ const cloudflareBuildsWiringState = union(
     repo: string(),
     ghRepoId: string(),
     defaultBranch: string(),
+    hasConvexDeployment: boolean(),
     buildConfig: vVaultCloudflareBuildConfig,
     worker: object({
       accountId: string(),
@@ -75,6 +76,21 @@ async function readCloudflareWorkerForAppRoot(
 ): Promise<Doc<"vaultCloudflareWorkers"> | null> {
   return await ctx.db
     .query("vaultCloudflareWorkers")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    )
+    .first();
+}
+
+async function readConvexDeploymentForAppRoot(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<Doc<"vaultConvexDeployments"> | null> {
+  return await ctx.db
+    .query("vaultConvexDeployments")
     .withIndex("by_vault_and_appRoot", (q) =>
       q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
     )
@@ -719,7 +735,11 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
       vaultId: args.vaultId,
       appRoot,
     });
-    const [ownership, worker] = await Promise.all([
+    const [convexDeployment, ownership, worker] = await Promise.all([
+      readConvexDeploymentForAppRoot(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+      }),
       getVaultInfrastructureOwnership(ctx, args.vaultId),
       readCloudflareWorkerForAppRoot(ctx, {
         vaultId: args.vaultId,
@@ -740,6 +760,7 @@ export const readActiveCloudflareBuildsWiring = internalQuery({
       repo: vault.name,
       ghRepoId: vault.ghRepoId,
       defaultBranch: vault.defaultBranch,
+      hasConvexDeployment: convexDeployment ? true : false,
       buildConfig: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }),
       worker: {
         accountId: worker.accountId,
