@@ -16782,6 +16782,9 @@
       },
       "workers_script-response": {
         "properties": {
+          "cache_options": {
+            "$ref": "#/components/schemas/workers_cache_options"
+          },
           "compatibility_date": {
             "$ref": "#/components/schemas/workers_compatibility_date"
           },
@@ -16897,6 +16900,28 @@
             "$ref": "#/components/schemas/workers_usage_model"
           }
         }
+      },
+      "workers_cache_options": {
+        "additionalProperties": false,
+        "description": "Global CacheW configuration for the Worker. When caching is on,\nthe platform provisions a `cloudflare.app` zone for the Worker.\nA `type: worker` entry in the `exports` map can override this\nvalue for a single entrypoint.\n",
+        "properties": {
+          "cross_version_cache": {
+            "default": false,
+            "description": "Whether cached responses are shared across Worker version\nuploads. This is independent of `enabled`. It can stay true\nwhile caching is off, so the preference survives turning\ncaching off and back on.\n",
+            "example": true,
+            "type": "boolean",
+            "x-auditable": true
+          },
+          "enabled": {
+            "default": false,
+            "description": "Whether caching is enabled for this Worker.",
+            "example": true,
+            "type": "boolean",
+            "x-auditable": true
+          }
+        },
+        "required": ["enabled"],
+        "type": "object"
       },
       "workers_compatibility_date": {
         "description": "Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.",
@@ -17373,11 +17398,23 @@
                 "example": "worker.js",
                 "type": "string"
               },
+              "cache_options": {
+                "$ref": "#/components/schemas/workers_cache_options"
+              },
               "compatibility_date": {
                 "$ref": "#/components/schemas/workers_compatibility_date"
               },
               "compatibility_flags": {
                 "$ref": "#/components/schemas/workers_compatibility_flags"
+              },
+              "exports": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/workers_exports_config_map"
+                  }
+                ],
+                "description": "Declarative exports for the Worker. Worker entrypoint\nentries (`type: worker`) carry cache configuration for\nthat entrypoint.\n",
+                "writeOnly": true
               },
               "keep_assets": {
                 "description": "Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token. An explicit `assets` upload takes precedence over `keep_assets`.",
@@ -18636,6 +18673,62 @@
         "required": ["name", "type"],
         "type": "object"
       },
+      "workers_exports_config_map": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/workers_export_config"
+        },
+        "description": "Declarative exports for the Worker, keyed by export name. Worker\nentrypoint entries carry cache configuration for that entrypoint.\nDurable Object entries are also configured here.\n",
+        "example": {
+          "Admin": {
+            "cache": {
+              "enabled": true
+            },
+            "type": "worker"
+          },
+          "default": {
+            "cache": {
+              "enabled": false
+            },
+            "type": "worker"
+          }
+        },
+        "maxProperties": 100,
+        "type": "object"
+      },
+      "workers_export_config": {
+        "description": "A single entry in the `exports` map, keyed by export name (a\n`WorkerEntrypoint` class name, a Durable Object class name, or\n`default` for the Worker's default export). Worker entrypoint\nentries set `type: worker` and may carry `cache` configuration\nfor that entrypoint. Durable Object entries set\n`type: durable-object` and carry additional provisioning fields.\n",
+        "properties": {
+          "cache": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/workers_entrypoint_cache_options"
+              }
+            ],
+            "description": "Cache override for this entrypoint. It applies only to\n`type: worker` entries and overrides the Worker's global\n`cache_options.enabled` for that entrypoint.\n"
+          },
+          "type": {
+            "description": "The kind of export.",
+            "enum": ["worker", "durable-object"],
+            "type": "string"
+          }
+        },
+        "required": ["type"],
+        "type": "object"
+      },
+      "workers_entrypoint_cache_options": {
+        "additionalProperties": false,
+        "description": "CacheW configuration for a single `type: worker` entrypoint.\nWhen present it overrides the Worker's global\n`cache_options.enabled` for that entrypoint, so a Worker can turn\ncaching on globally and opt one entrypoint out, or the reverse.\n",
+        "properties": {
+          "enabled": {
+            "description": "Whether caching is enabled for this entrypoint.",
+            "example": true,
+            "type": "boolean",
+            "x-auditable": true
+          }
+        },
+        "required": ["enabled"],
+        "type": "object"
+      },
       "workers_limits": {
         "description": "Limits to apply for this Worker.",
         "properties": {
@@ -19018,6 +19111,9 @@
               }
             ]
           },
+          "cache_options": {
+            "$ref": "#/components/schemas/workers_cache_options"
+          },
           "compatibility_date": {
             "allOf": [
               {
@@ -19045,6 +19141,15 @@
                 "x-stainless-collection-type": "set"
               }
             ]
+          },
+          "exports": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/workers_exports_config_map"
+              }
+            ],
+            "description": "Declarative exports for the Worker. Worker entrypoint entries\n(`type: worker`) carry cache configuration for that entrypoint.\n",
+            "writeOnly": true
           },
           "limits": {
             "$ref": "#/components/schemas/workers_limits"
@@ -21074,6 +21179,9 @@
               }
             ]
           },
+          "cache_options": {
+            "$ref": "#/components/schemas/workers_cache_options"
+          },
           "compatibility_date": {
             "allOf": [
               {
@@ -21101,6 +21209,15 @@
                 "x-stainless-collection-type": "set"
               }
             ]
+          },
+          "exports": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/workers_exports_config_map"
+              }
+            ],
+            "description": "Declarative exports for the Worker. Worker entrypoint entries\n(`type: worker`) carry cache configuration for that entrypoint.\n",
+            "writeOnly": true
           },
           "limits": {
             "$ref": "#/components/schemas/workers_limits"
@@ -22289,6 +22406,9 @@
           "bindings": {
             "$ref": "#/components/schemas/workers_bindings"
           },
+          "cache_options": {
+            "$ref": "#/components/schemas/workers_cache_options"
+          },
           "compatibility_date": {
             "$ref": "#/components/schemas/workers_compatibility_date"
           },
@@ -22997,11 +23117,23 @@
                     "bindings": {
                       "$ref": "#/components/schemas/workers_bindings"
                     },
+                    "cache_options": {
+                      "$ref": "#/components/schemas/workers_cache_options"
+                    },
                     "compatibility_date": {
                       "$ref": "#/components/schemas/workers_compatibility_date"
                     },
                     "compatibility_flags": {
                       "$ref": "#/components/schemas/workers_compatibility_flags"
+                    },
+                    "exports": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/workers_exports_config_map"
+                        }
+                      ],
+                      "description": "Declarative exports for this version. Worker\nentrypoint entries (`type: worker`) carry cache\nconfiguration for that entrypoint.\n",
+                      "writeOnly": true
                     },
                     "keep_bindings": {
                       "description": "List of binding types to keep from previous_upload.",

@@ -1283,6 +1283,8 @@ export interface components {
         | "deployment:functions:runInternalActions"
         | "deployment:functions:runTestQuery"
         | "deployment:auditLog:view"
+        | "deployment:usageLimits:view"
+        | "deployment:usageLimits:write"
       )[];
       /**
        * Format: int64
@@ -1452,6 +1454,8 @@ export interface components {
         | "deployment:functions:runInternalActions"
         | "deployment:functions:runTestQuery"
         | "deployment:auditLog:view"
+        | "deployment:usageLimits:view"
+        | "deployment:usageLimits:write"
       )[];
       /**
        * Format: int64
@@ -1813,7 +1817,9 @@ export interface components {
       | "deployment:functions:runInternalMutations"
       | "deployment:functions:runInternalActions"
       | "deployment:functions:runTestQuery"
-      | "deployment:auditLog:view";
+      | "deployment:auditLog:view"
+      | "deployment:usageLimits:view"
+      | "deployment:usageLimits:write";
     RoleStatementActions:
       | components["schemas"]["RoleStatementWildcardAction"]
       | components["schemas"]["RoleStatementAction"][];
