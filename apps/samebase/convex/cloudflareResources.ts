@@ -736,7 +736,7 @@ function readTriggerBuildTokenUuids(
 ): readonly string[] {
   const uuids: string[] = [];
   for (const trigger of triggers) {
-    if (trigger.build_token_uuid) {
+    if (!trigger.deleted_on && trigger.build_token_uuid) {
       uuids.push(trigger.build_token_uuid);
     }
   }
@@ -809,6 +809,59 @@ function matchesTriggerKind(args: {
   return branchIncludes.includes("*") && branchExcludes.includes(args.defaultBranch);
 }
 
+function readTriggerRepositoryId(trigger: CloudflareBuildTrigger): string | undefined {
+  const repoConnection = trigger.repo_connection;
+  if (!repoConnection || repoConnection.deleted_on) {
+    return undefined;
+  }
+  return repoConnection.repo_id;
+}
+
+function formatExistingTriggerRepository(trigger: CloudflareBuildTrigger, repoId: string): string {
+  const repoName = trigger.repo_connection?.repo_name;
+  if (repoName) {
+    return `${repoName} (${repoId})`;
+  }
+  return repoId;
+}
+
+function selectPatchableBuildTrigger(args: {
+  triggers: readonly CloudflareBuildTrigger[];
+  kind: CloudflareBuildTriggerKind;
+  defaultBranch: string;
+  expectedRepoId: string;
+  repositoryFullName: string;
+  workerTag: string;
+}): CloudflareBuildTrigger | undefined {
+  const existingTrigger = args.triggers.find(
+    (trigger) =>
+      !trigger.deleted_on &&
+      matchesTriggerKind({
+        trigger,
+        kind: args.kind,
+        defaultBranch: args.defaultBranch,
+      }),
+  );
+  if (!existingTrigger) {
+    return undefined;
+  }
+
+  const triggerName = args.kind === "production" ? "production" : "preview";
+  const triggerRepoId = readTriggerRepositoryId(existingTrigger);
+  if (!triggerRepoId) {
+    throw new Error(
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: Cloudflare did not return a GitHub repository id for the existing ${triggerName} Workers Builds trigger. Disconnect Builds in Cloudflare or choose another Worker.`,
+    );
+  }
+  if (triggerRepoId !== args.expectedRepoId) {
+    throw new Error(
+      `Cannot connect Cloudflare Worker ${args.workerTag} to ${args.repositoryFullName}: its existing ${triggerName} Workers Builds trigger is connected to GitHub repository ${formatExistingTriggerRepository(existingTrigger, triggerRepoId)}. Disconnect Builds in Cloudflare or choose another Worker.`,
+    );
+  }
+
+  return existingTrigger;
+}
+
 async function listBuildTriggers(
   args: {
     token: string;
@@ -841,6 +894,8 @@ async function upsertBuildTrigger(
     accountId: string;
     workerTag: string;
     repoConnectionUuid: string;
+    expectedRepoId: string;
+    repositoryFullName: string;
     buildTokenUuid: string;
     buildConfig: CloudflareBuildConfig;
     defaultBranch: string;
@@ -848,13 +903,14 @@ async function upsertBuildTrigger(
     kind: CloudflareBuildTriggerKind;
   } & CloudflareApiCallOptions,
 ): Promise<string> {
-  const existingTrigger = args.existingTriggers.find((trigger) =>
-    matchesTriggerKind({
-      trigger,
-      kind: args.kind,
-      defaultBranch: args.defaultBranch,
-    }),
-  );
+  const existingTrigger = selectPatchableBuildTrigger({
+    triggers: args.existingTriggers,
+    kind: args.kind,
+    defaultBranch: args.defaultBranch,
+    expectedRepoId: args.expectedRepoId,
+    repositoryFullName: args.repositoryFullName,
+    workerTag: args.workerTag,
+  });
   const triggerName = args.kind === "production" ? "Production Deploy" : "Preview Deploy";
   const triggerConfig = {
     build_token_uuid: args.buildTokenUuid,
@@ -872,7 +928,12 @@ async function upsertBuildTrigger(
   };
 
   const existingTriggerUuid = existingTrigger?.trigger_uuid;
-  if (existingTriggerUuid) {
+  if (existingTrigger) {
+    if (!existingTriggerUuid) {
+      throw new Error(
+        `Cannot update ${triggerName} trigger for Cloudflare Worker ${args.workerTag}: Cloudflare did not return a trigger id.`,
+      );
+    }
     const raw = await requestCloudflareApi({
       token: args.token,
       method: "PATCH",
@@ -1072,6 +1133,8 @@ export async function ensureCloudflareResources(
       accountId: args.accountId,
       workerTag: worker.workerTag,
       repoConnectionUuid,
+      expectedRepoId: args.ghRepoId,
+      repositoryFullName: `${args.owner}/${args.repo}`,
       buildTokenUuid,
       buildConfig: args.buildConfig,
       defaultBranch: args.defaultBranch,
@@ -1085,6 +1148,8 @@ export async function ensureCloudflareResources(
       accountId: args.accountId,
       workerTag: worker.workerTag,
       repoConnectionUuid,
+      expectedRepoId: args.ghRepoId,
+      repositoryFullName: `${args.owner}/${args.repo}`,
       buildTokenUuid,
       buildConfig: args.buildConfig,
       defaultBranch: args.defaultBranch,
