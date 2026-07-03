@@ -46,16 +46,16 @@ const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
 `;
 
 type MobilePrehydrationVisualScenario = {
-  edgePane: "left" | "right";
+  edgePane: "right";
   id: string;
-  mobilePane: "left" | "right";
+  mobilePane: "main" | "right";
   state: WorkspaceSidebarState;
 };
 
 const MOBILE_PREHYDRATION_VISUAL_SCENARIOS = [
   {
     edgePane: "right",
-    id: "unmerged-right",
+    id: "no-left-unmerged-right",
     mobilePane: "right",
     state: {
       leftDesktopOpen: true,
@@ -70,7 +70,22 @@ const MOBILE_PREHYDRATION_VISUAL_SCENARIOS = [
   },
   {
     edgePane: "right",
-    id: "merged-right",
+    id: "no-left-stale-left",
+    mobilePane: "main",
+    state: {
+      leftDesktopOpen: true,
+      leftDesktopWidthPx: 240,
+      leftMobileWidthPx: 240,
+      mobilePane: "left",
+      mobileSurface: { kind: "unmerged" },
+      rightDesktopOpen: true,
+      rightDesktopWidthPx: 288,
+      rightMobileWidthPx: 288,
+    },
+  },
+  {
+    edgePane: "right",
+    id: "no-left-merged-right",
     mobilePane: "right",
     state: {
       leftDesktopOpen: true,
@@ -85,25 +100,6 @@ const MOBILE_PREHYDRATION_VISUAL_SCENARIOS = [
       rightDesktopOpen: true,
       rightDesktopWidthPx: 96,
       rightMobileWidthPx: 96,
-    },
-  },
-  {
-    edgePane: "left",
-    id: "merged-left",
-    mobilePane: "left",
-    state: {
-      leftDesktopOpen: true,
-      leftDesktopWidthPx: 96,
-      leftMobileWidthPx: 96,
-      mobilePane: "left",
-      mobileSurface: {
-        kind: "merged",
-        mainWidthPx: 294,
-        side: "left",
-      },
-      rightDesktopOpen: true,
-      rightDesktopWidthPx: 288,
-      rightMobileWidthPx: 288,
     },
   },
 ] satisfies MobilePrehydrationVisualScenario[];
@@ -171,7 +167,7 @@ async function openMobileWorkspacePage({
     await blockHydrationScripts(page);
   }
 
-  await page.goto("/", {
+  await page.goto("/terms", {
     waitUntil: "domcontentloaded",
   });
   await maskHydrationOnlyVisualDifferences(page);

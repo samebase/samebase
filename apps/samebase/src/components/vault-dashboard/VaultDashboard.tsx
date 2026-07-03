@@ -2744,6 +2744,23 @@ export function VaultDashboardVaultList({
   );
 }
 
+function VaultDashboardVaultListHeader() {
+  return (
+    <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">Vaults</div>
+  );
+}
+
+export function VaultDashboardVaultPickerPane({ vaults }: { vaults: VaultDashboardVault[] }) {
+  return (
+    <div className="flex min-h-full min-w-0 flex-col">
+      <div className="flex h-8 shrink-0 items-center border-b border-border">
+        <VaultDashboardVaultListHeader />
+      </div>
+      <VaultDashboardVaultList selectedVaultId={null} vaults={vaults} />
+    </div>
+  );
+}
+
 export function VaultDashboardPaneMessage({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full items-start p-4 text-sm text-muted-foreground">{children}</div>
@@ -4116,12 +4133,9 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   };
 
   const selectedVaultMissing = Boolean(selectedRepositoryFullName) && selectedVault === null;
+  const isVaultRootRoute = selectedRepositoryFullName === undefined;
   const leftPane = {
-    header: (
-      <div className="flex h-full items-center px-2 text-sm font-medium text-foreground">
-        Vaults
-      </div>
-    ),
+    header: <VaultDashboardVaultListHeader />,
     content: (
       <VaultDashboardVaultList selectedVaultId={selectedVault?._id ?? null} vaults={allVaults} />
     ),
@@ -4132,9 +4146,13 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         Vault not found: {selectedRepositoryFullName}
       </VaultDashboardPaneMessage>
     ) : selectedVault === null && allVaults.length > 0 ? (
-      <VaultDashboardPaneMessage>
-        Select a vault from the left sidebar or add one from the right sidebar.
-      </VaultDashboardPaneMessage>
+      isVaultRootRoute ? (
+        <VaultDashboardVaultPickerPane vaults={allVaults} />
+      ) : (
+        <VaultDashboardPaneMessage>
+          Select a vault from the left sidebar or add one from the right sidebar.
+        </VaultDashboardPaneMessage>
+      )
     ) : (
       <VaultDashboardView
         deleteModeActive={deleteModeActive}
@@ -4173,7 +4191,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
 
   return (
     <AppWorkspaceRouteChrome
-      left={leftPane}
+      left={isVaultRootRoute ? null : leftPane}
       panel={
         CHAT_ENABLED
           ? {

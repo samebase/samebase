@@ -142,6 +142,14 @@ describe("AppWorkspaceShell", () => {
     );
   }
 
+  function LeftPaneRouteChromeProbe() {
+    return (
+      <AppWorkspaceRouteChrome left={{ content: <div>route left pane</div> }}>
+        <div data-testid="route-chrome-left-probe">Route content</div>
+      </AppWorkspaceRouteChrome>
+    );
+  }
+
   function renderClientShell() {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -264,13 +272,13 @@ describe("AppWorkspaceShell", () => {
     };
   }
 
-  async function hydrateClientShellFromServerMarkup() {
+  async function hydrateClientShellFromServerMarkup(initialEntry = "/machines") {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
     rootElement = container;
     document.body.append(container);
     container.innerHTML = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/"]}>
+      <TestRouterProvider initialEntries={[initialEntry]}>
         <AppWorkspaceShell>
           <div data-testid="workspace-route-content">workspace route content</div>
         </AppWorkspaceShell>
@@ -280,7 +288,7 @@ describe("AppWorkspaceShell", () => {
     await act(async () => {
       root = hydrateRoot(
         container,
-        <TestRouterProvider initialEntries={["/"]}>
+        <TestRouterProvider initialEntries={[initialEntry]}>
           <AppWorkspaceShell>
             <div data-testid="workspace-route-content">workspace route content</div>
           </AppWorkspaceShell>
@@ -407,6 +415,63 @@ describe("AppWorkspaceShell", () => {
     expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
   });
 
+  it("server-renders static no-left routes without the default left pane", () => {
+    for (const route of ["/", "/terms", "/privacy", "/landing-preview", "/vault/"]) {
+      const markup = renderToStaticMarkup(
+        <TestRouterProvider initialEntries={[route]}>
+          <AppWorkspaceShell>
+            <div data-testid="workspace-route-content">workspace route content</div>
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+
+      expect(markup).toContain('data-testid="app-workspace"');
+      expect(markup).toContain('data-testid="workspace-layout-v2-address-chrome"');
+      expect(markup).toContain('data-testid="route-url-editor"');
+      expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+      expect(markup).toContain("workspace route content");
+      expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    }
+  });
+
+  it("does not inherit no-left metadata into ordinary child routes", () => {
+    for (const route of ["/machines", "/logo", "/vault/ada/demo"]) {
+      const markup = renderToStaticMarkup(
+        <TestRouterProvider initialEntries={[route]}>
+          <AppWorkspaceShell>
+            <div data-testid="workspace-route-content">workspace route content</div>
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+
+      expect(markup).toContain('data-testid="workspace-layout-v2-address-chrome"');
+      expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
+      expect(markup).toContain("workspace route content");
+    }
+  });
+
+  it("keeps static no-left route metadata authoritative over route chrome", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    act(() => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/landing-preview"]}>
+          <AppWorkspaceShell>
+            <LeftPaneRouteChromeProbe />
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+    });
+
+    expect(getRequiredElement('[data-testid="route-chrome-left-probe"]').textContent).toBe(
+      "Route content",
+    );
+    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-pane-left"]')).toBeNull();
+    expect(rootElement.textContent).not.toContain("route left pane");
+  });
+
   it("bounds the workspace shell to the root height instead of a viewport-unit height", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/machines"]}>
@@ -531,6 +596,35 @@ describe("AppWorkspaceShell", () => {
     );
     expect(viewport.getAttribute("style")).toContain(
       "--workspace-layout-v2-right-desktop-width: 420px",
+    );
+    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
+    expect(recoverableErrors).toEqual([]);
+  });
+
+  it("hydrates no-left routes against stored left sidebar state without adding a left pane", async () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftDesktopOpen: true,
+          leftDesktopWidthPx: 360,
+          mobilePane: "left",
+        },
+        version: 2,
+      }),
+    );
+
+    runAppWorkspaceSidebarPrehydrationScript();
+
+    const recoverableErrors = await hydrateClientShellFromServerMarkup("/terms");
+
+    expect(rootElement?.querySelector('[data-testid="workspace-layout-v2-pane-left"]')).toBeNull();
+    expect(getRequiredElement('[data-testid="workspace-layout-v2-pane-main"]')).toBeInstanceOf(
+      HTMLElement,
+    );
+    expect(getRequiredElement('[data-testid="workspace-layout-v2-address-chrome"]')).toBeInstanceOf(
+      HTMLElement,
     );
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
     expect(recoverableErrors).toEqual([]);
@@ -734,7 +828,7 @@ describe("AppWorkspaceShell", () => {
 
   it("uses default sidebar width fallbacks in server markup", () => {
     const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/"]}>
+      <TestRouterProvider initialEntries={["/machines"]}>
         <AppWorkspaceShell>
           <div data-testid="workspace-route-content">workspace route content</div>
         </AppWorkspaceShell>

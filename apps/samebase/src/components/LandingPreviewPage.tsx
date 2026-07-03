@@ -908,9 +908,15 @@ function LandingPreviewDocument({ documentKey }: { documentKey: LandingPreviewDo
   return <DocsDoItYourselfDocument />;
 }
 
-function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreviewDocumentKey }) {
+function LandingPreviewChromePage({
+  documentKey,
+  showDocsSidebar,
+}: {
+  documentKey: LandingPreviewDocumentKey;
+  showDocsSidebar: boolean;
+}) {
   return (
-    <AppWorkspaceRouteChrome left={{ content: <DocsSidebar /> }}>
+    <AppWorkspaceRouteChrome left={showDocsSidebar ? { content: <DocsSidebar /> } : null}>
       <LandingPreviewPaneUrlSync />
       <div data-testid={LANDING_PREVIEW_TEST_ID} className="flex min-h-0 flex-1 flex-col">
         <LandingPreviewDocument documentKey={documentKey} />
@@ -920,13 +926,13 @@ function LandingPreviewChromePage({ documentKey }: { documentKey: LandingPreview
 }
 
 export function LandingPreviewPage() {
-  return <LandingPreviewChromePage documentKey="overview" />;
+  return <LandingPreviewChromePage documentKey="overview" showDocsSidebar={false} />;
 }
 
 export function DocsDoItYourselfPage() {
-  return <LandingPreviewChromePage documentKey="doItYourself" />;
+  return <LandingPreviewChromePage documentKey="doItYourself" showDocsSidebar />;
 }
 
 export function DocsTheStackPage() {
-  return <LandingPreviewChromePage documentKey="theStack" />;
+  return <LandingPreviewChromePage documentKey="theStack" showDocsSidebar />;
 }

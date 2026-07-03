@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useConvexAuth } from "convex/react";
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
@@ -28,6 +28,7 @@ import {
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
+import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
@@ -68,16 +69,18 @@ type AppWorkspaceRouteChromeContextValue = {
   store: AppWorkspaceRouteChromeStore;
 };
 
+type AppWorkspaceRouteWithStaticData = {
+  options: {
+    staticData?: {
+      appWorkspaceRouteChrome?: AppWorkspaceRouteChromeStaticData;
+    };
+  };
+};
+
 const APP_WORKSPACE_LEFT_SIDEBAR_DEFAULT_WIDTH_PX = 240;
 const APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX = 288;
 const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
-const VISUAL_FIXTURE_ROUTE_CHROME = {
-  dataTestId: "visual-fixture-shell",
-  left: null,
-  leftToggleVisibility: "hidden",
-  right: null,
-} satisfies AppWorkspaceRouteChromeConfig;
 
 const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   leftDesktopOpen: true,
@@ -172,21 +175,22 @@ function useAppWorkspaceRouteChrome(store: AppWorkspaceRouteChromeStore) {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }
 
-function useAppWorkspaceDefaultRouteChrome() {
+function readAppWorkspaceRouteChromeStaticDataFromRoutes(
+  routes: readonly AppWorkspaceRouteWithStaticData[],
+): AppWorkspaceRouteChromeStaticData | null {
+  const leafRoute = routes.at(-1);
+  return leafRoute?.options.staticData?.appWorkspaceRouteChrome ?? null;
+}
+
+function useAppWorkspaceRouteChromeStaticData() {
   const pathname = useLocation({
     select: (location) => location.pathname,
   });
+  const router = useRouter();
 
-  if (pathname !== VISUAL_FIXTURE_PATHNAME) {
-    return null;
-  }
-
-  // Visual fixtures hide pane chrome before route chrome registration effects can
-  // run, but the address editor remains part of the global workspace frame.
-  return {
-    ...VISUAL_FIXTURE_ROUTE_CHROME,
-    pathname,
-  } satisfies AppWorkspaceRouteChromeSnapshot;
+  return readAppWorkspaceRouteChromeStaticDataFromRoutes(
+    router.getMatchedRoutes(pathname).matchedRoutes,
+  );
 }
 
 const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
@@ -242,19 +246,41 @@ function useAppWorkspaceSidebarState() {
 function AppWorkspaceShellFrame({
   children,
   chrome,
+  staticRouteChrome,
 }: {
   children?: ReactNode;
   chrome: AppWorkspaceRouteChromeSnapshot | null;
+  staticRouteChrome: AppWorkspaceRouteChromeStaticData | null;
 }) {
   const sidebarState = useAppWorkspaceSidebarState();
   const appRightSidebarPane = useAppRightSidebarPane();
   const headerAccessory = chrome?.headerAccessory;
+  const staticLeftPaneAbsent = staticRouteChrome?.leftPane === "none";
+  const staticRightPaneAbsent = staticRouteChrome?.rightPane === "none";
+  const defaultLeftPaneAbsent = staticRouteChrome?.defaultLeftPane === "none";
+  const defaultRightPaneAbsent = staticRouteChrome?.defaultRightPane === "none";
   const mainPane = {
     header: headerAccessory,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies WorkspaceLayoutV2PaneFrameProps;
-  const leftPane = chrome?.left === null ? undefined : (chrome?.left ?? {});
-  const rightPane = chrome?.right === null ? undefined : (chrome?.right ?? appRightSidebarPane);
+  const leftPane = staticLeftPaneAbsent
+    ? undefined
+    : chrome?.left === null
+      ? undefined
+      : (chrome?.left ?? (defaultLeftPaneAbsent ? undefined : {}));
+  const rightPane = staticRightPaneAbsent
+    ? undefined
+    : chrome?.right === null
+      ? undefined
+      : (chrome?.right ?? (defaultRightPaneAbsent ? undefined : appRightSidebarPane));
+  const leftToggleVisibility =
+    staticLeftPaneAbsent || (chrome === null && defaultLeftPaneAbsent)
+      ? "hidden"
+      : (chrome?.leftToggleVisibility ?? "desktop");
+  const rightToggleVisibility =
+    staticRightPaneAbsent || (chrome === null && defaultRightPaneAbsent)
+      ? "hidden"
+      : (chrome?.rightToggleVisibility ?? "desktop");
 
   return (
     <WorkspacePaneRuntimeProvider
@@ -263,14 +289,16 @@ function AppWorkspaceShellFrame({
     >
       <WorkspaceLayoutV2FullPage
         addressChrome={<RouteUrlEditorNext />}
-        dataTestId={chrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID}
+        dataTestId={
+          chrome?.dataTestId ?? staticRouteChrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID
+        }
         left={leftPane}
-        leftToggleVisibility={chrome?.leftToggleVisibility ?? "desktop"}
+        leftToggleVisibility={leftToggleVisibility}
         main={mainPane}
         mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
         panel={chrome?.panel}
         right={rightPane}
-        rightToggleVisibility={chrome?.rightToggleVisibility ?? "desktop"}
+        rightToggleVisibility={rightToggleVisibility}
       />
       <script
         suppressHydrationWarning
@@ -290,16 +318,18 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
     [chromeStore],
   );
   const chrome = useAppWorkspaceRouteChrome(chromeStore);
-  const defaultChrome = useAppWorkspaceDefaultRouteChrome();
+  const staticRouteChrome = useAppWorkspaceRouteChromeStaticData();
   const shellClassName =
-    defaultChrome?.pathname === VISUAL_FIXTURE_PATHNAME
+    staticRouteChrome?.rootHeight === "viewport"
       ? "flex min-h-dvh flex-col bg-background text-foreground"
       : "flex h-full min-h-0 flex-col bg-background text-foreground";
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
       <div className={shellClassName}>
-        <AppWorkspaceShellFrame chrome={chrome ?? defaultChrome}>{children}</AppWorkspaceShellFrame>
+        <AppWorkspaceShellFrame chrome={chrome} staticRouteChrome={staticRouteChrome}>
+          {children}
+        </AppWorkspaceShellFrame>
       </div>
     </AppWorkspaceRouteChromeContext.Provider>
   );
