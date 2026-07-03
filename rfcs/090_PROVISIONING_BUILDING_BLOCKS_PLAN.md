@@ -128,6 +128,19 @@ Facts established from Cloudflare's published API (generated subset refreshed in
   owner/name or Worker-name similarity is suggestion-only. Strong candidates are preselected in the
   add-Cloudflare dialog with their repo evidence shown; "create new Worker" remains alongside.
 
+Discovery UI classification:
+
+- `recommended`: at least one active Builds trigger has
+  `repo_connection.repo_id === vault.ghRepoId`. Show the repo evidence and preselect the Worker when
+  it is the only strong match, but still require user confirmation.
+- `available`: no active Builds repo trigger is present. The Worker is selectable because wiring the
+  vault repo would not overwrite an existing repo relation.
+- `blocked`: an active Builds trigger points at a different repo id. Show the conflicting repo
+  evidence when available and disable selection; Samebase must not connect or patch this Worker for
+  the current vault until Builds is disconnected or another Worker is chosen.
+- `unknown`: Samebase cannot read trigger repo identity. Do not wire automatically; fail closed for
+  wiring until the repo relation can be inspected.
+
 Verification probes required before implementation (one-time, live):
 
 1. Do dashboard-created repo connections return a numeric `repo_id` (the OpenAPI example shows a
