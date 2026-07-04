@@ -931,21 +931,39 @@ test("vault dashboard fixture (large branch virtual list)", async ({ page }) => 
   await page.setViewportSize({ width: 1600, height: 1000 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-large-branch-list");
 
+  const fixture = page.getByTestId("large-branch-pagination-fixture");
   const scrollport = page
     .getByTestId("workspace-layout-v2-main-viewport")
     .locator("section > div")
     .nth(1);
   const branchRows = page.locator("[data-vault-dashboard-branch-row]");
 
-  await expect(page.getByText("1,000 branches")).toBeVisible();
+  await expect(fixture).toHaveAttribute("data-loaded-branch-count", "25");
+  await expect(page.getByText("25 of 1,000 branches loaded")).toBeVisible();
   await expect(page.getByText("codex/large-branch-0001")).toBeVisible();
   await expect(page.getByText("codex/large-branch-0999")).toHaveCount(0);
   await expect.poll(async () => branchRows.count()).toBeLessThan(80);
 
+  let loadedBranchCount = 25;
+  for (let attempt = 0; attempt < 50 && loadedBranchCount < 1000; attempt += 1) {
+    await scrollport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(async () => Number((await fixture.getAttribute("data-loaded-branch-count")) ?? "0"), {
+        timeout: 2000,
+      })
+      .toBeGreaterThan(loadedBranchCount);
+    loadedBranchCount = Number((await fixture.getAttribute("data-loaded-branch-count")) ?? "0");
+    await expect.poll(async () => branchRows.count()).toBeLessThan(80);
+  }
+
+  expect(loadedBranchCount).toBe(1000);
+  await expect(page.getByText("1,000 of 1,000 branches loaded")).toBeVisible();
+
   await scrollport.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
-
   await expect(page.getByText("codex/large-branch-0999")).toBeVisible();
   await expect.poll(async () => branchRows.count()).toBeLessThan(80);
 });

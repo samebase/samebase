@@ -37,6 +37,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import {
+  filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
   type VaultBranchFilters,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
@@ -595,17 +596,18 @@ const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 
 }));
 
 const LARGE_BRANCH_COUNT = 1000;
-const LARGE_BRANCHES: FixtureVaultBranchRow[] = Array.from(
+const LARGE_BRANCH_INITIAL_PAGE_SIZE = 25;
+const LARGE_BRANCH_COUNT_FORMATTER = new Intl.NumberFormat("en-US");
+const LARGE_BRANCHES: FixtureVaultBranch[] = Array.from(
   { length: LARGE_BRANCH_COUNT },
-  (_, index) => ({
-    branch: fixtureVaultBranch({
+  (_, index) =>
+    fixtureVaultBranch({
       name: index === 0 ? "main" : `codex/large-branch-${String(index).padStart(4, "0")}`,
       headCommitSha: index.toString(16).padStart(40, "0"),
       isDefault: index === 0,
       aheadBy: index === 0 ? 0 : index % 5,
       behindBy: index === 0 ? 0 : index % 3,
     }),
-  }),
 );
 
 function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisualMode }) {
@@ -1729,12 +1731,22 @@ function VaultDashboardStickyHeaderFixture() {
 }
 
 function VaultDashboardLargeBranchListFixture() {
-  const largeBranches = LARGE_BRANCHES.map((branchRow) => branchRow.branch);
+  const [loadedBranchCount, setLoadedBranchCount] = useState(LARGE_BRANCH_INITIAL_PAGE_SIZE);
+  const loadMoreLargeBranches = useCallback((numItems: number) => {
+    setLoadedBranchCount((currentCount) => Math.min(currentCount + numItems, LARGE_BRANCH_COUNT));
+  }, []);
   const largeBranchFilters = getDefaultVaultBranchFilters();
   const branchSectionState = buildVaultBranchSectionState({
     filters: largeBranchFilters,
-    remoteBranches: largeBranches,
+    remoteBranches: LARGE_BRANCHES,
   });
+  const loadedLargeBranches = LARGE_BRANCHES.slice(0, loadedBranchCount);
+  const filteredLoadedLargeBranches = filterVaultRemoteBranches(
+    loadedLargeBranches,
+    largeBranchFilters,
+  );
+  const paginationStatus = loadedBranchCount < LARGE_BRANCH_COUNT ? "CanLoadMore" : "Exhausted";
+  const loadedBranchCountLabel = LARGE_BRANCH_COUNT_FORMATTER.format(loadedBranchCount);
 
   return (
     <FixtureDashboardShell
@@ -1747,39 +1759,45 @@ function VaultDashboardLargeBranchListFixture() {
       }
       mainContent={
         <div className="py-8">
-          <VaultDashboardRepositoryList>
-            <VaultDashboardRepositoryCard
-              isReady={true}
-              repositoryName="samebase"
-              repositoryLinks={<FixtureRepositoryLinks />}
-              repositoryLinksOpen={false}
-              onRepositoryLinksOpenChange={() => {}}
-              topRightAction={<FixtureDeleteControl />}
-              repositoryStatus={<span>1,000 branches</span>}
-              headerControls={
-                <VaultBranchHeaderControls
-                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                  filterOptions={branchSectionState.filterOptions}
-                  filters={largeBranchFilters}
-                  hiddenBranchCount={branchSectionState.hiddenBranchCount}
-                  onChangeFilters={() => {}}
-                  remoteBranchCount={largeBranches.length}
-                />
-              }
-              branchSection={
-                <VaultBranchSection
-                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
-                  loadMore={ignoreFixtureLoadMore}
-                  paginationStatus="Exhausted"
-                  repositoryFullName="samebase/samebase"
-                  remoteBranches={branchSectionState.filteredRemoteBranches}
-                  schemaGraphAccessEnabled={false}
-                  stagedSummaries={[]}
-                  vaultId={fakeVaultId()}
-                />
-              }
-            />
-          </VaultDashboardRepositoryList>
+          <div
+            data-testid="large-branch-pagination-fixture"
+            data-loaded-branch-count={loadedBranchCount}
+            data-total-branch-count={LARGE_BRANCH_COUNT}
+          >
+            <VaultDashboardRepositoryList>
+              <VaultDashboardRepositoryCard
+                isReady={true}
+                repositoryName="samebase"
+                repositoryLinks={<FixtureRepositoryLinks />}
+                repositoryLinksOpen={false}
+                onRepositoryLinksOpenChange={() => {}}
+                topRightAction={<FixtureDeleteControl />}
+                repositoryStatus={<span>{loadedBranchCountLabel} of 1,000 branches loaded</span>}
+                headerControls={
+                  <VaultBranchHeaderControls
+                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                    filterOptions={branchSectionState.filterOptions}
+                    filters={largeBranchFilters}
+                    hiddenBranchCount={branchSectionState.hiddenBranchCount}
+                    onChangeFilters={() => {}}
+                    remoteBranchCount={LARGE_BRANCHES.length}
+                  />
+                }
+                branchSection={
+                  <VaultBranchSection
+                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                    loadMore={loadMoreLargeBranches}
+                    paginationStatus={paginationStatus}
+                    repositoryFullName="samebase/samebase"
+                    remoteBranches={filteredLoadedLargeBranches}
+                    schemaGraphAccessEnabled={false}
+                    stagedSummaries={[]}
+                    vaultId={fakeVaultId()}
+                  />
+                }
+              />
+            </VaultDashboardRepositoryList>
+          </div>
         </div>
       }
     />
