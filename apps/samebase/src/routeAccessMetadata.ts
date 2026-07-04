@@ -47,6 +47,12 @@ const routeAccessMetadataByPath = {
   "/research/codex-app-server/browser": { access: "access_admin" },
   "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/test": { availableEnvironments: ["local"], access: "access_admin" },
+  "/walkthrough/cloudflare-worker-builds": {
+    access: "access_public",
+    appWorkspaceRouteChrome: { leftPane: "none", rightPane: "none" },
+    pathSuggestion: "hidden",
+    prerender: false,
+  },
   "/vault/": { access: "access_dashboard", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/vault/$": { access: "access_files_read" },
   "/vault/$owner/$repo": { access: "access_dashboard" },

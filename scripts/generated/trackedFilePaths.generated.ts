@@ -1190,6 +1190,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/routes/vault-schema-mono.tsx",
   "apps/samebase/src/routes/vault-schema-root.tsx",
   "apps/samebase/src/routes/visual-fixture.tsx",
+  "apps/samebase/src/routes/walkthrough-cloudflare-worker-builds.tsx",
   "apps/samebase/src/routing/address.test.ts",
   "apps/samebase/src/routing/address.ts",
   "apps/samebase/src/routing/addressParts.test.ts",

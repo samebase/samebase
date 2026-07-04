@@ -25,6 +25,7 @@ import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as indexRouteImport } from "./routes/index";
+import { Route as walkthroughCloudflareWorkerBuildsRouteImport } from "./routes/walkthrough-cloudflare-worker-builds";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
 import { Route as codexResearchRouteImport } from "./routes/codex-research";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
@@ -129,6 +130,12 @@ const indexRoute = indexRouteImport.update({
   path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
+const walkthroughCloudflareWorkerBuildsRoute =
+  walkthroughCloudflareWorkerBuildsRouteImport.update({
+    id: "/walkthrough/cloudflare-worker-builds",
+    path: "/walkthrough/cloudflare-worker-builds",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const vaultFileRoute = vaultFileRouteImport.update({
   id: "/vault/$",
   path: "/vault/$",
@@ -277,6 +284,7 @@ export interface FileRoutesByFullPath {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/walkthrough/cloudflare-worker-builds": typeof walkthroughCloudflareWorkerBuildsRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
@@ -318,6 +326,7 @@ export interface FileRoutesByTo {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/walkthrough/cloudflare-worker-builds": typeof walkthroughCloudflareWorkerBuildsRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
@@ -360,6 +369,7 @@ export interface FileRoutesById {
   "/pitch/print": typeof pitchPrintRoute;
   "/research/codex-app-server": typeof codexResearchRoute;
   "/vault/$": typeof vaultFileRoute;
+  "/walkthrough/cloudflare-worker-builds": typeof walkthroughCloudflareWorkerBuildsRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
@@ -403,6 +413,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/walkthrough/cloudflare-worker-builds"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
@@ -444,6 +455,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/walkthrough/cloudflare-worker-builds"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
@@ -485,6 +497,7 @@ export interface FileRouteTypes {
     | "/pitch/print"
     | "/research/codex-app-server"
     | "/vault/$"
+    | "/walkthrough/cloudflare-worker-builds"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
     | "/pitch/print/mobile"
@@ -527,6 +540,7 @@ export interface RootRouteChildren {
   pitchPrintRoute: typeof pitchPrintRoute;
   codexResearchRoute: typeof codexResearchRoute;
   vaultFileRoute: typeof vaultFileRoute;
+  walkthroughCloudflareWorkerBuildsRoute: typeof walkthroughCloudflareWorkerBuildsRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
@@ -651,6 +665,13 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/";
       preLoaderRoute: typeof indexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/walkthrough/cloudflare-worker-builds": {
+      id: "/walkthrough/cloudflare-worker-builds";
+      path: "/walkthrough/cloudflare-worker-builds";
+      fullPath: "/walkthrough/cloudflare-worker-builds";
+      preLoaderRoute: typeof walkthroughCloudflareWorkerBuildsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/vault/$": {
@@ -847,6 +868,8 @@ const rootRouteChildren: RootRouteChildren = {
   pitchPrintRoute: pitchPrintRoute,
   codexResearchRoute: codexResearchRoute,
   vaultFileRoute: vaultFileRoute,
+  walkthroughCloudflareWorkerBuildsRoute:
+    walkthroughCloudflareWorkerBuildsRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
