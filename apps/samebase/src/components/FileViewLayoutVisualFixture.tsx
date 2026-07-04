@@ -7,7 +7,6 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type FileViewLayoutVisualMode =
   | "fileview-layout"
-  | "fileview-layout-merge"
   | "fileview-layout-persistence"
   | "fileview-layout-slide";
 
