@@ -132,8 +132,10 @@ type VaultDashboardStagedBranchSummariesByVaultId = Map<
   string,
   readonly VaultDashboardStagedBranchSummary[]
 >;
+type VaultDashboardRemoteBranchesByVaultId = Map<string, readonly VaultRemoteBranchListItem[]>;
 export type VaultDashboardViewModel = {
   vaults: VaultDashboardVault[];
+  remoteBranchesByVaultId: VaultDashboardRemoteBranchesByVaultId;
   stagedBranchSummariesByVaultId: VaultDashboardStagedBranchSummariesByVaultId;
 };
 export type VaultDashboardProps = {
@@ -2121,45 +2123,10 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
-  remoteBranches: VaultRemoteBranchListItem[];
+  remoteBranches: readonly VaultRemoteBranchListItem[];
   productionApps?: readonly VaultBranchProductionApp[];
   schemaGraphAccessEnabled?: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
-  expansion?: VaultBranchListExpansionProps;
-}
-
-interface VaultBranchListExpansionProps {
-  hiddenBranchCount: number;
-  isExpanded: boolean;
-  onToggle: () => void;
-  placement?: "header" | "list";
-}
-
-export function VaultBranchListExpansionControl({
-  hiddenBranchCount,
-  isExpanded,
-  onToggle,
-  placement = "list",
-}: VaultBranchListExpansionProps) {
-  const button = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="xs"
-      className={placement === "list" ? "w-full" : undefined}
-      aria-expanded={isExpanded}
-      onClick={onToggle}
-    >
-      <span>{isExpanded ? "Show less branches" : `Show ${hiddenBranchCount} more branches`}</span>
-      <ChevronDownIcon className={isExpanded ? "rotate-180" : undefined} aria-hidden="true" />
-    </Button>
-  );
-
-  if (placement === "header") {
-    return button;
-  }
-
-  return <div className="px-3 py-1.5">{button}</div>;
 }
 
 function VaultBranchList({
@@ -2170,7 +2137,6 @@ function VaultBranchList({
   productionApps,
   schemaGraphAccessEnabled,
   stagedSummaries,
-  expansion,
 }: VaultBranchListProps) {
   const summaryByBranch = new Map(
     stagedSummaries.map((summary) => [summary.branch, summary.counts]),
@@ -2192,13 +2158,11 @@ function VaultBranchList({
           schemaGraphAccessEnabled={schemaGraphAccessEnabled}
         />
       ))}
-      {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
     </div>
   );
 }
 
 export function VaultBranchHeaderControls({
-  expansion,
   filteredBranchCount,
   filterOptions,
   filters,
@@ -2206,7 +2170,6 @@ export function VaultBranchHeaderControls({
   onChangeFilters,
   remoteBranchCount,
 }: {
-  expansion?: VaultBranchListExpansionProps;
   filteredBranchCount: number;
   filterOptions: VaultBranchFilterOption[];
   filters: VaultBranchFiltersState;
@@ -2216,7 +2179,6 @@ export function VaultBranchHeaderControls({
 }) {
   return (
     <div className="flex w-full flex-wrap items-center justify-between gap-2">
-      {expansion ? <VaultBranchListExpansionControl {...expansion} /> : null}
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {hiddenBranchCount > 0 ? (
           <span className="text-xs text-muted-foreground/80">
@@ -2241,7 +2203,7 @@ function VaultBranchSection({
   schemaGraphAccessEnabled,
   stagedSummaries,
   vaultId,
-  visibleRemoteBranches,
+  remoteBranches,
 }: {
   convexDeployments?: readonly VaultDashboardConvexDeployment[];
   filteredBranchCount: number;
@@ -2250,7 +2212,7 @@ function VaultBranchSection({
   schemaGraphAccessEnabled: boolean;
   stagedSummaries: readonly VaultDashboardStagedBranchSummary[];
   vaultId: Id<"vaults">;
-  visibleRemoteBranches: VaultRemoteBranchListItem[];
+  remoteBranches: readonly VaultRemoteBranchListItem[];
 }) {
   return (
     <>
@@ -2258,7 +2220,7 @@ function VaultBranchSection({
         <VaultBranchList
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
-          remoteBranches={visibleRemoteBranches}
+          remoteBranches={remoteBranches}
           convexDeployments={convexDeployments}
           productionApps={productionApps}
           schemaGraphAccessEnabled={schemaGraphAccessEnabled}
@@ -2793,7 +2755,7 @@ export function VaultDashboardView({
   const dashboardRoutePathname = useLocation({
     select: (location) => location.pathname,
   });
-  const { stagedBranchSummariesByVaultId, vaults } = viewModel;
+  const { remoteBranchesByVaultId, stagedBranchSummariesByVaultId, vaults } = viewModel;
   const openProviderAddDialog = useCallback(
     ({ appRoot, provider }: { appRoot: string; provider: "cloudflare" | "convex" }) => {
       void navigate({
@@ -2834,7 +2796,7 @@ export function VaultDashboardView({
         const deletion = vault.deletion;
         const isDeletingVault = deletion.state !== "not_deleting";
         const isReady = vault.state === "ready" && !isDeletingVault;
-        const remoteBranches = vault.remoteBranches;
+        const remoteBranches = remoteBranchesByVaultId.get(vault._id) ?? [];
         const vaultBranchFilters =
           persistedVaultBranchFiltersByVaultId.get(vault._id) ?? getDefaultVaultBranchFilters();
         const vaultResourceLinksOpen =
@@ -2953,7 +2915,7 @@ export function VaultDashboardView({
               schemaGraphAccessEnabled={schemaGraphAccessEnabled}
               vaultId={vault._id}
               repositoryFullName={vault.repositoryFullName}
-              visibleRemoteBranches={branchSectionState.visibleRemoteBranches}
+              remoteBranches={branchSectionState.filteredRemoteBranches}
               productionApps={productionApps}
               stagedSummaries={stagedBranchSummaries}
             />
@@ -3023,21 +2985,6 @@ export function VaultDashboardView({
                       onSaveVaultBranchFilters(vault._id, nextVaultBranchFilters);
                     }}
                     remoteBranchCount={remoteBranches.length}
-                    expansion={
-                      branchSectionState.hasBranchListOverflow
-                        ? {
-                            hiddenBranchCount: branchSectionState.collapsedBranchCount,
-                            isExpanded: vaultBranchFilters.branchesExpanded,
-                            onToggle: () => {
-                              onSaveVaultBranchFilters(vault._id, {
-                                ...vaultBranchFilters,
-                                branchesExpanded: !vaultBranchFilters.branchesExpanded,
-                              });
-                            },
-                            placement: "header",
-                          }
-                        : undefined
-                    }
                   />
                 ) : undefined
               }
@@ -3116,6 +3063,10 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     }
     return vaults.find((vault) => vault.repositoryFullName === selectedRepositoryFullName) ?? null;
   }, [selectedRepositoryFullName, vaults]);
+  const selectedVaultRemoteBranches = useQuery(
+    api.vault.branches.getVaultRemoteBranches,
+    selectedVault ? { vaultId: selectedVault._id } : "skip",
+  );
   const vaultIds = useMemo(() => (selectedVault ? [selectedVault._id] : null), [selectedVault]);
   const stagedBranchSummariesByVault = useQuery(
     api.fileStaging.listStagedFilesBranchSummariesByVault,
@@ -3138,11 +3089,15 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
             allVaults: vaults,
             viewModel: {
               vaults: selectedVault ? [selectedVault] : [],
+              remoteBranchesByVaultId:
+                selectedVault && selectedVaultRemoteBranches
+                  ? new Map([[selectedVault._id, selectedVaultRemoteBranches]])
+                  : new Map(),
               stagedBranchSummariesByVaultId,
             },
           }
         : null,
-    [selectedVault, stagedBranchSummariesByVaultId, vaults],
+    [selectedVault, selectedVaultRemoteBranches, stagedBranchSummariesByVaultId, vaults],
   );
   const now = useNow();
   const deleteVault = useAction(api.vault.actions.deleteVault);
@@ -3214,8 +3169,7 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
     const shouldPersist =
       normalizedFilters.hiddenLabels.length > 0 ||
       normalizedFilters.includeDrafts ||
-      !normalizedFilters.includeNoLabel ||
-      normalizedFilters.branchesExpanded;
+      !normalizedFilters.includeNoLabel;
 
     if (shouldPersist) {
       nextFilters.push({
@@ -3223,7 +3177,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         hiddenLabels: normalizedFilters.hiddenLabels,
         includeDrafts: normalizedFilters.includeDrafts,
         includeNoLabel: normalizedFilters.includeNoLabel,
-        branchesExpanded: normalizedFilters.branchesExpanded,
       });
     }
 
@@ -4083,7 +4036,6 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         hiddenLabels: normalizedVaultBranchFilters.hiddenLabels,
         includeDrafts: normalizedVaultBranchFilters.includeDrafts,
         includeNoLabel: normalizedVaultBranchFilters.includeNoLabel,
-        branchesExpanded: normalizedVaultBranchFilters.branchesExpanded,
       });
     } catch (error: unknown) {
       toast({

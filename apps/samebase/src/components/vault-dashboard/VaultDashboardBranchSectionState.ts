@@ -4,8 +4,6 @@ import {
   type VaultBranchFilters as VaultBranchFiltersState,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 
-const COLLAPSED_BRANCH_LIMIT = 5;
-
 export interface VaultRemoteBranchListItem {
   name: string;
   headCommitSha: string;
@@ -51,16 +49,9 @@ export function buildVaultBranchSectionState({
   remoteBranches,
 }: {
   filters: VaultBranchFiltersState;
-  remoteBranches: VaultRemoteBranchListItem[];
+  remoteBranches: readonly VaultRemoteBranchListItem[];
 }) {
   const filteredRemoteBranches = filterVaultRemoteBranches(remoteBranches, filters);
-  const hasBranchListOverflow = filteredRemoteBranches.length > COLLAPSED_BRANCH_LIMIT;
-  const branchesExpanded = filters.branchesExpanded;
-  const visibleRemoteBranches =
-    hasBranchListOverflow && !branchesExpanded
-      ? filteredRemoteBranches.slice(0, COLLAPSED_BRANCH_LIMIT)
-      : filteredRemoteBranches;
-  const collapsedBranchCount = Math.max(filteredRemoteBranches.length - COLLAPSED_BRANCH_LIMIT, 0);
   const hiddenBranchCount = remoteBranches.length - filteredRemoteBranches.length;
   const filterOptions = buildVaultBranchFilterOptions({
     branches: remoteBranches,
@@ -69,11 +60,8 @@ export function buildVaultBranchSectionState({
   });
 
   return {
-    collapsedBranchCount,
     filteredRemoteBranches,
     filterOptions,
-    hasBranchListOverflow,
     hiddenBranchCount,
-    visibleRemoteBranches,
   };
 }

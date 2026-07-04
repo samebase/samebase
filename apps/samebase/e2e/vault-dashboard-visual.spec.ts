@@ -890,7 +890,7 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     .nth(1);
   const header = page.getByTestId("vault-dashboard-repository-header");
 
-  await page.getByRole("button", { name: "Show 23 more branches" }).click();
+  await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
   await scrollport.evaluate((element) => {
     element.scrollTop = 560;
   });
@@ -909,19 +909,13 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
     })
     .toBeLessThanOrEqual(1);
   await expect(header.getByText("samebase", { exact: true })).toBeVisible();
-  const branchExpansionButton = header.getByRole("button", {
-    name: "Show less branches",
-    exact: true,
-  });
   const branchFilterCount = header.getByText("28 of 32", { exact: true });
   const branchFiltersButton = header.getByRole("button", {
     name: "Filters",
     exact: true,
   });
-  await expect(branchExpansionButton).toBeVisible();
   await expect(branchFilterCount).toBeVisible();
   await expect(branchFiltersButton).toBeVisible();
-  await expectElementInsideContainer(branchExpansionButton, header);
   await expectElementInsideContainer(branchFilterCount, header);
   await expectElementInsideContainer(branchFiltersButton, header);
   await expect(page.getByText("codex/sticky-dashboard-branch-05")).toBeVisible();
@@ -933,19 +927,12 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   });
 });
 
-test("vault dashboard fixture (list spacing expansion)", async ({ page }) => {
+test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 620 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
-  await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await page.getByRole("button", { name: "Show 6 more branches" }).click();
-
   await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Show less branches" })).toBeVisible();
-  await page.getByRole("button", { name: "Show less branches" }).click();
-
-  await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Show 6 more branches" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
 });
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {

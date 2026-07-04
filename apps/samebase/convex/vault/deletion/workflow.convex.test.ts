@@ -289,7 +289,6 @@ describe("vault deletion workflow", () => {
     expect(vaults[0]).toMatchObject({
       _id: ids.vaultId,
       repositoryFullName: "ada/delete-me",
-      remoteBranches: [],
       deletion: {
         state: "deleting",
         runId: deletionRunId,

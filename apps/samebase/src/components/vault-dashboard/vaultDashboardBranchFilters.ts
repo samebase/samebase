@@ -4,7 +4,6 @@ export type VaultBranchFilters = {
   hiddenLabels: string[];
   includeDrafts: boolean;
   includeNoLabel: boolean;
-  branchesExpanded: boolean;
 };
 
 export type VaultBranchFilterable = {
@@ -38,7 +37,6 @@ export function getDefaultVaultBranchFilters(): VaultBranchFilters {
     hiddenLabels: [],
     includeDrafts: false,
     includeNoLabel: true,
-    branchesExpanded: false,
   };
 }
 
@@ -68,26 +66,7 @@ export function normalizeVaultBranchFilters(
     hiddenLabels: Array.from(hiddenLabelsByKey.values()).sort((a, b) => compareLabelNames(a, b)),
     includeDrafts: filters.includeDrafts === true,
     includeNoLabel: filters.includeNoLabel !== false,
-    branchesExpanded: filters.branchesExpanded === true,
   };
-}
-
-export function areVaultBranchFiltersEqual(
-  a: Partial<VaultBranchFilters> | null | undefined,
-  b: Partial<VaultBranchFilters> | null | undefined,
-): boolean {
-  const normalizedA = normalizeVaultBranchFilters(a);
-  const normalizedB = normalizeVaultBranchFilters(b);
-
-  return (
-    normalizedA.includeNoLabel === normalizedB.includeNoLabel &&
-    normalizedA.includeDrafts === normalizedB.includeDrafts &&
-    normalizedA.branchesExpanded === normalizedB.branchesExpanded &&
-    normalizedA.hiddenLabels.length === normalizedB.hiddenLabels.length &&
-    normalizedA.hiddenLabels.every(
-      (labelName, index) => labelName === normalizedB.hiddenLabels[index],
-    )
-  );
 }
 
 export function setVaultBranchFilterLabelIncluded(args: {
@@ -119,7 +98,7 @@ export function setVaultBranchFilterLabelIncluded(args: {
 }
 
 export function filterVaultRemoteBranches<T extends VaultBranchFilterable>(
-  branches: T[],
+  branches: readonly T[],
   filters: Partial<VaultBranchFilters> | null | undefined,
 ): T[] {
   const normalizedFilters = normalizeVaultBranchFilters(filters);
@@ -146,7 +125,7 @@ export function filterVaultRemoteBranches<T extends VaultBranchFilterable>(
  * saved label even when no current branch exposes it.
  */
 export function buildVaultBranchFilterOptions<T extends VaultBranchFilterable>(args: {
-  branches: T[];
+  branches: readonly T[];
   hiddenLabels: string[];
   includeNoLabel: boolean;
 }): VaultBranchFilterOption[] {

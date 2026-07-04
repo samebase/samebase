@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed active rollout plan
+- Status: Partially implemented active rollout plan
 - Owner: Samebase dashboard and Convex vault
 - Last updated: 2026-07-04
 - Related specs:
@@ -36,11 +36,13 @@ with every branch already embedded.
 
 The accepted direction for this rollout is:
 
-1. Stop making `getUserVaults` return full branch rows for every vault.
-2. Move selected-vault branch rows behind a per-vault Convex query.
+1. Stop making `getUserVaults` return full branch rows for every vault. Implemented in Phase 1.
+2. Move selected-vault branch rows behind a per-vault Convex query. Implemented in Phase 1 through
+   `api.vault.branches.getVaultRemoteBranches`.
 3. Add real Convex cursor pagination for branch rows once the branch sort order is indexable.
 4. Render the selected vault's branches as one virtualized scroll surface with TanStack Virtual.
-5. Remove the `Show N more branches`/`Show less branches` expansion behavior.
+5. Remove the `Show N more branches`/`Show less branches` expansion behavior. Implemented in Phase 1
+   for app code; the old schema field awaits cleanup migration.
 
 This RFC is intentionally a live plan. Update the rollout status and open decisions as each slice
 lands. When the behavior is accepted and implemented, reduce this document into a compact spec or
@@ -51,19 +53,19 @@ archive it if code and tests are enough.
 `/vault` and `/vault/$owner/$repo` both render `VaultDashboard`. The selected repository route only
 narrows the already-loaded vault array in React.
 
-`api.vault.dashboard.getUserVaults` currently returns a `remoteBranches` array on every vault. The
-backend collects all `vaultRemoteBranches` for each vault, collects domains, fetches commit check
-snapshots for every branch head, sorts the full branch array in TypeScript, and maps every branch
-into the dashboard payload.
+Phase 1 removed `remoteBranches` from `api.vault.dashboard.getUserVaults`. The query now returns
+vault-level dashboard state only: provisioning/deletion state, staged-file summary inputs, app
+roots, and provider resources.
 
-The frontend then applies branch filters and the branch expansion limit locally:
+`/vault/$owner/$repo` loads its branch rows through the existing
+`api.vault.branches.getVaultRemoteBranches` query. That query still collects all branches for the
+selected vault and sorts in TypeScript, so the route boundary is fixed but real branch pagination is
+not implemented yet.
 
-- `VaultDashboardBranchSectionState.ts` filters branches and slices to `COLLAPSED_BRANCH_LIMIT = 5`.
-- `VaultBranchListExpansionControl` renders `Show N more branches` and `Show less branches`.
-- `branchesExpanded` is stored on the per-user/per-vault `vaultBranchFilters` row.
-
-This was reasonable when the root dashboard had to show multiple vault cards, but it is now the
-wrong data boundary for a selected-vault route with a potentially large branch catalog.
+The frontend still applies branch filters locally to the selected vault's loaded branch rows. Phase
+1 removed the branch expansion limit and deleted `Show N more branches`/`Show less branches` from
+app code. `branchesExpanded` is no longer read or written, but the optional Convex schema field
+remains until a cleanup migration deletes old stored values.
 
 ## Target Contract
 
@@ -161,21 +163,26 @@ constraints:
 | Hidden-label filtering      | Keep the UI contract, but decide whether exact server pagination needs denormalized label rows, bounded scanning, or a changed UX.  | Open   |
 | Filter count semantics      | Keep full-catalog filter options; decide whether the header shows exact filtered totals, loaded counts, or no count during rollout. | Open   |
 | Scrollport ownership        | Prefer the existing dashboard/page scrollport and virtualize within it; add a nested list scroller only with an explicit reason.    | Open   |
-| `branchesExpanded` cleanup  | Stop reading/writing it when the expansion UI is removed; delete the schema field only after old rows no longer need compatibility. | Open   |
-| `getUserVaults` replacement | Keep a lightweight vault list query and introduce selected-vault branch/page queries instead of growing the old dashboard contract. | Open   |
+| `branchesExpanded` cleanup  | App code no longer reads or writes it; delete the schema field after a cleanup migration removes old stored values.                 | Open   |
+| `getUserVaults` replacement | Lightweight vault list is implemented; replace the temporary selected-vault collect query with a paginated branch query next.       | Closed |
 
 ## Proposed Rollout
 
 ### Phase 1: Split Branch Rows Out Of The Vault List
 
+Status: Implemented for the non-paginated route boundary.
+
 Goal: make the route boundary match the product boundary before changing pagination mechanics.
 
 Changes:
 
-- Remove full `remoteBranches` rows from `getUserVaults` and `getUserVaultsContract`.
-- Add any lightweight selected-vault summary needed by the current UI, such as `primaryBranchName`.
-- Load selected-vault branches through a per-vault query.
-- Keep the branch row component and existing sorting/filtering behavior during this phase if needed.
+- Removed full `remoteBranches` rows from `getUserVaults` and `getUserVaultsContract`.
+- Loaded selected-vault branches through the existing `api.vault.branches.getVaultRemoteBranches`
+  query.
+- Kept the branch row component and existing local filtering behavior.
+- Removed branch expansion UI and frontend filter persistence in the same slice.
+- Did not add a lightweight selected-vault branch summary; current chat links derive from the
+  selected vault's branch query rows.
 
 Validation:
 
@@ -255,7 +262,6 @@ Changes:
 - Replace `VaultBranchList` mapping over every branch with a virtualized row container.
 - Add a non-focusable loader row that calls `loadMore` when the last virtual item approaches the
   loaded result boundary.
-- Remove `VaultBranchListExpansionControl` and its header wiring.
 - Update `VaultDashboardScrollTargetEndPadding` if it depends on mounted branch row geometry.
 - Keep `VaultBranchLinkRow` as the row renderer unless measurement requires a thin wrapper.
 
@@ -275,19 +281,16 @@ Changes:
 
 - Move filter option/count calculation to its final query or denormalized model.
 - Decide and implement exact header count behavior.
-- Stop persisting `branchesExpanded` in `setVaultBranchFilters`.
-- Remove frontend references to `branchesExpanded`.
-- Leave the schema field optional and deprecated until it is safe to remove, or run a cleanup
-  migration if the field must disappear.
-- Delete tests and visual fixture state that exist only for branch expansion.
+- Run a cleanup migration for old `branchesExpanded` values.
+- Remove the deprecated optional schema field after migrated production data proves it is absent.
 
 Validation:
 
 - Existing hidden-label, no-label, and include-drafts behavior is preserved or intentionally updated
   in this RFC before code changes.
-- Old `vaultBranchFilters` rows with `branchesExpanded` do not break reads.
-- Unit tests cover filter normalization without the expansion flag.
-- Visual tests cover branch filters without expansion controls.
+- Old `vaultBranchFilters` rows with `branchesExpanded` are removed before schema narrowing.
+- Unit tests keep covering filter normalization without the expansion flag.
+- Visual tests keep covering branch filters without expansion controls.
 
 ## Validation Plan
 
@@ -303,7 +306,7 @@ Frontend:
 - Unit tests for normalized branch filter args passed to the paginated query.
 - Component tests for loader-row behavior and `loadMore` guard conditions.
 - Route-level or fixture-backed visual tests for the selected vault branch list.
-- Remove or rewrite existing visual tests that click `Show N more branches`.
+- Keep visual tests asserting the expansion controls are absent.
 
 Acceptance:
 
