@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 
-import { vAppProvisioningRunStep, vPullRequestLabel, vVaultBranchCommitSummary } from "../schema";
+import { vAppProvisioningRunStep } from "../schema";
 import { vTreeRefreshFailureKind } from "./model";
 import { vVaultDeletionStep } from "./deletion/model";
 import type { AppFunctionMcpMetadata } from "../../shared/convexFunctionPolicyTypes";
@@ -149,32 +149,12 @@ export const getUserVaultsContract = {
           deploymentDashboardUrl: optional(string()),
         }),
       ),
-      remoteBranches: array(
-        object({
-          name: string(),
-          headCommitSha: string(),
-          lastCommitAt: optional(number()),
-          aheadBy: optional(number()),
-          behindBy: optional(number()),
-          pullRequestUrl: optional(string()),
-          pullRequestNumber: optional(number()),
-          pullRequestLabels: optional(array(vPullRequestLabel)),
-          pullRequestTitle: optional(string()),
-          pullRequestIsDraft: optional(boolean()),
-          previewUrl: optional(string()),
-          isDefault: boolean(),
-          isProtected: boolean(),
-          remoteState: union(literal("active"), literal("deleted_upstream")),
-          lastSyncedAt: number(),
-          commits: array(vVaultBranchCommitSummary),
-        }),
-      ),
     }),
   ),
   mcp: {
     name: "vault_dashboard_getUserVaults",
     description:
-      "List the Samebase apps and repositories available to the authenticated user, including provisioning state, provider resources, and branch summaries.",
+      "List the Samebase apps and repositories available to the authenticated user, including provisioning state and provider resources.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,

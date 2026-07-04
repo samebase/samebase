@@ -71,15 +71,9 @@ const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
 type FixtureRefreshCountState = {
   refreshCount: number;
 };
-type FixtureBranchExpansionState = {
-  branchesExpanded: boolean;
-};
 
 const FIXTURE_REFRESH_COUNT_INITIAL_STATE: FixtureRefreshCountState = {
   refreshCount: 0,
-};
-const FIXTURE_BRANCH_EXPANSION_INITIAL_STATE: FixtureBranchExpansionState = {
-  branchesExpanded: false,
 };
 
 function useFixtureRefreshCountStore() {
@@ -88,17 +82,6 @@ function useFixtureRefreshCountStore() {
       setState((state) => ({
         ...state,
         refreshCount: state.refreshCount + 1,
-      }));
-    },
-  }));
-}
-
-function useFixtureBranchExpansionStore() {
-  return useCreateStore(FIXTURE_BRANCH_EXPANSION_INITIAL_STATE, ({ setState }) => ({
-    toggleBranchesExpanded: () => {
-      setState((state) => ({
-        ...state,
-        branchesExpanded: !state.branchesExpanded,
       }));
     },
   }));
@@ -568,7 +551,6 @@ const LIST_SPACING_VAULT = {
       deploymentDashboardUrl: "https://dashboard.convex.dev/t/nicu/samebase/calm-swan-123",
     },
   ],
-  remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
 } satisfies VaultDashboardVault;
 
 const SIDEBAR_LIST_SELECTED_VAULT_ID = fakeVaultId("jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8c");
@@ -636,6 +618,9 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [LIST_SPACING_VAULT],
+            remoteBranchesByVaultId: new Map([
+              [LIST_SPACING_VAULT_ID, LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch)],
+            ]),
             stagedBranchSummariesByVaultId: new Map(),
           }}
           logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
@@ -693,6 +678,12 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             now={FIXTURE_NOW}
             viewModel={{
               vaults: selectedVaults,
+              remoteBranchesByVaultId: new Map([
+                [
+                  SIDEBAR_LIST_SELECTED_VAULT_ID,
+                  LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                ],
+              ]),
               stagedBranchSummariesByVaultId: new Map(),
             }}
             logoRouteSearch={FIXTURE_ROOT_ROUTE_SEARCH}
@@ -1638,15 +1629,11 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
 }
 
 function VaultDashboardStickyHeaderFixture() {
-  const branchExpansionStore = useFixtureBranchExpansionStore();
-  const branchesExpanded = useSelector(branchExpansionStore, (state) => state.branchesExpanded);
-  const { toggleBranchesExpanded } = branchExpansionStore.actions;
   const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map((branchRow) => branchRow.branch);
   const stickyHeaderFilters = {
     hiddenLabels: ["hidden"],
     includeDrafts: false,
     includeNoLabel: true,
-    branchesExpanded,
   } satisfies VaultBranchFilters;
   const branchSectionState = buildVaultBranchSectionState({
     filters: stickyHeaderFilters,
@@ -1681,21 +1668,11 @@ function VaultDashboardStickyHeaderFixture() {
                   hiddenBranchCount={branchSectionState.hiddenBranchCount}
                   onChangeFilters={() => {}}
                   remoteBranchCount={stickyHeaderBranches.length}
-                  expansion={
-                    branchSectionState.hasBranchListOverflow
-                      ? {
-                          hiddenBranchCount: branchSectionState.collapsedBranchCount,
-                          isExpanded: branchesExpanded,
-                          onToggle: toggleBranchesExpanded,
-                          placement: "header",
-                        }
-                      : undefined
-                  }
                 />
               }
               branchSection={
                 <div className="-mx-4 overflow-hidden border bg-muted">
-                  {branchSectionState.visibleRemoteBranches.map((branch) => (
+                  {branchSectionState.filteredRemoteBranches.map((branch) => (
                     <VaultBranchLinkRow
                       key={branch.name}
                       vaultId={fakeVaultId()}
@@ -1927,7 +1904,6 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
                         hiddenLabels: ["research"],
                         includeDrafts: false,
                         includeNoLabel: false,
-                        branchesExpanded: false,
                       }}
                       options={[
                         {

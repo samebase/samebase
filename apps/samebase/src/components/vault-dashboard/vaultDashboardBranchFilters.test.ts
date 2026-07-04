@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
-  areVaultBranchFiltersEqual,
   buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
@@ -14,7 +13,6 @@ describe("vaultBranchFilters", () => {
       hiddenLabels: [],
       includeDrafts: false,
       includeNoLabel: true,
-      branchesExpanded: false,
     });
   });
 
@@ -28,25 +26,7 @@ describe("vaultBranchFilters", () => {
       hiddenLabels: ["Research", "wip"],
       includeDrafts: false,
       includeNoLabel: true,
-      branchesExpanded: false,
     });
-  });
-
-  it("keeps branch expansion as a saved display preference", () => {
-    expect(
-      normalizeVaultBranchFilters({
-        branchesExpanded: true,
-      }),
-    ).toEqual({
-      hiddenLabels: [],
-      includeDrafts: false,
-      includeNoLabel: true,
-      branchesExpanded: true,
-    });
-
-    expect(
-      areVaultBranchFiltersEqual({ branchesExpanded: true }, { branchesExpanded: false }),
-    ).toBe(false);
   });
 
   it("toggles included labels without duplicating case variants", () => {

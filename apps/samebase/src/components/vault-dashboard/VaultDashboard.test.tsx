@@ -103,7 +103,6 @@ function makeResourceRailBuilderVault(
     appRoots: [],
     cloudflareWorkers: [],
     convexDeployments: [],
-    remoteBranches: [],
   };
   return { ...vault, ...overrides };
 }
@@ -585,6 +584,7 @@ describe("VaultDashboardRepositoryCard", () => {
           now={0}
           viewModel={{
             vaults: [],
+            remoteBranchesByVaultId: new Map(),
             stagedBranchSummariesByVaultId: new Map(),
           }}
           logoRouteSearch={rootRouteSearch}

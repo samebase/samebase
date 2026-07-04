@@ -11,13 +11,7 @@ import {
 } from "./state";
 import { readVaultDeletionEligibility } from "./deletion/eligibility";
 import { isVaultDeletingOrDeleteFailed, readVaultDeletionState } from "./deletion/state";
-import {
-  buildActiveBranchPreviewUrlsByBranch,
-  compareRemoteBranchSortOrder,
-  hasBranchStagingChanges,
-} from "./branches";
-import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
-import { getGitHubCommitCheckSnapshotsByCommitSha } from "../commitChecks";
+import { hasBranchStagingChanges } from "./branches";
 import { normalizeVaultAppRoot, ROOT_VAULT_APP_ROOT } from "../../shared/vaultAppRoot";
 import { vVaultResourceLinksState } from "./resourceLinksStateModel";
 import { canAccess } from "../../shared/accessModel";
@@ -453,7 +447,6 @@ const vaultBranchFiltersValidator = object({
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
   includeNoLabel: optional(boolean()),
-  branchesExpanded: optional(boolean()),
 });
 
 /**
@@ -529,7 +522,6 @@ export const getUserVaultBranchFilters = query({
       hiddenLabels: vaultBranchFilter.hiddenLabels,
       includeDrafts: vaultBranchFilter.includeDrafts,
       includeNoLabel: vaultBranchFilter.includeNoLabel !== false,
-      branchesExpanded: vaultBranchFilter.branchesExpanded === true,
     }));
   },
 });
@@ -608,10 +600,7 @@ export const setVaultBranchFilters = mutation({
       .withIndex("by_user_and_vault", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
       .first();
     const shouldPersist =
-      args.hiddenLabels.length > 0 ||
-      args.includeDrafts === true ||
-      args.includeNoLabel === false ||
-      args.branchesExpanded === true;
+      args.hiddenLabels.length > 0 || args.includeDrafts === true || args.includeNoLabel === false;
 
     if (!shouldPersist) {
       if (existing) {
@@ -625,7 +614,6 @@ export const setVaultBranchFilters = mutation({
         hiddenLabels: args.hiddenLabels,
         includeDrafts: args.includeDrafts,
         includeNoLabel: args.includeNoLabel !== false,
-        branchesExpanded: args.branchesExpanded === true,
       });
     } else {
       await ctx.db.insert("vaultBranchFilters", {
@@ -634,7 +622,6 @@ export const setVaultBranchFilters = mutation({
         hiddenLabels: args.hiddenLabels,
         includeDrafts: args.includeDrafts,
         includeNoLabel: args.includeNoLabel !== false,
-        branchesExpanded: args.branchesExpanded === true,
       });
     }
   },
@@ -754,7 +741,6 @@ async function readUserVaults(
       appRoots: [],
       cloudflareWorkers: [],
       convexDeployments: [],
-      remoteBranches: [],
     });
   }
 
@@ -823,37 +809,22 @@ async function readUserVaults(
           appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
           cloudflareWorkers: cloudflareWorkerSummaries,
           convexDeployments: convexDeploymentSummaries,
-          remoteBranches: [],
         };
       }
 
-      const [stagingData, remoteBranches, domains, defaultBranchTree, hasCreatedConvexProject] =
-        await Promise.all([
-          ctx.db
-            .query("fileStaging")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-            .collect(),
-          ctx.db
-            .query("vaultRemoteBranches")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-            .collect(),
-          ctx.db
-            .query("vaultDomains")
-            .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
-            .collect(),
-          ctx.db
-            .query("vaultBranchTrees")
-            .withIndex("by_vault_and_branch", (q) =>
-              q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
-            )
-            .first(),
-          hasCreatedConvexProjectForVault(ctx, vault._id),
-        ]);
-      const checkSnapshotsByCommitSha = await getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
-        githubRepositoryId: vault.ghRepoId,
-        commitShas: remoteBranches.map((branch) => branch.headCommitSha),
-      });
-      const previewUrlsByBranch = buildActiveBranchPreviewUrlsByBranch(domains);
+      const [stagingData, defaultBranchTree, hasCreatedConvexProject] = await Promise.all([
+        ctx.db
+          .query("fileStaging")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+          .collect(),
+        ctx.db
+          .query("vaultBranchTrees")
+          .withIndex("by_vault_and_branch", (q) =>
+            q.eq("vaultId", vault._id).eq("branch", vault.defaultBranch),
+          )
+          .first(),
+        hasCreatedConvexProjectForVault(ctx, vault._id),
+      ]);
 
       const fileCount = stagingData.filter(hasBranchStagingChanges).length;
 
@@ -900,27 +871,6 @@ async function readUserVaults(
         appRoots: appRoots.map((app) => ({ appRoot: app.appRoot })),
         cloudflareWorkers: cloudflareWorkerSummaries,
         convexDeployments: convexDeploymentSummaries,
-        remoteBranches: remoteBranches.sort(compareRemoteBranchSortOrder).map((branch) => ({
-          name: branch.name,
-          headCommitSha: branch.headCommitSha,
-          lastCommitAt: branch.lastCommitAt,
-          aheadBy: branch.aheadBy,
-          behindBy: branch.behindBy,
-          pullRequestUrl: branch.pullRequestUrl,
-          pullRequestNumber: branch.pullRequestNumber,
-          pullRequestLabels: branch.pullRequestLabels,
-          pullRequestTitle: branch.pullRequestTitle,
-          pullRequestIsDraft: branch.pullRequestIsDraft,
-          previewUrl: previewUrlsByBranch.get(branch.name),
-          isDefault: branch.isDefault,
-          isProtected: branch.isProtected,
-          remoteState: branch.remoteState,
-          lastSyncedAt: branch.lastSyncedAt,
-          commits: buildVaultBranchCommitSummaries(
-            branch,
-            checkSnapshotsByCommitSha.get(branch.headCommitSha),
-          ),
-        })),
       };
     }),
   );
