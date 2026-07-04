@@ -1,6 +1,7 @@
 import {
   buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
+  type VaultBranchFilterable,
   type VaultBranchFilters as VaultBranchFiltersState,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
 
@@ -44,12 +45,12 @@ export interface VaultBranchCommitChecksSummary {
   syncedAt: number;
 }
 
-export function buildVaultBranchSectionState({
+export function buildVaultBranchSectionState<Branch extends VaultBranchFilterable>({
   filters,
   remoteBranches,
 }: {
   filters: VaultBranchFiltersState;
-  remoteBranches: readonly VaultRemoteBranchListItem[];
+  remoteBranches: readonly Branch[];
 }) {
   const filteredRemoteBranches = filterVaultRemoteBranches(remoteBranches, filters);
   const hiddenBranchCount = remoteBranches.length - filteredRemoteBranches.length;

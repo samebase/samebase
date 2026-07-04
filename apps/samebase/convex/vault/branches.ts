@@ -54,6 +54,14 @@ type VaultRemoteBranchListItem = Infer<typeof vVaultRemoteBranchListItem>;
 
 const vVaultRemoteBranchListPage = paginationResultValidator(vVaultRemoteBranchListItem);
 
+const vVaultRemoteBranchFilterMetadataItem = object({
+  name: string(),
+  isDefault: boolean(),
+  remoteState: union(literal("active"), literal("deleted_upstream")),
+  pullRequestLabels: optional(array(vPullRequestLabel)),
+  pullRequestIsDraft: optional(boolean()),
+});
+
 export function compareRemoteBranchSortOrder(
   left: {
     remoteState: "active" | "deleted_upstream";
@@ -413,6 +421,48 @@ export const getVaultRemoteBranches = query({
         previewUrl: previewUrlsByBranch.get(branch.name),
       }),
     );
+  },
+});
+
+export const listVaultRemoteBranchFilterMetadata = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: array(vVaultRemoteBranchFilterMetadataItem),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
+      return [];
+    }
+
+    const branches = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", (q) =>
+        q.eq("vaultId", args.vaultId),
+      )
+      .collect();
+
+    return branches.map((branch) => {
+      const item: {
+        name: string;
+        isDefault: boolean;
+        remoteState: "active" | "deleted_upstream";
+        pullRequestLabels?: PullRequestLabel[];
+        pullRequestIsDraft?: boolean;
+      } = {
+        name: branch.name,
+        isDefault: branch.isDefault,
+        remoteState: branch.remoteState,
+      };
+      if (branch.pullRequestLabels) {
+        item.pullRequestLabels = branch.pullRequestLabels;
+      }
+      if (branch.pullRequestIsDraft !== undefined) {
+        item.pullRequestIsDraft = branch.pullRequestIsDraft;
+      }
+      return item;
+    });
   },
 });
 

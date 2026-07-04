@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDownIcon, ChevronUpIcon, PersonIcon } from "@/lib/radixIcons";
 import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
+import { findVaultDashboardVerticalScrollport } from "./vaultDashboardScrollport";
 
 const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 const SIDEBAR_ROW_ICON_CLASS =
@@ -22,7 +23,7 @@ const DEVELOPER_TOOLS_TRIGGER_CLASS_NAME =
   "h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
 const DEVELOPER_TOOLS_PLACEHOLDER_TRIGGER_CLASS_NAME =
   "invisible pointer-events-none h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180";
-const SCROLLABLE_OVERFLOW_VALUES = new Set(["auto", "scroll", "overlay"]);
+const VAULT_DASHBOARD_BRANCH_LIST_END_SELECTOR = "[data-vault-dashboard-branch-list-end]";
 const VAULT_DASHBOARD_BRANCH_ROW_SELECTOR = "[data-vault-dashboard-branch-row]";
 const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
 
@@ -403,21 +404,6 @@ export function VaultDashboardRepositoryList({ children }: { children: ReactNode
 }
 
 /**
- * Finds the scrollport that owns dashboard scrolling so spacer math uses the
- * same scroll bounds as route chrome.
- */
-function findVaultDashboardVerticalScrollport(element: HTMLElement): HTMLElement | null {
-  let currentElement = element.parentElement;
-  while (currentElement) {
-    if (SCROLLABLE_OVERFLOW_VALUES.has(window.getComputedStyle(currentElement).overflowY)) {
-      return currentElement;
-    }
-    currentElement = currentElement.parentElement;
-  }
-  return null;
-}
-
-/**
  * Chooses the content that should remain visible at max scroll: the final
  * branch row below the sticky header, or the whole card when there are no
  * branch rows.
@@ -426,8 +412,15 @@ function resolveVaultDashboardScrollEndTarget(target: HTMLElement): {
   element: HTMLElement;
   topPx: number;
 } {
+  const branchListEnd = target.querySelector<HTMLElement>(VAULT_DASHBOARD_BRANCH_LIST_END_SELECTOR);
   const branchRows = target.querySelectorAll<HTMLElement>(VAULT_DASHBOARD_BRANCH_ROW_SELECTOR);
   const header = target.querySelector<HTMLElement>(VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR);
+  if (branchListEnd && header) {
+    return {
+      element: branchListEnd,
+      topPx: header.offsetHeight,
+    };
+  }
   if (branchRows.length > 0 && header) {
     const lastBranchRow = branchRows[branchRows.length - 1];
     return {

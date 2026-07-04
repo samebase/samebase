@@ -931,8 +931,9 @@ test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 620 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
-  await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
+  await expect(page.getByText("codex/dashboard-main-pane-spacing")).toBeVisible();
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
+  await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
 });
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {

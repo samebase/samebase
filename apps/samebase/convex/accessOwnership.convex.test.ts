@@ -210,6 +210,11 @@ describe("public Convex route ownership checks", () => {
       asOther.query(api.vault.branches.getVaultRemoteBranches, { vaultId: ids.vaultId }),
     ).resolves.toEqual([]);
     await expect(
+      asOther.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual([]);
+    await expect(
       asOther.query(api.vault.branches.listVaultRemoteBranchesPage, {
         vaultId: ids.vaultId,
         paginationOpts: { cursor: null, numItems: 10 },
@@ -238,6 +243,17 @@ describe("public Convex route ownership checks", () => {
         name: "main",
         headCommitSha: "abc123",
         isDefault: true,
+      }),
+    ]);
+    await expect(
+      asOwner.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        name: "main",
+        isDefault: true,
+        remoteState: "active",
       }),
     ]);
     await expect(

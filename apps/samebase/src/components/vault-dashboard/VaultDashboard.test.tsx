@@ -584,7 +584,8 @@ describe("VaultDashboardRepositoryCard", () => {
           now={0}
           viewModel={{
             vaults: [],
-            remoteBranchesByVaultId: new Map(),
+            remoteBranchCatalogByVaultId: new Map(),
+            remoteBranchPagesByVaultId: new Map(),
             stagedBranchSummariesByVaultId: new Map(),
           }}
           logoRouteSearch={rootRouteSearch}

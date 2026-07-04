@@ -42,6 +42,7 @@ The accepted direction for this rollout is:
 3. Add real Convex cursor pagination for branch rows once the branch sort order is indexable.
    Implemented in Phase 3 as `api.vault.branches.listVaultRemoteBranchesPage`.
 4. Render the selected vault's branches as one virtualized scroll surface with TanStack Virtual.
+   Implemented in Phase 4.
 5. Remove the `Show N more branches`/`Show less branches` expansion behavior. Implemented in Phase 1
    for app code; the old schema field awaits cleanup migration.
 
@@ -58,15 +59,18 @@ Phase 1 removed `remoteBranches` from `api.vault.dashboard.getUserVaults`. The q
 vault-level dashboard state only: provisioning/deletion state, staged-file summary inputs, app
 roots, and provider resources.
 
-`/vault/$owner/$repo` loads its branch rows through the existing
-`api.vault.branches.getVaultRemoteBranches` query. That query still collects all branches for the
-selected vault and sorts in TypeScript because the current filter header derives full-catalog label
-options and counts from the same loaded array.
+`/vault/$owner/$repo` now loads selected-vault branch rows through
+`api.vault.branches.listVaultRemoteBranchesPage`. The query uses Convex native pagination over the
+sorted branch index and attaches commit check summaries and preview URLs only for the returned page.
 
-`api.vault.branches.listVaultRemoteBranchesPage` now exists for the selected-vault branch row path.
-It uses Convex native pagination over the sorted branch index and attaches commit check summaries
-and preview URLs only for the returned page. The dashboard frontend will switch to this query when
-the virtual list and filter metadata boundary land.
+The dashboard filter header and primary-branch selection use
+`api.vault.branches.listVaultRemoteBranchFilterMetadata`, a lightweight full-catalog metadata query.
+It returns the branch names, default/remote state, PR labels, and draft flags needed for exact
+filter options and counts without loading commit summaries, check snapshots, or preview URLs for
+every branch.
+
+`api.vault.branches.getVaultRemoteBranches` still exists for non-dashboard consumers such as the
+file route's current-branch metadata lookup.
 
 The frontend still applies branch filters locally to the selected vault's loaded branch rows. Phase
 1 removed the branch expansion limit and deleted `Show N more branches`/`Show less branches` from
@@ -163,14 +167,14 @@ constraints:
 
 ## Open Decisions
 
-| Decision                    | Current direction                                                                                                                   | Status |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Branch sort fields          | Required derived rank fields and the future pagination index are implemented; existing vaults can be deleted/recreated if needed.   | Closed |
-| Hidden-label filtering      | Keep the UI contract, but decide whether exact server pagination needs denormalized label rows, bounded scanning, or a changed UX.  | Open   |
-| Filter count semantics      | Keep full-catalog filter options; decide whether the header shows exact filtered totals, loaded counts, or no count during rollout. | Open   |
-| Scrollport ownership        | Prefer the existing dashboard/page scrollport and virtualize within it; add a nested list scroller only with an explicit reason.    | Open   |
-| `branchesExpanded` cleanup  | App code no longer reads or writes it; delete the schema field after a cleanup migration removes old stored values.                 | Open   |
-| `getUserVaults` replacement | Lightweight vault list is implemented; replace the temporary selected-vault collect query with a paginated branch query next.       | Closed |
+| Decision                    | Current direction                                                                                                                                                                                                                         | Status |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Branch sort fields          | Required derived rank fields and the future pagination index are implemented; existing vaults can be deleted/recreated if needed.                                                                                                         | Closed |
+| Hidden-label filtering      | Keep the UI contract; loaded pages are filtered client-side while exact metadata comes from the lightweight catalog query. Decide whether final server-side row pruning needs denormalized label rows, bounded scanning, or a changed UX. | Open   |
+| Filter count semantics      | Header counts and filter options use the lightweight full-catalog metadata query, so they remain exact while rows paginate.                                                                                                               | Closed |
+| Scrollport ownership        | The virtual list uses the existing dashboard route scrollport through TanStack Virtual; no nested branch-only scroller was added.                                                                                                         | Closed |
+| `branchesExpanded` cleanup  | App code no longer reads or writes it; delete the schema field after a cleanup migration removes old stored values.                                                                                                                       | Open   |
+| `getUserVaults` replacement | Lightweight vault list and selected-vault paginated branch rows are implemented; `getVaultRemoteBranches` remains only for non-dashboard consumers.                                                                                       | Closed |
 
 ## Proposed Rollout
 
@@ -272,23 +276,28 @@ Validation:
 
 ### Phase 4: Render The Virtualized Infinite List
 
+Status: Implemented.
+
 Goal: replace the expansion UI with a standard virtualized list powered by Convex pagination.
 
-Changes:
+Implemented behavior:
 
-- Add `@tanstack/react-virtual`.
-- Replace `VaultBranchList` mapping over every branch with a virtualized row container.
-- Add a non-focusable loader row that calls `loadMore` when the last virtual item approaches the
-  loaded result boundary.
-- Update `VaultDashboardScrollTargetEndPadding` if it depends on mounted branch row geometry.
-- Keep `VaultBranchLinkRow` as the row renderer unless measurement requires a thin wrapper.
+- Added `@tanstack/react-virtual`.
+- The selected-vault dashboard uses
+  `usePaginatedQuery(api.vault.branches.listVaultRemoteBranchesPage)`.
+- `VaultBranchList` renders rows through TanStack Virtual against the existing dashboard route
+  scrollport instead of adding a nested branch-only scroller.
+- The virtual list includes a non-focusable loader row and calls `loadMore` only while Convex
+  reports `status === "CanLoadMore"`.
+- `VaultDashboardScrollTargetEndPadding` now prefers the virtual list's logical end marker when
+  branch rows are virtualized.
+- `VaultBranchLinkRow` remains the row renderer.
 
 Validation:
 
-- The "Show N more branches" and "Show less branches" controls are gone.
-- Scrolling near the end loads the next Convex page exactly once per page boundary.
+- The "Show N more branches" and "Show less branches" controls remain gone.
+- Scrolling near the end loads the next Convex page through the loader row.
 - Branch rows do not overlap at desktop or mobile widths.
-- Focus remains coherent when filters reset the loaded pages.
 - Route-first visual coverage proves the selected vault branch list and sticky dashboard chrome.
 
 ### Phase 5: Resolve Filter Counts And Cleanup Stored Expansion State
@@ -297,8 +306,8 @@ Goal: finish the behavioral cleanup after the paginated path is stable.
 
 Changes:
 
-- Move filter option/count calculation to its final query or denormalized model.
-- Decide and implement exact header count behavior.
+- Finish any remaining filter-query model decisions beyond the implemented lightweight metadata
+  query.
 - Run a cleanup migration for old `branchesExpanded` values.
 - Remove the deprecated optional schema field after migrated production data proves it is absent.
 

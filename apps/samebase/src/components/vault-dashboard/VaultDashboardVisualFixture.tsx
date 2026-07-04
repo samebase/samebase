@@ -19,6 +19,7 @@ import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultPr
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
   VaultBranchHeaderControls,
+  VaultBranchSection,
   VaultBranchLinkRow,
   VaultDashboardView,
   VaultDashboardAppRootDialog,
@@ -67,6 +68,8 @@ export type VaultDashboardVisualMode =
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
+
+function ignoreFixtureLoadMore(_numItems: number): void {}
 
 type FixtureRefreshCountState = {
   refreshCount: number;
@@ -618,8 +621,18 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [LIST_SPACING_VAULT],
-            remoteBranchesByVaultId: new Map([
+            remoteBranchCatalogByVaultId: new Map([
               [LIST_SPACING_VAULT_ID, LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch)],
+            ]),
+            remoteBranchPagesByVaultId: new Map([
+              [
+                LIST_SPACING_VAULT_ID,
+                {
+                  remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                  status: "Exhausted",
+                  loadMore: ignoreFixtureLoadMore,
+                },
+              ],
             ]),
             stagedBranchSummariesByVaultId: new Map(),
           }}
@@ -678,10 +691,20 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             now={FIXTURE_NOW}
             viewModel={{
               vaults: selectedVaults,
-              remoteBranchesByVaultId: new Map([
+              remoteBranchCatalogByVaultId: new Map([
                 [
                   SIDEBAR_LIST_SELECTED_VAULT_ID,
                   LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                ],
+              ]),
+              remoteBranchPagesByVaultId: new Map([
+                [
+                  SIDEBAR_LIST_SELECTED_VAULT_ID,
+                  {
+                    remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                    status: "Exhausted",
+                    loadMore: ignoreFixtureLoadMore,
+                  },
                 ],
               ]),
               stagedBranchSummariesByVaultId: new Map(),
@@ -1671,16 +1694,16 @@ function VaultDashboardStickyHeaderFixture() {
                 />
               }
               branchSection={
-                <div className="-mx-4 overflow-hidden border bg-muted">
-                  {branchSectionState.filteredRemoteBranches.map((branch) => (
-                    <VaultBranchLinkRow
-                      key={branch.name}
-                      vaultId={fakeVaultId()}
-                      repositoryFullName="samebase/samebase"
-                      branch={branch}
-                    />
-                  ))}
-                </div>
+                <VaultBranchSection
+                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                  loadMore={ignoreFixtureLoadMore}
+                  paginationStatus="Exhausted"
+                  repositoryFullName="samebase/samebase"
+                  remoteBranches={branchSectionState.filteredRemoteBranches}
+                  schemaGraphAccessEnabled={false}
+                  stagedSummaries={[]}
+                  vaultId={fakeVaultId()}
+                />
               }
             />
           </VaultDashboardRepositoryList>

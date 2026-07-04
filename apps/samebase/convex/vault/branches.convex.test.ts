@@ -436,6 +436,28 @@ describe("vault branch mutations", () => {
     expect(secondPage.page.map((branch) => branch.name)).toEqual(["legacy"]);
     expect(thirdPage.page.map((branch) => branch.name)).toEqual(["feature/no-commit"]);
     expect(thirdPage.isDone).toBe(true);
+
+    await expect(
+      asOwner.query(api.vault.branches.listVaultRemoteBranchFilterMetadata, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toEqual([
+      {
+        name: "main",
+        isDefault: true,
+        remoteState: "active",
+      },
+      {
+        name: "legacy",
+        isDefault: false,
+        remoteState: "active",
+      },
+      {
+        name: "feature/no-commit",
+        isDefault: false,
+        remoteState: "deleted_upstream",
+      },
+    ]);
   });
 
   it("requires vault ownership before optimistic tree refresh writes", async () => {
