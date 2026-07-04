@@ -200,18 +200,14 @@ export function PublicLandingLogo({
   }, [viewStateKey, viewStatePersistence]);
   const commitLatestLogoView = useCallback(() => {
     const nextDefaultView = latestViewRef.current;
-    persistRotatedLogoViewState({
-      key: viewStateKey,
-      persistence: viewStatePersistence,
-      view: nextDefaultView,
-    });
+    persistLatestLogoView();
     setDefaultView((currentDefaultView) =>
       currentDefaultView.elevationDegrees === nextDefaultView.elevationDegrees &&
       currentDefaultView.rotationDegrees === nextDefaultView.rotationDegrees
         ? currentDefaultView
         : nextDefaultView,
     );
-  }, [viewStateKey, viewStatePersistence]);
+  }, [persistLatestLogoView]);
 
   useLayoutEffect(() => {
     // The first hydrated render must keep the SSG opacity class so React does
@@ -453,6 +449,7 @@ export function PublicLandingLogo({
                 setIsAutoRotating(false);
               }}
               onInteractionEnd={() => {
+                commitLatestLogoView();
                 replaceRouteSearch?.(
                   buildPublicLandingLogoRouteSearch({
                     routeSearch,
@@ -460,7 +457,6 @@ export function PublicLandingLogo({
                     view: latestViewRef.current,
                   }),
                 );
-                commitLatestLogoView();
                 if (!isAutoRotateRequested) {
                   return;
                 }

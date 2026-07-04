@@ -2,6 +2,7 @@
 
 import { createContext, Script } from "node:vm";
 import * as React from "react";
+import { flushSync } from "react-dom";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -243,18 +244,21 @@ describe("PublicLandingLogo", () => {
     const localRoot = createRoot(rootElement);
     root = localRoot;
     const replacedSearches: LogoRouteSearch[] = [];
-    const renderLogo = (routeSearch: LogoRouteSearch) => {
+    function renderLogo(routeSearch: LogoRouteSearch) {
       localRoot.render(
         <PublicLandingLogo
           replaceRouteSearch={(nextSearch) => {
             replacedSearches.push(nextSearch);
+            flushSync(() => {
+              renderLogo(nextSearch);
+            });
           }}
           routeSearch={routeSearch}
           viewStatePersistence="device"
           viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
         />,
       );
-    };
+    }
 
     await act(async () => {
       renderLogo({
@@ -287,11 +291,6 @@ describe("PublicLandingLogo", () => {
     expect(replacedSearch.elev).toBeUndefined();
     expect("rot" in replacedSearch).toBe(true);
     expect(replacedSearch.rot).toBeUndefined();
-
-    await act(async () => {
-      renderLogo({});
-      await Promise.resolve();
-    });
 
     const finalSceneProps = latestLandingLogoSceneProps.current;
     if (finalSceneProps === null) {
