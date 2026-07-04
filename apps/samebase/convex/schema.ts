@@ -484,12 +484,22 @@ export default defineSchema({
     isDefault: boolean(),
     isProtected: boolean(),
     remoteState: vVaultRemoteBranchState,
+    defaultRank: optional(number()),
+    stateRank: optional(number()),
+    commitRank: optional(number()),
     deletedUpstreamAt: optional(number()),
     lastSyncedAt: number(),
   })
     .index("by_vault", ["vaultId"])
     .index("by_vault_and_name", ["vaultId", "name"])
-    .index("by_vault_and_remote_state", ["vaultId", "remoteState"]),
+    .index("by_vault_and_remote_state", ["vaultId", "remoteState"])
+    .index("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", [
+      "vaultId",
+      "defaultRank",
+      "stateRank",
+      "commitRank",
+      "name",
+    ]),
 
   /**
    * Current GitHub check/status summary for one commit in one GitHub repo.

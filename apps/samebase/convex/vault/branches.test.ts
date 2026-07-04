@@ -5,6 +5,7 @@ import {
   buildConvexProjectSettingsDashboardUrl,
 } from "./dashboard";
 import {
+  buildRemoteBranchSortFields,
   compareRemoteBranchSortOrder,
   countActiveRemoteBranches,
   hasBranchStagingChanges,
@@ -169,6 +170,65 @@ describe("compareRemoteBranchSortOrder", () => {
         remoteState: "active",
       },
     ]);
+  });
+
+  it("matches the indexable sort fields", () => {
+    const branches = [
+      {
+        name: "feature/missing-commit",
+        isDefault: false,
+        remoteState: "active",
+      },
+      {
+        name: "feature/newer-b",
+        isDefault: false,
+        remoteState: "active",
+        lastCommitAt: 200,
+      },
+      {
+        name: "main",
+        isDefault: true,
+        remoteState: "deleted_upstream",
+      },
+      {
+        name: "feature/older",
+        isDefault: false,
+        remoteState: "active",
+        lastCommitAt: 100,
+      },
+      {
+        name: "feature/newer-a",
+        isDefault: false,
+        remoteState: "active",
+        lastCommitAt: 200,
+      },
+      {
+        name: "feature/deleted",
+        isDefault: false,
+        remoteState: "deleted_upstream",
+        lastCommitAt: 300,
+      },
+    ] as const;
+
+    const comparatorOrder = [...branches].sort(compareRemoteBranchSortOrder).map((branch) => {
+      return branch.name;
+    });
+    const indexOrder = [...branches]
+      .sort((left, right) => {
+        const leftSortFields = buildRemoteBranchSortFields(left);
+        const rightSortFields = buildRemoteBranchSortFields(right);
+        return (
+          leftSortFields.defaultRank - rightSortFields.defaultRank ||
+          leftSortFields.stateRank - rightSortFields.stateRank ||
+          leftSortFields.commitRank - rightSortFields.commitRank ||
+          left.name.localeCompare(right.name)
+        );
+      })
+      .map((branch) => {
+        return branch.name;
+      });
+
+    expect(indexOrder).toEqual(comparatorOrder);
   });
 });
 

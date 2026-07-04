@@ -159,7 +159,7 @@ constraints:
 
 | Decision                    | Current direction                                                                                                                   | Status |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Branch sort fields          | Add derived indexable fields on `vaultRemoteBranches` and backfill them before switching the paginated query to production.         | Open   |
+| Branch sort fields          | Added optional derived rank fields and a future pagination index; production backfill/verification remains before query cutover.    | Active |
 | Hidden-label filtering      | Keep the UI contract, but decide whether exact server pagination needs denormalized label rows, bounded scanning, or a changed UX.  | Open   |
 | Filter count semantics      | Keep full-catalog filter options; decide whether the header shows exact filtered totals, loaded counts, or no count during rollout. | Open   |
 | Scrollport ownership        | Prefer the existing dashboard/page scrollport and virtualize within it; add a nested list scroller only with an explicit reason.    | Open   |
@@ -193,6 +193,9 @@ Validation:
 
 ### Phase 2: Add Indexable Branch Sort Fields
 
+Status: Code implemented for the widen, dual-write, and backfill-tooling step. Production backfill
+and the later schema narrow remain pending.
+
 Goal: make the current branch sort order expressible through a Convex index.
 
 Use a widen-migrate-narrow workflow:
@@ -206,29 +209,38 @@ Use a widen-migrate-narrow workflow:
 6. Narrow: make the fields required only after production data is migrated and the paginated query
    no longer needs old-shape compatibility.
 
-Candidate fields:
+Implemented fields:
 
-- `sortDefaultRank`: `0` for the default branch, `1` otherwise
-- `sortRemoteStateRank`: `0` for active branches, `1` for deleted-upstream branches
-- `sortLastCommitAtRank`: numeric descending commit-time rank with a stable fallback
+- `defaultRank`: `0` for the default branch, `1` otherwise
+- `stateRank`: `0` for active branches, `1` for deleted-upstream branches
+- `commitRank`: negative commit timestamp for descending commit-time order, or
+  `Number.MAX_SAFE_INTEGER` when `lastCommitAt` is missing so missing timestamps sort last
 - `name`: existing tie-breaker
 
-Candidate index:
+Implemented index:
 
 ```ts
-.index("by_vault_and_dashboard_sort", [
+.index("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", [
   "vaultId",
-  "sortDefaultRank",
-  "sortRemoteStateRank",
-  "sortLastCommitAtRank",
+  "defaultRank",
+  "stateRank",
+  "commitRank",
   "name",
 ])
 ```
 
+Backfill functions:
+
+- `internal.vault.branches.backfillVaultRemoteBranchSortFieldsBatch`
+- `internal.vault.branches.checkVaultRemoteBranchSortFieldsBackfill`
+
 Validation:
 
 - Convex unit tests prove the derived sort fields match `compareRemoteBranchSortOrder`.
-- Migration dry-run and migration status prove all existing rows are backfilled.
+- The backfill batch supports `dryRun: true`, patches only rows whose derived values are missing or
+  stale, and schedules the next batch only for real mutation runs.
+- The check query scans bounded pages so production verification can prove no existing rows are
+  missing the derived fields before Phase 3 switches reads to the index.
 - The old selected-vault branch query still works during the migration window.
 
 ### Phase 3: Introduce The Paginated Branch Query

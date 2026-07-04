@@ -22,6 +22,24 @@ import {
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
+const REMOTE_BRANCH_MISSING_LAST_COMMIT_AT_SORT_RANK = Number.MAX_SAFE_INTEGER;
+const REMOTE_BRANCH_SORT_BACKFILL_BATCH_SIZE = 100;
+const REMOTE_BRANCH_SORT_BACKFILL_MAX_BATCH_SIZE = 500;
+
+const vRemoteBranchSortFieldsBackfillBatchResult = object({
+  scanned: number(),
+  patched: number(),
+  isDone: boolean(),
+  continueCursor: union(string(), nullValidator),
+  dryRun: boolean(),
+});
+
+const vRemoteBranchSortFieldsBackfillCheckResult = object({
+  scanned: number(),
+  missingBranchIds: array(id("vaultRemoteBranches")),
+  isDone: boolean(),
+  continueCursor: union(string(), nullValidator),
+});
 
 export function compareRemoteBranchSortOrder(
   left: {
@@ -52,6 +70,53 @@ export function compareRemoteBranchSortOrder(
     return rightLastCommitAt - leftLastCommitAt;
   }
   return left.name.localeCompare(right.name);
+}
+
+export function buildRemoteBranchSortFields(branch: {
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+  lastCommitAt?: number;
+}): {
+  defaultRank: number;
+  stateRank: number;
+  commitRank: number;
+} {
+  return {
+    defaultRank: branch.isDefault ? 0 : 1,
+    stateRank: branch.remoteState === "active" ? 0 : 1,
+    commitRank:
+      branch.lastCommitAt === undefined
+        ? REMOTE_BRANCH_MISSING_LAST_COMMIT_AT_SORT_RANK
+        : -branch.lastCommitAt,
+  };
+}
+
+function getRemoteBranchSortBackfillBatchSize(batchSize: number | undefined): number {
+  const resolvedBatchSize = batchSize ?? REMOTE_BRANCH_SORT_BACKFILL_BATCH_SIZE;
+  if (
+    !Number.isInteger(resolvedBatchSize) ||
+    resolvedBatchSize < 1 ||
+    resolvedBatchSize > REMOTE_BRANCH_SORT_BACKFILL_MAX_BATCH_SIZE
+  ) {
+    throw new Error("batchSize must be an integer between 1 and 500");
+  }
+  return resolvedBatchSize;
+}
+
+function remoteBranchNeedsSortFieldBackfill(branch: {
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+  lastCommitAt?: number;
+  defaultRank?: number;
+  stateRank?: number;
+  commitRank?: number;
+}): boolean {
+  const sortFields = buildRemoteBranchSortFields(branch);
+  return (
+    branch.defaultRank !== sortFields.defaultRank ||
+    branch.stateRank !== sortFields.stateRank ||
+    branch.commitRank !== sortFields.commitRank
+  );
 }
 
 type BranchStagingChangeCandidate = StagedFileChangeCandidate;
@@ -450,6 +515,9 @@ export const syncVaultRemoteBranches = internalMutation({
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
+          defaultRank: number;
+          stateRank: number;
+          commitRank: number;
           deletedUpstreamAt?: number;
           lastSyncedAt: number;
         } = {
@@ -458,6 +526,11 @@ export const syncVaultRemoteBranches = internalMutation({
           isDefault: branch.isDefault,
           isProtected: branch.isProtected,
           remoteState: "active",
+          ...buildRemoteBranchSortFields({
+            isDefault: branch.isDefault,
+            remoteState: "active",
+            lastCommitAt: nextLastCommitAt,
+          }),
           deletedUpstreamAt: undefined,
           lastSyncedAt: args.syncedAt,
         };
@@ -500,6 +573,9 @@ export const syncVaultRemoteBranches = internalMutation({
         isDefault: boolean;
         isProtected: boolean;
         remoteState: "active";
+        defaultRank: number;
+        stateRank: number;
+        commitRank: number;
         deletedUpstreamAt?: number;
         lastSyncedAt: number;
       } = {
@@ -510,6 +586,11 @@ export const syncVaultRemoteBranches = internalMutation({
         isDefault: branch.isDefault,
         isProtected: branch.isProtected,
         remoteState: "active",
+        ...buildRemoteBranchSortFields({
+          isDefault: branch.isDefault,
+          remoteState: "active",
+          lastCommitAt: branch.lastCommitAt,
+        }),
         deletedUpstreamAt: undefined,
         lastSyncedAt: args.syncedAt,
       };
@@ -544,6 +625,11 @@ export const syncVaultRemoteBranches = internalMutation({
       await ctx.db.patch(branch._id, {
         isDefault: false,
         remoteState: "deleted_upstream",
+        ...buildRemoteBranchSortFields({
+          isDefault: false,
+          remoteState: "deleted_upstream",
+          lastCommitAt: branch.lastCommitAt,
+        }),
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
       });
@@ -558,6 +644,77 @@ export const syncVaultRemoteBranches = internalMutation({
     }
 
     return null;
+  },
+});
+
+export const backfillVaultRemoteBranchSortFieldsBatch = internalMutation({
+  args: {
+    cursor: optional(union(string(), nullValidator)),
+    batchSize: optional(number()),
+    dryRun: optional(boolean()),
+  },
+  returns: vRemoteBranchSortFieldsBackfillBatchResult,
+  handler: async (ctx, args) => {
+    const batchSize = getRemoteBranchSortBackfillBatchSize(args.batchSize);
+    const dryRun = args.dryRun === true;
+    const result = await ctx.db.query("vaultRemoteBranches").paginate({
+      cursor: args.cursor ?? null,
+      numItems: batchSize,
+    });
+    let patched = 0;
+
+    for (const branch of result.page) {
+      if (!remoteBranchNeedsSortFieldBackfill(branch)) {
+        continue;
+      }
+      patched += 1;
+      if (!dryRun) {
+        await ctx.db.patch(branch._id, buildRemoteBranchSortFields(branch));
+      }
+    }
+
+    if (!dryRun && !result.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.vault.branches.backfillVaultRemoteBranchSortFieldsBatch,
+        {
+          cursor: result.continueCursor,
+          batchSize,
+        },
+      );
+    }
+
+    return {
+      scanned: result.page.length,
+      patched,
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+      dryRun,
+    };
+  },
+});
+
+export const checkVaultRemoteBranchSortFieldsBackfill = internalQuery({
+  args: {
+    cursor: optional(union(string(), nullValidator)),
+    batchSize: optional(number()),
+  },
+  returns: vRemoteBranchSortFieldsBackfillCheckResult,
+  handler: async (ctx, args) => {
+    const batchSize = getRemoteBranchSortBackfillBatchSize(args.batchSize);
+    const result = await ctx.db.query("vaultRemoteBranches").paginate({
+      cursor: args.cursor ?? null,
+      numItems: batchSize,
+    });
+
+    return {
+      scanned: result.page.length,
+      missingBranchIds: result.page
+        .filter(remoteBranchNeedsSortFieldBackfill)
+        .map((branch) => branch._id),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    };
   },
 });
 
