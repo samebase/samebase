@@ -210,7 +210,14 @@ function expectWorkspaceMobileMergedSide(root: ParentNode, side: "left" | "right
   ).toBe(side);
 }
 
-function expectMobilePaneSeparatorOwnership(
+function getMobileSeparatorEdges(root: ParentNode) {
+  return Array.from(root.querySelectorAll("[data-workspace-layout-v2-mobile-separator]")).map(
+    (separatorNode) =>
+      separatorNode.getAttribute("data-workspace-layout-v2-mobile-separator") ?? "",
+  );
+}
+
+function expectMobileLayoutOwnedSeparators(
   root: ParentNode,
   activePane: "left" | "main" | "right",
 ) {
@@ -220,18 +227,15 @@ function expectMobilePaneSeparatorOwnership(
   const leftPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-left"]');
   const mainPane = getRequiredElement(root, "[data-workspace-layout-v2-mobile-main-pane] > div");
   const rightPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-right"]');
-  const paneEntries = [
-    ["left", leftPane],
-    ["main", mainPane],
-    ["right", rightPane],
-  ] as const;
 
-  for (const [paneName, paneNode] of paneEntries) {
+  for (const paneNode of [leftPane, mainPane, rightPane]) {
     expect(paneNode.classList.contains("border-x")).toBe(false);
     expect(paneNode.classList.contains("border-x-0")).toBe(false);
     expect(paneNode.classList.contains("border-border")).toBe(false);
-    expect(paneNode.getAttribute("data-workspace-layout-v2-mobile-separator-pane")).toBe(paneName);
   }
+
+  expect(root.querySelector("[data-workspace-layout-v2-mobile-separator-pane]")).toBeNull();
+  expect(getMobileSeparatorEdges(root)).toEqual(["left-main", "main-right"]);
 }
 
 describe("WorkspaceLayoutV2 mobile boot alignment", () => {
@@ -442,7 +446,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
   });
 
-  it("lets the left sidebar stay borderless while the main pane owns the separator", () => {
+  it("renders layout-owned separators while the left sidebar is active", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -452,10 +456,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "left" }));
     });
 
-    expectMobilePaneSeparatorOwnership(rootElement, "left");
+    expectMobileLayoutOwnedSeparators(rootElement, "left");
   });
 
-  it("lets the sidebars own both separators while the main pane is visible", () => {
+  it("renders layout-owned separators while the main pane is active", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -465,7 +469,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "main" }));
     });
 
-    expectMobilePaneSeparatorOwnership(rootElement, "main");
+    expectMobileLayoutOwnedSeparators(rootElement, "main");
   });
 
   it("keeps the left pane addressable on mobile layouts without a right pane", () => {
@@ -489,6 +493,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
     ).toBe(0);
+    expect(getMobileSeparatorEdges(rootElement)).toEqual(["left-main"]);
   });
 
   it("omits a stale left mobile pane when a route does not provide a left pane", () => {
@@ -517,9 +522,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-pane-right"]'),
     ).not.toBeNull();
+    expect(getMobileSeparatorEdges(rootElement)).toEqual(["main-right"]);
   });
 
-  it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
+  it("renders layout-owned separators while the right sidebar is active", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -529,7 +535,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
     });
 
-    expectMobilePaneSeparatorOwnership(rootElement, "right");
+    expectMobileLayoutOwnedSeparators(rootElement, "right");
   });
 
   it("omits mobile resize grips on the main pane", () => {

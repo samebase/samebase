@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-07-03
+- Last updated: 2026-07-04
 - Related specs:
   - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
@@ -28,16 +28,13 @@ uses active-pane selectors to suppress the separators for the selected pane. Tha
 interior autonomy, but it spreads one visual invariant across pane markup, global CSS, selected pane
 state, merged-surface state, resize handle placement, and prehydration.
 
-The proposed direction is to move separator ownership into the layout shell and make the pane gap a
-first-class layout concept:
+The accepted direction is to move separator ownership into the layout shell without adding pane gap
+geometry:
 
-1. model a `paneGapPx` value in the shared geometry layer
-2. keep `paneGapPx = 0` able to reproduce today's no-gap geometry
-3. support `paneGapPx > 0` as real flex gap geometry when the product wants a visible layout seam
-4. let the resize handle be the separator on draggable edges
-5. render a line-only separator where no resize handle should exist
-6. center the mobile resize grip and three-dot visual on the actual edge or gap center
-7. keep pane interiors autonomous by keeping separators outside pane content
+1. render one layout-owned mobile separator per adjacent pane edge
+2. keep pane widths, scroll offsets, and merged-fit math unchanged
+3. center the mobile resize grip and three-dot visual on the actual edge
+4. keep pane interiors autonomous by keeping separators outside pane content
 
 This should reduce the number of states where two panes can draw the same line, especially when a
 merged `main+right` or `left+main` surface is active and the user swipes to the opposite pane.
@@ -86,7 +83,8 @@ and mobile grips. In mobile grip mode:
 - the hit track is centered on the resize edge with `-translate-x-1/2`
 - the visible grip is `h-16 w-8`
 - the three dots are 3px squares
-- the dots are intentionally shifted with `translate-x-0.5` or `-translate-x-0.5`
+- before this change, the dots were intentionally shifted with `translate-x-0.5` or
+  `-translate-x-0.5`
 - the active drag rectangle appears only while resizing, with `border border-border bg-background`
 
 That offset was a reasonable way to avoid covering pixels from the focused pane, but it creates a
@@ -109,10 +107,10 @@ This makes pane-owned separators a poor fit. The layout already knows which logi
 visible, where their edges are, and which surface is active. A separator should be a function of
 that geometry, not a pseudo-element on whichever pane currently loses the ownership selector.
 
-### Flex Gap Spike
+### Flex Gap Decision
 
-A quick formula spike shows that a real `gap` is not prohibitively complex if it is treated as a
-named geometry input instead of an incidental CSS detail.
+A formula spike showed that a real flex gap is not prohibitively complex, but it is not the chosen
+standard for V2.
 
 The current mobile scroll offsets are effectively:
 
@@ -145,6 +143,13 @@ contract, the model must instead decide:
 ```
 
 That decision belongs in the package-level contract, not inside a one-off visual fix.
+
+The useful scalable unit for WorkspaceLayout is the adjacent edge, not a global flex gap. An edge
+can be visible or hidden, draggable or decorative, active or idle, and it can adapt to merged mobile
+surfaces. A global flex gap forces every adjacent pane pair to share the same geometry even though
+the layout already has asymmetric left/main and main/right behavior.
+
+Decision: keep the current zero-gap geometry and make adjacent edges layout-owned overlays.
 
 ## Goals
 
@@ -225,15 +230,15 @@ Pros:
 Cons:
 
 - the gap becomes real geometry
+- every adjacent pane pair gets the same gap unless the layout adds another conditional edge model
 - mobile scroll offsets must include the gap between every preceding rendered pane
 - merged fit math must include the gap, or reduce one pane width so `side + gap + main` still fits
 - desktop collapsed panes can leave stray gaps unless closed panes are removed from flow or the gap
   is conditional
 - prehydration must understand the same gap math before React measures the viewport
 
-Verdict: viable and likely the best package-level standard if `paneGapPx` is explicit and defaults
-to today's geometry. It should not be introduced as a CSS-only tweak; it should land as a geometry
-contract with tests for `gap = 0` and `gap > 0`.
+Verdict: rejected for V2. The package-level standard should be explicit adjacent edges with zero-gap
+geometry, not a configurable fallback between overlay and geometric seams.
 
 ### Option D. Resize handle as the separator
 
@@ -245,7 +250,7 @@ Pros:
 - best visual coherence
 - the focused resize state has a single owner
 - three dots can be exactly centered inside the active rectangle
-- works with either overlay tracks or true gap tracks
+- works with overlay tracks
 
 Cons:
 
@@ -259,8 +264,7 @@ should not be draggable should use a line-only variant with the same placement r
 
 ## Recommendation
 
-Adopt a first-class `paneGapPx` geometry model, then choose whether the shipped Samebase app uses
-`0px` or `1px` as the initial value.
+Adopt layout-owned adjacent edge overlays and keep pane gap geometry at zero.
 
 This gives the important invariant immediately:
 
@@ -268,17 +272,9 @@ This gives the important invariant immediately:
 one adjacent pane edge -> one layout-owned separator
 ```
 
-For package quality, the standard should be honest about whether the separator consumes layout
-space. A configurable `paneGapPx` gives both useful modes:
-
-- `paneGapPx = 0`: no geometric seam; pane background differences can define the boundary, and a
-  line-only overlay can still be rendered if the host app wants it
-- `paneGapPx > 0`: a real shared seam; parent background or a dedicated track color creates the
-  visible separator without either pane owning the line
-
-The important implementation rule is that `paneGapPx` must flow through the same geometry helpers
-used by React, prehydration, tests, and resize handle positions. It should not be a Tailwind class
-added after the fact.
+For package quality, the exported standard should expose edges as the primitive. A future four-pane
+layout naturally has three adjacent edges; each edge can own its separator and handle behavior
+without forcing a global gap width across all pane pairs.
 
 For draggable edges, the resize handle should own the visible separator line, active drag state, hit
 target, ARIA separator semantics, and dot affordance. For non-draggable edges, render a line-only
@@ -286,33 +282,32 @@ separator through the same layout-owned placement model.
 
 ## Proposed Rollout
 
-### Phase 1. Make the gap contract explicit while preserving current geometry
+### Phase 1. Move mobile separators out of pane pseudo-elements
 
-Add `paneGapPx` to the V2 geometry layer with an app default of `0`.
+Introduce layout-owned mobile separators under `WorkspaceLayoutV2Viewport`.
+
+The renderer should receive already-resolved layout facts:
+
+- `hasLeftPane`
+- `hasRightPane`
+- left and main mobile widths
+- measured viewport state
+
+It should not read route content, sidebar state, local storage, or Convex state. It should not own
+pane width math. It should render only the separators that can actually appear.
 
 Acceptance:
 
-- `paneGapPx = 0` preserves current scroll offsets, merge fit, and handle positions
-- geometry tests cover `paneGapPx > 0` for main/right offsets and merged fits
-- no route-specific gap decisions exist
+- delete the V2 mobile separator pseudo-element block from `index.css`
+- no pane content element owns a mobile separator pseudo-element
+- routes with only a left or right pane render only the one possible adjacent separator
+- no double separator appears when a merged surface is active and the user swipes to the opposite
+  side
 
-### Phase 2. Make the current bug reproducible
-
-Add a focused visual or DOM-level test for the double-separator case:
-
-1. create a mobile `main+right` merged surface
-2. swipe to the left pane
-3. assert the left/main boundary has one separator, not two
-
-Prefer a real route or existing visual fixture that mounts the production component tree. This is a
-workspace shell behavior, so avoid inventing a fake fixture with custom chrome.
-
-### Phase 3. Center the mobile grip dots
+### Phase 2. Center the mobile grip dots
 
 Remove the deliberate dot offset from `WorkspaceLayoutV2ResizeHandle.tsx` and update the unit test
-that currently expects `translate-x-0.5` and `-translate-x-0.5`.
-
-This is the smallest user-visible improvement and should be easy to validate in isolation.
+that covered `translate-x-0.5` and `-translate-x-0.5`.
 
 Acceptance:
 
@@ -321,25 +316,10 @@ Acceptance:
 - hit track remains centered on the edge
 - keyboard and pointer resizing still pass existing tests
 
-### Phase 4. Move mobile separators out of pane pseudo-elements
+### Phase 3. Fold mobile separator lines into the resize handle when warranted
 
-Introduce a small layout-owned separator/handle renderer under `WorkspaceLayoutV2Viewport`.
-
-The renderer should receive already-resolved layout facts:
-
-- `hasLeftPane`
-- `hasRightPane`
-- left, main, and right mobile widths
-- desktop left and right widths
-- current mobile pane
-- active merged side
-- active resize side
-- measured viewport state
-
-It should not read route content, sidebar state, local storage, or Convex state. It should not own
-pane width math. It should render only the separators and handles that can actually appear.
-
-The first implementation should preserve the existing mobile grip lifecycle:
+The first implementation may keep line-only separators and resize grips as separate overlay nodes.
+Only fold them together if the result deletes code and preserves the existing mobile grip lifecycle:
 
 - no grip on the main pane
 - no grip while the carousel is unsettled
@@ -348,45 +328,18 @@ The first implementation should preserve the existing mobile grip lifecycle:
 
 Acceptance:
 
-- delete the V2 mobile separator pseudo-element block from `index.css`
-- no pane content element owns a mobile separator pseudo-element
-- separators remain above sticky route content and below resize handles
-- draggable separator handles still expose the existing accessible `role="separator"` behavior
-- no double separator appears when a merged surface is active and the user swipes to the opposite
-  side
-
-### Phase 5. Enable a non-zero app gap
-
-After `paneGapPx = 0` is proven, test the Samebase app with `paneGapPx = 1`.
-
-This phase must update:
-
-- `WorkspaceLayoutV2Geometry.ts` scroll offsets
-- merged fit constraints
-- `WorkspaceLayoutV2ResizeHandleConfigs.ts` handle positions
-- `WorkspaceLayoutV2Prehydration.ts` mobile first-paint math
-- unit tests that assert exact scrollLeft and handle positions
-- visual baselines for mobile merged panes
-
-Acceptance:
-
 - prehydrated mobile screenshots still match hydrated screenshots for unmerged, stale-left, and
   merged-right scenarios
-- the 320px mobile merged-fit contract is either preserved by reducing main minimum by the gap, or
-  explicitly revised
 - desktop prehydration still gives closed panes zero total geometry
 - no new route-specific prehydration cases
 
 ## Open Decisions
 
-1. Should Samebase ship `paneGapPx = 0` or `paneGapPx = 1` first?
-2. If the app ships a non-zero gap, does a 320px mobile merged fit become `96 + 1 + 223`, or do we
-   change the minimum viewport contract?
-3. When a side pane is active on mobile, should the separator be visible on the focused pane edge or
+1. When a side pane is active on mobile, should the separator be visible on the focused pane edge or
    only between the active surface and the adjacent offscreen surface?
-4. Should a non-resizable separator use the same component as a resize handle in disabled/decorative
+2. Should a non-resizable separator use the same component as a resize handle in disabled/decorative
    mode?
-5. Should desktop active resize color move from side pane border classes into the shared separator
+3. Should desktop active resize color move from side pane border classes into the shared separator
    track in the same patch as mobile?
 
 ## Validation Plan
@@ -416,10 +369,6 @@ pnpm test:visual:linux
 
 ## Draft Conclusion
 
-The direction is worth pursuing, and a real flex gap is more viable than the first pass suggested.
-The critical constraint is that the gap must be a first-class geometry value, not a CSS-only visual
-tweak.
-
-Start by adding `paneGapPx` with a `0px` default, then move separators and handles to the layout
-edge model. Once `gap = 0` proves current behavior is preserved, test `gap = 1` as the package-grade
-standard for Samebase's shipped layout.
+The direction is layout-owned adjacent edges with zero-gap geometry. That fixes the double-edge bug,
+keeps pane interiors autonomous, preserves the current scroll and merge math, and still generalizes
+to future pane counts because the package primitive is the edge between visible panes.
