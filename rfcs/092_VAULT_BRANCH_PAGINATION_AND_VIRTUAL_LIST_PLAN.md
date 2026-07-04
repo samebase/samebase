@@ -44,7 +44,8 @@ The accepted direction for this rollout is:
 4. Render the selected vault's branches as one virtualized scroll surface with TanStack Virtual.
    Implemented in Phase 4.
 5. Remove the `Show N more branches`/`Show less branches` expansion behavior. Implemented in Phase 1
-   for app code; the old schema field awaits cleanup migration.
+   for app code; Phase 5A removed the stored schema field directly because existing vault/filter
+   rows can be discarded before deploy.
 
 This RFC is intentionally a live plan. Update the rollout status and open decisions as each slice
 lands. When the behavior is accepted and implemented, reduce this document into a compact spec or
@@ -74,8 +75,8 @@ file route's current-branch metadata lookup.
 
 The frontend still applies branch filters locally to the selected vault's loaded branch rows. Phase
 1 removed the branch expansion limit and deleted `Show N more branches`/`Show less branches` from
-app code. `branchesExpanded` is no longer read or written, but the optional Convex schema field
-remains until a cleanup migration deletes old stored values.
+app code. Phase 5A removed the stale `branchesExpanded` schema field; no compatibility migration is
+kept because existing vault/filter rows can be discarded before deploy.
 
 ## Target Contract
 
@@ -173,7 +174,7 @@ constraints:
 | Hidden-label filtering      | Keep the UI contract; loaded pages are filtered client-side while exact metadata comes from the lightweight catalog query. Decide whether final server-side row pruning needs denormalized label rows, bounded scanning, or a changed UX. | Open   |
 | Filter count semantics      | Header counts and filter options use the lightweight full-catalog metadata query, so they remain exact while rows paginate.                                                                                                               | Closed |
 | Scrollport ownership        | The virtual list uses the existing dashboard route scrollport through TanStack Virtual; no nested branch-only scroller was added.                                                                                                         | Closed |
-| `branchesExpanded` cleanup  | App code no longer reads or writes it; delete the schema field after a cleanup migration removes old stored values.                                                                                                                       | Open   |
+| `branchesExpanded` cleanup  | App code no longer reads or writes it; Phase 5A removed the schema field directly because existing vault/filter rows can be discarded before deploy.                                                                                      | Closed |
 | `getUserVaults` replacement | Lightweight vault list and selected-vault paginated branch rows are implemented; `getVaultRemoteBranches` remains only for non-dashboard consumers.                                                                                       | Closed |
 
 ## Proposed Rollout
@@ -300,24 +301,34 @@ Validation:
 - Branch rows do not overlap at desktop or mobile widths.
 - Route-first visual coverage proves the selected vault branch list and sticky dashboard chrome.
 
-### Phase 5: Resolve Filter Counts And Cleanup Stored Expansion State
+### Phase 5A: Remove Stored Branch Expansion State
 
-Goal: finish the behavioral cleanup after the paginated path is stable.
+Status: Implemented.
+
+Goal: remove the old branch-expansion storage after the paginated path is stable.
 
 Changes:
 
-- Finish any remaining filter-query model decisions beyond the implemented lightweight metadata
-  query.
-- Run a cleanup migration for old `branchesExpanded` values.
-- Remove the deprecated optional schema field after migrated production data proves it is absent.
+- Removed `branchesExpanded` from the `vaultBranchFilters` schema.
+- Did not add migration scaffolding; existing vault/filter rows can be discarded before deploy.
+- Left hidden-label row filtering unchanged as a separate backend-query design decision.
+
+Validation:
+
+- Unit tests keep covering filter normalization without the expansion flag.
+- Visual tests keep covering branch filters without expansion controls.
+
+### Phase 5B: Decide Hidden-Label Row Filtering
+
+Status: Pending.
+
+Goal: decide whether final server-side row pruning needs denormalized label rows, bounded scanning,
+or a changed UX.
 
 Validation:
 
 - Existing hidden-label, no-label, and include-drafts behavior is preserved or intentionally updated
   in this RFC before code changes.
-- Old `vaultBranchFilters` rows with `branchesExpanded` are removed before schema narrowing.
-- Unit tests keep covering filter normalization without the expansion flag.
-- Visual tests keep covering branch filters without expansion controls.
 
 ## Validation Plan
 
