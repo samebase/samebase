@@ -442,7 +442,7 @@ async function readCloudflareWorkersForVault(
   return workers.sort(compareCloudflareWorkerSortOrder);
 }
 
-const vaultBranchFiltersValidator = object({
+const vVaultBranchFilters = object({
   vaultId: id("vaults"),
   hiddenLabels: array(string()),
   includeDrafts: boolean(),
@@ -510,7 +510,7 @@ export function buildConvexProjectSettingsDashboardUrl(args: {
 export const getUserVaultBranchFilters = query({
   access: "access_dashboard",
   args: {},
-  returns: array(vaultBranchFiltersValidator),
+  returns: array(vVaultBranchFilters),
   handler: async (ctx) => {
     return (
       await ctx.db
@@ -583,7 +583,7 @@ export const setVaultResourceLinksOpen = mutation({
 
 export const setVaultBranchFilters = mutation({
   access: "access_dashboard",
-  args: vaultBranchFiltersValidator,
+  args: vVaultBranchFilters,
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;

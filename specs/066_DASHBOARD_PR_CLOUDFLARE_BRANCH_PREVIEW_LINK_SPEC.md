@@ -4,7 +4,7 @@
 
 - Status: Superseded by `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`
 - Owner: Vault dashboard + GitHub/Cloudflare integration
-- Last updated: 2026-04-30
+- Last updated: 2026-07-04
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -17,6 +17,11 @@ This behavior is no longer current. The PR-comment parser and branch-level Cloud
 were replaced by the GitHub check snapshot model in `rfcs/087_PR_CHECKS_BASED_REFRESH_PLAN.md`.
 Runtime code no longer reads or writes the branch-level Cloudflare preview projection, and the old
 `vaultRemoteBranches` schema fields have been removed.
+
+The historical implementation notes below also predate the selected-vault branch pagination work in
+`rfcs/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md`. Current dashboard branch rows are
+served by `api.vault.branches.listVaultRemoteBranchesPage`, not by
+`api.vault.dashboard.getUserVaults`.
 
 ## Summary
 
@@ -168,10 +173,12 @@ Important scope rule:
 - This enrichment should be dashboard-scoped or otherwise explicitly gated. It should not run on
   every generic editor/tree refresh path by default.
 
-### 3. Extend `vault.getUserVaults()` branch payload
+### 3. Extend the dashboard branch row payload
 
-Add the cached Cloudflare preview fields to `remoteBranches[]` so the dashboard can render them
-directly and suppress stale links.
+Add the cached Cloudflare preview fields to the dashboard branch row payload so the dashboard can
+render them directly and suppress stale links. At the time this superseded spec was written, that
+payload was `remoteBranches[]` on `vault.getUserVaults()`; current dashboard branch rows are served
+by `api.vault.branches.listVaultRemoteBranchesPage`.
 
 Minimal UI requirement:
 
@@ -236,13 +243,13 @@ Exit criteria:
 
 Scope:
 
-1. Extend `vault.getUserVaults()` branch payload with the cached Cloudflare preview fields.
+1. Extend the dashboard branch row payload with the cached Cloudflare preview fields.
 2. Keep this query read-only; do not perform PR comment fetches inside the query itself.
 3. Render the link only when the cached preview belongs to the current PR.
 
 Exit criteria:
 
-1. The dashboard query returns the cached preview fields when present.
+1. The dashboard branch row query returns the cached preview fields when present.
 2. Query behavior does not depend on live GitHub comment reads at render time.
 3. Existing branch row metadata remains intact.
 
@@ -284,14 +291,14 @@ That separation is intentional:
 8. Verify changing `pullRequestNumber` suppresses the stale cached link and triggers a one-time
    re-hydration for the new PR.
 9. Verify removing `pullRequestNumber` clears cached preview metadata.
-10. Verify `vault.getUserVaults()` returns the cached branch preview fields.
+10. Verify the dashboard branch row query returns the cached branch preview fields.
 
 ### Suggested implementation tests
 
 1. Pure parser tests for the exact Cloudflare markdown format already observed in production PR
    comments.
 2. Enrichment tests that mock GitHub PR comments and confirm cache writes.
-3. Query-shape tests for `vault.getUserVaults()` branch payload additions.
+3. Query-shape tests for dashboard branch row payload additions.
 4. UI tests for `VaultDashboard` branch rows:
    - link renders when `cloudflareBranchPreviewUrl` exists for the current PR
    - link does not render when absent
