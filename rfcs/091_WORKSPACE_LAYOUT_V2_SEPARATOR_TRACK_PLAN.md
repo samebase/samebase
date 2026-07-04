@@ -316,31 +316,9 @@ Acceptance:
 - hit track remains centered on the edge
 - keyboard and pointer resizing still pass existing tests
 
-### Phase 3. Fold mobile separator lines into the resize handle when warranted
-
-The first implementation may keep line-only separators and resize grips as separate overlay nodes.
-Only fold them together if the result deletes code and preserves the existing mobile grip lifecycle:
-
-- no grip on the main pane
-- no grip while the carousel is unsettled
-- one active side grip at a time
-- line-only separators where a visible separator is needed but no grip should be interactive
-
-Acceptance:
-
-- prehydrated mobile screenshots still match hydrated screenshots for unmerged, stale-left, and
-  merged-right scenarios
-- desktop prehydration still gives closed panes zero total geometry
-- no new route-specific prehydration cases
-
 ## Open Decisions
 
-1. When a side pane is active on mobile, should the separator be visible on the focused pane edge or
-   only between the active surface and the adjacent offscreen surface?
-2. Should a non-resizable separator use the same component as a resize handle in disabled/decorative
-   mode?
-3. Should desktop active resize color move from side pane border classes into the shared separator
-   track in the same patch as mobile?
+None for the accepted mobile separator scope.
 
 ## Validation Plan
 
