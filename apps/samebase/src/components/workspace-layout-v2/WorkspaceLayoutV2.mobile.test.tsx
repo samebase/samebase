@@ -923,9 +923,33 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         rootElement,
         '[data-testid="workspace-layout-v2-right-resize"]',
       );
+      const rightPane = getRequiredElement(
+        rootElement,
+        '[data-testid="workspace-layout-v2-pane-right"]',
+      );
       const getMainPane = () =>
         getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
 
+      expect(getMainPane().style.width).toBe("320px");
+
+      for (let index = 0; index < 6; index += 1) {
+        act(() => {
+          rightHandle.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              bubbles: true,
+              key: "ArrowRight",
+            }),
+          );
+        });
+      }
+
+      expect(getMainPane().style.width).toBe("320px");
+      expect(rightPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 16}px`);
+      act(() => {
+        vi.advanceTimersByTime(121);
+      });
+
+      expectWorkspaceMobileMergedSide(rootElement, null);
       expect(getMainPane().style.width).toBe("320px");
 
       act(() => {
@@ -937,17 +961,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("296px");
-      act(() => {
-        rightHandle.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            bubbles: true,
-            key: "ArrowRight",
-          }),
-        );
-      });
-
-      expect(getMainPane().style.width).toBe("272px");
+      expect(getMainPane().style.width).toBe("224px");
 
       act(() => {
         vi.advanceTimersByTime(121);
