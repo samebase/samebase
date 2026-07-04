@@ -756,7 +756,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("366px");
+      expect(getMainPane().style.width).toBe("294px");
       act(() => {
         leftHandle.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -766,7 +766,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("342px");
+      expect(getMainPane().style.width).toBe("294px");
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
       ).toBe("left");
@@ -790,7 +790,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("318px");
+      expect(getMainPane().style.width).toBe("390px");
       expect(
         getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style
           .width,
@@ -801,11 +801,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         vi.advanceTimersByTime(121);
       });
 
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("390px");
       expect(
         getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style
           .width,
-      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
     } finally {
       vi.useRealTimers();
     }
@@ -851,7 +851,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         });
       }
 
-      expect(getMainPane().style.width).toBe("342px");
+      expect(getMainPane().style.width).toBe("390px");
       act(() => {
         vi.advanceTimersByTime(121);
       });
@@ -871,7 +871,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         });
       }
 
-      expect(getMainPane().style.width).toBe("342px");
+      expect(getMainPane().style.width).toBe("390px");
       act(() => {
         vi.advanceTimersByTime(121);
       });
@@ -891,7 +891,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         });
       }
 
-      expect(getMainPane().style.width).toBe("342px");
+      expect(getMainPane().style.width).toBe("294px");
       act(() => {
         vi.advanceTimersByTime(121);
       });

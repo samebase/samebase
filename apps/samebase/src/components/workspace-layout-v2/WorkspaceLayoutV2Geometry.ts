@@ -49,7 +49,6 @@ export type WorkspaceLayoutV2MobileGrip =
       shouldSettleMergedOnEnd: boolean;
       side: WorkspaceLayoutV2MobileMergedSide;
       slideOffsetPx: number;
-      startMainWidthPx: number;
       startSideWidthPx: number;
     };
 
@@ -103,28 +102,29 @@ export function getMobileMinResizeMergeWidthsPx(args: {
   rawSideWidthPx: number;
   sideMaxWidthPx: number;
   sideMinWidthPx: number;
-  startMainWidthPx: number;
-  startSideWidthPx: number;
   viewportWidthPx: number;
 }) {
   const mergedMainWidthPx = getMergedMobileMainWidthPx(args);
   if (mergedMainWidthPx === null) {
     return null;
   }
-  const resizeDeltaPx = Math.round(args.rawSideWidthPx) - Math.round(args.startSideWidthPx);
+  const sideWidthPx = clampNumber(
+    Math.round(args.rawSideWidthPx),
+    args.sideMinWidthPx,
+    args.sideMaxWidthPx,
+  );
+  const commitSideWidthPx = args.sideMinWidthPx + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
+  const mergeProgress = clampNumber(
+    (commitSideWidthPx - sideWidthPx) / WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX,
+    0,
+    1,
+  );
 
   return {
-    mainWidthPx: clampNumber(
-      Math.round(args.startMainWidthPx) + resizeDeltaPx,
-      mergedMainWidthPx,
-      args.mainMaxWidthPx,
+    mainWidthPx: Math.round(
+      args.mainMaxWidthPx - (args.mainMaxWidthPx - mergedMainWidthPx) * mergeProgress,
     ),
-    settledMainWidthPx: mergedMainWidthPx,
-    sideWidthPx: clampNumber(
-      Math.round(args.rawSideWidthPx),
-      args.sideMinWidthPx,
-      args.sideMaxWidthPx,
-    ),
+    sideWidthPx,
   };
 }
 
