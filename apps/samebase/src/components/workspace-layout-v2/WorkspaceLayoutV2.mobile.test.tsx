@@ -876,6 +876,26 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         vi.advanceTimersByTime(121);
       });
 
+      expect(getMainPane().style.width).toBe("390px");
+      expect(leftPane.style.width).toBe("144px");
+      expectWorkspaceMobileMergedSide(rootElement, null);
+
+      for (let index = 0; index < 2; index += 1) {
+        act(() => {
+          leftHandle.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              bubbles: true,
+              key: "ArrowLeft",
+            }),
+          );
+        });
+      }
+
+      expect(getMainPane().style.width).toBe("342px");
+      act(() => {
+        vi.advanceTimersByTime(121);
+      });
+
       expect(getMainPane().style.width).toBe("294px");
       expect(leftPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
       expectWorkspaceMobileMergedSide(rootElement, "left");
@@ -947,13 +967,13 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-side")).toBe("left");
       expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-start-width")).toBe("240");
-      expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-commit-width")).toBe("144");
+      expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-commit-width")).toBe("106");
       expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-min-width")).toBe("96");
       expect(commitZone.style.left).toBe("0px");
-      expect(commitZone.style.width).toBe("144px");
-      expect(resizeZone.style.left).toBe("144px");
-      expect(resizeZone.style.width).toBe("96px");
-      expect(commitMarker.style.left).toBe("144px");
+      expect(commitZone.style.width).toBe("106px");
+      expect(resizeZone.style.left).toBe("106px");
+      expect(resizeZone.style.width).toBe("134px");
+      expect(commitMarker.style.left).toBe("106px");
       expect(minMarker.style.left).toBe("96px");
       expect(startMarker.style.left).toBe("240px");
 

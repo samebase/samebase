@@ -164,8 +164,8 @@ surface.
 
 Partial paired geometry is drag state, not a committed post-release layout. On release, the shell
 should settle to the fitted side/main pair only once the side pane has been resized near its
-minimum. With the current 96px side-pane minimum and 48px merge intent distance, releasing at 144px
-or below commits the merge; releasing above 144px clears the transient main width and keeps the
+minimum. With the current 96px side-pane minimum and 10px merge intent distance, releasing at 106px
+or below commits the merge; releasing above 106px clears the transient main width and keeps the
 ordinary carousel layout. The merge threshold is tied to the side-pane minimum, not to the side
 pane's starting width.
 
