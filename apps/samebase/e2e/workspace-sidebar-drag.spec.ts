@@ -3,21 +3,17 @@ import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSideba
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
 const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+const MOBILE_MERGE_INTENT_WIDTH_PX = 10;
 
 test.use({
   ...pixel7Device,
 });
 
-async function gotoFileViewFixture(
-  page: Page,
-  options?: { minResizeBehavior?: "merge" | "slide" },
-) {
+async function gotoFileViewFixture(page: Page, options?: { minResizeBehavior?: "slide" }) {
   const mode =
-    options?.minResizeBehavior === "merge"
-      ? "fileview-layout-merge"
-      : options?.minResizeBehavior === "slide"
-        ? "fileview-layout-slide"
-        : "fileview-layout-persistence";
+    options?.minResizeBehavior === "slide"
+      ? "fileview-layout-slide"
+      : "fileview-layout-persistence";
   await page.goto(`/visual-fixture?mode=${mode}`, {
     waitUntil: "domcontentloaded",
   });
@@ -330,7 +326,7 @@ test("fileview mobile sidebar minimum uses the configured mobile pane width", as
 test("fileview mobile merge resize keeps the sidebar beside a complete main pane", async ({
   page,
 }) => {
-  await gotoFileViewFixture(page, { minResizeBehavior: "merge" });
+  await gotoFileViewFixture(page);
 
   await scrollFileViewCarouselToPane(page, "left");
 
@@ -487,7 +483,7 @@ test("logo mobile merge resize settles after a back-and-forth grip drag", async 
 
   await touchDragHandleThroughDeltas(page, "workspace-layout-v2-left-resize", [
     minWidthPx - leftPaneWidthBefore - minWidthPx,
-    minWidthPx - leftPaneWidthBefore + 16,
+    minWidthPx - leftPaneWidthBefore + MOBILE_MERGE_INTENT_WIDTH_PX - 2,
   ]);
 
   await expect(getFileViewLayoutShell(page)).toHaveAttribute("data-mobile-pane", "left");
