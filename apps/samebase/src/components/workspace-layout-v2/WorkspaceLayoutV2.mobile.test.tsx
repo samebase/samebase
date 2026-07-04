@@ -64,6 +64,7 @@ HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
 };
 
 type RenderMobileLayoutArgs = {
+  debugMobileMergeResize?: boolean;
   includeLeftPane?: boolean;
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
@@ -96,6 +97,7 @@ function createMobileSidebarState({
 }
 
 function renderMobileLayoutContent({
+  debugMobileMergeResize,
   includeLeftPane = true,
   includeRightPane = true,
   leftToggleVisibility,
@@ -118,6 +120,7 @@ function renderMobileLayoutContent({
   return (
     <WorkspaceLayoutV2FullPage
       addressChrome={<div data-testid="test-address-chrome">/test</div>}
+      debugMobileMergeResize={debugMobileMergeResize}
       left={
         includeLeftPane
           ? {
@@ -803,6 +806,91 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style
           .width,
       ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows the merge debug release zone while a wide sidebar is resized", () => {
+    vi.useFakeTimers();
+    try {
+      const mountedRoot = root;
+      if (mountedRoot === null || rootElement === null) {
+        throw new Error("Expected mounted root");
+      }
+
+      act(() => {
+        mountedRoot.render(
+          renderMobileLayout({
+            debugMobileMergeResize: true,
+            leftMobileWidthPx: 240,
+            mobilePane: "left",
+          }),
+        );
+      });
+
+      expect(
+        rootElement.querySelector('[data-testid="workspace-layout-v2-merge-debug-overlay"]'),
+      ).toBeNull();
+
+      const leftHandle = getRequiredElement(
+        rootElement,
+        '[data-testid="workspace-layout-v2-left-resize"]',
+      );
+
+      act(() => {
+        leftHandle.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "ArrowLeft",
+          }),
+        );
+      });
+
+      const overlay = getRequiredElement(
+        rootElement,
+        '[data-testid="workspace-layout-v2-merge-debug-overlay"]',
+      );
+      const commitZone = getRequiredElement(
+        overlay,
+        '[data-testid="workspace-layout-v2-merge-debug-commit-zone"]',
+      );
+      const resizeZone = getRequiredElement(
+        overlay,
+        '[data-testid="workspace-layout-v2-merge-debug-resize-zone"]',
+      );
+      const commitMarker = getRequiredElement(
+        overlay,
+        '[data-testid="workspace-layout-v2-merge-debug-commit-marker"]',
+      );
+      const minMarker = getRequiredElement(
+        overlay,
+        '[data-testid="workspace-layout-v2-merge-debug-min-marker"]',
+      );
+      const startMarker = getRequiredElement(
+        overlay,
+        '[data-testid="workspace-layout-v2-merge-debug-start-marker"]',
+      );
+
+      expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-side")).toBe("left");
+      expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-start-width")).toBe("240");
+      expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-commit-width")).toBe("192");
+      expect(overlay.getAttribute("data-workspace-layout-v2-merge-debug-min-width")).toBe("96");
+      expect(commitZone.style.left).toBe("0px");
+      expect(commitZone.style.width).toBe("192px");
+      expect(resizeZone.style.left).toBe("192px");
+      expect(resizeZone.style.width).toBe("48px");
+      expect(commitMarker.style.left).toBe("192px");
+      expect(minMarker.style.left).toBe("96px");
+      expect(startMarker.style.left).toBe("240px");
+
+      act(() => {
+        vi.advanceTimersByTime(121);
+      });
+
+      expect(
+        rootElement.querySelector('[data-testid="workspace-layout-v2-merge-debug-overlay"]'),
+      ).toBeNull();
     } finally {
       vi.useRealTimers();
     }
