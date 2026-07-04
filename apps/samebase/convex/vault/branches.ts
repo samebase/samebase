@@ -22,6 +22,7 @@ import {
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
+const REMOTE_BRANCH_MISSING_LAST_COMMIT_AT_SORT_RANK = Number.MAX_SAFE_INTEGER;
 
 export function compareRemoteBranchSortOrder(
   left: {
@@ -52,6 +53,25 @@ export function compareRemoteBranchSortOrder(
     return rightLastCommitAt - leftLastCommitAt;
   }
   return left.name.localeCompare(right.name);
+}
+
+export function buildRemoteBranchSortFields(branch: {
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+  lastCommitAt?: number;
+}): {
+  defaultRank: number;
+  stateRank: number;
+  commitRank: number;
+} {
+  return {
+    defaultRank: branch.isDefault ? 0 : 1,
+    stateRank: branch.remoteState === "active" ? 0 : 1,
+    commitRank:
+      branch.lastCommitAt === undefined
+        ? REMOTE_BRANCH_MISSING_LAST_COMMIT_AT_SORT_RANK
+        : -branch.lastCommitAt,
+  };
 }
 
 type BranchStagingChangeCandidate = StagedFileChangeCandidate;
@@ -450,6 +470,9 @@ export const syncVaultRemoteBranches = internalMutation({
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
+          defaultRank: number;
+          stateRank: number;
+          commitRank: number;
           deletedUpstreamAt?: number;
           lastSyncedAt: number;
         } = {
@@ -458,6 +481,11 @@ export const syncVaultRemoteBranches = internalMutation({
           isDefault: branch.isDefault,
           isProtected: branch.isProtected,
           remoteState: "active",
+          ...buildRemoteBranchSortFields({
+            isDefault: branch.isDefault,
+            remoteState: "active",
+            lastCommitAt: nextLastCommitAt,
+          }),
           deletedUpstreamAt: undefined,
           lastSyncedAt: args.syncedAt,
         };
@@ -500,6 +528,9 @@ export const syncVaultRemoteBranches = internalMutation({
         isDefault: boolean;
         isProtected: boolean;
         remoteState: "active";
+        defaultRank: number;
+        stateRank: number;
+        commitRank: number;
         deletedUpstreamAt?: number;
         lastSyncedAt: number;
       } = {
@@ -510,6 +541,11 @@ export const syncVaultRemoteBranches = internalMutation({
         isDefault: branch.isDefault,
         isProtected: branch.isProtected,
         remoteState: "active",
+        ...buildRemoteBranchSortFields({
+          isDefault: branch.isDefault,
+          remoteState: "active",
+          lastCommitAt: branch.lastCommitAt,
+        }),
         deletedUpstreamAt: undefined,
         lastSyncedAt: args.syncedAt,
       };
@@ -544,6 +580,11 @@ export const syncVaultRemoteBranches = internalMutation({
       await ctx.db.patch(branch._id, {
         isDefault: false,
         remoteState: "deleted_upstream",
+        ...buildRemoteBranchSortFields({
+          isDefault: false,
+          remoteState: "deleted_upstream",
+          lastCommitAt: branch.lastCommitAt,
+        }),
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
       });

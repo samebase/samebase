@@ -1966,6 +1966,9 @@ describe("vault dashboard Convex contract", () => {
         isDefault: true,
         isProtected: false,
         remoteState: "active",
+        defaultRank: 0,
+        stateRank: 0,
+        commitRank: Number.MAX_SAFE_INTEGER,
         lastSyncedAt: 6,
       });
       await ctx.db.insert("vaultBranchTrees", {

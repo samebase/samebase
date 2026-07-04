@@ -73,6 +73,9 @@ async function seedOwnedResources(role: SeedViewerRole = "member") {
       isDefault: true,
       isProtected: false,
       remoteState: "active",
+      defaultRank: 0,
+      stateRank: 0,
+      commitRank: Number.MAX_SAFE_INTEGER,
       lastSyncedAt: 5,
     });
     await ctx.db.insert("vaultBranchTrees", {

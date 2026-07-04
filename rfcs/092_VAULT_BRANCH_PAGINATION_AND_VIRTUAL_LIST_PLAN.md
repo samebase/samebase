@@ -159,7 +159,7 @@ constraints:
 
 | Decision                    | Current direction                                                                                                                   | Status |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Branch sort fields          | Add derived indexable fields on `vaultRemoteBranches` and backfill them before switching the paginated query to production.         | Open   |
+| Branch sort fields          | Required derived rank fields and the future pagination index are implemented; existing vaults can be deleted/recreated if needed.   | Closed |
 | Hidden-label filtering      | Keep the UI contract, but decide whether exact server pagination needs denormalized label rows, bounded scanning, or a changed UX.  | Open   |
 | Filter count semantics      | Keep full-catalog filter options; decide whether the header shows exact filtered totals, loaded counts, or no count during rollout. | Open   |
 | Scrollport ownership        | Prefer the existing dashboard/page scrollport and virtualize within it; add a nested list scroller only with an explicit reason.    | Open   |
@@ -193,34 +193,37 @@ Validation:
 
 ### Phase 2: Add Indexable Branch Sort Fields
 
+Status: Implemented.
+
 Goal: make the current branch sort order expressible through a Convex index.
 
-Use a widen-migrate-narrow workflow:
+This rollout deliberately does not preserve old `vaultRemoteBranches` rows. Samebase currently has
+one operator-user, and existing vaults can be deleted/recreated instead of carrying backfill code.
 
-1. Widen: add optional derived sort fields to `vaultRemoteBranches`.
-2. Dual write: update branch sync/upsert paths to write the new fields for all new and refreshed
-   branch rows.
-3. Dual read: keep old read paths working while the fields are optional.
-4. Backfill: run a batched Convex migration for existing branch rows.
-5. Verify: confirm no branch row is missing the new fields.
-6. Narrow: make the fields required only after production data is migrated and the paginated query
-   no longer needs old-shape compatibility.
+Implemented behavior:
 
-Candidate fields:
+- `vaultRemoteBranches` requires the derived rank fields.
+- Branch sync/upsert writes the rank fields for new active rows, refreshed active rows, and
+  deleted-upstream transitions.
+- The selected-vault branch query still uses the old collect-and-sort read path until Phase 3
+  switches to paginated indexed reads.
 
-- `sortDefaultRank`: `0` for the default branch, `1` otherwise
-- `sortRemoteStateRank`: `0` for active branches, `1` for deleted-upstream branches
-- `sortLastCommitAtRank`: numeric descending commit-time rank with a stable fallback
+Implemented fields:
+
+- `defaultRank`: `0` for the default branch, `1` otherwise
+- `stateRank`: `0` for active branches, `1` for deleted-upstream branches
+- `commitRank`: negative commit timestamp for descending commit-time order, or
+  `Number.MAX_SAFE_INTEGER` when `lastCommitAt` is missing so missing timestamps sort last
 - `name`: existing tie-breaker
 
-Candidate index:
+Implemented index:
 
 ```ts
-.index("by_vault_and_dashboard_sort", [
+.index("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", [
   "vaultId",
-  "sortDefaultRank",
-  "sortRemoteStateRank",
-  "sortLastCommitAtRank",
+  "defaultRank",
+  "stateRank",
+  "commitRank",
   "name",
 ])
 ```
@@ -228,8 +231,9 @@ Candidate index:
 Validation:
 
 - Convex unit tests prove the derived sort fields match `compareRemoteBranchSortOrder`.
-- Migration dry-run and migration status prove all existing rows are backfilled.
-- The old selected-vault branch query still works during the migration window.
+- Convex integration tests prove branch sync writes ranks on insert, preserves commit-time ranks
+  when GitHub omits an unchanged timestamp, and rewrites ranks when a row becomes deleted-upstream.
+- The old selected-vault branch query still works until Phase 3 replaces it.
 
 ### Phase 3: Introduce The Paginated Branch Query
 

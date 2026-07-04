@@ -223,6 +223,158 @@ describe("vault branch mutations", () => {
     });
   });
 
+  it("writes required indexable branch sort fields", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/branch-sort-fields",
+        trigger: "create",
+        state: "succeeded",
+        currentStep: "finish",
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: 3,
+      });
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "create_repository",
+        runId,
+        ghRepoId: "456",
+        owner: "ada",
+        name: "branch-sort-fields",
+        defaultBranch: "main",
+        visibility: "private",
+        connectedAt: 4,
+      });
+      return { userId, vaultId };
+    });
+
+    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
+      vaultId: ids.vaultId,
+      syncedAt: 20,
+      branches: [
+        {
+          name: "legacy",
+          headCommitSha: "legacy-sha",
+          lastCommitAt: 50,
+          aheadBehindState: "preserve",
+          pullRequestState: "preserve",
+          isDefault: false,
+          isProtected: false,
+        },
+        {
+          name: "main",
+          headCommitSha: "main-sha",
+          lastCommitAt: 100,
+          aheadBehindState: "unavailable",
+          pullRequestState: "preserve",
+          isDefault: true,
+          isProtected: true,
+        },
+        {
+          name: "feature/no-commit",
+          headCommitSha: "feature-sha",
+          aheadBehindState: "unavailable",
+          pullRequestState: "preserve",
+          isDefault: false,
+          isProtected: false,
+        },
+      ],
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("fileStaging", {
+        ownerId: ids.userId,
+        vaultId: ids.vaultId,
+        fileDeleted: false,
+        filePath: "README.md",
+        initialFilePath: "README.md",
+        content: "changed",
+        initialContent: "original",
+        parentCommitSha: "feature-sha",
+        lastEditTime: 21,
+        lastEditUserId: ids.userId,
+        branch: "feature/no-commit",
+        version: 1,
+      });
+    });
+    await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
+      vaultId: ids.vaultId,
+      syncedAt: 30,
+      branches: [
+        {
+          name: "legacy",
+          headCommitSha: "legacy-sha",
+          aheadBehindState: "preserve",
+          pullRequestState: "preserve",
+          isDefault: false,
+          isProtected: false,
+        },
+        {
+          name: "main",
+          headCommitSha: "main-sha",
+          aheadBehindState: "unavailable",
+          pullRequestState: "preserve",
+          isDefault: true,
+          isProtected: true,
+        },
+      ],
+    });
+
+    await expect(
+      t.run(async (ctx) => {
+        const branches = await ctx.db
+          .query("vaultRemoteBranches")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .collect();
+        return branches
+          .map((branch) => ({
+            name: branch.name,
+            remoteState: branch.remoteState,
+            defaultRank: branch.defaultRank,
+            stateRank: branch.stateRank,
+            commitRank: branch.commitRank,
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name));
+      }),
+    ).resolves.toEqual([
+      {
+        name: "feature/no-commit",
+        remoteState: "deleted_upstream",
+        defaultRank: 1,
+        stateRank: 1,
+        commitRank: Number.MAX_SAFE_INTEGER,
+      },
+      {
+        name: "legacy",
+        remoteState: "active",
+        defaultRank: 1,
+        stateRank: 0,
+        commitRank: -50,
+      },
+      {
+        name: "main",
+        remoteState: "active",
+        defaultRank: 0,
+        stateRank: 0,
+        commitRank: -100,
+      },
+    ]);
+  });
+
   it("requires vault ownership before optimistic tree refresh writes", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
