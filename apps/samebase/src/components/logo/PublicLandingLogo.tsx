@@ -125,7 +125,7 @@ export function PublicLandingLogo({
     loadInteractiveScene ? cachedLandingLogoScene : null,
   );
   const [didSceneFail, setDidSceneFail] = useState(() => didLandingLogoSceneRenderFail);
-  const [initialView] = useState<RotatedLogoViewState>(() =>
+  const [defaultView, setDefaultView] = useState<RotatedLogoViewState>(() =>
     readRotatedLogoViewState({
       defaultView: DEFAULT_LANDING_LOGO_VIEW,
       key: viewStateKey,
@@ -135,12 +135,12 @@ export function PublicLandingLogo({
   const routeState = useMemo(
     () =>
       readLogoRouteRenderState({
-        defaultView: initialView,
+        defaultView,
         enableViewSnapping,
         routeSearch,
         snapFallbackView: false,
       }),
-    [enableViewSnapping, initialView, routeSearch],
+    [defaultView, enableViewSnapping, routeSearch],
   );
   const logoTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const { backgroundColor, faceColors } = logoTheme;
@@ -197,6 +197,20 @@ export function PublicLandingLogo({
       persistence: viewStatePersistence,
       view: latestViewRef.current,
     });
+  }, [viewStateKey, viewStatePersistence]);
+  const commitLatestLogoView = useCallback(() => {
+    const nextDefaultView = latestViewRef.current;
+    persistRotatedLogoViewState({
+      key: viewStateKey,
+      persistence: viewStatePersistence,
+      view: nextDefaultView,
+    });
+    setDefaultView((currentDefaultView) =>
+      currentDefaultView.elevationDegrees === nextDefaultView.elevationDegrees &&
+      currentDefaultView.rotationDegrees === nextDefaultView.rotationDegrees
+        ? currentDefaultView
+        : nextDefaultView,
+    );
   }, [viewStateKey, viewStatePersistence]);
 
   useLayoutEffect(() => {
@@ -446,7 +460,7 @@ export function PublicLandingLogo({
                     view: latestViewRef.current,
                   }),
                 );
-                persistLatestLogoView();
+                commitLatestLogoView();
                 if (!isAutoRotateRequested) {
                   return;
                 }

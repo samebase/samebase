@@ -11,6 +11,8 @@ import { LOGO_SECONDARY_LEFT_FACE_STYLE } from "@/components/logo/logoLeftFaceSt
 import { STATIC_LOGO_GRID_SIZE } from "@/components/logo/logoStaticSvgContract";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import {
+  DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_ROTATION_DEGREES,
   LOGO_GRID_SIZE_2,
   createFilledVoxelSet,
   createLogoFractalVoxelGrid,
@@ -23,6 +25,29 @@ import {
 } from "@/lib/publicLandingLogoPrehydration";
 import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
+import { type LogoRouteSearch } from "@/routeSearch/logo";
+
+type MockLandingLogoSceneProps = {
+  elevationDegrees: number;
+  onInteractionEnd?: () => void;
+  onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
+  rotationDegrees: number;
+};
+
+const { latestLandingLogoSceneProps } = vi.hoisted<{
+  latestLandingLogoSceneProps: { current: MockLandingLogoSceneProps | null };
+}>(() => ({
+  latestLandingLogoSceneProps: {
+    current: null,
+  },
+}));
+
+vi.mock("@/components/logo/NLogoScene", () => ({
+  NLogoScene: (props: MockLandingLogoSceneProps) => {
+    latestLandingLogoSceneProps.current = props;
+    return <div data-testid="mock-public-landing-logo-scene" />;
+  },
+}));
 
 const { act } = React;
 function installLocalStorageStub() {
@@ -51,6 +76,23 @@ function installLocalStorageStub() {
   Object.defineProperty(window, "localStorage", {
     configurable: true,
     value: localStorageStub,
+  });
+}
+
+function installImmediateIdleCallback() {
+  Object.defineProperty(window, "requestIdleCallback", {
+    configurable: true,
+    value: (callback: IdleRequestCallback): number => {
+      callback({
+        didTimeout: false,
+        timeRemaining: () => 50,
+      });
+      return 1;
+    },
+  });
+  Object.defineProperty(window, "cancelIdleCallback", {
+    configurable: true,
+    value: () => {},
   });
 }
 
@@ -124,6 +166,15 @@ describe("PublicLandingLogo", () => {
     clearPublicLandingLogoStaticFallbackPrehydration();
     window.history.replaceState(null, "", "/");
     window.localStorage.clear();
+    latestLandingLogoSceneProps.current = null;
+    Object.defineProperty(window, "requestIdleCallback", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(window, "cancelIdleCallback", {
+      configurable: true,
+      value: undefined,
+    });
     vi.unstubAllGlobals();
   });
 
@@ -175,6 +226,79 @@ describe("PublicLandingLogo", () => {
         faceColors: defaultLogoTheme.faceColors,
       })}#${defaultLogoTheme.cacheKey}:${STATIC_LOGO_GRID_SIZE}:1:1`,
     );
+  });
+
+  it("keeps cleared route view at the committed default instead of mount-time device view", async () => {
+    installImmediateIdleCallback();
+    window.localStorage.setItem(
+      "samebase:logo-view:dashboard-empty",
+      JSON.stringify({
+        elevationDegrees: 56.3,
+        rotationDegrees: 180,
+      }),
+    );
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+    const replacedSearches: LogoRouteSearch[] = [];
+    const renderLogo = (routeSearch: LogoRouteSearch) => {
+      localRoot.render(
+        <PublicLandingLogo
+          replaceRouteSearch={(nextSearch) => {
+            replacedSearches.push(nextSearch);
+          }}
+          routeSearch={routeSearch}
+          viewStatePersistence="device"
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+      );
+    };
+
+    await act(async () => {
+      renderLogo({
+        elev: 56.3,
+        rot: 180,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const sceneProps = latestLandingLogoSceneProps.current;
+    if (sceneProps === null) {
+      throw new Error("Expected mocked logo scene props.");
+    }
+
+    await act(async () => {
+      sceneProps.onViewChange({
+        elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+        rotationDegrees: DEFAULT_ROTATION_DEGREES,
+      });
+    });
+
+    await act(async () => {
+      sceneProps.onInteractionEnd?.();
+    });
+
+    const replacedSearch = replacedSearches[0];
+    expect(replacedSearch).toEqual({});
+    expect("elev" in replacedSearch).toBe(true);
+    expect(replacedSearch.elev).toBeUndefined();
+    expect("rot" in replacedSearch).toBe(true);
+    expect(replacedSearch.rot).toBeUndefined();
+
+    await act(async () => {
+      renderLogo({});
+      await Promise.resolve();
+    });
+
+    const finalSceneProps = latestLandingLogoSceneProps.current;
+    if (finalSceneProps === null) {
+      throw new Error("Expected mocked logo scene props after cleared route search.");
+    }
+    expect(finalSceneProps.elevationDegrees).toBe(DEFAULT_ELEVATION_DEGREES);
+    expect(finalSceneProps.rotationDegrees).toBe(DEFAULT_ROTATION_DEGREES);
   });
 
   it("reveals the query-aware static fallback after prehydration suppression when the scene is disabled", async () => {
