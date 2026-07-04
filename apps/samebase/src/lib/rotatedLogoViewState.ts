@@ -106,11 +106,20 @@ function readStoredRotatedLogoViewState(key: RotatedLogoViewStateKey) {
   }
 }
 
-export function cacheRotatedLogoViewState(
-  key: RotatedLogoViewStateKey,
-  view: RotatedLogoViewState,
-) {
-  cachedRotatedLogoViewStateByKey[key] = normalizeRotatedLogoViewState(view);
+export function clearRotatedLogoViewStates() {
+  cachedRotatedLogoViewStateByKey = {};
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  for (const storageKey of Object.values(STORAGE_KEY_BY_ROTATED_LOGO_VIEW_STATE_KEY)) {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      return;
+    }
+  }
 }
 
 export function persistRotatedLogoViewState(args: WriteRotatedLogoViewStateArgs) {
