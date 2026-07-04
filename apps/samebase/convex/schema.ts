@@ -484,9 +484,9 @@ export default defineSchema({
     isDefault: boolean(),
     isProtected: boolean(),
     remoteState: vVaultRemoteBranchState,
-    defaultRank: optional(number()),
-    stateRank: optional(number()),
-    commitRank: optional(number()),
+    defaultRank: number(),
+    stateRank: number(),
+    commitRank: number(),
     deletedUpstreamAt: optional(number()),
     lastSyncedAt: number(),
   })

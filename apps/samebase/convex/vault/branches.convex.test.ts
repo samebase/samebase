@@ -223,7 +223,7 @@ describe("vault branch mutations", () => {
     });
   });
 
-  it("writes and backfills indexable branch sort fields", async () => {
+  it("writes required indexable branch sort fields", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -260,68 +260,7 @@ describe("vault branch mutations", () => {
         visibility: "private",
         connectedAt: 4,
       });
-      const legacyBranchId = await ctx.db.insert("vaultRemoteBranches", {
-        vaultId,
-        name: "legacy",
-        headCommitSha: "legacy-sha",
-        lastCommitAt: 50,
-        isDefault: false,
-        isProtected: false,
-        remoteState: "active",
-        lastSyncedAt: 5,
-      });
-      return { userId, vaultId, legacyBranchId };
-    });
-
-    await expect(
-      t.query(internal.vault.branches.checkVaultRemoteBranchSortFieldsBackfill, {
-        batchSize: 10,
-      }),
-    ).resolves.toMatchObject({
-      scanned: 1,
-      missingBranchIds: [ids.legacyBranchId],
-      isDone: true,
-    });
-    await expect(
-      t.mutation(internal.vault.branches.backfillVaultRemoteBranchSortFieldsBatch, {
-        batchSize: 10,
-        dryRun: true,
-      }),
-    ).resolves.toMatchObject({
-      scanned: 1,
-      patched: 1,
-      isDone: true,
-      dryRun: true,
-    });
-    await expect(
-      t.run(async (ctx) => {
-        const branch = await ctx.db.get(ids.legacyBranchId);
-        return branch?.defaultRank;
-      }),
-    ).resolves.toBeNull();
-    await expect(
-      t.mutation(internal.vault.branches.backfillVaultRemoteBranchSortFieldsBatch, {
-        batchSize: 10,
-      }),
-    ).resolves.toMatchObject({
-      scanned: 1,
-      patched: 1,
-      isDone: true,
-      dryRun: false,
-    });
-    await expect(
-      t.run(async (ctx) => {
-        const branch = await ctx.db.get(ids.legacyBranchId);
-        return {
-          defaultRank: branch?.defaultRank,
-          stateRank: branch?.stateRank,
-          commitRank: branch?.commitRank,
-        };
-      }),
-    ).resolves.toEqual({
-      defaultRank: 1,
-      stateRank: 0,
-      commitRank: -50,
+      return { userId, vaultId };
     });
 
     await t.mutation(internal.vault.branches.syncVaultRemoteBranches, {
@@ -331,6 +270,7 @@ describe("vault branch mutations", () => {
         {
           name: "legacy",
           headCommitSha: "legacy-sha",
+          lastCommitAt: 50,
           aheadBehindState: "preserve",
           pullRequestState: "preserve",
           isDefault: false,

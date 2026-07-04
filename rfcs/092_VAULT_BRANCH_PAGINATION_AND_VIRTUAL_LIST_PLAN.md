@@ -159,7 +159,7 @@ constraints:
 
 | Decision                    | Current direction                                                                                                                   | Status |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Branch sort fields          | Added optional derived rank fields and a future pagination index; production backfill/verification remains before query cutover.    | Active |
+| Branch sort fields          | Required derived rank fields and the future pagination index are implemented; existing vaults can be deleted/recreated if needed.   | Closed |
 | Hidden-label filtering      | Keep the UI contract, but decide whether exact server pagination needs denormalized label rows, bounded scanning, or a changed UX.  | Open   |
 | Filter count semantics      | Keep full-catalog filter options; decide whether the header shows exact filtered totals, loaded counts, or no count during rollout. | Open   |
 | Scrollport ownership        | Prefer the existing dashboard/page scrollport and virtualize within it; add a nested list scroller only with an explicit reason.    | Open   |
@@ -193,21 +193,20 @@ Validation:
 
 ### Phase 2: Add Indexable Branch Sort Fields
 
-Status: Code implemented for the widen, dual-write, and backfill-tooling step. Production backfill
-and the later schema narrow remain pending.
+Status: Implemented.
 
 Goal: make the current branch sort order expressible through a Convex index.
 
-Use a widen-migrate-narrow workflow:
+This rollout deliberately does not preserve old `vaultRemoteBranches` rows. Samebase currently has
+one operator-user, and existing vaults can be deleted/recreated instead of carrying backfill code.
 
-1. Widen: add optional derived sort fields to `vaultRemoteBranches`.
-2. Dual write: update branch sync/upsert paths to write the new fields for all new and refreshed
-   branch rows.
-3. Dual read: keep old read paths working while the fields are optional.
-4. Backfill: run a batched Convex migration for existing branch rows.
-5. Verify: confirm no branch row is missing the new fields.
-6. Narrow: make the fields required only after production data is migrated and the paginated query
-   no longer needs old-shape compatibility.
+Implemented behavior:
+
+- `vaultRemoteBranches` requires the derived rank fields.
+- Branch sync/upsert writes the rank fields for new active rows, refreshed active rows, and
+  deleted-upstream transitions.
+- The selected-vault branch query still uses the old collect-and-sort read path until Phase 3
+  switches to paginated indexed reads.
 
 Implemented fields:
 
@@ -229,19 +228,12 @@ Implemented index:
 ])
 ```
 
-Backfill functions:
-
-- `internal.vault.branches.backfillVaultRemoteBranchSortFieldsBatch`
-- `internal.vault.branches.checkVaultRemoteBranchSortFieldsBackfill`
-
 Validation:
 
 - Convex unit tests prove the derived sort fields match `compareRemoteBranchSortOrder`.
-- The backfill batch supports `dryRun: true`, patches only rows whose derived values are missing or
-  stale, and schedules the next batch only for real mutation runs.
-- The check query scans bounded pages so production verification can prove no existing rows are
-  missing the derived fields before Phase 3 switches reads to the index.
-- The old selected-vault branch query still works during the migration window.
+- Convex integration tests prove branch sync writes ranks on insert, preserves commit-time ranks
+  when GitHub omits an unchanged timestamp, and rewrites ranks when a row becomes deleted-upstream.
+- The old selected-vault branch query still works until Phase 3 replaces it.
 
 ### Phase 3: Introduce The Paginated Branch Query
 
