@@ -19,6 +19,7 @@ import { VaultProvisioningLogViewer } from "@/components/vault-dashboard/VaultPr
 import { buildVaultBranchSectionState } from "@/components/vault-dashboard/VaultDashboardBranchSectionState";
 import {
   VaultBranchHeaderControls,
+  VaultBranchSection,
   VaultBranchLinkRow,
   VaultDashboardView,
   VaultDashboardAppRootDialog,
@@ -36,6 +37,7 @@ import {
 } from "@/components/vault-dashboard/VaultDashboard";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
 import {
+  filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
   type VaultBranchFilters,
 } from "@/components/vault-dashboard/vaultDashboardBranchFilters";
@@ -55,6 +57,7 @@ export type VaultDashboardVisualMode =
   | "vault-dashboard-cloudflare-github-app-auth-failure"
   | "vault-dashboard-provisioning-log"
   | "vault-dashboard-sticky-header"
+  | "vault-dashboard-large-branch-list"
   | "vault-dashboard-root-picker"
   | "vault-dashboard-sidebar-list"
   | "vault-dashboard-list-spacing"
@@ -67,6 +70,8 @@ export type VaultDashboardVisualMode =
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
 const FIXTURE_ROOT_ROUTE_SEARCH = validateRootRouteSearch({});
+
+function ignoreFixtureLoadMore(_numItems: number): void {}
 
 type FixtureRefreshCountState = {
   refreshCount: number;
@@ -590,6 +595,20 @@ const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 
   }),
 }));
 
+const LARGE_BRANCH_COUNT = 1000;
+const LARGE_BRANCH_INITIAL_PAGE_SIZE = 25;
+const LARGE_BRANCHES: FixtureVaultBranch[] = Array.from(
+  { length: LARGE_BRANCH_COUNT },
+  (_, index) =>
+    fixtureVaultBranch({
+      name: index === 0 ? "main" : `codex/large-branch-${String(index).padStart(4, "0")}`,
+      headCommitSha: index.toString(16).padStart(40, "0"),
+      isDefault: index === 0,
+      aheadBy: index === 0 ? 0 : index % 5,
+      behindBy: index === 0 ? 0 : index % 3,
+    }),
+);
+
 function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisualMode }) {
   const [vaultBranchFilters, setVaultBranchFilters] = useState(() =>
     getDefaultVaultBranchFilters(),
@@ -618,8 +637,18 @@ function VaultDashboardListSpacingFixture({ mode }: { mode: VaultDashboardVisual
           now={FIXTURE_NOW}
           viewModel={{
             vaults: [LIST_SPACING_VAULT],
-            remoteBranchesByVaultId: new Map([
+            remoteBranchCatalogByVaultId: new Map([
               [LIST_SPACING_VAULT_ID, LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch)],
+            ]),
+            remoteBranchPagesByVaultId: new Map([
+              [
+                LIST_SPACING_VAULT_ID,
+                {
+                  remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                  status: "Exhausted",
+                  loadMore: ignoreFixtureLoadMore,
+                },
+              ],
             ]),
             stagedBranchSummariesByVaultId: new Map(),
           }}
@@ -678,10 +707,20 @@ function VaultDashboardSidebarListFixture({ mode }: { mode: VaultDashboardVisual
             now={FIXTURE_NOW}
             viewModel={{
               vaults: selectedVaults,
-              remoteBranchesByVaultId: new Map([
+              remoteBranchCatalogByVaultId: new Map([
                 [
                   SIDEBAR_LIST_SELECTED_VAULT_ID,
                   LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                ],
+              ]),
+              remoteBranchPagesByVaultId: new Map([
+                [
+                  SIDEBAR_LIST_SELECTED_VAULT_ID,
+                  {
+                    remoteBranches: LIST_SPACING_BRANCHES.map((branchRow) => branchRow.branch),
+                    status: "Exhausted",
+                    loadMore: ignoreFixtureLoadMore,
+                  },
                 ],
               ]),
               stagedBranchSummariesByVaultId: new Map(),
@@ -1629,6 +1668,7 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
 }
 
 function VaultDashboardStickyHeaderFixture() {
+  const [resourceLinksOpen, setResourceLinksOpen] = useState(false);
   const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map((branchRow) => branchRow.branch);
   const stickyHeaderFilters = {
     hiddenLabels: ["hidden"],
@@ -1656,8 +1696,8 @@ function VaultDashboardStickyHeaderFixture() {
               isReady={true}
               repositoryName="samebase"
               repositoryLinks={<FixtureRepositoryLinks />}
-              repositoryLinksOpen={false}
-              onRepositoryLinksOpenChange={() => {}}
+              repositoryLinksOpen={resourceLinksOpen}
+              onRepositoryLinksOpenChange={setResourceLinksOpen}
               topRightAction={<FixtureDeleteControl />}
               repositoryStatus={<span data-testid="sticky-header-status">Updated 12s ago</span>}
               headerControls={
@@ -1671,19 +1711,91 @@ function VaultDashboardStickyHeaderFixture() {
                 />
               }
               branchSection={
-                <div className="-mx-4 overflow-hidden border bg-muted">
-                  {branchSectionState.filteredRemoteBranches.map((branch) => (
-                    <VaultBranchLinkRow
-                      key={branch.name}
-                      vaultId={fakeVaultId()}
-                      repositoryFullName="samebase/samebase"
-                      branch={branch}
-                    />
-                  ))}
-                </div>
+                <VaultBranchSection
+                  filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                  loadMore={ignoreFixtureLoadMore}
+                  paginationStatus="Exhausted"
+                  repositoryFullName="samebase/samebase"
+                  remoteBranches={branchSectionState.filteredRemoteBranches}
+                  schemaGraphAccessEnabled={false}
+                  stagedSummaries={[]}
+                  vaultId={fakeVaultId()}
+                />
               }
             />
           </VaultDashboardRepositoryList>
+        </div>
+      }
+    />
+  );
+}
+
+function VaultDashboardLargeBranchListFixture() {
+  const [loadedBranchCount, setLoadedBranchCount] = useState(LARGE_BRANCH_INITIAL_PAGE_SIZE);
+  const loadMoreLargeBranches = useCallback((numItems: number) => {
+    setLoadedBranchCount((currentCount) => Math.min(currentCount + numItems, LARGE_BRANCH_COUNT));
+  }, []);
+  const largeBranchFilters = getDefaultVaultBranchFilters();
+  const branchSectionState = buildVaultBranchSectionState({
+    filters: largeBranchFilters,
+    remoteBranches: LARGE_BRANCHES,
+  });
+  const loadedLargeBranches = LARGE_BRANCHES.slice(0, loadedBranchCount);
+  const filteredLoadedLargeBranches = filterVaultRemoteBranches(
+    loadedLargeBranches,
+    largeBranchFilters,
+  );
+  const paginationStatus = loadedBranchCount < LARGE_BRANCH_COUNT ? "CanLoadMore" : "Exhausted";
+
+  return (
+    <FixtureDashboardShell
+      rightContent={
+        <VaultDashboardSidebarContent>
+          <div className="mt-auto">
+            <AppSidebarMetaSection linkAlignment="left" />
+          </div>
+        </VaultDashboardSidebarContent>
+      }
+      mainContent={
+        <div className="py-8">
+          <div
+            data-testid="large-branch-pagination-fixture"
+            data-loaded-branch-count={loadedBranchCount}
+            data-total-branch-count={LARGE_BRANCH_COUNT}
+          >
+            <VaultDashboardRepositoryList>
+              <VaultDashboardRepositoryCard
+                isReady={true}
+                repositoryName="samebase"
+                repositoryLinks={<FixtureRepositoryLinks />}
+                repositoryLinksOpen={false}
+                onRepositoryLinksOpenChange={() => {}}
+                topRightAction={<FixtureDeleteControl />}
+                headerControls={
+                  <VaultBranchHeaderControls
+                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                    filterOptions={branchSectionState.filterOptions}
+                    filters={largeBranchFilters}
+                    hiddenBranchCount={branchSectionState.hiddenBranchCount}
+                    onChangeFilters={() => {}}
+                    remoteBranchCount={LARGE_BRANCHES.length}
+                  />
+                }
+                branchSection={
+                  <VaultBranchSection
+                    filteredBranchCount={branchSectionState.filteredRemoteBranches.length}
+                    loadMore={loadMoreLargeBranches}
+                    paginationStatus={paginationStatus}
+                    repositoryFullName="samebase/samebase"
+                    remoteBranches={filteredLoadedLargeBranches}
+                    schemaGraphAccessEnabled={false}
+                    stagedSummaries={[]}
+                    vaultId={fakeVaultId()}
+                  />
+                }
+              />
+            </VaultDashboardRepositoryList>
+          </div>
         </div>
       }
     />
@@ -1802,6 +1914,10 @@ export function VaultDashboardVisualFixture({ mode }: { mode: VaultDashboardVisu
 
   if (mode === "vault-dashboard-sticky-header") {
     return <VaultDashboardStickyHeaderFixture />;
+  }
+
+  if (mode === "vault-dashboard-large-branch-list") {
+    return <VaultDashboardLargeBranchListFixture />;
   }
 
   if (mode === "vault-branch-mobile-alignment") {

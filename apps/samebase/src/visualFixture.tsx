@@ -191,6 +191,7 @@ const VAULT_DASHBOARD_VISUAL_MODES = [
   "vault-dashboard-cloudflare-github-app-auth-failure",
   "vault-dashboard-provisioning-log",
   "vault-dashboard-sticky-header",
+  "vault-dashboard-large-branch-list",
   "vault-dashboard-root-picker",
   "vault-dashboard-sidebar-list",
   "vault-dashboard-list-spacing",
@@ -386,6 +387,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-dashboard-cloudflare-github-app-auth-failure" ||
     mode === "vault-dashboard-provisioning-log" ||
     mode === "vault-dashboard-sticky-header" ||
+    mode === "vault-dashboard-large-branch-list" ||
     mode === "vault-dashboard-root-picker" ||
     mode === "vault-dashboard-sidebar-list" ||
     mode === "vault-dashboard-list-spacing" ||

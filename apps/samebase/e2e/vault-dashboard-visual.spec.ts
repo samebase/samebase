@@ -880,6 +880,52 @@ test("vault dashboard fixture (desktop list spacing)", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("vault dashboard fixture keeps virtual branch offsets after resource links expand", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 520 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-sticky-header");
+
+  const scrollport = page
+    .getByTestId("workspace-layout-v2-main-viewport")
+    .locator("section > div")
+    .nth(1);
+  const header = page.getByTestId("vault-dashboard-repository-header");
+  const branchList = page.locator("[data-vault-dashboard-branch-list]").first();
+  const resourceLinksTrigger = page.getByRole("button", {
+    name: "Show resource links",
+  });
+
+  await scrollport.evaluate((element) => {
+    element.scrollTop = 560;
+  });
+
+  await expect
+    .poll(async () => {
+      const [headerBox, scrollportBox] = await Promise.all([
+        header.boundingBox(),
+        scrollport.boundingBox(),
+      ]);
+      if (headerBox === null || scrollportBox === null) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      return Math.abs(headerBox.y - scrollportBox.y);
+    })
+    .toBeLessThanOrEqual(1);
+
+  const scrollMarginBefore = Number((await branchList.getAttribute("data-scroll-margin")) ?? "0");
+
+  await resourceLinksTrigger.click();
+  await expect(page.getByRole("button", { name: "Hide resource links" })).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      return Number((await branchList.getAttribute("data-scroll-margin")) ?? "0");
+    })
+    .toBeGreaterThan(scrollMarginBefore);
+});
+
 test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   await page.setViewportSize({ width: 960, height: 520 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-sticky-header");
@@ -927,12 +973,62 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (large branch virtual list)", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-large-branch-list");
+
+  const fixture = page.getByTestId("large-branch-pagination-fixture");
+  const scrollport = page
+    .getByTestId("workspace-layout-v2-main-viewport")
+    .locator("section > div")
+    .nth(1);
+  const branchRows = page.locator("[data-vault-dashboard-branch-row]");
+
+  await expect(fixture).toHaveAttribute("data-loaded-branch-count", "25");
+  await expect(fixture).toHaveAttribute("data-total-branch-count", "1000");
+  await expect(page.getByText("codex/large-branch-0001")).toBeVisible();
+  await expect(page.getByText("codex/large-branch-0999")).toHaveCount(0);
+  await expect.poll(async () => branchRows.count()).toBeLessThan(80);
+
+  let loadedBranchCount = 25;
+  for (let attempt = 0; attempt < 50 && loadedBranchCount < 1000; attempt += 1) {
+    await scrollport.evaluate(async (element) => {
+      element.scrollTop = element.scrollHeight;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+      });
+    });
+    await expect
+      .poll(async () => Number((await fixture.getAttribute("data-loaded-branch-count")) ?? "0"), {
+        timeout: 5000,
+      })
+      .toBeGreaterThan(loadedBranchCount);
+    loadedBranchCount = Number((await fixture.getAttribute("data-loaded-branch-count")) ?? "0");
+    await expect.poll(async () => branchRows.count()).toBeLessThan(80);
+  }
+
+  expect(loadedBranchCount).toBe(1000);
+  await expect(fixture).toHaveAttribute("data-loaded-branch-count", "1000");
+
+  await scrollport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(page.getByText("codex/large-branch-0999")).toBeVisible();
+  await expect.poll(async () => branchRows.count()).toBeLessThan(80);
+});
+
 test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 620 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
 
-  await expect(page.getByText("codex/archive-doc-taxonomy")).toBeVisible();
+  await expect(page.getByText("codex/dashboard-main-pane-spacing")).toBeVisible();
   await expect(page.getByRole("button", { name: /Show .* branches/ })).toHaveCount(0);
+  await expect(page.getByText("codex/archive-doc-taxonomy")).toHaveCount(0);
 });
 
 test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
