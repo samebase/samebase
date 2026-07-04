@@ -78,7 +78,6 @@ function WorkspaceLayoutV2MainPaneHeader({
 export function WorkspaceLayoutV2FullPage({
   addressChrome,
   dataTestId,
-  debugMobileMergeResize,
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
@@ -89,7 +88,6 @@ export function WorkspaceLayoutV2FullPage({
 }: {
   addressChrome: ReactNode;
   dataTestId?: string;
-  debugMobileMergeResize?: boolean;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
@@ -109,7 +107,6 @@ export function WorkspaceLayoutV2FullPage({
   return (
     <WorkspaceLayoutV2
       addressChrome={addressChrome}
-      debugMobileMergeResize={debugMobileMergeResize}
       left={left ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined}
       main={
         <WorkspaceLayoutV2PaneFrame

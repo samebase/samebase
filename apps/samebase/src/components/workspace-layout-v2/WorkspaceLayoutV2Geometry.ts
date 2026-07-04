@@ -27,19 +27,6 @@ export type WorkspaceLayoutV2MobileMinResizeBehavior =
 export type WorkspaceLayoutV2MobileMergedSide = "left" | "right";
 export type WorkspaceLayoutV2ActiveResizeSide = "left" | "right" | "top" | null;
 export type WorkspaceLayoutV2MobileSurface = WorkspaceMobileSurface;
-export type WorkspaceLayoutV2MobileMergeDebugGeometry = {
-  commitEdgePositionPx: number;
-  commitSideWidthPx: number;
-  mergeZoneEndPx: number;
-  mergeZoneStartPx: number;
-  minEdgePositionPx: number;
-  minSideWidthPx: number;
-  resizeOnlyZoneEndPx: number;
-  resizeOnlyZoneStartPx: number;
-  side: WorkspaceLayoutV2MobileMergedSide;
-  startEdgePositionPx: number;
-  startSideWidthPx: number;
-};
 export type WorkspaceLayoutV2MobileGrip =
   | { kind: "idle" }
   | {
@@ -140,68 +127,6 @@ export function shouldCommitMobileMergedSurface(args: {
     Math.round(args.sideWidthPx) <=
     Math.round(args.sideMinWidthPx) + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX
   );
-}
-
-function getMobileMergeDebugEdgePositionPx(args: {
-  side: WorkspaceLayoutV2MobileMergedSide;
-  sideWidthPx: number;
-  viewportWidthPx: number;
-}) {
-  if (args.side === "left") {
-    return clampNumber(Math.round(args.sideWidthPx), 0, args.viewportWidthPx);
-  }
-
-  return clampNumber(args.viewportWidthPx - Math.round(args.sideWidthPx), 0, args.viewportWidthPx);
-}
-
-export function getMobileMergeDebugGeometry(args: {
-  side: WorkspaceLayoutV2MobileMergedSide;
-  sideMinWidthPx: number;
-  startSideWidthPx: number;
-  viewportWidthPx: number;
-}): WorkspaceLayoutV2MobileMergeDebugGeometry {
-  const viewportWidthPx = Math.max(1, Math.round(args.viewportWidthPx));
-  const startSideWidthPx = Math.max(0, Math.round(args.startSideWidthPx));
-  const minSideWidthPx = Math.max(0, Math.round(args.sideMinWidthPx));
-  const commitSideWidthPx = minSideWidthPx + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
-  const startEdgePositionPx = getMobileMergeDebugEdgePositionPx({
-    side: args.side,
-    sideWidthPx: startSideWidthPx,
-    viewportWidthPx,
-  });
-  const commitEdgePositionPx = getMobileMergeDebugEdgePositionPx({
-    side: args.side,
-    sideWidthPx: commitSideWidthPx,
-    viewportWidthPx,
-  });
-  const minEdgePositionPx = getMobileMergeDebugEdgePositionPx({
-    side: args.side,
-    sideWidthPx: minSideWidthPx,
-    viewportWidthPx,
-  });
-  const hasResizeOnlyZone = startSideWidthPx > commitSideWidthPx;
-  const mergeZoneStartPx = args.side === "left" ? 0 : commitEdgePositionPx;
-  const mergeZoneEndPx = args.side === "left" ? commitEdgePositionPx : viewportWidthPx;
-  const resizeOnlyZoneStartPx = hasResizeOnlyZone
-    ? Math.min(startEdgePositionPx, commitEdgePositionPx)
-    : startEdgePositionPx;
-  const resizeOnlyZoneEndPx = hasResizeOnlyZone
-    ? Math.max(startEdgePositionPx, commitEdgePositionPx)
-    : startEdgePositionPx;
-
-  return {
-    commitEdgePositionPx,
-    commitSideWidthPx,
-    mergeZoneEndPx,
-    mergeZoneStartPx,
-    minEdgePositionPx,
-    minSideWidthPx,
-    resizeOnlyZoneEndPx,
-    resizeOnlyZoneStartPx,
-    side: args.side,
-    startEdgePositionPx,
-    startSideWidthPx,
-  };
 }
 
 function getOppositeMobileMergedSide(side: WorkspaceLayoutV2MobileMergedSide) {

@@ -21,7 +21,6 @@ import {
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
 import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
-import { WorkspaceLayoutV2MobileMergeDebugOverlay } from "./WorkspaceLayoutV2MobileMergeDebugOverlay";
 import { WorkspaceLayoutV2Viewport } from "./WorkspaceLayoutV2Viewports";
 import {
   getWorkspaceLayoutV2DesktopResizeHandles,
@@ -33,7 +32,6 @@ import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLa
 
 type WorkspaceLayoutV2Props = {
   addressChrome: ReactNode;
-  debugMobileMergeResize?: boolean;
   left?: ReactElement;
   main: ReactElement;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
@@ -76,7 +74,6 @@ function getAvailableMobilePane({
 
 export function WorkspaceLayoutV2({
   addressChrome,
-  debugMobileMergeResize,
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
@@ -155,13 +152,11 @@ export function WorkspaceLayoutV2({
   const mobileGripResize = useWorkspaceLayoutV2MobileGripResizeController({
     activeGripResizeSideRef: activeMobileGripResizeSideRef,
     carouselRef: mobileCarouselRef,
-    debugMobileMergeResize: !!debugMobileMergeResize,
     hasLeftPane,
     hasRightPane,
     isMobile,
     leftWidthPx: mobileLeftWidthPx,
     mobileMinResizeBehavior,
-    mobileSidebarMinWidthPx,
     mobilePane,
     rightWidthPx: mobileRightWidthPx,
     viewportWidthPx: viewportSize.widthPx,
@@ -326,13 +321,6 @@ export function WorkspaceLayoutV2({
           showLeftPane={hasLeftPane}
           showRightPane={hasRightPane}
         />
-        {isMobile &&
-        debugMobileMergeResize &&
-        mobileGripResize.mobileMergeDebugGeometry !== null ? (
-          <WorkspaceLayoutV2MobileMergeDebugOverlay
-            geometry={mobileGripResize.mobileMergeDebugGeometry}
-          />
-        ) : null}
         {isMobile
           ? mobileResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "grip"))
           : desktopResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "edge"))}

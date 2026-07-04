@@ -6,13 +6,11 @@ import {
   WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
   WORKSPACE_LAYOUT_V2_UNMERGED_MOBILE_SURFACE,
   getMergedMobileMainWidthPx,
-  getMobileMergeDebugGeometry,
   getMobileMergeHandoffSide,
   getMobileMinResizeMergeWidthsPx,
   getMobilePaneScrollLeftPx,
   shouldCommitMobileMergedSurface,
   type MobilePane,
-  type WorkspaceLayoutV2MobileMergeDebugGeometry,
   type WorkspaceLayoutV2MobileGrip,
   type WorkspaceLayoutV2MobileMergedSide,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
@@ -33,26 +31,22 @@ import { type WorkspaceLayoutV2ResizeHandleConfig } from "./WorkspaceLayoutV2Res
 export function useWorkspaceLayoutV2MobileGripResizeController({
   activeGripResizeSideRef,
   carouselRef,
-  debugMobileMergeResize,
   hasLeftPane,
   hasRightPane,
   isMobile,
   leftWidthPx,
   mobileMinResizeBehavior,
-  mobileSidebarMinWidthPx,
   mobilePane,
   rightWidthPx,
   viewportWidthPx,
 }: {
   activeGripResizeSideRef: RefObject<"left" | "right" | null>;
   carouselRef: RefObject<HTMLDivElement | null>;
-  debugMobileMergeResize: boolean;
   hasLeftPane: boolean;
   hasRightPane: boolean;
   isMobile: boolean;
   leftWidthPx: number;
   mobileMinResizeBehavior: WorkspaceLayoutV2MobileMinResizeBehavior;
-  mobileSidebarMinWidthPx: number;
   mobilePane: MobilePane;
   rightWidthPx: number;
   viewportWidthPx: number;
@@ -103,35 +97,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     mobileMinResizeBehavior === "min_resize_to_merge" &&
     isMobileMergedFit &&
     !hasOppositePaneForMergedSide;
-  function getCurrentMobileMergeDebugGeometry(): WorkspaceLayoutV2MobileMergeDebugGeometry | null {
-    if (
-      !debugMobileMergeResize ||
-      mobileMinResizeBehavior !== "min_resize_to_merge" ||
-      mobileGrip.kind !== "dragging" ||
-      mobileGrip.mergeTargetSide === null
-    ) {
-      return null;
-    }
-
-    const settledMainWidthPx = getMergedMobileMainWidthPx({
-      mainMaxWidthPx: mobileDefaultPaneWidthPx,
-      mainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
-      sideMinWidthPx: mobileSidebarMinWidthPx,
-      viewportWidthPx,
-    });
-    if (settledMainWidthPx === null) {
-      return null;
-    }
-
-    return getMobileMergeDebugGeometry({
-      side: mobileGrip.mergeTargetSide,
-      sideMinWidthPx: mobileSidebarMinWidthPx,
-      startSideWidthPx: mobileGrip.startSideWidthPx,
-      viewportWidthPx,
-    });
-  }
-
-  const mobileMergeDebugGeometry = getCurrentMobileMergeDebugGeometry();
 
   function setMobileGripState(nextMobileGrip: WorkspaceLayoutV2MobileGrip) {
     mobileGripRef.current = nextMobileGrip;
@@ -505,7 +470,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     isMobileMergedFit,
     lockCarouselScroll,
     mobileDefaultMainWidthPx: mobileDefaultPaneWidthPx,
-    mobileMergeDebugGeometry,
     mobileSurface: activeMobileSurface,
     startResize,
   };

@@ -38,7 +38,6 @@ describe("rootRouteSearch", () => {
         signup: "google",
         "sign-in": "",
         "swipe-debug": "",
-        "merge-debug": "",
         top: "white-base",
       }),
     ).toEqual({
@@ -58,7 +57,6 @@ describe("rootRouteSearch", () => {
       signup: "google",
       "sign-in": true,
       "swipe-debug": true,
-      "merge-debug": true,
       top: "white-base",
     });
   });
@@ -90,7 +88,6 @@ describe("rootRouteSearch", () => {
         "prod-ui": false,
         "sign-in": "false",
         "swipe-debug": "false",
-        "merge-debug": "false",
       }),
     ).toEqual({
       "create-account": true,
@@ -101,7 +98,6 @@ describe("rootRouteSearch", () => {
       "prod-ui": true,
       "sign-in": true,
       "swipe-debug": true,
-      "merge-debug": true,
     });
   });
 
@@ -156,9 +152,8 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("parses the global workspace debug flags", () => {
-    expect(readRootRouteSearch("?swipe-debug&merge-debug")).toEqual({
-      "merge-debug": true,
+  it("parses the global workspace debug flag", () => {
+    expect(readRootRouteSearch("?swipe-debug")).toEqual({
       "swipe-debug": true,
     });
   });
@@ -354,11 +349,11 @@ describe("rootRouteSearch", () => {
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: ["machineId", "threadId"],
         pathname: "/machines",
-        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug&merge-debug&unknownKey=1",
+        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug&unknownKey=1",
         hash: "",
         stripProdUi: false,
       }),
-    ).toBe("/machines?machineId=sample-machine&swipe-debug&merge-debug&prod-ui");
+    ).toBe("/machines?machineId=sample-machine&swipe-debug&prod-ui");
   });
 
   it("strips prod-ui in production canonicalization while preserving accepted route parts", () => {
@@ -366,11 +361,11 @@ describe("rootRouteSearch", () => {
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: ["machineId", "threadId"],
         pathname: "/machines",
-        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug&merge-debug",
+        searchStr: "?prod-ui&machineId=sample-machine&swipe-debug",
         hash: "ready",
         stripProdUi: true,
       }),
-    ).toBe("/machines?machineId=sample-machine&swipe-debug&merge-debug#ready");
+    ).toBe("/machines?machineId=sample-machine&swipe-debug#ready");
   });
 
   it("does not redirect production canonicalization when prod-ui is absent", () => {
@@ -378,7 +373,7 @@ describe("rootRouteSearch", () => {
       readCanonicalRouteAddressForRootSearch({
         acceptedSearchKeys: ["machineId", "threadId"],
         pathname: "/machines",
-        searchStr: "?machineId=sample-machine&swipe-debug&merge-debug",
+        searchStr: "?machineId=sample-machine&swipe-debug",
         hash: "ready",
         stripProdUi: true,
       }),

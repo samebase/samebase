@@ -28,7 +28,6 @@ import {
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPreferences";
-import { isWorkspaceMergeDebugEnabled } from "@/lib/mobileSidebarGestureDebug";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 import type { WorkspaceSidebarState } from "../../convex/workspaceSidebarStateModel";
 
@@ -253,17 +252,9 @@ function AppWorkspaceShellFrame({
   chrome: AppWorkspaceRouteChromeSnapshot | null;
   staticRouteChrome: AppWorkspaceRouteChromeStaticData | null;
 }) {
-  const searchStr = useLocation({
-    select: (location) => location.searchStr,
-  });
   const sidebarState = useAppWorkspaceSidebarState();
   const appRightSidebarPane = useAppRightSidebarPane();
   const headerAccessory = chrome?.headerAccessory;
-  const isLocalDebugHost =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const debugMobileMergeResize =
-    (import.meta.env.DEV || isLocalDebugHost) && isWorkspaceMergeDebugEnabled(searchStr);
   const staticLeftPaneAbsent = staticRouteChrome?.leftPane === "none";
   const staticRightPaneAbsent = staticRouteChrome?.rightPane === "none";
   const mainPane = {
@@ -297,7 +288,6 @@ function AppWorkspaceShellFrame({
         dataTestId={
           chrome?.dataTestId ?? staticRouteChrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID
         }
-        debugMobileMergeResize={debugMobileMergeResize}
         left={leftPane}
         leftToggleVisibility={leftToggleVisibility}
         main={mainPane}

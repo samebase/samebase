@@ -5,10 +5,7 @@ import {
   validateLogoRouteSearch,
   type LogoRouteSearch,
 } from "@/routeSearch/logo";
-import {
-  MOBILE_SIDEBAR_DEBUG_QUERY_PARAM,
-  WORKSPACE_MERGE_DEBUG_QUERY_PARAM,
-} from "@/lib/mobileSidebarGestureDebug";
+import { MOBILE_SIDEBAR_DEBUG_QUERY_PARAM } from "@/lib/mobileSidebarGestureDebug";
 import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
@@ -90,10 +87,6 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     access: "access_public",
     suggestion: "hidden",
   }),
-  [WORKSPACE_MERGE_DEBUG_QUERY_PARAM]: routeSearchPresenceParam({
-    access: "access_public",
-    suggestion: "hidden",
-  }),
   "prod-ui": routeSearchPresenceParam({
     access: "access_public",
     suggestion: "global",
@@ -150,8 +143,6 @@ const rootRouteSearchParamMetadata = {
   light: globalLogoRouteSearchParam("light"),
   [MOBILE_SIDEBAR_DEBUG_QUERY_PARAM]:
     rootRouteSearchOwnParamMetadata[MOBILE_SIDEBAR_DEBUG_QUERY_PARAM],
-  [WORKSPACE_MERGE_DEBUG_QUERY_PARAM]:
-    rootRouteSearchOwnParamMetadata[WORKSPACE_MERGE_DEBUG_QUERY_PARAM],
   primary: globalLogoRouteSearchParam("primary"),
   "prod-ui": rootRouteSearchOwnParamMetadata["prod-ui"],
   [SEARCH_RESET_QUERY_PARAM]: rootRouteSearchOwnParamMetadata[SEARCH_RESET_QUERY_PARAM],
@@ -240,7 +231,6 @@ a caller clears the key with `undefined` or `null` in a route search patch.
 export const RETAINED_ROOT_SEARCH_KEYS = [
   "devtools",
   MOBILE_SIDEBAR_DEBUG_QUERY_PARAM,
-  WORKSPACE_MERGE_DEBUG_QUERY_PARAM,
   ...LOGO_ROUTE_SEARCH_KEYS,
 ] as const satisfies readonly (keyof RootRouteSearch)[];
 
