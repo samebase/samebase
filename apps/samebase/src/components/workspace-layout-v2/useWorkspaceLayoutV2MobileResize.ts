@@ -250,8 +250,6 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
       shouldSettleMergedOnEnd: false,
       side: resizeHandle.side,
       slideOffsetPx: 0,
-      startMainWidthPx:
-        currentSurface.kind === "merged" ? currentSurface.mainWidthPx : mobileDefaultPaneWidthPx,
       startSideWidthPx: resizeHandle.currentWidthPx,
     });
     carouselRef.current?.style.setProperty("scroll-snap-type", "none");
@@ -347,16 +345,13 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
         rawSideWidthPx: rawWidthPx,
         sideMaxWidthPx: resizeHandle.maxWidthPx,
         sideMinWidthPx: resizeHandle.minWidthPx,
-        startMainWidthPx: currentMobileGrip.startMainWidthPx,
-        startSideWidthPx: currentMobileGrip.startSideWidthPx,
         viewportWidthPx,
       });
 
       if (mergeResizeWidths !== null) {
         const shouldSettleMergedOnEnd = shouldCommitMobileMergedSurface({
-          mainDefaultWidthPx: mobileDefaultPaneWidthPx,
-          mainWidthPx: mergeResizeWidths.mainWidthPx,
-          settledMainWidthPx: mergeResizeWidths.settledMainWidthPx,
+          sideMinWidthPx: resizeHandle.minWidthPx,
+          sideWidthPx: mergeResizeWidths.sideWidthPx,
         });
         setMobileGripState({
           ...currentMobileGrip,

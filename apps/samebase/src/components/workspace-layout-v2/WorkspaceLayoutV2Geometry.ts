@@ -6,6 +6,7 @@ export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+export const WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX = 10;
 export const WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
 // Keep default merged fit valid at 320px: side min + main min must fit exactly.
 export const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX =
@@ -35,7 +36,6 @@ export type WorkspaceLayoutV2MobileGrip =
       shouldSettleMergedOnEnd: boolean;
       side: WorkspaceLayoutV2MobileMergedSide;
       slideOffsetPx: number;
-      startMainWidthPx: number;
       startSideWidthPx: number;
     };
 
@@ -89,28 +89,29 @@ export function getMobileMinResizeMergeWidthsPx(args: {
   rawSideWidthPx: number;
   sideMaxWidthPx: number;
   sideMinWidthPx: number;
-  startMainWidthPx: number;
-  startSideWidthPx: number;
   viewportWidthPx: number;
 }) {
   const mergedMainWidthPx = getMergedMobileMainWidthPx(args);
   if (mergedMainWidthPx === null) {
     return null;
   }
-  const resizeDeltaPx = Math.round(args.rawSideWidthPx) - Math.round(args.startSideWidthPx);
+  const sideWidthPx = clampNumber(
+    Math.round(args.rawSideWidthPx),
+    args.sideMinWidthPx,
+    args.sideMaxWidthPx,
+  );
+  const commitSideWidthPx = args.sideMinWidthPx + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
+  const mergeProgress = clampNumber(
+    (commitSideWidthPx - sideWidthPx) / WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX,
+    0,
+    1,
+  );
 
   return {
-    mainWidthPx: clampNumber(
-      Math.round(args.startMainWidthPx) + resizeDeltaPx,
-      mergedMainWidthPx,
-      args.mainMaxWidthPx,
+    mainWidthPx: Math.round(
+      args.mainMaxWidthPx - (args.mainMaxWidthPx - mergedMainWidthPx) * mergeProgress,
     ),
-    settledMainWidthPx: mergedMainWidthPx,
-    sideWidthPx: clampNumber(
-      Math.round(args.rawSideWidthPx),
-      args.sideMinWidthPx,
-      args.sideMaxWidthPx,
-    ),
+    sideWidthPx,
   };
 }
 
@@ -119,11 +120,13 @@ export function getMobileMinResizeMergeWidthsPx(args: {
  * surface or return to the ordinary separate-pane carousel.
  */
 export function shouldCommitMobileMergedSurface(args: {
-  mainDefaultWidthPx: number;
-  mainWidthPx: number;
-  settledMainWidthPx: number;
+  sideMinWidthPx: number;
+  sideWidthPx: number;
 }) {
-  return args.mainWidthPx <= (args.mainDefaultWidthPx + args.settledMainWidthPx) / 2;
+  return (
+    Math.round(args.sideWidthPx) <=
+    Math.round(args.sideMinWidthPx) + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX
+  );
 }
 
 function getOppositeMobileMergedSide(side: WorkspaceLayoutV2MobileMergedSide) {

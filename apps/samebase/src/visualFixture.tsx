@@ -168,7 +168,6 @@ const SIDEBAR_MEDIA_UPLOAD_VISUAL_MODES = [
 
 const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout",
-  "fileview-layout-merge",
   "fileview-layout-persistence",
   "fileview-layout-slide",
 ] as const satisfies readonly FileViewLayoutVisualMode[];
@@ -357,7 +356,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "fileview-layout" ||
-    mode === "fileview-layout-merge" ||
     mode === "fileview-layout-persistence" ||
     mode === "fileview-layout-slide"
   ) {

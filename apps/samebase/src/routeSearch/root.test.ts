@@ -152,7 +152,7 @@ describe("rootRouteSearch", () => {
     });
   });
 
-  it("parses the global swipe debug flag", () => {
+  it("parses the global workspace debug flag", () => {
     expect(readRootRouteSearch("?swipe-debug")).toEqual({
       "swipe-debug": true,
     });

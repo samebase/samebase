@@ -157,15 +157,18 @@ left/main pair should behave as one mobile carousel surface rather than as separ
 `main` snap targets. A single horizontal slide should be able to travel from that merged surface to
 the right side pane.
 
-Only a fitted side/main pair becomes a merged carousel surface. Partial side/main resizing can
-shrink the main pane, but until the two widths fit in the viewport the normal main snap target
-remains available. This keeps ordinary partial sidebar resizing from trapping the user on a side
+Only a fitted side/main pair becomes a merged carousel surface. Ordinary side-pane resizing above
+the merge threshold keeps the main pane at its normal mobile width and keeps the normal main snap
+target available. This keeps ordinary partial sidebar resizing from trapping the user on a side
 surface.
 
-Partial paired geometry is drag state, not a committed post-release layout. On release, the shell
-should settle to the fitted side/main pair when the final main width is closer to the fitted width
-than to the default main width; otherwise it should clear the transient main width and keep the
-ordinary carousel layout.
+Partial paired geometry is drag state, not a committed post-release layout. The main pane keeps its
+ordinary mobile width while the side pane is above the merge threshold. Once the side pane enters
+the merge intent band, the main pane can shrink toward the fitted side/main pair. On release, the
+shell should settle to the fitted pair only from that same band. With the current 96px side-pane
+minimum and 10px merge intent distance, releasing at 106px or below commits the merge; releasing
+above 106px clears the transient main width and keeps the ordinary carousel layout. The merge
+threshold is tied to the side-pane minimum, not to the side pane's starting width.
 
 Once the opposite side pane is selected, the carousel should keep the same virtual surface list. A
 left merge produces `left+main` and `right` surfaces; a right merge produces `left` and `main+right`
