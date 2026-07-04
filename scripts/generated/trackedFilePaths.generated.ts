@@ -903,6 +903,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/vault-dashboard/vaultDashboardBranchFilters.ts",
   "apps/samebase/src/components/vault-dashboard/vaultDashboardBranchRowViewModel.ts",
   "apps/samebase/src/components/vault-dashboard/vaultDashboardCloudflareAccountOptions.ts",
+  "apps/samebase/src/components/vault-dashboard/vaultDashboardScrollport.ts",
   "apps/samebase/src/components/vault-dashboard/vaultProviderSetup.ts",
   "apps/samebase/src/components/vault-dashboard/vaultResourceRailState.ts",
   "apps/samebase/src/components/vault-dashboard/vaultSourceSetup.ts",
