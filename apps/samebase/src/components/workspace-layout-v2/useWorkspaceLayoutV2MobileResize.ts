@@ -124,11 +124,8 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
     }
 
     return getMobileMergeDebugGeometry({
-      mainDefaultWidthPx: mobileDefaultPaneWidthPx,
-      settledMainWidthPx,
       side: mobileGrip.mergeTargetSide,
       sideMinWidthPx: mobileSidebarMinWidthPx,
-      startMainWidthPx: mobileGrip.startMainWidthPx,
       startSideWidthPx: mobileGrip.startSideWidthPx,
       viewportWidthPx,
     });
@@ -392,9 +389,8 @@ export function useWorkspaceLayoutV2MobileGripResizeController({
 
       if (mergeResizeWidths !== null) {
         const shouldSettleMergedOnEnd = shouldCommitMobileMergedSurface({
-          mainDefaultWidthPx: mobileDefaultPaneWidthPx,
-          mainWidthPx: mergeResizeWidths.mainWidthPx,
-          settledMainWidthPx: mergeResizeWidths.settledMainWidthPx,
+          sideMinWidthPx: resizeHandle.minWidthPx,
+          sideWidthPx: mergeResizeWidths.sideWidthPx,
         });
         setMobileGripState({
           ...currentMobileGrip,

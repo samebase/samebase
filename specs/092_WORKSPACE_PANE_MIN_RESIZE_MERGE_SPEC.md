@@ -163,9 +163,11 @@ remains available. This keeps ordinary partial sidebar resizing from trapping th
 surface.
 
 Partial paired geometry is drag state, not a committed post-release layout. On release, the shell
-should settle to the fitted side/main pair when the final main width is closer to the fitted width
-than to the default main width; otherwise it should clear the transient main width and keep the
-ordinary carousel layout.
+should settle to the fitted side/main pair only once the side pane has been resized near its
+minimum. With the current 96px side-pane minimum and 48px merge intent distance, releasing at 144px
+or below commits the merge; releasing above 144px clears the transient main width and keeps the
+ordinary carousel layout. The merge threshold is tied to the side-pane minimum, not to the side
+pane's starting width.
 
 Once the opposite side pane is selected, the carousel should keep the same virtual surface list. A
 left merge produces `left+main` and `right` surfaces; a right merge produces `left` and `main+right`

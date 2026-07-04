@@ -6,6 +6,7 @@ export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+export const WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX = 48;
 export const WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
 // Keep default merged fit valid at 320px: side min + main min must fit exactly.
 export const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX =
@@ -132,11 +133,13 @@ export function getMobileMinResizeMergeWidthsPx(args: {
  * surface or return to the ordinary separate-pane carousel.
  */
 export function shouldCommitMobileMergedSurface(args: {
-  mainDefaultWidthPx: number;
-  mainWidthPx: number;
-  settledMainWidthPx: number;
+  sideMinWidthPx: number;
+  sideWidthPx: number;
 }) {
-  return args.mainWidthPx <= (args.mainDefaultWidthPx + args.settledMainWidthPx) / 2;
+  return (
+    Math.round(args.sideWidthPx) <=
+    Math.round(args.sideMinWidthPx) + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX
+  );
 }
 
 function getMobileMergeDebugEdgePositionPx(args: {
@@ -152,22 +155,15 @@ function getMobileMergeDebugEdgePositionPx(args: {
 }
 
 export function getMobileMergeDebugGeometry(args: {
-  mainDefaultWidthPx: number;
-  settledMainWidthPx: number;
   side: WorkspaceLayoutV2MobileMergedSide;
   sideMinWidthPx: number;
-  startMainWidthPx: number;
   startSideWidthPx: number;
   viewportWidthPx: number;
 }): WorkspaceLayoutV2MobileMergeDebugGeometry {
   const viewportWidthPx = Math.max(1, Math.round(args.viewportWidthPx));
   const startSideWidthPx = Math.max(0, Math.round(args.startSideWidthPx));
   const minSideWidthPx = Math.max(0, Math.round(args.sideMinWidthPx));
-  const commitMainWidthPx = (args.mainDefaultWidthPx + args.settledMainWidthPx) / 2;
-  const commitSideWidthPx = Math.max(
-    0,
-    Math.round(startSideWidthPx + commitMainWidthPx - Math.round(args.startMainWidthPx)),
-  );
+  const commitSideWidthPx = minSideWidthPx + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
   const startEdgePositionPx = getMobileMergeDebugEdgePositionPx({
     side: args.side,
     sideWidthPx: startSideWidthPx,
@@ -183,8 +179,15 @@ export function getMobileMergeDebugGeometry(args: {
     sideWidthPx: minSideWidthPx,
     viewportWidthPx,
   });
+  const hasResizeOnlyZone = startSideWidthPx > commitSideWidthPx;
   const mergeZoneStartPx = args.side === "left" ? 0 : commitEdgePositionPx;
   const mergeZoneEndPx = args.side === "left" ? commitEdgePositionPx : viewportWidthPx;
+  const resizeOnlyZoneStartPx = hasResizeOnlyZone
+    ? Math.min(startEdgePositionPx, commitEdgePositionPx)
+    : startEdgePositionPx;
+  const resizeOnlyZoneEndPx = hasResizeOnlyZone
+    ? Math.max(startEdgePositionPx, commitEdgePositionPx)
+    : startEdgePositionPx;
 
   return {
     commitEdgePositionPx,
@@ -193,8 +196,8 @@ export function getMobileMergeDebugGeometry(args: {
     mergeZoneStartPx,
     minEdgePositionPx,
     minSideWidthPx,
-    resizeOnlyZoneEndPx: Math.max(startEdgePositionPx, commitEdgePositionPx),
-    resizeOnlyZoneStartPx: Math.min(startEdgePositionPx, commitEdgePositionPx),
+    resizeOnlyZoneEndPx,
+    resizeOnlyZoneStartPx,
     side: args.side,
     startEdgePositionPx,
     startSideWidthPx,
