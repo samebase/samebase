@@ -40,6 +40,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -133,6 +134,7 @@ const VAULT_BRANCH_INITIAL_PAGE_SIZE = 25;
 const VAULT_BRANCH_LOAD_MORE_PAGE_SIZE = 25;
 const VAULT_BRANCH_ROW_ESTIMATE_PX = 92;
 const VAULT_BRANCH_LOADER_ROW_KEY = "vault-branch-loader";
+const VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR = "[data-vault-dashboard-repository-header]";
 
 export type VaultDashboardVault = NonNullable<
   (typeof api.vault.dashboard.getUserVaults)["_returnType"]
@@ -2200,7 +2202,7 @@ function VaultBranchList({
       ? 0
       : (branchVirtualizer.getOffsetForIndex(branchListEndIndex, "start")?.[0] ?? 0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const updateScrollMargin = () => {
       const list = listRef.current;
       if (!list) {
@@ -2218,25 +2220,51 @@ function VaultBranchList({
       setScrollMargin(listRect.top - scrollportRect.top + nextScrollElement.scrollTop);
     };
 
-    updateScrollMargin();
-    window.addEventListener("resize", updateScrollMargin);
     const resizeObserver =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollMargin);
-    if (resizeObserver) {
-      resizeObserver.observe(document.body);
-      if (listRef.current) {
-        resizeObserver.observe(listRef.current);
+
+    const observeScrollMarginLayout = () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
       }
-      const nextScrollElement = listRef.current
-        ? findVaultDashboardVerticalScrollport(listRef.current)
-        : null;
-      if (nextScrollElement) {
-        resizeObserver.observe(nextScrollElement);
+
+      const list = listRef.current;
+      if (list && resizeObserver) {
+        const observedElements = new Set<Element>();
+        const observeElement = (element: Element) => {
+          if (!observedElements.has(element)) {
+            observedElements.add(element);
+            resizeObserver.observe(element);
+          }
+        };
+        const nextScrollElement = findVaultDashboardVerticalScrollport(list);
+        observeElement(document.body);
+        for (
+          let currentElement: HTMLElement | null = list;
+          currentElement;
+          currentElement = currentElement.parentElement
+        ) {
+          observeElement(currentElement);
+          const repositoryHeader = currentElement.querySelector(
+            VAULT_DASHBOARD_REPOSITORY_HEADER_SELECTOR,
+          );
+          if (repositoryHeader) {
+            observeElement(repositoryHeader);
+          }
+          if (currentElement === nextScrollElement) {
+            break;
+          }
+        }
       }
-    }
+
+      updateScrollMargin();
+    };
+
+    observeScrollMarginLayout();
+    window.addEventListener("resize", observeScrollMarginLayout);
 
     return () => {
-      window.removeEventListener("resize", updateScrollMargin);
+      window.removeEventListener("resize", observeScrollMarginLayout);
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
@@ -2256,7 +2284,12 @@ function VaultBranchList({
   return (
     // Let branch rows align with the vault card edge instead of nesting a
     // second inset panel inside the already padded card.
-    <div ref={listRef} className="-mx-4 overflow-hidden border bg-muted">
+    <div
+      ref={listRef}
+      data-vault-dashboard-branch-list=""
+      data-scroll-margin={Math.round(scrollMargin)}
+      className="-mx-4 overflow-hidden border bg-muted"
+    >
       <div className="relative" style={{ height: `${branchVirtualizer.getTotalSize()}px` }}>
         {branchListEndIndex !== null ? (
           <div

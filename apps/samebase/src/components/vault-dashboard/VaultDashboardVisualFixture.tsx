@@ -1669,6 +1669,7 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
 }
 
 function VaultDashboardStickyHeaderFixture() {
+  const [resourceLinksOpen, setResourceLinksOpen] = useState(false);
   const stickyHeaderBranches = STICKY_HEADER_BRANCHES.map((branchRow) => branchRow.branch);
   const stickyHeaderFilters = {
     hiddenLabels: ["hidden"],
@@ -1696,8 +1697,8 @@ function VaultDashboardStickyHeaderFixture() {
               isReady={true}
               repositoryName="samebase"
               repositoryLinks={<FixtureRepositoryLinks />}
-              repositoryLinksOpen={false}
-              onRepositoryLinksOpenChange={() => {}}
+              repositoryLinksOpen={resourceLinksOpen}
+              onRepositoryLinksOpenChange={setResourceLinksOpen}
               topRightAction={<FixtureDeleteControl />}
               repositoryStatus={<span data-testid="sticky-header-status">Updated 12s ago</span>}
               headerControls={
