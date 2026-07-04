@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Partially implemented active rollout plan
+- Status: Implemented; hidden-label server-side filtering deferred
 - Owner: Samebase dashboard and Convex vault
 - Last updated: 2026-07-04
 - Related specs:
@@ -47,9 +47,9 @@ The accepted direction for this rollout is:
    for app code; Phase 5A removed the stored schema field directly because existing vault/filter
    rows can be discarded before deploy.
 
-This RFC is intentionally a live plan. Update the rollout status and open decisions as each slice
-lands. When the behavior is accepted and implemented, reduce this document into a compact spec or
-archive it if code and tests are enough.
+This RFC now records the implemented rollout. Hidden-label server-side row pruning remains a
+deferred follow-up because the current metadata query plus client filtering preserves the shipped UI
+contract.
 
 ## Current State
 
@@ -146,10 +146,9 @@ Those facts should come from a separate metadata query or denormalized counters.
 force the paginated row query to load every branch row, commit summary, preview URL, and check
 snapshot.
 
-The current hidden-label filter is the least settled part of the design. It excludes branches whose
-PR labels match any hidden label, and arbitrary label exclusion is not naturally represented by a
-single Convex index. Until the exact backend strategy is chosen, this RFC only accepts these
-constraints:
+The hidden-label filter excludes branches whose PR labels match any hidden label. Arbitrary label
+exclusion is not naturally represented by a single Convex index, so final server-side row pruning is
+deferred. Until that strategy is chosen, the current contract is:
 
 - filter args passed to `usePaginatedQuery` must be canonical, especially sorted `hiddenLabels`
 - the row query must not hide an unbounded `.collect()` behind a paginated-looking API
@@ -166,16 +165,16 @@ constraints:
 - Making the root `/vault` route show multiple full branch catalogs again.
 - Introducing hard UI limits for typed filter values or URL/API values.
 
-## Open Decisions
+## Decisions And Follow-Ups
 
-| Decision                    | Current direction                                                                                                                                                                                                                         | Status |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Branch sort fields          | Required derived rank fields and the future pagination index are implemented; existing vaults can be deleted/recreated if needed.                                                                                                         | Closed |
-| Hidden-label filtering      | Keep the UI contract; loaded pages are filtered client-side while exact metadata comes from the lightweight catalog query. Decide whether final server-side row pruning needs denormalized label rows, bounded scanning, or a changed UX. | Open   |
-| Filter count semantics      | Header counts and filter options use the lightweight full-catalog metadata query, so they remain exact while rows paginate.                                                                                                               | Closed |
-| Scrollport ownership        | The virtual list uses the existing dashboard route scrollport through TanStack Virtual; no nested branch-only scroller was added.                                                                                                         | Closed |
-| `branchesExpanded` cleanup  | App code no longer reads or writes it; Phase 5A removed the schema field directly because existing vault/filter rows can be discarded before deploy.                                                                                      | Closed |
-| `getUserVaults` replacement | Lightweight vault list and selected-vault paginated branch rows are implemented; `getVaultRemoteBranches` remains only for non-dashboard consumers.                                                                                       | Closed |
+| Decision                    | Current direction                                                                                                                                                                                                                               | Status   |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Branch sort fields          | Required derived rank fields and the future pagination index are implemented; existing vaults can be deleted/recreated if needed.                                                                                                               | Closed   |
+| Hidden-label filtering      | Keep the UI contract; loaded pages are filtered client-side while exact metadata comes from the lightweight catalog query. Decide later whether final server-side row pruning needs denormalized label rows, bounded scanning, or a changed UX. | Deferred |
+| Filter count semantics      | Header counts and filter options use the lightweight full-catalog metadata query, so they remain exact while rows paginate.                                                                                                                     | Closed   |
+| Scrollport ownership        | The virtual list uses the existing dashboard route scrollport through TanStack Virtual; no nested branch-only scroller was added.                                                                                                               | Closed   |
+| `branchesExpanded` cleanup  | App code no longer reads or writes it; Phase 5A removed the schema field directly because existing vault/filter rows can be discarded before deploy.                                                                                            | Closed   |
+| `getUserVaults` replacement | Lightweight vault list and selected-vault paginated branch rows are implemented; `getVaultRemoteBranches` remains only for non-dashboard consumers.                                                                                             | Closed   |
 
 ## Proposed Rollout
 
@@ -261,9 +260,7 @@ Implemented behavior:
 - Fetches preview domains and commit check snapshots only for branch rows in the returned page.
 - Returns the same branch row item shape as `getVaultRemoteBranches`, wrapped in Convex's native
   pagination result shape.
-- Leaves `getVaultRemoteBranches` in place for current full-catalog dashboard filters and the file
-  route's current-branch metadata lookup until the later frontend/filter slices replace those
-  dependencies.
+- Leaves `getVaultRemoteBranches` in place for the file route's current-branch metadata lookup.
 - Does not use bounded scans because Phase 3 has no server-side non-indexable filters.
 
 Validation:
@@ -297,7 +294,8 @@ Implemented behavior:
 Validation:
 
 - The "Show N more branches" and "Show less branches" controls remain gone.
-- Scrolling near the end loads the next Convex page through the loader row.
+- Scrolling near the end loads the next page through the loader row and stops calling `loadMore`
+  after pagination is exhausted.
 - Branch rows do not overlap at desktop or mobile widths.
 - Route-first visual coverage proves the selected vault branch list and sticky dashboard chrome.
 
@@ -318,9 +316,9 @@ Validation:
 - Unit tests keep covering filter normalization without the expansion flag.
 - Visual tests keep covering branch filters without expansion controls.
 
-### Phase 5B: Decide Hidden-Label Row Filtering
+### Deferred Follow-Up: Decide Hidden-Label Row Filtering
 
-Status: Pending.
+Status: Deferred.
 
 Goal: decide whether final server-side row pruning needs denormalized label rows, bounded scanning,
 or a changed UX.
@@ -336,13 +334,12 @@ Backend:
 
 - Convex tests for branch sort-key derivation.
 - Convex tests for paginated branch query auth, cursor continuation, and page row shape.
-- Migration dry-run and post-run verification for sort fields.
 - Contract tests for the lightweight vault list result.
 
 Frontend:
 
 - Unit tests for normalized branch filter args passed to the paginated query.
-- Component tests for loader-row behavior and `loadMore` guard conditions.
+- Fixture-backed visual tests for loader-row pagination and `loadMore` guard conditions.
 - Route-level or fixture-backed visual tests for the selected vault branch list.
 - Keep visual tests asserting the expansion controls are absent.
 

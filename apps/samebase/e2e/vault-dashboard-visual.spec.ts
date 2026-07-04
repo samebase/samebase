@@ -1014,10 +1014,23 @@ test("vault dashboard fixture (large branch virtual list)", async ({ page }) => 
 
   expect(loadedBranchCount).toBe(1000);
   await expect(fixture).toHaveAttribute("data-loaded-branch-count", "1000");
+  const loadMoreCallCountAtEnd = await fixture.getAttribute("data-load-more-call-count");
+  if (loadMoreCallCountAtEnd === null) {
+    throw new Error("Large branch fixture did not expose loadMore call count.");
+  }
 
-  await scrollport.evaluate((element) => {
+  await scrollport.evaluate(async (element) => {
     element.scrollTop = element.scrollHeight;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+    });
   });
+  await expect(fixture).toHaveAttribute("data-load-more-call-count", loadMoreCallCountAtEnd);
   await expect(page.getByText("codex/large-branch-0999")).toBeVisible();
   await expect.poll(async () => branchRows.count()).toBeLessThan(80);
 });

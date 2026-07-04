@@ -1732,7 +1732,9 @@ function VaultDashboardStickyHeaderFixture() {
 
 function VaultDashboardLargeBranchListFixture() {
   const [loadedBranchCount, setLoadedBranchCount] = useState(LARGE_BRANCH_INITIAL_PAGE_SIZE);
+  const [loadMoreCallCount, setLoadMoreCallCount] = useState(0);
   const loadMoreLargeBranches = useCallback((numItems: number) => {
+    setLoadMoreCallCount((currentCount) => currentCount + 1);
     setLoadedBranchCount((currentCount) => Math.min(currentCount + numItems, LARGE_BRANCH_COUNT));
   }, []);
   const largeBranchFilters = getDefaultVaultBranchFilters();
@@ -1761,6 +1763,7 @@ function VaultDashboardLargeBranchListFixture() {
           <div
             data-testid="large-branch-pagination-fixture"
             data-loaded-branch-count={loadedBranchCount}
+            data-load-more-call-count={loadMoreCallCount}
             data-total-branch-count={LARGE_BRANCH_COUNT}
           >
             <VaultDashboardRepositoryList>

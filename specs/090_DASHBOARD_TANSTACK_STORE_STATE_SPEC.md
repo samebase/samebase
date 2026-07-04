@@ -4,7 +4,7 @@
 
 - Status: In progress
 - Owner: Samebase dashboard/frontend
-- Last updated: 2026-05-03
+- Last updated: 2026-07-04
 - Related specs:
   - `specs/067_VAULT_BRANCH_FILTERS_SPEC.md`
   - `archive/079_DASHBOARD_UPDATED_STATUS_MANUAL_REFRESH_SPEC.md`
@@ -42,7 +42,7 @@ Migrate these state buckets now:
 6. Sign-out pending state.
 7. Global chat busy and autofocus handoff state.
 8. Branch filter control search text and open state.
-9. Visual fixture counters and branch expansion toggles.
+9. Visual fixture counters.
 10. Last-updated status text-selection frozen timestamp.
 
 Keep these refresh-owned pieces out of scope until the server-side workflow branch lands:

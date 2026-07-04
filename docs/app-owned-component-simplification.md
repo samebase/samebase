@@ -84,8 +84,8 @@ General rule:
 
 Example:
 
-- `vault.remoteBranches` comes from the `getUserVaults` Convex return validator as an array, so the
-  dashboard should use `vault.remoteBranches` directly rather than falling back to `[]`.
+- `branch.commits` comes from the paginated branch query return validator as an array, so the
+  dashboard should use `branch.commits` directly rather than falling back to `[]`.
 
 ## Preserve Absence
 
