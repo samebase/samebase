@@ -256,13 +256,7 @@ export function WorkspaceLayoutV2ResizeHandle({
     ? "inset-x-0 h-8 -translate-y-1/2"
     : "inset-y-0 w-8 -translate-x-1/2";
   const gripSizeClassName = isHorizontalHandle ? "h-8 w-16" : "h-16 w-8";
-  // Keep the touch target centered on the edge; only the visible dot column
-  // moves onto the adjacent pane side.
-  const gripDotsClassName = isHorizontalHandle
-    ? "rotate-90"
-    : resizeFrom === "left"
-      ? "translate-x-0.5"
-      : "-translate-x-0.5";
+  const gripDotsClassName = isHorizontalHandle ? "rotate-90" : undefined;
 
   const interactiveProps = {
     "aria-label": getResizeHandleLabel(resizeFrom, ariaLabel),

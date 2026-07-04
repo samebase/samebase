@@ -27,6 +27,18 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   showRightPane: boolean;
 };
 
+function renderMobileSeparator(edge: "left-main" | "main-right", positionPx: string) {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid={`workspace-layout-v2-mobile-separator-${edge}`}
+      data-workspace-layout-v2-mobile-separator={edge}
+      className="pointer-events-none absolute inset-y-0 z-[29] w-px -translate-x-1/2 bg-border md:hidden"
+      style={{ left: positionPx }}
+    />
+  );
+}
+
 export function WorkspaceLayoutV2Viewport({
   activeResizeSide,
   carouselRef,
@@ -56,6 +68,12 @@ export function WorkspaceLayoutV2Viewport({
   const rightPaneWidth = hasMeasuredViewport
     ? `${rightWidthPx}px`
     : "var(--workspace-layout-v2-right-mobile-width, 0px)";
+  const leftMainSeparatorPosition = hasMeasuredViewport
+    ? `${leftWidthPx}px`
+    : "var(--workspace-layout-v2-left-mobile-width, 0px)";
+  const mainRightSeparatorPosition = hasMeasuredViewport
+    ? `${leftWidthPx + paneWidthPx}px`
+    : "calc(var(--workspace-layout-v2-left-mobile-width, 0px) + var(--workspace-layout-v2-main-mobile-width, 100vw))";
 
   function renderLeftPane() {
     if (!showLeftPane) {
@@ -65,7 +83,6 @@ export function WorkspaceLayoutV2Viewport({
     return (
       <div
         data-workspace-layout-v2-mobile-pane="left"
-        data-workspace-layout-v2-mobile-separator-pane="left"
         data-testid="workspace-layout-v2-pane-left"
         className={cn(
           "workspace-layout-v2-responsive-left-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
@@ -98,7 +115,6 @@ export function WorkspaceLayoutV2Viewport({
       >
         <div
           data-workspace-layout-v2-mobile-main-pane-surface
-          data-workspace-layout-v2-mobile-separator-pane="main"
           className="box-border h-full min-h-0 overflow-hidden bg-background"
         >
           {mainContent}
@@ -115,7 +131,6 @@ export function WorkspaceLayoutV2Viewport({
     return (
       <div
         data-workspace-layout-v2-mobile-pane="right"
-        data-workspace-layout-v2-mobile-separator-pane="right"
         data-testid="workspace-layout-v2-pane-right"
         className={cn(
           "workspace-layout-v2-responsive-right-pane relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-background",
@@ -149,6 +164,8 @@ export function WorkspaceLayoutV2Viewport({
       {renderLeftPane()}
       {renderMainPane()}
       {renderRightPane()}
+      {showLeftPane ? renderMobileSeparator("left-main", leftMainSeparatorPosition) : null}
+      {showRightPane ? renderMobileSeparator("main-right", mainRightSeparatorPosition) : null}
     </div>
   );
 }

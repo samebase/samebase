@@ -70,19 +70,21 @@ async function readVaultDashboardRightSidebarSeparatorPaint(
   samplePixels: RgbaPixel[];
 }> {
   const geometry = await layout.evaluate((layoutRoot) => {
-    const mainPane = layoutRoot.querySelector("[data-workspace-layout-v2-mobile-main-pane] > div");
+    const separator = layoutRoot.querySelector(
+      '[data-workspace-layout-v2-mobile-separator="main-right"]',
+    );
     const stickyHeader = layoutRoot.querySelector(
       '[data-testid="vault-dashboard-repository-header"]',
     );
 
-    if (!(mainPane instanceof HTMLElement)) {
-      throw new Error("Expected mobile dashboard main pane.");
+    if (!(separator instanceof HTMLElement)) {
+      throw new Error("Expected mobile dashboard main-right separator.");
     }
     if (!(stickyHeader instanceof HTMLElement)) {
       throw new Error("Expected mobile dashboard sticky header.");
     }
 
-    const mainPaneRect = mainPane.getBoundingClientRect();
+    const separatorRect = separator.getBoundingClientRect();
     const stickyHeaderRect = stickyHeader.getBoundingClientRect();
     const referenceY = Math.max(0, Math.round(stickyHeaderRect.top) - 1);
     const midHeaderY = Math.round(stickyHeaderRect.top + stickyHeaderRect.height / 2);
@@ -95,7 +97,7 @@ async function readVaultDashboardRightSidebarSeparatorPaint(
         midHeaderY,
         Math.round(stickyHeaderRect.bottom) - 1,
       ],
-      separatorX: Math.round(mainPaneRect.right) - 1,
+      separatorX: Math.round(separatorRect.left + separatorRect.width / 2),
     };
   });
   const screenshot = await page.screenshot({
@@ -807,14 +809,12 @@ test("vault dashboard mobile right sidebar keeps pane separator above sticky hea
   const fixtureLayout = page
     .getByTestId("vault-dashboard-visual-fixture-shell")
     .locator("[data-workspace-layout-v2]");
+  const mainRightSeparator = fixtureLayout.locator(
+    '[data-workspace-layout-v2-mobile-separator="main-right"]',
+  );
   await expect(fixtureLayout).toHaveAttribute("data-mobile-pane", "right");
-  await expect
-    .poll(() =>
-      fixtureLayout
-        .locator("[data-workspace-layout-v2-mobile-main-pane] > div")
-        .evaluate((mainPane) => getComputedStyle(mainPane, "::after").width),
-    )
-    .toBe("1px");
+  await expect(mainRightSeparator).toHaveCount(1);
+  await expect(mainRightSeparator).toHaveCSS("width", "1px");
 
   const separatorPaint = await readVaultDashboardRightSidebarSeparatorPaint(page, fixtureLayout);
   for (const samplePixel of separatorPaint.samplePixels) {

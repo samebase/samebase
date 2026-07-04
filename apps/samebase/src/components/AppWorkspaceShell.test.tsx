@@ -236,7 +236,6 @@ describe("AppWorkspaceShell", () => {
       const leftPane = document.createElement("div");
       leftPane.className = "workspace-layout-v2-responsive-left-pane";
       leftPane.setAttribute("data-workspace-layout-v2-mobile-pane", "left");
-      leftPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "left");
       leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
       carousel.append(leftPane);
     }
@@ -247,7 +246,6 @@ describe("AppWorkspaceShell", () => {
     mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
     mainPane.setAttribute("data-workspace-layout-v2-mobile-pane", "main");
     mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
-    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "main");
     mainPane.append(mainPaneSurface);
     carousel.append(mainPane);
 
@@ -255,7 +253,6 @@ describe("AppWorkspaceShell", () => {
       const rightPane = document.createElement("div");
       rightPane.className = "workspace-layout-v2-responsive-right-pane";
       rightPane.setAttribute("data-workspace-layout-v2-mobile-pane", "right");
-      rightPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "right");
       rightPane.setAttribute("data-testid", "workspace-layout-v2-pane-right");
       carousel.append(rightPane);
     }

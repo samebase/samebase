@@ -207,50 +207,6 @@
       scroll-snap-align: none;
       scroll-snap-stop: normal;
     }
-
-    [data-workspace-layout-v2-mobile-separator-pane] {
-      position: relative;
-    }
-
-    [data-workspace-layout-v2-mobile-separator-pane]::before,
-    [data-workspace-layout-v2-mobile-separator-pane]::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      /*
-      Route content can include full-width sticky backgrounds, such as
-      vault-dashboard-repository-header at z-10. Keep pane separators above
-      route content but below WorkspaceLayoutV2ResizeHandle at z-30.
-      */
-      z-index: 29;
-      width: 1px;
-      background: var(--color-border);
-      pointer-events: none;
-    }
-
-    [data-workspace-layout-v2-mobile-separator-pane]::before {
-      left: 0;
-    }
-
-    [data-workspace-layout-v2-mobile-separator-pane]::after {
-      right: 0;
-    }
-
-    [data-workspace-layout-v2="responsive"][data-mobile-pane="left"]
-      [data-workspace-layout-v2-mobile-separator-pane="left"]::before,
-    [data-workspace-layout-v2="responsive"][data-mobile-pane="left"]
-      [data-workspace-layout-v2-mobile-separator-pane="left"]::after,
-    [data-workspace-layout-v2="responsive"][data-mobile-pane="main"]
-      [data-workspace-layout-v2-mobile-separator-pane="main"]::before,
-    [data-workspace-layout-v2="responsive"][data-mobile-pane="main"]
-      [data-workspace-layout-v2-mobile-separator-pane="main"]::after,
-    [data-workspace-layout-v2="responsive"][data-mobile-pane="right"]
-      [data-workspace-layout-v2-mobile-separator-pane="right"]::before,
-    [data-workspace-layout-v2="responsive"][data-mobile-pane="right"]
-      [data-workspace-layout-v2-mobile-separator-pane="right"]::after {
-      content: none;
-    }
   }
 
   @media (min-width: 768px) {

@@ -97,6 +97,9 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain('style="width:var(--workspace-layout-v2-left-mobile-width, 0px)"');
     expect(markup).toContain('style="width:var(--workspace-layout-v2-main-mobile-width, 100vw)"');
     expect(markup).toContain('style="width:var(--workspace-layout-v2-right-mobile-width, 0px)"');
+    expect(markup).toContain('data-workspace-layout-v2-mobile-separator="left-main"');
+    expect(markup).toContain('data-workspace-layout-v2-mobile-separator="main-right"');
+    expect(markup).not.toContain("data-workspace-layout-v2-mobile-separator-pane");
   });
 
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
@@ -301,7 +304,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).not.toContain("bg-background");
   });
 
-  it("keeps mobile sidebar grip tracks centered while offsetting dots", () => {
+  it("keeps mobile sidebar grip tracks and dots centered", () => {
     const leftMarkup = renderToStaticMarkup(
       <WorkspaceLayoutV2ResizeHandle
         currentSizePx={280}
@@ -328,9 +331,10 @@ describe("WorkspaceLayoutV2FullPage", () => {
     );
 
     expect(leftMarkup).toContain("inset-y-0 w-8 -translate-x-1/2");
-    expect(leftMarkup).toContain("translate-x-0.5");
+    expect(leftMarkup).not.toContain("translate-x-0.5");
     expect(leftMarkup).not.toContain("-translate-x-0.5");
     expect(rightMarkup).toContain("inset-y-0 w-8 -translate-x-1/2");
-    expect(rightMarkup).toContain("-translate-x-0.5");
+    expect(rightMarkup).not.toContain("translate-x-0.5");
+    expect(rightMarkup).not.toContain("-translate-x-0.5");
   });
 });
