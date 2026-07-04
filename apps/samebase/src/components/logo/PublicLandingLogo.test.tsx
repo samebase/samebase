@@ -24,7 +24,10 @@ import {
   clearPublicLandingLogoStaticFallbackPrehydration,
   publicLandingLogoPrehydrationScript,
 } from "@/lib/publicLandingLogoPrehydration";
-import { DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
+import {
+  clearRotatedLogoViewStates,
+  DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+} from "@/lib/rotatedLogoViewState";
 import { PUBLIC_LANDING_LOGO_TEST_ID } from "@/lib/publicLandingLogo";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
 
@@ -166,6 +169,7 @@ describe("PublicLandingLogo", () => {
     syncDocumentThemeColorSearch({});
     clearPublicLandingLogoStaticFallbackPrehydration();
     window.history.replaceState(null, "", "/");
+    clearRotatedLogoViewStates();
     window.localStorage.clear();
     latestLandingLogoSceneProps.current = null;
     Object.defineProperty(window, "requestIdleCallback", {
@@ -298,6 +302,59 @@ describe("PublicLandingLogo", () => {
     }
     expect(finalSceneProps.elevationDegrees).toBe(DEFAULT_ELEVATION_DEGREES);
     expect(finalSceneProps.rotationDegrees).toBe(DEFAULT_ROTATION_DEGREES);
+  });
+
+  it("uses the default view after reset clears dashboard device view state", async () => {
+    installImmediateIdleCallback();
+    window.localStorage.setItem(
+      "samebase:logo-view:dashboard-empty",
+      JSON.stringify({
+        elevationDegrees: 56.3,
+        rotationDegrees: 180,
+      }),
+    );
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+    const renderLogo = () => {
+      localRoot.render(
+        <PublicLandingLogo
+          routeSearch={{}}
+          viewStatePersistence="device"
+          viewStateKey={DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY}
+        />,
+      );
+    };
+
+    await act(async () => {
+      renderLogo();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const storedSceneProps = latestLandingLogoSceneProps.current;
+    if (storedSceneProps === null) {
+      throw new Error("Expected mocked logo scene props from stored device view.");
+    }
+    expect(storedSceneProps.elevationDegrees).toBe(56.3);
+    expect(storedSceneProps.rotationDegrees).toBe(180);
+
+    clearRotatedLogoViewStates();
+
+    await act(async () => {
+      renderLogo();
+      await Promise.resolve();
+    });
+
+    const resetSceneProps = latestLandingLogoSceneProps.current;
+    if (resetSceneProps === null) {
+      throw new Error("Expected mocked logo scene props after reset.");
+    }
+    expect(window.localStorage.getItem("samebase:logo-view:dashboard-empty")).toBeNull();
+    expect(resetSceneProps.elevationDegrees).toBe(DEFAULT_ELEVATION_DEGREES);
+    expect(resetSceneProps.rotationDegrees).toBe(DEFAULT_ROTATION_DEGREES);
   });
 
   it("reveals the query-aware static fallback after prehydration suppression when the scene is disabled", async () => {

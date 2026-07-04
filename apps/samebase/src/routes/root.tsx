@@ -17,6 +17,7 @@ import {
 import {
   RETAINED_ROOT_SEARCH_KEYS,
   clearConflictingRootThemeModeSearch,
+  readRootRouteSearch,
   readCanonicalRouteAddressForRootSearch,
   type RootRouteSearch,
   validateRootRouteSearch,
@@ -24,6 +25,7 @@ import {
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import { buildRootHead } from "@/lib/rootHead";
 import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
+import { clearRotatedLogoViewStates } from "@/lib/rotatedLogoViewState";
 import { type AppQueryClients } from "@/lib/appQueryClient";
 import { type ReactNode } from "react";
 
@@ -72,6 +74,11 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 export const Route = createRootRouteWithContext<AppQueryClients>()({
   staticData: ROUTE_ACCESS_METADATA_BY_PATH[pathname],
   beforeLoad: ({ location, matches }) => {
+    const rootSearch = readRootRouteSearch(location.searchStr);
+    if (rootSearch.reset) {
+      clearRotatedLogoViewStates();
+    }
+
     const rootCanonicalRouteAddress = readCanonicalRouteAddressForRootSearch({
       acceptedSearchKeys: matches.flatMap((match) => match.staticData.acceptedSearchKeys ?? []),
       pathname: location.pathname,

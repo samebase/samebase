@@ -53,13 +53,17 @@ describe("rotatedLogoViewState", () => {
   it("uses memory state for same-session logo remounts", async () => {
     const {
       DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
-      cacheRotatedLogoViewState,
+      persistRotatedLogoViewState,
       readRotatedLogoViewState,
     } = await importRotatedLogoViewState();
 
-    cacheRotatedLogoViewState(DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY, {
-      elevationDegrees: 720,
-      rotationDegrees: -90,
+    persistRotatedLogoViewState({
+      key: DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+      persistence: "visit",
+      view: {
+        elevationDegrees: 720,
+        rotationDegrees: -90,
+      },
     });
 
     expect(
@@ -119,6 +123,35 @@ describe("rotatedLogoViewState", () => {
         defaultView: DEFAULT_VIEW,
         key: PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
         persistence: "visit",
+      }),
+    ).toEqual(DEFAULT_VIEW);
+  });
+
+  it("clears memory and device logo view state", async () => {
+    const {
+      clearRotatedLogoViewStates,
+      DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+      persistRotatedLogoViewState,
+      readRotatedLogoViewState,
+    } = await importRotatedLogoViewState();
+
+    persistRotatedLogoViewState({
+      key: DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+      persistence: "device",
+      view: {
+        elevationDegrees: 56.3,
+        rotationDegrees: 180,
+      },
+    });
+
+    clearRotatedLogoViewStates();
+
+    expect(window.localStorage.getItem("samebase:logo-view:dashboard-empty")).toBeNull();
+    expect(
+      readRotatedLogoViewState({
+        defaultView: DEFAULT_VIEW,
+        key: DASHBOARD_EMPTY_LOGO_VIEW_STATE_KEY,
+        persistence: "device",
       }),
     ).toEqual(DEFAULT_VIEW);
   });

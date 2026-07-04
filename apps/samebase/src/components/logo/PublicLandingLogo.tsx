@@ -27,7 +27,6 @@ import {
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
 import {
-  cacheRotatedLogoViewState,
   persistRotatedLogoViewState,
   PUBLIC_LANDING_LOGO_VIEW_STATE_KEY,
   readRotatedLogoViewState,
@@ -125,22 +124,25 @@ export function PublicLandingLogo({
     loadInteractiveScene ? cachedLandingLogoScene : null,
   );
   const [didSceneFail, setDidSceneFail] = useState(() => didLandingLogoSceneRenderFail);
-  const [defaultView, setDefaultView] = useState<RotatedLogoViewState>(() =>
-    readRotatedLogoViewState({
-      defaultView: DEFAULT_LANDING_LOGO_VIEW,
-      key: viewStateKey,
-      persistence: viewStatePersistence,
-    }),
-  );
+  const defaultView = readRotatedLogoViewState({
+    defaultView: DEFAULT_LANDING_LOGO_VIEW,
+    key: viewStateKey,
+    persistence: viewStatePersistence,
+  });
+  const defaultElevationDegrees = defaultView.elevationDegrees;
+  const defaultRotationDegrees = defaultView.rotationDegrees;
   const routeState = useMemo(
     () =>
       readLogoRouteRenderState({
-        defaultView,
+        defaultView: {
+          elevationDegrees: defaultElevationDegrees,
+          rotationDegrees: defaultRotationDegrees,
+        },
         enableViewSnapping,
         routeSearch,
         snapFallbackView: false,
       }),
-    [defaultView, enableViewSnapping, routeSearch],
+    [defaultElevationDegrees, defaultRotationDegrees, enableViewSnapping, routeSearch],
   );
   const logoTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const { backgroundColor, faceColors } = logoTheme;
@@ -198,16 +200,6 @@ export function PublicLandingLogo({
       view: latestViewRef.current,
     });
   }, [viewStateKey, viewStatePersistence]);
-  const commitLatestLogoView = useCallback(() => {
-    const nextDefaultView = latestViewRef.current;
-    persistLatestLogoView();
-    setDefaultView((currentDefaultView) =>
-      currentDefaultView.elevationDegrees === nextDefaultView.elevationDegrees &&
-      currentDefaultView.rotationDegrees === nextDefaultView.rotationDegrees
-        ? currentDefaultView
-        : nextDefaultView,
-    );
-  }, [persistLatestLogoView]);
 
   useLayoutEffect(() => {
     // The first hydrated render must keep the SSG opacity class so React does
@@ -223,7 +215,7 @@ export function PublicLandingLogo({
     clearPublicLandingLogoStaticFallbackPrehydration();
   }, [isHydratedFallbackVisibilityReady]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const nextView = {
       elevationDegrees: routeState.elevationDegrees,
       rotationDegrees: routeState.rotationDegrees,
@@ -337,27 +329,6 @@ export function PublicLandingLogo({
   }, [isAutoRotateRequested]);
 
   useEffect(() => {
-    latestViewRef.current = view;
-    cacheRotatedLogoViewState(viewStateKey, view);
-  }, [view, viewStateKey]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handlePageHide = () => {
-      persistLatestLogoView();
-    };
-
-    window.addEventListener("pagehide", handlePageHide);
-    return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-      persistLatestLogoView();
-    };
-  }, [persistLatestLogoView]);
-
-  useEffect(() => {
     if (!isAutoRotating) {
       lastFrameTimeRef.current = null;
       return;
@@ -449,7 +420,7 @@ export function PublicLandingLogo({
                 setIsAutoRotating(false);
               }}
               onInteractionEnd={() => {
-                commitLatestLogoView();
+                persistLatestLogoView();
                 replaceRouteSearch?.(
                   buildPublicLandingLogoRouteSearch({
                     routeSearch,
