@@ -927,6 +927,29 @@ test("vault dashboard fixture (sticky repository header)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (large branch virtual list)", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await openVaultDashboardVisualFixture(page, "vault-dashboard-large-branch-list");
+
+  const scrollport = page
+    .getByTestId("workspace-layout-v2-main-viewport")
+    .locator("section > div")
+    .nth(1);
+  const branchRows = page.locator("[data-vault-dashboard-branch-row]");
+
+  await expect(page.getByText("1,000 branches")).toBeVisible();
+  await expect(page.getByText("codex/large-branch-0001")).toBeVisible();
+  await expect(page.getByText("codex/large-branch-0999")).toHaveCount(0);
+  await expect.poll(async () => branchRows.count()).toBeLessThan(80);
+
+  await scrollport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+
+  await expect(page.getByText("codex/large-branch-0999")).toBeVisible();
+  await expect.poll(async () => branchRows.count()).toBeLessThan(80);
+});
+
 test("vault dashboard fixture (list spacing)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 620 });
   await openVaultDashboardVisualFixture(page, "vault-dashboard-list-spacing");
