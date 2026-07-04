@@ -30,7 +30,7 @@ const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const REMOTE_BRANCH_MISSING_LAST_COMMIT_AT_SORT_RANK = Number.MAX_SAFE_INTEGER;
 
-const vaultRemoteBranchListItemValidator = object({
+const vVaultRemoteBranchListItem = object({
   name: string(),
   headCommitSha: string(),
   lastCommitAt: optional(number()),
@@ -50,11 +50,9 @@ const vaultRemoteBranchListItemValidator = object({
   commits: array(vVaultBranchCommitSummary),
 });
 
-type VaultRemoteBranchListItem = Infer<typeof vaultRemoteBranchListItemValidator>;
+type VaultRemoteBranchListItem = Infer<typeof vVaultRemoteBranchListItem>;
 
-const vaultRemoteBranchListPageValidator = paginationResultValidator(
-  vaultRemoteBranchListItemValidator,
-);
+const vVaultRemoteBranchListPage = paginationResultValidator(vVaultRemoteBranchListItem);
 
 export function compareRemoteBranchSortOrder(
   left: {
@@ -385,7 +383,7 @@ export const getVaultRemoteBranches = query({
   args: {
     vaultId: id("vaults"),
   },
-  returns: array(vaultRemoteBranchListItemValidator),
+  returns: array(vVaultRemoteBranchListItem),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
@@ -424,7 +422,7 @@ export const listVaultRemoteBranchesPage = query({
     vaultId: id("vaults"),
     paginationOpts: paginationOptsValidator,
   },
-  returns: vaultRemoteBranchListPageValidator,
+  returns: vVaultRemoteBranchListPage,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
