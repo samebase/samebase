@@ -597,7 +597,6 @@ const STICKY_HEADER_BRANCHES: FixtureVaultBranchRow[] = Array.from({ length: 32 
 
 const LARGE_BRANCH_COUNT = 1000;
 const LARGE_BRANCH_INITIAL_PAGE_SIZE = 25;
-const LARGE_BRANCH_COUNT_FORMATTER = new Intl.NumberFormat("en-US");
 const LARGE_BRANCHES: FixtureVaultBranch[] = Array.from(
   { length: LARGE_BRANCH_COUNT },
   (_, index) =>
@@ -1747,7 +1746,6 @@ function VaultDashboardLargeBranchListFixture() {
     largeBranchFilters,
   );
   const paginationStatus = loadedBranchCount < LARGE_BRANCH_COUNT ? "CanLoadMore" : "Exhausted";
-  const loadedBranchCountLabel = LARGE_BRANCH_COUNT_FORMATTER.format(loadedBranchCount);
 
   return (
     <FixtureDashboardShell
@@ -1773,7 +1771,6 @@ function VaultDashboardLargeBranchListFixture() {
                 repositoryLinksOpen={false}
                 onRepositoryLinksOpenChange={() => {}}
                 topRightAction={<FixtureDeleteControl />}
-                repositoryStatus={<span>{loadedBranchCountLabel} of 1,000 branches loaded</span>}
                 headerControls={
                   <VaultBranchHeaderControls
                     filteredBranchCount={branchSectionState.filteredRemoteBranches.length}

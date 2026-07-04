@@ -985,7 +985,7 @@ test("vault dashboard fixture (large branch virtual list)", async ({ page }) => 
   const branchRows = page.locator("[data-vault-dashboard-branch-row]");
 
   await expect(fixture).toHaveAttribute("data-loaded-branch-count", "25");
-  await expect(page.getByText("25 of 1,000 branches loaded")).toBeVisible();
+  await expect(fixture).toHaveAttribute("data-total-branch-count", "1000");
   await expect(page.getByText("codex/large-branch-0001")).toBeVisible();
   await expect(page.getByText("codex/large-branch-0999")).toHaveCount(0);
   await expect.poll(async () => branchRows.count()).toBeLessThan(80);
@@ -1013,7 +1013,7 @@ test("vault dashboard fixture (large branch virtual list)", async ({ page }) => 
   }
 
   expect(loadedBranchCount).toBe(1000);
-  await expect(page.getByText("1,000 of 1,000 branches loaded")).toBeVisible();
+  await expect(fixture).toHaveAttribute("data-loaded-branch-count", "1000");
 
   await scrollport.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
