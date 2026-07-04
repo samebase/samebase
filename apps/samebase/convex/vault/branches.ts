@@ -1,9 +1,15 @@
-import { v } from "convex/values";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
+import { v, type Infer } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { mutation, query } from "../functions";
-import { vPullRequestLabel, vVaultBranchCommitSummary, type PullRequestLabel } from "../schema";
+import {
+  vPullRequestLabel,
+  vVaultBranchCommitSummary,
+  type GitHubCommitCheckSnapshot,
+  type PullRequestLabel,
+} from "../schema";
 import { buildVaultBranchCommitSummaries } from "./branchCommitSummary";
 import {
   deleteGitHubCommitChecksUnreferencedByBranches,
@@ -23,6 +29,32 @@ import {
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 const REMOTE_BRANCH_MISSING_LAST_COMMIT_AT_SORT_RANK = Number.MAX_SAFE_INTEGER;
+
+const vaultRemoteBranchListItemValidator = object({
+  name: string(),
+  headCommitSha: string(),
+  lastCommitAt: optional(number()),
+  aheadBy: optional(number()),
+  behindBy: optional(number()),
+  pullRequestUrl: optional(string()),
+  pullRequestNumber: optional(number()),
+  pullRequestLabels: optional(array(vPullRequestLabel)),
+  pullRequestTitle: optional(string()),
+  pullRequestIsDraft: optional(boolean()),
+  previewUrl: optional(string()),
+  isDefault: boolean(),
+  isProtected: boolean(),
+  remoteState: union(literal("active"), literal("deleted_upstream")),
+  deletedUpstreamAt: optional(number()),
+  lastSyncedAt: number(),
+  commits: array(vVaultBranchCommitSummary),
+});
+
+type VaultRemoteBranchListItem = Infer<typeof vaultRemoteBranchListItemValidator>;
+
+const vaultRemoteBranchListPageValidator = paginationResultValidator(
+  vaultRemoteBranchListItemValidator,
+);
 
 export function compareRemoteBranchSortOrder(
   left: {
@@ -138,6 +170,32 @@ export function buildActiveBranchPreviewUrlsByBranch(
   }
 
   return urlsByBranch;
+}
+
+function buildVaultRemoteBranchListItem(args: {
+  branch: Doc<"vaultRemoteBranches">;
+  checkSnapshot?: GitHubCommitCheckSnapshot;
+  previewUrl?: string;
+}): VaultRemoteBranchListItem {
+  return {
+    name: args.branch.name,
+    headCommitSha: args.branch.headCommitSha,
+    lastCommitAt: args.branch.lastCommitAt,
+    aheadBy: args.branch.aheadBy,
+    behindBy: args.branch.behindBy,
+    pullRequestUrl: args.branch.pullRequestUrl,
+    pullRequestNumber: args.branch.pullRequestNumber,
+    pullRequestLabels: args.branch.pullRequestLabels,
+    pullRequestTitle: args.branch.pullRequestTitle,
+    pullRequestIsDraft: args.branch.pullRequestIsDraft,
+    previewUrl: args.previewUrl,
+    isDefault: args.branch.isDefault,
+    isProtected: args.branch.isProtected,
+    remoteState: args.branch.remoteState,
+    deletedUpstreamAt: args.branch.deletedUpstreamAt,
+    lastSyncedAt: args.branch.lastSyncedAt,
+    commits: buildVaultBranchCommitSummaries(args.branch, args.checkSnapshot),
+  };
 }
 
 function groupStagingFilesByBranch(
@@ -327,27 +385,7 @@ export const getVaultRemoteBranches = query({
   args: {
     vaultId: id("vaults"),
   },
-  returns: array(
-    object({
-      name: string(),
-      headCommitSha: string(),
-      lastCommitAt: optional(number()),
-      aheadBy: optional(number()),
-      behindBy: optional(number()),
-      pullRequestUrl: optional(string()),
-      pullRequestNumber: optional(number()),
-      pullRequestLabels: optional(array(vPullRequestLabel)),
-      pullRequestTitle: optional(string()),
-      pullRequestIsDraft: optional(boolean()),
-      previewUrl: optional(string()),
-      isDefault: boolean(),
-      isProtected: boolean(),
-      remoteState: union(literal("active"), literal("deleted_upstream")),
-      deletedUpstreamAt: optional(number()),
-      lastSyncedAt: number(),
-      commits: array(vVaultBranchCommitSummary),
-    }),
-  ),
+  returns: array(vaultRemoteBranchListItemValidator),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
@@ -370,28 +408,75 @@ export const getVaultRemoteBranches = query({
     });
     const previewUrlsByBranch = buildActiveBranchPreviewUrlsByBranch(domains);
 
-    return branches.sort(compareRemoteBranchSortOrder).map((branch) => ({
-      name: branch.name,
-      headCommitSha: branch.headCommitSha,
-      lastCommitAt: branch.lastCommitAt,
-      aheadBy: branch.aheadBy,
-      behindBy: branch.behindBy,
-      pullRequestUrl: branch.pullRequestUrl,
-      pullRequestNumber: branch.pullRequestNumber,
-      pullRequestLabels: branch.pullRequestLabels,
-      pullRequestTitle: branch.pullRequestTitle,
-      pullRequestIsDraft: branch.pullRequestIsDraft,
-      previewUrl: previewUrlsByBranch.get(branch.name),
-      isDefault: branch.isDefault,
-      isProtected: branch.isProtected,
-      remoteState: branch.remoteState,
-      deletedUpstreamAt: branch.deletedUpstreamAt,
-      lastSyncedAt: branch.lastSyncedAt,
-      commits: buildVaultBranchCommitSummaries(
+    return branches.sort(compareRemoteBranchSortOrder).map((branch) =>
+      buildVaultRemoteBranchListItem({
         branch,
-        checkSnapshotsByCommitSha.get(branch.headCommitSha),
+        checkSnapshot: checkSnapshotsByCommitSha.get(branch.headCommitSha),
+        previewUrl: previewUrlsByBranch.get(branch.name),
+      }),
+    );
+  },
+});
+
+export const listVaultRemoteBranchesPage = query({
+  access: "access_files_read",
+  args: {
+    vaultId: id("vaults"),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: vaultRemoteBranchListPageValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== ctx.viewer.userId || !isLiveConnectedVault(vault)) {
+      return {
+        page: [],
+        isDone: true,
+        continueCursor: "",
+      };
+    }
+
+    const paginated = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name", (q) =>
+        q.eq("vaultId", args.vaultId),
+      )
+      .paginate(args.paginationOpts);
+
+    const [domainsByBranch, checkSnapshotsByCommitSha] = await Promise.all([
+      Promise.all(
+        paginated.page.map(async (branch) => ({
+          branchName: branch.name,
+          domains: await ctx.db
+            .query("vaultDomains")
+            .withIndex("by_vault_and_branch", (q) =>
+              q.eq("vaultId", args.vaultId).eq("branch", branch.name),
+            )
+            .collect(),
+        })),
       ),
-    }));
+      getGitHubCommitCheckSnapshotsByCommitSha(ctx, {
+        githubRepositoryId: vault.ghRepoId,
+        commitShas: paginated.page.map((branch) => branch.headCommitSha),
+      }),
+    ]);
+    const previewUrlByBranch = new Map(
+      domainsByBranch.map((entry) => [
+        entry.branchName,
+        buildActiveBranchPreviewUrlsByBranch(entry.domains).get(entry.branchName),
+      ]),
+    );
+
+    return {
+      page: paginated.page.map((branch) =>
+        buildVaultRemoteBranchListItem({
+          branch,
+          checkSnapshot: checkSnapshotsByCommitSha.get(branch.headCommitSha),
+          previewUrl: previewUrlByBranch.get(branch.name),
+        }),
+      ),
+      isDone: paginated.isDone,
+      continueCursor: paginated.continueCursor,
+    };
   },
 });
 

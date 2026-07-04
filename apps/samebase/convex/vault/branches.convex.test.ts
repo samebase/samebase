@@ -186,6 +186,47 @@ describe("vault branch mutations", () => {
     ]);
     expect(branches[0]?.pullRequestNumber).toBeUndefined();
     expect(branches[1]?.pullRequestNumber).toBeUndefined();
+    const firstBranchPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
+      vaultId: ids.vaultId,
+      paginationOpts: { cursor: null, numItems: 1 },
+    });
+    expect(firstBranchPage.page).toMatchObject([
+      {
+        name: "main",
+        commits: [
+          {
+            sha: "abc123",
+            checks: {
+              state: "success",
+              totalCount: 1,
+              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
+            },
+          },
+        ],
+      },
+    ]);
+    expect(firstBranchPage.isDone).toBe(false);
+    const secondBranchPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
+      vaultId: ids.vaultId,
+      paginationOpts: { cursor: firstBranchPage.continueCursor, numItems: 1 },
+    });
+    expect(secondBranchPage.page).toMatchObject([
+      {
+        name: "feature/no-pr",
+        previewUrl: "https://feature-no-pr.example.workers.dev",
+        commits: [
+          {
+            sha: "abc123",
+            checks: {
+              state: "success",
+              totalCount: 1,
+              primaryTargetUrl: "https://github.com/ada/branch-checks/actions/runs/101",
+            },
+          },
+        ],
+      },
+    ]);
+    expect(secondBranchPage.isDone).toBe(true);
     await t.mutation(internal.vault.branches.syncVaultBranchPreviewDomainFromCheckSnapshot, {
       vaultId: ids.vaultId,
       branchName: "feature/no-pr",
@@ -373,6 +414,28 @@ describe("vault branch mutations", () => {
         commitRank: -100,
       },
     ]);
+
+    const asOwner = t.withIdentity({
+      subject: `${ids.userId}|owner-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    });
+    const firstPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
+      vaultId: ids.vaultId,
+      paginationOpts: { cursor: null, numItems: 1 },
+    });
+    const secondPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
+      vaultId: ids.vaultId,
+      paginationOpts: { cursor: firstPage.continueCursor, numItems: 1 },
+    });
+    const thirdPage = await asOwner.query(api.vault.branches.listVaultRemoteBranchesPage, {
+      vaultId: ids.vaultId,
+      paginationOpts: { cursor: secondPage.continueCursor, numItems: 1 },
+    });
+
+    expect(firstPage.page.map((branch) => branch.name)).toEqual(["main"]);
+    expect(secondPage.page.map((branch) => branch.name)).toEqual(["legacy"]);
+    expect(thirdPage.page.map((branch) => branch.name)).toEqual(["feature/no-commit"]);
+    expect(thirdPage.isDone).toBe(true);
   });
 
   it("requires vault ownership before optimistic tree refresh writes", async () => {

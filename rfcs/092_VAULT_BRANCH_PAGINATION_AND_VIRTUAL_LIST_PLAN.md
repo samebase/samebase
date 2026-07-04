@@ -40,6 +40,7 @@ The accepted direction for this rollout is:
 2. Move selected-vault branch rows behind a per-vault Convex query. Implemented in Phase 1 through
    `api.vault.branches.getVaultRemoteBranches`.
 3. Add real Convex cursor pagination for branch rows once the branch sort order is indexable.
+   Implemented in Phase 3 as `api.vault.branches.listVaultRemoteBranchesPage`.
 4. Render the selected vault's branches as one virtualized scroll surface with TanStack Virtual.
 5. Remove the `Show N more branches`/`Show less branches` expansion behavior. Implemented in Phase 1
    for app code; the old schema field awaits cleanup migration.
@@ -59,8 +60,13 @@ roots, and provider resources.
 
 `/vault/$owner/$repo` loads its branch rows through the existing
 `api.vault.branches.getVaultRemoteBranches` query. That query still collects all branches for the
-selected vault and sorts in TypeScript, so the route boundary is fixed but real branch pagination is
-not implemented yet.
+selected vault and sorts in TypeScript because the current filter header derives full-catalog label
+options and counts from the same loaded array.
+
+`api.vault.branches.listVaultRemoteBranchesPage` now exists for the selected-vault branch row path.
+It uses Convex native pagination over the sorted branch index and attaches commit check summaries
+and preview URLs only for the returned page. The dashboard frontend will switch to this query when
+the virtual list and filter metadata boundary land.
 
 The frontend still applies branch filters locally to the selected vault's loaded branch rows. Phase
 1 removed the branch expansion limit and deleted `Show N more branches`/`Show less branches` from
@@ -233,20 +239,27 @@ Validation:
 - Convex unit tests prove the derived sort fields match `compareRemoteBranchSortOrder`.
 - Convex integration tests prove branch sync writes ranks on insert, preserves commit-time ranks
   when GitHub omits an unchanged timestamp, and rewrites ranks when a row becomes deleted-upstream.
-- The old selected-vault branch query still works until Phase 3 replaces it.
+- The old selected-vault branch query still works until the frontend moves to the paginated branch
+  query with separate filter metadata.
 
 ### Phase 3: Introduce The Paginated Branch Query
 
-Goal: make selected-vault branch rows a real Convex paginated query.
+Status: Implemented for the backend pagination boundary.
 
-Changes:
+Goal: make selected-vault branch rows available through a real Convex paginated query.
 
-- Add `listVaultRemoteBranchesPage` or equivalent under `vault/branches.ts`.
-- Use `paginationOptsValidator` and `.paginate(args.paginationOpts)` on the sorted branch index.
-- Fetch domains and commit check snapshots only for the page's branch heads.
-- Return the same row shape the frontend branch row component already consumes.
-- Use `maximumRowsRead` and/or `maximumBytesRead` only when a concrete filter strategy needs a
-  bounded scan; do not use these as a substitute for the sorted index.
+Implemented behavior:
+
+- Added `api.vault.branches.listVaultRemoteBranchesPage`.
+- Uses `paginationOptsValidator` and `.paginate(args.paginationOpts)` on
+  `by_vault_and_defaultRank_and_stateRank_and_commitRank_and_name`.
+- Fetches preview domains and commit check snapshots only for branch rows in the returned page.
+- Returns the same branch row item shape as `getVaultRemoteBranches`, wrapped in Convex's native
+  pagination result shape.
+- Leaves `getVaultRemoteBranches` in place for current full-catalog dashboard filters and the file
+  route's current-branch metadata lookup until the later frontend/filter slices replace those
+  dependencies.
+- Does not use bounded scans because Phase 3 has no server-side non-indexable filters.
 
 Validation:
 
@@ -254,7 +267,8 @@ Validation:
 - Active branches appear before deleted-upstream branches.
 - Cursor continuation preserves deterministic order and has no duplicate branch rows.
 - Branch check summaries and preview URLs are present for rows on the current page.
-- Unauthorized users receive an empty page or access error matching the current access contract.
+- Unauthorized users receive an empty native pagination page, matching the current branch-list
+  access contract.
 
 ### Phase 4: Render The Virtualized Infinite List
 
