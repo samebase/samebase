@@ -75,9 +75,11 @@ Rules:
   has no Convex inputs. Trigger env vars at this stage carry no Convex values.
 - `wire_convex_build_access` requires `attach_convex` and `wire_builds` to have completed. It
   ensures the preview deployment (persisting its identity, unlike today), mints the two deploy keys,
-  records their ids on the Convex row, and PATCHes both triggers' env vars (`PROD_CONVEX_DEPLOY_KEY`
-  / `PREVIEW_CONVEX_DEPLOY_KEY` / `VITE_CONVEX_URL`). Key material never touches the workflow
-  journal (existing doctrine).
+  records their ids on the Convex row, and PATCHes the Workers Builds env vars with both split
+  deploy keys (`PROD_CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY`) on each trigger record.
+  This matches the manually configured Cloudflare UI shape: the visible Build variables table holds
+  both keys, while `convex deploy --cmd` supplies the selected deployment URL as `VITE_CONVEX_URL`
+  during the build. Key material never touches the workflow journal (existing doctrine).
 - Blocks keep the existing run machinery: one `appProvisioningRuns` run per block execution, the
   claim/ensure/finish ownership pattern, events for progress. The triplicated claim helper stack
   should collapse into one shared implementation as blocks land.
@@ -183,8 +185,8 @@ Verification probes required before implementation (one-time, live):
 - Per-resource detach (the inverse blocks). Noted dead end to resolve later: monorepo conversion
   errors with "Disconnect root providers before converting" while no disconnect flow exists.
 - Custom domains and routing automation.
-- Convex resource discovery (only weak evidence exists: visible `VITE_CONVEX_URL` values) and any
-  auto-creation of Convex projects during Cloudflare work.
+- Convex resource discovery from provider build/runtime env vars and any auto-creation of Convex
+  projects during Cloudflare work.
 - A generic provider framework or resource registry.
 
 ## Open Questions

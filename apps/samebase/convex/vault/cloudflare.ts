@@ -1146,11 +1146,9 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
         build: active.worker.build,
         convex: {
           production: {
-            cloudUrl: active.convex.cloudUrl,
             deployKey: productionDeployKey.deployKey,
           },
           preview: {
-            cloudUrl: previewConvex.previewCloudUrl,
             deployKey: previewDeployKey.deployKey,
           },
         },

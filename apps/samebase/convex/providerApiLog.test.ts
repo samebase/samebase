@@ -14,9 +14,9 @@ describe("formatProviderApiCallLogMessage", () => {
             value: "secret-key",
             is_secret: true,
           },
-          VITE_CONVEX_URL: {
-            value: "https://example.convex.cloud",
-            is_secret: false,
+          PREVIEW_CONVEX_DEPLOY_KEY: {
+            value: "preview-secret-key",
+            is_secret: true,
           },
           build_command: "pnpm run build",
           private: true,
@@ -34,12 +34,12 @@ describe("formatProviderApiCallLogMessage", () => {
       "API Cloudflare POST /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values=",
     );
     expect(message).toContain('"PROD_CONVEX_DEPLOY_KEY":"[secret]"');
-    expect(message).toContain('"value":"[redacted]"');
+    expect(message).toContain('"PREVIEW_CONVEX_DEPLOY_KEY":"[secret]"');
     expect(message).toContain('"account_id":"[redacted]"');
     expect(message).toContain('"build_command":"pnpm run build"');
     expect(message).not.toContain("secret-key");
+    expect(message).not.toContain("preview-secret-key");
     expect(message).not.toContain("abc123");
-    expect(message).not.toContain("example.convex.cloud");
   });
 
   it("summarizes large arrays and file contents", () => {

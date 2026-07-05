@@ -264,40 +264,20 @@ describe("cloudflare resources", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
-  it("uses the split production Convex deploy key for production Workers builds", () => {
+  it("uses both split Convex deploy keys for Workers builds", () => {
     expect(
       buildCloudflareWorkersEnvVars({
-        deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
-        convexDeployKey: "prod-key",
-        convexUrl: "https://prod.convex.cloud",
-      }),
-    ).toEqual({
-      PROD_CONVEX_DEPLOY_KEY: {
-        value: "prod-key",
-        is_secret: true,
-      },
-      VITE_CONVEX_URL: {
-        value: "https://prod.convex.cloud",
-        is_secret: false,
-      },
-    });
-  });
-
-  it("uses the split preview Convex deploy key for preview Workers builds", () => {
-    expect(
-      buildCloudflareWorkersEnvVars({
-        deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
-        convexDeployKey: "preview-key",
-        convexUrl: "https://preview.convex.cloud",
+        previewConvexDeployKey: "preview-key",
+        productionConvexDeployKey: "prod-key",
       }),
     ).toEqual({
       PREVIEW_CONVEX_DEPLOY_KEY: {
         value: "preview-key",
         is_secret: true,
       },
-      VITE_CONVEX_URL: {
-        value: "https://preview.convex.cloud",
-        is_secret: false,
+      PROD_CONVEX_DEPLOY_KEY: {
+        value: "prod-key",
+        is_secret: true,
       },
     });
   });
@@ -408,11 +388,9 @@ describe("cloudflare resources", () => {
       },
       convex: {
         production: {
-          cloudUrl: "https://prod.convex.cloud",
           deployKey: "prod-key",
         },
         preview: {
-          cloudUrl: "https://preview.convex.cloud",
           deployKey: "preview-key",
         },
       },
@@ -456,20 +434,12 @@ describe("cloudflare resources", () => {
     expect(buildIndex).toBeGreaterThan(previewPatchIndex);
     expect(buildIndex).toBeGreaterThan(productionVerifyIndex);
     expect(buildIndex).toBeGreaterThan(previewVerifyIndex);
-    expect(requests[productionPatchIndex]?.body).toEqual(
-      buildCloudflareWorkersEnvVars({
-        deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
-        convexDeployKey: "prod-key",
-        convexUrl: "https://prod.convex.cloud",
-      }),
-    );
-    expect(requests[previewPatchIndex]?.body).toEqual(
-      buildCloudflareWorkersEnvVars({
-        deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
-        convexDeployKey: "preview-key",
-        convexUrl: "https://preview.convex.cloud",
-      }),
-    );
+    const convexEnvVars = buildCloudflareWorkersEnvVars({
+      previewConvexDeployKey: "preview-key",
+      productionConvexDeployKey: "prod-key",
+    });
+    expect(requests[productionPatchIndex]?.body).toEqual(convexEnvVars);
+    expect(requests[previewPatchIndex]?.body).toEqual(convexEnvVars);
   });
 
   it("fails closed when Cloudflare does not read back the preview deploy key", async () => {
@@ -529,11 +499,9 @@ describe("cloudflare resources", () => {
         },
         convex: {
           production: {
-            cloudUrl: "https://prod.convex.cloud",
             deployKey: "prod-key",
           },
           preview: {
-            cloudUrl: "https://preview.convex.cloud",
             deployKey: "preview-key",
           },
         },
@@ -606,11 +574,9 @@ describe("cloudflare resources", () => {
         },
         convex: {
           production: {
-            cloudUrl: "https://prod.convex.cloud",
             deployKey: "prod-key",
           },
           preview: {
-            cloudUrl: "https://preview.convex.cloud",
             deployKey: "preview-key",
           },
         },
