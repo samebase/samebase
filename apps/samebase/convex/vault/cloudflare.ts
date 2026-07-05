@@ -15,12 +15,19 @@ import {
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
+  type CloudflareBuildConfig,
   createCloudflareWorker,
   deleteCloudflareResources,
   listCloudflareWorkers,
   readOptionalWorkersDevUrl,
+  wireCloudflareWorkerBuilds,
 } from "../cloudflareResources";
-import { vVaultCloudflareOrigin, type VaultCloudflareOrigin } from "./model";
+import { fetchGitHubRepoIdentity } from "../githubRepoApi";
+import {
+  vVaultCloudflareOrigin,
+  type VaultCloudflareBuildConfig,
+  type VaultCloudflareOrigin,
+} from "./model";
 
 const { array, id, null: nullValue, object, string } = v;
 
@@ -75,6 +82,32 @@ async function resolveCloudflareConnection(
     token,
     transport: resolveCloudflareApiTransport(connection.auth.method),
     tokenHealth: connection.tokenHealth,
+  };
+}
+
+async function resolveGitHubConnection(
+  ctx: Pick<ActionCtx, "runQuery">,
+  userId: Id<"users">,
+): Promise<{ githubAccessToken: string }> {
+  const githubConnection = await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+    userId,
+    kind: "github",
+  });
+  const githubAccessToken = githubConnection?.auth.credential.trim();
+  if (githubConnection?.kind !== "github" || !githubAccessToken) {
+    throw new Error("GitHub connection is required.");
+  }
+  return { githubAccessToken };
+}
+
+function toCloudflareBuildConfig(build: VaultCloudflareBuildConfig): CloudflareBuildConfig {
+  return {
+    rootDir: build.rootDirectory,
+    buildCommand: build.buildCommand,
+    deployCommand: build.deployCommand,
+    previewDeployCommand: build.previewDeployCommand,
+    pathIncludes: build.pathIncludes,
+    pathExcludes: build.pathExcludes,
   };
 }
 
@@ -186,6 +219,26 @@ async function startCloudflareWorkerConnectionOrFail(
   }
 }
 
+async function startCloudflareBuildsWiringOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appRoot: string;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(internal.appProvisioningWorkflow.startCloudflareBuildsWiring, args);
+  } catch (error) {
+    await markCloudflareWorkerConnectionStartupFailed(ctx, {
+      runId: args.runId,
+      error,
+    });
+    throw error;
+  }
+}
+
 async function isCloudflareWorkerConnectionRunActive(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
@@ -205,6 +258,23 @@ async function isCloudflareWorkerConnectionRunActive(
     },
   );
   return result.active;
+}
+
+async function readActiveCloudflareBuildsWiring(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appRoot: string;
+  },
+) {
+  return await ctx.runQuery(internal.vault.cloudflareMutations.readActiveCloudflareBuildsWiring, {
+    vaultId: args.vaultId,
+    runId: args.runId,
+    userId: args.userId,
+    appRoot: args.appRoot,
+  });
 }
 
 export const listAccounts = action({
@@ -358,6 +428,32 @@ export const createWorker = action({
   },
 });
 
+export const wireBuilds = action({
+  access: "access_app_create",
+  args: {
+    vaultId: id("vaults"),
+    appRoot: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    const userId = ctx.viewer.userId;
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+      userId,
+      vaultId: args.vaultId,
+      trigger: "wire_builds",
+    });
+    await startCloudflareBuildsWiringOrFail(ctx, {
+      vaultId: args.vaultId,
+      runId,
+      userId,
+      appRoot,
+    });
+
+    return null;
+  },
+});
+
 export const ensureCloudflareWorkerConnection = internalAction({
   args: {
     vaultId: id("vaults"),
@@ -495,5 +591,76 @@ export const ensureCloudflareWorkerConnection = internalAction({
 
     args.origin satisfies never;
     throw new Error("Unsupported Cloudflare Worker origin.");
+  },
+});
+
+export const ensureCloudflareBuildsWiring = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    const active = await readActiveCloudflareBuildsWiring(ctx, args);
+    if (!active.active) {
+      return null;
+    }
+
+    const [cloudflareConnection, githubConnection] = await Promise.all([
+      resolveCloudflareConnection(ctx, args.userId),
+      resolveGitHubConnection(ctx, args.userId),
+    ]);
+    const account = await resolveAccount(ctx, {
+      token: cloudflareConnection.token,
+      transport: cloudflareConnection.transport,
+      accountId: active.worker.accountId,
+    });
+    const repoIdentity = await fetchGitHubRepoIdentity({
+      githubAccessToken: githubConnection.githubAccessToken,
+      owner: active.owner,
+      repo: active.repo,
+      expectedRepoId: active.ghRepoId,
+    });
+    const build = await wireCloudflareWorkerBuilds({
+      owner: active.owner,
+      repo: active.repo,
+      ghRepoId: active.ghRepoId,
+      ghRepoOwnerId: repoIdentity.ownerId,
+      defaultBranch: active.defaultBranch,
+      triggerInitialBuild: !active.hasConvexDeployment,
+      vaultId: args.vaultId,
+      workerName: active.worker.workerName,
+      workerTag: active.worker.workerTag,
+      cloudflareToken: cloudflareConnection.token,
+      cloudflareAuthMethod: cloudflareConnection.auth.method,
+      accountId: account.accountId,
+      buildConfig: toCloudflareBuildConfig(active.buildConfig),
+    });
+    await rememberDefaultAccount(ctx, {
+      userId: args.userId,
+      auth: cloudflareConnection.auth,
+      account,
+      tokenHealth: cloudflareConnection.tokenHealth,
+    });
+    const { applied } = await ctx.runMutation(
+      internal.vault.cloudflareMutations.recordCloudflareBuildsForRun,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+        builds: {
+          state: "connected",
+          ...build,
+        },
+      },
+    );
+    if (!applied) {
+      throw new Error("Cloudflare Workers Builds wiring was superseded.");
+    }
+
+    return null;
   },
 });

@@ -38,6 +38,7 @@ function resolveSourceSetupResourceProvider(
     case "ensure_convex_preview":
       return "convex";
     case "ensure_cloudflare":
+    case "wire_builds":
     case "record_domains":
       return "cloudflare";
     case "finish":

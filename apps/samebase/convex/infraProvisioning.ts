@@ -23,8 +23,8 @@ import {
   type ExistingCloudflareWorkerIdentity,
   isCloudflareGitHubAppRepositoryAuthorizationError,
 } from "./cloudflareResources";
-import { asRecord, readStringOrNumber } from "./jsonUtils";
 import type { AppProvisioningStep, GithubTreeData } from "./schema";
+import { fetchGitHubRepoIdentity } from "./githubRepoApi";
 import { vaultSuffix } from "./slugUtils";
 import {
   isLiveConnectedVault,
@@ -39,7 +39,6 @@ import {
 } from "./providerApiLog";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
-const GITHUB_API_VERSION = "2022-11-28";
 
 type ConvexDeployKeyAllowedAction = NonNullable<
   components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
@@ -129,110 +128,6 @@ async function assertVaultInfrastructureTargetExists(
   }
 
   throw new Error("Infrastructure target is required before provisioning can be claimed.");
-}
-
-async function readResponseTextSafe(response: Response): Promise<string> {
-  try {
-    return await response.text();
-  } catch {
-    return "";
-  }
-}
-
-async function parseResponseJsonSafe(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
-
-type GitHubRepoRequestMethod = "GET" | "POST" | "PATCH";
-
-async function requestGitHubRepoApi(args: {
-  githubAccessToken: string;
-  owner: string;
-  repo: string;
-  path: string;
-  method: GitHubRepoRequestMethod;
-  recordApiCall?: ProviderApiCallRecorder;
-  body?: unknown;
-}): Promise<unknown> {
-  const recordApiCall = args.recordApiCall;
-  if (recordApiCall) {
-    const values: Record<string, unknown> = {
-      params: {
-        path: {
-          owner: args.owner,
-          repo: args.repo,
-        },
-      },
-    };
-    if (args.body !== undefined) {
-      values.body = args.body;
-    }
-    await recordApiCall({
-      provider: "GitHub",
-      method: args.method,
-      endpoint: `/repos/{owner}/{repo}${args.path}`,
-      values,
-    });
-  }
-  const endpoint = `https://api.github.com/repos/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repo)}${args.path}`;
-  const response = await fetch(endpoint, {
-    method: args.method,
-    headers: {
-      Authorization: `Bearer ${args.githubAccessToken}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": GITHUB_API_VERSION,
-      "Content-Type": "application/json",
-    },
-    body: args.body === undefined ? undefined : JSON.stringify(args.body),
-  });
-
-  if (!response.ok) {
-    const responseText = await readResponseTextSafe(response);
-    throw new Error(
-      `GitHub API request failed (${response.status}) for ${args.owner}/${args.repo}${args.path}: ${responseText}`,
-    );
-  }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  return await parseResponseJsonSafe(response);
-}
-
-async function fetchGitHubRepoIdentity(args: {
-  githubAccessToken: string;
-  owner: string;
-  repo: string;
-  expectedRepoId: string;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<{ ownerId: string }> {
-  const repoRaw = await requestGitHubRepoApi({
-    githubAccessToken: args.githubAccessToken,
-    owner: args.owner,
-    repo: args.repo,
-    path: "",
-    method: "GET",
-    recordApiCall: args.recordApiCall,
-  });
-  const record = asRecord(repoRaw);
-  const repoId = readStringOrNumber(record, "id");
-  const ownerRecord = asRecord(record["owner"]);
-  const ownerId = readStringOrNumber(ownerRecord, "id");
-  if (!repoId) {
-    throw new Error("GitHub repository response did not include repo id.");
-  }
-  if (repoId !== args.expectedRepoId) {
-    throw new Error("GitHub repository response did not match the vault repo.");
-  }
-  if (!ownerId) {
-    throw new Error("GitHub repository response did not include owner id.");
-  }
-  return { ownerId };
 }
 
 function parseDeployKeyIdentifier(deployKey: string): string {
@@ -641,10 +536,10 @@ export function selectExistingCloudflareWorker(args: {
 }
 
 type ProvisioningEventCtx = {
-  runMutation<Mutation extends FunctionReference<"mutation", "public" | "internal">>(
+  runMutation: <Mutation extends FunctionReference<"mutation", "public" | "internal">>(
     mutation: Mutation,
     ...args: OptionalRestArgs<Mutation>
-  ): Promise<FunctionReturnType<Mutation>>;
+  ) => Promise<FunctionReturnType<Mutation>>;
 };
 
 async function appendProvisioningRunEvent(
@@ -1202,8 +1097,11 @@ export const markCloudflareConnected = internalMutation({
       workersDevUrl: args.workersDevUrl,
       origin: "provisioned",
       deployment: {
-        state: "workers_builds_connected",
-        ...args.build,
+        builds: {
+          state: "connected",
+          ...args.build,
+        },
+        convexBuildAccess: { state: "wired" },
       },
       connectedAt: existing?.connectedAt ?? now,
       lastObservedAt: now,
@@ -1988,10 +1886,9 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers needs a configured workers.dev subdomain",
   "Cloudflare Workers Builds has no build API token",
   "Cloudflare has multiple Workers build tokens",
+  "Cannot connect Cloudflare Worker",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
-  "GitHub repository response did not include repo id.",
   "GitHub repository response did not match the vault repo.",
-  "GitHub repository response did not include owner id.",
 ];
 
 function extractUserFacingProvisioningError(args: {
@@ -2140,7 +2037,7 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (run.trigger === "connect_cloudflare_worker") {
+    if (run.trigger === "connect_cloudflare_worker" || run.trigger === "wire_builds") {
       const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
       if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
         await ctx.db.patch(ownership._id, {
@@ -2154,12 +2051,17 @@ export const markWorkflowProvisioningFailed = internalMutation({
         run,
         safeRunError,
       });
-      console.error("cloudflare:worker_connection:failed", {
-        vaultId,
-        repo: run.repositoryFullName,
-        step: run.currentStep,
-        message: args.message,
-      });
+      console.error(
+        run.trigger === "wire_builds"
+          ? "cloudflare:builds_wiring:failed"
+          : "cloudflare:worker_connection:failed",
+        {
+          vaultId,
+          repo: run.repositoryFullName,
+          step: run.currentStep,
+          message: args.message,
+        },
+      );
       return null;
     }
 

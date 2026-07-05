@@ -9,11 +9,38 @@ import {
 } from "../_generated/server";
 import type { AppProvisioningStep } from "../schema";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
-import { vVaultCloudflareOrigin } from "./model";
+import {
+  buildVaultCloudflareBuildConfigForAppRoot,
+  buildVaultCloudflareDeploymentNotConfigured,
+  buildVaultCloudflareDeploymentWithConnectedBuilds,
+  vVaultCloudflareBuildConfig,
+  vVaultCloudflareConnectedBuilds,
+  vVaultCloudflareOrigin,
+} from "./model";
 import { isLiveConnectedVault } from "./state";
 
-const { boolean, id, null: nullValue, object, optional, string } = v;
+const { boolean, id, literal, null: nullValue, object, optional, string, union } = v;
 const CLOUDFLARE_CONNECTION_STALE_MS = 10 * 60 * 1000;
+
+const cloudflareBuildsWiringState = union(
+  object({
+    active: literal(false),
+  }),
+  object({
+    active: literal(true),
+    owner: string(),
+    repo: string(),
+    ghRepoId: string(),
+    defaultBranch: string(),
+    hasConvexDeployment: boolean(),
+    buildConfig: vVaultCloudflareBuildConfig,
+    worker: object({
+      accountId: string(),
+      workerName: string(),
+      workerTag: string(),
+    }),
+  }),
+);
 
 type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
@@ -29,7 +56,7 @@ async function getVaultInfrastructureOwnership(
     .first();
 }
 
-function isActiveCloudflareWorkerConnectionOwner(
+function isActiveCloudflareProvisioningOwner(
   ownership: VaultInfrastructureOwnership | null,
   args: {
     runId: Id<"appProvisioningRuns">;
@@ -47,6 +74,21 @@ async function readCloudflareWorkerForAppRoot(
 ): Promise<Doc<"vaultCloudflareWorkers"> | null> {
   return await ctx.db
     .query("vaultCloudflareWorkers")
+    .withIndex("by_vault_and_appRoot", (q) =>
+      q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
+    )
+    .first();
+}
+
+async function readConvexDeploymentForAppRoot(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    appRoot: string;
+  },
+): Promise<Doc<"vaultConvexDeployments"> | null> {
+  return await ctx.db
+    .query("vaultConvexDeployments")
     .withIndex("by_vault_and_appRoot", (q) =>
       q.eq("vaultId", args.vaultId).eq("appRoot", args.appRoot),
     )
@@ -138,7 +180,7 @@ async function cancelSupersededCloudflareWorkerConnectionRun(
     runId: args.runId,
     step: "claim_infra",
     level: "warn",
-    message: "Cloudflare Worker connection was superseded by a newer run.",
+    message: "Cloudflare provisioning was superseded by a newer run.",
     state: "canceled",
   });
 }
@@ -161,6 +203,24 @@ async function requireCloudflareWorkerConnectionRun(
     run.trigger !== "connect_cloudflare_worker"
   ) {
     throw new Error("Cloudflare Worker connection run does not match vault.");
+  }
+  return run;
+}
+
+async function requireCloudflareBuildsWiringRun(
+  ctx: CloudflareWorkerConnectionReadCtx,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+  },
+): Promise<Doc<"appProvisioningRuns">> {
+  const run = await ctx.db.get(args.runId);
+  if (!run) {
+    throw new Error("Cloudflare Workers Builds wiring run not found.");
+  }
+  if (run.userId !== args.userId || run.vaultId !== args.vaultId || run.trigger !== "wire_builds") {
+    throw new Error("Cloudflare Workers Builds wiring run does not match vault.");
   }
   return run;
 }
@@ -271,7 +331,7 @@ export const attachWorker = internalMutation({
       workerTag: args.workerTag,
       workersDevUrl: args.workersDevUrl,
       origin: args.origin,
-      deployment: { state: "not_configured" },
+      deployment: buildVaultCloudflareDeploymentNotConfigured(),
       connectedAt: now,
       lastObservedAt: now,
     });
@@ -403,7 +463,7 @@ export const readActiveCloudflareWorkerConnection = internalQuery({
       }),
     ]);
     return {
-      active: !worker && isActiveCloudflareWorkerConnectionOwner(ownership, { runId: args.runId }),
+      active: !worker && isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId }),
     };
   },
 });
@@ -451,7 +511,7 @@ export const attachWorkerForRun = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareWorkerConnectionOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
@@ -468,7 +528,7 @@ export const attachWorkerForRun = internalMutation({
       workerTag: args.workerTag,
       workersDevUrl: args.workersDevUrl,
       origin: args.origin,
-      deployment: { state: "not_configured" },
+      deployment: buildVaultCloudflareDeploymentNotConfigured(),
       connectedAt: now,
       lastObservedAt: now,
     });
@@ -529,7 +589,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
-    if (!ownership || !isActiveCloudflareWorkerConnectionOwner(ownership, { runId: args.runId })) {
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
       await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
         runId: args.runId,
       });
@@ -554,6 +614,253 @@ export const finishCloudflareWorkerConnection = internalMutation({
       step: "finish",
       level: "info",
       message: "Cloudflare Worker is connected.",
+      state: "succeeded",
+    });
+
+    return null;
+  },
+});
+
+export const claimCloudflareBuildsWiring = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: object({ claimed: boolean() }),
+  handler: async (ctx, args) => {
+    await requireCloudflareBuildsWiringRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    const worker = await readCloudflareWorkerForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    if (!worker) {
+      throw new Error("Cloudflare Worker is required before wiring Workers Builds.");
+    }
+    if (worker.deployment.builds.state === "connected") {
+      await appendCloudflareWorkerConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "wire_builds",
+        level: "info",
+        message: "Cloudflare Workers Builds are already connected.",
+        state: "succeeded",
+      });
+      return { claimed: false };
+    }
+
+    const now = Date.now();
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (
+      ownership &&
+      ownership.state === "active" &&
+      ownership.runId !== args.runId &&
+      now - ownership.updatedAt < CLOUDFLARE_CONNECTION_STALE_MS
+    ) {
+      await appendCloudflareWorkerConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "claim_infra",
+        level: "warn",
+        message: "Cloudflare provisioning is already running.",
+        state: "canceled",
+      });
+      return { claimed: false };
+    }
+
+    const nextProvisioningVersion =
+      ownership && ownership.runId === args.runId
+        ? ownership.provisioningVersion
+        : (ownership?.provisioningVersion ?? 0) + 1;
+    if (ownership) {
+      if (ownership.state === "active" && ownership.runId !== args.runId) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: ownership.runId,
+        });
+      }
+      await ctx.db.patch(ownership._id, {
+        runId: args.runId,
+        provisioningVersion: nextProvisioningVersion,
+        state: "active",
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        provisioningVersion: nextProvisioningVersion,
+        state: "active",
+        updatedAt: now,
+      });
+    }
+
+    await appendCloudflareWorkerConnectionEvent(ctx, {
+      runId: args.runId,
+      step: "claim_infra",
+      level: "info",
+      message: `Started Cloudflare Workers Builds wiring for ${appRoot}.`,
+      state: "running",
+    });
+
+    return { claimed: true };
+  },
+});
+
+export const readActiveCloudflareBuildsWiring = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: cloudflareBuildsWiringState,
+  handler: async (ctx, args) => {
+    await requireCloudflareBuildsWiringRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    const [convexDeployment, ownership, worker] = await Promise.all([
+      readConvexDeploymentForAppRoot(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+      }),
+      getVaultInfrastructureOwnership(ctx, args.vaultId),
+      readCloudflareWorkerForAppRoot(ctx, {
+        vaultId: args.vaultId,
+        appRoot,
+      }),
+    ]);
+    if (
+      !worker ||
+      worker.deployment.builds.state === "connected" ||
+      !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })
+    ) {
+      return { active: false as const };
+    }
+
+    return {
+      active: true as const,
+      owner: vault.owner,
+      repo: vault.name,
+      ghRepoId: vault.ghRepoId,
+      defaultBranch: vault.defaultBranch,
+      hasConvexDeployment: convexDeployment ? true : false,
+      buildConfig: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }),
+      worker: {
+        accountId: worker.accountId,
+        workerName: worker.workerName,
+        workerTag: worker.workerTag,
+      },
+    };
+  },
+});
+
+export const recordCloudflareBuildsForRun = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+    builds: vVaultCloudflareConnectedBuilds,
+  },
+  returns: object({ applied: boolean() }),
+  handler: async (ctx, args) => {
+    await requireCloudflareBuildsWiringRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      return { applied: false };
+    }
+
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+        runId: args.runId,
+      });
+      return { applied: false };
+    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    const worker = await readCloudflareWorkerForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    if (!worker) {
+      throw new Error("Cloudflare Worker is required before recording Workers Builds.");
+    }
+
+    await ctx.db.patch(worker._id, {
+      deployment: buildVaultCloudflareDeploymentWithConnectedBuilds({
+        builds: args.builds,
+        convexBuildAccess: worker.deployment.convexBuildAccess,
+      }),
+      lastObservedAt: Date.now(),
+    });
+    await appendCloudflareWorkerConnectionEvent(ctx, {
+      runId: args.runId,
+      step: "wire_builds",
+      level: "info",
+      message: `Cloudflare Workers Builds connected for ${appRoot}.`,
+      state: "running",
+    });
+
+    return { applied: true };
+  },
+});
+
+export const finishCloudflareBuildsWiring = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    await requireCloudflareBuildsWiringRun(ctx, args);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+
+    const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
+    if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
+      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+        runId: args.runId,
+      });
+      return null;
+    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    const worker = await readCloudflareWorkerForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    if (!worker || worker.deployment.builds.state !== "connected") {
+      throw new Error("Cloudflare Workers Builds were not recorded.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(ownership._id, {
+      state: "succeeded",
+      updatedAt: now,
+    });
+    await appendCloudflareWorkerConnectionEvent(ctx, {
+      runId: args.runId,
+      step: "finish",
+      level: "info",
+      message: "Cloudflare Workers Builds are connected.",
       state: "succeeded",
     });
 

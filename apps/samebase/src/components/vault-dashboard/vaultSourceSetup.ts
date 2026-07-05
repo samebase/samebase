@@ -37,6 +37,8 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
       return "ensure Convex preview";
     case "ensure_cloudflare":
       return "ensure Cloudflare";
+    case "wire_builds":
+      return "wire Builds";
     case "record_domains":
       return "record domains";
     case "finish":

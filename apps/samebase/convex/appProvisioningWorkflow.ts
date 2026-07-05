@@ -325,8 +325,111 @@ export const connectCloudflareWorker = workflow.define({
       name: "ensure_cloudflare",
       retry: false,
     });
+    let buildRunId: typeof args.runId | null = null;
+    if (args.origin === "provisioned") {
+      buildRunId = await step.runMutation(
+        internal.appProvisioningRuns.createForVault,
+        {
+          vaultId: args.vaultId,
+          userId: args.userId,
+          trigger: "wire_builds",
+        },
+        { name: "create_wire_builds_run" },
+      );
+    }
+    try {
+      await step.runMutation(
+        internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
+        {
+          vaultId: args.vaultId,
+          runId: args.runId,
+          userId: args.userId,
+          appRoot: args.appRoot,
+        },
+        { name: "finish" },
+      );
+    } catch (error) {
+      if (buildRunId) {
+        await step.runMutation(
+          internal.infraProvisioning.markWorkflowStartupFailed,
+          {
+            runId: buildRunId,
+            message: "Cloudflare Worker connection did not finish.",
+          },
+          { name: "mark_wire_builds_blocked" },
+        );
+      }
+      throw error;
+    }
+
+    if (!buildRunId) {
+      return null;
+    }
+    try {
+      await step.runMutation(
+        internal.appProvisioningWorkflow.startCloudflareBuildsWiring,
+        {
+          vaultId: args.vaultId,
+          runId: buildRunId,
+          userId: args.userId,
+          appRoot: args.appRoot,
+        },
+        { name: "start_wire_builds" },
+      );
+    } catch (error) {
+      if (buildRunId) {
+        await step
+          .runMutation(
+            internal.infraProvisioning.markWorkflowStartupFailed,
+            {
+              runId: buildRunId,
+              message: toErrorMessage(error),
+            },
+            { name: "mark_wire_builds_start_failed" },
+          )
+          .catch((failureError: unknown) => {
+            console.warn("cloudflare:builds:follow_on_failure_record_failed", {
+              vaultId: args.vaultId,
+              appRoot: args.appRoot,
+              error: toErrorMessage(failureError),
+            });
+          });
+      }
+      console.warn("cloudflare:builds:follow_on_failed", {
+        vaultId: args.vaultId,
+        appRoot: args.appRoot,
+        error: toErrorMessage(error),
+      });
+    }
+
+    return null;
+  },
+});
+
+export const wireCloudflareBuilds = workflow.define({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: v.null(),
+  handler: async (step, args): Promise<null> => {
+    const { claimed } = await step.runMutation(
+      internal.vault.cloudflareMutations.claimCloudflareBuildsWiring,
+      args,
+      { name: "claim_infra" },
+    );
+    if (!claimed) {
+      return null;
+    }
+
+    await step.runAction(internal.vault.cloudflare.ensureCloudflareBuildsWiring, args, {
+      name: "wire_builds",
+      retry: false,
+    });
     await step.runMutation(
-      internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
+      internal.vault.cloudflareMutations.finishCloudflareBuildsWiring,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -537,6 +640,44 @@ export const startCloudflareWorkerConnection = internalMutation({
       step: "claim_infra",
       level: "info",
       message: "Queued Cloudflare Worker connection.",
+      state: "queued",
+    });
+
+    return workflowId;
+  },
+});
+
+export const startCloudflareBuildsWiring = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: string(),
+  handler: async (ctx, args): Promise<string> => {
+    const workflowId: string = await workflow.start(
+      ctx,
+      internal.appProvisioningWorkflow.wireCloudflareBuilds,
+      args,
+      {
+        startAsync: true,
+        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        context: {
+          runId: args.runId,
+        },
+      },
+    );
+
+    await ctx.db.patch(args.runId, {
+      workflowId,
+      updatedAt: Date.now(),
+    });
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: "claim_infra",
+      level: "info",
+      message: "Queued Cloudflare Workers Builds wiring.",
       state: "queued",
     });
 

@@ -25,16 +25,15 @@
 
 Provisioning today is two disjoint systems that share plumbing but not composition:
 
-1. The full create-app workflow reaches `deployment: workers_builds_connected` through the
-   `ensure_cloudflare` mega-step, which spans three providers in one action: it re-runs Convex
-   preview provisioning (the `ensure_convex_preview` step result is discarded because the preview
-   URL is never persisted), mints both Convex deploy keys, fetches GitHub repo identity, and only
-   then does Cloudflare work. The Convex dependency is structural (`CloudflareProvisionConvexState`
-   inside `EnsureCloudflareResourcesArgs`).
+1. The previous full create-app workflow reached a single combined Cloudflare deployment state
+   through the `ensure_cloudflare` mega-step, which spans three providers in one action: it re-runs
+   Convex preview provisioning (the `ensure_convex_preview` step result is discarded because the
+   preview URL is never persisted), mints both Convex deploy keys, fetches GitHub repo identity, and
+   only then does Cloudflare work. The Convex dependency is structural
+   (`CloudflareProvisionConvexState` inside `EnsureCloudflareResourcesArgs`).
 2. The manual attach flows (specs 105/106) attach resources and stop. Nothing ever transitions a
-   manually attached Worker out of `deployment: { state: "not_configured" }` or fills manually
-   attached Convex deploy-key slots. Imported repositories therefore can never reach a built,
-   deployed state through Samebase.
+   manually attached Worker into connected builds or fills manually attached Convex deploy-key
+   slots. Imported repositories therefore can never reach a built, deployed state through Samebase.
 
 Both specs 105 and 106 defer "deployment wiring" as a later state model. This RFC is that state
 model, plus the block decomposition that lets the full flow and the partial flows share it.
@@ -62,13 +61,13 @@ Convex-domain deploy-key state.
 
 ## Building Blocks
 
-| #   | Block                                      | Provider effects                                                 | Durable state written                         | Status                                                |
-| --- | ------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
-| 1   | `source_setup` (create or import repo)     | GitHub repo create / fetch, seed, tree sync                      | vault row, `vaultBranchTrees`                 | exists                                                |
-| 2   | `attach_convex` (create or select project) | Convex project/deployment reads or create                        | `vaultConvexDeployments` row                  | exists (spec 106)                                     |
-| 3   | `attach_worker` (create or select Worker)  | Worker create or list-verify                                     | `vaultCloudflareWorkers` row                  | exists (spec 105); selection becomes discovery-driven |
-| 4   | `wire_builds`                              | repo connection, prod+preview triggers, build token, first build | `builds` axis on the Worker row               | new                                                   |
-| 5   | `wire_convex_build_access`                 | mint prod+preview deploy keys, PATCH trigger env vars            | `convexBuildAccess` axis + `deployKeys` slots | new                                                   |
+| #   | Block                                      | Provider effects                                                                                     | Durable state written                         | Status                                                |
+| --- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
+| 1   | `source_setup` (create or import repo)     | GitHub repo create / fetch, seed, tree sync                                                          | vault row, `vaultBranchTrees`                 | exists                                                |
+| 2   | `attach_convex` (create or select project) | Convex project/deployment reads or create                                                            | `vaultConvexDeployments` row                  | exists (spec 106)                                     |
+| 3   | `attach_worker` (create or select Worker)  | Worker create or list-verify                                                                         | `vaultCloudflareWorkers` row                  | exists (spec 105); selection becomes discovery-driven |
+| 4   | `wire_builds`                              | repo connection, prod+preview triggers, build token, first build when no Convex env wiring is needed | `builds` axis on the Worker row               | new                                                   |
+| 5   | `wire_convex_build_access`                 | mint prod+preview deploy keys, PATCH trigger env vars                                                | `convexBuildAccess` axis + `deployKeys` slots | new                                                   |
 
 Rules:
 
@@ -95,17 +94,16 @@ Flow compositions:
 
 ## Worker Deployment State Model
 
-`vaultCloudflareWorkers.deployment` (today `not_configured | workers_builds_connected`) splits into
-two independent axes:
+`vaultCloudflareWorkers.deployment` is two independent axes:
 
 - `builds`: `{ state: "not_connected" }` |
   `{ state: "connected", rootDirectory, buildCommand, deployCommand, previewDeployCommand, pathIncludes, pathExcludes, production: { triggerUuid, buildTokenUuid }, preview: { triggerUuid, buildTokenUuid } }`
 - `convexBuildAccess`: `{ state: "not_wired" }` | `{ state: "wired" }` (deploy-key identifiers stay
   on the `vaultConvexDeployments.deployKeys` slots, which remain the single home for key ids)
 
-Migration: existing `workers_builds_connected` rows (only writable by the full flow, which always
-wired Convex) map to `builds: connected` + `convexBuildAccess: wired`; `not_configured` maps to both
-negative states.
+No backwards-compatibility adapter is kept for the old Samebase row variants. If local or operator
+data still contains the previous shape, delete and recreate those rows instead of carrying that
+state through the model.
 
 ## Worker-Repo Discovery Contract
 
@@ -147,8 +145,8 @@ Verification probes required before implementation (one-time, live):
    repo name)?
 2. Does the per-Worker triggers list include soft-deleted triggers (`deleted_on` set)?
 3. Is `PUT /builds/repos/connections` a true upsert (same uuid for the same repo triple)?
-4. Does `GET /builds/workers/{script_tag}` return populated `git_repository` for legacy
-   triggers-only Workers (like Samebase's own), or 404?
+4. Does `GET /builds/workers/{script_tag}` return populated `git_repository` for trigger-only
+   Workers created before Samebase used the aggregate Builds read, or 404?
 5. `GET /workers/scripts` behavior past ~100 Workers (callers currently slice at 100; never-deployed
    Workers are absent from this listing).
 
@@ -160,7 +158,9 @@ Verification probes required before implementation (one-time, live):
    point at a different repo silently reuses wrong-repo triggers. Stop before any schema change.
 2. **Phase 1 — state split + `wire_builds`.** Schema migration for the two-axis `deployment`;
    `wire_builds` as its own run (new trigger vocabulary), exposed on any attached Worker regardless
-   of origin. Stop before Convex wiring.
+   of origin. Auto-queue it only after Samebase provisions a new Worker; selected existing Workers
+   require an explicit user action. Convex-backed app roots defer the first build until Phase 2
+   writes build env vars; Convex-less roots can trigger immediately. Stop before Convex wiring.
 3. **Phase 2 — `wire_convex_build_access`.** Persist preview-deployment identity; deploy-key minting
    with slot recording owned by the Convex domain; env-var PATCH. Stop before discovery UI.
 4. **Phase 3 — discovery.** Repo-id scan behind the add-Cloudflare dialog; preselected candidates

@@ -701,7 +701,7 @@ describe("infrastructure provisioning ownership", () => {
           vaultId: ids.vaultId,
           runId: ids.runId,
         }),
-      ).rejects.toThrow("GitHub API request failed");
+      ).rejects.toThrow("stop after Convex key creation");
 
       const convexKeyRequests = requests
         .filter((request) => request.url.startsWith("https://api.convex.dev/v1/"))
@@ -953,6 +953,76 @@ describe("infrastructure provisioning ownership", () => {
     });
     expect(result.event).toMatchObject({
       step: "ensure_cloudflare",
+      level: "error",
+      message: expectedMessage,
+    });
+  });
+
+  it("records Cloudflare Workers Builds guard errors from wire_builds runs", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        name: "Ada",
+        email: "ada@example.com",
+        isApproved: true,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      const runId = await ctx.db.insert("appProvisioningRuns", {
+        userId,
+        vaultId,
+        repositoryFullName: "ada/manual-cloudflare",
+        workflowId: "workflow-wire-builds",
+        trigger: "wire_builds",
+        state: "running",
+        currentStep: "wire_builds",
+        createdAt: 10,
+        updatedAt: 30,
+      });
+
+      await ctx.db.replace(vaultId, {
+        userId,
+        deletion: { state: "not_deleting" },
+        state: "connected",
+        githubMode: "connect_existing_repository",
+        runId,
+        ghRepoId: "123",
+        owner: "ada",
+        name: "manual-cloudflare",
+        visibility: "private",
+        defaultBranch: "main",
+        connectedAt: 20,
+      });
+
+      return { runId };
+    });
+
+    const expectedMessage =
+      "Cannot connect Cloudflare Worker worker-tag to ada/manual-cloudflare: its existing production Workers Builds trigger is connected to GitHub repository ada/other-app (999). Disconnect Builds in Cloudflare or choose another Worker.";
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-wire-builds",
+      message: `Error: Uncaught Error: ${expectedMessage}\n    at wireCloudflareWorkerBuilds`,
+    });
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(ids.runId);
+      const event = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .first();
+      return { event, run };
+    });
+
+    expect(result.run).toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+    expect(result.event).toMatchObject({
+      step: "wire_builds",
       level: "error",
       message: expectedMessage,
     });
