@@ -654,6 +654,7 @@ export async function listCloudflareWorkersWithRepositoryDiscovery(
     transport: args.transport,
     accountId: args.accountId,
     limit: args.limit,
+    recordApiCall: args.recordApiCall,
   });
   const discoveredWorkers: CloudflareWorkerDiscoveryItem[] = [];
   const chunkSize = 10;
