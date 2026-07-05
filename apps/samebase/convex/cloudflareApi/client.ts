@@ -576,7 +576,12 @@ function validateCloudflareApiResult(args: {
     return undefined;
   }
 
-  if (args.validator(payload)) {
+  const validationPayload = normalizeCloudflareApiPayloadForValidation({
+    method: args.method,
+    path: args.path,
+    payload,
+  });
+  if (args.validator(validationPayload)) {
     return readCloudflareApiEnvelopeResult(payload);
   }
 
@@ -592,6 +597,59 @@ function validateCloudflareApiResult(args: {
   throw new Error(
     `Cloudflare API response for ${args.endpoint} did not match ${schemaName}: ${formattedErrors.join("; ")}`,
   );
+}
+
+function normalizeCloudflareApiPayloadForValidation(args: {
+  method: CloudflareApiRequestMethod;
+  path: string;
+  payload: Record<string, unknown>;
+}): Record<string, unknown> {
+  if (args.method === "GET" && args.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
+    return addMissingWorkerDomainCertificateIdsForValidation(args.payload);
+  }
+  return args.payload;
+}
+
+function addMissingWorkerDomainCertificateIdsForValidation(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const result = payload.result;
+  if (!isRecord(result)) {
+    return payload;
+  }
+  const references = result.references;
+  if (!isRecord(references)) {
+    return payload;
+  }
+  const domains = references.domains;
+  if (!Array.isArray(domains)) {
+    return payload;
+  }
+
+  const hasDomainWithoutCertificateId = domains.some(
+    (domain) => isRecord(domain) && !("certificate_id" in domain),
+  );
+  if (!hasDomainWithoutCertificateId) {
+    return payload;
+  }
+
+  const patchedDomains = domains.map((domain) => {
+    if (!isRecord(domain) || "certificate_id" in domain) {
+      return domain;
+    }
+    return { ...domain, certificate_id: "" };
+  });
+
+  return {
+    ...payload,
+    result: {
+      ...result,
+      references: {
+        ...references,
+        domains: patchedDomains,
+      },
+    },
+  };
 }
 
 function readCloudflareApiEnvelopeResult(payload: unknown): unknown {

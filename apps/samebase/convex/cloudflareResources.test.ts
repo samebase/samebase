@@ -15,6 +15,7 @@ import {
   isCloudflareGitHubAppRepositoryAuthorizationError,
   isCloudflareMcpInvalidAccessTokenError,
   isWorkersBuildsInvalidTokenMessage,
+  readCloudflareWorkerRepositoryDiscovery,
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
@@ -133,6 +134,36 @@ function cloudflareSuccessResponse(result: unknown): Response {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function buildCloudflareWorkerListItem(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    created_on: "2026-06-22T00:00:00Z",
+    id: "samebase-app",
+    logpush: false,
+    name: "samebase-app",
+    observability: {
+      enabled: false,
+      head_sampling_rate: 1,
+    },
+    references: {
+      dispatch_namespace_outbounds: [],
+      domains: [],
+      durable_objects: [],
+      queues: [],
+      workers: [],
+    },
+    subdomain: {
+      enabled: false,
+    },
+    tag: "worker-tag",
+    tags: [],
+    tail_consumers: [],
+    updated_on: "2026-06-22T00:00:00Z",
+    ...overrides,
+  };
 }
 
 function stubEnsureCloudflareResourcesFetch(args: {
@@ -1204,6 +1235,73 @@ describe("cloudflare resources", () => {
         triggerName: "Preview Deploy",
       },
     });
+  });
+
+  it("discovers a selected Worker from inventory without reading Worker detail", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET");
+        const endpoint = new URL(url).pathname;
+        requests.push({ method, path: endpoint, body: undefined });
+
+        switch (endpoint) {
+          case "/client/v4/accounts/account-id/workers/scripts":
+            return cloudflareSuccessResponse([buildCloudflareWorkerListItem()]);
+          case "/client/v4/accounts/account-id/builds/workers/worker-tag/triggers":
+            return cloudflareSuccessResponse([
+              {
+                trigger_name: "Production Deploy",
+                root_directory: "apps/samebase",
+                repo_connection: {
+                  repo_connection_uuid: "repo-connection",
+                  repo_id: "123",
+                  repo_name: "samebase/samebase",
+                },
+              },
+            ]);
+          case "/client/v4/accounts/account-id/workers/workers/samebase-app":
+            return new Response("detail endpoint should not be called", { status: 500 });
+        }
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [{ code: 1000, message: `Unexpected endpoint ${endpoint}` }],
+          }),
+          { status: 404 },
+        );
+      }),
+    );
+
+    await expect(
+      readCloudflareWorkerRepositoryDiscovery({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerName: "samebase-app",
+        expectedRepoId: "123",
+        expectedRootDirectory: "apps/samebase",
+      }),
+    ).resolves.toEqual({
+      workerName: "samebase-app",
+      workerTag: "worker-tag",
+      discovery: {
+        classification: "recommended",
+        evidence: {
+          state: "matching_repo",
+          repoId: "123",
+          repoName: "samebase/samebase",
+          triggerName: "Production Deploy",
+          rootDirectory: "apps/samebase",
+        },
+      },
+    });
+
+    expect(requests.map((request) => request.path)).not.toContain(
+      "/client/v4/accounts/account-id/workers/workers/samebase-app",
+    );
   });
 
   it("selects the only Cloudflare account exposed to OAuth", () => {

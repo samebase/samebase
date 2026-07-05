@@ -434,12 +434,14 @@ export function readCloudflareWorkerTag(
   );
 }
 
-export async function listCloudflareWorkers(args: {
-  token: string;
-  accountId: string;
-  limit: number;
-  transport: CloudflareApiTransport;
-}): Promise<CloudflareWorkerInventoryItem[]> {
+export async function listCloudflareWorkers(
+  args: {
+    token: string;
+    accountId: string;
+    limit: number;
+    transport: CloudflareApiTransport;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerInventoryItem[]> {
   const workers = await requestCloudflareApi({
     token: args.token,
     transport: args.transport,
@@ -450,6 +452,7 @@ export async function listCloudflareWorkers(args: {
         account_id: args.accountId,
       },
     },
+    recordApiCall: args.recordApiCall,
   });
   if (!workers) {
     throw new Error(
@@ -683,20 +686,23 @@ export async function readCloudflareWorkerRepositoryDiscovery(
     expectedRootDirectory: string;
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorkerDiscoveryItem> {
-  const worker = await readWorker(args);
+  const workers = await listCloudflareWorkers({
+    token: args.token,
+    transport: args.transport,
+    accountId: args.accountId,
+    limit: 100,
+    recordApiCall: args.recordApiCall,
+  });
+  const worker = workers.find((candidate) => candidate.workerName === args.workerName);
   if (!worker) {
     throw new Error(`Cloudflare Worker ${args.workerName} was not found.`);
   }
 
-  const inventoryItem = {
-    workerName: args.workerName,
-    workerTag: readCloudflareWorkerTag(worker, args.workerName),
-  };
   return await readCloudflareWorkerDiscoveryForInventoryItem({
     token: args.token,
     transport: args.transport,
     accountId: args.accountId,
-    worker: inventoryItem,
+    worker,
     expectedRepoId: args.expectedRepoId,
     expectedRootDirectory: args.expectedRootDirectory,
     recordApiCall: args.recordApiCall,
