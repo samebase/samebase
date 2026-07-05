@@ -536,10 +536,10 @@ export function selectExistingCloudflareWorker(args: {
 }
 
 type ProvisioningEventCtx = {
-  runMutation<Mutation extends FunctionReference<"mutation", "public" | "internal">>(
+  runMutation: <Mutation extends FunctionReference<"mutation", "public" | "internal">>(
     mutation: Mutation,
     ...args: OptionalRestArgs<Mutation>
-  ): Promise<FunctionReturnType<Mutation>>;
+  ) => Promise<FunctionReturnType<Mutation>>;
 };
 
 async function appendProvisioningRunEvent(
