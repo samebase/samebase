@@ -59,7 +59,6 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
         runId,
-        provisioningVersion: 1,
         state: "active",
         updatedAt: 31,
       });
@@ -256,6 +255,51 @@ describe("markWorkflowProvisioningFailed", () => {
     });
     expect(result.ownership).toMatchObject({
       state: "failed",
+    });
+  });
+
+  it("marks active composed create-app ownership as failed", async () => {
+    const t = makeConvexTest();
+    const ids = await seedRun(t, {
+      repoName: "composed-worker-failure",
+      trigger: "create",
+      currentStep: "attach_worker",
+      workflowId: "workflow-composed-worker",
+      connectedVault: true,
+      activeOwnership: true,
+    });
+    const expectedMessage = "Cloudflare Worker connection did not attach a Worker.";
+
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-composed-worker",
+      message: `Error: ${expectedMessage}`,
+    });
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(ids.runId);
+      const ownership = await ctx.db
+        .query("vaultInfrastructureOwnership")
+        .withIndex("by_run", (q) => q.eq("runId", ids.runId))
+        .first();
+      const event = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .first();
+      return { event, ownership, run };
+    });
+
+    expect(result.run).toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+    expect(result.ownership).toMatchObject({
+      state: "failed",
+    });
+    expect(result.event).toMatchObject({
+      step: "attach_worker",
+      level: "error",
+      message: expectedMessage,
     });
   });
 

@@ -52,7 +52,6 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
     await ctx.db.insert("vaultInfrastructureOwnership", {
       vaultId,
       runId,
-      provisioningVersion: 2,
       state: args.ownershipState,
       updatedAt: 20,
     });
@@ -663,7 +662,6 @@ describe("vault Cloudflare attachment mutations", () => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId: ids.vaultId,
         runId,
-        provisioningVersion: 1,
         state: "active",
         updatedAt: 1,
       });
@@ -695,7 +693,6 @@ describe("vault Cloudflare attachment mutations", () => {
 
     expect(result.ownership).toMatchObject({
       runId: ids.runId,
-      provisioningVersion: 2,
       state: "active",
     });
     expect(result.staleRun).toMatchObject({

@@ -171,7 +171,7 @@ Repository default branch:
 
 - Args: `{ vaultId: Id<"vaults"> }`
 - Returns: `null`
-- Behavior: validates ownership + samebase-managed, starts a forced provisioning retry
+- Behavior: validates ownership + samebase-managed, starts a managed provisioning retry
 
 3. `api.vault.dashboard.getVaultInfrastructure`
 
@@ -181,8 +181,8 @@ Repository default branch:
 
 ### Internal
 
-- `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId, force })`
-- `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId, force })`
+- `appProvisioningWorkflow.startVaultInfrastructureProvisioning({ vaultId, runId })`
+- `appProvisioningWorkflow.provisionVaultInfrastructure({ vaultId, runId })`
 - `appProvisioningWorkflow.provisionApp(...)`
 - `vault/convexMutations.claimConvexDeploymentConnection(...)`
 - `vault/convex.ensureConvexDeploymentConnection(...)`

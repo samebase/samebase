@@ -13,6 +13,7 @@ import {
   buildVaultCloudflareBuildConfigForAppRoot,
   buildVaultCloudflareDeploymentNotConfigured,
   buildVaultCloudflareDeploymentWithConnectedBuilds,
+  vConvexDeployKeys,
   vVaultCloudflareBuildConfig,
   vVaultCloudflareConnectedBuilds,
   vVaultCloudflareOrigin,
@@ -70,6 +71,7 @@ const cloudflareConvexBuildAccessWiringState = union(
       projectId: string(),
       deploymentName: string(),
       cloudUrl: string(),
+      deployKeys: vConvexDeployKeys,
     }),
   }),
 );
@@ -77,6 +79,24 @@ const cloudflareConvexBuildAccessWiringState = union(
 type VaultInfrastructureOwnership = Doc<"vaultInfrastructureOwnership">;
 type CloudflareWorkerConnectionEventCtx = Pick<MutationCtx, "runMutation">;
 type CloudflareWorkerConnectionReadCtx = Pick<QueryCtx, "db">;
+
+function isComposedInfrastructureRun(run: Doc<"appProvisioningRuns">): boolean {
+  return run.trigger === "create" || run.trigger === "retry";
+}
+
+function isStandaloneCloudflareWorkerConnectionRun(run: Doc<"appProvisioningRuns">): boolean {
+  return run.trigger === "connect_cloudflare_worker";
+}
+
+function isStandaloneCloudflareBuildsWiringRun(run: Doc<"appProvisioningRuns">): boolean {
+  return run.trigger === "wire_builds";
+}
+
+function isStandaloneCloudflareConvexBuildAccessWiringRun(
+  run: Doc<"appProvisioningRuns">,
+): boolean {
+  return run.trigger === "wire_convex_build_access";
+}
 
 async function getVaultInfrastructureOwnership(
   ctx: CloudflareWorkerConnectionReadCtx,
@@ -232,7 +252,7 @@ async function requireCloudflareWorkerConnectionRun(
   if (
     run.userId !== args.userId ||
     run.vaultId !== args.vaultId ||
-    run.trigger !== "connect_cloudflare_worker"
+    (!isStandaloneCloudflareWorkerConnectionRun(run) && !isComposedInfrastructureRun(run))
   ) {
     throw new Error("Cloudflare Worker connection run does not match vault.");
   }
@@ -251,7 +271,11 @@ async function requireCloudflareBuildsWiringRun(
   if (!run) {
     throw new Error("Cloudflare Workers Builds wiring run not found.");
   }
-  if (run.userId !== args.userId || run.vaultId !== args.vaultId || run.trigger !== "wire_builds") {
+  if (
+    run.userId !== args.userId ||
+    run.vaultId !== args.vaultId ||
+    (!isStandaloneCloudflareBuildsWiringRun(run) && !isComposedInfrastructureRun(run))
+  ) {
     throw new Error("Cloudflare Workers Builds wiring run does not match vault.");
   }
   return run;
@@ -272,7 +296,7 @@ async function requireCloudflareConvexBuildAccessWiringRun(
   if (
     run.userId !== args.userId ||
     run.vaultId !== args.vaultId ||
-    run.trigger !== "wire_convex_build_access"
+    (!isStandaloneCloudflareConvexBuildAccessWiringRun(run) && !isComposedInfrastructureRun(run))
   ) {
     throw new Error("Cloudflare Convex build access wiring run does not match vault.");
   }
@@ -482,10 +506,6 @@ export const claimCloudflareWorkerConnection = internalMutation({
       return { claimed: false };
     }
 
-    const nextProvisioningVersion =
-      ownership && ownership.runId === args.runId
-        ? ownership.provisioningVersion
-        : (ownership?.provisioningVersion ?? 0) + 1;
     if (ownership) {
       if (ownership.state === "active" && ownership.runId !== args.runId) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
@@ -494,7 +514,6 @@ export const claimCloudflareWorkerConnection = internalMutation({
       }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
-        provisioningVersion: nextProvisioningVersion,
         state: "active",
         updatedAt: now,
       });
@@ -502,7 +521,6 @@ export const claimCloudflareWorkerConnection = internalMutation({
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
-        provisioningVersion: nextProvisioningVersion,
         state: "active",
         updatedAt: now,
       });
@@ -566,7 +584,7 @@ export const attachWorkerForRun = internalMutation({
   },
   returns: object({ attached: boolean() }),
   handler: async (ctx, args) => {
-    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const run = await requireCloudflareWorkerConnectionRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
@@ -584,22 +602,29 @@ export const attachWorkerForRun = internalMutation({
         workerName: args.workerName,
       });
     } catch (error) {
-      await appendCloudflareWorkerConnectionEvent(ctx, {
-        runId: args.runId,
-        step: "attach_worker",
-        level: "warn",
-        message: error instanceof Error ? error.message : "Cloudflare Worker is already attached.",
-        state: "canceled",
-      });
-      return { attached: false };
+      if (isStandaloneCloudflareWorkerConnectionRun(run)) {
+        await appendCloudflareWorkerConnectionEvent(ctx, {
+          runId: args.runId,
+          step: "attach_worker",
+          level: "warn",
+          message:
+            error instanceof Error ? error.message : "Cloudflare Worker is already attached.",
+          state: "canceled",
+        });
+        return { attached: false };
+      }
+      throw error;
     }
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
-      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-        runId: args.runId,
-      });
-      return { attached: false };
+      if (isStandaloneCloudflareWorkerConnectionRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return { attached: false };
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
 
     const now = Date.now();
@@ -666,7 +691,7 @@ export const finishCloudflareWorkerConnection = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
-    await requireCloudflareWorkerConnectionRun(ctx, args);
+    const run = await requireCloudflareWorkerConnectionRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
@@ -674,10 +699,13 @@ export const finishCloudflareWorkerConnection = internalMutation({
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
-      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-        runId: args.runId,
-      });
-      return null;
+      if (isStandaloneCloudflareWorkerConnectionRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return null;
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
@@ -689,10 +717,12 @@ export const finishCloudflareWorkerConnection = internalMutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(ownership._id, {
-      state: "succeeded",
-      updatedAt: now,
-    });
+    if (isStandaloneCloudflareWorkerConnectionRun(run)) {
+      await ctx.db.patch(ownership._id, {
+        state: "succeeded",
+        updatedAt: now,
+      });
+    }
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
       step: "finish",
@@ -760,10 +790,6 @@ export const claimCloudflareBuildsWiring = internalMutation({
       return { claimed: false };
     }
 
-    const nextProvisioningVersion =
-      ownership && ownership.runId === args.runId
-        ? ownership.provisioningVersion
-        : (ownership?.provisioningVersion ?? 0) + 1;
     if (ownership) {
       if (ownership.state === "active" && ownership.runId !== args.runId) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
@@ -772,7 +798,6 @@ export const claimCloudflareBuildsWiring = internalMutation({
       }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
-        provisioningVersion: nextProvisioningVersion,
         state: "active",
         updatedAt: now,
       });
@@ -780,7 +805,6 @@ export const claimCloudflareBuildsWiring = internalMutation({
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
-        provisioningVersion: nextProvisioningVersion,
         state: "active",
         updatedAt: now,
       });
@@ -863,7 +887,7 @@ export const recordCloudflareBuildsForRun = internalMutation({
   },
   returns: object({ applied: boolean() }),
   handler: async (ctx, args) => {
-    await requireCloudflareBuildsWiringRun(ctx, args);
+    const run = await requireCloudflareBuildsWiringRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       return { applied: false };
@@ -871,10 +895,13 @@ export const recordCloudflareBuildsForRun = internalMutation({
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
-      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-        runId: args.runId,
-      });
-      return { applied: false };
+      if (isStandaloneCloudflareBuildsWiringRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return { applied: false };
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
@@ -916,7 +943,7 @@ export const finishCloudflareBuildsWiring = internalMutation({
     ctx,
     args,
   ): Promise<{ convexBuildAccessRunId: Id<"appProvisioningRuns"> | null }> => {
-    await requireCloudflareBuildsWiringRun(ctx, args);
+    const run = await requireCloudflareBuildsWiringRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
@@ -924,10 +951,13 @@ export const finishCloudflareBuildsWiring = internalMutation({
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
-      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-        runId: args.runId,
-      });
-      return { convexBuildAccessRunId: null };
+      if (isStandaloneCloudflareBuildsWiringRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return { convexBuildAccessRunId: null };
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const [convexDeployment, worker] = await Promise.all([
@@ -945,19 +975,22 @@ export const finishCloudflareBuildsWiring = internalMutation({
     }
     const needsConvexBuildAccess =
       convexDeployment !== null && worker.deployment.convexBuildAccess.state !== "wired";
-    const convexBuildAccessRunId: Id<"appProvisioningRuns"> | null = needsConvexBuildAccess
-      ? await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
-          vaultId: args.vaultId,
-          userId: args.userId,
-          trigger: "wire_convex_build_access",
-        })
-      : null;
+    const convexBuildAccessRunId: Id<"appProvisioningRuns"> | null =
+      needsConvexBuildAccess && isStandaloneCloudflareBuildsWiringRun(run)
+        ? await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+            vaultId: args.vaultId,
+            userId: args.userId,
+            trigger: "wire_convex_build_access",
+          })
+        : null;
 
     const now = Date.now();
-    await ctx.db.patch(ownership._id, {
-      state: "succeeded",
-      updatedAt: now,
-    });
+    if (isStandaloneCloudflareBuildsWiringRun(run)) {
+      await ctx.db.patch(ownership._id, {
+        state: "succeeded",
+        updatedAt: now,
+      });
+    }
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
       step: "finish",
@@ -1037,10 +1070,6 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       return { claimed: false };
     }
 
-    const nextProvisioningVersion =
-      ownership && ownership.runId === args.runId
-        ? ownership.provisioningVersion
-        : (ownership?.provisioningVersion ?? 0) + 1;
     if (ownership) {
       if (ownership.state === "active" && ownership.runId !== args.runId) {
         await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
@@ -1049,7 +1078,6 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       }
       await ctx.db.patch(ownership._id, {
         runId: args.runId,
-        provisioningVersion: nextProvisioningVersion,
         state: "active",
         updatedAt: now,
       });
@@ -1057,7 +1085,6 @@ export const claimCloudflareConvexBuildAccessWiring = internalMutation({
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId: args.vaultId,
         runId: args.runId,
-        provisioningVersion: nextProvisioningVersion,
         state: "active",
         updatedAt: now,
       });
@@ -1130,6 +1157,7 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
         projectId: convexDeployment.projectId,
         deploymentName: convexDeployment.deploymentName,
         cloudUrl: convexDeployment.cloudUrl,
+        deployKeys: convexDeployment.deployKeys,
       },
     };
   },
@@ -1146,7 +1174,7 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
   },
   returns: object({ applied: boolean() }),
   handler: async (ctx, args) => {
-    await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
+    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       return { applied: false };
@@ -1154,10 +1182,13 @@ export const recordCloudflareConvexBuildAccessDeployKey = internalMutation({
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
-      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-        runId: args.runId,
-      });
-      return { applied: false };
+      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return { applied: false };
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const convexDeployment = await readConvexDeploymentForAppRoot(ctx, {
@@ -1212,7 +1243,7 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
   },
   returns: object({ applied: boolean() }),
   handler: async (ctx, args) => {
-    await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
+    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       return { applied: false };
@@ -1220,10 +1251,13 @@ export const recordCloudflareConvexBuildAccessForRun = internalMutation({
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
-      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-        runId: args.runId,
-      });
-      return { applied: false };
+      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return { applied: false };
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const [convexDeployment, worker] = await Promise.all([
@@ -1284,7 +1318,7 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
-    await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
+    const run = await requireCloudflareConvexBuildAccessWiringRun(ctx, args);
     const vault = await ctx.db.get(args.vaultId);
     if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
       throw new Error("Vault not found.");
@@ -1292,10 +1326,13 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
 
     const ownership = await getVaultInfrastructureOwnership(ctx, args.vaultId);
     if (!ownership || !isActiveCloudflareProvisioningOwner(ownership, { runId: args.runId })) {
-      await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
-        runId: args.runId,
-      });
-      return null;
+      if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
+        await cancelSupersededCloudflareWorkerConnectionRun(ctx, {
+          runId: args.runId,
+        });
+        return null;
+      }
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
     const worker = await readCloudflareWorkerForAppRoot(ctx, {
@@ -1307,10 +1344,12 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
     }
 
     const now = Date.now();
-    await ctx.db.patch(ownership._id, {
-      state: "succeeded",
-      updatedAt: now,
-    });
+    if (isStandaloneCloudflareConvexBuildAccessWiringRun(run)) {
+      await ctx.db.patch(ownership._id, {
+        state: "succeeded",
+        updatedAt: now,
+      });
+    }
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
       step: "finish",

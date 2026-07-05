@@ -231,6 +231,24 @@ export async function createConvexDeployKey(args: {
   };
 }
 
+export async function deleteConvexDeployKey(args: {
+  convexToken: string;
+  deploymentName: string;
+  convexDeployKeyId: string;
+  recordApiCall?: ProviderApiCallRecorder;
+}): Promise<void> {
+  await requestConvexManagementApi(
+    args.convexToken,
+    "POST",
+    "/deployments/{deployment_name}/delete_deploy_key",
+    {
+      params: { path: { deployment_name: args.deploymentName } },
+      body: { id: args.convexDeployKeyId },
+      recordApiCall: args.recordApiCall,
+    },
+  );
+}
+
 export async function createConvexPreviewDeployKey(args: {
   convexToken: string;
   projectId: string;
@@ -256,6 +274,24 @@ export async function createConvexPreviewDeployKey(args: {
     convexDeployKeyId: parseDeployKeyIdentifier(previewDeployKey),
     deployKey: previewDeployKey,
   };
+}
+
+export async function deleteConvexPreviewDeployKey(args: {
+  convexToken: string;
+  projectId: string;
+  convexDeployKeyId: string;
+  recordApiCall?: ProviderApiCallRecorder;
+}): Promise<void> {
+  await requestConvexManagementApi(
+    args.convexToken,
+    "POST",
+    "/projects/{project_id}/delete_preview_deploy_key",
+    {
+      params: { path: { project_id: args.projectId } },
+      body: { id: args.convexDeployKeyId },
+      recordApiCall: args.recordApiCall,
+    },
+  );
 }
 
 type ProvisioningEventCtx = {

@@ -172,7 +172,6 @@ Phase 2 stores the latest Workflow run allowed to write provider state for each 
 vaultInfrastructureOwnership: {
   vaultId: Id<"vaults">;
   runId: Id<"appProvisioningRuns">;
-  provisioningVersion: number;
   state: "active" | "succeeded" | "failed";
   updatedAt: number;
 }
@@ -294,8 +293,8 @@ Phase 2: Workflow component install and post-vault infra workflow.
 2. Install the Workflow component in `convex.config.ts`.
 3. Add `appProvisioningRuns`; keep stored event `runId` temporarily optional for old rows, but
    require it for new provisioning event writes.
-4. Add `vaultInfrastructureOwnership` so forced retries and stale in-flight steps have a durable
-   owner to check before provider writes.
+4. Add `vaultInfrastructureOwnership` so retries and stale in-flight steps have a durable owner to
+   check before provider writes.
 5. Create `appProvisioningWorkflow.ts`.
 6. Split the current infra action into a deterministic workflow handler plus narrow idempotent step
    functions. Provider side effects, env reads, and network calls must stay inside step actions, not

@@ -618,7 +618,6 @@ export default defineSchema({
   vaultInfrastructureOwnership: defineTable({
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
-    provisioningVersion: number(),
     state: union(literal("active"), literal("succeeded"), literal("failed")),
     updatedAt: number(),
   })

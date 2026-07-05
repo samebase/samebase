@@ -152,7 +152,6 @@ describe("vault Convex deployment connection mutations", () => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId: ids.vaultId,
         runId: ids.runId,
-        provisioningVersion: 1,
         state: "failed",
         updatedAt: 40,
       });

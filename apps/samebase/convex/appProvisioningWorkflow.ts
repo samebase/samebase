@@ -42,6 +42,7 @@ const composedInfrastructureRetryContext = object({
   defaultBranch: string(),
 });
 type ComposedInfrastructureRetryContext = Infer<typeof composedInfrastructureRetryContext>;
+const COMPOSED_INFRASTRUCTURE_STALE_MS = 10 * 60 * 1000;
 
 export function resolveWorkflowCompletionError(result: RunResult): string | null {
   switch (result.kind) {
@@ -134,6 +135,126 @@ export const readComposedInfrastructureRetryContext = internalQuery({
   },
 });
 
+export const claimComposedInfrastructureProvisioning = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+  },
+  returns: object({ claimed: boolean() }),
+  handler: async (ctx, args): Promise<{ claimed: boolean }> => {
+    const run = await ctx.db.get(args.runId);
+    if (
+      !run ||
+      run.vaultId !== args.vaultId ||
+      run.userId !== args.userId ||
+      (run.trigger !== "create" && run.trigger !== "retry")
+    ) {
+      throw new Error("Composed infrastructure run does not match vault.");
+    }
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    const target = await ctx.db
+      .query("vaultInfrastructureTargets")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (!target) {
+      throw new Error("Infrastructure target not found for vault.");
+    }
+
+    const now = Date.now();
+    const ownership = await ctx.db
+      .query("vaultInfrastructureOwnership")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (
+      ownership &&
+      ownership.state === "active" &&
+      ownership.runId !== args.runId &&
+      now - ownership.updatedAt < COMPOSED_INFRASTRUCTURE_STALE_MS
+    ) {
+      await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+        runId: args.runId,
+        step: "claim_infra",
+        level: "warn",
+        message: "Infrastructure provisioning is already running.",
+        state: "canceled",
+      });
+      return { claimed: false };
+    }
+
+    if (ownership) {
+      if (ownership.state === "active" && ownership.runId !== args.runId) {
+        await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+          runId: ownership.runId,
+          step: "claim_infra",
+          level: "warn",
+          message: "Infrastructure provisioning was superseded by a newer run.",
+          state: "canceled",
+        });
+      }
+      await ctx.db.patch(ownership._id, {
+        runId: args.runId,
+        state: "active",
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        state: "active",
+        updatedAt: now,
+      });
+    }
+
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: "claim_infra",
+      level: "info",
+      message: `Started infrastructure provisioning for ${target.appRoot}.`,
+      state: "running",
+    });
+
+    return { claimed: true };
+  },
+});
+
+export const finishComposedInfrastructureProvisioning = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const run = await ctx.db.get(args.runId);
+    if (
+      !run ||
+      run.vaultId !== args.vaultId ||
+      run.userId !== args.userId ||
+      (run.trigger !== "create" && run.trigger !== "retry")
+    ) {
+      throw new Error("Composed infrastructure run does not match vault.");
+    }
+    const ownership = await ctx.db
+      .query("vaultInfrastructureOwnership")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (!ownership || ownership.state !== "active" || ownership.runId !== args.runId) {
+      throw new Error("Composed infrastructure run no longer owns provisioning.");
+    }
+
+    await ctx.db.patch(ownership._id, {
+      state: "succeeded",
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 async function readCurrentComposedInfrastructureState(
   step: WorkflowCtx,
   args: {
@@ -147,30 +268,6 @@ async function readCurrentComposedInfrastructureState(
     {
       vaultId: args.vaultId,
       userId: args.userId,
-    },
-    { name: args.name },
-  );
-}
-
-async function createComposedInfrastructureRun(
-  step: WorkflowCtx,
-  args: {
-    vaultId: Id<"vaults">;
-    userId: Id<"users">;
-    trigger:
-      | "connect_convex_deployment"
-      | "connect_cloudflare_worker"
-      | "wire_builds"
-      | "wire_convex_build_access";
-    name: string;
-  },
-): Promise<Id<"appProvisioningRuns">> {
-  return await step.runMutation(
-    internal.appProvisioningRuns.createForVault,
-    {
-      vaultId: args.vaultId,
-      userId: args.userId,
-      trigger: args.trigger,
     },
     { name: args.name },
   );
@@ -227,6 +324,7 @@ async function runComposedConvexAttachment(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
+    parentRunId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
@@ -235,32 +333,12 @@ async function runComposedConvexAttachment(
     return;
   }
 
-  const runId = await createComposedInfrastructureRun(step, {
-    vaultId: args.vaultId,
-    userId: args.userId,
-    trigger: "connect_convex_deployment",
-    name: "create_attach_convex_run",
-  });
   try {
-    const { claimed } = await step.runMutation(
-      internal.vault.convexMutations.claimConvexDeploymentConnection,
-      {
-        vaultId: args.vaultId,
-        runId,
-        userId: args.userId,
-        appRoot: args.state.appRoot,
-      },
-      { name: "claim_attach_convex" },
-    );
-    if (!claimed) {
-      throw new Error("Convex deployment connection was not claimed.");
-    }
-
     await step.runAction(
       internal.vault.convex.ensureConvexDeploymentConnection,
       {
         vaultId: args.vaultId,
-        runId,
+        runId: args.parentRunId,
         userId: args.userId,
         target: {
           mode: "create_project",
@@ -274,7 +352,7 @@ async function runComposedConvexAttachment(
       internal.vault.convexMutations.finishConvexDeploymentConnection,
       {
         vaultId: args.vaultId,
-        runId,
+        runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
       },
@@ -282,7 +360,7 @@ async function runComposedConvexAttachment(
     );
   } catch (error) {
     await markComposedInfrastructureRunFailed(step, {
-      runId,
+      runId: args.parentRunId,
       name: "mark_attach_convex_failed",
       error,
     });
@@ -294,6 +372,7 @@ async function runComposedCloudflareAttachment(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
+    parentRunId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
@@ -302,35 +381,12 @@ async function runComposedCloudflareAttachment(
     return;
   }
 
-  const runId = await createComposedInfrastructureRun(step, {
-    vaultId: args.vaultId,
-    userId: args.userId,
-    trigger: "connect_cloudflare_worker",
-    name: "create_attach_worker_run",
-  });
   try {
-    const { claimed } = await step.runMutation(
-      internal.vault.cloudflareMutations.claimCloudflareWorkerConnection,
-      {
-        vaultId: args.vaultId,
-        runId,
-        userId: args.userId,
-        appRoot: args.state.appRoot,
-        accountId: args.state.cloudflare.accountId,
-        workerName: args.state.cloudflare.workerName,
-        origin: "provisioned",
-      },
-      { name: "claim_attach_worker" },
-    );
-    if (!claimed) {
-      throw new Error("Cloudflare Worker connection was not claimed.");
-    }
-
     await step.runAction(
       internal.vault.cloudflare.ensureCloudflareWorkerConnection,
       {
         vaultId: args.vaultId,
-        runId,
+        runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
         accountId: args.state.cloudflare.accountId,
@@ -343,7 +399,7 @@ async function runComposedCloudflareAttachment(
       internal.vault.cloudflareMutations.finishCloudflareWorkerConnection,
       {
         vaultId: args.vaultId,
-        runId,
+        runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
       },
@@ -351,7 +407,7 @@ async function runComposedCloudflareAttachment(
     );
   } catch (error) {
     await markComposedInfrastructureRunFailed(step, {
-      runId,
+      runId: args.parentRunId,
       name: "mark_attach_worker_failed",
       error,
     });
@@ -363,60 +419,39 @@ async function runComposedCloudflareBuildsWiring(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
+    parentRunId: Id<"appProvisioningRuns">;
     userId: Id<"users">;
     state: ComposedInfrastructureState;
   },
-): Promise<Id<"appProvisioningRuns"> | null> {
+): Promise<void> {
   if (args.state.cloudflare.buildsConnected) {
-    return null;
+    return;
   }
 
-  const runId = await createComposedInfrastructureRun(step, {
-    vaultId: args.vaultId,
-    userId: args.userId,
-    trigger: "wire_builds",
-    name: "create_wire_builds_run",
-  });
   try {
-    const { claimed } = await step.runMutation(
-      internal.vault.cloudflareMutations.claimCloudflareBuildsWiring,
-      {
-        vaultId: args.vaultId,
-        runId,
-        userId: args.userId,
-        appRoot: args.state.appRoot,
-      },
-      { name: "claim_wire_builds" },
-    );
-    if (!claimed) {
-      throw new Error("Cloudflare Workers Builds wiring was not claimed.");
-    }
-
     await step.runAction(
       internal.vault.cloudflare.ensureCloudflareBuildsWiring,
       {
         vaultId: args.vaultId,
-        runId,
+        runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
       },
       { name: "wire_builds", retry: false },
     );
-    const { convexBuildAccessRunId } = await step.runMutation(
+    await step.runMutation(
       internal.vault.cloudflareMutations.finishCloudflareBuildsWiring,
       {
         vaultId: args.vaultId,
-        runId,
+        runId: args.parentRunId,
         userId: args.userId,
         appRoot: args.state.appRoot,
       },
       { name: "finish_wire_builds" },
     );
-
-    return convexBuildAccessRunId;
   } catch (error) {
     await markComposedInfrastructureRunFailed(step, {
-      runId,
+      runId: args.parentRunId,
       name: "mark_wire_builds_failed",
       error,
     });
@@ -434,20 +469,6 @@ async function runComposedCloudflareConvexBuildAccessWiring(
   },
 ): Promise<void> {
   try {
-    const { claimed } = await step.runMutation(
-      internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        appRoot: args.appRoot,
-      },
-      { name: "claim_wire_convex_build_access" },
-    );
-    if (!claimed) {
-      return;
-    }
-
     await step.runAction(
       internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring,
       {
@@ -545,6 +566,19 @@ async function runComposedInfrastructure(
     userId: args.userId,
     name: "read_infra_target",
   });
+  const { claimed } = await step.runMutation(
+    internal.appProvisioningWorkflow.claimComposedInfrastructureProvisioning,
+    {
+      vaultId: args.vaultId,
+      runId: args.parentRunId,
+      userId: args.userId,
+    },
+    { name: "claim_composed_infrastructure" },
+  );
+  if (!claimed) {
+    return;
+  }
+
   if (!initialState.convex.attached) {
     await appendComposedInfrastructureParentEvent(step, {
       runId: args.parentRunId,
@@ -554,6 +588,7 @@ async function runComposedInfrastructure(
   }
   await runComposedConvexAttachment(step, {
     vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
     userId: args.userId,
     state: initialState,
   });
@@ -572,6 +607,7 @@ async function runComposedInfrastructure(
   }
   await runComposedCloudflareAttachment(step, {
     vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
     userId: args.userId,
     state: afterConvex,
   });
@@ -588,8 +624,9 @@ async function runComposedInfrastructure(
       message: "Wiring Cloudflare Workers Builds.",
     });
   }
-  const convexBuildAccessRunId = await runComposedCloudflareBuildsWiring(step, {
+  await runComposedCloudflareBuildsWiring(step, {
     vaultId: args.vaultId,
+    parentRunId: args.parentRunId,
     userId: args.userId,
     state: afterWorker,
   });
@@ -599,17 +636,7 @@ async function runComposedInfrastructure(
     userId: args.userId,
     name: "read_infra_after_builds",
   });
-  const buildAccessRunId =
-    convexBuildAccessRunId ??
-    (afterBuilds.cloudflare.convexBuildAccessWired
-      ? null
-      : await createComposedInfrastructureRun(step, {
-          vaultId: args.vaultId,
-          userId: args.userId,
-          trigger: "wire_convex_build_access",
-          name: "create_wire_convex_build_access_run",
-        }));
-  if (buildAccessRunId) {
+  if (afterBuilds.convex.attached && !afterBuilds.cloudflare.convexBuildAccessWired) {
     await appendComposedInfrastructureParentEvent(step, {
       runId: args.parentRunId,
       step: "wire_convex_build_access",
@@ -617,7 +644,7 @@ async function runComposedInfrastructure(
     });
     await runComposedCloudflareConvexBuildAccessWiring(step, {
       vaultId: args.vaultId,
-      runId: buildAccessRunId,
+      runId: args.parentRunId,
       userId: args.userId,
       appRoot: afterBuilds.appRoot,
     });
@@ -635,6 +662,15 @@ async function runComposedInfrastructure(
     state: finalState,
   });
   await step.runMutation(
+    internal.appProvisioningWorkflow.finishComposedInfrastructureProvisioning,
+    {
+      vaultId: args.vaultId,
+      runId: args.parentRunId,
+      userId: args.userId,
+    },
+    { name: "finish_composed_infrastructure_ownership" },
+  );
+  await step.runMutation(
     internal.appProvisioningRuns.appendRunEvent,
     {
       runId: args.parentRunId,
@@ -651,7 +687,6 @@ export const provisionVaultInfrastructure = workflow.define({
   args: {
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
-    force: boolean(),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
@@ -1175,7 +1210,6 @@ export const startVaultInfrastructureProvisioning = internalMutation({
   args: {
     vaultId: id("vaults"),
     runId: id("appProvisioningRuns"),
-    force: boolean(),
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
@@ -1185,7 +1219,6 @@ export const startVaultInfrastructureProvisioning = internalMutation({
       {
         vaultId: args.vaultId,
         runId: args.runId,
-        force: args.force,
       },
       {
         startAsync: true,

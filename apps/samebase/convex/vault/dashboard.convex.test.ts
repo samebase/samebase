@@ -943,7 +943,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
         runId: retryRunId,
-        provisioningVersion: 2,
         state: "active",
         updatedAt: 44,
       });
@@ -1058,7 +1057,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
         runId: retryRunId,
-        provisioningVersion: 2,
         state: "failed",
         updatedAt: 44,
       });
@@ -1160,7 +1158,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
         runId: cloudflareRunId,
-        provisioningVersion: 1,
         state: "active",
         updatedAt: 35,
       });
@@ -1254,7 +1251,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
         runId: convexRunId,
-        provisioningVersion: 1,
         state: "failed",
         updatedAt: 38,
       });
@@ -1411,7 +1407,6 @@ describe("vault dashboard Convex contract", () => {
           await ctx.db.insert("vaultInfrastructureOwnership", {
             vaultId,
             runId,
-            provisioningVersion: 2,
             state: testCase.ownershipState,
             updatedAt: 44,
           });
@@ -2026,7 +2021,6 @@ describe("vault dashboard Convex contract", () => {
       await ctx.db.insert("vaultInfrastructureOwnership", {
         vaultId,
         runId,
-        provisioningVersion: 1,
         state: "succeeded",
         updatedAt: 9,
       });
