@@ -19,6 +19,7 @@ import { validateRootRouteSearch } from "@/routeSearch/root";
 import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { VaultDashboardRepositoryCard } from "./VaultDashboardChrome";
 import { VaultResourceRail } from "./VaultResourceRail";
+import { readDefaultCloudflareWorkerSelection } from "./vaultDashboardCloudflareWorkerSelection";
 import { buildVaultBranchRowViewModel } from "./vaultDashboardBranchRowViewModel";
 import { buildVaultDashboardResourceRailState } from "./vaultResourceRailState";
 import {
@@ -1097,6 +1098,125 @@ describe("VaultDashboardConvexDialog", () => {
 });
 
 describe("VaultDashboardCloudflareDialog", () => {
+  it("preselects the only recommended Cloudflare Worker", () => {
+    expect(
+      readDefaultCloudflareWorkerSelection(
+        [
+          makeCloudflareDialogWorker({
+            workerName: "samebase",
+            discovery: {
+              classification: "recommended",
+              evidence: {
+                state: "matching_repo",
+                repoId: "123",
+                repoName: "ada/demo",
+                triggerName: "Production Deploy",
+                rootDirectory: "apps/samebase",
+              },
+            },
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "available-worker",
+            workerTag: "worker-tag-2",
+          }),
+        ],
+        "",
+      ),
+    ).toBe("samebase");
+  });
+
+  it("does not preselect when multiple Cloudflare Workers are recommended", () => {
+    expect(
+      readDefaultCloudflareWorkerSelection(
+        [
+          makeCloudflareDialogWorker({
+            workerName: "samebase",
+            discovery: {
+              classification: "recommended",
+              evidence: {
+                state: "matching_repo",
+                repoId: "123",
+                repoName: "ada/demo",
+                triggerName: "Production Deploy",
+                rootDirectory: "apps/samebase",
+              },
+            },
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "samebase-domains",
+            workerTag: "worker-tag-2",
+            discovery: {
+              classification: "recommended",
+              evidence: {
+                state: "matching_repo",
+                repoId: "123",
+                repoName: "ada/demo",
+                triggerName: "Production Deploy",
+                rootDirectory: "apps/samebase",
+              },
+            },
+          }),
+        ],
+        "",
+      ),
+    ).toBe("");
+  });
+
+  it("clears a stale selected Cloudflare Worker when discovery blocks it", () => {
+    expect(
+      readDefaultCloudflareWorkerSelection(
+        [
+          makeCloudflareDialogWorker({
+            workerName: "admin-worker",
+            discovery: {
+              classification: "blocked",
+              evidence: {
+                state: "same_repo_different_root",
+                repoId: "123",
+                repoName: "ada/demo",
+                triggerName: "Production Deploy",
+                rootDirectory: "apps/admin",
+                expectedRootDirectory: "apps/web",
+              },
+            },
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "available-worker",
+            workerTag: "worker-tag-2",
+          }),
+        ],
+        "admin-worker",
+      ),
+    ).toBe("");
+  });
+
+  it("keeps a manually selected selectable Cloudflare Worker", () => {
+    expect(
+      readDefaultCloudflareWorkerSelection(
+        [
+          makeCloudflareDialogWorker({
+            workerName: "manual-worker",
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "samebase",
+            workerTag: "worker-tag-2",
+            discovery: {
+              classification: "recommended",
+              evidence: {
+                state: "matching_repo",
+                repoId: "123",
+                repoName: "ada/demo",
+                triggerName: "Production Deploy",
+                rootDirectory: "apps/samebase",
+              },
+            },
+          }),
+        ],
+        "manual-worker",
+      ),
+    ).toBe("manual-worker");
+  });
+
   it("hides the app root input for the repository root app", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareDialog

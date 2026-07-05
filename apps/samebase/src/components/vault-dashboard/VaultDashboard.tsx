@@ -128,6 +128,14 @@ import {
   PullRequestStateLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useDashboardRepositoryRefreshDemand } from "@/components/vault-dashboard/VaultDashboardRepositoryRefreshDemand";
+import type {
+  CloudflareWorkerOption,
+  CloudflareWorkerRepositoryEvidence,
+} from "@/components/vault-dashboard/vaultDashboardCloudflareWorkerSelection";
+import {
+  isSelectableCloudflareWorker,
+  readDefaultCloudflareWorkerSelection,
+} from "@/components/vault-dashboard/vaultDashboardCloudflareWorkerSelection";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 const VAULT_BRANCH_INITIAL_PAGE_SIZE = 25;
@@ -205,59 +213,6 @@ type VaultConvexDialogTarget = {
   repositoryFullName: string;
   repositoryName: string;
 };
-type CloudflareWorkerRepositoryEvidence =
-  | { state: "none" }
-  | {
-      state: "matching_repo";
-      repoId: string;
-      repoName: string | null;
-      triggerName: string | null;
-      rootDirectory: string;
-    }
-  | {
-      state: "same_repo_different_root";
-      repoId: string;
-      repoName: string | null;
-      triggerName: string | null;
-      rootDirectory: string;
-      expectedRootDirectory: string;
-    }
-  | {
-      state: "different_repo";
-      repoId: string;
-      repoName: string | null;
-      triggerName: string | null;
-    }
-  | {
-      state: "deleted_repo_connection";
-      repoId: string | null;
-      repoName: string | null;
-      triggerName: string | null;
-    }
-  | {
-      state: "missing_repo_id";
-      repoName: string | null;
-      triggerName: string | null;
-    }
-  | {
-      state: "missing_root_directory";
-      repoId: string;
-      repoName: string | null;
-      triggerName: string | null;
-      expectedRootDirectory: string;
-    }
-  | {
-      state: "trigger_read_failed";
-      message: string;
-    };
-type CloudflareWorkerOption = {
-  workerName: string;
-  workerTag: string;
-  discovery: {
-    classification: "recommended" | "available" | "blocked" | "unknown";
-    evidence: CloudflareWorkerRepositoryEvidence;
-  };
-};
 type CloudflareWorkerConnectMode = "existing" | "create";
 type ConvexProjectOption = {
   projectId: string;
@@ -292,32 +247,6 @@ function getCloudflareWorkerDiscoveryRank(worker: CloudflareWorkerOption): numbe
       worker.discovery.classification satisfies never;
       return 4;
   }
-}
-
-function isSelectableCloudflareWorker(worker: CloudflareWorkerOption): boolean {
-  return (
-    worker.discovery.classification === "recommended" ||
-    worker.discovery.classification === "available"
-  );
-}
-
-function readDefaultCloudflareWorkerSelection(
-  workers: readonly CloudflareWorkerOption[],
-  selectedWorkerName: string,
-): string {
-  const selectedWorker = workers.find((worker) => worker.workerName === selectedWorkerName);
-  if (selectedWorker && isSelectableCloudflareWorker(selectedWorker)) {
-    return selectedWorker.workerName;
-  }
-
-  const recommendedWorkers = workers.filter(
-    (worker) => worker.discovery.classification === "recommended",
-  );
-  if (recommendedWorkers.length === 1) {
-    return recommendedWorkers[0].workerName;
-  }
-
-  return "";
 }
 
 function formatCloudflareWorkerRepositoryEvidence(
