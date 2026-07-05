@@ -1222,6 +1222,7 @@ describe("VaultDashboardCloudflareDialog", () => {
                 repoId: "123",
                 repoName: "ada/demo",
                 triggerName: "Production Deploy",
+                rootDirectory: "/",
               },
             },
           }),
@@ -1242,7 +1243,69 @@ describe("VaultDashboardCloudflareDialog", () => {
       />,
     );
 
-    expect(markup).toContain("Recommended: Builds repo ada/demo (123)");
+    expect(markup).toContain("Recommended: Builds repo ada/demo (123), root /");
+  });
+
+  it("surfaces same-repo different-root Workers without enabling submit", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[
+          {
+            accountId: "account-1",
+            accountName: "Ada Cloud",
+          },
+        ]}
+        appRoot="apps/web"
+        appRootReadOnly={true}
+        createWorkerName="demo-worker"
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onAccountChange={vi.fn()}
+        onAppRootChange={vi.fn()}
+        onCreateWorkerNameChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onWorkerChange={vi.fn()}
+        open
+        selectedAccountId="account-1"
+        selectedWorkerName="admin-worker"
+        vault={{
+          fixedAppRoot: "apps/web",
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+        workers={[
+          makeCloudflareDialogWorker({
+            workerName: "available-worker",
+            workerTag: "worker-tag-3",
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "admin-worker",
+            workerTag: "worker-tag-2",
+            discovery: {
+              classification: "blocked",
+              evidence: {
+                state: "same_repo_different_root",
+                repoId: "123",
+                repoName: "ada/demo",
+                triggerName: "Production Deploy",
+                rootDirectory: "apps/admin",
+                expectedRootDirectory: "apps/web",
+              },
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain(
+      "Same repo, different root: Builds root apps/admin, expected apps/web",
+    );
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Connect Worker<\/button>/);
   });
 
   it("disables submit when stale state selects a different-repo Worker", () => {

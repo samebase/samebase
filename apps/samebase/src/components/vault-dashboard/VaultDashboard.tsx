@@ -212,6 +212,15 @@ type CloudflareWorkerRepositoryEvidence =
       repoId: string;
       repoName: string | null;
       triggerName: string | null;
+      rootDirectory: string;
+    }
+  | {
+      state: "same_repo_different_root";
+      repoId: string;
+      repoName: string | null;
+      triggerName: string | null;
+      rootDirectory: string;
+      expectedRootDirectory: string;
     }
   | {
       state: "different_repo";
@@ -229,6 +238,13 @@ type CloudflareWorkerRepositoryEvidence =
       state: "missing_repo_id";
       repoName: string | null;
       triggerName: string | null;
+    }
+  | {
+      state: "missing_root_directory";
+      repoId: string;
+      repoName: string | null;
+      triggerName: string | null;
+      expectedRootDirectory: string;
     }
   | {
       state: "trigger_read_failed";
@@ -266,11 +282,11 @@ function getCloudflareWorkerDiscoveryRank(worker: CloudflareWorkerOption): numbe
   switch (worker.discovery.classification) {
     case "recommended":
       return 0;
-    case "available":
-      return 1;
-    case "unknown":
-      return 2;
     case "blocked":
+      return worker.discovery.evidence.state === "same_repo_different_root" ? 1 : 4;
+    case "available":
+      return 2;
+    case "unknown":
       return 3;
     default:
       worker.discovery.classification satisfies never;
@@ -311,13 +327,17 @@ function formatCloudflareWorkerRepositoryEvidence(
     case "none":
       return "No active Builds repo trigger";
     case "matching_repo":
-      return `Builds repo ${formatCloudflareWorkerRepositoryLabel(evidence)}`;
+      return `Builds repo ${formatCloudflareWorkerRepositoryLabel(evidence)}, root ${formatCloudflareWorkerRootLabel(evidence.rootDirectory)}`;
+    case "same_repo_different_root":
+      return `Builds root ${formatCloudflareWorkerRootLabel(evidence.rootDirectory)}, expected ${formatCloudflareWorkerRootLabel(evidence.expectedRootDirectory)}`;
     case "different_repo":
       return `Builds repo ${formatCloudflareWorkerRepositoryLabel(evidence)}`;
     case "deleted_repo_connection":
       return "Builds repo connection was deleted";
     case "missing_repo_id":
       return "Builds repo id missing";
+    case "missing_root_directory":
+      return `Builds root missing, expected ${formatCloudflareWorkerRootLabel(evidence.expectedRootDirectory)}`;
     case "trigger_read_failed":
       return "Builds triggers could not be read";
     default:
@@ -333,6 +353,10 @@ function formatCloudflareWorkerRepositoryLabel(args: {
   return args.repoName ? `${args.repoName} (${args.repoId})` : args.repoId;
 }
 
+function formatCloudflareWorkerRootLabel(rootDirectory: string): string {
+  return rootDirectory === "/" ? "/" : rootDirectory;
+}
+
 function formatCloudflareWorkerDiscoveryLabel(worker: CloudflareWorkerOption): string {
   switch (worker.discovery.classification) {
     case "recommended":
@@ -340,6 +364,9 @@ function formatCloudflareWorkerDiscoveryLabel(worker: CloudflareWorkerOption): s
     case "available":
       return "Available";
     case "blocked":
+      if (worker.discovery.evidence.state === "same_repo_different_root") {
+        return "Same repo, different root";
+      }
       return "Different repo";
     case "unknown":
       return "Cannot inspect";

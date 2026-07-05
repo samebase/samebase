@@ -52,10 +52,10 @@ Convex-domain deploy-key state.
 3. Builds wiring and Convex build access are two separate durable states on the Worker row, each
    with its own block. A Worker can build and deploy without Convex; Convex build access is added
    later when a deployment is attached.
-4. Cloudflare's own Worker-to-repository link is the adoption evidence for existing Workers.
-   Discovery preselects candidates whose build triggers or build config reference the vault's
-   immutable GitHub repo id; the user approves. No auto-attach: multiple Workers per repo is a
-   legitimate, documented Cloudflare configuration (monorepos, staging/production environments).
+4. Cloudflare's own Worker-to-repository/root link is the adoption evidence for existing Workers.
+   Discovery preselects candidates whose build triggers reference the vault's immutable GitHub repo
+   id and app root; the user approves. No auto-attach: multiple Workers per repo is a legitimate,
+   documented Cloudflare configuration (monorepos, staging/production environments).
 5. PR #1146 stays closed. Its useful pieces (helper exports, deploy-key recording, build-context
    read) re-land inside the block shapes below.
 
@@ -115,29 +115,37 @@ Facts established from Cloudflare's published API (generated subset refreshed in
   aggregate `GET /accounts/{account_id}/builds/workers/{script_tag}` exposes `git_repository`
   (including `repo_id`) directly. A trigger's repo binding is fixed at creation; PATCH cannot
   repoint it.
-- Worker → repo is strong and callable today: `listBuildTriggers` already fetches the embedded
-  `repo_connection`; the code just never reads it.
+- Worker → repo/app-root is strong and callable today: `listBuildTriggers` already fetches the
+  embedded `repo_connection` and trigger `root_directory`; the code just never reads that pair
+  together.
 - Repo → Workers has no direct endpoint (no account-level list of connections or triggers, no repo
   filter — upstream API truth, not a subset artifact). Discovery scans: list account Workers, then
   one Builds read per Worker, matching `repo_id === vault.ghRepoId` (Samebase writes the immutable
   numeric GitHub repo id into `repo_id`). Cost is 1 + N calls against a 1,200-requests/5-min
   user-token budget; acceptable for realistic account sizes.
-- Candidate tiers follow `research/2026-05-22`: strong = repo-id match with `deleted_on == null`;
-  owner/name or Worker-name similarity is suggestion-only. Strong candidates are preselected in the
-  add-Cloudflare dialog with their repo evidence shown; "create new Worker" remains alongside.
+- Candidate tiers follow `research/2026-05-22`: strong = repo-id and normalized root-directory match
+  with `deleted_on == null`; owner/name or Worker-name similarity is suggestion-only. Strong
+  candidates are preselected in the add-Cloudflare dialog with their repo/root evidence shown;
+  "create new Worker" remains alongside.
+- Root-directory evidence stays transient Cloudflare state during discovery. Samebase persists a
+  root only after it wires or records a connected Workers Builds config for the vault app root.
 
 Discovery UI classification:
 
-- `recommended`: at least one active Builds trigger has
-  `repo_connection.repo_id === vault.ghRepoId`. Show the repo evidence and preselect the Worker when
-  it is the only strong match, but still require user confirmation.
+- `recommended`: at least one active Builds trigger has `repo_connection.repo_id === vault.ghRepoId`
+  and normalized `root_directory` equal to the vault app root's Cloudflare build root. Show the
+  repo/root evidence and preselect the Worker when it is the only strong match, but still require
+  user confirmation.
 - `available`: no active Builds repo trigger is present. The Worker is selectable because wiring the
   vault repo would not overwrite an existing repo relation.
-- `blocked`: an active Builds trigger points at a different repo id. Show the conflicting repo
-  evidence when available and disable selection; Samebase must not connect or patch this Worker for
-  the current vault until Builds is disconnected or another Worker is chosen.
-- `unknown`: Samebase cannot read trigger repo identity. Do not wire automatically; fail closed for
-  wiring until the repo relation can be inspected.
+- `blocked`: an active Builds trigger points at a different repo id, or it points at the same repo
+  id with a different normalized root directory. Show the conflicting repo/root evidence when
+  available and disable selection; Samebase must not connect or patch this Worker for the current
+  vault app root until Builds is disconnected, another Worker is chosen, or the matching app root is
+  selected. Same-repo/different-root candidates rank above `available` candidates because they are
+  the most likely operator mistake.
+- `unknown`: Samebase cannot read trigger repo identity or root directory. Do not wire
+  automatically; fail closed for wiring until the repo/root relation can be inspected.
 
 Verification probes required before implementation (one-time, live):
 

@@ -310,11 +310,37 @@ describe("cloudflare resources", () => {
     const requests: RecordedCloudflareRequest[] = [];
     stubEnsureCloudflareResourcesFetch({
       requests,
-      triggers: [],
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          root_directory: ".",
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+          root_directory: ".",
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+      ],
     });
 
     await wireCloudflareWorkerConvexBuildAccess({
       defaultBranch: "main",
+      expectedRepoId: "123",
+      repositoryFullName: "ada/samebase-app",
+      rootDirectory: ".",
       vaultId: "vault-id",
       workerName: "samebase-app",
       workerTag: "worker-tag",
@@ -379,6 +405,76 @@ describe("cloudflare resources", () => {
         convexUrl: "https://preview.convex.cloud",
       }),
     );
+  });
+
+  it("does not patch Convex build environment variables after a root-directory drift", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "production-trigger",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          root_directory: "apps/admin",
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+        {
+          trigger_uuid: "preview-trigger",
+          branch_includes: ["*"],
+          branch_excludes: ["main"],
+          root_directory: ".",
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      wireCloudflareWorkerConvexBuildAccess({
+        defaultBranch: "main",
+        expectedRepoId: "123",
+        repositoryFullName: "ada/samebase-app",
+        rootDirectory: ".",
+        vaultId: "vault-id",
+        workerName: "samebase-app",
+        workerTag: "worker-tag",
+        cloudflareToken: "oauth-token",
+        cloudflareAuthMethod: "oauth",
+        accountId: "account-id",
+        build: {
+          production: {
+            triggerUuid: "production-trigger",
+            buildTokenUuid: "build-token",
+          },
+          preview: {
+            triggerUuid: "preview-trigger",
+            buildTokenUuid: "build-token",
+          },
+        },
+        convex: {
+          production: {
+            cloudUrl: "https://prod.convex.cloud",
+            deployKey: "prod-key",
+          },
+          preview: {
+            cloudUrl: "https://preview.convex.cloud",
+            deployKey: "preview-key",
+          },
+        },
+      }),
+    ).rejects.toThrow(
+      "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: its existing production Workers Builds trigger is connected to root directory apps/admin. Expected /. Disconnect Builds in Cloudflare or choose another Worker.",
+    );
+    expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+    expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
   });
 
   it("uses the Workers service id as the Workers Builds tag", () => {
@@ -706,6 +802,7 @@ describe("cloudflare resources", () => {
           branch_includes: ["main"],
           branch_excludes: [],
           build_token_uuid: "reusable-build-token",
+          root_directory: ".",
           repo_connection: {
             repo_connection_uuid: "repo-connection",
             repo_id: "123",
@@ -732,6 +829,48 @@ describe("cloudflare resources", () => {
           request.path === "/client/v4/accounts/account-id/builds/triggers",
       ),
     ).toBe(true);
+  });
+
+  it("does not patch an existing Workers Builds trigger connected to a different root directory", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [
+        {
+          trigger_uuid: "existing-production-trigger",
+          branch_includes: ["main"],
+          branch_excludes: [],
+          build_token_uuid: "reusable-build-token",
+          root_directory: "apps/admin",
+          repo_connection: {
+            repo_connection_uuid: "repo-connection",
+            repo_id: "123",
+            repo_name: "ada/samebase-app",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      ensureCloudflareResources(buildTestEnsureCloudflareResourcesArgs()),
+    ).rejects.toThrow(
+      "Cannot connect Cloudflare Worker worker-tag to ada/samebase-app: its existing production Workers Builds trigger is connected to root directory apps/admin. Expected /. Disconnect Builds in Cloudflare or choose another Worker.",
+    );
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "PATCH" &&
+          request.path ===
+            "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger",
+      ),
+    ).toBe(false);
+    expect(
+      requests.some(
+        (request) =>
+          request.method === "POST" &&
+          request.path === "/client/v4/accounts/account-id/builds/triggers",
+      ),
+    ).toBe(false);
   });
 
   it("does not patch an existing Workers Builds trigger connected to a different GitHub repository", async () => {
@@ -900,9 +1039,11 @@ describe("cloudflare resources", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
+        expectedRootDirectory: ".",
         triggers: [
           {
             trigger_name: "Production Deploy",
+            root_directory: ".",
             repo_connection: {
               repo_connection_uuid: "repo-connection",
               repo_id: "123",
@@ -918,6 +1059,65 @@ describe("cloudflare resources", () => {
         repoId: "123",
         repoName: "ada/samebase-app",
         triggerName: "Production Deploy",
+        rootDirectory: "/",
+      },
+    });
+  });
+
+  it("classifies same-repo Workers Builds trigger evidence with a different root as blocked", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        expectedRootDirectory: "apps/web",
+        triggers: [
+          {
+            trigger_name: "Production Deploy",
+            root_directory: "apps/admin",
+            repo_connection: {
+              repo_connection_uuid: "repo-connection",
+              repo_id: "123",
+              repo_name: "ada/samebase-app",
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      classification: "blocked",
+      evidence: {
+        state: "same_repo_different_root",
+        repoId: "123",
+        repoName: "ada/samebase-app",
+        triggerName: "Production Deploy",
+        rootDirectory: "apps/admin",
+        expectedRootDirectory: "apps/web",
+      },
+    });
+  });
+
+  it("fails closed when a same-repo Workers Builds trigger omits the root directory", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        expectedRootDirectory: "apps/web",
+        triggers: [
+          {
+            trigger_name: "Production Deploy",
+            repo_connection: {
+              repo_connection_uuid: "repo-connection",
+              repo_id: "123",
+              repo_name: "ada/samebase-app",
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      classification: "unknown",
+      evidence: {
+        state: "missing_root_directory",
+        repoId: "123",
+        repoName: "ada/samebase-app",
+        triggerName: "Production Deploy",
+        expectedRootDirectory: "apps/web",
       },
     });
   });
@@ -926,6 +1126,7 @@ describe("cloudflare resources", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
+        expectedRootDirectory: ".",
         triggers: [
           {
             deleted_on: "2026-07-01T00:00:00Z",
@@ -948,6 +1149,7 @@ describe("cloudflare resources", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
+        expectedRootDirectory: ".",
         triggers: [
           {
             trigger_name: "Production Deploy",
@@ -974,9 +1176,11 @@ describe("cloudflare resources", () => {
     expect(
       classifyCloudflareWorkerRepositoryDiscovery({
         expectedRepoId: "123",
+        expectedRootDirectory: ".",
         triggers: [
           {
             trigger_name: "Production Deploy",
+            root_directory: ".",
             repo_connection: {
               repo_connection_uuid: "repo-connection",
               repo_id: "123",

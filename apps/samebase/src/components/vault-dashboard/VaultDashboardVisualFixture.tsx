@@ -138,6 +138,22 @@ const FIXTURE_CLOUDFLARE_WORKERS = [
         repoId: "919458151",
         repoName: "samebase/atelier",
         triggerName: "Production Deploy",
+        rootDirectory: "apps/atelier",
+      },
+    },
+  },
+  {
+    workerName: "app-admin",
+    workerTag: "29c1d1a06f944e81a78f6241dd5ef5d3",
+    discovery: {
+      classification: "blocked" as const,
+      evidence: {
+        state: "same_repo_different_root" as const,
+        repoId: "919458151",
+        repoName: "samebase/atelier",
+        triggerName: "Production Deploy",
+        rootDirectory: "apps/admin",
+        expectedRootDirectory: "apps/atelier",
       },
     },
   },
