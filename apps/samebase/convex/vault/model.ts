@@ -98,6 +98,18 @@ export const vConvexDeployKeys = object({
 });
 export type ConvexDeployKeys = Infer<typeof vConvexDeployKeys>;
 
+export const vConvexPreviewDeployment = union(
+  object({
+    state: literal("not_ensured"),
+  }),
+  object({
+    state: literal("ready"),
+    deploymentName: string(),
+    cloudUrl: string(),
+  }),
+);
+export type ConvexPreviewDeployment = Infer<typeof vConvexPreviewDeployment>;
+
 export const vVaultConvexAppRoot = string();
 export type VaultConvexAppRoot = Infer<typeof vVaultConvexAppRoot>;
 
@@ -120,6 +132,7 @@ export const vVaultConvexDeployment = object({
   deploymentType: literal("prod"),
   cloudUrl: string(),
   siteUrl: string(),
+  previewDeployment: vConvexPreviewDeployment,
   deployKeys: vConvexDeployKeys,
   origin: vVaultConvexOrigin,
   connectedAt: number(),

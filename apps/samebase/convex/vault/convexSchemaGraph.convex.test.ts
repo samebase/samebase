@@ -144,6 +144,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       deploymentType: "prod",
       cloudUrl: "https://demo.convex.cloud",
       siteUrl: "https://demo.convex.site",
+      previewDeployment: { state: "not_ensured" },
       deployKeys: {
         production: { state: "not_created" },
         preview: { state: "not_created" },

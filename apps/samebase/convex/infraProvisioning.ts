@@ -43,7 +43,7 @@ const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 type ConvexDeployKeyAllowedAction = NonNullable<
   components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
 >[number];
-type ConvexProvisioningAuthMethod = "api_key" | "oauth";
+export type ConvexProvisioningAuthMethod = "api_key" | "oauth";
 
 const CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS = [
   "deployment:deploy",
@@ -51,6 +51,9 @@ const CONVEX_DEPLOY_KEY_ALLOWED_ACTIONS = [
   "deployment:env:write",
   "deployment:data:view",
 ] satisfies ConvexDeployKeyAllowedAction[];
+const CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED = {
+  state: "not_ensured",
+} as const;
 
 const activeProvisioningRunResult = v.object({ active: v.boolean() });
 const infrastructurePatchResult = v.object({ applied: v.boolean() });
@@ -390,12 +393,12 @@ async function ensureConvexResources(args: {
   };
 }
 
-type ConvexPreviewProvisionResult = {
+export type ConvexPreviewProvisionResult = {
   previewDeploymentName: string;
   previewCloudUrl: string;
 };
 
-async function ensureConvexPreviewResources(args: {
+export async function ensureConvexPreviewResources(args: {
   convexToken: string;
   teamId: string;
   projectId: string;
@@ -440,7 +443,7 @@ async function ensureConvexPreviewResources(args: {
  *
  * @see https://docs.convex.dev/management-api/create-deploy-key
  */
-async function createConvexDeployKey(args: {
+export async function createConvexDeployKey(args: {
   convexToken: string;
   convexAuthMethod: ConvexProvisioningAuthMethod;
   deploymentName: string;
@@ -475,7 +478,7 @@ async function createConvexDeployKey(args: {
   };
 }
 
-async function createConvexPreviewDeployKey(args: {
+export async function createConvexPreviewDeployKey(args: {
   convexToken: string;
   projectId: string;
   name: string;
@@ -861,6 +864,9 @@ export const recordConvexInfrastructure = internalMutation({
       production: { state: "not_created" },
       preview: { state: "not_created" },
     };
+    const previewDeployment = existing
+      ? existing.previewDeployment
+      : CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED;
 
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -871,6 +877,7 @@ export const recordConvexInfrastructure = internalMutation({
         deploymentType: args.convex.convexDeploymentType,
         cloudUrl: args.convex.convexCloudUrl,
         siteUrl: args.convex.convexSiteUrl,
+        previewDeployment,
         deployKeys,
         origin: "provisioned",
         lastObservedAt: now,
@@ -889,6 +896,7 @@ export const recordConvexInfrastructure = internalMutation({
       deploymentType: args.convex.convexDeploymentType,
       cloudUrl: args.convex.convexCloudUrl,
       siteUrl: args.convex.convexSiteUrl,
+      previewDeployment,
       deployKeys,
       origin: "provisioned",
       connectedAt: now,
@@ -975,6 +983,49 @@ export const recordConvexDeployKeyIdentity = internalMutation({
           };
 
     await ctx.db.patch(existing._id, { deployKeys: convexDeployKeys, lastObservedAt: Date.now() });
+
+    return { applied: true };
+  },
+});
+
+export const recordConvexPreviewDeploymentIdentity = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    runId: v.id("appProvisioningRuns"),
+    previewDeploymentName: v.string(),
+    previewCloudUrl: v.string(),
+  },
+  returns: infrastructurePatchResult,
+  handler: async (ctx, args) => {
+    if (!(await requireActiveProvisioningVault(ctx, args))) {
+      return { applied: false };
+    }
+
+    const target = await readVaultInfrastructureTarget(ctx, args.vaultId);
+    if (!target) {
+      throw new Error(
+        "Infrastructure target is required before recording Convex preview deployment identity.",
+      );
+    }
+
+    const existing = await readVaultConvexDeploymentForAppRoot(ctx, {
+      vaultId: args.vaultId,
+      appRoot: target.appRoot,
+    });
+    if (!existing) {
+      throw new Error(
+        "Convex deployment is required before recording preview deployment identity.",
+      );
+    }
+
+    await ctx.db.patch(existing._id, {
+      previewDeployment: {
+        state: "ready",
+        deploymentName: args.previewDeploymentName,
+        cloudUrl: args.previewCloudUrl,
+      },
+      lastObservedAt: Date.now(),
+    });
 
     return { applied: true };
   },
@@ -1470,12 +1521,28 @@ export const ensureConvexPreviewInfrastructure = internalAction({
       runId: args.runId,
       step: "ensure_convex_preview",
     });
-    await ensureConvexPreviewResources({
+    const previewConvex = await ensureConvexPreviewResources({
       convexToken,
       teamId: convexTeamId,
       projectId: existing.projectId,
       recordApiCall,
     });
+    const previewRecord = await ctx.runMutation(
+      internal.infraProvisioning.recordConvexPreviewDeploymentIdentity,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        previewDeploymentName: previewConvex.previewDeploymentName,
+        previewCloudUrl: previewConvex.previewCloudUrl,
+      },
+    );
+    if (!previewRecord.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_convex_preview",
+      });
+      return null;
+    }
 
     await appendProvisioningRunEvent(ctx, {
       runId: args.runId,
@@ -1576,6 +1643,22 @@ export const ensureCloudflareInfrastructure = internalAction({
       projectId: existing.projectId,
       recordApiCall,
     });
+    const previewRecord = await ctx.runMutation(
+      internal.infraProvisioning.recordConvexPreviewDeploymentIdentity,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        previewDeploymentName: previewConvex.previewDeploymentName,
+        previewCloudUrl: previewConvex.previewCloudUrl,
+      },
+    );
+    if (!previewRecord.applied) {
+      await cancelSupersededProvisioningRun(ctx, {
+        runId: args.runId,
+        step: "ensure_cloudflare",
+      });
+      return null;
+    }
     const productionDeployKey = await createConvexDeployKey({
       convexToken,
       convexAuthMethod,
@@ -1887,6 +1970,9 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers Builds has no build API token",
   "Cloudflare has multiple Workers build tokens",
   "Cannot connect Cloudflare Worker",
+  "Cloudflare Worker is required before wiring Convex build access.",
+  "Cloudflare Workers Builds are required before wiring Convex build access.",
+  "Convex deployment is required before wiring Convex build access.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not match the vault repo.",
 ];
@@ -2037,7 +2123,11 @@ export const markWorkflowProvisioningFailed = internalMutation({
       return null;
     }
 
-    if (run.trigger === "connect_cloudflare_worker" || run.trigger === "wire_builds") {
+    if (
+      run.trigger === "connect_cloudflare_worker" ||
+      run.trigger === "wire_builds" ||
+      run.trigger === "wire_convex_build_access"
+    ) {
       const ownership = await getVaultInfrastructureOwnership(ctx, vaultId);
       if (ownership && isActiveProvisioningOwner(ownership, { runId: args.runId })) {
         await ctx.db.patch(ownership._id, {
@@ -2052,9 +2142,11 @@ export const markWorkflowProvisioningFailed = internalMutation({
         safeRunError,
       });
       console.error(
-        run.trigger === "wire_builds"
-          ? "cloudflare:builds_wiring:failed"
-          : "cloudflare:worker_connection:failed",
+        run.trigger === "wire_convex_build_access"
+          ? "cloudflare:convex_build_access_wiring:failed"
+          : run.trigger === "wire_builds"
+            ? "cloudflare:builds_wiring:failed"
+            : "cloudflare:worker_connection:failed",
         {
           vaultId,
           repo: run.repositoryFullName,

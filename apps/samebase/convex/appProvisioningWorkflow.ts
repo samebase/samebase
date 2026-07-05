@@ -428,8 +428,83 @@ export const wireCloudflareBuilds = workflow.define({
       name: "wire_builds",
       retry: false,
     });
-    await step.runMutation(
+    const { convexBuildAccessRunId } = await step.runMutation(
       internal.vault.cloudflareMutations.finishCloudflareBuildsWiring,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+      },
+      { name: "finish" },
+    );
+    if (!convexBuildAccessRunId) {
+      return null;
+    }
+
+    try {
+      await step.runMutation(
+        internal.appProvisioningWorkflow.startCloudflareConvexBuildAccessWiring,
+        {
+          vaultId: args.vaultId,
+          runId: convexBuildAccessRunId,
+          userId: args.userId,
+          appRoot: args.appRoot,
+        },
+        { name: "start_wire_convex_build_access" },
+      );
+    } catch (error) {
+      await step
+        .runMutation(
+          internal.infraProvisioning.markWorkflowStartupFailed,
+          {
+            runId: convexBuildAccessRunId,
+            message: toErrorMessage(error),
+          },
+          { name: "mark_wire_convex_build_access_start_failed" },
+        )
+        .catch((failureError: unknown) => {
+          console.warn("cloudflare:convex_build_access:follow_on_failure_record_failed", {
+            vaultId: args.vaultId,
+            appRoot: args.appRoot,
+            error: toErrorMessage(failureError),
+          });
+        });
+      console.warn("cloudflare:convex_build_access:follow_on_failed", {
+        vaultId: args.vaultId,
+        appRoot: args.appRoot,
+        error: toErrorMessage(error),
+      });
+    }
+
+    return null;
+  },
+});
+
+export const wireCloudflareConvexBuildAccess = workflow.define({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: v.null(),
+  handler: async (step, args): Promise<null> => {
+    const { claimed } = await step.runMutation(
+      internal.vault.cloudflareMutations.claimCloudflareConvexBuildAccessWiring,
+      args,
+      { name: "claim_infra" },
+    );
+    if (!claimed) {
+      return null;
+    }
+
+    await step.runAction(internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring, args, {
+      name: "wire_convex_build_access",
+      retry: false,
+    });
+    await step.runMutation(
+      internal.vault.cloudflareMutations.finishCloudflareConvexBuildAccessWiring,
       {
         vaultId: args.vaultId,
         runId: args.runId,
@@ -678,6 +753,44 @@ export const startCloudflareBuildsWiring = internalMutation({
       step: "claim_infra",
       level: "info",
       message: "Queued Cloudflare Workers Builds wiring.",
+      state: "queued",
+    });
+
+    return workflowId;
+  },
+});
+
+export const startCloudflareConvexBuildAccessWiring = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: string(),
+  handler: async (ctx, args): Promise<string> => {
+    const workflowId: string = await workflow.start(
+      ctx,
+      internal.appProvisioningWorkflow.wireCloudflareConvexBuildAccess,
+      args,
+      {
+        startAsync: true,
+        onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+        context: {
+          runId: args.runId,
+        },
+      },
+    );
+
+    await ctx.db.patch(args.runId, {
+      workflowId,
+      updatedAt: Date.now(),
+    });
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: "claim_infra",
+      level: "info",
+      message: "Queued Convex build access wiring.",
       state: "queued",
     });
 

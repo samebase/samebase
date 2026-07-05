@@ -53,6 +53,7 @@ export function resolveVaultProviderSetupStepProvider(
       return "convex";
     case "ensure_cloudflare":
     case "wire_builds":
+    case "wire_convex_build_access":
     case "record_domains":
       return "cloudflare";
     case "run_created":
