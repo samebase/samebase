@@ -137,6 +137,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/agentGraphLayout.ts",
   "apps/samebase/convex/appProvisioningEvents.ts",
   "apps/samebase/convex/appProvisioningRuns.ts",
+  "apps/samebase/convex/appProvisioningWorkflow.convex.test.ts",
   "apps/samebase/convex/appProvisioningWorkflow.test.ts",
   "apps/samebase/convex/appProvisioningWorkflow.ts",
   "apps/samebase/convex/appProvisioningWorkflowActions.convex.test.ts",
