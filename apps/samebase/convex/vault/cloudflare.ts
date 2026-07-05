@@ -12,6 +12,11 @@ import {
   resolveCloudflareApiTransport,
   type CloudflareApiTransport,
 } from "../cloudflareApi/client";
+import {
+  formatProviderApiCallLogMessage,
+  type ProviderApiCall,
+  type ProviderApiCallRecorder,
+} from "../providerApiLog";
 import { validateAppResourceName } from "../../shared/appResourceNames";
 import { normalizeVaultAppRoot } from "../../shared/vaultAppRoot";
 import {
@@ -42,6 +47,7 @@ import {
   type VaultCloudflareBuildConfig,
   type VaultCloudflareOrigin,
 } from "./model";
+import type { AppProvisioningStep } from "../schema";
 
 const { array, id, literal, null: nullValue, object, string, union } = v;
 
@@ -424,6 +430,48 @@ async function markCloudflareWorkerConnectionStartupFailed(
     runId: args.runId,
     message: toErrorMessage(args.error),
   });
+}
+
+async function appendProviderApiCallEvent(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+    call: ProviderApiCall;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+      runId: args.runId,
+      step: args.step,
+      level: "info",
+      message: formatProviderApiCallLogMessage(args.call),
+      state: "running",
+    });
+  } catch {
+    console.warn("vault:cloudflare:api_call_event_append_failed", {
+      runId: args.runId,
+      step: args.step,
+      provider: args.call.provider,
+      endpoint: args.call.endpoint,
+    });
+  }
+}
+
+function createProviderApiCallRecorder(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    runId: Id<"appProvisioningRuns">;
+    step: AppProvisioningStep;
+  },
+): ProviderApiCallRecorder {
+  return async (call) => {
+    await appendProviderApiCallEvent(ctx, {
+      runId: args.runId,
+      step: args.step,
+      call,
+    });
+  };
 }
 
 async function startCloudflareWorkerConnectionOrFail(
@@ -969,6 +1017,10 @@ export const ensureCloudflareBuildsWiring = internalAction({
       cloudflareAuthMethod: cloudflareConnection.auth.method,
       accountId: account.accountId,
       buildConfig: toCloudflareBuildConfig(active.buildConfig),
+      recordApiCall: createProviderApiCallRecorder(ctx, {
+        runId: args.runId,
+        step: "wire_builds",
+      }),
     });
     await rememberDefaultAccount(ctx, {
       userId: args.userId,
@@ -1102,6 +1154,10 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
             deployKey: previewDeployKey.deployKey,
           },
         },
+        recordApiCall: createProviderApiCallRecorder(ctx, {
+          runId: args.runId,
+          step: "wire_convex_build_access",
+        }),
       });
       await rememberDefaultAccount(ctx, {
         userId: args.userId,

@@ -47,6 +47,7 @@ type CloudflareWorkerTagSource = {
 type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
 export type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
 type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
+type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentVariablesResponse"];
 type CloudflareApiCallOptions = {
   transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
@@ -1383,6 +1384,62 @@ async function setTriggerEnvironmentVariables(
   });
 }
 
+async function listTriggerEnvironmentVariables(
+  args: {
+    token: string;
+    accountId: string;
+    triggerUuid: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareBuildEnvVarsResponse> {
+  const raw = await requestCloudflareApi({
+    token: args.token,
+    method: "GET",
+    path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
+    transport: args.transport,
+    params: {
+      path: {
+        account_id: args.accountId,
+        trigger_uuid: args.triggerUuid,
+      },
+    },
+    recordApiCall: args.recordApiCall,
+  });
+  return raw ?? {};
+}
+
+function assertTriggerEnvironmentVariables(args: {
+  triggerKind: "production" | "preview";
+  triggerUuid: string;
+  envVars: CloudflareBuildEnvVarsResponse;
+  expected: CloudflareBuildEnvVars;
+}): void {
+  const missingKeys = Object.keys(args.expected).filter(
+    (key) => !Object.prototype.hasOwnProperty.call(args.envVars, key),
+  );
+  if (missingKeys.length > 0) {
+    throw new Error(
+      `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} is missing build environment variable ${missingKeys.join(", ")} after wiring.`,
+    );
+  }
+
+  for (const [key, expected] of Object.entries(args.expected)) {
+    if (!Object.prototype.hasOwnProperty.call(args.envVars, key)) {
+      continue;
+    }
+    const actual = args.envVars[key];
+    if (actual.is_secret !== expected.is_secret) {
+      throw new Error(
+        `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} has build environment variable ${key} with is_secret=${String(actual.is_secret)}. Expected ${String(expected.is_secret)}.`,
+      );
+    }
+    if (!expected.is_secret && actual.value !== expected.value) {
+      throw new Error(
+        `Cloudflare ${args.triggerKind} Workers Builds trigger ${args.triggerUuid} has an unexpected value for build environment variable ${key}.`,
+      );
+    }
+  }
+}
+
 async function triggerInitialBuild(
   args: {
     token: string;
@@ -1709,16 +1766,22 @@ export async function wireCloudflareWorkerConvexBuildAccess(
     });
 
     step = "set_environment_variables";
+    const productionEnvVars = buildCloudflareWorkersEnvVars({
+      deployKeyName: PROD_CONVEX_DEPLOY_KEY,
+      convexDeployKey: args.convex.production.deployKey,
+      convexUrl: args.convex.production.cloudUrl,
+    });
+    const previewEnvVars = buildCloudflareWorkersEnvVars({
+      deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
+      convexDeployKey: args.convex.preview.deployKey,
+      convexUrl: args.convex.preview.cloudUrl,
+    });
     await Promise.all([
       setTriggerEnvironmentVariables({
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.production.triggerUuid,
-        envVars: buildCloudflareWorkersEnvVars({
-          deployKeyName: PROD_CONVEX_DEPLOY_KEY,
-          convexDeployKey: args.convex.production.deployKey,
-          convexUrl: args.convex.production.cloudUrl,
-        }),
+        envVars: productionEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
       }),
@@ -1726,15 +1789,41 @@ export async function wireCloudflareWorkerConvexBuildAccess(
         token: args.cloudflareToken,
         accountId: args.accountId,
         triggerUuid: args.build.preview.triggerUuid,
-        envVars: buildCloudflareWorkersEnvVars({
-          deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
-          convexDeployKey: args.convex.preview.deployKey,
-          convexUrl: args.convex.preview.cloudUrl,
-        }),
+        envVars: previewEnvVars,
         transport,
         recordApiCall: args.recordApiCall,
       }),
     ]);
+
+    step = "verify_environment_variables";
+    const [productionVerifiedEnvVars, previewVerifiedEnvVars] = await Promise.all([
+      listTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.production.triggerUuid,
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+      listTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.preview.triggerUuid,
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+    ]);
+    assertTriggerEnvironmentVariables({
+      triggerKind: "production",
+      triggerUuid: args.build.production.triggerUuid,
+      envVars: productionVerifiedEnvVars,
+      expected: productionEnvVars,
+    });
+    assertTriggerEnvironmentVariables({
+      triggerKind: "preview",
+      triggerUuid: args.build.preview.triggerUuid,
+      envVars: previewVerifiedEnvVars,
+      expected: previewEnvVars,
+    });
 
     step = "trigger_initial_build";
     await triggerInitialBuild({
