@@ -55,6 +55,7 @@ async function createExistingRepositoryVaultWithConvex(args: {
       deploymentType: "prod",
       cloudUrl: "https://manual-convex-prod.convex.cloud",
       siteUrl: "https://manual-convex-prod.convex.site",
+      previewDeployment: { state: "not_ensured" },
       deployKeys: {
         production: { state: "not_created" },
         preview: { state: "not_created" },
@@ -145,6 +146,7 @@ async function createSamebaseManagedVaultWithConvex(args: { withDeployment: bool
         deploymentType: "prod",
         cloudUrl: "https://managed-convex-prod.convex.cloud",
         siteUrl: "https://managed-convex-prod.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },

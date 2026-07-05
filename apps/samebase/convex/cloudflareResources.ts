@@ -1106,6 +1106,19 @@ type WireCloudflareWorkerBuildsArgs = {
   recordApiCall?: ProviderApiCallRecorder;
 };
 
+type WireCloudflareWorkerConvexBuildAccessArgs = {
+  defaultBranch: string;
+  vaultId: string;
+  workerName: string;
+  workerTag: string;
+  cloudflareToken: string;
+  cloudflareAuthMethod: CloudflareAuthMethod;
+  accountId: string;
+  build: Pick<CloudflareWorkersBuilds, "production" | "preview">;
+  convex: CloudflareProvisionConvexState;
+  recordApiCall?: ProviderApiCallRecorder;
+};
+
 async function configureCloudflareWorkerBuilds(
   args: ConfigureCloudflareWorkerBuildsArgs,
 ): Promise<CloudflareWorkersBuilds> {
@@ -1244,6 +1257,76 @@ export async function wireCloudflareWorkerBuilds(
       workerName: args.workerName,
       workerTag: args.workerTag,
       repo: `${args.owner}/${args.repo}`,
+      step,
+      message: toErrorMessage(error),
+    });
+    throw error;
+  }
+}
+
+export async function wireCloudflareWorkerConvexBuildAccess(
+  args: WireCloudflareWorkerConvexBuildAccessArgs,
+): Promise<void> {
+  console.log("infra:cloudflare:convex_build_access:wire:start", {
+    vaultId: args.vaultId,
+    accountId: args.accountId,
+    workerName: args.workerName,
+    workerTag: args.workerTag,
+    defaultBranch: args.defaultBranch,
+  });
+
+  const transport = resolveCloudflareApiTransport(args.cloudflareAuthMethod);
+  let step = "set_environment_variables";
+  try {
+    await Promise.all([
+      setTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.production.triggerUuid,
+        envVars: buildCloudflareWorkersEnvVars({
+          deployKeyName: PROD_CONVEX_DEPLOY_KEY,
+          convexDeployKey: args.convex.production.deployKey,
+          convexUrl: args.convex.production.cloudUrl,
+        }),
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+      setTriggerEnvironmentVariables({
+        token: args.cloudflareToken,
+        accountId: args.accountId,
+        triggerUuid: args.build.preview.triggerUuid,
+        envVars: buildCloudflareWorkersEnvVars({
+          deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
+          convexDeployKey: args.convex.preview.deployKey,
+          convexUrl: args.convex.preview.cloudUrl,
+        }),
+        transport,
+        recordApiCall: args.recordApiCall,
+      }),
+    ]);
+
+    step = "trigger_initial_build";
+    await triggerInitialBuild({
+      token: args.cloudflareToken,
+      accountId: args.accountId,
+      triggerUuid: args.build.production.triggerUuid,
+      branch: args.defaultBranch,
+      transport,
+      recordApiCall: args.recordApiCall,
+    });
+
+    console.log("infra:cloudflare:convex_build_access:wire:success", {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
+    });
+  } catch (error) {
+    console.error("infra:cloudflare:convex_build_access:wire:failed", {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+      workerName: args.workerName,
+      workerTag: args.workerTag,
       step,
       message: toErrorMessage(error),
     });

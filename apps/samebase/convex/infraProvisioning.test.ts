@@ -454,6 +454,7 @@ describe("infrastructure provisioning ownership", () => {
         deploymentType: "prod",
         cloudUrl: "https://deploy-keys.convex.cloud",
         siteUrl: "https://deploy-keys.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
@@ -677,6 +678,7 @@ describe("infrastructure provisioning ownership", () => {
           deploymentType: "prod",
           cloudUrl: "https://deploy-keys.convex.cloud",
           siteUrl: "https://deploy-keys.convex.site",
+          previewDeployment: { state: "not_ensured" },
           deployKeys: {
             production: { state: "not_created" },
             preview: { state: "not_created" },
@@ -1267,6 +1269,7 @@ describe("infrastructure provisioning ownership", () => {
         deploymentType: "prod",
         cloudUrl: "https://preview-validation.convex.cloud",
         siteUrl: "https://preview-validation.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },

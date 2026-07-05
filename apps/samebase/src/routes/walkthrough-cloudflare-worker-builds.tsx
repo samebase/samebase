@@ -5,11 +5,11 @@ import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/walkthrough/cloudflare-worker-builds";
 const githubBranchUrl =
-  "https://github.com/samebase/samebase/blob/codex-cloudflare-trigger-repo-guard";
+  "https://github.com/samebase/samebase/blob/codex-cloudflare-convex-build-access";
 
 const walkthroughMetadata: PageMetadata = {
   title: "Cloudflare Worker Builds Code Walkthrough | Samebase",
-  description: "Code-first walkthrough of the Cloudflare Worker Builds wiring changes in PR 1155.",
+  description: "Code-first walkthrough of Cloudflare Worker Builds and Convex build access wiring.",
   canonicalPath: pathname,
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -31,7 +31,7 @@ const entryPaths = [
   {
     title: "Samebase just created the Worker",
     outcome:
-      'The connectCloudflareWorker workflow creates a second provisioning run with trigger wire_builds, but only inside if (args.origin === "provisioned").',
+      'The connectCloudflareWorker workflow creates a wire_builds run only when args.origin === "provisioned". If that app root has Convex, wire_builds creates the follow-on wire_convex_build_access run.',
     refs: [
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
@@ -45,7 +45,7 @@ const entryPaths = [
       },
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 330,
+        line: 335,
         symbol: 'createForVault({ trigger: "wire_builds" })',
       },
       {
@@ -58,22 +58,27 @@ const entryPaths = [
   {
     title: "User picked an existing Worker",
     outcome:
-      'The Worker row is recorded with builds: { state: "not_connected" }. Samebase does not mutate Cloudflare Builds until the user runs the explicit wireBuilds action.',
+      'The Worker row is recorded with builds: { state: "not_connected" }. Samebase does not mutate Cloudflare Builds or Convex build access until the user runs the explicit retry action.',
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 431,
+        line: 477,
         symbol: "wireBuilds",
       },
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 441,
+        line: 492,
         symbol: 'createForVault({ trigger: "wire_builds" })',
       },
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 446,
+        line: 497,
         symbol: "startCloudflareBuildsWiringOrFail",
+      },
+      {
+        file: "apps/samebase/convex/vault/cloudflare.ts",
+        line: 504,
+        symbol: "wireConvexBuildAccess",
       },
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.convex.test.ts",
@@ -95,12 +100,12 @@ const runSteps = [
     refs: [
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 650,
+        line: 725,
         symbol: "startCloudflareBuildsWiring",
       },
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 659,
+        line: 736,
         symbol: "workflow.start(...wireCloudflareBuilds...)",
       },
     ],
@@ -111,17 +116,17 @@ const runSteps = [
     refs: [
       {
         file: "apps/samebase/convex/appProvisioningWorkflow.ts",
-        line: 409,
+        line: 419,
         symbol: "wireCloudflareBuilds workflow",
       },
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
-        line: 624,
+        line: 671,
         symbol: "claimCloudflareBuildsWiring",
       },
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
-        line: 643,
+        line: 702,
         symbol: "readCloudflareWorkerForAppRoot",
       },
     ],
@@ -132,12 +137,12 @@ const runSteps = [
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
-        line: 717,
+        line: 758,
         symbol: "readActiveCloudflareBuildsWiring",
       },
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
-        line: 755,
+        line: 818,
         symbol: "active wiring state",
       },
     ],
@@ -148,12 +153,12 @@ const runSteps = [
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 597,
+        line: 688,
         symbol: "ensureCloudflareBuildsWiring",
       },
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 620,
+        line: 706,
         symbol: "fetchGitHubRepoIdentity",
       },
       {
@@ -169,17 +174,17 @@ const runSteps = [
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 626,
+        line: 711,
         symbol: "wireCloudflareWorkerBuilds(...)",
       },
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 632,
+        line: 716,
         symbol: "triggerInitialBuild: !active.hasConvexDeployment",
       },
       {
         file: "apps/samebase/convex/cloudflareResources.ts",
-        line: 1189,
+        line: 1202,
         symbol: "wireCloudflareWorkerBuilds",
       },
     ],
@@ -190,18 +195,126 @@ const runSteps = [
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflare.ts",
-        line: 647,
+        line: 727,
         symbol: "recordCloudflareBuildsForRun",
       },
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
-        line: 772,
+        line: 828,
         symbol: "recordCloudflareBuildsForRun",
       },
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.ts",
-        line: 804,
+        line: 851,
         symbol: "deployment patch",
+      },
+    ],
+  },
+  {
+    title: "7. Queue Convex build access only when Convex exists",
+    why: "finishCloudflareBuildsWiring creates a wire_convex_build_access run only when the same app root has a connected Convex deployment and the Worker is not already marked wired.",
+    refs: [
+      {
+        file: "apps/samebase/convex/vault/cloudflareMutations.ts",
+        line: 870,
+        symbol: "finishCloudflareBuildsWiring",
+      },
+      {
+        file: "apps/samebase/convex/vault/cloudflareMutations.ts",
+        line: 909,
+        symbol: "needsConvexBuildAccess",
+      },
+      {
+        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
+        line: 447,
+        symbol: "startCloudflareConvexBuildAccessWiring",
+      },
+    ],
+  },
+] satisfies readonly CallStep[];
+
+const convexAccessSteps = [
+  {
+    title: "1. Claim a Convex build-access run",
+    why: "claimCloudflareConvexBuildAccessWiring requires three persisted facts: Convex deployment exists, Cloudflare Worker exists, and Workers Builds are connected.",
+    refs: [
+      {
+        file: "apps/samebase/convex/appProvisioningWorkflow.ts",
+        line: 484,
+        symbol: "wireCloudflareConvexBuildAccess workflow",
+      },
+      {
+        file: "apps/samebase/convex/vault/cloudflareMutations.ts",
+        line: 936,
+        symbol: "claimCloudflareConvexBuildAccessWiring",
+      },
+    ],
+  },
+  {
+    title: "2. Mint Convex deploy keys",
+    why: "ensureCloudflareConvexBuildAccessWiring creates one deploy key for production and one for preview, then records only the key ids in vaultConvexDeployments.",
+    refs: [
+      {
+        file: "apps/samebase/convex/vault/cloudflare.ts",
+        line: 745,
+        symbol: "ensureCloudflareConvexBuildAccessWiring",
+      },
+      {
+        file: "apps/samebase/convex/vault/cloudflare.ts",
+        line: 773,
+        symbol: "createConvexDeployKey",
+      },
+      {
+        file: "apps/samebase/convex/vault/cloudflare.ts",
+        line: 794,
+        symbol: "createConvexPreviewDeployKey",
+      },
+      {
+        file: "apps/samebase/convex/vault/cloudflareMutations.ts",
+        line: 1099,
+        symbol: "recordCloudflareConvexBuildAccessDeployKey",
+      },
+    ],
+  },
+  {
+    title: "3. Patch Cloudflare trigger env vars",
+    why: "wireCloudflareWorkerConvexBuildAccess PATCHes production and preview trigger env vars, then starts the production build after those PATCHes resolve.",
+    refs: [
+      {
+        file: "apps/samebase/convex/cloudflareResources.ts",
+        line: 1267,
+        symbol: "wireCloudflareWorkerConvexBuildAccess",
+      },
+      {
+        file: "apps/samebase/convex/cloudflareResources.ts",
+        line: 1282,
+        symbol: "production setTriggerEnvironmentVariables",
+      },
+      {
+        file: "apps/samebase/convex/cloudflareResources.ts",
+        line: 1294,
+        symbol: "preview setTriggerEnvironmentVariables",
+      },
+      {
+        file: "apps/samebase/convex/cloudflareResources.ts",
+        line: 1309,
+        symbol: "triggerInitialBuild",
+      },
+    ],
+  },
+  {
+    title: "4. Mark the Worker wired",
+    why: "recordCloudflareConvexBuildAccessForRun records the preview deployment identity and flips vaultCloudflareWorkers.deployment.convexBuildAccess to wired.",
+    refs: [
+      {
+        file: "apps/samebase/convex/vault/cloudflareMutations.ts",
+        line: 1166,
+        symbol: "recordCloudflareConvexBuildAccessForRun",
+      },
+      {
+        file: "apps/samebase/convex/vault/cloudflareMutations.ts",
+        line: 1239,
+        symbol: "finishCloudflareConvexBuildAccessWiring",
       },
     ],
   },
@@ -288,7 +401,7 @@ const cloudflareCalls = [
     method: "POST",
     endpoint: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
     detail:
-      "Convex-backed app roots skip this for now, because Phase 2 has not written PROD_CONVEX_DEPLOY_KEY and PREVIEW_CONVEX_DEPLOY_KEY yet.",
+      "wire_builds starts immediately for Convex-less roots. Convex-backed roots defer the first build until wire_convex_build_access has patched PROD_CONVEX_DEPLOY_KEY, PREVIEW_CONVEX_DEPLOY_KEY, and VITE_CONVEX_URL.",
     refs: [
       {
         file: "apps/samebase/convex/cloudflareResources.ts",
@@ -297,8 +410,13 @@ const cloudflareCalls = [
       },
       {
         file: "apps/samebase/convex/cloudflareResources.ts",
-        line: 1219,
+        line: 1232,
         symbol: "if (args.triggerInitialBuild)",
+      },
+      {
+        file: "apps/samebase/convex/cloudflareResources.ts",
+        line: 1309,
+        symbol: "wireCloudflareWorkerConvexBuildAccess triggerInitialBuild",
       },
     ],
   },
@@ -408,12 +526,25 @@ const stateRows = [
     location: "Convex build-access axis",
     exactName: "vVaultCloudflareConvexBuildAccess",
     meaning:
-      "not_wired or wired. Phase 1 leaves this not_wired; Phase 2 will PATCH Convex env vars.",
+      "not_wired or wired. wire_convex_build_access changes this to wired after Cloudflare trigger env vars are patched and the first production build is started.",
     refs: [
       {
         file: "apps/samebase/convex/vault/model.ts",
-        line: 196,
+        line: 209,
         symbol: "vVaultCloudflareConvexBuildAccess",
+      },
+    ],
+  },
+  {
+    location: "Convex row preview identity",
+    exactName: "vConvexPreviewDeployment",
+    meaning:
+      "not_ensured until wire_convex_build_access ensures the preview deployment; ready stores only the preview deployment name and cloud URL.",
+    refs: [
+      {
+        file: "apps/samebase/convex/vault/model.ts",
+        line: 101,
+        symbol: "vConvexPreviewDeployment",
       },
     ],
   },
@@ -445,17 +576,17 @@ const failureRefs = [
   {
     title: "wire_builds failures mark the right ownership claim failed",
     detail:
-      "markWorkflowProvisioningFailed handles connect_cloudflare_worker and wire_builds together, then logs either cloudflare:worker_connection:failed or cloudflare:builds_wiring:failed.",
+      "markWorkflowProvisioningFailed handles connect_cloudflare_worker, wire_builds, and wire_convex_build_access on the Cloudflare ownership path, then logs the matching failure event.",
     refs: [
       {
         file: "apps/samebase/convex/infraProvisioning.ts",
-        line: 2040,
-        symbol: "wire_builds failure branch",
+        line: 2129,
+        symbol: "Cloudflare failure branch",
       },
       {
         file: "apps/samebase/convex/infraProvisioning.ts",
-        line: 2055,
-        symbol: "cloudflare:builds_wiring:failed",
+        line: 2145,
+        symbol: "cloudflare:convex_build_access_wiring:failed",
       },
       {
         file: "apps/samebase/convex/infraProvisioning.test.ts",
@@ -502,12 +633,22 @@ const pinnedTests = [
     ],
   },
   {
-    title: 'Connected Builds preserve convexBuildAccess: { state: "not_wired" }',
+    title: "Convex build access patches env vars before first build",
+    refs: [
+      {
+        file: "apps/samebase/convex/cloudflareResources.test.ts",
+        line: 308,
+        symbol: "Convex env vars before production build",
+      },
+    ],
+  },
+  {
+    title: "Convex build access records keys and wired state",
     refs: [
       {
         file: "apps/samebase/convex/vault/cloudflareMutations.convex.test.ts",
-        line: 307,
-        symbol: "deployment assertion",
+        line: 383,
+        symbol: "claim/record/finish wire_convex_build_access",
       },
     ],
   },
@@ -549,8 +690,10 @@ function CloudflareWorkerBuildsWalkthrough() {
       <style>{walkthroughCss}</style>
 
       <section className="hero" aria-labelledby="walkthrough-title">
-        <p className="kicker">PR 1155 code walkthrough</p>
-        <h1 id="walkthrough-title">Worker attach is separate from Builds wiring</h1>
+        <p className="kicker">Cloudflare Worker wiring walkthrough</p>
+        <h1 id="walkthrough-title">
+          Worker attach, Builds wiring, and Convex access are separate runs
+        </h1>
         <p className="lede">
           Read this page as a map of the branch, not as a product spec. Every box names the exact
           function, mutation, schema field, or test that implements the behavior.
@@ -580,6 +723,24 @@ function CloudflareWorkerBuildsWalkthrough() {
         </div>
         <ol className="call-list">
           {runSteps.map((step) => (
+            <li className="call-step" key={step.title}>
+              <div>
+                <h3>{step.title}</h3>
+                <p>{step.why}</p>
+              </div>
+              <CodeRefs refs={step.refs} />
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="section" aria-labelledby="convex-access-title">
+        <div className="section-heading">
+          <p className="kicker">Convex-backed apps</p>
+          <h2 id="convex-access-title">What a wire_convex_build_access run executes</h2>
+        </div>
+        <ol className="call-list">
+          {convexAccessSteps.map((step) => (
             <li className="call-step" key={step.title}>
               <div>
                 <h3>{step.title}</h3>
@@ -698,7 +859,10 @@ function CloudflareWorkerBuildsWalkthrough() {
           an appProvisioningRuns row with trigger wire_builds; the workflow claims the vault
           infrastructure lock; the action verifies GitHub repo identity with Octokit; the Cloudflare
           helper connects the repo, triggers, and token; then Samebase patches
-          vaultCloudflareWorkers.deployment.builds.
+          vaultCloudflareWorkers.deployment.builds. If the app root has Convex,
+          finishCloudflareBuildsWiring queues wire_convex_build_access; that action creates Convex
+          deploy keys, patches the two Cloudflare trigger environments, starts the production build,
+          and marks deployment.convexBuildAccess as wired.
         </p>
       </section>
     </main>

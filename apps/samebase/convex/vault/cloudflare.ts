@@ -21,8 +21,16 @@ import {
   listCloudflareWorkers,
   readOptionalWorkersDevUrl,
   wireCloudflareWorkerBuilds,
+  wireCloudflareWorkerConvexBuildAccess,
 } from "../cloudflareResources";
 import { fetchGitHubRepoIdentity } from "../githubRepoApi";
+import {
+  createConvexDeployKey,
+  createConvexPreviewDeployKey,
+  ensureConvexPreviewResources,
+  resolveConvexProvisioningConnection,
+} from "../infraProvisioning";
+import { vaultSuffix } from "../slugUtils";
 import {
   vVaultCloudflareOrigin,
   type VaultCloudflareBuildConfig,
@@ -239,6 +247,29 @@ async function startCloudflareBuildsWiringOrFail(
   }
 }
 
+async function startCloudflareConvexBuildAccessWiringOrFail(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appRoot: string;
+  },
+): Promise<void> {
+  try {
+    await ctx.runMutation(
+      internal.appProvisioningWorkflow.startCloudflareConvexBuildAccessWiring,
+      args,
+    );
+  } catch (error) {
+    await markCloudflareWorkerConnectionStartupFailed(ctx, {
+      runId: args.runId,
+      error,
+    });
+    throw error;
+  }
+}
+
 async function isCloudflareWorkerConnectionRunActive(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
@@ -275,6 +306,26 @@ async function readActiveCloudflareBuildsWiring(
     userId: args.userId,
     appRoot: args.appRoot,
   });
+}
+
+async function readActiveCloudflareConvexBuildAccessWiring(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"appProvisioningRuns">;
+    userId: Id<"users">;
+    appRoot: string;
+  },
+) {
+  return await ctx.runQuery(
+    internal.vault.cloudflareMutations.readActiveCloudflareConvexBuildAccessWiring,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+      appRoot: args.appRoot,
+    },
+  );
 }
 
 export const listAccounts = action({
@@ -444,6 +495,32 @@ export const wireBuilds = action({
       trigger: "wire_builds",
     });
     await startCloudflareBuildsWiringOrFail(ctx, {
+      vaultId: args.vaultId,
+      runId,
+      userId,
+      appRoot,
+    });
+
+    return null;
+  },
+});
+
+export const wireConvexBuildAccess = action({
+  access: "access_app_create",
+  args: {
+    vaultId: id("vaults"),
+    appRoot: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    const userId = ctx.viewer.userId;
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
+      userId,
+      vaultId: args.vaultId,
+      trigger: "wire_convex_build_access",
+    });
+    await startCloudflareConvexBuildAccessWiringOrFail(ctx, {
       vaultId: args.vaultId,
       runId,
       userId,
@@ -659,6 +736,123 @@ export const ensureCloudflareBuildsWiring = internalAction({
     );
     if (!applied) {
       throw new Error("Cloudflare Workers Builds wiring was superseded.");
+    }
+
+    return null;
+  },
+});
+
+export const ensureCloudflareConvexBuildAccessWiring = internalAction({
+  args: {
+    vaultId: id("vaults"),
+    runId: id("appProvisioningRuns"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args) => {
+    const active = await readActiveCloudflareConvexBuildAccessWiring(ctx, args);
+    if (!active.active) {
+      return null;
+    }
+
+    const [cloudflareConnection, convexConnection] = await Promise.all([
+      resolveCloudflareConnection(ctx, args.userId),
+      resolveConvexProvisioningConnection(ctx, args.userId),
+    ]);
+    const account = await resolveAccount(ctx, {
+      token: cloudflareConnection.token,
+      transport: cloudflareConnection.transport,
+      accountId: active.worker.accountId,
+    });
+    const previewConvex = await ensureConvexPreviewResources({
+      convexToken: convexConnection.convexToken,
+      teamId: convexConnection.convexTeamId,
+      projectId: active.convex.projectId,
+    });
+    const productionDeployKey = await createConvexDeployKey({
+      convexToken: convexConnection.convexToken,
+      convexAuthMethod: convexConnection.convexAuthMethod,
+      deploymentName: active.convex.deploymentName,
+      name: `samebase-${vaultSuffix(args.vaultId)}`,
+    });
+    const productionDeployKeyRecord = await ctx.runMutation(
+      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+        deployment: "production",
+        convexDeployKeyId: productionDeployKey.convexDeployKeyId,
+      },
+    );
+    if (!productionDeployKeyRecord.applied) {
+      throw new Error("Convex build access wiring was superseded.");
+    }
+
+    const previewDeployKey = await createConvexPreviewDeployKey({
+      convexToken: convexConnection.convexToken,
+      projectId: active.convex.projectId,
+      name: `samebase-preview-${vaultSuffix(args.vaultId)}`,
+    });
+    const previewDeployKeyRecord = await ctx.runMutation(
+      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessDeployKey,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+        deployment: "preview",
+        convexDeployKeyId: previewDeployKey.convexDeployKeyId,
+      },
+    );
+    if (!previewDeployKeyRecord.applied) {
+      throw new Error("Convex build access wiring was superseded.");
+    }
+
+    await wireCloudflareWorkerConvexBuildAccess({
+      defaultBranch: active.defaultBranch,
+      vaultId: args.vaultId,
+      workerName: active.worker.workerName,
+      workerTag: active.worker.workerTag,
+      cloudflareToken: cloudflareConnection.token,
+      cloudflareAuthMethod: cloudflareConnection.auth.method,
+      accountId: account.accountId,
+      build: active.worker.build,
+      convex: {
+        production: {
+          cloudUrl: active.convex.cloudUrl,
+          deployKey: productionDeployKey.deployKey,
+        },
+        preview: {
+          cloudUrl: previewConvex.previewCloudUrl,
+          deployKey: previewDeployKey.deployKey,
+        },
+      },
+    });
+    await rememberDefaultAccount(ctx, {
+      userId: args.userId,
+      auth: cloudflareConnection.auth,
+      account,
+      tokenHealth: cloudflareConnection.tokenHealth,
+    });
+    const { applied } = await ctx.runMutation(
+      internal.vault.cloudflareMutations.recordCloudflareConvexBuildAccessForRun,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        appRoot: args.appRoot,
+        previewDeployment: {
+          state: "ready",
+          deploymentName: previewConvex.previewDeploymentName,
+          cloudUrl: previewConvex.previewCloudUrl,
+        },
+      },
+    );
+    if (!applied) {
+      throw new Error("Convex build access wiring was superseded.");
     }
 
     return null;

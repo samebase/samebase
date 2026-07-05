@@ -285,6 +285,7 @@ function readManualProviderFromRun(
       return "convex";
     case "connect_cloudflare_worker":
     case "wire_builds":
+    case "wire_convex_build_access":
       return "cloudflare";
     default:
       return null;

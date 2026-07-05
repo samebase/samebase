@@ -65,6 +65,7 @@ describe("infra read app-root targeting", () => {
             production: { state: "not_created" },
             preview: { state: "not_created" },
           },
+          previewDeployment: { state: "not_ensured" },
           origin: "selected_existing",
           connectedAt: 30,
           lastObservedAt: 30,

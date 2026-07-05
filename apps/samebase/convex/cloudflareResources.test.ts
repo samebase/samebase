@@ -17,6 +17,7 @@ import {
   readCloudflareWorkerTag,
   selectCurrentBuildTokenUuid,
   selectReusableBuildTokenUuid,
+  wireCloudflareWorkerConvexBuildAccess,
   wireCloudflareWorkerBuilds,
 } from "./cloudflareResources";
 import {
@@ -27,6 +28,7 @@ import {
 type RecordedCloudflareRequest = {
   method: string;
   path: string;
+  body: unknown;
 };
 
 const cloudflareGitHubAppDisconnectedApiMessage =
@@ -143,7 +145,9 @@ function stubEnsureCloudflareResourcesFetch(args: {
       const url = input instanceof Request ? input.url : String(input);
       const method = input instanceof Request ? input.method : (init?.method ?? "GET");
       const endpoint = new URL(url).pathname;
-      args.requests.push({ method, path: endpoint });
+      const body =
+        typeof init?.body === "string" && init.body.length > 0 ? JSON.parse(init.body) : undefined;
+      args.requests.push({ method, path: endpoint, body });
 
       switch (endpoint) {
         case "/client/v4/accounts/account-id/workers/workers/samebase-app":
@@ -178,7 +182,10 @@ function stubEnsureCloudflareResourcesFetch(args: {
         case "/client/v4/accounts/account-id/builds/triggers/created-trigger-1/environment_variables":
         case "/client/v4/accounts/account-id/builds/triggers/created-trigger-2/environment_variables":
         case "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger/environment_variables":
+        case "/client/v4/accounts/account-id/builds/triggers/production-trigger/environment_variables":
+        case "/client/v4/accounts/account-id/builds/triggers/preview-trigger/environment_variables":
         case "/client/v4/accounts/account-id/builds/triggers/existing-production-trigger/builds":
+        case "/client/v4/accounts/account-id/builds/triggers/production-trigger/builds":
         case "/client/v4/accounts/account-id/builds/triggers/created-trigger-1/builds":
           return cloudflareSuccessResponse({});
       }
@@ -296,6 +303,81 @@ describe("cloudflare resources", () => {
     ).toHaveLength(2);
     expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("patches Convex build environment variables before starting the deferred production build", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [],
+    });
+
+    await wireCloudflareWorkerConvexBuildAccess({
+      defaultBranch: "main",
+      vaultId: "vault-id",
+      workerName: "samebase-app",
+      workerTag: "worker-tag",
+      cloudflareToken: "oauth-token",
+      cloudflareAuthMethod: "oauth",
+      accountId: "account-id",
+      build: {
+        production: {
+          triggerUuid: "production-trigger",
+          buildTokenUuid: "build-token",
+        },
+        preview: {
+          triggerUuid: "preview-trigger",
+          buildTokenUuid: "build-token",
+        },
+      },
+      convex: {
+        production: {
+          cloudUrl: "https://prod.convex.cloud",
+          deployKey: "prod-key",
+        },
+        preview: {
+          cloudUrl: "https://preview.convex.cloud",
+          deployKey: "preview-key",
+        },
+      },
+    });
+
+    const productionPatchIndex = requests.findIndex(
+      (request) =>
+        request.method === "PATCH" &&
+        request.path ===
+          "/client/v4/accounts/account-id/builds/triggers/production-trigger/environment_variables",
+    );
+    const previewPatchIndex = requests.findIndex(
+      (request) =>
+        request.method === "PATCH" &&
+        request.path ===
+          "/client/v4/accounts/account-id/builds/triggers/preview-trigger/environment_variables",
+    );
+    const buildIndex = requests.findIndex(
+      (request) =>
+        request.method === "POST" &&
+        request.path === "/client/v4/accounts/account-id/builds/triggers/production-trigger/builds",
+    );
+
+    expect(productionPatchIndex).toBeGreaterThanOrEqual(0);
+    expect(previewPatchIndex).toBeGreaterThanOrEqual(0);
+    expect(buildIndex).toBeGreaterThan(productionPatchIndex);
+    expect(buildIndex).toBeGreaterThan(previewPatchIndex);
+    expect(requests[productionPatchIndex]?.body).toEqual(
+      buildCloudflareWorkersEnvVars({
+        deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
+        convexDeployKey: "prod-key",
+        convexUrl: "https://prod.convex.cloud",
+      }),
+    );
+    expect(requests[previewPatchIndex]?.body).toEqual(
+      buildCloudflareWorkersEnvVars({
+        deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
+        convexDeployKey: "preview-key",
+        convexUrl: "https://preview.convex.cloud",
+      }),
+    );
   });
 
   it("uses the Workers service id as the Workers Builds tag", () => {

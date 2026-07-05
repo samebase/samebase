@@ -544,6 +544,7 @@ describe("vault dashboard Convex contract", () => {
         deploymentType: "prod",
         cloudUrl: "https://demo.convex.cloud",
         siteUrl: "https://demo.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
@@ -821,6 +822,7 @@ describe("vault dashboard Convex contract", () => {
         deploymentType: "prod",
         cloudUrl: "https://provider-state.convex.cloud",
         siteUrl: "https://provider-state.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
@@ -917,6 +919,7 @@ describe("vault dashboard Convex contract", () => {
         deploymentType: "prod",
         cloudUrl: "https://cloudflare-retry.convex.cloud",
         siteUrl: "https://cloudflare-retry.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
@@ -1031,6 +1034,7 @@ describe("vault dashboard Convex contract", () => {
         deploymentType: "prod",
         cloudUrl: "https://cloudflare-retry.convex.cloud",
         siteUrl: "https://cloudflare-retry.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
@@ -1370,6 +1374,7 @@ describe("vault dashboard Convex contract", () => {
             production: { state: "not_created" },
             preview: { state: "not_created" },
           },
+          previewDeployment: { state: "not_ensured" },
           origin: "provisioned",
           connectedAt: 24,
           lastObservedAt: 24,
@@ -1633,6 +1638,7 @@ describe("vault dashboard Convex contract", () => {
         deploymentType: "prod",
         cloudUrl: "https://demo-production.convex.cloud",
         siteUrl: "https://demo-production.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "not_created" },
           preview: { state: "not_created" },
@@ -2008,6 +2014,7 @@ describe("vault dashboard Convex contract", () => {
         deploymentType: "prod",
         cloudUrl: "https://delete-convex.convex.cloud",
         siteUrl: "https://delete-convex.convex.site",
+        previewDeployment: { state: "not_ensured" },
         deployKeys: {
           production: { state: "created", id: "delete-convex-key" },
           preview: { state: "created", id: "delete-preview-convex-key" },

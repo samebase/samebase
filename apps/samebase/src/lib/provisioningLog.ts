@@ -14,6 +14,7 @@ export type ProvisioningLogStep =
   | "ensure_convex_preview"
   | "ensure_cloudflare"
   | "wire_builds"
+  | "wire_convex_build_access"
   | "record_domains"
   | "finish";
 
@@ -53,6 +54,7 @@ const provisioningStepLabels = {
   ensure_convex_preview: "ensure Convex preview",
   ensure_cloudflare: "ensure Cloudflare",
   wire_builds: "wire Builds",
+  wire_convex_build_access: "wire Convex build access",
   record_domains: "record domains",
   finish: "finish",
 } satisfies Record<ProvisioningLogStep, string>;

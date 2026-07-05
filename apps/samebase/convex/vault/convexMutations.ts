@@ -18,6 +18,9 @@ const CONVEX_DEPLOY_KEYS_NOT_CREATED = {
   production: { state: "not_created" },
   preview: { state: "not_created" },
 } as const;
+const CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED = {
+  state: "not_ensured",
+} as const;
 
 const createdConvexProjectValidator = object({
   projectName: string(),
@@ -406,6 +409,7 @@ export const attachDeploymentForRun = internalMutation({
       deploymentType: args.convex.convexDeploymentType,
       cloudUrl: args.convex.convexCloudUrl,
       siteUrl: args.convex.convexSiteUrl,
+      previewDeployment: CONVEX_PREVIEW_DEPLOYMENT_NOT_ENSURED,
       deployKeys: CONVEX_DEPLOY_KEYS_NOT_CREATED,
       origin: args.origin,
       connectedAt: now,
