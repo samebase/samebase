@@ -542,13 +542,22 @@ export const finishConvexDeploymentConnection = internalMutation({
         state: "succeeded",
         updatedAt: Date.now(),
       });
+      await appendConvexDeploymentConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "finish",
+        level: "info",
+        message: "Convex deployment is connected.",
+        state: "succeeded",
+      });
+      return null;
     }
+
     await appendConvexDeploymentConnectionEvent(ctx, {
       runId: args.runId,
-      step: "finish",
+      step: "attach_convex",
       level: "info",
       message: "Convex deployment is connected.",
-      state: "succeeded",
+      state: "running",
     });
 
     return null;

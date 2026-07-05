@@ -722,13 +722,22 @@ export const finishCloudflareWorkerConnection = internalMutation({
         state: "succeeded",
         updatedAt: now,
       });
+      await appendCloudflareWorkerConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "finish",
+        level: "info",
+        message: "Cloudflare Worker is connected.",
+        state: "succeeded",
+      });
+      return null;
     }
+
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
-      step: "finish",
+      step: "attach_worker",
       level: "info",
       message: "Cloudflare Worker is connected.",
-      state: "succeeded",
+      state: "running",
     });
 
     return null;
@@ -990,13 +999,22 @@ export const finishCloudflareBuildsWiring = internalMutation({
         state: "succeeded",
         updatedAt: now,
       });
+      await appendCloudflareWorkerConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "finish",
+        level: "info",
+        message: "Cloudflare Workers Builds are connected.",
+        state: "succeeded",
+      });
+      return { convexBuildAccessRunId };
     }
+
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
-      step: "finish",
+      step: "wire_builds",
       level: "info",
       message: "Cloudflare Workers Builds are connected.",
-      state: "succeeded",
+      state: "running",
     });
 
     return { convexBuildAccessRunId };
@@ -1349,13 +1367,22 @@ export const finishCloudflareConvexBuildAccessWiring = internalMutation({
         state: "succeeded",
         updatedAt: now,
       });
+      await appendCloudflareWorkerConnectionEvent(ctx, {
+        runId: args.runId,
+        step: "finish",
+        level: "info",
+        message: "Convex build access is wired.",
+        state: "succeeded",
+      });
+      return null;
     }
+
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
-      step: "finish",
+      step: "wire_convex_build_access",
       level: "info",
       message: "Convex build access is wired.",
-      state: "succeeded",
+      state: "running",
     });
 
     return null;

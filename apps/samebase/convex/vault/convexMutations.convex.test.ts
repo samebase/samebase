@@ -146,6 +146,60 @@ describe("vault Convex deployment connection mutations", () => {
     ]);
   });
 
+  it("keeps composed create runs active when finishing the Convex deployment block", async () => {
+    const { ids, t } = await createConvexConnectionVault();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, {
+        trigger: "create",
+        state: "running",
+        currentStep: "attach_convex",
+        updatedAt: 40,
+      });
+      await ctx.db.insert("vaultInfrastructureOwnership", {
+        vaultId: ids.vaultId,
+        runId: ids.runId,
+        state: "active",
+        updatedAt: 40,
+      });
+    });
+
+    await t.mutation(internal.vault.convexMutations.attachDeploymentForRun, {
+      ...ids,
+      appRoot,
+      convex: convexRecord,
+      origin: "provisioned",
+    });
+    await expect(
+      t.mutation(internal.vault.convexMutations.finishConvexDeploymentConnection, {
+        ...ids,
+        appRoot,
+      }),
+    ).resolves.toBeNull();
+
+    const result = await t.run(async (ctx) => {
+      const run = await ctx.db.get(ids.runId);
+      const ownership = await ctx.db
+        .query("vaultInfrastructureOwnership")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .first();
+      const events = await ctx.db
+        .query("appProvisioningEvents")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .collect();
+      return { events, ownership, run };
+    });
+
+    expect(result.ownership).toMatchObject({
+      runId: ids.runId,
+      state: "active",
+    });
+    expect(result.run).toMatchObject({
+      state: "running",
+      currentStep: "attach_convex",
+    });
+    expect(result.events.map((event) => event.step)).toEqual(["attach_convex", "attach_convex"]);
+  });
+
   it("allows a failed Convex connection owner to be claimed again", async () => {
     const { ids, t } = await createConvexConnectionVault();
     await t.run(async (ctx) => {
