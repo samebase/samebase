@@ -41,6 +41,11 @@ const cloudflareBuildsWiringState = union(
     }),
   }),
 );
+const cloudflareWorkerDiscoveryContext = object({
+  ghRepoId: string(),
+  repositoryFullName: string(),
+  expectedRootDirectory: string(),
+});
 const vConvexPreviewDeploymentReady = object({
   state: literal("ready"),
   deploymentName: string(),
@@ -52,6 +57,8 @@ const cloudflareConvexBuildAccessWiringState = union(
   }),
   object({
     active: literal(true),
+    ghRepoId: string(),
+    repositoryFullName: string(),
     defaultBranch: string(),
     worker: object({
       accountId: string(),
@@ -335,6 +342,36 @@ export const requireCloudflareWorkerConnectionVault = internalQuery({
     });
 
     return null;
+  },
+});
+
+export const readCloudflareWorkerDiscoveryContext = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    appRoot: string(),
+  },
+  returns: cloudflareWorkerDiscoveryContext,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isLiveConnectedVault(vault) || vault.userId !== args.userId) {
+      throw new Error("Vault not found.");
+    }
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    await assertVaultAppRootExists(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+    await assertNoExistingCloudflareWorkerTarget(ctx, {
+      vaultId: args.vaultId,
+      appRoot,
+    });
+
+    return {
+      ghRepoId: vault.ghRepoId,
+      repositoryFullName: `${vault.owner}/${vault.name}`,
+      expectedRootDirectory: buildVaultCloudflareBuildConfigForAppRoot({ appRoot }).rootDirectory,
+    };
   },
 });
 
@@ -1080,6 +1117,8 @@ export const readActiveCloudflareConvexBuildAccessWiring = internalQuery({
 
     return {
       active: true as const,
+      ghRepoId: vault.ghRepoId,
+      repositoryFullName: `${vault.owner}/${vault.name}`,
       defaultBranch: vault.defaultBranch,
       worker: {
         accountId: worker.accountId,

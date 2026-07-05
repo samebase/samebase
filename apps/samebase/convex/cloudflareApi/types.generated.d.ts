@@ -5448,7 +5448,7 @@ export interface components {
         /** @description Custom domains connected to the Worker. */
         domains: {
           /** @description ID of the TLS certificate issued for the custom domain. */
-          certificate_id: string;
+          certificate_id?: string;
           /**
            * @description Full hostname of the custom domain, including the zone name.
            * @example my-worker.example.com

@@ -18,8 +18,10 @@ import {
   type CloudflareBuildConfig,
   createCloudflareWorker,
   deleteCloudflareResources,
-  listCloudflareWorkers,
+  listCloudflareWorkersWithRepositoryDiscovery,
+  readCloudflareWorkerRepositoryDiscovery,
   readOptionalWorkersDevUrl,
+  type CloudflareWorkerRepositoryDiscovery,
   wireCloudflareWorkerBuilds,
   wireCloudflareWorkerConvexBuildAccess,
 } from "../cloudflareResources";
@@ -37,18 +39,76 @@ import {
   type VaultCloudflareOrigin,
 } from "./model";
 
-const { array, id, null: nullValue, object, string } = v;
+const { array, id, literal, null: nullValue, object, string, union } = v;
 
 const cloudflareAccountResult = object({
   accountId: string(),
   accountName: string(),
 });
+const cloudflareWorkerRepositoryEvidence = union(
+  object({
+    state: literal("none"),
+  }),
+  object({
+    state: literal("matching_repo"),
+    repoId: string(),
+    repoName: union(string(), nullValue()),
+    triggerName: union(string(), nullValue()),
+    rootDirectory: string(),
+  }),
+  object({
+    state: literal("same_repo_different_root"),
+    repoId: string(),
+    repoName: union(string(), nullValue()),
+    triggerName: union(string(), nullValue()),
+    rootDirectory: string(),
+    expectedRootDirectory: string(),
+  }),
+  object({
+    state: literal("different_repo"),
+    repoId: string(),
+    repoName: union(string(), nullValue()),
+    triggerName: union(string(), nullValue()),
+  }),
+  object({
+    state: literal("deleted_repo_connection"),
+    repoId: union(string(), nullValue()),
+    repoName: union(string(), nullValue()),
+    triggerName: union(string(), nullValue()),
+  }),
+  object({
+    state: literal("missing_repo_id"),
+    repoName: union(string(), nullValue()),
+    triggerName: union(string(), nullValue()),
+  }),
+  object({
+    state: literal("missing_root_directory"),
+    repoId: string(),
+    repoName: union(string(), nullValue()),
+    triggerName: union(string(), nullValue()),
+    expectedRootDirectory: string(),
+  }),
+  object({
+    state: literal("trigger_read_failed"),
+    message: string(),
+  }),
+);
 const cloudflareWorkerResult = object({
   workerName: string(),
   workerTag: string(),
+  discovery: object({
+    classification: union(
+      literal("recommended"),
+      literal("available"),
+      literal("blocked"),
+      literal("unknown"),
+    ),
+    evidence: cloudflareWorkerRepositoryEvidence,
+  }),
 });
 
 type CloudflareAccountResult = Infer<typeof cloudflareAccountResult>;
+type CloudflareWorkerResult = Infer<typeof cloudflareWorkerResult>;
 type CloudflareActionConnection = {
   auth:
     | {
@@ -163,21 +223,111 @@ async function rememberDefaultAccount(
   });
 }
 
-async function resolveListedWorker(args: {
+type CloudflareWorkerDiscoveryContext = {
+  ghRepoId: string;
+  repositoryFullName: string;
+  expectedRootDirectory: string;
+};
+
+function formatCloudflareWorkerDiscoveryTriggerName(triggerName: string | null): string {
+  return triggerName ? ` "${triggerName}"` : "";
+}
+
+function formatCloudflareWorkerDiscoveryRepository(args: {
+  repoId: string;
+  repoName: string | null;
+}): string {
+  return args.repoName ? `${args.repoName} (${args.repoId})` : args.repoId;
+}
+
+function buildCloudflareWorkerDiscoveryBlockMessage(args: {
+  workerName: string;
+  repositoryFullName: string;
+  discovery: CloudflareWorkerRepositoryDiscovery;
+}): string | null {
+  switch (args.discovery.classification) {
+    case "recommended":
+    case "available":
+      return null;
+    case "blocked": {
+      const evidence = args.discovery.evidence;
+      if (evidence.state === "same_repo_different_root") {
+        return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: its existing Workers Builds trigger${formatCloudflareWorkerDiscoveryTriggerName(evidence.triggerName)} is connected to the same GitHub repository but root directory ${evidence.rootDirectory}. Expected ${evidence.expectedRootDirectory}. Disconnect Builds in Cloudflare or choose another Worker.`;
+      }
+      if (evidence.state === "different_repo") {
+        return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: its existing Workers Builds trigger${formatCloudflareWorkerDiscoveryTriggerName(evidence.triggerName)} is connected to GitHub repository ${formatCloudflareWorkerDiscoveryRepository(evidence)}. Disconnect Builds in Cloudflare or choose another Worker.`;
+      }
+      return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: its existing Workers Builds trigger is connected to a different GitHub repository. Disconnect Builds in Cloudflare or choose another Worker.`;
+    }
+    case "unknown": {
+      const evidence = args.discovery.evidence;
+      switch (evidence.state) {
+        case "deleted_repo_connection":
+          return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: its existing Workers Builds trigger${formatCloudflareWorkerDiscoveryTriggerName(evidence.triggerName)} references a deleted Cloudflare GitHub repository connection. Disconnect Builds in Cloudflare or choose another Worker.`;
+        case "missing_repo_id":
+          return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: Cloudflare did not return a GitHub repository id for its existing Workers Builds trigger${formatCloudflareWorkerDiscoveryTriggerName(evidence.triggerName)}. Disconnect Builds in Cloudflare or choose another Worker.`;
+        case "missing_root_directory":
+          return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: Cloudflare did not return a root directory for its existing Workers Builds trigger${formatCloudflareWorkerDiscoveryTriggerName(evidence.triggerName)}. Disconnect Builds in Cloudflare or choose another Worker.`;
+        case "trigger_read_failed":
+          return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: Samebase could not inspect its Workers Builds triggers: ${evidence.message}. Disconnect Builds in Cloudflare or choose another Worker.`;
+        case "none":
+        case "matching_repo":
+        case "same_repo_different_root":
+        case "different_repo":
+          return `Cannot connect Cloudflare Worker ${args.workerName} to ${args.repositoryFullName}: Samebase could not inspect its Workers Builds repository connection. Disconnect Builds in Cloudflare or choose another Worker.`;
+        default:
+          evidence satisfies never;
+          return null;
+      }
+    }
+    default:
+      args.discovery.classification satisfies never;
+      return null;
+  }
+}
+
+async function readCloudflareWorkerDiscoveryContext(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    appRoot: string;
+  },
+): Promise<CloudflareWorkerDiscoveryContext> {
+  return await ctx.runQuery(
+    internal.vault.cloudflareMutations.readCloudflareWorkerDiscoveryContext,
+    {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      appRoot: args.appRoot,
+    },
+  );
+}
+
+async function resolveSelectableExistingWorker(args: {
   token: string;
   transport: CloudflareApiTransport;
   accountId: string;
   workerName: string;
+  repositoryFullName: string;
+  expectedRepoId: string;
+  expectedRootDirectory: string;
 }) {
-  const workers = await listCloudflareWorkers({
+  const worker = await readCloudflareWorkerRepositoryDiscovery({
     token: args.token,
     transport: args.transport,
     accountId: args.accountId,
-    limit: 100,
+    workerName: args.workerName,
+    expectedRepoId: args.expectedRepoId,
+    expectedRootDirectory: args.expectedRootDirectory,
   });
-  const worker = workers.find((candidate) => candidate.workerName === args.workerName);
-  if (!worker) {
-    throw new Error(`Cloudflare Worker ${args.workerName} was not found.`);
+  const blockMessage = buildCloudflareWorkerDiscoveryBlockMessage({
+    workerName: worker.workerName,
+    repositoryFullName: args.repositoryFullName,
+    discovery: worker.discovery,
+  });
+  if (blockMessage) {
+    throw new Error(blockMessage);
   }
   return {
     workerName: worker.workerName,
@@ -370,22 +520,32 @@ export const selectDefaultAccount = action({
 export const listWorkers = action({
   access: "access_app_create",
   args: {
+    vaultId: id("vaults"),
+    appRoot: string(),
     accountId: string(),
   },
   returns: array(cloudflareWorkerResult),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<CloudflareWorkerResult[]> => {
     const userId = ctx.viewer.userId;
     const connection = await resolveCloudflareConnection(ctx, userId);
+    const appRoot = normalizeVaultAppRoot(args.appRoot);
+    const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
+      vaultId: args.vaultId,
+      userId,
+      appRoot,
+    });
     const account = await resolveAccount(ctx, {
       token: connection.token,
       transport: connection.transport,
       accountId: args.accountId,
     });
-    return await listCloudflareWorkers({
+    return await listCloudflareWorkersWithRepositoryDiscovery({
       token: connection.token,
       transport: connection.transport,
       accountId: account.accountId,
       limit: 100,
+      expectedRepoId: discoveryContext.ghRepoId,
+      expectedRootDirectory: discoveryContext.expectedRootDirectory,
     });
   },
 });
@@ -410,10 +570,25 @@ export const connectExistingWorker = action({
       throw new Error("Cloudflare Worker is required.");
     }
     const appRoot = normalizeVaultAppRoot(args.appRoot);
-    await ctx.runQuery(internal.vault.cloudflareMutations.requireCloudflareWorkerConnectionVault, {
+    const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
       vaultId: args.vaultId,
       userId,
       appRoot,
+    });
+    const connection = await resolveCloudflareConnection(ctx, userId);
+    const account = await resolveAccount(ctx, {
+      token: connection.token,
+      transport: connection.transport,
+      accountId,
+    });
+    await resolveSelectableExistingWorker({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: account.accountId,
+      workerName,
+      repositoryFullName: discoveryContext.repositoryFullName,
+      expectedRepoId: discoveryContext.ghRepoId,
+      expectedRootDirectory: discoveryContext.expectedRootDirectory,
     });
     const runId = await ctx.runMutation(internal.appProvisioningRuns.createForVault, {
       userId,
@@ -425,7 +600,7 @@ export const connectExistingWorker = action({
       runId,
       userId,
       appRoot,
-      accountId,
+      accountId: account.accountId,
       workerName,
       origin: "selected_existing",
     });
@@ -556,11 +731,19 @@ export const ensureCloudflareWorkerConnection = internalAction({
 
     switch (args.origin) {
       case "selected_existing": {
-        const worker = await resolveListedWorker({
+        const discoveryContext = await readCloudflareWorkerDiscoveryContext(ctx, {
+          vaultId: args.vaultId,
+          userId: args.userId,
+          appRoot: args.appRoot,
+        });
+        const worker = await resolveSelectableExistingWorker({
           token: connection.token,
           transport: connection.transport,
           accountId: account.accountId,
           workerName: args.workerName,
+          repositoryFullName: discoveryContext.repositoryFullName,
+          expectedRepoId: discoveryContext.ghRepoId,
+          expectedRootDirectory: discoveryContext.expectedRootDirectory,
         });
         await rememberDefaultAccount(ctx, {
           userId: args.userId,
@@ -813,6 +996,9 @@ export const ensureCloudflareConvexBuildAccessWiring = internalAction({
 
     await wireCloudflareWorkerConvexBuildAccess({
       defaultBranch: active.defaultBranch,
+      expectedRepoId: active.ghRepoId,
+      repositoryFullName: active.repositoryFullName,
+      rootDirectory: active.worker.build.rootDirectory,
       vaultId: args.vaultId,
       workerName: active.worker.workerName,
       workerTag: active.worker.workerTag,

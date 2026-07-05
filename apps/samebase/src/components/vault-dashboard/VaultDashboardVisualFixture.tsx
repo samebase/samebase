@@ -116,47 +116,59 @@ function fakeConvexSchemaSnapshotId(): Id<"vaultConvexSchemaSnapshots"> {
   return "mx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+function fixtureAvailableCloudflareWorker(workerName: string, workerTag: string) {
+  return {
+    workerName,
+    workerTag,
+    discovery: {
+      classification: "available" as const,
+      evidence: { state: "none" as const },
+    },
+  };
+}
+
 const FIXTURE_CLOUDFLARE_WORKERS = [
   {
     workerName: "app-start-workers",
     workerTag: "72dc5c8bc9104b20af13ac36dcdbe9d1",
+    discovery: {
+      classification: "recommended" as const,
+      evidence: {
+        state: "matching_repo" as const,
+        repoId: "919458151",
+        repoName: "samebase/atelier",
+        triggerName: "Production Deploy",
+        rootDirectory: "apps/atelier",
+      },
+    },
   },
   {
-    workerName: "app-workers",
-    workerTag: "c2f8194c2c7047a6991a736d8f708aaf",
+    workerName: "app-admin",
+    workerTag: "29c1d1a06f944e81a78f6241dd5ef5d3",
+    discovery: {
+      classification: "blocked" as const,
+      evidence: {
+        state: "same_repo_different_root" as const,
+        repoId: "919458151",
+        repoName: "samebase/atelier",
+        triggerName: "Production Deploy",
+        rootDirectory: "apps/admin",
+        expectedRootDirectory: "apps/atelier",
+      },
+    },
   },
-  {
-    workerName: "nicu-chiciuc-samebase-86xc0t",
-    workerTag: "70d0ab9620b44d7b99a9964cde102887",
-  },
-  {
-    workerName: "samebase-worker",
-    workerTag: "f832053cb31b46f0bff56f70b8c9b57e",
-  },
-  {
-    workerName: "tmp-flow-123",
-    workerTag: "f19375e848d44311ae35716d8ab0c59f",
-  },
-  {
-    workerName: "tmp-flow-1234",
-    workerTag: "62b44171ee3f41de80bfaf42a90cf8d7",
-  },
-  {
-    workerName: "tmp-my-asdf-app",
-    workerTag: "476a67f8258f4fa3bdd3e73cf825c3a5",
-  },
-  {
-    workerName: "tmp-my-first",
-    workerTag: "2f44c6d9c45e451ea825f52774a7f583",
-  },
-  {
-    workerName: "tmp-something",
-    workerTag: "9c0c2d7cfdce4d4480f6e043b2e9f11d",
-  },
-  {
-    workerName: "tsx-tsx-md",
-    workerTag: "abcb6778514d4e58b6f9a747d92f9234",
-  },
+  fixtureAvailableCloudflareWorker("app-workers", "c2f8194c2c7047a6991a736d8f708aaf"),
+  fixtureAvailableCloudflareWorker(
+    "nicu-chiciuc-samebase-86xc0t",
+    "70d0ab9620b44d7b99a9964cde102887",
+  ),
+  fixtureAvailableCloudflareWorker("samebase-worker", "f832053cb31b46f0bff56f70b8c9b57e"),
+  fixtureAvailableCloudflareWorker("tmp-flow-123", "f19375e848d44311ae35716d8ab0c59f"),
+  fixtureAvailableCloudflareWorker("tmp-flow-1234", "62b44171ee3f41de80bfaf42a90cf8d7"),
+  fixtureAvailableCloudflareWorker("tmp-my-asdf-app", "476a67f8258f4fa3bdd3e73cf825c3a5"),
+  fixtureAvailableCloudflareWorker("tmp-my-first", "2f44c6d9c45e451ea825f52774a7f583"),
+  fixtureAvailableCloudflareWorker("tmp-something", "9c0c2d7cfdce4d4480f6e043b2e9f11d"),
+  fixtureAvailableCloudflareWorker("tsx-tsx-md", "abcb6778514d4e58b6f9a747d92f9234"),
 ];
 
 type FixtureVaultBranch = Parameters<typeof VaultBranchLinkRow>[0]["branch"];
