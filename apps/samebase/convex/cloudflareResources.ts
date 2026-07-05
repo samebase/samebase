@@ -45,7 +45,7 @@ type CloudflareWorkerTagSource = {
   name?: string;
 };
 type CloudflareBuildTokenRecord = Readable<components["schemas"]["builds_ListTokensResponse"]>;
-type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
+export type CloudflareBuildTrigger = Readable<components["schemas"]["builds_TriggerResponse"]>;
 type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariablesRequest"];
 type CloudflareApiCallOptions = {
   transport: CloudflareApiTransport;
@@ -161,6 +161,45 @@ export type CloudflareWorkerInventoryItem = {
   workerTag: string;
 };
 
+export type CloudflareWorkerRepositoryEvidence =
+  | { state: "none" }
+  | {
+      state: "matching_repo";
+      repoId: string;
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "different_repo";
+      repoId: string;
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "deleted_repo_connection";
+      repoId: string | null;
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "missing_repo_id";
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "trigger_read_failed";
+      message: string;
+    };
+
+export type CloudflareWorkerRepositoryDiscovery = {
+  classification: "recommended" | "available" | "blocked" | "unknown";
+  evidence: CloudflareWorkerRepositoryEvidence;
+};
+
+export type CloudflareWorkerDiscoveryItem = CloudflareWorkerInventoryItem & {
+  discovery: CloudflareWorkerRepositoryDiscovery;
+};
+
 export type ExistingCloudflareWorkerIdentity =
   | { state: "planned" }
   | { state: "created"; workerTag: string };
@@ -204,6 +243,11 @@ function readCloudflareWorkerInventoryItem(worker: {
     workerName,
     workerTag,
   };
+}
+
+function readTrimmedCloudflareString(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : null;
 }
 
 async function readAccountSubdomain(
@@ -364,6 +408,196 @@ export async function listCloudflareWorkers(args: {
         left.workerTag.localeCompare(right.workerTag),
     )
     .slice(0, args.limit);
+}
+
+function readCloudflareWorkerTriggerRepositoryEvidence(args: {
+  trigger: CloudflareBuildTrigger;
+  expectedRepoId: string;
+}): CloudflareWorkerRepositoryEvidence {
+  const triggerName = readTrimmedCloudflareString(args.trigger.trigger_name);
+  const repoConnection = args.trigger.repo_connection;
+  if (!repoConnection) {
+    return {
+      state: "missing_repo_id",
+      repoName: null,
+      triggerName,
+    };
+  }
+
+  const repoName = readTrimmedCloudflareString(repoConnection.repo_name);
+  const repoId = readTrimmedCloudflareString(repoConnection.repo_id);
+  if (repoConnection.deleted_on) {
+    return {
+      state: "deleted_repo_connection",
+      repoId,
+      repoName,
+      triggerName,
+    };
+  }
+  if (!repoId) {
+    return {
+      state: "missing_repo_id",
+      repoName,
+      triggerName,
+    };
+  }
+  if (repoId === args.expectedRepoId) {
+    return {
+      state: "matching_repo",
+      repoId,
+      repoName,
+      triggerName,
+    };
+  }
+  return {
+    state: "different_repo",
+    repoId,
+    repoName,
+    triggerName,
+  };
+}
+
+export function classifyCloudflareWorkerRepositoryDiscovery(args: {
+  triggers: readonly CloudflareBuildTrigger[];
+  expectedRepoId: string;
+}): CloudflareWorkerRepositoryDiscovery {
+  const evidence = args.triggers
+    .filter((trigger) => !trigger.deleted_on)
+    .map((trigger) =>
+      readCloudflareWorkerTriggerRepositoryEvidence({
+        trigger,
+        expectedRepoId: args.expectedRepoId,
+      }),
+    );
+  const differentRepo = evidence.find((item) => item.state === "different_repo");
+  if (differentRepo) {
+    return {
+      classification: "blocked",
+      evidence: differentRepo,
+    };
+  }
+
+  const unknown = evidence.find(
+    (item) => item.state === "deleted_repo_connection" || item.state === "missing_repo_id",
+  );
+  if (unknown) {
+    return {
+      classification: "unknown",
+      evidence: unknown,
+    };
+  }
+
+  const matchingRepo = evidence.find((item) => item.state === "matching_repo");
+  if (matchingRepo) {
+    return {
+      classification: "recommended",
+      evidence: matchingRepo,
+    };
+  }
+
+  return {
+    classification: "available",
+    evidence: { state: "none" },
+  };
+}
+
+async function readCloudflareWorkerDiscoveryForInventoryItem(
+  args: {
+    token: string;
+    accountId: string;
+    worker: CloudflareWorkerInventoryItem;
+    expectedRepoId: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerDiscoveryItem> {
+  try {
+    const triggers = await listBuildTriggers({
+      token: args.token,
+      transport: args.transport,
+      accountId: args.accountId,
+      workerTag: args.worker.workerTag,
+      recordApiCall: args.recordApiCall,
+    });
+    return {
+      ...args.worker,
+      discovery: classifyCloudflareWorkerRepositoryDiscovery({
+        triggers,
+        expectedRepoId: args.expectedRepoId,
+      }),
+    };
+  } catch (error) {
+    return {
+      ...args.worker,
+      discovery: {
+        classification: "unknown",
+        evidence: {
+          state: "trigger_read_failed",
+          message: toErrorMessage(error),
+        },
+      },
+    };
+  }
+}
+
+export async function listCloudflareWorkersWithRepositoryDiscovery(
+  args: {
+    token: string;
+    accountId: string;
+    limit: number;
+    expectedRepoId: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerDiscoveryItem[]> {
+  const workers = await listCloudflareWorkers({
+    token: args.token,
+    transport: args.transport,
+    accountId: args.accountId,
+    limit: args.limit,
+  });
+  const discoveredWorkers: CloudflareWorkerDiscoveryItem[] = [];
+  const chunkSize = 10;
+  for (let start = 0; start < workers.length; start += chunkSize) {
+    const chunk = workers.slice(start, start + chunkSize);
+    const chunkResults = await Promise.all(
+      chunk.map((worker) =>
+        readCloudflareWorkerDiscoveryForInventoryItem({
+          token: args.token,
+          transport: args.transport,
+          accountId: args.accountId,
+          worker,
+          expectedRepoId: args.expectedRepoId,
+          recordApiCall: args.recordApiCall,
+        }),
+      ),
+    );
+    discoveredWorkers.push(...chunkResults);
+  }
+  return discoveredWorkers;
+}
+
+export async function readCloudflareWorkerRepositoryDiscovery(
+  args: {
+    token: string;
+    accountId: string;
+    workerName: string;
+    expectedRepoId: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerDiscoveryItem> {
+  const worker = await readWorker(args);
+  if (!worker) {
+    throw new Error(`Cloudflare Worker ${args.workerName} was not found.`);
+  }
+
+  const inventoryItem = {
+    workerName: args.workerName,
+    workerTag: readCloudflareWorkerTag(worker, args.workerName),
+  };
+  return await readCloudflareWorkerDiscoveryForInventoryItem({
+    token: args.token,
+    transport: args.transport,
+    accountId: args.accountId,
+    worker: inventoryItem,
+    expectedRepoId: args.expectedRepoId,
+    recordApiCall: args.recordApiCall,
+  });
 }
 
 export async function createCloudflareWorker(args: {

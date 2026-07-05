@@ -205,9 +205,42 @@ type VaultConvexDialogTarget = {
   repositoryFullName: string;
   repositoryName: string;
 };
+type CloudflareWorkerRepositoryEvidence =
+  | { state: "none" }
+  | {
+      state: "matching_repo";
+      repoId: string;
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "different_repo";
+      repoId: string;
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "deleted_repo_connection";
+      repoId: string | null;
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "missing_repo_id";
+      repoName: string | null;
+      triggerName: string | null;
+    }
+  | {
+      state: "trigger_read_failed";
+      message: string;
+    };
 type CloudflareWorkerOption = {
   workerName: string;
   workerTag: string;
+  discovery: {
+    classification: "recommended" | "available" | "blocked" | "unknown";
+    evidence: CloudflareWorkerRepositoryEvidence;
+  };
 };
 type CloudflareWorkerConnectMode = "existing" | "create";
 type ConvexProjectOption = {
@@ -223,8 +256,101 @@ function compareCloudflareWorkerOptions(
   right: CloudflareWorkerOption,
 ) {
   return (
-    left.workerName.localeCompare(right.workerName) || left.workerTag.localeCompare(right.workerTag)
+    getCloudflareWorkerDiscoveryRank(left) - getCloudflareWorkerDiscoveryRank(right) ||
+    left.workerName.localeCompare(right.workerName) ||
+    left.workerTag.localeCompare(right.workerTag)
   );
+}
+
+function getCloudflareWorkerDiscoveryRank(worker: CloudflareWorkerOption): number {
+  switch (worker.discovery.classification) {
+    case "recommended":
+      return 0;
+    case "available":
+      return 1;
+    case "unknown":
+      return 2;
+    case "blocked":
+      return 3;
+    default:
+      worker.discovery.classification satisfies never;
+      return 4;
+  }
+}
+
+function isSelectableCloudflareWorker(worker: CloudflareWorkerOption): boolean {
+  return (
+    worker.discovery.classification === "recommended" ||
+    worker.discovery.classification === "available"
+  );
+}
+
+function readDefaultCloudflareWorkerSelection(
+  workers: readonly CloudflareWorkerOption[],
+  selectedWorkerName: string,
+): string {
+  const selectedWorker = workers.find((worker) => worker.workerName === selectedWorkerName);
+  if (selectedWorker && isSelectableCloudflareWorker(selectedWorker)) {
+    return selectedWorker.workerName;
+  }
+
+  const recommendedWorkers = workers.filter(
+    (worker) => worker.discovery.classification === "recommended",
+  );
+  if (recommendedWorkers.length === 1) {
+    return recommendedWorkers[0].workerName;
+  }
+
+  return "";
+}
+
+function formatCloudflareWorkerRepositoryEvidence(
+  evidence: CloudflareWorkerRepositoryEvidence,
+): string {
+  switch (evidence.state) {
+    case "none":
+      return "No active Builds repo trigger";
+    case "matching_repo":
+      return `Builds repo ${formatCloudflareWorkerRepositoryLabel(evidence)}`;
+    case "different_repo":
+      return `Builds repo ${formatCloudflareWorkerRepositoryLabel(evidence)}`;
+    case "deleted_repo_connection":
+      return "Builds repo connection was deleted";
+    case "missing_repo_id":
+      return "Builds repo id missing";
+    case "trigger_read_failed":
+      return "Builds triggers could not be read";
+    default:
+      evidence satisfies never;
+      return "";
+  }
+}
+
+function formatCloudflareWorkerRepositoryLabel(args: {
+  repoId: string;
+  repoName: string | null;
+}): string {
+  return args.repoName ? `${args.repoName} (${args.repoId})` : args.repoId;
+}
+
+function formatCloudflareWorkerDiscoveryLabel(worker: CloudflareWorkerOption): string {
+  switch (worker.discovery.classification) {
+    case "recommended":
+      return "Recommended";
+    case "available":
+      return "Available";
+    case "blocked":
+      return "Different repo";
+    case "unknown":
+      return "Cannot inspect";
+    default:
+      worker.discovery.classification satisfies never;
+      return "";
+  }
+}
+
+function formatCloudflareWorkerDiscoveryDescription(worker: CloudflareWorkerOption): string {
+  return `${formatCloudflareWorkerDiscoveryLabel(worker)}: ${formatCloudflareWorkerRepositoryEvidence(worker.discovery.evidence)}`;
 }
 
 type VaultDashboardDeletion = VaultDashboardVault["deletion"];
@@ -532,7 +658,10 @@ function useVaultDashboardLocalStore() {
         ...state,
         cloudflareConnectDialog: {
           ...state.cloudflareConnectDialog,
-          selectedWorkerName: workers[0]?.workerName ?? "",
+          selectedWorkerName: readDefaultCloudflareWorkerSelection(
+            workers,
+            state.cloudflareConnectDialog.selectedWorkerName,
+          ),
           workers,
         },
       }));
@@ -1357,13 +1486,18 @@ export function VaultDashboardCloudflareDialog({
   const sortedWorkers = useMemo(() => [...workers].sort(compareCloudflareWorkerOptions), [workers]);
   const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
   const selectedWorker = sortedWorkers.find((worker) => worker.workerName === selectedWorkerName);
+  const selectedWorkerSelectable = selectedWorker
+    ? isSelectableCloudflareWorker(selectedWorker)
+    : false;
   const showAppRootInput = appRoot !== ROOT_VAULT_APP_ROOT;
   const submitDisabled =
     isLoading ||
     isSubmitting ||
     !appRoot.trim() ||
     !selectedAccountId ||
-    (mode === "existing" ? !selectedWorkerName : !createWorkerName.trim());
+    (mode === "existing"
+      ? !selectedWorkerName || !selectedWorkerSelectable
+      : !createWorkerName.trim());
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1433,8 +1567,17 @@ export function VaultDashboardCloudflareDialog({
                 </SelectTrigger>
                 <AppSelectContent>
                   {sortedWorkers.map((worker) => (
-                    <AppSelectItem key={worker.workerTag} value={worker.workerName}>
-                      {worker.workerName}
+                    <AppSelectItem
+                      key={worker.workerTag}
+                      value={worker.workerName}
+                      disabled={!isSelectableCloudflareWorker(worker)}
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span>{worker.workerName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatCloudflareWorkerDiscoveryDescription(worker)}
+                        </span>
+                      </span>
                     </AppSelectItem>
                   ))}
                 </AppSelectContent>
@@ -1447,6 +1590,11 @@ export function VaultDashboardCloudflareDialog({
                 placeholder="Worker name"
               />
             )}
+            {mode === "existing" && selectedWorker ? (
+              <div className="text-xs text-muted-foreground">
+                {formatCloudflareWorkerDiscoveryDescription(selectedWorker)}
+              </div>
+            ) : null}
             {error ? <div className="text-sm text-red-600">{error}</div> : null}
           </div>
         ) : null}
@@ -3758,13 +3906,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   }, [resetConvexConnectDialogState]);
 
   const loadCloudflareWorkersForAccount = useCallback(
-    async (accountId: string) => {
+    async (args: { accountId: string; vaultId: Id<"vaults">; appRoot: string }) => {
       const requestId = cloudflareWorkersRequestIdRef.current + 1;
       cloudflareWorkersRequestIdRef.current = requestId;
       setCloudflareConnectDialogLoading(true);
       setCloudflareConnectDialogWorkers([]);
       try {
-        const workers = await listCloudflareWorkers({ accountId });
+        const workers = await listCloudflareWorkers({
+          accountId: args.accountId,
+          vaultId: args.vaultId,
+          appRoot: args.appRoot,
+        });
         if (cloudflareWorkersRequestIdRef.current !== requestId) {
           return;
         }
@@ -3791,7 +3943,11 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   );
 
   const loadCloudflareDialogResources = useCallback(
-    async (preferredAccountId: string | undefined) => {
+    async (args: {
+      preferredAccountId: string | undefined;
+      vaultId: Id<"vaults">;
+      appRoot: string;
+    }) => {
       const requestId = cloudflareDialogResourcesRequestIdRef.current + 1;
       cloudflareDialogResourcesRequestIdRef.current = requestId;
       setCloudflareConnectDialogLoading(true);
@@ -3810,12 +3966,16 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         }
 
         const selectedAccount =
-          accounts.find((account) => account.accountId === preferredAccountId) ?? accounts[0];
+          accounts.find((account) => account.accountId === args.preferredAccountId) ?? accounts[0];
         setCloudflareConnectDialogSelectedAccountId(selectedAccount.accountId);
         if (cloudflareDialogResourcesRequestIdRef.current !== requestId) {
           return;
         }
-        await loadCloudflareWorkersForAccount(selectedAccount.accountId);
+        await loadCloudflareWorkersForAccount({
+          accountId: selectedAccount.accountId,
+          vaultId: args.vaultId,
+          appRoot: args.appRoot,
+        });
       } catch (error) {
         if (cloudflareDialogResourcesRequestIdRef.current !== requestId) {
           return;
@@ -4001,7 +4161,11 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
         provider: "cloudflare",
       }),
     );
-    void loadCloudflareDialogResources(connectedCloudflareConnection?.accountId);
+    void loadCloudflareDialogResources({
+      preferredAccountId: connectedCloudflareConnection?.accountId,
+      vaultId: vaultToConnectCloudflare.id,
+      appRoot: vaultToConnectCloudflare.fixedAppRoot,
+    });
   }, [
     addCloudflareWorkerModeActive,
     clearAddCloudflareWorkerSearchParam,
@@ -4046,10 +4210,17 @@ export function VaultDashboard({ selectedRepositoryFullName }: VaultDashboardPro
   };
 
   const handleCloudflareAccountChange = (accountId: string) => {
+    if (!vaultToConnectCloudflare) {
+      return;
+    }
     setCloudflareConnectDialogSelectedAccountId(accountId);
     setCloudflareConnectDialogSelectedWorkerName("");
     setCloudflareConnectDialogError(null);
-    void loadCloudflareWorkersForAccount(accountId);
+    void loadCloudflareWorkersForAccount({
+      accountId,
+      vaultId: vaultToConnectCloudflare.id,
+      appRoot: vaultToConnectCloudflare.fixedAppRoot,
+    });
   };
 
   const handleConnectCloudflareDialogOpenChange = (isOpen: boolean) => {

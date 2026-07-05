@@ -156,7 +156,8 @@ Verification probes required before implementation (one-time, live):
    `matchesTriggerKind` adopts existing triggers by branch shape only and the upsert path PATCHes
    them without checking `repo_connection.repo_id`, so provisioning onto a Worker whose triggers
    point at a different repo silently reuses wrong-repo triggers. Stop before any schema change.
-2. **Phase 1 — state split + `wire_builds`.** Schema migration for the two-axis `deployment`;
+2. **Phase 1 — state split + `wire_builds`.** Narrow the Worker `deployment` shape to the two-axis
+   model; local/operator data can be cleared instead of carrying internal backwards compatibility.
    `wire_builds` as its own run (new trigger vocabulary), exposed on any attached Worker regardless
    of origin. Auto-queue it only after Samebase provisions a new Worker; selected existing Workers
    require an explicit user action. Convex-backed app roots defer the first build until Phase 2

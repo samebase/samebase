@@ -10,6 +10,7 @@ import {
   buildCloudflareWorkerCreateBody,
   buildCloudflareWorkersEnvVars,
   CloudflareApiError,
+  classifyCloudflareWorkerRepositoryDiscovery,
   ensureCloudflareResources,
   isCloudflareGitHubAppRepositoryAuthorizationError,
   isCloudflareMcpInvalidAccessTokenError,
@@ -893,6 +894,112 @@ describe("cloudflare resources", () => {
           request.path === "/client/v4/accounts/account-id/builds/triggers",
       ),
     ).toHaveLength(2);
+  });
+
+  it("classifies matching Workers Builds trigger repository evidence as recommended", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        triggers: [
+          {
+            trigger_name: "Production Deploy",
+            repo_connection: {
+              repo_connection_uuid: "repo-connection",
+              repo_id: "123",
+              repo_name: "ada/samebase-app",
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      classification: "recommended",
+      evidence: {
+        state: "matching_repo",
+        repoId: "123",
+        repoName: "ada/samebase-app",
+        triggerName: "Production Deploy",
+      },
+    });
+  });
+
+  it("classifies Workers without active Builds repo triggers as available", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        triggers: [
+          {
+            deleted_on: "2026-07-01T00:00:00Z",
+            trigger_name: "Deleted Deploy",
+            repo_connection: {
+              repo_connection_uuid: "repo-connection",
+              repo_id: "999",
+              repo_name: "ada/other-app",
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      classification: "available",
+      evidence: { state: "none" },
+    });
+  });
+
+  it("classifies different-repo Workers Builds trigger evidence as blocked", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        triggers: [
+          {
+            trigger_name: "Production Deploy",
+            repo_connection: {
+              repo_connection_uuid: "repo-connection",
+              repo_id: "999",
+              repo_name: "ada/other-app",
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      classification: "blocked",
+      evidence: {
+        state: "different_repo",
+        repoId: "999",
+        repoName: "ada/other-app",
+        triggerName: "Production Deploy",
+      },
+    });
+  });
+
+  it("fails closed when any active Workers Builds trigger cannot be inspected", () => {
+    expect(
+      classifyCloudflareWorkerRepositoryDiscovery({
+        expectedRepoId: "123",
+        triggers: [
+          {
+            trigger_name: "Production Deploy",
+            repo_connection: {
+              repo_connection_uuid: "repo-connection",
+              repo_id: "123",
+              repo_name: "ada/samebase-app",
+            },
+          },
+          {
+            trigger_name: "Preview Deploy",
+            repo_connection: {
+              repo_connection_uuid: "repo-connection",
+              repo_name: "ada/samebase-app",
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      classification: "unknown",
+      evidence: {
+        state: "missing_repo_id",
+        repoName: "ada/samebase-app",
+        triggerName: "Preview Deploy",
+      },
+    });
   });
 
   it("selects the only Cloudflare account exposed to OAuth", () => {

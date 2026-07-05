@@ -59,6 +59,24 @@ function fakeRunId(): Id<"appProvisioningRuns"> {
   return "kx7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
 }
 
+type CloudflareDialogWorker = Parameters<
+  typeof VaultDashboardCloudflareDialog
+>[0]["workers"][number];
+
+function makeCloudflareDialogWorker(
+  overrides: Partial<CloudflareDialogWorker>,
+): CloudflareDialogWorker {
+  return {
+    workerName: "demo-worker",
+    workerTag: "worker-tag-1",
+    discovery: {
+      classification: "available",
+      evidence: { state: "none" },
+    },
+    ...overrides,
+  };
+}
+
 type ResourceRailBuilderVault = Parameters<typeof buildVaultDashboardResourceRailState>[0]["vault"];
 
 function getResourceRailAppRow(
@@ -1111,12 +1129,7 @@ describe("VaultDashboardCloudflareDialog", () => {
           repositoryFullName: "ada/demo",
           repositoryName: "demo",
         }}
-        workers={[
-          {
-            workerName: "demo-worker",
-            workerTag: "worker-tag-1",
-          },
-        ]}
+        workers={[makeCloudflareDialogWorker({})]}
       />,
     );
 
@@ -1158,12 +1171,7 @@ describe("VaultDashboardCloudflareDialog", () => {
           repositoryFullName: "ada/demo",
           repositoryName: "demo",
         }}
-        workers={[
-          {
-            workerName: "demo-worker",
-            workerTag: "worker-tag-1",
-          },
-        ]}
+        workers={[makeCloudflareDialogWorker({})]}
       />,
     );
 
@@ -1171,6 +1179,124 @@ describe("VaultDashboardCloudflareDialog", () => {
     expect(markup).toContain('aria-label="App root"');
     expect(markup).toContain('placeholder="App root"');
     expect(markup).toContain("readOnly");
+  });
+
+  it("shows selected Worker discovery evidence", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[
+          {
+            accountId: "account-1",
+            accountName: "Ada Cloud",
+          },
+        ]}
+        appRoot="."
+        appRootReadOnly={true}
+        createWorkerName="demo-worker"
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onAccountChange={vi.fn()}
+        onAppRootChange={vi.fn()}
+        onCreateWorkerNameChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onWorkerChange={vi.fn()}
+        open
+        selectedAccountId="account-1"
+        selectedWorkerName="demo-worker"
+        vault={{
+          fixedAppRoot: ".",
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+        workers={[
+          makeCloudflareDialogWorker({
+            discovery: {
+              classification: "recommended",
+              evidence: {
+                state: "matching_repo",
+                repoId: "123",
+                repoName: "ada/demo",
+                triggerName: "Production Deploy",
+              },
+            },
+          }),
+          makeCloudflareDialogWorker({
+            workerName: "other-worker",
+            workerTag: "worker-tag-2",
+            discovery: {
+              classification: "blocked",
+              evidence: {
+                state: "different_repo",
+                repoId: "999",
+                repoName: "ada/other",
+                triggerName: "Production Deploy",
+              },
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Recommended: Builds repo ada/demo (123)");
+  });
+
+  it("disables submit when stale state selects a different-repo Worker", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDashboardCloudflareDialog
+        accounts={[
+          {
+            accountId: "account-1",
+            accountName: "Ada Cloud",
+          },
+        ]}
+        appRoot="."
+        appRootReadOnly={true}
+        createWorkerName="demo-worker"
+        error={null}
+        isLoading={false}
+        isSubmitting={false}
+        mode="existing"
+        onAccountChange={vi.fn()}
+        onAppRootChange={vi.fn()}
+        onCreateWorkerNameChange={vi.fn()}
+        onModeChange={vi.fn()}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onWorkerChange={vi.fn()}
+        open
+        selectedAccountId="account-1"
+        selectedWorkerName="other-worker"
+        vault={{
+          fixedAppRoot: ".",
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          repositoryName: "demo",
+        }}
+        workers={[
+          makeCloudflareDialogWorker({
+            workerName: "other-worker",
+            workerTag: "worker-tag-2",
+            discovery: {
+              classification: "blocked",
+              evidence: {
+                state: "different_repo",
+                repoId: "999",
+                repoName: "ada/other",
+                triggerName: "Production Deploy",
+              },
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("Different repo: Builds repo ada/other (999)");
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Connect Worker<\/button>/);
   });
 });
 
