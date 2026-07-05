@@ -586,7 +586,7 @@ export const attachWorkerForRun = internalMutation({
     } catch (error) {
       await appendCloudflareWorkerConnectionEvent(ctx, {
         runId: args.runId,
-        step: "ensure_cloudflare",
+        step: "attach_worker",
         level: "warn",
         message: error instanceof Error ? error.message : "Cloudflare Worker is already attached.",
         state: "canceled",
@@ -618,7 +618,7 @@ export const attachWorkerForRun = internalMutation({
     });
     await appendCloudflareWorkerConnectionEvent(ctx, {
       runId: args.runId,
-      step: "ensure_cloudflare",
+      step: "attach_worker",
       level: "info",
       message: `Cloudflare Worker ready for ${appRoot}: ${args.workerName}.`,
       state: "running",

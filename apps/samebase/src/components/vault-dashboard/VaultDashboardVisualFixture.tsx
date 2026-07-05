@@ -1563,21 +1563,21 @@ function VaultDashboardProvisioningLogFixture() {
                       {
                         createdAt: Date.parse("2026-05-02T12:30:04Z"),
                         level: "info",
-                        step: "ensure_convex",
+                        step: "attach_convex",
                         message:
                           'API Convex POST /teams/{team_id}/create_project values={"body":{"deploymentType":"prod","projectName":"[redacted]"},"params":{"path":{"team_id":"[redacted]"}}}',
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:08Z"),
                         level: "info",
-                        step: "ensure_cloudflare",
+                        step: "attach_worker",
                         message:
                           'API Cloudflare POST /accounts/{account_id}/workers/workers values={"body":{"logpush":false,"name":"[redacted]","observability":{"enabled":true,"head_sampling_rate":1},"subdomain":{"enabled":true,"previews_enabled":true}},"params":{"path":{"account_id":"[redacted]"}}}',
                       },
                       {
                         createdAt: Date.parse("2026-05-02T12:30:10Z"),
                         level: "info",
-                        step: "ensure_cloudflare",
+                        step: "attach_worker",
                         message:
                           'API Cloudflare PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values={"body":{"PROD_CONVEX_DEPLOY_KEY":"[secret]","VITE_CONVEX_URL":{"is_secret":"[secret]","value":"[redacted]"}},"params":{"path":{"account_id":"[redacted]","trigger_uuid":"[redacted]"}}}',
                       },
@@ -1628,7 +1628,7 @@ function VaultDashboardInfrastructureSetupFixture() {
                     {
                       createdAt: Date.parse("2026-05-08T09:15:05Z"),
                       level: "info",
-                      step: "ensure_convex",
+                      step: "attach_convex",
                       message: "Ensuring Convex project and production deployment.",
                     },
                   ]}
@@ -1665,7 +1665,7 @@ function VaultDashboardCloudflareGitHubAppAuthorizationFailureFixture() {
                   provider: "cloudflare",
                   source: "managed",
                   runId: fakeProvisioningRunId(),
-                  step: "ensure_cloudflare",
+                  step: "attach_worker",
                   message:
                     "Cloudflare Workers and Pages GitHub App is not authorized for noter-guest/tmp-manual-test. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include noter-guest/tmp-manual-test, then retry.",
                   updatedAt: Date.parse("2026-06-24T12:00:00Z"),

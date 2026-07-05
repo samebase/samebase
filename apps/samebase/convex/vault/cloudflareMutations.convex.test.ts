@@ -25,7 +25,7 @@ async function createAttachableVaultWithOwnership(args: { ownershipState: "activ
       repositoryFullName: "ada/manual-cloudflare",
       trigger: "retry",
       state: runState,
-      currentStep: "ensure_cloudflare",
+      currentStep: "attach_worker",
       createdAt: 10,
       updatedAt: 20,
       ...(runState === "failed" ? { lastError: "Cloudflare provisioning failed." } : {}),
@@ -193,7 +193,7 @@ describe("vault Cloudflare attachment mutations", () => {
     });
     expect(result.events.map((event) => event.step)).toEqual([
       "claim_infra",
-      "ensure_cloudflare",
+      "attach_worker",
       "finish",
     ]);
   });
@@ -656,7 +656,7 @@ describe("vault Cloudflare attachment mutations", () => {
         repositoryFullName: "ada/manual-cloudflare",
         trigger: "connect_cloudflare_worker",
         state: "running",
-        currentStep: "ensure_cloudflare",
+        currentStep: "attach_worker",
         createdAt: 10,
         updatedAt: 20,
       });
@@ -721,7 +721,7 @@ describe("vault Cloudflare attachment mutations", () => {
         repositoryFullName: "ada/manual-cloudflare",
         trigger: "connect_cloudflare_worker",
         state: "running",
-        currentStep: "ensure_cloudflare",
+        currentStep: "attach_worker",
         createdAt: 40,
         updatedAt: 40,
       });

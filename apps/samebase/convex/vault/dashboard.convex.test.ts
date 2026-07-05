@@ -781,7 +781,7 @@ describe("vault dashboard Convex contract", () => {
         repositoryFullName: "ada/provider-state",
         trigger: "create",
         state: "running",
-        currentStep: "ensure_cloudflare",
+        currentStep: "attach_worker",
         createdAt: 10,
         updatedAt: 30,
       });
@@ -852,7 +852,7 @@ describe("vault dashboard Convex contract", () => {
         provider: "cloudflare",
         source: "managed",
         runId: ids.runId,
-        step: "ensure_cloudflare",
+        step: "attach_worker",
         updatedAt: 30,
       },
     });
@@ -890,7 +890,7 @@ describe("vault dashboard Convex contract", () => {
         repositoryFullName: "ada/cloudflare-retry",
         trigger: "retry",
         state: "running",
-        currentStep: "ensure_cloudflare",
+        currentStep: "attach_worker",
         createdAt: 40,
         updatedAt: 45,
       });
@@ -965,7 +965,7 @@ describe("vault dashboard Convex contract", () => {
         provider: "cloudflare",
         source: "managed",
         runId: ids.retryRunId,
-        step: "ensure_cloudflare",
+        step: "attach_worker",
         updatedAt: 45,
       },
     });
@@ -1003,7 +1003,7 @@ describe("vault dashboard Convex contract", () => {
         repositoryFullName: "ada/cloudflare-retry",
         trigger: "retry",
         state: "failed",
-        currentStep: "ensure_cloudflare",
+        currentStep: "attach_worker",
         lastError: expectedMessage,
         createdAt: 40,
         updatedAt: 45,
@@ -1067,9 +1067,9 @@ describe("vault dashboard Convex contract", () => {
         vaultId,
         repositoryFullName: "ada/cloudflare-retry",
         runId: retryRunId,
-        step: "ensure_cloudflare",
+        step: "attach_worker",
         level: "error",
-        message: "Provisioning failed during ensure_cloudflare.",
+        message: "Provisioning failed during attach_worker.",
         createdAt: 45,
       });
 
@@ -1090,7 +1090,7 @@ describe("vault dashboard Convex contract", () => {
         provider: "cloudflare",
         source: "managed",
         runId: ids.retryRunId,
-        step: "ensure_cloudflare",
+        step: "attach_worker",
         message: expectedMessage,
         updatedAt: 45,
       },
@@ -1127,7 +1127,7 @@ describe("vault dashboard Convex contract", () => {
         repositoryFullName: "ada/existing-cloudflare",
         trigger: "connect_cloudflare_worker",
         state: "running",
-        currentStep: "ensure_cloudflare",
+        currentStep: "attach_worker",
         createdAt: 30,
         updatedAt: 40,
       });
@@ -1183,7 +1183,7 @@ describe("vault dashboard Convex contract", () => {
         provider: "cloudflare",
         source: "manual",
         runId: ids.cloudflareRunId,
-        step: "ensure_cloudflare",
+        step: "attach_worker",
         updatedAt: 40,
       },
     });

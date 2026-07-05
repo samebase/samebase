@@ -21,8 +21,8 @@ This replaces the pre-vault run gap with a stable `vaultId` while preserving the
 that repository-backed behavior requires a connected GitHub repository. GitHub connection means
 durable repository identity, not a fresh branch tree. Branch tree data is cache state and
 repo-backed file/tree behavior must still fail closed until the relevant branch snapshot exists.
-Convex and Cloudflare fields only exist on connected GitHub variants, so those integrations cannot
-exist while GitHub is still provisioning or failed.
+Convex and Cloudflare app-root resource rows only exist for connected GitHub vaults, so those
+integrations cannot exist while GitHub is still provisioning or failed.
 
 After the vault-first creation path is visible and understandable, remove the temporary
 compatibility layers before treating manual retry UI as proof of the durable model. The primary
@@ -543,27 +543,27 @@ The product model should not treat Convex and Cloudflare as one generic `infraSt
 separate provider legs of the app after GitHub source setup succeeds, and they can progress, fail,
 and retry independently.
 
-The target state model is:
+The current target state model is:
 
 1. GitHub/source state says whether the vault has durable repository identity and enough tree data
    for source-backed work
-2. `vault.convex` says whether Convex is not configured, provisioning, connected, or failed
-3. `vault.cloudflare` says whether Cloudflare is not configured, provisioning, connected, or failed
+2. `vaultConvexDeployments` stores connected Convex production deployments by `vaultId` + `appRoot`
+3. `vaultCloudflareWorkers` stores connected Cloudflare Workers by `vaultId` + `appRoot`
 4. dashboard labels such as creating, active, degraded, failed, or partial are derived from those
-   provider states
-5. provider retry actions target the failed provider state, not a generic aggregate infra status
+   resource rows, active ownership, and run/event state
+5. provider retry actions target the failed block run, not a generic aggregate infra status
 
 Top-level `vaults.infraState`, `vaults.infraLastError`, `vaults.infraLastProvisionedAt`, and
 `vaults.infraProvisioningStartedAt` are the current compatibility shortcut for dashboard and
 provisioning code. They should not gain new product meaning. Phase 5 should replace their reads and
-writes with explicit Convex/Cloudflare state transitions, then remove the aggregate fields from the
-vault row after production data is clean.
+writes with explicit app-root resource rows and block-run state, then remove the aggregate fields
+from the vault row after production data is clean.
 
-`vaultInfrastructure` should keep the external resource metadata and operational details needed to
+`vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultDomains`, and
+`vaultInfrastructureOwnership` keep the external resource metadata and operational details needed to
 call providers, such as project ids, deployment names, account ids, deploy-key ids, domains,
-provisioning version, and ownership. It should not become a competing user-visible source of truth
-for whether the app is ready. If a status-like field remains there during migration, dashboard and
-retry code should still derive product state from `vault.convex` and `vault.cloudflare`.
+provisioning version, and ownership. They should not become a competing aggregate user-visible
+source of truth for whether the app is ready.
 
 ## Migration
 
@@ -840,14 +840,15 @@ requiring the user to understand provider steps.
 
 Scope:
 
-1. make `vault.convex` and `vault.cloudflare` the product-facing source of truth for provider setup
-   progress, success, and failure
-2. update provisioning code to transition Convex and Cloudflare state separately while preserving
+1. make app-root resource rows plus block-run state the product-facing source of truth for provider
+   setup progress, success, and failure
+2. update provisioning code to compose Convex and Cloudflare blocks separately while preserving
    connected GitHub state
 3. replace dashboard and query reads of top-level `vaults.infra*` fields with summaries derived from
-   `vault.convex` and `vault.cloudflare`
-4. narrow `vaultInfrastructure` toward provider resource metadata and operational ownership instead
-   of user-visible readiness
+   `vaultConvexDeployments`, `vaultCloudflareWorkers`, `vaultInfrastructureOwnership`, and
+   `appProvisioningRuns`
+4. keep provider resource metadata and operational ownership outside the vault row instead of
+   treating those details as user-visible readiness
 5. remove the top-level `vaults.infraState`, `vaults.infraLastError`,
    `vaults.infraLastProvisionedAt`, and `vaults.infraProvisioningStartedAt` mirrors after production
    rows are clean
@@ -941,7 +942,7 @@ Backend:
 15. after compatibility cleanup, supported provisioning events require `runId` and supported
     provisioning runs require `vaultId`
 16. Phase 5 replaces top-level `vaults.infra*` dashboard/provisioning reads with summaries derived
-    from `vault.convex` and `vault.cloudflare`
+    from app-root provider resource rows and block-run state
 17. Phase 5 removes the top-level `vaults.infra*` mirrors after production data is clean
 18. when backend retries ship, retried provider steps prove idempotency and keep terminal failures
     visible through the same run/event summaries

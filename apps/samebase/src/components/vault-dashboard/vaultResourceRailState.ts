@@ -34,12 +34,11 @@ function resolveSourceSetupResourceProvider(
     case "sync_tree":
     case "claim_infra":
       return "github";
-    case "ensure_convex":
-    case "ensure_convex_preview":
-      return "convex";
-    case "ensure_cloudflare":
-    case "wire_builds":
+    case "attach_convex":
     case "wire_convex_build_access":
+      return "convex";
+    case "attach_worker":
+    case "wire_builds":
     case "record_domains":
       return "cloudflare";
     case "finish":

@@ -18,9 +18,9 @@ Adopt Convex Workflow for the create-new-app provisioning lifecycle so Samebase 
 durable, user-readable run instead of collapsing GitHub, Convex, Cloudflare, env setup, and
 deployment state into a coarse dashboard label.
 
-The implementation is phased: first make the current path observable, then move post-vault
-infrastructure into Workflow, then move the full create-app path into Workflow once the run model is
-proven.
+The implementation was phased: first make the current path observable, then move post-vault
+infrastructure into Workflow, then move the full create-app path into Workflow, then recompose
+infrastructure from the same Convex and Cloudflare blocks used by manual attachment flows.
 
 Vault-first follow-up work in `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md` supersedes
 the repository-first runtime described below. Keep this spec as the source for the Workflow
@@ -41,7 +41,8 @@ migration history; use `096` for the current create-app state model.
 3. connects the existing initializing vault to the created repository identity
 4. seeds the starter app
 5. syncs the initial branch tree into `vaultBranchTrees`
-6. runs the post-source infrastructure steps
+6. runs the composed infrastructure sequence:
+   `attach_convex -> attach_worker -> wire_builds -> wire_convex_build_access -> record_domains`
 
 ## Historical Repository-First Runtime
 
@@ -199,9 +200,10 @@ appProvisioningEvents: {
     | "seed_starter"
     | "create_vault"
     | "claim_infra"
-    | "ensure_convex"
-    | "ensure_convex_preview"
-    | "ensure_cloudflare"
+    | "attach_convex"
+    | "attach_worker"
+    | "wire_builds"
+    | "wire_convex_build_access"
     | "record_domains"
     | "finish";
   level: "info" | "warn" | "error";
@@ -255,11 +257,12 @@ Target workflow steps:
 2. `create_github_repo`
 3. `seed_starter`
 4. `create_vault`
-5. `ensure_convex`
-6. `ensure_convex_preview`
-7. `ensure_cloudflare`
-8. `record_domains`
-9. `finish`
+5. `attach_convex`
+6. `attach_worker`
+7. `wire_builds`
+8. `wire_convex_build_access`
+9. `record_domains`
+10. `finish`
 
 Each step should call a narrow internal function that remains idempotent where provider APIs allow
 it.
@@ -310,6 +313,16 @@ Phase 3: Full create-app Workflow.
 3. Link the run to `vaultId` once the vault row is created.
 4. Link pre-vault events to `vaultId` once the vault row is created.
 5. Let retry resume from the failed step instead of re-running completed provider operations.
+
+Phase 4: Composed infrastructure blocks.
+
+1. Reuse the manual Convex deployment connection block for full-app `attach_convex`.
+2. Reuse the manual Cloudflare Worker connection block for full-app `attach_worker`.
+3. Reuse `wire_builds` and `wire_convex_build_access` for full-app deployment wiring.
+4. Record the default Cloudflare Worker domain only after the Cloudflare Worker block produces a
+   URL.
+5. Delete the old `ensure_convex_preview` + `ensure_cloudflare` mega-step path instead of keeping
+   internal compatibility shims.
 
 Follow-up Vault-First Provisioning work moved to
 `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`. Keep this spec focused on the Phase 1-3

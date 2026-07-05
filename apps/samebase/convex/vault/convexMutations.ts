@@ -381,7 +381,7 @@ export const attachDeploymentForRun = internalMutation({
     } catch (error) {
       await appendConvexDeploymentConnectionEvent(ctx, {
         runId: args.runId,
-        step: "ensure_convex",
+        step: "attach_convex",
         level: "warn",
         message: error instanceof Error ? error.message : "Convex deployment is already attached.",
         state: "canceled",
@@ -417,7 +417,7 @@ export const attachDeploymentForRun = internalMutation({
     });
     await appendConvexDeploymentConnectionEvent(ctx, {
       runId: args.runId,
-      step: "ensure_convex",
+      step: "attach_convex",
       level: "info",
       message: `Convex deployment ready for ${appRoot}: ${args.convex.convexDeploymentName}.`,
       state: "running",

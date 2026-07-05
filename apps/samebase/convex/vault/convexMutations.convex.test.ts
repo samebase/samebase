@@ -141,7 +141,7 @@ describe("vault Convex deployment connection mutations", () => {
     });
     expect(result.events.map((event) => event.step)).toEqual([
       "claim_infra",
-      "ensure_convex",
+      "attach_convex",
       "finish",
     ]);
   });
@@ -187,7 +187,7 @@ describe("vault Convex deployment connection mutations", () => {
         repositoryFullName: "ada/manual-convex",
         trigger: "connect_convex_deployment",
         state: "running",
-        currentStep: "ensure_convex",
+        currentStep: "attach_convex",
         createdAt: 40,
         updatedAt: 40,
       });

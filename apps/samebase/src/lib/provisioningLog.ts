@@ -10,9 +10,8 @@ export type ProvisioningLogStep =
   | "create_vault"
   | "sync_tree"
   | "claim_infra"
-  | "ensure_convex"
-  | "ensure_convex_preview"
-  | "ensure_cloudflare"
+  | "attach_convex"
+  | "attach_worker"
   | "wire_builds"
   | "wire_convex_build_access"
   | "record_domains"
@@ -50,9 +49,8 @@ const provisioningStepLabels = {
   create_vault: "connect GitHub",
   sync_tree: "sync tree",
   claim_infra: "claim infra",
-  ensure_convex: "ensure Convex",
-  ensure_convex_preview: "ensure Convex preview",
-  ensure_cloudflare: "ensure Cloudflare",
+  attach_convex: "attach Convex",
+  attach_worker: "attach Worker",
   wire_builds: "wire Builds",
   wire_convex_build_access: "wire Convex build access",
   record_domains: "record domains",
