@@ -267,6 +267,14 @@ function normalizeObservedCloudflareApiResponseShapes(document: JsonRecord) {
     document,
     "#/components/schemas/iam_account/properties/settings/properties/abuse_contact_email",
   );
+  // Worker detail responses can include domain references without
+  // certificate_id. Keep the provider response visible as-is instead of
+  // patching validated payloads at request time.
+  markSchemaPropertyOptional({
+    document,
+    pointer: "#/components/schemas/workers_Worker/properties/references/properties/domains/items",
+    property: "certificate_id",
+  });
   // Workers Builds operation schemas own the concrete result shape. The shared
   // envelope currently says result is an object, which rejects list endpoints
   // whose documented and observed result is an array.
@@ -279,6 +287,25 @@ function markSchemaNullable(document: JsonRecord, pointer: string): void {
     throw new Error(`Expected Cloudflare API schema ${pointer} to be an object.`);
   }
   schema["nullable"] = true;
+}
+
+function markSchemaPropertyOptional(args: {
+  document: JsonRecord;
+  pointer: string;
+  property: string;
+}): void {
+  const schema = readJsonPointer(args.document, args.pointer);
+  if (!isRecord(schema)) {
+    throw new Error(`Expected Cloudflare API schema ${args.pointer} to be an object.`);
+  }
+  const required = schema["required"];
+  if (!Array.isArray(required)) {
+    throw new Error(`Expected Cloudflare API schema ${args.pointer} to have required fields.`);
+  }
+  if (!required.includes(args.property)) {
+    throw new Error(`Expected Cloudflare API schema ${args.pointer} to require ${args.property}.`);
+  }
+  schema["required"] = required.filter((field) => field !== args.property);
 }
 
 /**

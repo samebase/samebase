@@ -21946,7 +21946,7 @@
                       "type": "string"
                     }
                   },
-                  "required": ["id", "hostname", "zone_id", "zone_name", "certificate_id"],
+                  "required": ["id", "hostname", "zone_id", "zone_name"],
                   "type": "object"
                 },
                 "type": "array"
