@@ -835,6 +835,7 @@ describe("VaultProviderSetupSection", () => {
           message:
             "Cloudflare Workers and Pages GitHub App is not authorized for ada/tmp-myapp1234. Follow Cloudflare's recovery steps at https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ada/tmp-myapp1234, then retry.",
           updatedAt: 0,
+          nextAction: "retry_infrastructure_provisioning",
         }}
       />,
     );
@@ -1613,6 +1614,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           step: "attach_worker",
           message: "Cloudflare Worker connection failed.",
           updatedAt: 30,
+          nextAction: "connect_cloudflare_worker",
         },
       }),
     });
@@ -1655,6 +1657,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           step: "attach_worker",
           message: "Cloudflare Workers and Pages GitHub App is not authorized.",
           updatedAt: 30,
+          nextAction: "retry_infrastructure_provisioning",
         },
       }),
     });
@@ -1699,6 +1702,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           step: "attach_convex",
           message: "Convex setup failed.",
           updatedAt: 30,
+          nextAction: "retry_infrastructure_provisioning",
         },
       }),
     });
@@ -1741,6 +1745,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           step: "attach_worker",
           message: "Cloudflare setup failed.",
           updatedAt: 30,
+          nextAction: "retry_infrastructure_provisioning",
         },
       }),
     });
@@ -1776,6 +1781,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           step: "attach_convex",
           message: "Convex deployment connection failed.",
           updatedAt: 30,
+          nextAction: "connect_convex_deployment",
         },
       }),
     });
@@ -1870,7 +1876,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            convexDeployKeys: { state: "missing" },
+            convexDeployKeys: { state: "missing", nextAction: "wire_convex_build_access" },
             githubRepositoryConnection: { state: "connected" },
             lastObservedAt: 40,
             workerName: "demo-worker",
@@ -1958,7 +1964,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            githubRepositoryConnection: { state: "not_connected" },
+            githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
             workerName: "demo-worker",
             workersDevUrl: "https://demo-worker.ada.workers.dev",
           }),
@@ -2005,7 +2011,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            convexDeployKeys: { state: "missing" },
+            convexDeployKeys: { state: "missing", nextAction: "wire_convex_build_access" },
             githubRepositoryConnection: { state: "connected" },
             lastObservedAt: 40,
             workerName: "demo-worker",
@@ -2057,7 +2063,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           makeResourceRailCloudflareWorker({
             appRoot: ".",
             convexDeployKeys: { state: "not_applicable" },
-            githubRepositoryConnection: { state: "not_connected" },
+            githubRepositoryConnection: { state: "not_connected", nextAction: "wire_builds" },
             workerName: "demo-worker",
             workersDevUrl: "https://demo-worker.ada.workers.dev",
           }),
@@ -2071,6 +2077,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           message:
             "Cannot connect Cloudflare Worker worker-tag to ada/demo: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
           updatedAt: 30,
+          nextAction: "connect_cloudflare_worker",
         },
       }),
     });
@@ -2124,7 +2131,7 @@ describe("buildVaultDashboardResourceRailState", () => {
         cloudflareWorkers: [
           makeResourceRailCloudflareWorker({
             appRoot: ".",
-            convexDeployKeys: { state: "missing" },
+            convexDeployKeys: { state: "missing", nextAction: "wire_convex_build_access" },
             githubRepositoryConnection: { state: "connected" },
             lastObservedAt: 40,
             workerName: "demo-worker",
@@ -2140,6 +2147,7 @@ describe("buildVaultDashboardResourceRailState", () => {
           message:
             "Cannot connect Cloudflare Worker worker-tag to ada/demo: Cloudflare did not return the existing production Workers Builds trigger. Retry Workers Builds wiring or choose another Worker.",
           updatedAt: 30,
+          nextAction: "connect_cloudflare_worker",
         },
       }),
     });

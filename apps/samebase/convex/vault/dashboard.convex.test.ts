@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
+import { readProviderSetupFailedNextAction } from "./dashboard";
 import { VAULT_LOCAL_CLEANUP_BATCH_SIZE } from "./deletion/cleanup";
 
 const appRoot = ".";
@@ -2443,5 +2444,22 @@ describe("vault dashboard Convex contract", () => {
       _id: ids.auditId,
       requestId: ids.requestId,
     });
+  });
+});
+
+describe("provider setup failed nextAction", () => {
+  it("maps every provider/source combination to its shipped remedy", () => {
+    expect(readProviderSetupFailedNextAction({ provider: "convex", source: "managed" })).toBe(
+      "retry_infrastructure_provisioning",
+    );
+    expect(readProviderSetupFailedNextAction({ provider: "cloudflare", source: "managed" })).toBe(
+      "retry_infrastructure_provisioning",
+    );
+    expect(readProviderSetupFailedNextAction({ provider: "convex", source: "manual" })).toBe(
+      "connect_convex_deployment",
+    );
+    expect(readProviderSetupFailedNextAction({ provider: "cloudflare", source: "manual" })).toBe(
+      "connect_cloudflare_worker",
+    );
   });
 });

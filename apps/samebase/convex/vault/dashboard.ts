@@ -17,6 +17,8 @@ import { vVaultResourceLinksState } from "./resourceLinksStateModel";
 import { canAccess } from "../../shared/accessModel";
 import {
   getUserVaultsContract,
+  type CloudflareWorkerConvexDeployKeys,
+  type CloudflareWorkerGithubRepositoryConnection,
   type ProviderSetupSummary,
   type SourceSetupSummary,
   type UserVaultResult,
@@ -114,6 +116,22 @@ function getSourceSetupVaultFallbackUpdatedAt(vault: SourceSetupVault): number {
   }
 }
 
+/**
+ * Managed runs only exist on Samebase-managed vaults (create workflow), where
+ * the run retry action is available; manual runs repair by re-running the
+ * matching manual connect flow (specs 105/106).
+ */
+export function readProviderSetupFailedNextAction(args: {
+  provider: "convex" | "cloudflare";
+  source: "managed" | "manual";
+}): Extract<ProviderSetupSummary, { status: "failed" }>["nextAction"] {
+  if (args.source === "manual") {
+    return args.provider === "convex" ? "connect_convex_deployment" : "connect_cloudflare_worker";
+  }
+
+  return "retry_infrastructure_provisioning";
+}
+
 async function readProviderRunSummary(
   ctx: Pick<QueryCtx, "db">,
   args: {
@@ -134,6 +152,7 @@ async function readProviderRunSummary(
       step: "run_created",
       message: "Provisioning run not found.",
       updatedAt: args.fallbackUpdatedAt,
+      nextAction: readProviderSetupFailedNextAction(args),
     };
   }
 
@@ -157,6 +176,7 @@ async function readProviderRunSummary(
     step: run.currentStep,
     message,
     updatedAt: run.updatedAt,
+    nextAction: readProviderSetupFailedNextAction(args),
   };
 }
 
@@ -292,18 +312,18 @@ function readManualProviderFromRun(
   }
 }
 
-function resolveCloudflareWorkerGithubRepositoryConnection(worker: ConnectedCloudflareWorker): {
-  state: "connected" | "not_connected";
-} {
-  return {
-    state: worker.deployment.builds.state === "connected" ? "connected" : "not_connected",
-  };
+function resolveCloudflareWorkerGithubRepositoryConnection(
+  worker: ConnectedCloudflareWorker,
+): CloudflareWorkerGithubRepositoryConnection {
+  return worker.deployment.builds.state === "connected"
+    ? { state: "connected" }
+    : { state: "not_connected", nextAction: "wire_builds" };
 }
 
 function resolveCloudflareWorkerConvexDeployKeys(
   worker: ConnectedCloudflareWorker,
   convexDeployments: ConnectedConvexDeployment[],
-): { state: "missing" | "not_applicable" | "set" } {
+): CloudflareWorkerConvexDeployKeys {
   const hasConvexDeployment = convexDeployments.some(
     (deployment) => deployment.appRoot === worker.appRoot,
   );
@@ -311,9 +331,9 @@ function resolveCloudflareWorkerConvexDeployKeys(
     return { state: "not_applicable" };
   }
 
-  return {
-    state: worker.deployment.convexBuildAccess.state === "wired" ? "set" : "missing",
-  };
+  return worker.deployment.convexBuildAccess.state === "wired"
+    ? { state: "set" }
+    : { state: "missing", nextAction: "wire_convex_build_access" };
 }
 
 async function resolveProviderSetupSummary(
