@@ -459,6 +459,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-convex-schema-route-mobile.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-app-root-dialog.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-add-first-app-root-dialog.png",
+  "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-cloudflare-build-trigger-missing.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-connect-cloudflare-dialog.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-connect-cloudflare-worker-select-mobile.png",
   "apps/samebase/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-connect-convex-dialog.png",

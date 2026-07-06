@@ -410,13 +410,11 @@ export function buildVaultDashboardResourceRailState({
       let cloudflareDescription: string | undefined;
       if (
         canRepairCloudflareWorkers &&
-        (worker.githubRepositoryConnection.state === "not_connected" ||
-          hasMissingCloudflareBuildsTriggerFailure(vault))
+        worker.githubRepositoryConnection.state === "not_connected"
       ) {
-        cloudflareDescription =
-          worker.githubRepositoryConnection.state === "not_connected"
-            ? "Cloudflare is not connected to this GitHub repository."
-            : "Cloudflare's saved Workers Builds trigger is missing.";
+        cloudflareDescription = hasMissingCloudflareBuildsTriggerFailure(vault)
+          ? "Cloudflare's saved Workers Builds trigger is missing."
+          : "Cloudflare is not connected to this GitHub repository.";
         cloudflareAction = buildConnectCloudflareGithubRepoAction(worker.appRoot);
       } else if (canRepairCloudflareWorkers && worker.convexDeployKeys.state === "missing") {
         cloudflareDescription = "Cloudflare does not have this Convex deployment's deploy keys.";
