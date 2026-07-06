@@ -1,6 +1,7 @@
 import { type RegisteredRouter, type RouterState } from "@tanstack/react-router";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
+import { parseRepositoryFullName } from "../../shared/repoName";
 
 type RouteSearch = RouterState<RegisteredRouter["routeTree"]>["location"]["search"];
 
@@ -24,19 +25,10 @@ export async function queueExistingRepositoryAndNavigateToDashboard(args: {
   search: RouteSearch;
 }) {
   await args.connectRepository({ repositoryFullName: args.repositoryFullName });
-  const separatorIndex = args.repositoryFullName.indexOf("/");
-  const hasOneSeparator =
-    separatorIndex > 0 &&
-    separatorIndex < args.repositoryFullName.length - 1 &&
-    args.repositoryFullName.indexOf("/", separatorIndex + 1) === -1;
-  if (!hasOneSeparator) {
-    throw new Error("Invalid repository full name");
-  }
-  const owner = args.repositoryFullName.slice(0, separatorIndex);
-  const repoName = args.repositoryFullName.slice(separatorIndex + 1);
+  const { owner, name } = parseRepositoryFullName(args.repositoryFullName);
   await args.navigateByHref(
     buildPathWithTanStackSearch({
-      pathname: buildVaultDashboardRoute({ owner, repoName }),
+      pathname: buildVaultDashboardRoute({ owner, repoName: name }),
       search: args.search,
     }),
     args.replace ? { replace: true } : undefined,

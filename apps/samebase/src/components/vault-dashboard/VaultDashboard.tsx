@@ -119,6 +119,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { CHAT_ENABLED, CODESPACES_ENABLED } from "../../../shared/featureFlags";
 import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import { tryParseRepositoryFullName } from "../../../shared/repoName";
 import { ROOT_VAULT_APP_ROOT } from "../../../shared/vaultAppRoot";
 import {
   CloudflareProviderLogo,
@@ -1772,21 +1773,14 @@ function buildVaultDashboardBranchRoute(args: {
   branchName: string;
   openChangedFiles: boolean;
 }): string | null {
-  const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
-
-  if (
-    !owner ||
-    !repoName ||
-    typeof extraSegment === "string" ||
-    owner.length === 0 ||
-    repoName.length === 0
-  ) {
+  const repository = tryParseRepositoryFullName(args.repositoryFullName);
+  if (repository === null) {
     return null;
   }
 
   const branchRoute = buildVaultFileRoute({
-    owner,
-    repoName,
+    owner: repository.owner,
+    repoName: repository.name,
     branch: args.branchName,
   });
 
@@ -1807,15 +1801,8 @@ function buildVaultDashboardBranchConvexLinks(args: {
   convexDeployments: readonly VaultDashboardConvexDeployment[];
   schemaGraphAccessEnabled: boolean;
 }): VaultBranchConvexLink[] {
-  const [owner, repoName, extraSegment] = args.repositoryFullName.split("/");
-
-  if (
-    !owner ||
-    !repoName ||
-    typeof extraSegment === "string" ||
-    owner.length === 0 ||
-    repoName.length === 0
-  ) {
+  const repository = tryParseRepositoryFullName(args.repositoryFullName);
+  if (repository === null) {
     return [];
   }
 
@@ -1829,8 +1816,8 @@ function buildVaultDashboardBranchConvexLinks(args: {
       const links = [
         {
           href: buildVaultDatabaseRoute({
-            owner,
-            repoName,
+            owner: repository.owner,
+            repoName: repository.name,
             branch: args.branchName,
             appRoot: deployment.appRoot,
           }),
@@ -1844,8 +1831,8 @@ function buildVaultDashboardBranchConvexLinks(args: {
       if (args.schemaGraphAccessEnabled) {
         links.push({
           href: buildVaultSchemaRoute({
-            owner,
-            repoName,
+            owner: repository.owner,
+            repoName: repository.name,
             branch: args.branchName,
             appRoot: deployment.appRoot,
           }),

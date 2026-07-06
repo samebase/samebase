@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { parseRepositoryFullName } from "../shared/repoName";
 import { signInIfNeeded } from "./liveHelpers";
 
 // Worktree runs can override this so the temporary repo prefix follows the
@@ -23,11 +24,7 @@ function buildTemporaryResourceName(): string {
 }
 
 function getRepositoryName(repositoryFullName: string): string {
-  const repositoryName = repositoryFullName.split("/")[1];
-  if (!repositoryName) {
-    throw new Error(`Invalid repository full name: ${repositoryFullName}`);
-  }
-  return repositoryName;
+  return parseRepositoryFullName(repositoryFullName).name;
 }
 
 function removeVaultControl(page: Page, repoName: string): Locator {

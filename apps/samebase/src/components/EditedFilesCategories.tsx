@@ -13,6 +13,7 @@ import {
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import type { Id } from "../../convex/_generated/dataModel";
+import { tryParseRepositoryFullName } from "../../shared/repoName";
 
 type StagedFile = NonNullable<Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>>;
 type StagedFilesSummary = NonNullable<
@@ -145,13 +146,13 @@ export function EditedFilesCategories({
   );
   const navigateToStagedFile = useCallback(
     (file: StagedFile) => {
-      const [owner, repoName] = repositoryFullName.split("/");
-      if (!owner || !repoName) {
+      const repository = tryParseRepositoryFullName(repositoryFullName);
+      if (repository === null) {
         return;
       }
       const nextPath = buildVaultFileRoute({
-        owner,
-        repoName,
+        owner: repository.owner,
+        repoName: repository.name,
         branch,
         filePath: file.filePath,
       });

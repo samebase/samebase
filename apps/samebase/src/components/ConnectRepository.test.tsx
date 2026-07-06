@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { parseRepositoryFullName } from "../../shared/repoName";
 import {
   ConnectRepositoryPageContent,
   type ConnectRepositoryRepository,
@@ -12,16 +13,11 @@ type ConnectRepositoryPageContentProps = Parameters<typeof ConnectRepositoryPage
 const noop = () => {};
 
 function buildRepository(id: number, fullName: string): ConnectRepositoryRepository {
-  const slashIndex = fullName.indexOf("/");
-  if (slashIndex === -1) {
-    throw new Error(`Invalid repository full name: ${fullName}`);
-  }
-
-  const repoName = fullName.slice(slashIndex + 1);
+  const { name } = parseRepositoryFullName(fullName);
 
   return {
     id,
-    name: repoName,
+    name,
     full_name: fullName,
     html_url: `https://github.com/${fullName}`,
     description: null,

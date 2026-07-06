@@ -1,3 +1,5 @@
+import { tryParseRepositoryFullName } from "../../shared/repoName";
+
 type SearchableRepository = {
   name: string;
   full_name: string;
@@ -43,11 +45,7 @@ export function getFuzzyMatchIndices(query: string, target: string): number[] | 
 }
 
 function readRepositoryOwner(fullName: string): string {
-  const slashIndex = fullName.indexOf("/");
-  if (slashIndex === -1) {
-    return "";
-  }
-  return fullName.slice(0, slashIndex);
+  return tryParseRepositoryFullName(fullName)?.owner ?? "";
 }
 
 export function findRepositorySearchMatch(
