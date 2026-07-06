@@ -167,9 +167,16 @@ For a Workers version of the artifact:
   `Build command`, and local deploy wrappers can run the build before Wrangler.
 - Do not tell users to leave the Cloudflare Workers Git build command empty. Workers Builds has its
   own dashboard build command and currently does not honor Wrangler custom build settings there.
+- Explain the Workers Builds variable UI gap in the generated template docs: the API supports
+  per-trigger build variables for production and preview triggers, but the dashboard setup path does
+  not expose a Pages-style production/preview selector for build variables.
 - Keep Convex deploy-key names aligned with Samebase production and Samebase-provisioned generated
   apps: `PROD_CONVEX_DEPLOY_KEY` for `main`, `PREVIEW_CONVEX_DEPLOY_KEY` for non-production
   branches, and no generic `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
+- Explain why those split names exist: the build script reads `WORKERS_CI_BRANCH`, selects the
+  branch-appropriate secret, and passes only that selected value to the child deploy process under
+  the provider's expected generic variable name. This keeps dashboard-managed setup safe despite the
+  missing production/preview variable selector.
 - Document Convex deploy-key permissions with the current least-privilege split: production
   `PROD_CONVEX_DEPLOY_KEY` is a production deployment key with exactly `deployment:deploy`,
   `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; do not add data write,

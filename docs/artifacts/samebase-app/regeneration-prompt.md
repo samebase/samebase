@@ -88,6 +88,13 @@ For a Workers/TanStack Start version:
 - Use the split Convex deploy-key contract: `PROD_CONVEX_DEPLOY_KEY` for the
   production branch, `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches,
   and no generic `CONVEX_DEPLOY_KEY` in the parent Workers build environment.
+- In the generated template docs, explain the Cloudflare Workers Builds UI
+  limitation that motivates those split names: the API supports per-trigger
+  build variables for production and preview triggers, but the dashboard setup
+  path does not expose a Pages-style production/preview selector for build
+  variables. Explain that the build script reads `WORKERS_CI_BRANCH`, picks the
+  right split secret, and passes only the selected value to the deploy child
+  process.
 - Document the current Convex permission split: production `PROD_CONVEX_DEPLOY_KEY`
   is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
   `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,

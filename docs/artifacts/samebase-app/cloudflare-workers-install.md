@@ -70,6 +70,17 @@ Build variables and secrets are available only during the Workers build. The tem
 `PROD_CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` as build secrets so Cloudflare can deploy
 the matching Convex deployment before producing static assets.
 
+Cloudflare Workers Builds has two build triggers under the hood: one for the production branch and
+one for preview branches. The Builds API can set build variables per trigger, but the dashboard
+setup path does not expose a Pages-style production/preview environment selector in the build
+variables UI. Treat that as a Workers dashboard limitation when migrating from Pages.
+
+The template works around that UI limitation by storing two differently named build secrets in the
+same dashboard table. `scripts/build-cloudflare.ts` reads `WORKERS_CI_BRANCH`, selects
+`PROD_CONVEX_DEPLOY_KEY` for `main` or `PREVIEW_CONVEX_DEPLOY_KEY` for other branches, and passes
+only the selected value to the deploy subprocess. Do not store a generic `CONVEX_DEPLOY_KEY` in
+Workers Builds; that reintroduces the accidental production/preview mix-up the split names avoid.
+
 `PROD_CONVEX_DEPLOY_KEY` must contain a Convex production deploy key with exactly these permissions:
 
 - `deployment:deploy`
@@ -134,6 +145,8 @@ Recommended dashboard values for the artifact:
 
 - Cloudflare Workers Builds configuration:
   <https://developers.cloudflare.com/workers/ci-cd/builds/configuration/>
+- Cloudflare Workers Builds API reference:
+  <https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/>
 - Cloudflare Workers Builds overview: <https://developers.cloudflare.com/workers/ci-cd/builds/>
 - Cloudflare Wrangler custom builds:
   <https://developers.cloudflare.com/workers/wrangler/custom-builds/>
