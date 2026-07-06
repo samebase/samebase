@@ -887,6 +887,20 @@ export const connectCloudflareWorker = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "attach_worker",
+        level: "info",
+        message:
+          args.origin === "provisioned"
+            ? "Creating Cloudflare Worker."
+            : "Connecting Cloudflare Worker.",
+        state: "running",
+      },
+      { name: "start_attach_worker" },
+    );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareWorkerConnection, args, {
       name: "attach_worker",
       retry: false,
@@ -990,6 +1004,17 @@ export const wireCloudflareBuilds = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "wire_builds",
+        level: "info",
+        message: "Wiring Cloudflare Workers Builds.",
+        state: "running",
+      },
+      { name: "start_wire_builds_step" },
+    );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareBuildsWiring, args, {
       name: "wire_builds",
       retry: false,
@@ -1065,6 +1090,17 @@ export const wireCloudflareConvexBuildAccess = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "wire_convex_build_access",
+        level: "info",
+        message: "Wiring Convex build access.",
+        state: "running",
+      },
+      { name: "start_wire_convex_build_access_step" },
+    );
     await step.runAction(internal.vault.cloudflare.ensureCloudflareConvexBuildAccessWiring, args, {
       name: "wire_convex_build_access",
       retry: false,
@@ -1107,6 +1143,17 @@ export const connectConvexDeployment = workflow.define({
       return null;
     }
 
+    await step.runMutation(
+      internal.appProvisioningRuns.appendRunEvent,
+      {
+        runId: args.runId,
+        step: "attach_convex",
+        level: "info",
+        message: "Attaching Convex deployment.",
+        state: "running",
+      },
+      { name: "start_attach_convex" },
+    );
     await step.runAction(internal.vault.convex.ensureConvexDeploymentConnection, args, {
       name: "attach_convex",
       retry: false,

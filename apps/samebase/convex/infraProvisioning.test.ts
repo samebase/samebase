@@ -221,6 +221,38 @@ describe("markWorkflowProvisioningFailed", () => {
     });
   });
 
+  it("records Cloudflare Worker name conflicts on Worker attach runs", async () => {
+    const t = makeConvexTest();
+    const ids = await seedRun(t, {
+      repoName: "existing-worker-name",
+      trigger: "connect_cloudflare_worker",
+      currentStep: "attach_worker",
+      workflowId: "workflow-existing-worker-name",
+      connectedVault: true,
+      activeOwnership: true,
+    });
+    const expectedMessage =
+      "Cloudflare Worker name existing-worker-name already exists. Choose another Worker name and try again.";
+
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-existing-worker-name",
+      message: `Error: Uncaught Error: ${expectedMessage}\n    at handler (../../convex/vault/cloudflare.ts:911:8)`,
+    });
+
+    const result = await readRunAndFirstEvent(t, ids.runId);
+
+    expect(result.run).toMatchObject({
+      state: "failed",
+      lastError: expectedMessage,
+    });
+    expect(result.event).toMatchObject({
+      step: "attach_worker",
+      level: "error",
+      message: expectedMessage,
+    });
+  });
+
   it("marks active Convex child-run ownership as failed", async () => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {
