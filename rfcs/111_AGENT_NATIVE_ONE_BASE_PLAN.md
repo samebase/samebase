@@ -60,20 +60,20 @@ because an agent can evaluate receipts better than a hero section can persuade a
 The repo has been converging on this design for months. The plan below is mostly composition, not
 construction.
 
-| Capability                                                                                                                                                        | Where                                                                                                    | Status                                                                                             |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Durable per-provider state blocks (`source_setup`, `attach_convex`, `attach_worker`, `wire_builds`, `wire_convex_build_access`), ownership fencing, run/event log | `apps/samebase/convex/appProvisioningWorkflow.ts`, `vaultConvexDeployments`, `vaultCloudflareWorkers`    | Landed — all 5 phases of rfcs/090 shipped (v1645–v1648)                                            |
-| Entry-path convergence: create, manual attach, dashboard repairs, retry all run the same blocks                                                                   | `runComposedInfrastructure` (`apps/samebase/convex/appProvisioningWorkflow.ts:712-786`)                  | Landed; import leaves providers `not_configured` by design (spec 096); cleanup is a parallel model |
-| Per-action contract objects: access + args + returns + MCP name/description/safety colocated with the function                                                    | `apps/samebase/convex/vault/createRepositoryContract.ts`, `.../getUserVaultsContract.ts`                 | Live for 2 actions; rfcs/089 status line is stale (says Draft, is implemented)                     |
-| Convex validator → JSON Schema derivation for MCP tools                                                                                                           | `apps/samebase/convex/toolRuntime/convexSchemas.ts:111-134`                                              | Live                                                                                               |
-| MCP server with OAuth + PKCE + dynamic client registration, scopes = `access_*` keys                                                                              | `apps/samebase/convex/mcp/http.ts`, `apps/samebase/convex/mcp/protocol.ts`                               | Live (this plan was partly researched through it)                                                  |
-| Agent-queryable status object per vault (`sourceSetup`, `providerSetup`, per-worker connection + key states)                                                      | `getUserVaults` (`apps/samebase/convex/vault/dashboard.ts:919-927`), MCP `vault_dashboard_getUserVaults` | Live; missing an explicit `nextAction` field                                                       |
-| Receipts corpus with source links and precision caveats                                                                                                           | `research/2026-07-02-landing-copy-receipts.md`                                                           | Researched, unshipped                                                                              |
-| Public docs routes                                                                                                                                                | `/docs/the-stack`, `/docs/do-it-yourself`, `/pricing`                                                    | Exist; not yet markdown-first or llms.txt-indexed                                                  |
-| Pre-account MCP onboarding flow                                                                                                                                   | `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`                                                        | Prior art for agent-initiated signup                                                               |
+| Capability                                                                                                                                                        | Where                                                                                                                                                  | Status                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Durable per-provider state blocks (`source_setup`, `attach_convex`, `attach_worker`, `wire_builds`, `wire_convex_build_access`), ownership fencing, run/event log | `apps/samebase/convex/appProvisioningWorkflow.ts`, `vaultConvexDeployments`, `vaultCloudflareWorkers`                                                  | Landed — all 5 phases of rfcs/090 shipped (v1645–v1648)                                                                       |
+| Entry-path convergence: create, manual attach, dashboard repairs, retry all run the same blocks                                                                   | `runComposedInfrastructure` (`apps/samebase/convex/appProvisioningWorkflow.ts:555`), composed by `provisionApp` (`appProvisioningWorkflow.ts:712-786`) | Landed; import leaves providers `not_configured` by design (spec 096); cleanup is a parallel model                            |
+| Per-action contract objects: access + args + returns + MCP name/description/safety colocated with the function                                                    | `apps/samebase/convex/vault/createRepositoryContract.ts`, `.../getUserVaultsContract.ts`                                                               | Live for 2 actions; rfcs/089 status line is stale (says Draft, is implemented)                                                |
+| Convex validator → JSON Schema derivation for MCP tools                                                                                                           | `apps/samebase/convex/toolRuntime/convexSchemas.ts:111-134`                                                                                            | Live                                                                                                                          |
+| MCP server with OAuth + PKCE + dynamic client registration, scopes = `access_*` keys                                                                              | `apps/samebase/convex/mcp/http.ts`, `apps/samebase/convex/mcp/protocol.ts`                                                                             | Live (this plan was partly researched through it)                                                                             |
+| Agent-queryable status object per vault (`sourceSetup`, `providerSetup`, per-worker connection + key states)                                                      | `getUserVaults` (`apps/samebase/convex/vault/dashboard.ts:919-927`), MCP `vault_dashboard_getUserVaults`                                               | Live; missing an explicit `nextAction` field                                                                                  |
+| Receipts corpus with source links and precision caveats                                                                                                           | `research/2026-07-02-landing-copy-receipts.md`                                                                                                         | Researched, unshipped                                                                                                         |
+| Public docs routes with markdown sources                                                                                                                          | `/landing-preview` (overview), `/docs/the-stack`, `/docs/do-it-yourself`; sources in `apps/samebase/src/content/`                                      | Exist and prerendered; not yet raw-served or llms.txt-indexed. `/pricing` is dashboard-gated (`access_dashboard`), not public |
+| Pre-account MCP onboarding flow                                                                                                                                   | `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`                                                                                                      | Prior art for agent-initiated signup                                                                                          |
 
-What does **not** exist anywhere yet: `llms.txt`, raw-markdown doc serving, generated action docs,
-comparison pages, or any agent-facing marketing surface. That is the greenfield.
+What does **not** exist yet: generated action docs, comparison pages, and a public pricing page.
+(`/llms.txt` and raw `.md` serving of the markdown-sourced docs land with this RFC's first slice.)
 
 ## The Invariant: One Contract Per Action
 
@@ -172,11 +172,12 @@ page (and the landing itself) must deliver its full content in a single unauthen
 no JavaScript execution, and read clean after text extraction.
 
 1. **Prerendered semantic HTML is the foundation, and it already exists.** Every `access_public`
-   concrete route — `/`, `/docs/*`, `/pricing` — is prerendered to static HTML at build time
+   concrete route — `/`, `/landing-preview`, `/docs/*` — is prerendered to static HTML at build time
    (`apps/samebase/dev/publicPrerenderPages.ts`). Agent fetchers convert HTML to text, and the app's
    deliberately plain rectangular markup extracts cleanly. This is why the hero prompt points at
    `samebase.com` itself rather than a machine-only file, and why Phase 1 is a content problem, not
-   a plumbing problem.
+   a plumbing problem. (`/pricing` is not part of this surface today: it is an authenticated
+   dashboard page, `access_dashboard`; the public pricing surface ships in Phase 3.)
 2. **Raw markdown as a near-free add-on.** Corpus pages are authored (or generated from contracts)
    as markdown, so also serving each page as `.md` — and honoring `Accept: text/markdown` content
    negotiation with `Vary: Accept` ([acceptmarkdown.com](https://acceptmarkdown.com)) — costs little
@@ -233,12 +234,15 @@ If the landing page is a prompt, its correctness is testable. Treat the corpus l
 
 Phase 1 — **Corpus** (no product-behavior changes; independent of Phase 2):
 
-- Write the conviction-with-receipts doc, the no-account recipe, the Leaving Test page, and the
-  Lovable comparison onto the already-prerendered `/docs` surface; add the `.md` renderings and
-  `/llms.txt`.
-- Run the first manual eval round; fix the corpus until answers are correct and fair.
-- First PR slice: the stack doc with receipts on the prerendered docs surface + `/llms.txt` + the
-  question panel in `research/`.
+- Already existed before this plan: the overview (`/landing-preview`, carrying the leaving test),
+  the stack doc, and the no-account recipe — prerendered pages with markdown sources in
+  `apps/samebase/src/content/`.
+- First PR slice (ships with this RFC): the `/docs/receipts` page — the dated claims ledger — plus
+  raw `.md` renderings of the markdown-sourced docs, `/llms.txt`, and the eval question panel in
+  `research/2026-07-06-agent-landing-eval-questions.md`.
+- The Lovable comparison ships as its own follow-up PR; the most sensitive copy gets focused review.
+- Run the first manual eval round once this slice deploys; fix the corpus until answers are correct
+  and fair.
 
 Phase 2 — **Catalog** (extends live rfcs/089 machinery):
 
@@ -260,6 +264,8 @@ Phase 3 — **Landing swap** (depends on Phase 1's eval passing):
 
 - Fixed hero with the paste-able prompt (supersedes the spec 035 slogan rotation — additive
   minimalism: one message, not a rotating one). Screenshot coverage per repo policy.
+- Public pricing surface: today `/pricing` is an authenticated dashboard page; agents evaluating
+  cost need an unauthenticated answer, which ships here together with the settled Samebase pricing.
 - The proof demo, two cuts: (a) after Phase 1, a fresh agent session answering the comparison
   question live; (b) after Phase 2, the full loop — agent reads corpus, connects MCP, creates an
   app, reports the workers.dev URL, and then the operator deletes the Samebase account on camera and
