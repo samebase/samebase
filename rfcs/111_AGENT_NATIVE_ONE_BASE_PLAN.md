@@ -96,6 +96,59 @@ holding only the contracts could still operate everything):
 Tool-name string literals scattered through `usageAttribution.ts` and tests should import
 `contract.mcp.name` as part of the same consolidation.
 
+## The API Boundary: Wrap The Join, Not The Providers
+
+An agent that can run `gh`, `wrangler`, and `npx convex` already has near-total provider coverage,
+and the providers ship their own MCP servers. Samebase cannot and should not compete on breadth — a
+wrapper that chases provider API surface is permanently behind and permanently thin. The boundary
+rule:
+
+**Samebase wraps an operation only when at least one of these holds:**
+
+1. It spans more than one provider in a single transaction (`createRepository`, `wire_builds`,
+   `wire_convex_build_access`).
+2. It must update the durable registry to stay truthful (attach, import, retry). The record that
+   "this repo + this deployment + this Worker + these triggers + these keys are one app, currently
+   in state X" is the thing no provider console or CLI session holds — provider tools have 100%
+   coverage and 0% shared state.
+3. It encodes a learned failure mode. The rfcs/090 blocks are crystallized debugging — wrong-repo
+   trigger adoption, preview key naming, mega-step partial states. A visiting agent freestyling the
+   same steps with raw provider tools is the pre-090 world again, with its mistakes landing in the
+   registry as stale state.
+
+Everything else — logs, env vars, migrations, custom domains, D1/queues/crons, all day-2 operations
+— is deliberately never wrapped. Breadth is served by the other two legs of the design:
+
+- **Rich nouns**: `getUserVaults` already returns every coordinate an agent needs to go direct
+  (deployment names, team/project slugs, `workers.dev` URLs, provider dashboard URLs). The status
+  noun is the hand-off payload.
+- **Taught referrals**: corpus docs under `/docs/operate/*` give the exact provider-direct recipe
+  against those coordinates ("tail production logs: `npx convex logs --prod` for deployment
+  `<deploymentName>`"), and recommend the official provider MCP servers and CLIs by name. This is
+  the no-account philosophy applied to the API: where knowledge suffices, ship knowledge, not a
+  wrapper — and an agent evaluating Samebase reads the referrals as an anti-lock-in receipt.
+
+Two structural facts make the thin verb surface safe rather than limiting:
+
+- **The verbs are already built.** The 090 blocks exist because the product needs them (dashboard
+  provisioning, repair buttons, retry, fencing, event log). MCP exposure of a block is a contract
+  file, not new provisioning code — "how much to expose" is a copy decision, not an engineering
+  program.
+- **Adoption is the escape hatch.** Whatever users or agents build outside the opinionated default,
+  the specs 105/106 manual-attach flows import back into the registry. Opinionated composition out,
+  universal adoption in: variation never forks the record.
+
+The wrapped verbs also stay irreplaceable for one reason no CLI teaching can fix:
+credentials-anywhere. Provider-direct requires provider credentials on the local machine; Samebase
+holds OAuth grants server-side, so the same verbs work from ChatGPT, a phone, or a fresh CI job with
+one Samebase auth, under single-owner fencing across providers.
+
+The v1 MCP catalog is therefore exactly the dashboard's operational buttons, nothing more: the
+status noun `getUserVaults` (+ `nextAction`), and the verbs `createRepository`,
+`connectExistingRepository`, `connect_convex_deployment`, `connect_cloudflare_worker`,
+`wire_builds`, `wire_convex_build_access`, `retry`. Roughly eight tools — small enough that tool
+choice stays reliable, and identical by construction to what a human sees.
+
 ## The Front Door: Directed Retrieval, Not Ambient SEO
 
 The landing concept — "ask your coding agent about samebase.com" — is supported by evidence in its
@@ -109,17 +162,32 @@ Recommended hero (one exact recommendation, replacing the rotating slogan from s
 
 > **Don't take our word for it.** Paste this into Claude Code, Codex, or Cursor:
 >
-> `Read https://samebase.com/llms.txt and tell me whether my next app should start on Samebase.`
+> `Read https://samebase.com and tell me whether my next app should start on Samebase.`
 
 Second CTA: connect the MCP server now. Third: plain sign-in. Below the fold stays close to today's
 minimalism — the thesis paragraph, the Leaving Test, and links into the corpus for humans who read.
 
+Delivery is one requirement with three renderings, in priority order. The requirement: every corpus
+page (and the landing itself) must deliver its full content in a single unauthenticated fetch, with
+no JavaScript execution, and read clean after text extraction.
+
+1. **Prerendered semantic HTML is the foundation, and it already exists.** Every `access_public`
+   concrete route — `/`, `/docs/*`, `/pricing` — is prerendered to static HTML at build time
+   (`apps/samebase/dev/publicPrerenderPages.ts`). Agent fetchers convert HTML to text, and the app's
+   deliberately plain rectangular markup extracts cleanly. This is why the hero prompt points at
+   `samebase.com` itself rather than a machine-only file, and why Phase 1 is a content problem, not
+   a plumbing problem.
+2. **Raw markdown as a near-free add-on.** Corpus pages are authored (or generated from contracts)
+   as markdown, so also serving each page as `.md` — and honoring `Accept: text/markdown` content
+   negotiation with `Vary: Accept` ([acceptmarkdown.com](https://acceptmarkdown.com)) — costs little
+   and buys token-cheap fetches plus byte-deterministic content for the eval harness and the demo
+   video. An optimization, not the strategy.
+3. **`/llms.txt` as the generated index.** One llmstxt.org-format file listing the corpus, emitted
+   from the catalog. Kept because it is free and some tools look for it — convention compliance,
+   demoted from strategy.
+
 The agent-facing corpus behind that URL:
 
-- `/llms.txt` — llmstxt.org-format index: H1, blockquote thesis, H2 sections linking every doc
-  below. Emitted from the catalog, not hand-curated.
-- `/docs/*` pages served markdown-first (each page reachable as raw `.md`, the pattern Stripe and
-  Cloudflare ship today), including the existing `the-stack` and `do-it-yourself` routes.
 - **The conviction with receipts** — the stack argument carrying source links and retrieved-on
   dates: Workers static assets free on every plan; Cloudflare's own "start on Workers, not Pages"
   guidance; Convex's database-only-via-functions architecture quoted from Convex's docs; the
@@ -165,11 +233,12 @@ If the landing page is a prompt, its correctness is testable. Treat the corpus l
 
 Phase 1 — **Corpus** (no product-behavior changes; independent of Phase 2):
 
-- Serve `/llms.txt` and markdown-first `/docs` pages; write the conviction-with-receipts doc, the
-  no-account recipe, the Leaving Test page, and the Lovable comparison.
+- Write the conviction-with-receipts doc, the no-account recipe, the Leaving Test page, and the
+  Lovable comparison onto the already-prerendered `/docs` surface; add the `.md` renderings and
+  `/llms.txt`.
 - Run the first manual eval round; fix the corpus until answers are correct and fair.
-- First PR slice: `/llms.txt` route + the stack doc with receipts + the question panel in
-  `research/`.
+- First PR slice: the stack doc with receipts on the prerendered docs surface + `/llms.txt` + the
+  question panel in `research/`.
 
 Phase 2 — **Catalog** (extends live rfcs/089 machinery):
 
@@ -180,9 +249,12 @@ Phase 2 — **Catalog** (extends live rfcs/089 machinery):
 - Add the markdown doc body to the two existing contracts; emit `/docs/actions/<name>.md` and the
   llms.txt entries from them; generate `chatgpt-app-submission.json`.
 - New contracts in wedge order: `connectExistingRepository` (brings the import path — the serious
-  developer's entry — under agent control), then the repair verbs `wire_builds` and
+  developer's entry — under agent control), then the manual-attach pair `connect_convex_deployment`
+  / `connect_cloudflare_worker` (the adoption funnel), then the repair verbs `wire_builds` and
   `wire_convex_build_access`, then `retry`. All are existing blocks; this is exposure, not new
   provisioning code.
+- First two `/docs/operate/*` referral docs (production logs, custom domain) to prove the
+  taught-referral pattern that keeps the MCP surface thin.
 
 Phase 3 — **Landing swap** (depends on Phase 1's eval passing):
 
@@ -210,6 +282,9 @@ Phase 4 — **Agent onboarding loop** (mostly documentation; MCP OAuth + DCR alr
 - No ambient-SEO/AEO strategy claims; if general assistants pick the corpus up, that is a bonus.
 - No destructive actions (vault deletion, preview cleanup) over MCP until the rfcs/085 access model
   carries an explicit approval step for them.
+- No day-2 provider wrappers over MCP — logs, env vars, migrations, domains stay provider-direct,
+  taught by `/docs/operate/*` with coordinates from `getUserVaults`. Samebase MCP is complementary
+  to the official Convex/Cloudflare/GitHub MCP servers and CLIs, never a substitute for them.
 - No multi-provider hedging in the story: Cloudflare is the answer for delivery, Convex for the
   backend; alternatives appear only inside comparison docs.
 
@@ -227,6 +302,11 @@ Phase 4 — **Agent onboarding loop** (mostly documentation; MCP OAuth + DCR alr
   contracts their product actually executes, a filmed Leaving Test, or a no-account recipe —
   walled-garden economics forbid the latter two. The moat is honesty that is structurally expensive
   for them.
+- **Freestyling agents bypass the verbs**: an agent may provision with raw provider tools anyway,
+  leaving the registry blind. Absorbed rather than fought: the attach/import funnel reconciles
+  external infrastructure back into the record, and the corpus positions the verbs by their real
+  advantages (fenced, recorded, credential-less surfaces) instead of pretending direct usage is
+  wrong.
 - **Eval overfitting**: rotate panel questions; keep at least one hostile question permanently.
 
 ## Open Questions
@@ -240,6 +320,8 @@ Phase 4 — **Agent onboarding loop** (mostly documentation; MCP OAuth + DCR alr
 4. Should dashboard UI copy literally render `contract.description` in Phase 2, or only share
    names + `nextAction`? Recommendation: names + `nextAction` only; sharing prose copy can wait
    until a real divergence hurts.
+5. Does the status noun grow a per-vault run/event history query (agent-readable provisioning log)
+   in Phase 2? Recommendation: later; `nextAction` plus current run state covers the operate loop.
 
 ## Validation
 
