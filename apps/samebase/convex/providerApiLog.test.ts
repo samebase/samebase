@@ -10,7 +10,7 @@ describe("formatProviderApiCallLogMessage", () => {
       endpoint: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
       values: {
         body: {
-          PROD_CONVEX_DEPLOY_KEY: {
+          CONVEX_DEPLOY_KEY: {
             value: "secret-key",
             is_secret: true,
           },
@@ -33,7 +33,7 @@ describe("formatProviderApiCallLogMessage", () => {
     expect(message).toContain(
       "API Cloudflare POST /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables values=",
     );
-    expect(message).toContain('"PROD_CONVEX_DEPLOY_KEY":"[secret]"');
+    expect(message).toContain('"CONVEX_DEPLOY_KEY":"[secret]"');
     expect(message).toContain('"PREVIEW_CONVEX_DEPLOY_KEY":"[secret]"');
     expect(message).toContain('"account_id":"[redacted]"');
     expect(message).toContain('"build_command":"pnpm run build"');

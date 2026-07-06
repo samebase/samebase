@@ -3,14 +3,14 @@ import { describe, expect, it } from "vite-plus/test";
 import { selectConvexDeployPlan } from "./build-cloudflare.js";
 
 describe("build-cloudflare", () => {
-  it("rejects the generic Convex deploy key", () => {
+  it("requires the preview key for non-main branches with the production key present", () => {
     expect(() =>
       selectConvexDeployPlan({
-        CONVEX_DEPLOY_KEY: "generic-key",
+        CONVEX_DEPLOY_KEY: "prod-key",
         WORKERS_CI: "1",
-        WORKERS_CI_BRANCH: "main",
+        WORKERS_CI_BRANCH: "feature-branch",
       }),
-    ).toThrow("Do not set CONVEX_DEPLOY_KEY");
+    ).toThrow("Use a Convex project Preview deploy key.");
   });
 
   it("requires the Workers branch during Workers builds", () => {
@@ -32,7 +32,7 @@ describe("build-cloudflare", () => {
   it("rejects the app-facing PostHog token during Workers builds", () => {
     expect(() =>
       selectConvexDeployPlan({
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "prod-key",
         PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: "phc_shared",
         WORKERS_CI: "1",
@@ -44,7 +44,7 @@ describe("build-cloudflare", () => {
   it("rejects the app-facing PostHog host during Workers builds", () => {
     expect(() =>
       selectConvexDeployPlan({
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "prod-key",
         PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         VITE_PUBLIC_POSTHOG_HOST: "https://posthog.samebase.com",
         WORKERS_CI: "1",
@@ -56,7 +56,7 @@ describe("build-cloudflare", () => {
   it("selects the production key for the main branch", () => {
     expect(
       selectConvexDeployPlan({
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "prod-key",
         PROD_POSTHOG_PROJECT_TOKEN: "phc_prod",
         PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
@@ -64,7 +64,7 @@ describe("build-cloudflare", () => {
       }),
     ).toEqual({
       kind: "deploy",
-      deployKeyName: "PROD_CONVEX_DEPLOY_KEY",
+      deployKeyName: "CONVEX_DEPLOY_KEY",
       deployKey: "prod-key",
       postHogProjectToken: "phc_prod",
       routeEnvironment: "production",
@@ -75,7 +75,7 @@ describe("build-cloudflare", () => {
   it("keeps PostHog disabled when the production token is not configured", () => {
     expect(
       selectConvexDeployPlan({
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "prod-key",
         PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "main",
@@ -89,7 +89,7 @@ describe("build-cloudflare", () => {
   it("selects the preview key for non-main branches", () => {
     expect(
       selectConvexDeployPlan({
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "prod-key",
         PROD_POSTHOG_PROJECT_TOKEN: "phc_prod",
         PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
@@ -117,7 +117,6 @@ describe("build-cloudflare", () => {
   it("requires the preview key for non-main branches", () => {
     expect(() =>
       selectConvexDeployPlan({
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "feature-branch",
       }),
@@ -140,10 +139,10 @@ describe("build-cloudflare", () => {
     expect(selectConvexDeployPlan({})).toEqual({ kind: "frontendOnly", routeEnvironment: "local" });
   });
 
-  it("requires an explicit branch when split keys are present locally", () => {
+  it("requires an explicit branch when Convex deploy keys are present locally", () => {
     expect(() =>
       selectConvexDeployPlan({
-        PROD_CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "prod-key",
       }),
     ).toThrow("Set WORKERS_CI_BRANCH");
   });

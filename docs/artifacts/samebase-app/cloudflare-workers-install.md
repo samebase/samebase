@@ -67,21 +67,21 @@ The `Path` field is the repository root used for build and deploy commands. It s
 the app lives at the repository root.
 
 Build variables and secrets are available only during the Workers build. The template needs
-`PROD_CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` as build secrets so Cloudflare can deploy
-the matching Convex deployment before producing static assets.
+`CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` as build secrets so Cloudflare can deploy the
+matching Convex deployment before producing static assets.
 
 Cloudflare Workers Builds has two build triggers under the hood: one for the production branch and
 one for preview branches. The Builds API can set build variables per trigger, but the dashboard
 setup path does not expose a Pages-style production/preview environment selector in the build
 variables UI. Treat that as a Workers dashboard limitation when migrating from Pages.
 
-The template works around that UI limitation by storing two differently named build secrets in the
-same dashboard table. `scripts/build-cloudflare.ts` reads `WORKERS_CI_BRANCH`, selects
-`PROD_CONVEX_DEPLOY_KEY` for `main` or `PREVIEW_CONVEX_DEPLOY_KEY` for other branches, and passes
-only the selected value to the deploy subprocess. Do not store a generic `CONVEX_DEPLOY_KEY` in
-Workers Builds; that reintroduces the accidental production/preview mix-up the split names avoid.
+The template works around that UI limitation by storing the production and preview build secrets in
+the same dashboard table. `scripts/build-cloudflare.ts` reads `WORKERS_CI_BRANCH`, selects
+`CONVEX_DEPLOY_KEY` for `main` or `PREVIEW_CONVEX_DEPLOY_KEY` for other branches, and passes only
+the selected value to the deploy subprocess. Preview builds fail closed when
+`PREVIEW_CONVEX_DEPLOY_KEY` is missing, even if the production `CONVEX_DEPLOY_KEY` exists.
 
-`PROD_CONVEX_DEPLOY_KEY` must contain a Convex production deploy key with exactly these permissions:
+`CONVEX_DEPLOY_KEY` must contain a Convex production deploy key with exactly these permissions:
 
 - `deployment:deploy`
 - `deployment:env:view`
@@ -137,8 +137,8 @@ Recommended dashboard values for the artifact:
 - Deploy command: `pnpm run deploy`.
 - Non-production branch deploy command: `pnpm run deploy:preview`.
 - Path: keep `/`.
-- Build secret: add `PROD_CONVEX_DEPLOY_KEY` with the production key that has only
-  `deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`.
+- Build secret: add `CONVEX_DEPLOY_KEY` with the production key that has only `deployment:deploy`,
+  `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`.
 - Build secret: add `PREVIEW_CONVEX_DEPLOY_KEY` with the project Preview deploy key.
 
 ## Sources

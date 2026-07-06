@@ -4,7 +4,8 @@
 
 - Date: 2026-05-16
 - Owner: Noter production hosting and generated app hosting
-- Outcome: Use split Convex deploy-key names for dashboard-managed Workers builds.
+- Outcome: Use the conventional `CONVEX_DEPLOY_KEY` for production builds and
+  `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds.
 
 ## Finding
 
@@ -20,22 +21,23 @@ Because the same dashboard table feeds both production and non-production builds
 
 ## Decision
 
-For dashboard-managed Noter production builds, user-managed template builds, and Noter-provisioned
-generated app builds, do not store `CONVEX_DEPLOY_KEY` directly.
+For dashboard-managed Samebase production builds, user-managed template builds, and
+Samebase-provisioned generated app builds, store the production deploy key under the conventional
+name and require a separate preview deploy key.
 
 Use:
 
-- `PROD_CONVEX_DEPLOY_KEY`
+- `CONVEX_DEPLOY_KEY`
 - `PREVIEW_CONVEX_DEPLOY_KEY`
 
 The build script selects the correct secret from `WORKERS_CI_BRANCH`, then passes it to the Convex
-CLI as `CONVEX_DEPLOY_KEY` only inside the child process. This is not hard secret isolation because
-both dashboard secrets are still visible to both build types, but it removes accidental use in our
-build script without requiring API-only configuration.
+CLI as `CONVEX_DEPLOY_KEY` in the child process. This is not hard secret isolation when both
+dashboard secrets are stored in the generic variables table, but it keeps preview builds from
+falling back to the production key without requiring API-only configuration.
 
 Workers Builds API-managed triggers can still keep per-trigger env isolation, but they should use
-the same split names so manual template setup, Noter-provisioned apps, and Noter production converge
-on one contract. The production trigger sets `PROD_CONVEX_DEPLOY_KEY`; the preview trigger sets
+the same names so manual template setup, Samebase-provisioned apps, and Samebase production converge
+on one contract. The production trigger sets `CONVEX_DEPLOY_KEY`; the preview trigger sets
 `PREVIEW_CONVEX_DEPLOY_KEY`.
 
 ## Monitoring
@@ -44,9 +46,9 @@ Recheck this when Cloudflare changes Workers Builds dashboard settings. The spec
 look for is a production/preview, branch, or trigger selector inside Worker Settings > Build >
 Variables and secrets.
 
-If Cloudflare adds that dashboard selector, revisit whether the split names are still worth keeping.
-Until then, preserving one contract across all three setup paths is more valuable than using generic
-per-trigger names in API-managed triggers.
+If Cloudflare adds that dashboard selector, the API-managed per-trigger layout can become the
+dashboard-managed setup path too. Until then, preserving one contract across all three setup paths
+is more valuable than using generic per-trigger names in API-managed triggers.
 
 ## Sources
 

@@ -36,10 +36,9 @@ provider matrix unless implementation proves that a short-lived Pages helper is 
 deleting it.
 
 The Convex deploy-key naming contract is part of the stack. Manual template users,
-Samebase-provisioned generated apps, and Samebase production should all select
-`PROD_CONVEX_DEPLOY_KEY` for the production branch and `PREVIEW_CONVEX_DEPLOY_KEY` for
-non-production branches, then pass the selected value to Convex as `CONVEX_DEPLOY_KEY` only inside
-the build child process.
+Samebase-provisioned generated apps, and Samebase production should all select `CONVEX_DEPLOY_KEY`
+for the production branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches. Preview
+builds must require the preview key instead of falling back to the production key.
 
 Generated app provisioning can move to Workers before Samebase production hosting moves. That is the
 right first product step because it proves the user-facing automation path. The single-stack
@@ -238,8 +237,8 @@ Required Workers operations:
 4. create or reuse a Workers Builds build token for that credential
 5. create or patch the production build trigger
 6. create or patch the preview/non-production build trigger
-7. set both split Convex deploy-key secrets in Workers Builds: `PROD_CONVEX_DEPLOY_KEY` and
-   `PREVIEW_CONVEX_DEPLOY_KEY`
+7. set Convex deploy-key secrets in Workers Builds: `CONVEX_DEPLOY_KEY` on the production trigger
+   and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview trigger
 8. do not set `VITE_CONVEX_URL` in Workers Builds; Convex deploy supplies it to the child build
 9. trigger the first production build
 10. read build status and logs

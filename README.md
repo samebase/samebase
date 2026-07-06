@@ -168,12 +168,11 @@ For Cloudflare Workers Builds, point the project root directory at `apps/samebas
 - Non-production deploy command: `pnpm run deploy:preview`
 
 `wrangler.jsonc` owns the static asset directory and SPA fallback. The build script deploys Convex
-first by selecting `PROD_CONVEX_DEPLOY_KEY` for `main` and `PREVIEW_CONVEX_DEPLOY_KEY` for
-non-production branches. Do not set a generic `CONVEX_DEPLOY_KEY` in the Workers build environment.
-The production key must be a Convex production deploy key with exactly `deployment:deploy`,
-`deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; the preview key is
-Convex's separate project-level Preview deploy key. Local dry-runs build the app assets without
-deploying Convex and can validate the Worker package with:
+first by selecting `CONVEX_DEPLOY_KEY` for `main` and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production
+branches. The production key must be a Convex production deploy key with exactly
+`deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; the
+preview key is Convex's separate project-level Preview deploy key. Local dry-runs build the app
+assets without deploying Convex and can validate the Worker package with:
 
 ```bash
 CLOUDFLARE_WORKER_NAME=samebase pnpm --filter samebase deploy:dry-run
