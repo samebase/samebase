@@ -78,7 +78,9 @@ async function connectExistingTemporaryRepository(
   const repositoryRow = page.locator("div").filter({ hasText: repositoryFullName }).first();
   await expect(repositoryRow).toBeVisible({ timeout: 60_000 });
   await repositoryRow.getByRole("button", { name: "Connect" }).click();
-  await expect(page).toHaveURL(/\/vault(?:[?#]|$)/, { timeout: 60_000 });
+  await expect(page).toHaveURL(new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`), {
+    timeout: 60_000,
+  });
 }
 
 async function useExistingRepositoryAsRootApp(page: Page): Promise<void> {
@@ -185,7 +187,9 @@ async function createAppIfAvailable(page: Page, repoName: string): Promise<void>
   // cleanly when vaultActions.ts reports an environment-only starter seeding
   // failure instead of treating that provider setup issue as a product bug.
   try {
-    await expect(page).toHaveURL(/\/vault(?:\/|[?#]|$)/, { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/vault/[^/]+/${escapeRegExp(repoName)}(?:[?#]|$)`), {
+      timeout: 30_000,
+    });
     return;
   } catch (error) {
     const createErrorMessage = (await createError.textContent())?.trim() ?? "";
