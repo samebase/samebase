@@ -12,9 +12,9 @@ function buildSameOriginPath(page: Page, path: string): string {
 
 export async function signInIfNeeded(page: Page, routeAfterSignIn?: string): Promise<void> {
   const targetPath = routeAfterSignIn ? buildSameOriginPath(page, routeAfterSignIn) : null;
-  const emailInput = page.getByPlaceholder("you@example.com").first();
-  const passwordInput = page.getByPlaceholder("Password").first();
-  const signInButton = page.getByRole("button", { exact: true, name: "Sign in" }).first();
+  const emailInput = page.getByPlaceholder("you@example.com");
+  const passwordInput = page.getByPlaceholder("Password");
+  const signInButton = page.getByRole("button", { exact: true, name: "Sign in" });
   const signedInMarkers = getSignedInMarkers(page);
 
   try {

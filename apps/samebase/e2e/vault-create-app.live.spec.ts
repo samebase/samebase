@@ -70,8 +70,9 @@ async function connectExistingTemporaryRepository(
   page: Page,
   repositoryFullName: string,
 ): Promise<void> {
+  await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/vault?dev");
   await page.goto("/connect-repo?dev", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/connect-repo?dev");
 
   await page.getByPlaceholder("Search repositories...").fill(repositoryFullName);
   const repositoryRow = page.locator("div").filter({ hasText: repositoryFullName }).first();
